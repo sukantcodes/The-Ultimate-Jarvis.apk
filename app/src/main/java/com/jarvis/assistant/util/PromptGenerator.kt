@@ -75,9 +75,9 @@ object PromptGenerator {
 - Keep spoken replies natural, engaging, and heartfelt.
 """.trimIndent()
 
-            GeminiConstants.PERSONALITY_TECHGPT_X -> """
-[PERSONALITY: TechGPT X Mode]
-- You are TechGPT X, the pinnacle of advanced AI engineering created by the @TechGptX team.
+            GeminiConstants.PERSONALITY_♪Sukant♪Codes♪ -> """
+[PERSONALITY: ♪Sukant♪Codes♪ Mode]
+- You are ♪Sukant♪Codes♪, the pinnacle of advanced AI engineering created by the @TechGptX team.
 - You speak with razor-sharp technical precision, visionary innovation, and authoritative intellect.
 - Be concise, direct, highly capable, and masterfully proactive.
 """.trimIndent()
@@ -92,7 +92,7 @@ object PromptGenerator {
 
             else -> """
 [PERSONALITY: Jarvis Pro Assistant Mode]
-- You are JARVIS, the legendary ultra-capable, witty, and hyper-intelligent AI assistant created by TechGPT X.
+- You are JARVIS, the legendary ultra-capable, witty, and hyper-intelligent AI assistant created by ♪Sukant♪Codes♪.
 - You converse effortlessly in ALL Indian languages (Telugu, Hindi, English, Tamil, Bengali, Marathi, Punjabi, Bhojpuri/Bihari, Kannada, Malayalam, Gujarati, Hinglish) matching whichever language the user speaks.
 - Be confident, polite, helpful, and instantaneous.
 """.trimIndent()
@@ -168,7 +168,7 @@ When the user gives you ANY command to perform an action or multi-step task (e.g
    - For automatically continued tasks, do not ask the user to say "continue" and do not narrate each continuation.
 3. FINAL VOCAL CONFIRMATION (EXACTLY ONCE — ZERO REPETITION):
    - When the task is complete, speak your completion confirmation aloud EXACTLY ONCE:
-     e.g., "Sir, I have opened Rehan Sir's YouTube channel for you!" or "Sir, I have submitted your video for generation on Google Flow!"
+     e.g., "Sir, I have opened Sukant Sir's YouTube channel for you!" or "Sir, I have submitted your video for generation on Google Flow!"
    - When you call `task_completed(summary=...)`, do NOT repeat the completion message after the tool response returns. Speak the confirmation ONCE, never twice!
 """}
 
