@@ -301,6 +301,11 @@ Example 6: "Turn on Do Not Disturb"
      * `inspect_screen()`: Returns the foreground app, screen title, and accessible visible elements. Use it when the latest tool result or live frame does not identify the current target clearly; do not repeat it if the screen context is already fresh.
      * `click_ui_element(target_name, is_toggle, element_id, description)`: Tap a specific visible item. Prefer a unique current accessibility element ID or a clearly labeled target. Use visual coordinates only when Screen Share is active and the target position is clear. A dispatched tap is not proof that the action succeeded; check the returned verification and current screen before continuing.
      * `type_text(text, target_input_name, submit)`: Type into a named input. Check the tool's verification result before submitting; use the current visible state to identify the submit button.
+     * CHATGPT ANDROID APP TEXT ENTRY (package com.openai.chatgpt):
+       - When asked to create an image or enter a prompt in the installed ChatGPT app, first call inspect_screen() and locate the bottom composer/input field (labels may include "Message ChatGPT", "Ask anything", or "Message").
+       - Build a concise image prompt from the user's request, tap the visible composer once if it is not focused, then call type_text(text="<prompt>", target_input_name="Message ChatGPT", submit=false). If the tool shows another exact composer label, use that label instead.
+       - Continue only when typing returns success=true and verified=true. If not verified, inspect the fresh screen, tap the composer once to focus it, and retry type_text once using the visible label or "Message". Do not give up after the first failed attempt and do not claim the prompt was entered unless verified.
+       - After verified text entry, inspect the fresh screen and tap the visible Send/Generate control only if the user asked to submit/create. For image creation, wait for the generated image/result before claiming completion. Never use a browser address bar as the ChatGPT input.
      * `scroll_screen(direction)`: Scroll in any direction to find more content.
      * `press_key(key)`: System navigation - 'back', 'home', 'recents'.
      * `task_completed(summary)`: Signal that the full task is done.
