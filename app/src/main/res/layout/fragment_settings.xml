@@ -1139,7 +1139,7 @@
                 android:id="@+id/tvFooterCredit"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="JARVIS INTELLIGENCE OS • v3.1 PRO\nEngineered by TechGPT X"
+                android:text="JARVIS INTELLIGENCE OS • v3.1 PRO\nEngineered by ♪Sukant♪Codes♪"
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp"
                 android:fontFamily="sans-serif-medium"
