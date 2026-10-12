@@ -46,8 +46,8 @@ $env:JARVIS_RELEASE_STORE_PASSWORD = '<local secret>'
 $env:JARVIS_RELEASE_KEY_ALIAS = 'jarvis-release'
 $env:JARVIS_RELEASE_KEY_PASSWORD = '<local secret>'
 $env:JARVIS_RELEASE_CERT_SHA256 = '<64 hex characters from keytool -list -v>'
-$env:JARVIS_DEVELOPER_NAME = 'TechGpt X'
-$env:JARVIS_COPYRIGHT_OWNER = 'TechGpt X'
+$env:JARVIS_DEVELOPER_NAME = '♪Sukant♪Codes♪'
+$env:JARVIS_COPYRIGHT_OWNER = '♪Sukant♪Codes♪'
 .\gradlew.bat :app:assembleRelease
 ```
 
