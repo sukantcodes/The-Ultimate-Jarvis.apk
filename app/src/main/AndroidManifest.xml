@@ -160,7 +160,8 @@
         <!-- Assistant session service -->
         <service
             android:name=".voice.JarvisVoiceInteractionSessionService"
-            android:permission="android.permission.BIND_VOICE_INTERACTION_SESSION"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:process=":voiceinteraction_session"
             android:exported="true">
 
             <intent-filter>
