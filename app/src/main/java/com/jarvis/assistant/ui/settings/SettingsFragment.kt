@@ -200,7 +200,7 @@ class SettingsFragment : Fragment() {
         }
 
         binding.btnSocialYoutube.setOnClickListener {
-            openUrl("https://youtube.com/@TechGptX")
+            openUrl("https://www.youtube.com/@Sukant_Codes")
         }
 
         binding.tvFooterCredit.setOnClickListener {
