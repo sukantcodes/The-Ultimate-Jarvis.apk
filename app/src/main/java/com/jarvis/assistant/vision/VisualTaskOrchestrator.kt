@@ -1100,6 +1100,27 @@ class VisualTaskOrchestrator(
                             ((label.contains("prompt") || label.contains("describe")) &&
                                 (element.isEditable || element.className.contains("EditText", ignoreCase = true))))
                 }
+            } else if ((rootForTyping?.packageName?.toString() ?: "").equals("com.openai.chatgpt", ignoreCase = true)) {
+                // ChatGPT's Android composer may expose a generic/empty label or several
+                // editable nodes. Prefer the actual composer by semantics, then the
+                // lowest visible editable field (the composer is anchored at the bottom).
+                val editable = elementsForTyping.filter {
+                    (it.isEditable || it.className.contains("EditText", ignoreCase = true)) &&
+                        !it.viewId.contains("url_bar", ignoreCase = true) &&
+                        !it.viewId.contains("omnibox", ignoreCase = true)
+                }
+                val composerHints = listOf("message chatgpt", "ask anything", "ask chatgpt", "send a message", "message")
+                val composerMatches = editable.filter { element ->
+                    val label = "${element.primaryLabel} ${element.viewId} ${element.contentDescription}".lowercase(Locale.ROOT)
+                    composerHints.any { label.contains(it) }
+                }
+                when {
+                    composerMatches.size == 1 -> composerMatches.single()
+                    composerMatches.size > 1 -> composerMatches.maxByOrNull { it.bounds.bottom }
+                    editable.size == 1 -> editable.single()
+                    editable.isNotEmpty() -> editable.maxByOrNull { it.bounds.bottom }
+                    else -> null
+                }
             } else if (!targetInputName.isNullOrBlank()) {
                 val editable = elementsForTyping.filter {
                     (it.isEditable || it.className.contains("EditText", ignoreCase = true)) &&
