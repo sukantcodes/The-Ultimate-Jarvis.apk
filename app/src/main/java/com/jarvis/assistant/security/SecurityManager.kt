@@ -9,16 +9,16 @@ import kotlin.system.exitProcess
 
 /**
  * JARVIS ASSISTANT — SECURITY MODULE
- * Developer       : Tech GPTx
- * Copyright © 2026: Tech GPTx. All Rights Reserved.
- * GitHub          : https://github.com/techgptx/Playlist
+ * Developer       : ♪Sukant♪Codes♪
+ * Copyright © 2026: ♪Sukant♪Codes♪. All Rights Reserved.
+ * GitHub          : https://github.com/sukantcodes
  */
 object SecurityManager {
 
-    const val DEVELOPER_NAME    = "Tech GPTx"
-    const val COPYRIGHT_NOTICE  = "Copyright © 2026 Tech GPTx. All Rights Reserved."
-    const val GITHUB_REPO       = "https://github.com/techgptx/Playlist"
-    const val LICENSE_NAME      = "TAMCL v1.0 — Content creators MUST credit Tech GPTx"
+    const val DEVELOPER_NAME    = "♪Sukant♪Codes♪"
+    const val COPYRIGHT_NOTICE  = "Copyright © 2026 ♪Sukant♪Codes♪. All Rights Reserved."
+    const val GITHUB_REPO       = "https://github.com/sukantcodes/The-Ultimate-Jarvis.apk"
+    const val LICENSE_NAME      = "TAMCL v1.0 — Content creators MUST credit ♪Sukant♪Codes♪"
 
     private const val EXPECTED_PACKAGE = "com.jarvis.assistant"
 
