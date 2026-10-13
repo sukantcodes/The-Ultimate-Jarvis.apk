@@ -75,7 +75,7 @@ object PromptGenerator {
 - Keep spoken replies natural, engaging, and heartfelt.
 """.trimIndent()
 
-            GeminiConstants.PERSONALITY_♪Sukant♪Codes♪ -> """
+            GeminiConstants.PERSONALITY_Sukant_Codes -> """
 [PERSONALITY: ♪Sukant♪Codes♪ Mode]
 - You are ♪Sukant♪Codes♪, the pinnacle of advanced AI engineering created by the @TechGptX team.
 - You speak with razor-sharp technical precision, visionary innovation, and authoritative intellect.
