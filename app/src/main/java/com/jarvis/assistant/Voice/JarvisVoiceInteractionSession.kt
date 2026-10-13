@@ -1,78 +1,92 @@
 package com.jarvis.assistant.voice
 
 import android.content.Context
-import android.content.Intent
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
 import android.os.Bundle
 import android.service.voice.VoiceInteractionSession
 import android.view.Gravity
 import android.view.View
-import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.jarvis.assistant.ui.home.MainActivity
 
 class JarvisVoiceInteractionSession(
     private val appContext: Context
 ) : VoiceInteractionSession(appContext) {
 
-    override fun onShow(args: Bundle?, showFlags: Int) {
-        super.onShow(args, showFlags)
-        setContentView(createAssistantView())
-    }
-
     override fun onCreateContentView(): View {
-        return createAssistantView()
-    }
-
-    private fun createAssistantView(): View {
-        val layout = LinearLayout(appContext).apply {
+        val root = LinearLayout(appContext).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(32, 32, 32, 32)
-            setBackgroundColor(Color.rgb(12, 18, 32))
+            setBackgroundColor(Color.TRANSPARENT)
         }
 
+        root.addView(GlowingEdgeView(appContext),
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+
         val title = TextView(appContext).apply {
-            text = "JARVIS"
-            textSize = 30f
+            text = "J A R V I S"
+            textSize = 27f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
+            elevation = 10f
         }
 
         val subtitle = TextView(appContext).apply {
-            text = "Digital Assistant"
-            textSize = 16f
-            setTextColor(Color.LTGRAY)
+            text = "I'M LISTENING"
+            textSize = 12f
+            setTextColor(Color.CYAN)
             gravity = Gravity.CENTER
+            elevation = 10f
         }
 
-        val openButton = Button(appContext).apply {
-            text = "Open JARVIS"
-            setOnClickListener {
-                val intent = Intent(
-                    appContext,
-                    MainActivity::class.java
-                ).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                appContext.startActivity(intent)
-            }
+        root.addView(title)
+        root.addView(subtitle)
+
+        return root
+    }
+
+    override fun onShow(args: Bundle?, showFlags: Int) {
+        super.onShow(args, showFlags)
+    }
+
+    private class GlowingEdgeView(context: Context) : View(context) {
+        private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.CYAN
+            style = Paint.Style.STROKE
+            strokeWidth = 7f
+            setShadowLayer(28f, 0f, 0f, Color.BLUE)
         }
 
-        layout.addView(title)
-        layout.addView(subtitle)
+        private val edgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(40, 220, 255)
+            style = Paint.Style.STROKE
+            strokeWidth = 2.5f
+        }
 
-        layout.addView(
-            openButton,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = 24
-            }
-        )
+        init {
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+        }
 
-        return layout
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+
+            val inset = 12f
+            val rect = RectF(
+                inset,
+                inset,
+                width - inset,
+                height - inset
+            )
+
+            canvas.drawRoundRect(rect, 38f, 38f, glowPaint)
+            canvas.drawRoundRect(rect, 38f, 38f, edgePaint)
+        }
     }
 }
