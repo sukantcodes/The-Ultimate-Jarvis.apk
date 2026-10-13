@@ -1,8 +1,8 @@
 package com.jarvis.assistant.security
 
 /**
- * Permanent Developer Identity — Tech GPTx
- * TAMCL v1.0 License: Content creators MUST credit Tech GPTx in any video using this code.
+ * Permanent Developer Identity — ♪Sukant♪Codes♪
+ * TAMCL v1.0 License: Content creators MUST credit ♪Sukant♪Codes♪ in any video using this code.
  */
 object DeveloperInfo {
     const val DEVELOPER_NAME      = "♪Sukant♪Codes♪"
