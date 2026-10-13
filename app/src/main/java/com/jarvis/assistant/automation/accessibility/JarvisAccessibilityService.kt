@@ -1664,7 +1664,12 @@ return null
         fun textEqualsExpected(node: AccessibilityNodeInfo?): Boolean {
             val current = node?.text?.toString()?.replace("\r\n", "\n")?.trim().orEmpty()
             val expected = textToType.replace("\r\n", "\n").trim()
-            return current == expected
+            if (current == expected) return true
+            // Some apps (shopping, social, chat) add spacing or hint text; accept the same words once.
+            fun norm(v: String) = v.lowercase(java.util.Locale.ROOT).replace(Regex("\\s+"), " ").trim()
+            val c = norm(current)
+            val e = norm(expected)
+            return e.isNotEmpty() && (c == e || c.contains(e))
         }
         fun setValue(node: AccessibilityNodeInfo, value: String): Boolean {
             val args = Bundle().apply {
