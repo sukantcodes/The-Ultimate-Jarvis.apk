@@ -507,6 +507,16 @@ class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 14b. lock_device
+                        put(JSONObject().apply {
+                            put("name", "lock_device")
+                            put("description", "Locks the phone screen right now (turns the screen off and locks it). Use only when the user clearly asks to lock the phone or screen. Never use it for an unlock request.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject())
+                            })
+                        })
+
                         // 14c. open_settings_page
                         put(JSONObject().apply {
                             put("name", "open_settings_page")
