@@ -509,24 +509,39 @@ class JarvisAccessibilityService : AccessibilityService() {
         findAndInjectEditText(root, targetText)
     }
 
-    private fun findAndInjectEditText(node: AccessibilityNodeInfo, text: String): Boolean {
-        if (node.className?.toString()?.contains("EditText") == true) {
-            val currentText = node.text?.toString()?.trim() ?: ""
-            if (currentText.isBlank()) {
-                val args = Bundle().apply {
-                    putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
-                }
-                val set = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-                Log.i(TAG, "Injected text into generic EditText: success=$set")
-                return true
+    
+private fun findAndInjectEditText(
+    node: AccessibilityNodeInfo,
+    text: String
+): Boolean {
+    if (node.className?.toString()?.contains("EditText") == true) {
+        val currentText = node.text?.toString()?.trim().orEmpty()
+
+        if (currentText.isBlank()) {
+            val args = Bundle().apply {
+                putCharSequence(
+                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                    text
+                )
             }
+
+            val success = node.performAction(
+                AccessibilityNodeInfo.ACTION_SET_TEXT,
+                args
+            )
+
+            Log.i(TAG, "Injected text into generic EditText: success=$success")
+            return success
         }
-        for (i in 0 until node.childCount) {
-            val child = node.getChild(i) ?: continue
-            if (findAndInjectEditText(child, text)) return true
-        }
-        return false
     }
+
+    for (i in 0 until node.childCount) {
+        val child = node.getChild(i) ?: continue
+        if (findAndInjectEditText(child, text)) return true
+    }
+
+    return false
+}
 
     private fun findAndClickSendInTree(node: AccessibilityNodeInfo): Boolean {
         if (isVoiceOrMicNode(node)) return false
