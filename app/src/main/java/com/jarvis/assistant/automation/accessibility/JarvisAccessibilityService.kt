@@ -1592,7 +1592,18 @@ private fun findAndInjectEditText(
                     if (node.isEditable || node.className?.toString()?.contains("EditText", true) == true) return node
                     node = node.parent
                 }
-                return null
+                val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+    ?: findNodeWithInputFocus(root)
+
+if (focused != null &&
+    (focused.isEditable ||
+        focused.className?.toString()?.contains("EditText", true) == true) &&
+    !isUrlBarNode(focused)
+) {
+    return focused
+}
+
+return null
             }
             return root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
                 ?: findNodeWithInputFocus(root)
