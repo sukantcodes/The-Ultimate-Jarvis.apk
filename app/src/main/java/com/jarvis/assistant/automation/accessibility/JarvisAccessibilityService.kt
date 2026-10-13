@@ -222,6 +222,35 @@ class JarvisAccessibilityService : AccessibilityService() {
             Log.e(TAG, "Failed to start JarvisConversationService from accessibility service: ${e.message}")
         }
     }
+    
+fun requestScreenWake() {
+    try {
+        val powerManager =
+            getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+
+        if (powerManager.isInteractive) {
+            Log.i(TAG, "Screen is already on")
+            return
+        }
+
+        val keyguardManager =
+            getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
+
+        val intent = Intent(this, com.jarvis.assistant.MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+
+        startActivity(intent)
+
+        Log.i(
+            TAG,
+            "Wake request sent. Secure lock active: ${keyguardManager.isKeyguardLocked}"
+        )
+    } catch (e: Exception) {
+        Log.e(TAG, "Screen wake request failed", e)
+    }
+}
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return
