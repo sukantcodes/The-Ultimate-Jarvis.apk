@@ -223,34 +223,42 @@ class JarvisAccessibilityService : AccessibilityService() {
         }
     }
     
-fun requestScreenWake() {
-    try {
-        val powerManager =
-            getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-
-        if (powerManager.isInteractive) {
-            Log.i(TAG, "Screen is already on")
-            return
+    /** Turns the screen on (lock screen stays up) using a short-lived wake lock. */
+    @Suppress("DEPRECATION")
+    fun requestScreenWake() {
+        try {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            if (powerManager.isInteractive) {
+                Log.i(TAG, "Screen is already on")
+                return
+            }
+            val wakeLock = powerManager.newWakeLock(
+                android.os.PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
+                    android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP or
+                    android.os.PowerManager.ON_AFTER_RELEASE,
+                "jarvis:screen-wake"
+            )
+            wakeLock.acquire(5_000L)
+            Log.i(TAG, "Screen wake requested")
+        } catch (e: Exception) {
+            Log.e(TAG, "Screen wake request failed", e)
         }
-
-        val keyguardManager =
-            getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
-
-        val intent = Intent(this, com.jarvis.assistant.MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        }
-
-        startActivity(intent)
-
-        Log.i(
-            TAG,
-            "Wake request sent. Secure lock active: ${keyguardManager.isKeyguardLocked}"
-        )
-    } catch (e: Exception) {
-        Log.e(TAG, "Screen wake request failed", e)
     }
-}
+
+    private val unlockCredentialStore by lazy {
+        com.jarvis.assistant.security.UnlockCredentialStore(applicationContext)
+    }
+
+    /**
+     * Wakes the screen and unlocks the phone with the credential saved in Screen Unlock settings.
+     * The caller is responsible for checking that the owner asked for this.
+     */
+    suspend fun unlockDevice(): ScreenUnlocker.Result =
+        ScreenUnlocker(this, unlockCredentialStore).unlock()
+
+    /** Locks the screen (Android 9+). Used by the Screen Unlock settings self-test. */
+    fun lockScreenNow(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event ?: return

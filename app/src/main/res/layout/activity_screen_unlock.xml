@@ -1,0 +1,363 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/themeBg">
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="36dp"
+            android:paddingBottom="48dp">
+
+            <!-- Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="20dp">
+
+                <ImageButton
+                    android:id="@+id/btnBack"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/bg_jarvis_icon_square"
+                    android:src="@drawable/ic_back"
+                    app:tint="?attr/themeTextPrimary"
+                    android:contentDescription="Back" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Screen Unlock"
+                        android:textColor="?attr/themeTextPrimary"
+                        android:textSize="19sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Unlock your phone by voice"
+                        android:textColor="?attr/themeTextMuted"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Status card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_jarvis_card"
+                android:padding="18dp"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:id="@+id/tvCredentialStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="?attr/themeTextPrimary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvServiceStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textColor="?attr/themeTextMuted"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/tvVoiceStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="?attr/themeTextMuted"
+                    android:textSize="12sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnEnableAccessibility"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="46dp"
+                    android:layout_marginTop="12dp"
+                    android:text="Enable Accessibility Service"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:textSize="13sp"
+                    android:textAllCaps="false"
+                    app:cornerRadius="14dp"
+                    app:backgroundTint="?attr/themeAccent" />
+            </LinearLayout>
+
+            <!-- Credential card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_jarvis_card"
+                android:padding="18dp"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Your screen lock"
+                    android:textColor="?attr/themeTextPrimary"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Pick the lock type you use on this phone, then enter it exactly as you do to unlock. It is stored encrypted on this device only."
+                    android:textColor="?attr/themeTextMuted"
+                    android:textSize="12sp" />
+
+                <RadioGroup
+                    android:id="@+id/rgLockType"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="10dp">
+
+                    <RadioButton
+                        android:id="@+id/rbPin"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:checked="true"
+                        android:text="PIN"
+                        android:textColor="?attr/themeTextPrimary" />
+
+                    <RadioButton
+                        android:id="@+id/rbPassword"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1.4"
+                        android:text="Password"
+                        android:textColor="?attr/themeTextPrimary" />
+
+                    <RadioButton
+                        android:id="@+id/rbPattern"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1.2"
+                        android:text="Pattern"
+                        android:textColor="?attr/themeTextPrimary" />
+                </RadioGroup>
+
+                <!-- PIN / password entry -->
+                <LinearLayout
+                    android:id="@+id/layoutSecretInputs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilSecret"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:hint="PIN"
+                        app:boxBackgroundMode="outline"
+                        app:boxCornerRadiusTopStart="12dp"
+                        app:boxCornerRadiusTopEnd="12dp"
+                        app:boxCornerRadiusBottomStart="12dp"
+                        app:boxCornerRadiusBottomEnd="12dp"
+                        app:boxStrokeColor="?attr/themeAccent"
+                        app:passwordToggleEnabled="true">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etSecret"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="numberPassword"
+                            android:textColor="?attr/themeTextPrimary"
+                            android:textSize="15sp" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilConfirm"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:hint="Confirm PIN"
+                        app:boxBackgroundMode="outline"
+                        app:boxCornerRadiusTopStart="12dp"
+                        app:boxCornerRadiusTopEnd="12dp"
+                        app:boxCornerRadiusBottomStart="12dp"
+                        app:boxCornerRadiusBottomEnd="12dp"
+                        app:boxStrokeColor="?attr/themeAccent"
+                        app:passwordToggleEnabled="true">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etConfirm"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="numberPassword"
+                            android:textColor="?attr/themeTextPrimary"
+                            android:textSize="15sp" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+
+                <!-- Pattern entry -->
+                <LinearLayout
+                    android:id="@+id/layoutPattern"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Tap the dots in the same order you draw your pattern. Dot 1 is top-left, dot 9 is bottom-right."
+                        android:textColor="?attr/themeTextMuted"
+                        android:textSize="12sp" />
+
+                    <GridLayout
+                        android:id="@+id/gridPattern"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginTop="10dp"
+                        android:columnCount="3"
+                        android:rowCount="3" />
+
+                    <TextView
+                        android:id="@+id/tvPatternSequence"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:gravity="center_horizontal"
+                        android:textColor="?attr/themeTextPrimary"
+                        android:textSize="14sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnClearPattern"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginTop="6dp"
+                        android:text="Clear pattern"
+                        android:textAllCaps="false"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSave"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:layout_marginTop="14dp"
+                    android:text="Save screen lock"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:textSize="14sp"
+                    android:textAllCaps="false"
+                    app:cornerRadius="14dp"
+                    app:backgroundTint="?attr/themeAccent" />
+            </LinearLayout>
+
+            <!-- Safety card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_jarvis_card"
+                android:padding="18dp"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Safety"
+                    android:textColor="?attr/themeTextPrimary"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Unlock without voice match (less secure)"
+                        android:textColor="?attr/themeTextPrimary"
+                        android:textSize="13sp" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchAllowWithoutVoice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="By default Jarvis only unlocks when your enrolled voice matches. If this is on, anyone who says the command near the phone can unlock it."
+                    android:textColor="?attr/themeTextMuted"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- Test / clear -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnTest"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="Lock the phone and test unlock"
+                android:textAllCaps="false"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tvTestResult"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textColor="?attr/themeTextMuted"
+                android:textSize="12sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnClear"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Delete saved screen lock"
+                android:textAllCaps="false"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

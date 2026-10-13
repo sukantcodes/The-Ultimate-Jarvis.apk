@@ -182,6 +182,10 @@ class SettingsFragment : Fragment() {
             startActivity(Intent(requireContext(), PrivacyShieldActivity::class.java))
         }
 
+        binding.rowScreenUnlock.setOnClickListener {
+            startActivity(Intent(requireContext(), ScreenUnlockActivity::class.java))
+        }
+
         binding.rowAppIdentity.setOnClickListener {
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle("JARVIS App Identity")

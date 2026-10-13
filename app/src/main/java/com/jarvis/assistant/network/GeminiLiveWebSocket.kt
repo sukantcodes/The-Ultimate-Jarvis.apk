@@ -497,6 +497,16 @@ class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 14b. unlock_device
+                        put(JSONObject().apply {
+                            put("name", "unlock_device")
+                            put("description", "Wakes the screen and unlocks the phone using the screen lock the owner saved in Jarvis Screen Unlock settings. Call it ONLY when the user clearly asks to unlock the phone or open the screen lock (for example 'unlock my phone', 'unlock kar do', 'screen lock kholo'). It takes no arguments. NEVER ask the user for their PIN, password or pattern, and never say it aloud. If the tool is refused or fails, tell the user the reason in one short sentence.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject())
+                            })
+                        })
+
                         // 15. set_flashlight
                         put(JSONObject().apply {
                             put("name", "set_flashlight")
