@@ -507,6 +507,22 @@ class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 14c. open_settings_page
+                        put(JSONObject().apply {
+                            put("name", "open_settings_page")
+                            put("description", "Opens a system Settings page directly (for example wifi, bluetooth, display, sound, location, airplane, apps, accessibility, security, battery, date, language, storage, nfc, mobile_network, privacy, notifications, developer, or main). After it opens, use inspect_screen and click_ui_element to change a setting and verify the result. Never change security, lock-screen or account settings unless the user clearly asked.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("page", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Which settings page to open, e.g. 'wifi', 'bluetooth', 'display', 'sound', 'battery', 'apps'.")
+                                    })
+                                })
+                                put("required", JSONArray().put("page"))
+                            })
+                        })
+
                         // 15. set_flashlight
                         put(JSONObject().apply {
                             put("name", "set_flashlight")
