@@ -260,6 +260,9 @@ class JarvisConversationService : Service() {
     private var isCurrentTurnOwnerVoiceVerified = false
     /** True only when THIS turn's audio genuinely matched the enrolled owner voice (a lease alone does not count). */
     @Volatile private var strictOwnerMatchedThisTurn = false
+    /** Sensitive-tap gate: when a purchase/install tap was last refused, and which speech turn was already confirmed. */
+    @Volatile private var lastSensitiveRefusalAt = 0L
+    @Volatile private var sensitiveConfirmedForSpeechTime = 0L
     @Volatile
     private var lastOwnerVerifiedTimestamp = 0L
     private val preSpeechRingBuffer = java.util.ArrayDeque<ByteArray>(12)
@@ -2131,6 +2134,25 @@ class JarvisConversationService : Service() {
                         }
                     }
 
+                    "open_settings_page" -> {
+                        val page = args.optString("page", "").lowercase(Locale.ROOT).trim()
+                        val settingsAction = settingsActionFor(page)
+                        if (settingsAction == null) {
+                            result.put("success", false)
+                            result.put("message", "Unknown settings page '" + page + "'. Supported pages: main, wifi, bluetooth, display, sound, location, airplane, apps, accessibility, security, battery, date, language, storage, nfc, mobile_network, privacy, notifications, developer.")
+                        } else {
+                            try {
+                                startActivity(Intent(settingsAction).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                kotlinx.coroutines.delay(900)
+                                result.put("success", true)
+                                result.put("message", "Opened the " + page + " settings page. Use inspect_screen and click_ui_element to change the setting, then verify it on screen.")
+                            } catch (e: Exception) {
+                                result.put("success", false)
+                                result.put("message", "Could not open the " + page + " settings page: " + (e.message ?: "unknown error"))
+                            }
+                        }
+                    }
+
                     "set_flashlight" -> {
                         val enabled = args.optBoolean("enabled", true)
                         val msg = app.phoneControlManager.setFlashlight(enabled)
@@ -2145,6 +2167,11 @@ class JarvisConversationService : Service() {
                         val desc = args.optString("description", "")
                         val x = if (args.has("x")) args.optInt("x") else null
                         val y = if (args.has("y")) args.optInt("y") else null
+                        val sensitiveBlock = sensitiveActionBlock(targetName, desc)
+                        if (sensitiveBlock != null) {
+                            result.put("success", false)
+                            result.put("message", sensitiveBlock)
+                        } else {
                         val orchestrator = com.jarvis.assistant.vision.VisualTaskOrchestrator.getInstance()
                         val activeRootForBatch = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance?.getActiveRootNode()
                         val hasExplicitInstagramUnlike = activeRootForBatch?.packageName?.toString()?.contains("instagram", true) == true &&
@@ -2198,6 +2225,7 @@ class JarvisConversationService : Service() {
                             com.jarvis.assistant.automation.agent.AgentTaskEngine.setState(
                                 com.jarvis.assistant.automation.agent.AgentTaskEngine.State.BLOCKED
                             )
+                        }
                         }
                     }
 
@@ -3356,6 +3384,83 @@ class JarvisConversationService : Service() {
             "take a break", "so jao"
         )
         return patterns.any { containsPhrase(clean, it) }
+    }
+
+    private val sensitiveUiPhrases = listOf(
+        "place order", "place your order", "buy now", "pay now", "confirm order", "confirm payment",
+        "complete purchase", "submit order", "make payment", "send money",
+        "install", "uninstall", "delete account", "factory reset", "erase all data", "reset phone"
+    )
+
+    /** A short, clear "yes" for the current turn (never a long sentence, never a negation). */
+    private fun isAffirmativeConfirmation(text: String): Boolean {
+        val clean = text.lowercase(Locale.ROOT).trim()
+        if (clean.isEmpty() || clean.split(Regex("\\s+")).size > 8) return false
+        val negations = listOf("no", "not", "don't", "dont", "cancel", "stop", "wait", "nahi", "nahin", "mat")
+        if (negations.any { containsPhrase(clean, it) }) return false
+        val affirmatives = listOf(
+            "yes", "yep", "yeah", "confirm", "confirmed", "go ahead", "proceed", "do it", "sure",
+            "haan", "haanji", "kar do", "karo", "place it", "order it", "buy it", "install it"
+        )
+        return affirmatives.any { containsPhrase(clean, it) }
+    }
+
+    /**
+     * Returns null when a tap may go ahead, or a REFUSED message when the tap would buy, pay, install,
+     * uninstall or delete something and the user has not confirmed it in a NEW turn after a refusal.
+     * The first attempt is always refused so Jarvis must read the details back and ask first.
+     */
+    private suspend fun sensitiveActionBlock(targetName: String, description: String): String? {
+        val haystack = (targetName + " " + description).lowercase(Locale.ROOT)
+        if (sensitiveUiPhrases.none { containsPhrase(haystack, it) }) return null
+
+        if (sensitiveConfirmedForSpeechTime > 0L && lastUserSpeechDetectedTime == sensitiveConfirmedForSpeechTime) return null
+
+        val ownerEnrolled = preferences.isOwnerVoiceEnabled && preferences.hasOwnerVoiceProfile()
+        if (ownerEnrolled) {
+            var waitedMs = 0
+            while (!strictOwnerMatchedThisTurn && waitedMs < 1_500) {
+                kotlinx.coroutines.delay(100)
+                waitedMs += 100
+            }
+        }
+        val voiceOk = !ownerEnrolled || strictOwnerMatchedThisTurn
+        val confirmed = voiceOk &&
+            lastSensitiveRefusalAt > 0L &&
+            lastUserSpeechDetectedTime > lastSensitiveRefusalAt &&
+            isAffirmativeConfirmation(currentTurnUserText.toString())
+        if (confirmed) {
+            sensitiveConfirmedForSpeechTime = lastUserSpeechDetectedTime
+            lastSensitiveRefusalAt = 0L
+            return null
+        }
+        lastSensitiveRefusalAt = System.currentTimeMillis()
+        return "REFUSED: this tap ('" + targetName + "') would buy, pay, install, uninstall or delete something. Do not tap it yet. " +
+            "Tell the user in one short sentence exactly what will happen (item, price, address or app name), ask them to say yes to confirm, and wait. " +
+            "Only after the user clearly says yes in their next message may you tap it. Never enter card numbers, UPI PINs, OTPs or passwords yourself."
+    }
+
+    private fun settingsActionFor(page: String): String? = when (page) {
+        "main", "settings" -> android.provider.Settings.ACTION_SETTINGS
+        "wifi", "wi-fi", "wi fi" -> android.provider.Settings.ACTION_WIFI_SETTINGS
+        "bluetooth" -> android.provider.Settings.ACTION_BLUETOOTH_SETTINGS
+        "display", "brightness" -> android.provider.Settings.ACTION_DISPLAY_SETTINGS
+        "sound", "volume" -> android.provider.Settings.ACTION_SOUND_SETTINGS
+        "location", "gps" -> android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS
+        "airplane", "flight mode", "airplane mode" -> android.provider.Settings.ACTION_AIRPLANE_MODE_SETTINGS
+        "apps", "applications" -> android.provider.Settings.ACTION_APPLICATION_SETTINGS
+        "accessibility" -> android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS
+        "security" -> android.provider.Settings.ACTION_SECURITY_SETTINGS
+        "battery", "battery saver" -> android.provider.Settings.ACTION_BATTERY_SAVER_SETTINGS
+        "date", "time", "date and time" -> android.provider.Settings.ACTION_DATE_SETTINGS
+        "language", "locale" -> android.provider.Settings.ACTION_LOCALE_SETTINGS
+        "storage" -> android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS
+        "nfc" -> android.provider.Settings.ACTION_NFC_SETTINGS
+        "mobile_network", "mobile network", "mobile data", "network" -> android.provider.Settings.ACTION_WIRELESS_SETTINGS
+        "privacy" -> android.provider.Settings.ACTION_PRIVACY_SETTINGS
+        "notifications", "notification access" -> android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS
+        "developer", "developer options" -> android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS
+        else -> null
     }
 
     private fun isExplicitUnlockCommand(text: String): Boolean {
