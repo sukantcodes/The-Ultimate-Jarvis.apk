@@ -1,0 +1,18 @@
+name: Apply screen-unlock patch
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply patch and push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git am --3way screen-unlock.patch
+          git rm -q screen-unlock.patch
+          git commit -q -m "Remove applied patch file"
+          git push
