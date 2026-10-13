@@ -1,0 +1,364 @@
+package com.jarvis.assistant.automation.gesture
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Matrix
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.util.Log
+import androidx.annotation.OptIn
+import androidx.camera.core.Camera
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mediapipe.framework.image.MPImage
+import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.core.Delegate
+import com.google.mediapipe.tasks.vision.core.RunningMode
+import com.google.mediapipe.tasks.vision.gesturerecognizer.GestureRecognizer
+import com.google.mediapipe.tasks.vision.gesturerecognizer.GestureRecognizerResult
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import kotlin.math.abs
+
+/**
+ * J.A.R.V.I.S. Production Hand Gesture Recognition Engine
+ *
+ * Uses CameraX for real-time front-facing video streaming and Google MediaPipe / ML Kit
+ * GestureRecognizer to classify:
+ * - THUMB_UP: Confirms pending tasks/messages
+ * - THUMB_DOWN: Cancels or rejects pending tasks
+ * - WAVE: Left-right lateral waving motion -> Toggles voice listening / wakes JARVIS
+ *
+ * Implements Android DefaultLifecycleObserver for safe hardware resource management.
+ * Package target: com.jarvis.assistant (Android API 26+)
+ * Developer: ♪Sukant♪Codes♪
+ */
+class GestureControlManager(
+    private val context: Context,
+    private val actionCallback: JarvisGestureActionCallback
+) : ImageAnalysis.Analyzer, DefaultLifecycleObserver {
+
+    companion object {
+        private const val TAG = "GestureControlManager"
+        private const val DEFAULT_MODEL_PATH = "gesture_recognizer.task"
+        private const val MIN_HAND_DETECTION_CONFIDENCE = 0.55f
+        private const val MIN_HAND_TRACKING_CONFIDENCE = 0.50f
+        private const val GESTURE_COOLDOWN_MS = 1300L
+        private const val WAVE_CYCLE_THRESHOLD = 3
+        private const val WAVE_CYCLE_WINDOW_MS = 1100L
+    }
+
+    /**
+     * Interface for dispatching detected gestures directly to JARVIS automation engine
+     */
+    interface JarvisGestureActionCallback {
+        /** Triggered to start listening or wake assistant */
+        fun onToggleListening()
+
+        /** Triggered when Thumbs Up gesture is confirmed */
+        fun onConfirmTask()
+
+        /** Triggered when Thumbs Down gesture is confirmed */
+        fun onCancelTask()
+
+        /** General callback for raw recognized gestures */
+        fun onGestureRecognized(gestureName: String, confidence: Float)
+
+        /** State callback when camera hardware starts or stops */
+        fun onCameraStateChanged(isActive: Boolean) {}
+
+        /** Error notification */
+        fun onGestureError(errorMessage: String) {}
+    }
+
+    enum class RecognizedGesture {
+        NONE,
+        THUMB_UP,
+        THUMB_DOWN,
+        WAVE
+    }
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var cameraExecutor: ExecutorService? = null
+    private var cameraProvider: ProcessCameraProvider? = null
+    private var camera: Camera? = null
+    private var imageAnalysis: ImageAnalysis? = null
+    private var gestureRecognizer: GestureRecognizer? = null
+
+    private var isRunning = false
+    private var lastGestureFiredTime: Long = 0L
+
+    // Wave tracking variables
+    private var lastWristX: Float = -1f
+    private var lastDirection: Int = 0 // -1 = left, 1 = right
+    private var waveDirectionSwaps: Int = 0
+    private var waveStartTime: Long = 0L
+
+    init {
+        initGestureRecognizer()
+    }
+
+    /**
+     * Configures Google MediaPipe GestureRecognizer with LIVE_STREAM running mode
+     */
+    private fun initGestureRecognizer() {
+        try {
+            val baseOptionsBuilder = BaseOptions.builder()
+                .setDelegate(Delegate.GPU)
+
+            try {
+                baseOptionsBuilder.setModelAssetPath(DEFAULT_MODEL_PATH)
+            } catch (e: Exception) {
+                Log.w(TAG, "GPU delegate unavailable, falling back to CPU", e)
+                baseOptionsBuilder.setDelegate(Delegate.CPU)
+                baseOptionsBuilder.setModelAssetPath(DEFAULT_MODEL_PATH)
+            }
+
+            val options = GestureRecognizer.GestureRecognizerOptions.builder()
+                .setBaseOptions(baseOptionsBuilder.build())
+                .setMinHandDetectionConfidence(MIN_HAND_DETECTION_CONFIDENCE)
+                .setMinTrackingConfidence(MIN_HAND_TRACKING_CONFIDENCE)
+                .setRunningMode(RunningMode.LIVE_STREAM)
+                .setResultListener { result: GestureRecognizerResult, mpImage: MPImage ->
+                    processGestureResult(result)
+                }
+                .setErrorListener { error: RuntimeException ->
+                    Log.e(TAG, "MediaPipe Gesture Recognition Error: ${error.message}")
+                    actionCallback.onGestureError(error.message ?: "Gesture detection failure")
+                }
+                .build()
+
+            gestureRecognizer = GestureRecognizer.createFromOptions(context, options)
+            Log.i(TAG, "MediaPipe GestureRecognizer initialized successfully.")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize MediaPipe GestureRecognizer", e)
+        }
+    }
+
+    /**
+     * Binds CameraX to the specified lifecycleOwner using the front-facing camera
+     */
+    fun startCamera(lifecycleOwner: LifecycleOwner, previewView: Preview.SurfaceProvider? = null) {
+        if (isRunning) return
+
+        lifecycleOwner.lifecycle.addObserver(this)
+        cameraExecutor = Executors.newSingleThreadExecutor()
+
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+        cameraProviderFuture.addListener({
+            try {
+                cameraProvider = cameraProviderFuture.get()
+
+                val preview = previewView?.let { provider ->
+                    Preview.Builder()
+                        .build()
+                        .also { it.setSurfaceProvider(provider) }
+                }
+
+                val cameraSelector = CameraSelector.Builder()
+                    .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
+                    .build()
+
+                imageAnalysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                    .build()
+                    .also {
+                        it.setAnalyzer(cameraExecutor!!, this)
+                    }
+
+                cameraProvider?.unbindAll()
+
+                val useCases = mutableListOf<androidx.camera.core.UseCase>(imageAnalysis!!)
+                preview?.let { useCases.add(it) }
+
+                camera = cameraProvider?.bindToLifecycle(
+                    lifecycleOwner,
+                    cameraSelector,
+                    *useCases.toTypedArray()
+                )
+
+                isRunning = true
+                mainHandler.post { actionCallback.onCameraStateChanged(true) }
+                Log.d(TAG, "CameraX gesture stream online.")
+            } catch (exc: Exception) {
+                Log.e(TAG, "CameraX binding failed in GestureControlManager", exc)
+                actionCallback.onGestureError("CameraX binding failure: ${exc.message}")
+                isRunning = false
+                mainHandler.post { actionCallback.onCameraStateChanged(false) }
+            }
+        }, ContextCompat.getMainExecutor(context))
+    }
+
+    /**
+     * Shuts down camera streaming and releases background threads
+     */
+    fun stopCamera() {
+        if (!isRunning) return
+        try {
+            cameraProvider?.unbindAll()
+            cameraExecutor?.shutdown()
+            cameraExecutor = null
+            camera = null
+            imageAnalysis = null
+            isRunning = false
+            mainHandler.post { actionCallback.onCameraStateChanged(false) }
+            Log.d(TAG, "CameraX gesture stream terminated.")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping CameraX in GestureControlManager", e)
+        }
+    }
+
+    @OptIn(ExperimentalGetImage::class)
+    override fun analyze(imageProxy: ImageProxy) {
+        val now = SystemClock.uptimeMillis()
+        if (now - lastGestureFiredTime < GESTURE_COOLDOWN_MS) {
+            imageProxy.close()
+            return
+        }
+
+        try {
+            val bitmap = imageProxyToBitmap(imageProxy)
+            if (bitmap != null) {
+                val rotatedBitmap = rotateAndMirrorBitmap(bitmap, imageProxy.imageInfo.rotationDegrees)
+                val mpImage = BitmapImageBuilder(rotatedBitmap).build()
+
+                gestureRecognizer?.recognizeAsync(mpImage, now)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Frame analysis exception: ${e.message}")
+        } finally {
+            imageProxy.close()
+        }
+    }
+
+    private fun processGestureResult(result: GestureRecognizerResult) {
+        val now = System.currentTimeMillis()
+        if (now - lastGestureFiredTime < GESTURE_COOLDOWN_MS) return
+
+        val gestures = result.gestures()
+        val landmarksList = result.landmarks()
+
+        if (gestures.isNotEmpty() && gestures[0].isNotEmpty()) {
+            val topCategory = gestures[0][0]
+            val categoryName = topCategory.categoryName()
+            val score = topCategory.score()
+
+            Log.d(TAG, "Candidate Gesture: $categoryName (score: $score)")
+
+            mainHandler.post {
+                actionCallback.onGestureRecognized(categoryName, score)
+            }
+
+            // 1. Check THUMB_UP
+            if (categoryName.equals("Thumb_Up", ignoreCase = true) && score >= 0.60f) {
+                lastGestureFiredTime = now
+                mainHandler.post {
+                    Log.i(TAG, "Dispatched Action: onConfirmTask via THUMB_UP")
+                    actionCallback.onConfirmTask()
+                }
+                return
+            }
+
+            // 2. Check THUMB_DOWN
+            if (categoryName.equals("Thumb_Down", ignoreCase = true) && score >= 0.60f) {
+                lastGestureFiredTime = now
+                mainHandler.post {
+                    Log.i(TAG, "Dispatched Action: onCancelTask via THUMB_DOWN")
+                    actionCallback.onCancelTask()
+                }
+                return
+            }
+        }
+
+        // 3. Wave Detection: Lateral wrist/palm oscillation
+        if (landmarksList.isNotEmpty() && landmarksList[0].isNotEmpty()) {
+            val wrist = landmarksList[0][0] // Landmark 0 = WRIST
+            val wristX = wrist.x()
+
+            if (lastWristX >= 0f) {
+                val deltaX = wristX - lastWristX
+                val minThreshold = 0.045f
+
+                if (abs(deltaX) > minThreshold) {
+                    val direction = if (deltaX > 0) 1 else -1
+
+                    if (lastDirection != 0 && direction != lastDirection) {
+                        if (now - waveStartTime < WAVE_CYCLE_WINDOW_MS) {
+                            waveDirectionSwaps++
+                            if (waveDirectionSwaps >= WAVE_CYCLE_THRESHOLD) {
+                                waveDirectionSwaps = 0
+                                lastGestureFiredTime = now
+                                lastWristX = wristX
+                                lastDirection = direction
+
+                                mainHandler.post {
+                                    Log.i(TAG, "Dispatched Action: onToggleListening via WAVE")
+                                    actionCallback.onToggleListening()
+                                }
+                                return
+                            }
+                        } else {
+                            waveStartTime = now
+                            waveDirectionSwaps = 1
+                        }
+                    }
+                    lastDirection = direction
+                }
+            }
+            lastWristX = wristX
+        }
+    }
+
+    private fun imageProxyToBitmap(imageProxy: ImageProxy): Bitmap? {
+        val plane = imageProxy.planes[0]
+        val buffer = plane.buffer
+        val pixelStride = plane.pixelStride
+        val rowStride = plane.rowStride
+        val rowPadding = rowStride - pixelStride * imageProxy.width
+
+        val bitmap = Bitmap.createBitmap(
+            imageProxy.width + rowPadding / pixelStride,
+            imageProxy.height,
+            Bitmap.Config.ARGB_8888
+        )
+        bitmap.copyPixelsFromBuffer(buffer)
+        return bitmap
+    }
+
+    private fun rotateAndMirrorBitmap(bitmap: Bitmap, rotationDegrees: Int): Bitmap {
+        val matrix = Matrix().apply {
+            postRotate(rotationDegrees.toFloat())
+            postScale(-1f, 1f, bitmap.width / 2f, bitmap.height / 2f)
+        }
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    }
+
+    override fun onResume(owner: LifecycleOwner) {
+        super.onResume(owner)
+        if (!isRunning && cameraExecutor != null) {
+            startCamera(owner)
+        }
+    }
+
+    override fun onPause(owner: LifecycleOwner) {
+        super.onPause(owner)
+        stopCamera()
+    }
+
+    override fun onDestroy(owner: LifecycleOwner) {
+        super.onDestroy(owner)
+        stopCamera()
+        gestureRecognizer?.close()
+        gestureRecognizer = null
+    }
+}
