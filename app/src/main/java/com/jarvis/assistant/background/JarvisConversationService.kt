@@ -261,7 +261,6 @@ class JarvisConversationService : Service() {
     /** True only when THIS turn's audio genuinely matched the enrolled owner voice (a lease alone does not count). */
     @Volatile private var strictOwnerMatchedThisTurn = false
     /** Sensitive-tap gate: when a purchase/install tap was last refused, and which speech turn was already confirmed. */
-    @Volatile private var lastSensitiveRefusalAt = 0L
     @Volatile private var sensitiveConfirmedForSpeechTime = 0L
     @Volatile
     private var lastOwnerVerifiedTimestamp = 0L
@@ -2134,6 +2133,25 @@ class JarvisConversationService : Service() {
                         }
                     }
 
+                    "lock_device" -> {
+                        val said = currentTurnUserText.toString().lowercase(Locale.ROOT)
+                        val lockService = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance
+                        if (said.contains("unlock")) {
+                            result.put("success", false)
+                            result.put("message", "The user asked to unlock, not lock. Use unlock_device instead.")
+                        } else if (lockService == null) {
+                            result.put("success", false)
+                            result.put("message", "The accessibility service is not running, so the screen cannot be locked. Ask the user to turn it on in Settings.")
+                        } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+                            result.put("success", false)
+                            result.put("message", "Locking the screen needs Android 9 or newer.")
+                        } else {
+                            val locked = lockService.lockScreenNow()
+                            result.put("success", locked)
+                            result.put("message", if (locked) "The screen was locked." else "Android did not lock the screen. Check that the accessibility service is enabled.")
+                        }
+                    }
+
                     "open_settings_page" -> {
                         val page = args.optString("page", "").lowercase(Locale.ROOT).trim()
                         val settingsAction = settingsActionFor(page)
@@ -3392,52 +3410,51 @@ class JarvisConversationService : Service() {
         "install", "uninstall", "delete account", "factory reset", "erase all data", "reset phone"
     )
 
-    /** A short, clear "yes" for the current turn (never a long sentence, never a negation). */
-    private fun isAffirmativeConfirmation(text: String): Boolean {
-        val clean = text.lowercase(Locale.ROOT).trim()
-        if (clean.isEmpty() || clean.split(Regex("\\s+")).size > 8) return false
-        val negations = listOf("no", "not", "don't", "dont", "cancel", "stop", "wait", "nahi", "nahin", "mat")
-        if (negations.any { containsPhrase(clean, it) }) return false
-        val affirmatives = listOf(
-            "yes", "yep", "yeah", "confirm", "confirmed", "go ahead", "proceed", "do it", "sure",
-            "haan", "haanji", "kar do", "karo", "place it", "order it", "buy it", "install it"
-        )
-        return affirmatives.any { containsPhrase(clean, it) }
+    private val confirmCoreWords = setOf(
+        "yes", "yep", "yeah", "yup", "haan", "haanji", "han", "ok", "okay", "sure",
+        "confirm", "confirmed", "proceed", "ahead", "kar", "karo", "kardo", "do"
+    )
+    private val confirmFillerWords = setOf(
+        "it", "please", "now", "the", "this", "one", "go", "place", "jarvis", "bhai", "bro",
+        "sir", "then", "ji", "theek", "thik", "hai", "karna", "bilkul"
+    )
+    private val confirmNegationWords = setOf(
+        "no", "nope", "not", "don't", "dont", "cancel", "stop", "wait", "nahi", "nahin", "mat"
+    )
+
+    /** True only for a short, pure "yes" such as "yes", "haan kar do", "go ahead", "yes place it". */
+    private fun isPureConfirmation(text: String): Boolean {
+        val tokens = text.lowercase(Locale.ROOT)
+            .replace(Regex("[^\\p{L}\\p{N}' ]+"), " ")
+            .trim()
+            .split(Regex("\\s+"))
+            .filter { it.isNotEmpty() }
+        if (tokens.isEmpty() || tokens.size > 6) return false
+        if (tokens.any { it in confirmNegationWords }) return false
+        if (tokens.none { it in confirmCoreWords }) return false
+        return tokens.all { it in confirmCoreWords || it in confirmFillerWords }
     }
 
     /**
      * Returns null when a tap may go ahead, or a REFUSED message when the tap would buy, pay, install,
-     * uninstall or delete something and the user has not confirmed it in a NEW turn after a refusal.
-     * The first attempt is always refused so Jarvis must read the details back and ask first.
+     * uninstall or delete something and the user has not just said a clear "yes".
+     * A request such as "order it" or "order in cash on delivery" is NOT a confirmation: the user must
+     * answer with a separate, short yes. One yes covers the whole turn, so Jarvis asks only once.
      */
-    private suspend fun sensitiveActionBlock(targetName: String, description: String): String? {
+    private fun sensitiveActionBlock(targetName: String, description: String): String? {
         val haystack = (targetName + " " + description).lowercase(Locale.ROOT)
         if (sensitiveUiPhrases.none { containsPhrase(haystack, it) }) return null
 
         if (sensitiveConfirmedForSpeechTime > 0L && lastUserSpeechDetectedTime == sensitiveConfirmedForSpeechTime) return null
 
-        val ownerEnrolled = preferences.isOwnerVoiceEnabled && preferences.hasOwnerVoiceProfile()
-        if (ownerEnrolled) {
-            var waitedMs = 0
-            while (!strictOwnerMatchedThisTurn && waitedMs < 1_500) {
-                kotlinx.coroutines.delay(100)
-                waitedMs += 100
-            }
-        }
-        val voiceOk = !ownerEnrolled || strictOwnerMatchedThisTurn
-        val confirmed = voiceOk &&
-            lastSensitiveRefusalAt > 0L &&
-            lastUserSpeechDetectedTime > lastSensitiveRefusalAt &&
-            isAffirmativeConfirmation(currentTurnUserText.toString())
+        val confirmed = isCurrentTurnOwnerVoiceVerified && isPureConfirmation(currentTurnUserText.toString())
         if (confirmed) {
             sensitiveConfirmedForSpeechTime = lastUserSpeechDetectedTime
-            lastSensitiveRefusalAt = 0L
             return null
         }
-        lastSensitiveRefusalAt = System.currentTimeMillis()
         return "REFUSED: this tap ('" + targetName + "') would buy, pay, install, uninstall or delete something. Do not tap it yet. " +
-            "Tell the user in one short sentence exactly what will happen (item, price, address or app name), ask them to say yes to confirm, and wait. " +
-            "Only after the user clearly says yes in their next message may you tap it. Never enter card numbers, UPI PINs, OTPs or passwords yourself."
+            "Tell the user in one short sentence exactly what will happen (item, price, payment mode, address or app name), ask them to say yes to confirm, and wait. " +
+            "Ask only once. When the user's next message is a clear yes, tap it right away without asking again. Never enter card numbers, UPI PINs, OTPs or passwords yourself."
     }
 
     private fun settingsActionFor(page: String): String? = when (page) {
