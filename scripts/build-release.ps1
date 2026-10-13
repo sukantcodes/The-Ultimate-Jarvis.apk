@@ -23,8 +23,8 @@ try {
     $env:JARVIS_RELEASE_STORE_PASSWORD = $plainPassword
     $env:JARVIS_RELEASE_KEY_ALIAS = $keyAlias
     $env:JARVIS_RELEASE_KEY_PASSWORD = $plainPassword
-    $env:JARVIS_DEVELOPER_NAME = "TechGpt X"
-    $env:JARVIS_COPYRIGHT_OWNER = "TechGpt X"
+    $env:JARVIS_DEVELOPER_NAME = "♪Sukant♪Codes♪"
+    $env:JARVIS_COPYRIGHT_OWNER = "♪Sukant♪Codes♪"
 
     $keytool = if ($env:JAVA_HOME) { Join-Path $env:JAVA_HOME "bin\keytool.exe" } else { (Get-Command keytool -ErrorAction Stop).Source }
     $certificateInfo = (& $keytool -list -v -keystore $keyStore -alias $keyAlias -storepass:env JARVIS_RELEASE_STORE_PASSWORD | Out-String)
