@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
-class GeminiLiveWebSocket(
+open class GeminiLiveWebSocket(
     private val apiKey: String,
     private val model: String,
     private val voiceName: String,
@@ -59,9 +59,9 @@ class GeminiLiveWebSocket(
     private var reconnectJob: Job? = null
     var promptProvider: (() -> String)? = null
 
-    fun isSessionReady(): Boolean = isConnected.get() && isSetupComplete.get()
+    open fun isSessionReady(): Boolean = isConnected.get() && isSetupComplete.get()
 
-    fun connect(scope: CoroutineScope) {
+    open fun connect(scope: CoroutineScope) {
         coroutineScope = scope
         isManuallyStopped.set(false)
         initiateConnection()
@@ -206,7 +206,7 @@ class GeminiLiveWebSocket(
         }
     }
 
-    private fun sendSetupMessage(ws: WebSocket) {
+    private fun buildSetupJson(): JSONObject {
         val effectivePrompt = systemPrompt
         val setup = JSONObject().apply {
             put("setup", JSONObject().apply {
@@ -426,6 +426,10 @@ class GeminiLiveWebSocket(
                                         put("type", "STRING")
                                         put("description", "The contact's name as the user said it, e.g. \"mom\", \"Rahul\".")
                                     })
+                                    put("sim", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Optional. Which SIM card to call with: \"1\" or \"2\". Only set it when the user said which SIM (for example 'call Rahul with SIM 2'). If the tool answers TWO_SIMS, ask the user and call again with this value.")
+                                    })
                                 })
                                 put("required", JSONArray().put("contact_name"))
                             })
@@ -514,6 +518,22 @@ class GeminiLiveWebSocket(
                             put("parameters", JSONObject().apply {
                                 put("type", "OBJECT")
                                 put("properties", JSONObject())
+                            })
+                        })
+
+                        // 14d. call_control
+                        put(JSONObject().apply {
+                            put("name", "call_control")
+                            put("description", "Controls the phone call that is on the call screen by pressing the dialer's own buttons. Actions: hold, resume, speaker_on, speaker_off, mute, unmute, record_start, record_stop, end, swap, merge. Recording only works if this phone's dialer has a Record button. Use only when the user clearly asks.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("action", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "One of: hold, resume, speaker_on, speaker_off, mute, unmute, record_start, record_stop, end, swap, merge.")
+                                    })
+                                })
+                                put("required", JSONArray().put("action"))
                             })
                         })
 
@@ -684,10 +704,18 @@ class GeminiLiveWebSocket(
                 }))
             })
         }
-        val json = setup.toString()
+        return setup
+    }
+
+    private fun sendSetupMessage(ws: WebSocket) {
+        val json = buildSetupJson().toString()
         Log.d(TAG, "Sending BidiSetup payload to Gemini Live with tools")
         ws.send(json)
     }
+
+    /** The phone tools the assistant can call. Other engines (such as Groq) reuse this list so every engine has the same tools. */
+    fun toolDeclarations(): JSONArray =
+        buildSetupJson().getJSONObject("setup").getJSONArray("tools").getJSONObject(0).getJSONArray("functionDeclarations")
 
     private fun handleIncomingMessage(jsonText: String) {
         try {
@@ -872,7 +900,7 @@ class GeminiLiveWebSocket(
         }
     }
 
-    fun sendToolResponse(callId: String, functionName: String, result: JSONObject) {
+    open fun sendToolResponse(callId: String, functionName: String, result: JSONObject) {
         try {
             val msg = JSONObject().apply {
                 put("tool_response", JSONObject().apply {
@@ -890,7 +918,7 @@ class GeminiLiveWebSocket(
         }
     }
 
-    fun sendAudioChunk(pcm16k: ByteArray) {
+    open fun sendAudioChunk(pcm16k: ByteArray) {
         if (!isConnected.get() || !isSetupComplete.get() || pcm16k.isEmpty()) return
 
         try {
@@ -908,7 +936,7 @@ class GeminiLiveWebSocket(
     /**
      * Streams real-time screen frames to Gemini Live (BidiGenerateContent).
      */
-    fun sendMediaChunk(jpegBytes: ByteArray) {
+    open fun sendMediaChunk(jpegBytes: ByteArray) {
         if (!isConnected.get() || !isSetupComplete.get() || jpegBytes.isEmpty()) return
         // Gemini Live accepts video as a continuous realtimeInput stream at up to 1 FPS.
         // Enforce the cap here so periodic and post-action frames share one rate limiter.
@@ -935,14 +963,14 @@ class GeminiLiveWebSocket(
      * In Gemini Live BidiGenerateContent, streaming audio via realtimeInput handles turn-taking
      * natively via server-side neural VAD. Sending empty client_content cancels active generation.
      */
-    fun sendAudioStreamEnd() {
+    open fun sendAudioStreamEnd() {
         // No-op: server-side VAD handles turn completion smoothly
     }
 
     /**
      * Sends a text prompt to Gemini Live using the client_content turn protocol.
      */
-    fun sendClientContent(text: String) {
+    open fun sendClientContent(text: String) {
         if (!isConnected.get() || !isSetupComplete.get() || text.isBlank()) return
         try {
             val msg = JSONObject().apply {
@@ -990,7 +1018,7 @@ class GeminiLiveWebSocket(
         sessionRenewalJob = null
     }
 
-    fun disconnect() {
+    open fun disconnect() {
         isManuallyStopped.set(true)
         stopTimers()
         reconnectJob?.cancel()
