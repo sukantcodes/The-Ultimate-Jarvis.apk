@@ -1464,6 +1464,131 @@ private fun findAndInjectEditText(
         return false
     }
 
+    /** Finds a button on the current screen whose text or description matches one of [labels]. */
+    private fun findCallButton(root: AccessibilityNodeInfo, labels: List<String>): AccessibilityNodeInfo? {
+        val queue = kotlin.collections.ArrayDeque<AccessibilityNodeInfo>()
+        queue.addLast(root)
+        var visited = 0
+        while (queue.isNotEmpty() && visited < 700) {
+            val node = queue.removeFirst()
+            visited++
+            val text = node.text?.toString()?.trim()?.lowercase(java.util.Locale.ROOT).orEmpty()
+            val desc = node.contentDescription?.toString()?.trim()?.lowercase(java.util.Locale.ROOT).orEmpty()
+            for (label in labels) {
+                if (text == label || desc == label || text.startsWith(label + " ") || desc.startsWith(label + " ") ||
+                    desc.startsWith(label + ",")
+                ) {
+                    return node
+                }
+            }
+            for (i in 0 until node.childCount) {
+                node.getChild(i)?.let { queue.addLast(it) }
+            }
+        }
+        return null
+    }
+
+    /**
+     * Presses a button on the phone's in-call screen. Returns OK, ALREADY, NOT_FOUND, FAILED or NO_SCREEN.
+     * Supported actions: hold, resume, speaker_on, speaker_off, mute, unmute, record_start, record_stop, end, swap, merge.
+     */
+    fun pressCallControl(action: String): String {
+        val root = getActiveRootNode() ?: return "NO_SCREEN"
+
+        fun press(node: AccessibilityNodeInfo): String {
+            var current: AccessibilityNodeInfo? = node
+            var hops = 0
+            while (current != null && hops < 4) {
+                if (current.isClickable && current.isEnabled) {
+                    return if (current.performAction(AccessibilityNodeInfo.ACTION_CLICK)) "OK" else "FAILED"
+                }
+                current = current.parent
+                hops++
+            }
+            return "FAILED"
+        }
+
+        fun isOn(node: AccessibilityNodeInfo): Boolean? = if (node.isCheckable) node.isChecked else null
+
+        return when (action) {
+            "hold" -> {
+                val hold = findCallButton(root, listOf("hold", "put on hold", "hold call"))
+                if (hold != null) {
+                    if (isOn(hold) == true) "ALREADY" else press(hold)
+                } else if (findCallButton(root, listOf("resume", "unhold", "resume call")) != null) {
+                    "ALREADY"
+                } else "NOT_FOUND"
+            }
+            "resume" -> {
+                val resume = findCallButton(root, listOf("resume", "unhold", "resume call"))
+                if (resume != null) {
+                    press(resume)
+                } else {
+                    val hold = findCallButton(root, listOf("hold", "put on hold", "hold call"))
+                    if (hold == null) "NOT_FOUND" else if (isOn(hold) == true) press(hold) else "ALREADY"
+                }
+            }
+            "speaker_on", "speaker_off" -> {
+                val speaker = findCallButton(root, listOf("speaker", "speakerphone"))
+                if (speaker == null) {
+                    "NOT_FOUND"
+                } else {
+                    val on = isOn(speaker)
+                    if (action == "speaker_on" && on == true) "ALREADY"
+                    else if (action == "speaker_off" && on == false) "ALREADY"
+                    else press(speaker)
+                }
+            }
+            "mute" -> {
+                val mute = findCallButton(root, listOf("mute"))
+                if (mute != null) {
+                    if (isOn(mute) == true) "ALREADY" else press(mute)
+                } else if (findCallButton(root, listOf("unmute")) != null) {
+                    "ALREADY"
+                } else "NOT_FOUND"
+            }
+            "unmute" -> {
+                val unmute = findCallButton(root, listOf("unmute"))
+                if (unmute != null) {
+                    press(unmute)
+                } else {
+                    val mute = findCallButton(root, listOf("mute"))
+                    if (mute == null) "NOT_FOUND" else if (isOn(mute) == true) press(mute) else "ALREADY"
+                }
+            }
+            "record_start" -> {
+                if (findCallButton(root, listOf("stop recording")) != null) {
+                    "ALREADY"
+                } else {
+                    val record = findCallButton(root, listOf("record", "start recording", "record call", "call recording"))
+                    if (record == null) "NOT_FOUND" else if (isOn(record) == true) "ALREADY" else press(record)
+                }
+            }
+            "record_stop" -> {
+                val stop = findCallButton(root, listOf("stop recording"))
+                if (stop != null) {
+                    press(stop)
+                } else {
+                    val record = findCallButton(root, listOf("record", "recording", "record call", "call recording"))
+                    if (record == null) "NOT_FOUND" else if (isOn(record) == true) press(record) else "ALREADY"
+                }
+            }
+            "end" -> {
+                val end = findCallButton(root, listOf("end call", "hang up", "end", "disconnect"))
+                if (end == null) "NOT_FOUND" else press(end)
+            }
+            "swap" -> {
+                val swap = findCallButton(root, listOf("swap", "swap calls"))
+                if (swap == null) "NOT_FOUND" else press(swap)
+            }
+            "merge" -> {
+                val merge = findCallButton(root, listOf("merge", "merge calls"))
+                if (merge == null) "NOT_FOUND" else press(merge)
+            }
+            else -> "NOT_FOUND"
+        }
+    }
+
     fun getActiveRootNode(): AccessibilityNodeInfo? {
         // Prefer Android's active-window root. If unavailable, only accept a window
         // that Android explicitly marks focused/active; never guess with an arbitrary
