@@ -11,26 +11,29 @@ class JarvisNotificationListener : NotificationListenerService() {
 
     override fun onCreate() {
         super.onCreate()
-        // Service start hote hi TTS engine initialize ho jayega
         jarvisTTS = JarvisTTS(applicationContext)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         super.onNotificationPosted(sbn)
         
+        // Agar user ne settings se notifications band kiye hain, toh return ho jao
+        if (!JarvisPreferences.isNotificationEnabled(applicationContext)) return
+
         val packageName = sbn?.packageName ?: return
         val extras = sbn.notification?.extras ?: return
         val title = extras.getString(Notification.EXTRA_TITLE) ?: "New Message"
         val text = extras.getString(Notification.EXTRA_TEXT) ?: ""
 
-        // Debugging ke liye log print hoga
         Log.d("JarvisNotification", "Package: $packageName | Title: $title")
 
         when (packageName) {
             "com.whatsapp", "com.whatsapp.w4b" -> {
-                announcerVoice("WhatsApp message from $title. $text", "en")
+                val lang = JarvisPreferences.getLanguage(applicationContext)
+                val message = if (lang == "hi") "WhatsApp message aaya hai $title se." else "WhatsApp message from $title. $text"
+                announcerVoice(message, lang)
             }
-            // Baaki apps ke package names yahan aage add kiye ja sakte hain
+            // Baaki apps ke package names yahan add kiye ja sakte hain
         }
     }
 
@@ -39,13 +42,11 @@ class JarvisNotificationListener : NotificationListenerService() {
     }
 
     private fun announcerVoice(message: String, langCode: String) {
-        // JarvisTTS ka speak function call hoga jo aawaz mein bolega
         jarvisTTS.speak(message, langCode)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        // Service destroy hone par TTS resources release ho jayengi
         jarvisTTS.shutdown()
     }
 }
