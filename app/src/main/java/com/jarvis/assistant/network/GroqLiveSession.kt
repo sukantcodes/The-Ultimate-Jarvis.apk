@@ -190,8 +190,7 @@ class GroqLiveSession(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "Text turn failed: ${e.message}")
-                groqListener.onTurnCompleted()
+                reportException(e)
             } finally {
                 activeTurns.decrementAndGet()
             }
@@ -294,8 +293,7 @@ class GroqLiveSession(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "Voice turn failed: ${e.message}")
-                groqListener.onTurnCompleted()
+                reportException(e)
             } finally {
                 activeTurns.decrementAndGet()
             }
@@ -323,6 +321,7 @@ class GroqLiveSession(
         val request = Request.Builder()
             .url("$BASE/audio/transcriptions")
             .header("Authorization", "Bearer $groqKey")
+            .header("User-Agent", "JarvisAndroid/1.0")
             .post(body)
             .build()
         val (code, raw, retryAfter) = http.newCall(request).execute().use {
@@ -341,14 +340,16 @@ class GroqLiveSession(
 
     /** Returns the assistant message, or null after the error was reported. */
     private suspend fun chat(): JSONObject? {
-        for (attempt in 0 until 2) {
+        var sendTools = toolList.length() > 0
+        var retriedToolFailure = false
+        for (attempt in 0 until 3) {
             val body = JSONObject().apply {
                 put("model", chatModel)
                 put("messages", JSONArray().apply {
                     put(systemMessage)
                     synchronized(history) { history.forEach { put(it) } }
                 })
-                if (toolList.length() > 0) {
+                if (sendTools) {
                     put("tools", toolList)
                     put("tool_choice", "auto")
                 }
@@ -358,6 +359,7 @@ class GroqLiveSession(
             val request = Request.Builder()
                 .url("$BASE/chat/completions")
                 .header("Authorization", "Bearer $groqKey")
+                .header("User-Agent", "JarvisAndroid/1.0")
                 .post(body.toString().toRequestBody(JSON_TYPE))
                 .build()
             val (code, raw, retryAfter) = http.newCall(request).execute().use {
@@ -367,16 +369,35 @@ class GroqLiveSession(
                 return try {
                     JSONObject(raw).getJSONArray("choices").getJSONObject(0).getJSONObject("message")
                 } catch (e: Exception) {
-                    reportHttpError(500, "", null)
+                    reportHttpError(500, raw, null)
                     null
                 }
             }
-            if (code == 400 && raw.contains("tool_use_failed") && attempt == 0) continue
+            if (code == 400 && raw.contains("tool_use_failed") && !retriedToolFailure) {
+                retriedToolFailure = true
+                continue
+            }
+            if (sendTools && (code == 400 || code == 413 || code == 422)) {
+                Log.w(TAG, "Groq rejected the tool list (HTTP $code). Retrying without tools.")
+                sendTools = false
+                continue
+            }
             reportHttpError(code, raw, retryAfter)
             return null
         }
         reportHttpError(400, "", null)
         return null
+    }
+
+    private suspend fun reportException(e: Exception) {
+        Log.e(TAG, "Groq turn failed: " + e.javaClass.simpleName + " " + e.message)
+        groqListener.onError(
+            "Groq network error: " + e.javaClass.simpleName + (e.message?.let { " - " + it.take(100) } ?: ""),
+            false,
+            "GROQ_NETWORK"
+        )
+        speak("I could not reach Groq. Please check your internet connection and try again.")
+        groqListener.onTurnCompleted()
     }
 
     private suspend fun reportHttpError(code: Int, raw: String, retryAfter: String?) {
@@ -402,7 +423,8 @@ class GroqLiveSession(
                 groqListener.onTurnCompleted()
             }
             else -> {
-                speak("Sorry, I could not reach Groq just now. Please try again.")
+                groqListener.onError("Groq error " + code + ": " + detail.take(140), false, "GROQ_HTTP_ERROR")
+                speak("Sorry, Groq returned an error. Please try again.")
                 groqListener.onTurnCompleted()
             }
         }
@@ -534,6 +556,9 @@ class GroqLiveSession(
                 }
                 else -> out.put(key, value)
             }
+        }
+        if (out.optString("type") == "array" && !out.has("items")) {
+            out.put("items", JSONObject().put("type", "string"))
         }
         return out
     }
