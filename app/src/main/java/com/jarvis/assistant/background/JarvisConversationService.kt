@@ -3495,18 +3495,22 @@ class JarvisConversationService : Service() {
         val ctx = applicationContext
         val simChoice = com.jarvis.assistant.util.SimCallHelper.parseSimNumber(simArg)
 
-        if (!com.jarvis.assistant.util.SimCallHelper.hasPhoneStatePermission(ctx) && !phoneStatePermissionAsked) {
-            phoneStatePermissionAsked = true
-            try {
-                startActivity(
-                    Intent(ctx, com.jarvis.assistant.ui.settings.PhonePermissionActivity::class.java)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
-            } catch (_: Exception) {
+        if (!com.jarvis.assistant.util.SimCallHelper.hasPhoneStatePermission(ctx)) {
+            // Without this permission SIMs cannot be listed. If the user did not ask for a SIM, call normally.
+            if (simChoice == null) return null
+            if (!phoneStatePermissionAsked) {
+                phoneStatePermissionAsked = true
+                try {
+                    startActivity(
+                        Intent(ctx, com.jarvis.assistant.ui.settings.PhonePermissionActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                } catch (_: Exception) {
+                }
             }
             return Pair(
                 false,
-                "To choose between SIM cards I need one more phone permission. A permission prompt is on screen. Ask the user to tap Allow, then repeat the call request."
+                "Jarvis does not have the READ_PHONE_STATE permission, so it cannot choose SIM $simChoice. Tell the user to open Jarvis Settings once, or allow Phone permission in Android Settings > Apps > Jarvis > Permissions, then ask again. Do not call on another SIM."
             )
         }
 
@@ -3525,7 +3529,7 @@ class JarvisConversationService : Service() {
         if (simChoice == null) return null
 
         if (sims.isEmpty()) {
-            return Pair(false, "I cannot read which SIMs are active, so I cannot choose SIM $simChoice. Ask the user to allow the Phone permission for Jarvis in Android settings.")
+            return Pair(false, "I cannot read which SIMs are active (READ_PHONE_STATE or READ_PHONE_NUMBERS may be missing), so I cannot choose SIM $simChoice. Ask the user to allow Phone permission for Jarvis in Android Settings > Apps > Jarvis > Permissions.")
         }
         if (sims.size == 1) {
             return if (simChoice == sims[0].slot + 1) null
@@ -3535,20 +3539,31 @@ class JarvisConversationService : Service() {
         val sim = sims.firstOrNull { it.slot + 1 == simChoice }
             ?: return Pair(false, "SIM $simChoice is not available on this phone.")
 
-        return when (val lookup = com.jarvis.assistant.util.SimCallHelper.lookupContact(ctx, contact)) {
-            is com.jarvis.assistant.util.SimCallHelper.ContactLookup.Found -> {
-                if (com.jarvis.assistant.util.SimCallHelper.placeCall(ctx, lookup.number, sim)) {
-                    Pair(true, "Calling " + lookup.name + " with SIM " + simChoice + ".")
-                } else {
-                    Pair(false, "Could not place the call with SIM $simChoice. Check that the Phone permission is granted.")
-                }
+        val numeric = contact.length >= 3 &&
+            contact.all { it.isDigit() || it == '+' || it == ' ' || it == '-' || it == '(' || it == ')' }
+        val target: com.jarvis.assistant.util.ContactCaller.Contact
+        if (numeric) {
+            target = com.jarvis.assistant.util.ContactCaller.Contact(contact, contact.filter { it.isDigit() || it == '+' })
+        } else {
+            if (!com.jarvis.assistant.util.ContactCaller.hasContactsPermission(ctx)) {
+                return Pair(
+                    false,
+                    "Jarvis does not have the READ_CONTACTS permission. Ask the user to allow Contacts for Jarvis in Android Settings > Apps > Jarvis > Permissions, or open Jarvis Settings once."
+                )
             }
-            is com.jarvis.assistant.util.SimCallHelper.ContactLookup.Multiple ->
-                Pair(false, "Several contacts match: " + lookup.names.joinToString(", ") + ". Ask the user which one.")
-            is com.jarvis.assistant.util.SimCallHelper.ContactLookup.NoPermission ->
-                Pair(false, "Contacts permission is not granted, so I cannot look up that contact.")
-            is com.jarvis.assistant.util.SimCallHelper.ContactLookup.NoMatch ->
-                Pair(false, "Could not find a contact named $contact.")
+            val matches = com.jarvis.assistant.util.ContactCaller.findMatches(ctx, contact)
+            if (matches.isEmpty()) return Pair(false, "Could not find a contact named $contact.")
+            val names = matches.map { it.name }.distinctBy { it.lowercase(Locale.ROOT) }
+            if (names.size > 1) {
+                return Pair(false, "Several contacts match: " + names.take(5).joinToString(", ") + ". Ask the user which one.")
+            }
+            target = matches.first()
+        }
+
+        return if (com.jarvis.assistant.util.SimCallHelper.placeCall(ctx, target.number, sim)) {
+            Pair(true, "Calling " + target.name + " with SIM " + simChoice + ".")
+        } else {
+            Pair(false, "Could not place the call with SIM $simChoice. Check that CALL_PHONE is granted to Jarvis in Android Settings > Apps > Jarvis > Permissions > Phone.")
         }
     }
 
