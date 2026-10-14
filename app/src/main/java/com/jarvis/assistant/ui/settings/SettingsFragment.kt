@@ -186,6 +186,44 @@ class SettingsFragment : Fragment() {
             startActivity(Intent(requireContext(), ScreenUnlockActivity::class.java))
         }
 
+        updateAiEngineSubtitle()
+        binding.rowAiEngine.setOnClickListener { showAiEngineDialog() }
+
+        val voiceModeStore = com.jarvis.assistant.security.VoiceModeStore(requireContext())
+        binding.switchOwnerOnly.isChecked = voiceModeStore.ownerOnly
+        binding.switchOwnerOnly.setOnCheckedChangeListener { _, isChecked ->
+            voiceModeStore.ownerOnly = isChecked
+            val msg = if (isChecked) {
+                if (preferences.hasOwnerVoiceProfile()) "Owner Voice Only: other voices are ignored" else "Owner Voice Only is on, but you still need to enroll your voice"
+            } else {
+                "Everyone mode: Jarvis answers every voice it hears"
+            }
+            Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show()
+        }
+
+        binding.rowDefaultAssistant.setOnClickListener {
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    val roleManager = requireContext().getSystemService(android.app.role.RoleManager::class.java)
+                    if (roleManager != null && roleManager.isRoleAvailable(android.app.role.RoleManager.ROLE_ASSISTANT)) {
+                        if (roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_ASSISTANT)) {
+                            Toast.makeText(requireContext(), "Jarvis is already your default assistant", Toast.LENGTH_LONG).show()
+                        } else {
+                            startActivity(roleManager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_ASSISTANT))
+                        }
+                        return@setOnClickListener
+                    }
+                }
+                startActivity(Intent(android.provider.Settings.ACTION_VOICE_INPUT_SETTINGS))
+            } catch (e: Exception) {
+                Toast.makeText(
+                    requireContext(),
+                    "Open Android Settings > Apps > Default apps > Digital assistant app and choose Jarvis.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+
         binding.rowAppIdentity.setOnClickListener {
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle("JARVIS App Identity")
@@ -276,5 +314,75 @@ class SettingsFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private fun updateAiEngineSubtitle() {
+        val store = com.jarvis.assistant.security.AiEngineStore(requireContext())
+        binding.tvAiEngineSubtitle.text = if (store.useGroq) {
+            "Active: Groq (" + store.groqChatModel + ")"
+        } else {
+            "Active: Gemini Live"
+        }
+    }
+
+    private fun showAiEngineDialog() {
+        val ctx = requireContext()
+        val store = com.jarvis.assistant.security.AiEngineStore(ctx)
+        val pad = (20 * resources.displayMetrics.density).toInt()
+
+        val container = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(pad, pad / 2, pad, 0)
+        }
+        val group = android.widget.RadioGroup(ctx)
+        val rbGemini = android.widget.RadioButton(ctx).apply {
+            id = android.view.View.generateViewId()
+            text = "Gemini Live (voice to voice)"
+        }
+        val rbGroq = android.widget.RadioButton(ctx).apply {
+            id = android.view.View.generateViewId()
+            text = "Groq (Whisper + Llama, phone voice)"
+        }
+        group.addView(rbGemini)
+        group.addView(rbGroq)
+        if (store.useGroq) rbGroq.isChecked = true else rbGemini.isChecked = true
+
+        val keyInput = EditText(ctx).apply {
+            hint = if (store.hasGroqKey()) "Groq key saved. Leave empty to keep it" else "Groq API key (starts with gsk_)"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setSingleLine()
+        }
+        val modelInput = EditText(ctx).apply {
+            setText(store.groqChatModel)
+            hint = "Groq chat model"
+            setSingleLine()
+        }
+        container.addView(group)
+        container.addView(keyInput)
+        container.addView(modelInput)
+
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle("AI Engine")
+            .setView(container)
+            .setPositiveButton("Save") { _, _ ->
+                val newKey = keyInput.text.toString().trim()
+                if (newKey.isNotEmpty() && !store.setGroqKey(newKey)) {
+                    Toast.makeText(ctx, "Could not store the Groq key securely on this phone", Toast.LENGTH_LONG).show()
+                }
+                val model = modelInput.text.toString().trim()
+                if (model.isNotEmpty()) store.groqChatModel = model
+
+                val wantGroq = rbGroq.isChecked
+                if (wantGroq && !store.hasGroqKey()) {
+                    store.useGroq = false
+                    Toast.makeText(ctx, "Enter your Groq API key first. Staying on Gemini.", Toast.LENGTH_LONG).show()
+                } else {
+                    store.useGroq = wantGroq
+                    Toast.makeText(ctx, "Saved. It takes effect the next time Jarvis starts listening.", Toast.LENGTH_LONG).show()
+                }
+                updateAiEngineSubtitle()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 }
