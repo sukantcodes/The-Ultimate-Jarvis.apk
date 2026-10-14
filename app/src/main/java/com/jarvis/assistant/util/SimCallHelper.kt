@@ -2,6 +2,7 @@ package com.jarvis.assistant.util
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
@@ -139,18 +140,32 @@ object SimCallHelper {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
             return false
         }
-        return try {
-            val telecom = context.getSystemService(Context.TELECOM_SERVICE) as? TelecomManager ?: return false
-            val extras = Bundle().apply {
-                putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, sim.handle)
+        val uri = Uri.fromParts("tel", number, null)
+        try {
+            val telecom = context.getSystemService(Context.TELECOM_SERVICE) as? TelecomManager
+            if (telecom != null) {
+                val extras = Bundle().apply {
+                    putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, sim.handle)
+                }
+                telecom.placeCall(uri, extras)
+                return true
             }
-            telecom.placeCall(Uri.fromParts("tel", number, null), extras)
-            true
-        } catch (e: SecurityException) {
-            Log.w(TAG, "placeCall denied: ${e.message}")
-            false
         } catch (e: Exception) {
-            Log.w(TAG, "placeCall failed: ${e.message}")
+            Log.w(TAG, "placeCall failed, trying the call intent: ${e.message}")
+        }
+        return try {
+            val intent = Intent(Intent.ACTION_CALL, uri).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                putExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, sim.handle)
+                putExtra("com.android.phone.force.slot", true)
+                putExtra("com.android.phone.extra.slot", sim.slot)
+                putExtra("slot", sim.slot)
+                putExtra("simSlot", sim.slot)
+            }
+            context.startActivity(intent)
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "Call intent failed: ${e.message}")
             false
         }
     }
