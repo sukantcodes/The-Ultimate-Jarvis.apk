@@ -725,11 +725,13 @@ class JarvisConversationService : Service() {
 
         val app = application as JarvisApp
         val preferences = app.preferences
-        val apiKey = preferences.apiKey.trim()
+        val engineStore = com.jarvis.assistant.security.AiEngineStore(applicationContext)
+        val useGroq = engineStore.useGroq
+        val apiKey = if (useGroq) engineStore.groqKey().trim() else preferences.apiKey.trim()
         if (apiKey.isBlank()) {
             _liveError.value = JarvisLiveError(
                 title = "API KEY MISSING",
-                message = "No Gemini API Key configured. Please enter your API Key in Settings to activate Jarvis.",
+                message = if (useGroq) "No Groq API key saved. Open Settings > AI Engine and enter your Groq key to activate Jarvis." else "No Gemini API Key configured. Please enter your API Key in Settings to activate Jarvis.",
                 errorCode = "API_KEY_MISSING",
                 actionText = "OPEN SETTINGS"
             )
@@ -758,7 +760,7 @@ class JarvisConversationService : Service() {
         val now = System.currentTimeMillis()
         lastUserSpeechDetectedTime = now
         lastOwnerVerifiedTimestamp = now
-        isCurrentTurnOwnerVoiceVerified = !preferences.isOwnerVoiceEnabled || !preferences.hasOwnerVoiceProfile()
+        isCurrentTurnOwnerVoiceVerified = !ownerVoiceGateOn()
         strictOwnerMatchedThisTurn = false
         pendingToolCalls.clear()
         hasSpeechInCurrentUtterance = false
@@ -801,7 +803,8 @@ class JarvisConversationService : Service() {
 
             withContext(Dispatchers.Main) {
                 if (!_isSessionOn.value) return@withContext
-                liveWebSocket = GeminiLiveWebSocket(
+                liveWebSocket = createLiveSession(
+                    useGroq = useGroq,
                     apiKey = apiKey,
                     model = preferences.aiModel,
                     voiceName = preferences.voice,
@@ -1011,7 +1014,7 @@ class JarvisConversationService : Service() {
                             consecutiveVoicedFrames = 0
                             totalVoicedFramesInCurrentUtterance = 0
                             synchronized(currentUtteranceAudioStream) { currentUtteranceAudioStream.reset() }
-                            isCurrentTurnOwnerVoiceVerified = !preferences.isOwnerVoiceEnabled || !preferences.hasOwnerVoiceProfile()
+                            isCurrentTurnOwnerVoiceVerified = !ownerVoiceGateOn()
                             strictOwnerMatchedThisTurn = false
                             if (_conversationState.value != ConversationState.SPEAKING) {
                                 setConversationState(if (userTurnInProgress) ConversationState.LISTENING else ConversationState.IDLE)
@@ -1060,7 +1063,7 @@ class JarvisConversationService : Service() {
                             val hasActualSpeechInThisTurn = hasSpeechInCurrentUtterance || currentTurnUserText.isNotEmpty()
                             val isLeaseActive = (System.currentTimeMillis() - lastOwnerVerifiedTimestamp) < 120_000L
 
-                            if (preferences.isOwnerVoiceEnabled && preferences.hasOwnerVoiceProfile() && !isCurrentTurnOwnerVoiceVerified && !isLeaseActive && hasActualSpeechInThisTurn) {
+                            if (ownerVoiceGateOn() && !isCurrentTurnOwnerVoiceVerified && !isLeaseActive && hasActualSpeechInThisTurn) {
                                 val nonOwnerUtterance = currentTurnUserText.toString().trim()
                                 Log.w("JarvisService", "Turn completed by NON-OWNER: Suppressing response and logging ignored.")
                                 val app = application as? JarvisApp
@@ -1097,7 +1100,7 @@ class JarvisConversationService : Service() {
                             }
 
                             // Reset verification flag for the next conversational turn
-                            if (preferences.isOwnerVoiceEnabled && preferences.hasOwnerVoiceProfile()) {
+                            if (ownerVoiceGateOn()) {
                                 // Keep verification active if within the owner session lease window.
                                 // This prevents the owner from being re-challenged every single turn.
                                 val leaseStillActive = (System.currentTimeMillis() - lastOwnerVerifiedTimestamp) < 120_000L
@@ -1312,7 +1315,7 @@ class JarvisConversationService : Service() {
                             val hasNoIncomingSpeech = !hasSpeechInCurrentUtterance && currentTurnUserText.isEmpty()
                             val isOwnerVerifiedOrAutonomous = isCurrentTurnOwnerVoiceVerified || isLeaseActive || hasNoIncomingSpeech || isAutonomousTaskRunning
 
-                            if (preferences.isOwnerVoiceEnabled && preferences.hasOwnerVoiceProfile() && !isOwnerVerifiedOrAutonomous) {
+                            if (ownerVoiceGateOn() && !isOwnerVerifiedOrAutonomous) {
                                 Log.w("JarvisService", "QUEUED tool call '$name' (callId=$callId): Owner verification pending, will execute after silence detection confirms speaker.")
                                 pendingToolCalls.add(PendingToolCall(callId, name, args))
                                 return
@@ -1371,7 +1374,7 @@ class JarvisConversationService : Service() {
                                     currentUtteranceAudioStream.reset()
                                     currentUtteranceAudioStream.write(chunk)
                                 }
-                                isCurrentTurnOwnerVoiceVerified = !preferences.isOwnerVoiceEnabled || !preferences.hasOwnerVoiceProfile()
+                                isCurrentTurnOwnerVoiceVerified = !ownerVoiceGateOn()
                                 strictOwnerMatchedThisTurn = false
                                 return@AudioRecorder
                             }
@@ -1438,7 +1441,7 @@ class JarvisConversationService : Service() {
                                     }
                                 }
                             }
-                            isCurrentTurnOwnerVoiceVerified = !preferences.isOwnerVoiceEnabled || !preferences.hasOwnerVoiceProfile()
+                            isCurrentTurnOwnerVoiceVerified = !ownerVoiceGateOn()
                             strictOwnerMatchedThisTurn = false
                         }
                         hasSpeechInCurrentUtterance = true
@@ -1446,7 +1449,7 @@ class JarvisConversationService : Service() {
                         totalVoicedFramesInCurrentUtterance++
                         // EARLY VOICE VERIFICATION: Verify owner as soon as we have enough voiced audio (300ms)
                         // This ensures verification completes BEFORE Gemini starts sending response audio
-                        if (!isCurrentTurnOwnerVoiceVerified && preferences.isOwnerVoiceEnabled && preferences.hasOwnerVoiceProfile() && totalVoicedFramesInCurrentUtterance == 15) {
+                        if (!isCurrentTurnOwnerVoiceVerified && ownerVoiceGateOn() && totalVoicedFramesInCurrentUtterance == 15) {
                             val audioSnapshot = synchronized(currentUtteranceAudioStream) { currentUtteranceAudioStream.toByteArray() }
                             if (audioSnapshot.size >= 16000 * 2 * 0.25) {
                                 serviceScope.launch(Dispatchers.Default) {
@@ -1493,7 +1496,7 @@ class JarvisConversationService : Service() {
 
                         // Conversational pause reached (~450ms — safe for natural Hinglish speech with inter-word pauses)
                         if (silentDuration > 450) {
-                            if (preferences.isOwnerVoiceEnabled && preferences.hasOwnerVoiceProfile()) {
+                            if (ownerVoiceGateOn()) {
                                 val isLeaseActive = (now - lastOwnerVerifiedTimestamp) < 120_000L
                                 if (isLeaseActive) {
                                     // Ultra-low latency: Active owner lease immediately confirms turn with 0ms delay
@@ -1532,7 +1535,7 @@ class JarvisConversationService : Service() {
                                             processPendingToolCalls(verified = false)
                                         }
                                     } else {
-                                        isCurrentTurnOwnerVoiceVerified = !preferences.isOwnerVoiceEnabled || !preferences.hasOwnerVoiceProfile()
+                                        isCurrentTurnOwnerVoiceVerified = !ownerVoiceGateOn()
                                         strictOwnerMatchedThisTurn = false
                                         if (!isCurrentTurnOwnerVoiceVerified) {
                                             processPendingToolCalls(verified = false)
@@ -1542,7 +1545,7 @@ class JarvisConversationService : Service() {
                             }
 
                             if (totalVoicedFramesInCurrentUtterance >= VAD_MIN_UTTERANCE_FRAMES || currentTurnUserText.trim().isNotEmpty()) {
-                                if (preferences.isOwnerVoiceEnabled && preferences.hasOwnerVoiceProfile() && !isCurrentTurnOwnerVoiceVerified) {
+                                if (ownerVoiceGateOn() && !isCurrentTurnOwnerVoiceVerified) {
                                     val nonOwnerQuery = currentTurnUserText.toString().trim()
                                     Log.w("JarvisService", "Non-owner speech ended: '$nonOwnerQuery'; IGNORING utterance, suppressing reply, and recording to history.")
                                     val app = application as? JarvisApp
@@ -2032,18 +2035,57 @@ class JarvisConversationService : Service() {
 
                     "call_contact" -> {
                         val contact = args.optString("contact_name", "").trim()
+                        val simArg = args.optString("sim", "").trim()
                         audioPlayer?.flush()
-                        val callResult = com.jarvis.assistant.util.ContactCaller.callContact(this@JarvisConversationService, contact)
-                        val (ok, msg) = when (callResult) {
-                            is com.jarvis.assistant.util.ContactCaller.CallResult.Success -> Pair(true, "Calling ${callResult.contact.name}.")
-                            is com.jarvis.assistant.util.ContactCaller.CallResult.NoMatch -> Pair(false, "Could not find contact $contact.")
-                            is com.jarvis.assistant.util.ContactCaller.CallResult.MultipleMatches -> Pair(false, "Multiple contacts found for $contact.")
-                            is com.jarvis.assistant.util.ContactCaller.CallResult.MissingContactsPermission -> Pair(false, "Contacts permission is not granted, so JARVIS cannot look up that saved contact.")
-                            is com.jarvis.assistant.util.ContactCaller.CallResult.MissingCallPermission -> Pair(false, "Phone call permission is not granted.")
-                            is com.jarvis.assistant.util.ContactCaller.CallResult.CallFailed -> Pair(false, "Could not place phone call.")
+                        val simOutcome = handleSimCall(contact, simArg)
+                        if (simOutcome != null) {
+                            result.put("success", simOutcome.first)
+                            result.put("message", simOutcome.second)
+                        } else {
+                            val callResult = com.jarvis.assistant.util.ContactCaller.callContact(this@JarvisConversationService, contact)
+                            val (ok, msg) = when (callResult) {
+                                is com.jarvis.assistant.util.ContactCaller.CallResult.Success -> Pair(true, "Calling ${callResult.contact.name}.")
+                                is com.jarvis.assistant.util.ContactCaller.CallResult.NoMatch -> Pair(false, "Could not find contact $contact.")
+                                is com.jarvis.assistant.util.ContactCaller.CallResult.MultipleMatches -> Pair(false, "Multiple contacts found for $contact.")
+                                is com.jarvis.assistant.util.ContactCaller.CallResult.MissingContactsPermission -> Pair(false, "Contacts permission is not granted, so JARVIS cannot look up that saved contact.")
+                                is com.jarvis.assistant.util.ContactCaller.CallResult.MissingCallPermission -> Pair(false, "Phone call permission is not granted.")
+                                is com.jarvis.assistant.util.ContactCaller.CallResult.CallFailed -> Pair(false, "Could not place phone call.")
+                            }
+                            result.put("success", ok)
+                            result.put("message", msg)
                         }
-                        result.put("success", ok)
-                        result.put("message", msg)
+                    }
+
+                    "call_control" -> {
+                        val callAction = args.optString("action", "").lowercase(Locale.ROOT).trim()
+                        val callService = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance
+                        if (callService == null) {
+                            result.put("success", false)
+                            result.put("message", "The accessibility service is not running, so the call screen cannot be controlled.")
+                        } else {
+                            try {
+                                (getSystemService(Context.TELECOM_SERVICE) as? android.telecom.TelecomManager)?.showInCallScreen(false)
+                            } catch (_: Exception) {
+                            }
+                            kotlinx.coroutines.delay(900)
+                            val outcome = callService.pressCallControl(callAction)
+                            val isRecord = callAction.startsWith("record")
+                            val (ok, msg) = when (outcome) {
+                                "OK" -> Pair(true, if (callAction == "record_start") {
+                                    "Pressed the dialer's Record button. Remind the user that recording laws may require everyone on the call to agree."
+                                } else "Done: $callAction.")
+                                "ALREADY" -> Pair(true, "Already in that state: $callAction.")
+                                "NO_SCREEN" -> Pair(false, "Could not read the screen. Make sure the call screen is showing.")
+                                "NOT_FOUND" -> if (isRecord) {
+                                    Pair(false, "This phone's call screen has no Record button, so call recording is not available. Android does not let apps record calls on their own. Tell the user this honestly.")
+                                } else {
+                                    Pair(false, "Could not find that button on the call screen. Make sure a call is active.")
+                                }
+                                else -> Pair(false, "The tap on the call screen did not work.")
+                            }
+                            result.put("success", ok)
+                            result.put("message", msg)
+                        }
                     }
 
                     "set_volume" -> {
@@ -2099,7 +2141,10 @@ class JarvisConversationService : Service() {
                     "unlock_device" -> {
                         val unlockStore = com.jarvis.assistant.security.UnlockCredentialStore(applicationContext)
                         val ownerEnrolled = preferences.isOwnerVoiceEnabled && preferences.hasOwnerVoiceProfile()
-                        if (!isExplicitUnlockCommand(currentTurnUserText.toString())) {
+                        if (ownerEnrolled && !ownerVoiceGateOn()) {
+                            result.put("success", false)
+                            result.put("message", "REFUSED: Jarvis is in Everyone voice mode, so it cannot confirm the owner's voice. Tell the user in one short sentence that unlocking needs Owner Voice Only mode, which they can switch on in Jarvis Settings.")
+                        } else if (!isExplicitUnlockCommand(currentTurnUserText.toString())) {
                             result.put("success", false)
                             result.put("message", "REFUSED: the user's current request did not clearly ask to unlock the phone. Do not retry; continue the conversation.")
                         } else {
@@ -2665,7 +2710,7 @@ class JarvisConversationService : Service() {
         }
         if (hasExecutedCommandInCurrentTurn || cleanSpeech == lastHandledCommandText) return
 
-        if (preferences.isOwnerVoiceEnabled && preferences.hasOwnerVoiceProfile() && !isCurrentTurnOwnerVoiceVerified) {
+        if (ownerVoiceGateOn() && !isCurrentTurnOwnerVoiceVerified) {
             Log.w("JarvisService", "BLOCKED local command execution: Speaker is not verified owner! ('$cleanSpeech')")
             return
         }
@@ -2949,7 +2994,7 @@ class JarvisConversationService : Service() {
         }
 
         if (reply.isNotEmpty() && app != null) {
-            val isOwnerCheckPassed = !preferences.isOwnerVoiceEnabled || !preferences.hasOwnerVoiceProfile() || isCurrentTurnOwnerVoiceVerified
+            val isOwnerCheckPassed = !ownerVoiceGateOn() || isCurrentTurnOwnerVoiceVerified
             if (isOwnerCheckPassed) {
                 app.chatRepository.addTurn(
                     userText = query.ifEmpty { "Spoken user query" },
@@ -2974,7 +3019,7 @@ class JarvisConversationService : Service() {
         lastHandledAssistantCommand = ""
         val prefs = (application as? JarvisApp)?.preferences
         val isLeaseActive = (System.currentTimeMillis() - lastOwnerVerifiedTimestamp) < 30_000L
-        isCurrentTurnOwnerVoiceVerified = prefs == null || !prefs.isOwnerVoiceEnabled || !prefs.hasOwnerVoiceProfile() || isLeaseActive
+        isCurrentTurnOwnerVoiceVerified = prefs == null || !ownerVoiceGateOn() || isLeaseActive
         strictOwnerMatchedThisTurn = false
         pendingToolCalls.clear()
         synchronized(currentUtteranceAudioStream) { currentUtteranceAudioStream.reset() }
@@ -3228,7 +3273,7 @@ class JarvisConversationService : Service() {
             }
 
             // 5. Owner Voice Verification (if enabled)
-            if (preferences.isOwnerVoiceEnabled && preferences.hasOwnerVoiceProfile()) {
+            if (ownerVoiceGateOn()) {
                 val spkArray = json.optJSONArray("spk")
                 if (spkArray != null && spkArray.length() > 0) {
                     val currentVector = FloatArray(spkArray.length()) { i -> spkArray.getDouble(i).toFloat() }
@@ -3299,6 +3344,7 @@ class JarvisConversationService : Service() {
         if (!_isStandby.value) return
         requestAudioDuckFocus()
         vibrateBriefly()
+        com.jarvis.assistant.ui.overlay.GlowOverlay.show(applicationContext)
         com.jarvis.assistant.audio.JarvisSoundEffects.playWakeSound()
         exitStandbyListening()
         currentTurnAssistantText.clear()
@@ -3404,6 +3450,108 @@ class JarvisConversationService : Service() {
         return patterns.any { containsPhrase(clean, it) }
     }
 
+    /** Creates the Gemini Live session, or the Groq session when the user chose Groq in Settings > AI Engine. */
+    private fun createLiveSession(
+        useGroq: Boolean,
+        apiKey: String,
+        model: String,
+        voiceName: String,
+        systemPrompt: String,
+        listener: GeminiLiveWebSocket.Listener
+    ): GeminiLiveWebSocket {
+        if (!useGroq) {
+            return GeminiLiveWebSocket(
+                apiKey = apiKey,
+                model = model,
+                voiceName = voiceName,
+                systemPrompt = systemPrompt,
+                listener = listener
+            )
+        }
+        val store = com.jarvis.assistant.security.AiEngineStore(applicationContext)
+        return com.jarvis.assistant.network.GroqLiveSession(
+            context = applicationContext,
+            groqKey = apiKey,
+            chatModel = store.groqChatModel,
+            voiceName = voiceName,
+            systemPromptText = systemPrompt,
+            groqListener = listener
+        )
+    }
+
+    private val voiceModeStore by lazy { com.jarvis.assistant.security.VoiceModeStore(applicationContext) }
+
+    /** True when only the enrolled owner's voice should be accepted (needs a voice profile and the Owner Voice Only switch on). */
+    private fun ownerVoiceGateOn(): Boolean =
+        preferences.isOwnerVoiceEnabled && preferences.hasOwnerVoiceProfile() && voiceModeStore.ownerOnly
+
+    @Volatile private var phoneStatePermissionAsked = false
+
+    /**
+     * Dual-SIM handling for call_contact. Returns null when the normal ContactCaller path should be used
+     * (single SIM, or SIM details cannot be read), otherwise the (success, message) to report.
+     */
+    private fun handleSimCall(contact: String, simArg: String): Pair<Boolean, String>? {
+        val ctx = applicationContext
+        val simChoice = com.jarvis.assistant.util.SimCallHelper.parseSimNumber(simArg)
+
+        if (!com.jarvis.assistant.util.SimCallHelper.hasPhoneStatePermission(ctx) && !phoneStatePermissionAsked) {
+            phoneStatePermissionAsked = true
+            try {
+                startActivity(
+                    Intent(ctx, com.jarvis.assistant.ui.settings.PhonePermissionActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            } catch (_: Exception) {
+            }
+            return Pair(
+                false,
+                "To choose between SIM cards I need one more phone permission. A permission prompt is on screen. Ask the user to tap Allow, then repeat the call request."
+            )
+        }
+
+        val sims = com.jarvis.assistant.util.SimCallHelper.activeSims(ctx)
+
+        if (sims.size >= 2 && simChoice == null) {
+            val options = sims.joinToString(", ") { sim ->
+                "SIM " + (sim.slot + 1) + (if (sim.label.isNotBlank()) " (" + sim.label + ")" else "")
+            }
+            return Pair(
+                false,
+                "TWO_SIMS: This phone has two active SIMs ($options). Ask the user which SIM to use, SIM 1 or SIM 2, then call call_contact again with the sim argument. Do not guess."
+            )
+        }
+
+        if (simChoice == null) return null
+
+        if (sims.isEmpty()) {
+            return Pair(false, "I cannot read which SIMs are active, so I cannot choose SIM $simChoice. Ask the user to allow the Phone permission for Jarvis in Android settings.")
+        }
+        if (sims.size == 1) {
+            return if (simChoice == sims[0].slot + 1) null
+            else Pair(false, "Only one SIM is active on this phone, so SIM $simChoice is not available.")
+        }
+
+        val sim = sims.firstOrNull { it.slot + 1 == simChoice }
+            ?: return Pair(false, "SIM $simChoice is not available on this phone.")
+
+        return when (val lookup = com.jarvis.assistant.util.SimCallHelper.lookupContact(ctx, contact)) {
+            is com.jarvis.assistant.util.SimCallHelper.ContactLookup.Found -> {
+                if (com.jarvis.assistant.util.SimCallHelper.placeCall(ctx, lookup.number, sim)) {
+                    Pair(true, "Calling " + lookup.name + " with SIM " + simChoice + ".")
+                } else {
+                    Pair(false, "Could not place the call with SIM $simChoice. Check that the Phone permission is granted.")
+                }
+            }
+            is com.jarvis.assistant.util.SimCallHelper.ContactLookup.Multiple ->
+                Pair(false, "Several contacts match: " + lookup.names.joinToString(", ") + ". Ask the user which one.")
+            is com.jarvis.assistant.util.SimCallHelper.ContactLookup.NoPermission ->
+                Pair(false, "Contacts permission is not granted, so I cannot look up that contact.")
+            is com.jarvis.assistant.util.SimCallHelper.ContactLookup.NoMatch ->
+                Pair(false, "Could not find a contact named $contact.")
+        }
+    }
+
     private val sensitiveUiPhrases = listOf(
         "place order", "place your order", "buy now", "pay now", "confirm order", "confirm payment",
         "complete purchase", "submit order", "make payment", "send money",
@@ -3444,6 +3592,10 @@ class JarvisConversationService : Service() {
     private fun sensitiveActionBlock(targetName: String, description: String): String? {
         val haystack = (targetName + " " + description).lowercase(Locale.ROOT)
         if (sensitiveUiPhrases.none { containsPhrase(haystack, it) }) return null
+
+        if (preferences.isOwnerVoiceEnabled && preferences.hasOwnerVoiceProfile() && !ownerVoiceGateOn()) {
+            return "REFUSED: Jarvis is in Everyone voice mode, so it cannot be sure the owner is asking. Do not tap it. Tell the user in one short sentence to switch on Owner Voice Only in Jarvis Settings before buying, paying or installing."
+        }
 
         if (sensitiveConfirmedForSpeechTime > 0L && lastUserSpeechDetectedTime == sensitiveConfirmedForSpeechTime) return null
 
