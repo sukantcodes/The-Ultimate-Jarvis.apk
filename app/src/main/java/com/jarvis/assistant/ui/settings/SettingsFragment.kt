@@ -188,6 +188,7 @@ class SettingsFragment : Fragment() {
 
         updateAiEngineSubtitle()
         binding.rowAiEngine.setOnClickListener { showAiEngineDialog() }
+        requestMissingCallPermissions()
 
         val voiceModeStore = com.jarvis.assistant.security.VoiceModeStore(requireContext())
         binding.switchOwnerOnly.isChecked = voiceModeStore.ownerOnly
@@ -384,5 +385,21 @@ class SettingsFragment : Fragment() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    /** Asks (in front of the user) for the contact and phone permissions that calling and SIM choice need. */
+    private fun requestMissingCallPermissions() {
+        val wanted = ArrayList<String>()
+        wanted.add(android.Manifest.permission.READ_CONTACTS)
+        wanted.add(android.Manifest.permission.CALL_PHONE)
+        wanted.add(android.Manifest.permission.READ_PHONE_STATE)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            wanted.add(android.Manifest.permission.READ_PHONE_NUMBERS)
+        }
+        val missing = wanted.filter {
+            androidx.core.content.ContextCompat.checkSelfPermission(requireContext(), it) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isNotEmpty()) requestPermissions(missing.toTypedArray(), 4108)
     }
 }
