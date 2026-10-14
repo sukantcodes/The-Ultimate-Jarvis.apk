@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
-import android.provider.ContactsContract
+import android.provider.ContactsContract.CommonDataKinds.Phone as PhoneColumns
 import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
 import android.telephony.SubscriptionManager
@@ -94,14 +94,13 @@ object SimCallHelper {
 
         val scored = LinkedHashMap<String, Pair<Int, String>>()
         try {
-            val phone = ContactsContract.CommonDataKinds.Phone
             context.contentResolver.query(
-                phone.CONTENT_URI,
-                arrayOf(phone.DISPLAY_NAME, phone.NUMBER),
+                PhoneColumns.CONTENT_URI,
+                arrayOf(PhoneColumns.DISPLAY_NAME, PhoneColumns.NUMBER),
                 null, null, null
             )?.use { c ->
-                val nameIdx = c.getColumnIndex(phone.DISPLAY_NAME)
-                val numIdx = c.getColumnIndex(phone.NUMBER)
+                val nameIdx = c.getColumnIndex(PhoneColumns.DISPLAY_NAME)
+                val numIdx = c.getColumnIndex(PhoneColumns.NUMBER)
                 if (nameIdx < 0 || numIdx < 0) return@use
                 while (c.moveToNext()) {
                     val name = c.getString(nameIdx) ?: continue
