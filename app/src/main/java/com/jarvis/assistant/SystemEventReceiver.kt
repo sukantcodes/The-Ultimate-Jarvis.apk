@@ -7,8 +7,11 @@ import android.content.Intent
 class SystemEventReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
+        // Agar user ne settings se charging alerts band kiye hain, toh return ho jao
+        if (!JarvisPreferences.isChargingAlertsEnabled(context)) return
+
         val tts = JarvisTTS(context)
-        val lang = JarvisPreferences.getLanguage(context) // App se selected language fetch hogi
+        val lang = JarvisPreferences.getLanguage(context)
 
         when (intent.action) {
             Intent.ACTION_POWER_CONNECTED -> {
