@@ -188,6 +188,8 @@ class SettingsFragment : Fragment() {
 
         updateAiEngineSubtitle()
         binding.rowAiEngine.setOnClickListener { showAiEngineDialog() }
+        updateVoiceGenderSubtitle()
+        binding.rowVoiceGender.setOnClickListener { showVoiceGenderDialog() }
         requestMissingCallPermissions()
 
         val alertSettings = com.jarvis.assistant.power.AlertSettings(requireContext())
@@ -428,5 +430,92 @@ class SettingsFragment : Fragment() {
                 android.content.pm.PackageManager.PERMISSION_GRANTED
         }
         if (missing.isNotEmpty()) requestPermissions(missing.toTypedArray(), 4108)
+    }
+
+    private fun updateVoiceGenderSubtitle() {
+        binding.tvVoiceGenderSubtitle.text = com.jarvis.assistant.voice.VoiceGenderStore(requireContext()).summary()
+    }
+
+    private fun showVoiceGenderDialog() {
+        val ctx = requireContext()
+        val store = com.jarvis.assistant.voice.VoiceGenderStore(ctx)
+        val pad = (20 * resources.displayMetrics.density).toInt()
+
+        var currentGender = store.gender
+        var maleChoice = store.maleVoice
+        var femaleChoice = store.femaleVoice
+
+        val container = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(pad, pad / 2, pad, 0)
+        }
+        val group = android.widget.RadioGroup(ctx)
+        val buttons = HashMap<com.jarvis.assistant.voice.VoiceGender, android.widget.RadioButton>()
+        for (option in com.jarvis.assistant.voice.VoiceGender.values()) {
+            val button = android.widget.RadioButton(ctx).apply {
+                id = android.view.View.generateViewId()
+                text = if (option == com.jarvis.assistant.voice.VoiceGender.UNSPECIFIED) option.label + " (default)" else option.label
+            }
+            group.addView(button)
+            buttons[option] = button
+        }
+        buttons[currentGender]?.isChecked = true
+
+        val note = android.widget.TextView(ctx).apply {
+            text = "Jarvis keeps using the voice you already chose in Settings."
+            textSize = 12f
+        }
+        val spinner = android.widget.Spinner(ctx)
+
+        fun refreshVoiceList() {
+            val voices = com.jarvis.assistant.voice.VoiceCatalog.voicesFor(currentGender)
+            if (voices.isEmpty()) {
+                spinner.visibility = android.view.View.GONE
+                note.visibility = android.view.View.VISIBLE
+                return
+            }
+            spinner.visibility = android.view.View.VISIBLE
+            note.visibility = android.view.View.GONE
+            val labels = voices.map { it.name + " - " + it.style }
+            spinner.adapter = android.widget.ArrayAdapter(ctx, android.R.layout.simple_spinner_dropdown_item, labels)
+            val chosen = if (currentGender == com.jarvis.assistant.voice.VoiceGender.MALE) maleChoice else femaleChoice
+            spinner.setSelection(voices.indexOfFirst { it.name == chosen }.coerceAtLeast(0))
+        }
+
+        spinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                val voices = com.jarvis.assistant.voice.VoiceCatalog.voicesFor(currentGender)
+                val picked = voices.getOrNull(position)?.name ?: return
+                if (currentGender == com.jarvis.assistant.voice.VoiceGender.MALE) maleChoice = picked else femaleChoice = picked
+            }
+
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
+
+        group.setOnCheckedChangeListener { _, checkedId ->
+            val selected = buttons.entries.firstOrNull { it.value.id == checkedId }?.key
+            if (selected != null) {
+                currentGender = selected
+                refreshVoiceList()
+            }
+        }
+
+        container.addView(group)
+        container.addView(note)
+        container.addView(spinner)
+        refreshVoiceList()
+
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle("Voice & Gender")
+            .setView(container)
+            .setPositiveButton("Save") { _, _ ->
+                store.gender = currentGender
+                store.maleVoice = maleChoice
+                store.femaleVoice = femaleChoice
+                updateVoiceGenderSubtitle()
+                Toast.makeText(ctx, "Saved. It takes effect the next time Jarvis starts listening.", Toast.LENGTH_LONG).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 }
