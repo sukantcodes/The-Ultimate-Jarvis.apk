@@ -66,6 +66,7 @@ class SpeechAnnouncer(context: Context) {
 
     private fun speakNow(text: String) {
         try {
+            engine?.setPitch(com.jarvis.assistant.voice.VoiceGenderStore(appContext).pitch())
             engine?.speak(text, TextToSpeech.QUEUE_ADD, null, "announce_" + counter.incrementAndGet())
         } catch (e: Exception) {
             Log.w(TAG, "Could not speak: ${e.message}")
