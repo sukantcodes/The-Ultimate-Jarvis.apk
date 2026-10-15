@@ -99,6 +99,13 @@ class JarvisConversationService : Service() {
 
         @Volatile private var activeInstance: JarvisConversationService? = null
 
+        /** Speaks a short announcement (such as a new-message alert). Returns false when the service is not running. */
+        fun announceMessage(text: String): Boolean {
+            val instance = activeInstance ?: return false
+            instance.speakAnnouncement(text)
+            return true
+        }
+
         private val _isSessionOn = MutableStateFlow(false)
         val isSessionOn: StateFlow<Boolean> = _isSessionOn.asStateFlow()
 
@@ -3559,6 +3566,20 @@ class JarvisConversationService : Service() {
         val detail = if (parts.isEmpty()) "" else " (" + parts.joinToString(", ") + ")"
         com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext)
             .log(com.jarvis.assistant.activitylog.ActivityLog.TYPE_ACTION, "Jarvis ran " + name + detail + " - " + outcome)
+    }
+
+    /** Speaks an announcement in Jarvis's own voice while a live session is open (if chosen), otherwise with the phone's voice. */
+    fun speakAnnouncement(text: String) {
+        val useJarvisVoice = com.jarvis.assistant.notifications.MessageAlertSettings(applicationContext).useJarvisVoice
+        val socket = liveWebSocket
+        if (useJarvisVoice && socket != null && socket.isSessionReady()) {
+            socket.sendClientContent(
+                "SYSTEM EVENT (not from the user): Say this to the user now in one short natural sentence, " +
+                    "in your own voice and persona, and nothing else: \"" + text + "\""
+            )
+        } else {
+            batteryAnnouncer?.say(text)
+        }
     }
 
     @Volatile private var macroJob: kotlinx.coroutines.Job? = null
