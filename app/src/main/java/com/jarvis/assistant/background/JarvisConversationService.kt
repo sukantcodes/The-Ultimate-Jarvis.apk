@@ -2213,6 +2213,37 @@ class JarvisConversationService : Service() {
                         result.put("message", recalled)
                     }
 
+                    "run_macro" -> {
+                        val macroName = args.optString("name", "").trim()
+                        val macroInput = args.optString("input", "").trim()
+                        val macro = com.jarvis.assistant.macro.MacroLibrary.find(macroName)
+                        if (macro == null) {
+                            result.put("success", false)
+                            result.put("message", "There is no macro called '" + macroName + "'. Available macros: " + com.jarvis.assistant.macro.MacroLibrary.describe())
+                        } else if (macro.param.isNotEmpty() && macroInput.isBlank()) {
+                            result.put("success", false)
+                            result.put("message", "The macro '" + macro.name + "' needs the text to use as input. Ask the user for it.")
+                        } else if (macroJob?.isActive == true) {
+                            result.put("success", false)
+                            result.put("message", "Another macro is still running. Wait for its MACRO RESULT or use stop_macro.")
+                        } else {
+                            startMacro(macro, macroInput)
+                            result.put("success", true)
+                            result.put(
+                                "message",
+                                "Started macro '" + macro.name + "'. It runs in the background and can take several minutes. " +
+                                    "Tell the user it has started in one short sentence. Do NOT tap, type, scroll or call any other tool until a MACRO RESULT message arrives."
+                            )
+                        }
+                    }
+
+                    "stop_macro" -> {
+                        val running = macroJob?.isActive == true
+                        macroJob?.cancel()
+                        result.put("success", true)
+                        result.put("message", if (running) "The running macro was stopped." else "No macro is running.")
+                    }
+
                     "open_settings_page" -> {
                         val page = args.optString("page", "").lowercase(Locale.ROOT).trim()
                         val settingsAction = settingsActionFor(page)
@@ -3522,6 +3553,105 @@ class JarvisConversationService : Service() {
         val detail = if (parts.isEmpty()) "" else " (" + parts.joinToString(", ") + ")"
         com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext)
             .log(com.jarvis.assistant.activitylog.ActivityLog.TYPE_ACTION, "Jarvis ran " + name + detail + " - " + outcome)
+    }
+
+    @Volatile private var macroJob: kotlinx.coroutines.Job? = null
+
+    private fun startMacro(macro: com.jarvis.assistant.macro.Macro, input: String) {
+        macroJob = serviceScope.launch(Dispatchers.Default) {
+            val engine = com.jarvis.assistant.macro.MacroEngine(ServiceMacroActions())
+            try {
+                val outcome = engine.run(macro, input) { progress -> Log.i("JarvisMacro", macro.name + ": " + progress) }
+                reportMacroResult(macro, outcome.success, outcome.message, outcome.output)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                reportMacroResult(macro, false, "The macro was stopped.", "")
+                throw e
+            } catch (e: Exception) {
+                reportMacroResult(macro, false, "Unexpected error: " + (e.message ?: e.javaClass.simpleName), "")
+            }
+        }
+    }
+
+    /** Tells the user (through the live session when it is open, otherwise with the phone's voice) how the macro ended. */
+    private fun reportMacroResult(macro: com.jarvis.assistant.macro.Macro, success: Boolean, message: String, output: String) {
+        com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).log(
+            com.jarvis.assistant.activitylog.ActivityLog.TYPE_ACTION,
+            "Macro '" + macro.name + "' " + (if (success) "finished" else "failed") + ": " + message.take(200)
+        )
+        val body = StringBuilder("MACRO RESULT (not from the user): the macro '").append(macro.name).append("' ")
+        body.append(if (success) "finished successfully. " else "FAILED. ").append(message)
+        if (output.isNotBlank()) {
+            body.append("\nText read from the screen (it contains the answer among other screen text):\n").append(output.take(2_500))
+            body.append("\nTell the user the answer briefly in your own words.")
+        } else if (success) {
+            body.append("\nTell the user it is done in one short sentence.")
+        } else {
+            body.append("\nTell the user in one or two short sentences what went wrong.")
+        }
+        val socket = liveWebSocket
+        if (socket != null && socket.isSessionReady()) {
+            socket.sendClientContent(body.toString())
+        } else {
+            val spoken = if (success) {
+                "The " + macro.name + " task is finished, Sir." + (if (output.isNotBlank()) " " + output.lines().lastOrNull { it.length > 20 }.orEmpty().take(300) else "")
+            } else {
+                "The " + macro.name + " task failed. " + message.take(140)
+            }
+            batteryAnnouncer?.say(spoken)
+        }
+    }
+
+    /** The real phone actions behind macro steps, built on the same accessibility tools Jarvis already uses. */
+    private inner class ServiceMacroActions : com.jarvis.assistant.macro.MacroActions {
+        private val orchestrator get() = com.jarvis.assistant.vision.VisualTaskOrchestrator.getInstance()
+
+        override suspend fun openApp(name: String, packageHints: List<String>): com.jarvis.assistant.macro.StepResult {
+            val launched = com.jarvis.assistant.util.AppLauncher.launchApp(this@JarvisConversationService, name, null)
+            if (!launched) return com.jarvis.assistant.macro.StepResult(false, "Could not find or open $name.")
+            val deadline = System.currentTimeMillis() + 10_000L
+            while (System.currentTimeMillis() < deadline) {
+                val pkg = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance
+                    ?.getActiveRootNode()?.packageName?.toString().orEmpty()
+                if (pkg.isNotBlank() && (packageHints.isEmpty() || packageHints.any { pkg.contains(it, ignoreCase = true) })) {
+                    return com.jarvis.assistant.macro.StepResult(true, "Opened $name.")
+                }
+                kotlinx.coroutines.delay(500L)
+            }
+            return com.jarvis.assistant.macro.StepResult(false, "$name did not come to the front.")
+        }
+
+        override suspend fun tapText(label: String): com.jarvis.assistant.macro.StepResult {
+            val res = orchestrator.handleClick(
+                label, null, "", false, null, null,
+                allowChromeMenuForSettings = false,
+                forbidAddingInstagramLike = false,
+                taskGoal = ""
+            )
+            return com.jarvis.assistant.macro.StepResult(res.success, res.message)
+        }
+
+        override suspend fun typeText(text: String): com.jarvis.assistant.macro.StepResult {
+            val res = orchestrator.handleType(text, null, false, null, null)
+            return com.jarvis.assistant.macro.StepResult(res.success, res.message)
+        }
+
+        override suspend fun goBack(): com.jarvis.assistant.macro.StepResult {
+            val res = orchestrator.handleKey("back")
+            return com.jarvis.assistant.macro.StepResult(res.success, res.message)
+        }
+
+        override suspend fun readScreenText(): com.jarvis.assistant.macro.StepResult {
+            val text = screenText()
+            return if (text.isBlank()) {
+                com.jarvis.assistant.macro.StepResult(false, "There is no readable text on the screen.")
+            } else {
+                com.jarvis.assistant.macro.StepResult(true, text)
+            }
+        }
+
+        override fun screenText(): String = com.jarvis.assistant.macro.ScreenTextReader.read(
+            com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance?.getActiveRootNode()
+        )
     }
 
     private val voiceModeStore by lazy { com.jarvis.assistant.security.VoiceModeStore(applicationContext) }
