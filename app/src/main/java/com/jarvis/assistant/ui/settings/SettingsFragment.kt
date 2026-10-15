@@ -49,6 +49,7 @@ class SettingsFragment : Fragment() {
         if (_binding != null) {
             com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root)
             loadUserData()
+            updateNotificationAccessSubtitle()
         }
     }
 
@@ -190,6 +191,18 @@ class SettingsFragment : Fragment() {
         binding.rowAiEngine.setOnClickListener { showAiEngineDialog() }
         updateVoiceGenderSubtitle()
         binding.rowVoiceGender.setOnClickListener { showVoiceGenderDialog() }
+
+        val messageSettings = com.jarvis.assistant.notifications.MessageAlertSettings(requireContext())
+        binding.switchMessageAnnounce.isChecked = messageSettings.enabled
+        binding.switchMessageAnnounce.setOnCheckedChangeListener { _, isChecked ->
+            messageSettings.enabled = isChecked
+        }
+        binding.switchMessageJarvisVoice.isChecked = messageSettings.useJarvisVoice
+        binding.switchMessageJarvisVoice.setOnCheckedChangeListener { _, isChecked ->
+            messageSettings.useJarvisVoice = isChecked
+        }
+        binding.rowNotificationAccess.setOnClickListener { openNotificationAccessSettings() }
+        updateNotificationAccessSubtitle()
         requestMissingCallPermissions()
 
         val alertSettings = com.jarvis.assistant.power.AlertSettings(requireContext())
@@ -517,5 +530,30 @@ class SettingsFragment : Fragment() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun isNotificationAccessGranted(): Boolean =
+        androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(requireContext())
+            .contains(requireContext().packageName)
+
+    private fun updateNotificationAccessSubtitle() {
+        if (_binding == null) return
+        binding.tvNotificationAccessSubtitle.text = if (isNotificationAccessGranted()) {
+            "Allowed. Tap to change."
+        } else {
+            "Not allowed yet. Tap to let Jarvis see new message notifications."
+        }
+    }
+
+    private fun openNotificationAccessSettings() {
+        try {
+            startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        } catch (e: Exception) {
+            Toast.makeText(
+                requireContext(),
+                "Open Android Settings > Notifications > Notification access and allow Jarvis.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 }
