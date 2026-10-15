@@ -710,7 +710,13 @@ class JarvisConversationService : Service() {
                 language = preferences.language,
                 isSilentExecutionMode = preferences.isSilentExecutionMode
             )
-            basePrompt + com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).promptSection()
+            // Groq adds the voice and self-reference notes itself, because it shortens the prompt.
+            val genderSection = if (com.jarvis.assistant.security.AiEngineStore(applicationContext).useGroq) {
+                ""
+            } else {
+                com.jarvis.assistant.voice.VoiceGenderStore(applicationContext).promptSection()
+            }
+            basePrompt + genderSection + com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).promptSection()
         }
     }
 
@@ -813,7 +819,7 @@ class JarvisConversationService : Service() {
                     useGroq = useGroq,
                     apiKey = apiKey,
                     model = preferences.aiModel,
-                    voiceName = preferences.voice,
+                    voiceName = com.jarvis.assistant.voice.VoiceGenderStore(applicationContext).voiceFor(preferences.voice),
                     systemPrompt = systemPrompt,
                     listener = object : GeminiLiveWebSocket.Listener {
                         override fun onConnectionStateChanged(status: String) {
