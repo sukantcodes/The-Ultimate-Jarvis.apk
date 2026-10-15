@@ -1419,6 +1419,194 @@
                     android:background="?attr/themeCardBorder" />
 
                 <LinearLayout
+                    android:id="@+id/rowMessageAnnounce"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingTop="14dp"
+                    android:paddingBottom="14dp">
+
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_jarvis_icon_square">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_settings_voice"
+                            app:tint="?attr/themeAccent"
+                            android:contentDescription="Message Announcements" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Message Announcements"
+                            android:textColor="?attr/themeTextPrimary"
+                            android:textSize="15sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Says who a new WhatsApp, Instazen or Instagram message is from"
+                            android:textColor="?attr/themeTextMuted"
+                            android:textSize="12sp"
+                            android:fontFamily="sans-serif"
+                            android:layout_marginTop="2dp" />
+                    </LinearLayout>
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchMessageAnnounce"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="?attr/themeCardBorder" />
+
+                <LinearLayout
+                    android:id="@+id/rowMessageJarvisVoice"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingTop="14dp"
+                    android:paddingBottom="14dp">
+
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_jarvis_icon_square">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_settings_owner_voice"
+                            app:tint="?attr/themeAccent"
+                            android:contentDescription="Use Jarvis Voice for Announcements" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Use Jarvis Voice for Announcements"
+                            android:textColor="?attr/themeTextPrimary"
+                            android:textSize="15sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Only while Jarvis is listening. Otherwise the phone voice is used"
+                            android:textColor="?attr/themeTextMuted"
+                            android:textSize="12sp"
+                            android:fontFamily="sans-serif"
+                            android:layout_marginTop="2dp" />
+                    </LinearLayout>
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchMessageJarvisVoice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="?attr/themeCardBorder" />
+
+                <LinearLayout
+                    android:id="@+id/rowNotificationAccess"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingTop="14dp"
+                    android:paddingBottom="14dp"
+                    android:background="@drawable/bg_jarvis_row_item"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_jarvis_icon_square">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_settings_lock"
+                            app:tint="?attr/themeAccent"
+                            android:contentDescription="Notification access" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginStart="14dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Notification Access"
+                            android:textColor="?attr/themeTextPrimary"
+                            android:textSize="15sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvNotificationAccessSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Needed so Jarvis can see new message notifications"
+                            android:textColor="?attr/themeTextMuted"
+                            android:textSize="12sp"
+                            android:fontFamily="sans-serif"
+                            android:layout_marginTop="2dp" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="?attr/themeTextMuted"
+                        android:contentDescription="Open" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="?attr/themeCardBorder" />
+
+                <LinearLayout
                     android:id="@+id/rowAiEngine"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
