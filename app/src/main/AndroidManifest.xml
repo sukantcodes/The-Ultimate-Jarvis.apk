@@ -33,6 +33,7 @@
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
@@ -52,14 +53,6 @@
         android:theme="@style/Theme.JarvisAssistant"
         android:hardwareAccelerated="true"
         android:networkSecurityConfig="@xml/network_security_config">
-        <receiver 
-    android:name=".SystemEventReceiver"
-    android:exported="true">
-    <intent-filter>
-        <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
-        <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
-    </intent-filter>
-</receiver>
 
         <activity
             android:name=".ui.home.MainActivity"
@@ -139,15 +132,6 @@
             android:exported="false"
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-      <service 
-    android:name=".JarvisNotificationListener"
-    android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-    android:exported="true">
-    <intent-filter>
-        <action android:name="android.service.notification.NotificationListenerService" />
-    </intent-filter>
-</service>
-      
 
         <service
             android:name=".assistant.JarvisVoiceInteractionService"
