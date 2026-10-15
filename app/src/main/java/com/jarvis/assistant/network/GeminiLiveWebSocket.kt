@@ -556,6 +556,34 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 14f. run_macro and stop_macro
+                        put(JSONObject().apply {
+                            put("name", "run_macro")
+                            put("description", "Runs a ready-made, reliable automation in another app. ALWAYS use it instead of tapping step by step when the job matches one of these macros: " + com.jarvis.assistant.macro.MacroLibrary.describe() + ". Pass the user's own words as input. It runs in the background; after calling it, wait for the MACRO RESULT message.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("name", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "The macro name, for example 'chatgpt image' or 'gemini ask'.")
+                                    })
+                                    put("input", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "The prompt or question for the macro, exactly as the user wants it.")
+                                    })
+                                })
+                                put("required", JSONArray().put("name"))
+                            })
+                        })
+                        put(JSONObject().apply {
+                            put("name", "stop_macro")
+                            put("description", "Stops the macro that is currently running. Use it when the user says stop, cancel or never mind while a macro is running.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject())
+                            })
+                        })
+
                         // 14c. open_settings_page
                         put(JSONObject().apply {
                             put("name", "open_settings_page")
