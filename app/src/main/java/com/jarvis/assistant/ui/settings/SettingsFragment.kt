@@ -190,6 +190,33 @@ class SettingsFragment : Fragment() {
         binding.rowAiEngine.setOnClickListener { showAiEngineDialog() }
         requestMissingCallPermissions()
 
+        val alertSettings = com.jarvis.assistant.power.AlertSettings(requireContext())
+        binding.switchChargingAlerts.isChecked = alertSettings.chargingAlerts
+        binding.switchChargingAlerts.setOnCheckedChangeListener { _, isChecked ->
+            alertSettings.chargingAlerts = isChecked
+        }
+        binding.switchAutoBatterySaver.isChecked = alertSettings.autoBatterySaver
+        binding.switchAutoBatterySaver.setOnCheckedChangeListener { _, isChecked ->
+            alertSettings.autoBatterySaver = isChecked
+        }
+
+        val activityLogSettings = com.jarvis.assistant.activitylog.ActivityLogSettings(requireContext())
+        binding.switchActivityMemory.isChecked = activityLogSettings.enabled
+        binding.switchActivityMemory.setOnCheckedChangeListener { _, isChecked ->
+            activityLogSettings.enabled = isChecked
+        }
+        binding.rowClearActivityMemory.setOnClickListener {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Clear activity memory?")
+                .setMessage("Jarvis will forget everything from the last 2 days. This cannot be undone.")
+                .setPositiveButton("Clear") { _, _ ->
+                    com.jarvis.assistant.activitylog.ActivityLog.get(requireContext()).clear()
+                    Toast.makeText(requireContext(), "Activity memory cleared", Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
         val voiceModeStore = com.jarvis.assistant.security.VoiceModeStore(requireContext())
         binding.switchOwnerOnly.isChecked = voiceModeStore.ownerOnly
         binding.switchOwnerOnly.setOnCheckedChangeListener { _, isChecked ->
