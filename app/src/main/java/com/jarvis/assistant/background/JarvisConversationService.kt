@@ -486,6 +486,8 @@ class JarvisConversationService : Service() {
     // --- Standby / wake-word components (Pure Vosk) ---
     private var voskSpeechService: SpeechService? = null
     private var tts: TextToSpeech? = null
+    private var batteryAnnouncer: com.jarvis.assistant.util.SpeechAnnouncer? = null
+    private var batteryWatcher: com.jarvis.assistant.power.BatteryWatcher? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
     private var standbyActivatedTime = 0L
@@ -498,6 +500,9 @@ class JarvisConversationService : Service() {
         activeInstance = this
         createChannel()
         initTts()
+        val announcer = com.jarvis.assistant.util.SpeechAnnouncer(applicationContext)
+        batteryAnnouncer = announcer
+        batteryWatcher = com.jarvis.assistant.power.BatteryWatcher(applicationContext, announcer).also { it.start() }
         headsetAudioRouter = com.jarvis.assistant.audio.HeadsetAudioRouter(applicationContext)
         taskProgressOverlay = com.jarvis.assistant.ui.agent.TaskProgressOverlay(this)
         taskProgressOverlayJob = serviceScope.launch(Dispatchers.Main.immediate) {
@@ -694,7 +699,7 @@ class JarvisConversationService : Service() {
         return withContext(Dispatchers.IO) {
             val memoryContext = app.memoryManager.getSystemPromptContext()
             val favSong = app.memoryManager.resolveSongQuery("my favorite song")
-            com.jarvis.assistant.util.PromptGenerator.generateSystemPrompt(
+            val basePrompt = com.jarvis.assistant.util.PromptGenerator.generateSystemPrompt(
                 personality = preferences.personality,
                 userName = preferences.userName,
                 memoryContext = memoryContext,
@@ -705,6 +710,7 @@ class JarvisConversationService : Service() {
                 language = preferences.language,
                 isSilentExecutionMode = preferences.isSilentExecutionMode
             )
+            basePrompt + com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).promptSection()
         }
     }
 
@@ -2197,6 +2203,16 @@ class JarvisConversationService : Service() {
                         }
                     }
 
+                    "recall_activity" -> {
+                        val recallQuery = args.optString("query", "").trim()
+                        val recallHours = args.optInt("hours", 0)
+                        val recalled = withContext(Dispatchers.IO) {
+                            com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).recall(recallQuery, recallHours)
+                        }
+                        result.put("success", true)
+                        result.put("message", recalled)
+                    }
+
                     "open_settings_page" -> {
                         val page = args.optString("page", "").lowercase(Locale.ROOT).trim()
                         val settingsAction = settingsActionFor(page)
@@ -2504,6 +2520,7 @@ class JarvisConversationService : Service() {
                     }
                 }
 
+                            logToolAction(name, args, result)
                             liveWebSocket?.sendToolResponse(callId, name, result)
                         }
                     } catch (e: TimeoutCancellationException) {
@@ -3000,6 +3017,7 @@ class JarvisConversationService : Service() {
                     userText = query.ifEmpty { "Spoken user query" },
                     jarvisText = reply
                 )
+                com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).logConversation(query, reply)
                 app.memoryManager.addShortTermTurn(
                     userText = query.ifEmpty { "Spoken user query" },
                     jarvisText = reply
@@ -3413,6 +3431,10 @@ class JarvisConversationService : Service() {
     }
 
     override fun onDestroy() {
+        batteryWatcher?.stop()
+        batteryWatcher = null
+        batteryAnnouncer?.shutdown()
+        batteryAnnouncer = null
         taskProgressOverlayJob?.cancel()
         taskProgressOverlayJob = null
         taskProgressOverlay?.remove()
@@ -3477,6 +3499,29 @@ class JarvisConversationService : Service() {
             systemPromptText = systemPrompt,
             groqListener = listener
         )
+    }
+
+    private val activityLogSkippedTools = setOf(
+        "inspect_screen", "scroll_screen", "press_key", "click_ui_element", "type_text",
+        "task_completed", "recall_activity"
+    )
+
+    /** Remembers what Jarvis did (calls, apps opened, messages sent and so on) in the activity log. */
+    private fun logToolAction(name: String, args: JSONObject, result: JSONObject) {
+        if (name in activityLogSkippedTools) return
+        val parts = ArrayList<String>()
+        val keys = args.keys()
+        while (keys.hasNext() && parts.size < 3) {
+            val key = keys.next()
+            val value = args.opt(key)
+            if (value is String || value is Number || value is Boolean) {
+                parts.add(key + "=" + value.toString().replace(Regex("\\s+"), " ").take(80))
+            }
+        }
+        val outcome = if (result.optBoolean("success", true)) "done" else "failed"
+        val detail = if (parts.isEmpty()) "" else " (" + parts.joinToString(", ") + ")"
+        com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext)
+            .log(com.jarvis.assistant.activitylog.ActivityLog.TYPE_ACTION, "Jarvis ran " + name + detail + " - " + outcome)
     }
 
     private val voiceModeStore by lazy { com.jarvis.assistant.security.VoiceModeStore(applicationContext) }
