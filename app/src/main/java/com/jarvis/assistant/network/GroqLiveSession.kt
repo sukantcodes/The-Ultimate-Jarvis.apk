@@ -503,8 +503,11 @@ class GroqLiveSession(
     // ------------------------------------------------------------------------------------------
 
     private fun compactPrompt(): String {
-        val head = systemPromptText.take(3_500)
-        return head + "\n\n" +
+        val marker = "=== ACTIVITY LOG"
+        val markerIndex = systemPromptText.indexOf(marker)
+        val base = if (markerIndex >= 0) systemPromptText.substring(0, markerIndex) else systemPromptText
+        val log = if (markerIndex >= 0) systemPromptText.substring(markerIndex).take(3_500) else ""
+        return base.take(3_500) + "\n\n" + log + "\n\n" +
             "ENGINE NOTES: You are running on the Groq engine. Reply in one to three short, natural spoken sentences in the " +
             "user's language (English, Hindi or Hinglish). Never use markdown, lists, emojis or asterisks. When the user asks " +
             "you to do something on the phone, call the matching tool instead of describing it. Say a task is done only after " +

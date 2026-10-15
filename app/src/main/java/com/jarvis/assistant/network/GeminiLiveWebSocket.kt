@@ -537,6 +537,25 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 14e. recall_activity
+                        put(JSONObject().apply {
+                            put("name", "recall_activity")
+                            put("description", "Reads Jarvis's private on-device activity log from the last 48 hours: conversations, actions Jarvis performed, messages received and battery or charging events. Use it when the user asks what happened earlier, who messaged, what they said or asked before, or what Jarvis did. Never invent events.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("query", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Optional words to look for, such as a person's name, an app, or 'battery'. Leave empty for everything recent.")
+                                    })
+                                    put("hours", JSONObject().apply {
+                                        put("type", "INTEGER")
+                                        put("description", "Optional. How many hours back to look (1 to 48). Leave empty for the whole window.")
+                                    })
+                                })
+                            })
+                        })
+
                         // 14c. open_settings_page
                         put(JSONObject().apply {
                             put("name", "open_settings_page")
