@@ -50,6 +50,7 @@ class GroqLiveSession(
     private val groqListener: GeminiLiveWebSocket.Listener
 ) : GeminiLiveWebSocket(groqKey, "", voiceName, systemPromptText, groqListener) {
 
+    private val genderStore = com.jarvis.assistant.voice.VoiceGenderStore(context)
     private val ready = AtomicBoolean(false)
     private val activeTurns = AtomicInteger(0)
     private val turnMutex = Mutex()
@@ -507,7 +508,7 @@ class GroqLiveSession(
         val markerIndex = systemPromptText.indexOf(marker)
         val base = if (markerIndex >= 0) systemPromptText.substring(0, markerIndex) else systemPromptText
         val log = if (markerIndex >= 0) systemPromptText.substring(markerIndex).take(3_500) else ""
-        return base.take(3_500) + "\n\n" + log + "\n\n" +
+        return base.take(3_500) + genderStore.promptSection() + "\n\n" + log + "\n\n" +
             "ENGINE NOTES: You are running on the Groq engine. Reply in one to three short, natural spoken sentences in the " +
             "user's language (English, Hindi or Hinglish). Never use markdown, lists, emojis or asterisks. When the user asks " +
             "you to do something on the phone, call the matching tool instead of describing it. Say a task is done only after " +
@@ -626,6 +627,11 @@ class GroqLiveSession(
                 engine.setLanguage(Locale.US)
             }
             ttsLocale = wanted
+        }
+
+        try {
+            engine.setPitch(genderStore.pitch())
+        } catch (_: Exception) {
         }
 
         val id = "groq_tts_" + ttsCounter.incrementAndGet()
