@@ -981,6 +981,7 @@ class JarvisConversationService : Service() {
                             val userText = currentTurnUserText.toString().lowercase(Locale.ROOT)
                             if (isStopCommand(userText)) {
                                 Log.i("JarvisService", "Detected explicit stop/cancel in user speech: '$userText'. Aborting all tasks.")
+                                if (macroJob?.isActive == true) macroJob?.cancel()
                                 cancelAllActiveTools()
                             }
                             if (isExplicitStandbyCommand(userText)) {
@@ -1000,10 +1001,23 @@ class JarvisConversationService : Service() {
                             val userTurnInProgress = hasSpeechInCurrentUtterance || currentTurnUserText.isNotBlank()
                             val isOwnAutoResumeInterrupt = autoResumeAwaitingResponse &&
                                 !userTurnInProgress
+                            val macroRunning = macroJob?.isActive == true
+                            val explicitStopDuringMacro = macroRunning && isStopCommand(currentTurnUserText.toString())
                             if (isOwnAutoResumeInterrupt) {
                                 Log.i("JarvisService", "Preserving task state for the assistant's automatic continuation")
                                 autoResumeAwaitingResponse = false
+                            } else if (macroRunning && !explicitStopDuringMacro) {
+                                // Gemini Live can signal an interruption for room noise or unrelated speech.
+                                // A macro is an explicit, multi-step user task; keep it running until it finishes
+                                // or the user clearly asks to stop it.
+                                Log.i("JarvisService", "Preserving running macro after a Live interruption; waiting for explicit cancellation")
+                                isAutonomousContinuationTurn = false
+                                synchronized(autonomousAudioLock) {
+                                    autonomousAudioBuffer.clear()
+                                    autonomousAudioBufferBytes = 0
+                                }
                             } else {
+                                if (explicitStopDuringMacro) macroJob?.cancel()
                                 isAutonomousContinuationTurn = false
                                 synchronized(autonomousAudioLock) {
                                     autonomousAudioBuffer.clear()
@@ -3632,34 +3646,138 @@ class JarvisConversationService : Service() {
     private inner class ServiceMacroActions : com.jarvis.assistant.macro.MacroActions {
         private val orchestrator get() = com.jarvis.assistant.vision.VisualTaskOrchestrator.getInstance()
 
+        private var whatsappStatusFlowArmed = false
+
+        private fun currentForegroundPackage(): String {
+            val service = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance ?: return ""
+            return (service.getActiveRootNode() ?: service.getAppRootNode())?.packageName?.toString().orEmpty()
+        }
+
         override suspend fun openApp(name: String, packageHints: List<String>): com.jarvis.assistant.macro.StepResult {
-            val launched = com.jarvis.assistant.util.AppLauncher.launchApp(this@JarvisConversationService, name, null)
-            if (!launched) return com.jarvis.assistant.macro.StepResult(false, "Could not find or open $name.")
-            val deadline = System.currentTimeMillis() + 10_000L
-            while (System.currentTimeMillis() < deadline) {
-                val pkg = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance
-                    ?.getActiveRootNode()?.packageName?.toString().orEmpty()
-                if (pkg.isNotBlank() && (packageHints.isEmpty() || packageHints.any { pkg.contains(it, ignoreCase = true) })) {
-                    return com.jarvis.assistant.macro.StepResult(true, "Opened $name.")
-                }
-                kotlinx.coroutines.delay(500L)
+            fun matchesTarget(pkg: String): Boolean =
+                pkg.isNotBlank() && (packageHints.isEmpty() || packageHints.any { pkg.contains(it, ignoreCase = true) })
+
+            val beforeLaunch = currentForegroundPackage()
+            if (matchesTarget(beforeLaunch)) {
+                Log.i("JarvisMacro", "$name is already in the foreground ($beforeLaunch); reusing it.")
+                return com.jarvis.assistant.macro.StepResult(true, "$name is already open.")
             }
-            return com.jarvis.assistant.macro.StepResult(false, "$name did not come to the front.")
+
+            val launched = com.jarvis.assistant.util.AppLauncher.launchApp(this@JarvisConversationService, name, null)
+            if (!launched) {
+                val afterAttempt = currentForegroundPackage()
+                if (matchesTarget(afterAttempt)) return com.jarvis.assistant.macro.StepResult(true, "$name was already open.")
+                return com.jarvis.assistant.macro.StepResult(false, "Could not launch $name. Foreground package is '${afterAttempt.ifBlank { "unavailable" }}'.")
+            }
+
+            val deadline = System.currentTimeMillis() + 12_000L
+            while (System.currentTimeMillis() < deadline) {
+                val pkg = currentForegroundPackage()
+                if (matchesTarget(pkg)) {
+                    return com.jarvis.assistant.macro.StepResult(true, "$name is verified in the foreground ($pkg).")
+                }
+                kotlinx.coroutines.delay(400L)
+            }
+            return com.jarvis.assistant.macro.StepResult(false, "$name did not reach the foreground. Current package: '${currentForegroundPackage().ifBlank { "unavailable" }}'.")
         }
 
         override suspend fun tapText(label: String): com.jarvis.assistant.macro.StepResult {
+            val isStatusNavigation = label.contains("status", ignoreCase = true) ||
+                label.contains("updates", ignoreCase = true) ||
+                label.contains("my status", ignoreCase = true)
             val res = orchestrator.handleClick(
                 label, null, "", false, null, null,
                 allowChromeMenuForSettings = false,
                 forbidAddingInstagramLike = false,
-                taskGoal = ""
+                taskGoal = if (isStatusNavigation || whatsappStatusFlowArmed) "prepare image for WhatsApp Status" else ""
             )
+            if (res.success && isStatusNavigation) whatsappStatusFlowArmed = true
             return com.jarvis.assistant.macro.StepResult(res.success, res.message)
         }
 
-        override suspend fun typeText(text: String): com.jarvis.assistant.macro.StepResult {
-            val res = orchestrator.handleType(text, null, false, null, null)
+        override suspend fun typeText(text: String, focusLabels: List<String>): com.jarvis.assistant.macro.StepResult {
+            // Pass the intended composer label into the same verified typing path used by normal commands.
+            // ChatGPT has app-specific composer detection; Gemini uses the supplied accessibility label.
+            val target = focusLabels.firstOrNull()
+            val res = orchestrator.handleType(text, target, false, null, null)
             return com.jarvis.assistant.macro.StepResult(res.success, res.message)
+        }
+
+        override suspend fun downloadGeneratedImage(): com.jarvis.assistant.macro.StepResult {
+            val pkg = currentForegroundPackage().lowercase(Locale.ROOT)
+            if (!(pkg.contains("openai.chatgpt") || pkg.contains("bard") || pkg.contains("gemini"))) {
+                return com.jarvis.assistant.macro.StepResult(false, "Refusing to save from an unexpected app: '$pkg'.")
+            }
+            val candidates = listOf("Download", "Save image", "Save")
+            for (label in candidates) {
+                val result = orchestrator.handleClick(
+                    label, null, "", false, null, null,
+                    allowChromeMenuForSettings = false,
+                    forbidAddingInstagramLike = false,
+                    taskGoal = "save the generated image"
+                )
+                if (result.success) {
+                    kotlinx.coroutines.delay(1800L)
+                    return com.jarvis.assistant.macro.StepResult(true, "Tapped '$label' to save the generated image.")
+                }
+            }
+            val share = orchestrator.handleClick(
+                "Share", null, "", false, null, null,
+                allowChromeMenuForSettings = false,
+                forbidAddingInstagramLike = false,
+                taskGoal = "save the generated image"
+            )
+            if (share.success) {
+                kotlinx.coroutines.delay(900L)
+                for (label in candidates) {
+                    val result = orchestrator.handleClick(
+                        label, null, "", false, null, null,
+                        allowChromeMenuForSettings = false,
+                        forbidAddingInstagramLike = false,
+                        taskGoal = "save the generated image"
+                    )
+                    if (result.success) {
+                        kotlinx.coroutines.delay(1800L)
+                        return com.jarvis.assistant.macro.StepResult(true, "Opened Share and tapped '$label' to save the generated image.")
+                    }
+                }
+            }
+            return com.jarvis.assistant.macro.StepResult(false, "Could not find a verified Download/Save action on the generated image.")
+        }
+
+        override suspend fun selectLatestImage(): com.jarvis.assistant.macro.StepResult {
+            if (!whatsappStatusFlowArmed) {
+                return com.jarvis.assistant.macro.StepResult(false, "WhatsApp Status flow was not armed; refusing to select an image.")
+            }
+            return com.jarvis.assistant.macro.MacroImagePicker.selectLatestImage()
+        }
+
+        override suspend fun publishWhatsAppStatus(): com.jarvis.assistant.macro.StepResult {
+            val pkg = currentForegroundPackage().lowercase(Locale.ROOT)
+            if (!whatsappStatusFlowArmed || !(pkg == "com.whatsapp" || pkg == "com.whatsapp.w4b" || pkg.startsWith("com.whatsapp."))) {
+                return com.jarvis.assistant.macro.StepResult(false, "Refusing to publish: WhatsApp Status flow is not verified.")
+            }
+            val screen = screenText().lowercase(Locale.ROOT)
+            val hasStatusContext = screen.contains("caption") || screen.contains("add a caption") ||
+                screen.contains("my status") || screen.contains("status")
+            val hasPublishControl = screen.contains("send") || screen.contains("share") || screen.contains("post")
+            if (!hasStatusContext || !hasPublishControl) {
+                return com.jarvis.assistant.macro.StepResult(false, "The current WhatsApp screen does not look like a Status composer; nothing was posted.")
+            }
+            val labels = listOf("Send", "Share", "Post")
+            for (label in labels) {
+                val result = orchestrator.handleClick(
+                    label, null, "", false, null, null,
+                    allowChromeMenuForSettings = false,
+                    forbidAddingInstagramLike = false,
+                    taskGoal = "publish the selected image to WhatsApp Status"
+                )
+                if (result.success) {
+                    kotlinx.coroutines.delay(1200L)
+                    return com.jarvis.assistant.macro.StepResult(true, "Tapped '$label' on the verified WhatsApp Status composer.")
+                }
+            }
+            return com.jarvis.assistant.macro.StepResult(false, "Could not find a publish control on the WhatsApp Status composer.")
         }
 
         override suspend fun goBack(): com.jarvis.assistant.macro.StepResult {

@@ -25,7 +25,10 @@ data class MacroOutcome(val success: Boolean, val message: String, val output: S
 interface MacroActions {
     suspend fun openApp(name: String, packageHints: List<String>): StepResult
     suspend fun tapText(label: String): StepResult
-    suspend fun typeText(text: String): StepResult
+    suspend fun typeText(text: String, focusLabels: List<String>): StepResult
+    suspend fun downloadGeneratedImage(): StepResult
+    suspend fun selectLatestImage(): StepResult
+    suspend fun publishWhatsAppStatus(): StepResult
     suspend fun goBack(): StepResult
     suspend fun readScreenText(): StepResult
     fun screenText(): String
@@ -73,6 +76,9 @@ class MacroEngine(private val actions: MacroActions) {
             }
             "tap_text" -> tap(labels(args.opt("text")), args.optInt("retries", 3))
             "type_text" -> type(fill(args.optString("text", ""), macro.param, input), labels(args.opt("focus")))
+            "download_generated_image" -> actions.downloadGeneratedImage()
+            "select_latest_image" -> actions.selectLatestImage()
+            "publish_whatsapp_status" -> actions.publishWhatsAppStatus()
             "wait_for_screen_text" -> waitForText(
                 labels(args.opt("text")),
                 args.optString("mode", "appear"),
@@ -120,7 +126,7 @@ class MacroEngine(private val actions: MacroActions) {
     private suspend fun type(text: String, focusLabels: List<String>): StepResult {
         var last = ""
         for (attempt in 1..3) {
-            val result = actions.typeText(text)
+            val result = actions.typeText(text, focusLabels)
             if (result.ok) return result
             last = result.message
             // The text box may not be focused yet: tap it by its label, then try again.
