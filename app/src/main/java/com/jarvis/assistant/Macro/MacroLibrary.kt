@@ -766,8 +766,7 @@ internal object BuiltinMacros {
           "args": {
             "text": [
               "Next",
-              "Continue",
-              "Done"
+              "Continue"
             ],
             "_optional": true,
             "retries": 1
@@ -1012,8 +1011,7 @@ internal object BuiltinMacros {
           "args": {
             "text": [
               "Next",
-              "Continue",
-              "Done"
+              "Continue"
             ],
             "_optional": true,
             "retries": 1
