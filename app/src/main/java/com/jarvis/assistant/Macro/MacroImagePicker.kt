@@ -24,12 +24,12 @@ object MacroImagePicker {
             ?: return StepResult(false, "The current photo-picker screen is unavailable.")
         val packageName = root.packageName?.toString().orEmpty().lowercase(Locale.ROOT)
         val beforeText = ScreenTextReader.read(root).lowercase(Locale.ROOT)
-        val knownPickerPackage = listOf(
-            "documentsui", "providers.media", "mediaprovider", "google.android.apps.photos",
-            "com.whatsapp", "com.whatsapp.w4b"
+        val knownSystemPickerPackage = listOf(
+            "documentsui", "providers.media", "mediaprovider", "google.android.apps.photos"
         ).any { packageName.contains(it) }
         val pickerWords = listOf("recent", "photos", "gallery", "select photos", "choose photo", "albums", "images")
-        if (!knownPickerPackage && pickerWords.none { beforeText.contains(it) }) {
+        val pickerScreenEvidence = pickerWords.any { beforeText.contains(it) }
+        if (!knownSystemPickerPackage && !pickerScreenEvidence) {
             return StepResult(false, "The foreground screen is not a verified photo picker ('$packageName'); no image was selected.")
         }
 
@@ -45,15 +45,25 @@ object MacroImagePicker {
             val ownDescription = node.contentDescription?.toString().orEmpty()
             val ownLabel = "$ownText $ownDescription".trim()
             val allLabels = "$ancestorLabels $ownLabel".lowercase(Locale.ROOT)
-            val clickTarget = if (node.isClickable && node.isEnabled) node else clickableAncestor
             val bounds = Rect()
             node.getBoundsInScreen(bounds)
+            val clickTarget = if (node.isClickable && node.isEnabled) {
+                node
+            } else {
+                clickableAncestor?.takeIf { ancestor ->
+                    val ancestorBounds = Rect()
+                    ancestor.getBoundsInScreen(ancestorBounds)
+                    ancestor.isEnabled && ancestorBounds.contains(bounds.centerX(), bounds.centerY()) &&
+                        ancestorBounds.width() <= bounds.width() * 2 &&
+                        ancestorBounds.height() <= bounds.height() * 2
+                }
+            }
             val className = node.className?.toString().orEmpty().lowercase(Locale.ROOT)
             val imageLike = className.contains("imageview") || className.contains("imagebutton") ||
                 ownLabel.contains("photo", true) || ownLabel.contains("image", true) ||
                 ownLabel.contains("picture", true)
             val cameraOrNavigation = listOf(
-                "camera", "take photo", "take picture", "browse", "albums", "gallery button",
+                "camera", "take photo", "take picture", "browse", "gallery button",
                 "back", "close", "search", "settings", "select all"
             ).any { allLabels.contains(it) }
             if (imageLike && !cameraOrNavigation && clickTarget != null &&
