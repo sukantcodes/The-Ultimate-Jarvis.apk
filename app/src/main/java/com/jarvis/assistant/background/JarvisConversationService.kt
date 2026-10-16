@@ -3758,11 +3758,13 @@ class JarvisConversationService : Service() {
                 return com.jarvis.assistant.macro.StepResult(false, "Refusing to publish: WhatsApp Status flow is not verified.")
             }
             val screen = screenText().lowercase(Locale.ROOT)
-            val hasComposerEvidence = listOf("caption", "status", "send", "done", "share").count { screen.contains(it) } >= 2
-            if (!hasComposerEvidence) {
+            val hasStatusContext = screen.contains("caption") || screen.contains("add a caption") ||
+                screen.contains("my status") || screen.contains("status")
+            val hasPublishControl = screen.contains("send") || screen.contains("share") || screen.contains("post")
+            if (!hasStatusContext || !hasPublishControl) {
                 return com.jarvis.assistant.macro.StepResult(false, "The current WhatsApp screen does not look like a Status composer; nothing was posted.")
             }
-            val labels = listOf("Send", "Share", "Post", "Done")
+            val labels = listOf("Send", "Share", "Post")
             for (label in labels) {
                 val result = orchestrator.handleClick(
                     label, null, "", false, null, null,
