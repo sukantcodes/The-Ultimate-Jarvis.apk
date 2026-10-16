@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>JARVIS • Ultimate High-Vibrance Quantum Core v12.1</title>
+<title>JARVIS • Scaled Transparent & Dynamic Color-Sync Core v12.3</title>
 <style>
 *, *::before, *::after {
   box-sizing: border-box;
@@ -44,7 +44,7 @@ html, body {
   cursor: grab;
   z-index: 1;
   background: transparent !important;
-  filter: drop-shadow(0 0 110px rgba(79, 227, 255, 0.9));
+  filter: drop-shadow(0 0 70px rgba(79, 227, 255, 0.6));
 }
 
 #stage canvas:active {
@@ -55,11 +55,11 @@ html, body {
   position: absolute;
   left: 50%;
   bottom: 12%;
-  width: 260px;
-  height: 24px;
+  width: 200px;
+  height: 20px;
   transform: translateX(-50%);
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.4), transparent);
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.3), transparent);
   filter: blur(8px);
   z-index: 0;
   pointer-events: none;
@@ -67,8 +67,8 @@ html, body {
 }
 
 @keyframes coreFloat {
-  0%, 100% { transform: translateX(-50%) scaleX(0.88); opacity: 0.4; }
-  50% { transform: translateX(-50%) scaleX(1.08); opacity: 0.7; }
+  0%, 100% { transform: translateX(-50%) scaleX(0.88); opacity: 0.3; }
+  50% { transform: translateX(-50%) scaleX(1.08); opacity: 0.5; }
 }
 
 #hud { display: none !important; }
@@ -77,7 +77,7 @@ html, body {
 <body class="embedded">
 
 <div id="stage">
-  <canvas id="c" aria-label="JARVIS Neural Quantum Orb with Boosted High-Vibrance Node Colors"></canvas>
+  <canvas id="c" aria-label="JARVIS Scaled Transparent Quantum Orb with Full Color Sync"></canvas>
   <div id="shadow"></div>
 </div>
 
@@ -88,18 +88,18 @@ html, body {
 
   const SYSTEM_CFG = Object.freeze({
     FOV: 45,
-    VIS: 3.1,
+    VIS: 3.8, // Increased view space to make the orb appear smaller and more compact
     NODES_COUNT: 16000,
     ORBIT_COUNT: 110,
     RAYS_COUNT: 64,
-    STARDUST_COUNT: 300
+    STARDUST_COUNT: 200
   });
 
   const STATE_CFG = Object.freeze({
-    idle:      { scale: 1.00, speed: 0.40, bright: 1.15, glow: 0.75, ring: 0.18, wob: 0.0, tilt: 0.08, rayInt: 1.3, shieldOp: 0.0 },
-    listening: { scale: 1.06, speed: 0.92, bright: 1.35, glow: 1.20, ring: 0.45, wob: 0.15, tilt: 0.22, rayInt: 2.2, shieldOp: 0.35 },
-    thinking:  { scale: 0.92, speed: 1.85, bright: 1.50, glow: 1.40, ring: 1.00, wob: 1.0, tilt: 0.68, rayInt: 3.2, shieldOp: 0.15 },
-    speaking:  { scale: 1.05, speed: 1.28, bright: 1.40, glow: 1.30, ring: 0.55, wob: 0.35, tilt: 0.35, rayInt: 2.5, shieldOp: 0.1 }
+    idle:      { scale: 0.82, speed: 0.40, bright: 1.2, glow: 0.6, ring: 0.18, wob: 0.0, tilt: 0.08, rayInt: 1.2 },
+    listening: { scale: 0.88, speed: 0.92, bright: 1.4, glow: 1.0, ring: 0.45, wob: 0.15, tilt: 0.22, rayInt: 2.0 },
+    thinking:  { scale: 0.76, speed: 1.85, bright: 1.6, glow: 1.3, ring: 1.00, wob: 1.0, tilt: 0.68, rayInt: 3.0 },
+    speaking:  { scale: 0.86, speed: 1.28, bright: 1.5, glow: 1.2, ring: 0.55, wob: 0.35, tilt: 0.35, rayInt: 2.2 }
   });
 
   const DOM = {
@@ -131,7 +131,7 @@ html, body {
     uAmp: { value: 0 },
     uBass: { value: 0 },
     uHigh: { value: 0 },
-    uBright: { value: 1.15 },
+    uBright: { value: 1.2 },
     uPx: { value: 300 },
     uCamZ: { value: 6 },
     uBaseColor: { value: new THREE.Color(0x4fe3ff) },
@@ -175,7 +175,7 @@ html, body {
       }
 
       float heartbeatEffect = uHeartbeatPulse * (1.0 - baseLength);
-      float neuralFlash = step(0.95, fract(sin(aRnd * 951.13 + uTime * 3.0) * 43758.5453));
+      float neuralFlash = step(0.94, fract(sin(aRnd * 951.13 + uTime * 3.0) * 43758.5453));
       float dispersion = uAmp * aRnd * 0.15 * step(0.7, aRnd);
 
       vec3 targetPos = directionVector;
@@ -191,7 +191,7 @@ html, body {
 
       float noise1 = sin(targetPos.x * 3.5 + timeFactor * 0.9 + aRnd * 6.28) * sin(targetPos.y * 3.5 - timeFactor * 0.7) * sin(targetPos.z * 3.5 + timeFactor * 0.6);
       float noise2 = cos(targetPos.y * 7.0 - timeFactor * 1.5 + aRnd * 3.14) * sin(targetPos.z * 7.0 + timeFactor * 1.2) * 0.4;
-      float neuralLightning = pow(abs(sin((targetPos.x - targetPos.y) * 18.0 + timeFactor * 4.0 + aRnd * 8.0)), 6.0) * (0.25 + uGravitationalDistortion * 0.4);
+      float neuralLightning = pow(abs(sin((targetPos.x - targetPos.y) * 18.0 + timeFactor * 4.0 + aRnd * 8.0)), 6.0) * (0.3 + uGravitationalDistortion * 0.4);
       float sonicWave = sin(targetPos.y * 11.0 - timeFactor * 3.5) * uBass * 0.055;
       float compositeNoise = noise1 + noise2 * (0.3 + uHigh * 0.7) + neuralLightning;
 
@@ -201,14 +201,15 @@ html, body {
 
       vec4 modelViewPosition = modelViewMatrix * vec4(targetPos * finalRadius, 1.0);
       float depthFactor = smoothstep(-1.1, 1.1, modelViewPosition.z + uCamZ);
-      vA = mix(0.25, 1.0, depthFactor) * mix(1.0, 0.95, aLayer);
+      vA = mix(0.3, 1.0, depthFactor);
 
-      // Boosted high-vibrance node color intensity multiplier (1.45x)
-      vec3 slidingColorSpectrum = hsv2rgb(vec3(fract(aRnd + uSlideColorShift), 1.0, 1.3));
-      vNodeColor = mix(aNodeColor * 1.4, slidingColorSpectrum, min(1.0, uSlideColorShift * 1.5)) * uBright * mix(0.8, 1.3, depthFactor) + vec3(shockwaveEffect * 1.0 + heartbeatEffect * 0.7 + neuralLightning * uGravitationalDistortion + neuralFlash * 1.2);
+      // Fully bind node colors to the dynamic app theme uBaseColor
+      vec3 dynamicSyncedColor = mix(uBaseColor, aNodeColor, 0.35);
+      vec3 slidingColorSpectrum = hsv2rgb(vec3(fract(aRnd + uSlideColorShift), 0.9, 1.3));
+      vNodeColor = mix(dynamicSyncedColor * 1.4, slidingColorSpectrum, min(1.0, uSlideColorShift * 1.5)) * uBright + vec3(shockwaveEffect * 1.2 + heartbeatEffect * 0.8 + neuralFlash * 1.5);
 
-      float pointSizeCalculated = (0.011 + aRnd * 0.02) * mix(1.0, 1.5, aLayer) * (1.0 + uAmp * 0.75 + uHigh * 0.4 + shockwaveEffect * 0.6 + neuralFlash * 1.5);
-      gl_PointSize = max(pointSizeCalculated * uPx / (-modelViewPosition.z) * mix(0.9, 1.3, depthFactor), 2.0);
+      float pointSizeCalculated = (0.01 + aRnd * 0.018) * (1.0 + uAmp * 0.8 + uHigh * 0.4 + shockwaveEffect * 0.6 + neuralFlash * 1.6);
+      gl_PointSize = max(pointSizeCalculated * uPx / (-modelViewPosition.z), 1.8);
       gl_Position = projectionMatrix * modelViewPosition;
     }
   `;
@@ -219,9 +220,9 @@ html, body {
     varying float vA;
     void main() {
       float radialCoord = length(gl_PointCoord - vec2(0.5));
-      float coreKernel = smoothstep(0.5, 0.01, radialCoord);
-      float outerHalo = smoothstep(0.5, 0.15, radialCoord) * 0.7;
-      gl_FragColor = vec4(vNodeColor * (1.2 + outerHalo * 0.8), (coreKernel * 0.9 + outerHalo * 0.25) * vA);
+      if (radialCoord > 0.5) discard;
+      float coreKernel = smoothstep(0.5, 0.05, radialCoord);
+      gl_FragColor = vec4(vNodeColor * 1.4, coreKernel * vA);
     }
   `;
 
@@ -232,10 +233,9 @@ html, body {
     const colors = new Float32Array(SYSTEM_CFG.NODES_COUNT * 3);
     const coreCutoff = Math.floor(SYSTEM_CFG.NODES_COUNT * 0.25);
 
-    // Ultra-vibrant hyper-saturated neon palette
     const neonPalette = [
-      [1.3, 0.2, 0.2], [0.2, 1.4, 0.4], [0.2, 0.7, 1.4],
-      [1.4, 1.0, 0.1], [1.4, 0.2, 1.2], [0.1, 1.3, 1.4], [1.0, 0.4, 1.4]
+      [1.4, 0.3, 0.3], [0.3, 1.4, 0.5], [0.3, 0.7, 1.4],
+      [1.4, 1.1, 0.2], [1.4, 0.3, 1.3], [0.2, 1.3, 1.4], [1.1, 0.4, 1.4]
     ];
 
     for (let i = 0; i < SYSTEM_CFG.NODES_COUNT; i++) {
@@ -246,7 +246,7 @@ html, body {
       const yCoord = 1.0 - 2.0 * (indexSub + 0.5) / totalSub;
       const radiusAtY = Math.sqrt(Math.max(0.0, 1.0 - yCoord * yCoord));
       const thetaAngle = i * 2.3999632;
-      const shellThickness = isCoreNode ? (0.38 + 0.24 * Math.random()) : (0.92 + 0.08 * Math.random());
+      const shellThickness = isCoreNode ? (0.35 + 0.2 * Math.random()) : (0.85 + 0.1 * Math.random());
 
       positions.set([
         Math.cos(thetaAngle) * radiusAtY * shellThickness,
@@ -270,7 +270,8 @@ html, body {
       fragmentShader: HYPER_FRAGMENT_SHADER,
       uniforms: UNIFORMS,
       transparent: true,
-      depthWrite: false
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
     });
 
     const pointsMesh = new THREE.Points(geometry, material);
@@ -284,50 +285,9 @@ html, body {
   hyperOrbGroup.add(hyperParticlesMesh);
   scene.add(hyperOrbGroup);
 
-  let coreLightMesh, multiColorRaysMesh, spectrumAudioRing, telemetryStreamRings, liquidGlassSphere, stardustField, raysData = [];
+  let coreLightMesh, multiColorRaysMesh, spectrumAudioRing, telemetryStreamRings, stardustField, raysData = [];
 
   function setupCoreAndFeatures() {
-    const liquidGlassMat = new THREE.ShaderMaterial({
-      vertexShader: `
-        varying vec3 vNormal;
-        varying vec3 vViewPosition;
-        void main() {
-          vNormal = normalize(normalMatrix * normal);
-          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          vViewPosition = -mvPosition.xyz;
-          gl_Position = projectionMatrix * mvPosition;
-        }
-      `,
-      fragmentShader: `
-        varying vec3 vNormal;
-        varying vec3 vViewPosition;
-        uniform vec3 uBaseColor;
-        uniform float uSlideColorShift;
-        void main() {
-          vec3 normal = normalize(vNormal);
-          vec3 viewDir = normalize(vViewPosition);
-          float fresnel = dot(viewDir, normal);
-          fresnel = clamp(1.0 - fresnel, 0.0, 1.0);
-          fresnel = pow(fresnel, 2.0);
-
-          vec3 slidingTint = mix(uBaseColor * 1.3, vec3(sin(uSlideColorShift*3.0)*0.6+0.5, cos(uSlideColorShift*2.0)*0.6+0.5, 1.0), min(1.0, uSlideColorShift));
-          vec3 glassTint = mix(vec3(0.95, 0.98, 1.0), slidingTint, 0.6);
-          float alpha = mix(0.2, 0.65, fresnel);
-
-          gl_FragColor = vec4(glassTint * 1.3 + (fresnel * 0.7), alpha);
-        }
-      `,
-      uniforms: { uBaseColor: UNIFORMS.uBaseColor, uSlideColorShift: UNIFORMS.uSlideColorShift },
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
-      depthWrite: false
-    });
-
-    liquidGlassSphere = new THREE.Mesh(new THREE.SphereGeometry(1.22, 64, 64), liquidGlassMat);
-    liquidGlassSphere.renderOrder = 2;
-    hyperOrbGroup.add(liquidGlassSphere);
-
     const coreMat = new THREE.ShaderMaterial({
       vertexShader: "varying vec3 vN; void main(){vN=normalize(normalMatrix*normal); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}",
       fragmentShader: `
@@ -335,10 +295,8 @@ html, body {
         uniform vec3 uBaseColor;
         uniform float uTime;
         void main() {
-          float intensity = pow(1.0 - dot(vN, vec3(0, 0, 1)), 1.1);
-          vec3 singularityBlack = vec3(0.01, 0.01, 0.02);
-          vec3 blendedCore = mix(singularityBlack, uBaseColor * 1.5, 0.5 + 0.5 * sin(uTime * 4.0));
-          gl_FragColor = vec4(blendedCore * 1.4, 1.0 * intensity);
+          float intensity = pow(1.0 - dot(vN, vec3(0, 0, 1)), 1.5);
+          gl_FragColor = vec4(uBaseColor * 1.3, 0.35 * intensity);
         }
       `,
       uniforms: { uBaseColor: UNIFORMS.uBaseColor, uTime: UNIFORMS.uTime },
@@ -346,14 +304,14 @@ html, body {
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
-    coreLightMesh = new THREE.Mesh(new THREE.SphereGeometry(0.65, 32, 32), coreMat);
-    coreLightMesh.renderOrder = 1;
+    coreLightMesh = new THREE.Mesh(new THREE.SphereGeometry(0.45, 32, 32), coreMat);
+    coreLightMesh.renderOrder = 0;
     hyperOrbGroup.add(coreLightMesh);
 
     const rayPositions = new Float32Array(SYSTEM_CFG.RAYS_COUNT * 6);
     const rayAlphas = new Float32Array(SYSTEM_CFG.RAYS_COUNT * 2);
     const rayColors = new Float32Array(SYSTEM_CFG.RAYS_COUNT * 6);
-    const rayColorPalette = [[1.4, 0.2, 0.3], [0.2, 1.4, 0.5], [0.2, 0.7, 1.4], [1.4, 1.1, 0.1], [1.4, 0.2, 1.3], [0.1, 1.3, 1.4]];
+    const rayColorPalette = [[1.4, 0.3, 0.3], [0.3, 1.4, 0.5], [0.3, 0.8, 1.4], [1.4, 1.1, 0.2], [1.4, 0.3, 1.3], [0.2, 1.3, 1.4]];
 
     for (let i = 0; i < SYSTEM_CFG.RAYS_COUNT; i++) {
       const u = Math.random(), v = Math.random();
@@ -371,7 +329,7 @@ html, body {
       });
 
       rayColors.set(assignedCol, i * 6);
-      rayColors.set([assignedCol[0]*0.3, assignedCol[1]*0.3, assignedCol[2]*0.3], i * 6 + 3);
+      rayColors.set([assignedCol[0]*0.2, assignedCol[1]*0.2, assignedCol[2]*0.2], i * 6 + 3);
     }
 
     const rayGeo = new THREE.BufferGeometry();
@@ -394,10 +352,13 @@ html, body {
       fragmentShader: `
         varying float vAlpha;
         varying vec3 vColor;
+        uniform vec3 uBaseColor;
         void main() {
-          gl_FragColor = vec4(vColor * 1.4, vAlpha);
+          vec3 syncedRayColor = mix(uBaseColor, vColor, 0.5);
+          gl_FragColor = vec4(syncedRayColor * 1.3, vAlpha);
         }
       `,
+      uniforms: { uBaseColor: UNIFORMS.uBaseColor },
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending
@@ -443,9 +404,9 @@ html, body {
     dustGeo.setAttribute("position", new THREE.BufferAttribute(dustPos, 3));
     stardustField = new THREE.Points(dustGeo, new THREE.PointsMaterial({
       color: 0xffffff,
-      size: 0.03,
+      size: 0.025,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.45,
       blending: THREE.AdditiveBlending
     }));
     scene.add(stardustField);
@@ -464,17 +425,17 @@ html, body {
         void main() {
           vec2 coord = vUv - 0.5;
           float dist = length(coord) * 2.0;
-          float outerRing = (dist > 0.6 ? exp(-(dist - 0.6) * 6.0) * 0.95 : 0.0) * smoothstep(1.0, 0.72, dist);
-          float innerGlow = exp(-dist * 2.8) * 0.45;
+          float outerRing = (dist > 0.5 ? exp(-(dist - 0.5) * 6.0) * 0.9 : 0.0) * smoothstep(1.0, 0.65, dist);
+          float innerGlow = exp(-dist * 2.5) * 0.4;
           float combined = outerRing + innerGlow;
-          gl_FragColor = vec4(uBaseColor * 1.4, clamp(combined * uStrength * 0.9, 0.0, 0.95));
+          gl_FragColor = vec4(uBaseColor * 1.4, clamp(combined * uStrength, 0.0, 0.85));
         }
       `,
       transparent: true,
       depthWrite: false,
       depthTest: false,
       uniforms: {
-        uStrength: { value: 0.85 },
+        uStrength: { value: 0.8 },
         uBaseColor: UNIFORMS.uBaseColor
       }
     });
@@ -484,22 +445,22 @@ html, body {
     glowMesh.renderOrder = -2;
     scene.add(glowMesh);
 
-    ringMesh1 = createCustomRing(1.3, 1.32, 2, 0.0, 0.75);
-    ringMesh2 = createCustomRing(1.42, 1.432, 3, 2.1, 0.55);
-    ringMesh3 = createCustomRing(1.18, 1.192, 5, 4.2, 0.45);
+    ringMesh1 = createCustomRing(1.1, 1.12, 2, 0.0, 0.7);
+    ringMesh2 = createCustomRing(1.22, 1.232, 3, 2.1, 0.5);
+    ringMesh3 = createCustomRing(0.98, 0.992, 5, 4.2, 0.4);
 
-    lockRingX = createCustomRing(1.48, 1.5, 4, 1.0, 0.65);
-    lockRingZ = createCustomRing(1.56, 1.58, 6, 3.0, 0.65);
+    lockRingX = createCustomRing(1.28, 1.3, 4, 1.0, 0.6);
+    lockRingZ = createCustomRing(1.36, 1.38, 6, 3.0, 0.6);
     lockRingX.rotation.x = Math.PI / 2;
     lockRingZ.rotation.z = Math.PI / 3;
     scene.add(lockRingX);
     scene.add(lockRingZ);
 
-    const gridGeo = new THREE.WireframeGeometry(new THREE.SphereGeometry(1.6, 16, 12));
+    const gridGeo = new THREE.WireframeGeometry(new THREE.SphereGeometry(1.3, 16, 12));
     dataGridRings = new THREE.LineSegments(gridGeo, new THREE.LineBasicMaterial({
       color: 0x4fe3ff,
       transparent: true,
-      opacity: 0.28,
+      opacity: 0.3,
       blending: THREE.AdditiveBlending
     }));
     hyperOrbGroup.add(dataGridRings);
@@ -541,18 +502,18 @@ html, body {
     const sz = new Float32Array(SYSTEM_CFG.ORBIT_COUNT);
     const alp = new Float32Array(SYSTEM_CFG.ORBIT_COUNT);
     const col = new Float32Array(SYSTEM_CFG.ORBIT_COUNT * 3);
-    const multiPalette = [[1.4, 0.2, 0.2], [0.2, 1.4, 0.5], [0.2, 0.7, 1.4], [1.4, 1.1, 0.1], [1.4, 0.2, 1.3]];
+    const multiPalette = [[1.4, 0.3, 0.3], [0.3, 1.4, 0.5], [0.3, 0.8, 1.4], [1.4, 1.1, 0.2], [1.4, 0.3, 1.3]];
 
     for (let i = 0; i < SYSTEM_CFG.ORBIT_COUNT; i++) {
       col.set(multiPalette[i % multiPalette.length], i * 3);
-      sz[i] = 0.025 + Math.random() * 0.06;
+      sz[i] = 0.025 + Math.random() * 0.05;
       orbitalDataList.push({
         a: Math.random() * 6.283,
-        r: 1.5 + Math.random() * 0.68,
+        r: 1.15 + Math.random() * 0.4,
         sp: (0.1 + Math.random() * 0.24) * (Math.random() < 0.5 ? -1 : 1),
         ph: Math.random() * 6.283,
         tilt: (Math.random() - 0.5) * 1.4,
-        y: (Math.random() - 0.5) * 1.2,
+        y: (Math.random() - 0.5) * 1.0,
         fs: 0.2 + Math.random() * 0.5
       });
     }
@@ -564,11 +525,12 @@ html, body {
     geom.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
 
     orbitingPointsMesh = new THREE.Points(geom, new THREE.ShaderMaterial({
-      vertexShader: "attribute float aSize, aAlpha; attribute vec3 aColor; uniform float uPx; varying float vA; varying vec3 vC; void main(){vA=aAlpha; vC=aColor * 1.3; vec4 mv=modelViewMatrix*vec4(position,1.0); gl_PointSize=max(aSize*uPx/(-mv.z),1.2); gl_Position=projectionMatrix*mv;}",
+      vertexShader: "attribute float aSize, aAlpha; attribute vec3 aColor; uniform float uPx; uniform vec3 uBaseColor; varying float vA; varying vec3 vC; void main(){vA=aAlpha; vC=mix(uBaseColor, aColor, 0.5) * 1.3; vec4 mv=modelViewMatrix*vec4(position,1.0); gl_PointSize=max(aSize*uPx/(-mv.z),1.2); gl_Position=projectionMatrix*mv;}",
       fragmentShader: "precision highp float; varying vec3 vC; varying float vA; void main(){float d=length(gl_PointCoord-vec2(0.5)); gl_FragColor=vec4(vC, smoothstep(0.5,0.02,d)*vA);}",
       transparent: true,
       depthWrite: false,
-      uniforms: { uPx: UNIFORMS.uPx }
+      blending: THREE.AdditiveBlending,
+      uniforms: { uPx: UNIFORMS.uPx, uBaseColor: UNIFORMS.uBaseColor }
     }));
     orbitingPointsMesh.frustumCulled = false;
     orbitingPointsMesh.renderOrder = 3;
@@ -582,7 +544,8 @@ html, body {
     const colorObj = new THREE.Color(hexColor);
     UNIFORMS.uBaseColor.value.copy(colorObj);
     if(spectrumAudioRing) spectrumAudioRing.material.color.copy(colorObj);
-    if(liquidGlassSphere) liquidGlassSphere.material.uniforms.uBaseColor.value.copy(colorObj);
+    if(multiColorRaysMesh) multiColorRaysMesh.material.uniforms.uBaseColor.value.copy(colorObj);
+    if(orbitingPointsMesh) orbitingPointsMesh.material.uniforms.uBaseColor.value.copy(colorObj);
     if(lockRingX) lockRingX.material.uniforms.uBaseColor.value.copy(colorObj);
     if(lockRingZ) lockRingZ.material.uniforms.uBaseColor.value.copy(colorObj);
   }
@@ -699,9 +662,9 @@ html, body {
       for (let i = 0; i < specCount; i++) {
         const angle = (i / specCount) * Math.PI * 2;
         const nextAngle = ((i + 1) / specCount) * Math.PI * 2;
-        const waveSpike = Math.sin(angle * 4.0 + globalTime * 5.0) * audioLevelBuffer * 0.4;
-        const r1 = 1.25 + waveSpike;
-        const r2 = 1.25 + Math.sin(nextAngle * 4.0 + globalTime * 5.0) * audioLevelBuffer * 0.4;
+        const waveSpike = Math.sin(angle * 4.0 + globalTime * 5.0) * audioLevelBuffer * 0.35;
+        const r1 = 1.0 + waveSpike;
+        const r2 = 1.0 + Math.sin(nextAngle * 4.0 + globalTime * 5.0) * audioLevelBuffer * 0.35;
         
         specPosAttr.setXYZ(i * 2, Math.cos(angle) * r1, Math.sin(angle * 2.0) * 0.2, Math.sin(angle) * r1);
         specPosAttr.setXYZ(i * 2 + 1, Math.cos(nextAngle) * r2, Math.sin(nextAngle * 2.0) * 0.2, Math.sin(nextAngle) * r2);
@@ -715,30 +678,30 @@ html, body {
       for (let i = 0; i < teleCount; i++) {
         const angle = (i / teleCount) * Math.PI * 2 + globalTime * 0.5;
         const nextAngle = ((i + 0.7) / teleCount) * Math.PI * 2 + globalTime * 0.5;
-        const r = 1.55;
-        telePosAttr.setXYZ(i * 2, Math.cos(angle) * r, Math.sin(globalTime + i) * 0.3, Math.sin(angle) * r);
-        telePosAttr.setXYZ(i * 2 + 1, Math.cos(nextAngle) * r, Math.sin(globalTime + i) * 0.3, Math.sin(nextAngle) * r);
+        const r = 1.15;
+        telePosAttr.setXYZ(i * 2, Math.cos(angle) * r, Math.sin(globalTime + i) * 0.25, Math.sin(angle) * r);
+        telePosAttr.setXYZ(i * 2 + 1, Math.cos(nextAngle) * r, Math.sin(globalTime + i) * 0.25, Math.sin(nextAngle) * r);
       }
       telePosAttr.needsUpdate = true;
     }
 
     const rayPosAttr = multiColorRaysMesh.geometry.attributes.position;
     const rayAlphaAttr = multiColorRaysMesh.geometry.attributes.aAlpha;
-    const rayIntensityMultiplier = currentInterp.rayInt || 1.3;
+    const rayIntensityMultiplier = currentInterp.rayInt || 1.2;
 
     for (let i = 0; i < SYSTEM_CFG.RAYS_COUNT; i++) {
       const ray = raysData[i];
       const pulsePhase = Math.sin(globalTime * ray.speed + ray.offset) * 0.5 + 0.5;
-      const currentLength = (0.5 + pulsePhase * ray.lengthFactor * 1.4) * (1.0 + audioLevelBuffer * 0.9);
+      const currentLength = (0.4 + pulsePhase * ray.lengthFactor * 1.2) * (1.0 + audioLevelBuffer * 0.9);
       
-      const startX = ray.dir.x * 0.4, startY = ray.dir.y * 0.4, startZ = ray.dir.z * 0.4;
+      const startX = ray.dir.x * 0.3, startY = ray.dir.y * 0.3, startZ = ray.dir.z * 0.3;
       const endX = ray.dir.x * currentLength, endY = ray.dir.y * currentLength, endZ = ray.dir.z * currentLength;
 
       rayPosAttr.setXYZ(i * 2, startX, startY, startZ);
       rayPosAttr.setXYZ(i * 2 + 1, endX, endY, endZ);
 
-      rayAlphaAttr.setX(i * 2, 1.0 * rayIntensityMultiplier);
-      rayAlphaAttr.setX(i * 2 + 1, pulsePhase * 0.35 * rayIntensityMultiplier);
+      rayAlphaAttr.setX(i * 2, 0.9 * rayIntensityMultiplier);
+      rayAlphaAttr.setX(i * 2 + 1, pulsePhase * 0.3 * rayIntensityMultiplier);
     }
     rayPosAttr.needsUpdate = true;
     rayAlphaAttr.needsUpdate = true;
@@ -749,10 +712,10 @@ html, body {
     for (let i = 0; i < SYSTEM_CFG.ORBIT_COUNT; i++) {
       const data = orbitalDataList[i];
       data.a += data.sp * dt * 0.8;
-      const radiusVal = data.r + Math.sin(globalTime * data.fs + data.ph) * 0.13 + audioLevelBuffer * 0.12;
+      const radiusVal = data.r + Math.sin(globalTime * data.fs + data.ph) * 0.1 + audioLevelBuffer * 0.1;
       const xPos = Math.cos(data.a) * radiusVal;
       const zPos = Math.sin(data.a) * radiusVal * 0.62;
-      const yPos = data.y * 0.82 + Math.sin(data.a * 1.3 + data.ph) * 0.19 + xPos * data.tilt * 0.26;
+      const yPos = data.y * 0.82 + Math.sin(data.a * 1.3 + data.ph) * 0.15 + xPos * data.tilt * 0.26;
       
       orbAttr.setXYZ(i, xPos, yPos, zPos);
       orbAlphaAttr.setX(i, Math.pow(0.5 + 0.5 * Math.sin(globalTime * data.fs * 1.6 + data.ph), 1.5) * (0.7 + currentInterp.glow * 0.3));
