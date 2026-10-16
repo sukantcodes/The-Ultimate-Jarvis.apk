@@ -786,6 +786,8 @@ class JarvisConversationService : Service() {
         hasSignalledUtteranceEnd = false
         currentTurnAssistantText.clear()
         currentTurnUserText.clear()
+        noiseLevel = com.jarvis.assistant.audio.NoiseCancelSettings(applicationContext).level
+        voiceCleaner = null
         startInactivityTimer()
         setConversationState(ConversationState.IDLE)
         updateNotification()
@@ -866,6 +868,7 @@ class JarvisConversationService : Service() {
                         private var audioChunksReceivedInTurn = 0
 
                         override fun onAudioDataReceived(pcmData: ByteArray) {
+                            lastRealInteractionTime = System.currentTimeMillis()
                             thinkingTimeoutJob?.cancel()
                             thinkingTimeoutJob = null
                             lastResponseTimedOut = false
@@ -930,6 +933,7 @@ class JarvisConversationService : Service() {
 
                         override fun onUserTextReceived(textChunk: String) {
                             lastUserSpeechDetectedTime = System.currentTimeMillis()
+                            lastRealInteractionTime = lastUserSpeechDetectedTime
                             val trimmed = textChunk.trim()
                             if (trimmed.isNotEmpty()) {
                                 val startsNewUserTurn = currentTurnUserText.isEmpty()
@@ -1408,16 +1412,17 @@ class JarvisConversationService : Service() {
                 }
 
                 // Stream user speech to Gemini Live
+                val cleanedChunk = cleanForModel(chunk)
                 if (liveWebSocket?.isSessionReady() == true) {
                     while (!preConnectAudioQueue.isEmpty()) {
                         val queued = preConnectAudioQueue.poll() ?: break
                         liveWebSocket?.sendAudioChunk(queued)
                     }
-                    liveWebSocket?.sendAudioChunk(chunk)
+                    if (cleanedChunk.isNotEmpty()) liveWebSocket?.sendAudioChunk(cleanedChunk)
                 } else {
                     // Connection still warming up: buffer up to 60 chunks (~1.2s of audio) so early speech is never lost
-                    if (preConnectAudioQueue.size < 60) {
-                        preConnectAudioQueue.offer(chunk.copyOf())
+                    if (preConnectAudioQueue.size < 60 && cleanedChunk.isNotEmpty()) {
+                        preConnectAudioQueue.offer(cleanedChunk.copyOf())
                     }
                 }
 
@@ -1645,6 +1650,7 @@ class JarvisConversationService : Service() {
      * (when owner is already verified) and from processPendingToolCalls (after verification completes).
      */
     private fun handleToolCallExecution(callId: String, name: String, args: JSONObject) {
+        lastRealInteractionTime = System.currentTimeMillis()
         val job = serviceScope.launch(Dispatchers.IO) {
             val thisJob = coroutineContext[Job]
             if (thisJob != null) activeToolJobs.add(thisJob)
@@ -3118,12 +3124,27 @@ class JarvisConversationService : Service() {
         headsetAudioRouter?.stop()
     }
 
+    /**
+     * Sends Jarvis back to standby (listening only for "Jarvis") after the time chosen in Settings > Auto-Sleep.
+     * By default the time counts from the last real conversation (something you said, something Jarvis said, or a
+     * task running), so background noise cannot keep Jarvis awake. Jarvis never sleeps in the middle of a task.
+     */
     private fun startInactivityTimer() {
         inactivityJob?.cancel()
+        val startedAt = System.currentTimeMillis()
+        activationTime = startedAt
+        lastRealInteractionTime = startedAt
         inactivityJob = serviceScope.launch {
             while (isActive && _isSessionOn.value) {
-                delay(15_000)
-                if (System.currentTimeMillis() - lastUserSpeechDetectedTime >= INACTIVITY_TIMEOUT_MS) {
+                delay(5_000)
+                val sleepSettings = com.jarvis.assistant.audio.AutoSleepSettings(applicationContext)
+                val timeoutMs = sleepSettings.timeoutSeconds * 1000L
+                if (timeoutMs <= 0L) continue
+                val busy = isAutonomousTaskRunning || macroJob?.isActive == true || pendingToolCalls.isNotEmpty() ||
+                    audioPlayer?.isPlaying() == true || _conversationState.value == ConversationState.SPEAKING
+                if (busy) continue
+                val reference = if (sleepSettings.countFromWake) activationTime else lastRealInteractionTime
+                if (System.currentTimeMillis() - reference >= timeoutMs) {
                     enterStandby(announce = false)
                 }
             }
@@ -3579,6 +3600,25 @@ class JarvisConversationService : Service() {
             )
         } else {
             batteryAnnouncer?.say(text)
+        }
+    }
+
+    @Volatile private var voiceCleaner: com.jarvis.assistant.audio.VoiceCleaner? = null
+    @Volatile private var noiseLevel = com.jarvis.assistant.audio.NoiseLevel.STRONG
+    @Volatile private var lastRealInteractionTime = 0L
+    @Volatile private var activationTime = 0L
+
+    /** Cleans the microphone audio that is sent to the AI. Returns the original audio if cleaning is off or fails. */
+    private fun cleanForModel(chunk: ByteArray): ByteArray {
+        if (noiseLevel == com.jarvis.assistant.audio.NoiseLevel.OFF) return chunk
+        return try {
+            val cleaner = voiceCleaner ?: com.jarvis.assistant.audio.VoiceCleaner(
+                noiseLevel == com.jarvis.assistant.audio.NoiseLevel.STRONG
+            ).also { voiceCleaner = it }
+            cleaner.process(chunk)
+        } catch (e: Exception) {
+            Log.w("JarvisService", "Noise cleaning failed, using the original audio: ${e.message}")
+            chunk
         }
     }
 
