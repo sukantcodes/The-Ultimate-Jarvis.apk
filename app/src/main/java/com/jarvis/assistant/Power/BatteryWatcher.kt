@@ -144,25 +144,7 @@ class BatteryWatcher(
     }
 
     /** Turns Battery Saver on when Android allows it, otherwise opens its settings page. Returns what to tell the user. */
-    private fun enableBatterySaver(): String {
-        val power = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-        if (power != null && power.isPowerSaveMode) return "Battery Saver is already on."
-        try {
-            if (Settings.Global.putInt(context.contentResolver, "low_power", 1)) {
-                return "I have turned on Battery Saver."
-            }
-        } catch (e: SecurityException) {
-            Log.i(TAG, "WRITE_SECURE_SETTINGS is not granted, opening Battery Saver settings instead")
-        } catch (e: Exception) {
-            Log.w(TAG, "Could not switch Battery Saver on: ${e.message}")
-        }
-        return try {
-            context.startActivity(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            "Please turn on Battery Saver on the screen I opened."
-        } catch (e: Exception) {
-            "Please turn on Battery Saver and plug in the charger."
-        }
-    }
+    private fun enableBatterySaver(): String = PowerActions.setBatterySaver(context, true)
 
     private fun startFullReminder() {
         if (fullReminderActive) return
