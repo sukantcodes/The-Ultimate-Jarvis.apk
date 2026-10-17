@@ -119,10 +119,21 @@ class SettingsFragment : Fragment() {
             .setInterpolator(DecelerateInterpolator())
             .start()
 
-        val cards = listOfNotNull(
-            binding.cardProfile,
-            binding.cardLiquidGlass
-        )
+        val cards = mutableListOf<View>()
+        fun collectCardViews(view: View) {
+            if (view.id != View.NO_ID) {
+                val entryName = runCatching { resources.getResourceEntryName(view.id) }.getOrNull().orEmpty()
+                if (entryName.startsWith("card") && view is android.view.ViewGroup || entryName.startsWith("card") && view is android.widget.LinearLayout) {
+                    cards.add(view)
+                }
+            }
+            if (view is android.view.ViewGroup) {
+                for (i in 0 until view.childCount) collectCardViews(view.getChildAt(i))
+            }
+        }
+        collectCardViews(binding.root)
+        if (cards.none { it.id == R.id.cardProfile }) cards.add(binding.cardProfile)
+        if (cards.none { it.id == R.id.cardLiquidGlass }) cards.add(binding.cardLiquidGlass)
         cards.forEach { card ->
             val strokeAlpha = if (enabled) (35 + 100 * strength).toInt() else 35
             val glassStroke = GradientDrawable().apply {
@@ -270,6 +281,11 @@ class SettingsFragment : Fragment() {
 
         binding.rowApplications.setOnClickListener {
             startActivity(Intent(requireContext(), HandsFreeActivity::class.java))
+        }
+
+        // Dedicated Automation Studio entry; the existing Applications/Hands-Free entry is preserved.
+        binding.root.findViewById<View>(R.id.cardAutomationStudio)?.setOnClickListener {
+            startActivity(Intent(requireContext(), com.jarvis.assistant.automation.studio.AutomationStudioActivity::class.java))
         }
 
         // Section 3: Appearance & Security
