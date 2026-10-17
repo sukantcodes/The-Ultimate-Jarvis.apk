@@ -176,9 +176,9 @@ class AutomationStudioActivity : AppCompatActivity() {
         val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(4), dp(4), dp(4), dp(4)) }
         fun edit(hint: String, value: String = ""): EditText = EditText(this).apply { this.hint = hint; setText(value); setSingleLine(hint != "Voice template") }
         val name = edit("Rule name", existing?.name.orEmpty())
-        val pattern = edit("Voice template", existing?.triggerPattern.orEmpty())
+        val pattern = edit("Trigger pattern (time: HH:mm|DAILY for daily)", existing?.triggerPattern.orEmpty())
         val triggerSpinner = Spinner(this)
-        val triggers = listOf(RuleTriggerType.VOICE_COMMAND, RuleTriggerType.BATTERY_BELOW, RuleTriggerType.BATTERY_FULL, RuleTriggerType.CHARGER_CONNECTED, RuleTriggerType.CHARGER_DISCONNECTED, RuleTriggerType.NOTIFICATION_MATCH, RuleTriggerType.DEVICE_BOOT, RuleTriggerType.WIFI_CONNECTED, RuleTriggerType.WIFI_DISCONNECTED)
+        val triggers = listOf(RuleTriggerType.VOICE_COMMAND, RuleTriggerType.BATTERY_BELOW, RuleTriggerType.BATTERY_FULL, RuleTriggerType.CHARGER_CONNECTED, RuleTriggerType.CHARGER_DISCONNECTED, RuleTriggerType.NOTIFICATION_MATCH, RuleTriggerType.DEVICE_BOOT, RuleTriggerType.WIFI_CONNECTED, RuleTriggerType.WIFI_DISCONNECTED, RuleTriggerType.SCHEDULED_TIME)
         triggerSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, triggers.map { it.name.replace('_', ' ') })
         triggerSpinner.setSelection(triggers.indexOf(existing?.triggerType ?: RuleTriggerType.VOICE_COMMAND).coerceAtLeast(0))
         val actionSpinner = Spinner(this)

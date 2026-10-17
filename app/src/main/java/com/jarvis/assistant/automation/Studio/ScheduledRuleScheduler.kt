@@ -28,7 +28,7 @@ object ScheduledRuleScheduler {
             if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
         }
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val pending = pendingIntent(context, rule.id, daily, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val pending = pendingIntent(context, rule.id, daily, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE) ?: return
         alarmManager.cancel(pending)
         if (daily) alarmManager.setInexactRepeating(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, AlarmManager.INTERVAL_DAY, pending)
         else alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pending)

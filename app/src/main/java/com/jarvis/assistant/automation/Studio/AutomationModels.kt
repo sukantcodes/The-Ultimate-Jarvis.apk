@@ -11,7 +11,8 @@ enum class RuleTriggerType {
     NOTIFICATION_MATCH,
     DEVICE_BOOT,
     WIFI_CONNECTED,
-    WIFI_DISCONNECTED
+    WIFI_DISCONNECTED,
+    SCHEDULED_TIME
 }
 
 enum class RuleActionType {
