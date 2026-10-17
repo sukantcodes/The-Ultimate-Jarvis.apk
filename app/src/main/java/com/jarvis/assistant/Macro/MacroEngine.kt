@@ -118,18 +118,39 @@ class MacroEngine(private val actions: MacroActions) {
     }
 
     private suspend fun type(text: String, focusLabels: List<String>): StepResult {
-        var last = ""
-        for (attempt in 1..3) {
-            val result = actions.typeText(text)
-            if (result.ok) return result
-            last = result.message
-            // The text box may not be focused yet: tap it by its label, then try again.
-            for (label in focusLabels) {
-                if (actions.tapText(label).ok) break
+        if (text.isBlank()) return StepResult(false, "The requested input text is empty.")
+
+        // Focus the composer before typing. Previously type was attempted three times first,
+        // which could repeat actions in apps that accepted input but reported an uncertain result.
+        for (label in focusLabels) {
+            if (actions.tapText(label).ok) {
+                delay(350L)
+                break
             }
-            delay(1_200L)
         }
-        return StepResult(false, "Could not type the text. $last")
+        val first = actions.typeText(text)
+        if (first.ok) return first
+
+        // A failed result may still mean the app accepted the text. Never blindly type twice.
+        val visible = actions.screenText()
+        if (visible.contains(text, ignoreCase = true)) {
+            return StepResult(true, "The requested text is already visible; skipped duplicate typing.")
+        }
+
+        // One controlled retry after re-focusing, and only if the text is not already on screen.
+        for (label in focusLabels) {
+            if (actions.tapText(label).ok) {
+                delay(350L)
+                break
+            }
+        }
+        val second = actions.typeText(text)
+        if (second.ok) return second
+        val afterRetry = actions.screenText()
+        if (afterRetry.contains(text, ignoreCase = true)) {
+            return StepResult(true, "The requested text is visible; skipped further typing.")
+        }
+        return StepResult(false, "Could not verify that the text was entered. Refusing further retries to prevent duplicate input. ${second.message.ifBlank { first.message }}")
     }
 
     private suspend fun waitForText(options: List<String>, mode: String, timeoutSec: Int, graceSec: Int): StepResult {
