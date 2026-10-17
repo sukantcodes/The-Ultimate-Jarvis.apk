@@ -996,6 +996,7 @@ class JarvisConversationService : Service() {
                             app.memoryManager.learnPreferencesFromConversation(currentTurnUserText.toString())
                             // Do not run checkAndExecuteCommand on streaming chunks mid-speech!
                             // Gemini Live onToolCall is the authoritative neural intent engine.
+                            if (!usingGroqEngine()) scheduleAutomationMatch()
                         }
 
                         override fun onInterrupted() {
@@ -1072,6 +1073,7 @@ class JarvisConversationService : Service() {
                             audioPlayer?.notifyTurnComplete()
                             audioChunksReceivedInTurn = 0
                             suppressAudioUntilTurnComplete = false
+                            automationHandledTurn = false
                             hasSpeechInCurrentUtterance = false
                             hasSignalledUtteranceEnd = false
                             consecutiveVoicedFrames = 0
@@ -1334,6 +1336,16 @@ class JarvisConversationService : Service() {
                         }
 
                         override fun onToolCall(callId: String, name: String, args: JSONObject) {
+                            if (automationHandledTurn) {
+                                liveWebSocket?.sendToolResponse(
+                                    callId, name,
+                                    JSONObject().put("success", true).put(
+                                        "message",
+                                        "This request was already handled by a local Jarvis automation. Do not repeat it and do not speak."
+                                    )
+                                )
+                                return
+                            }
                             val isLeaseActive = (System.currentTimeMillis() - lastOwnerVerifiedTimestamp) < 120_000L
                             val hasNoIncomingSpeech = !hasSpeechInCurrentUtterance && currentTurnUserText.isEmpty()
                             val isOwnerVerifiedOrAutonomous = isCurrentTurnOwnerVoiceVerified || isLeaseActive || hasNoIncomingSpeech || isAutonomousTaskRunning
@@ -1672,7 +1684,7 @@ class JarvisConversationService : Service() {
                 )
                 if (isAutomationTool && autonomousHardStop) {
                     Log.w("JarvisService", "Automation tool '$name' refused: hard stop is active.")
-                    liveWebSocket?.sendToolResponse(callId, name, JSONObject().apply {
+                    deliverToolResult(callId, name, JSONObject().apply {
                         put("success", false)
                         put("autonomous_status", "STOPPED")
                         put("message", "STOPPED: automation was halted (repeated failures or too many steps). Do NOT call any more tools. Tell the user honestly, in one or two short sentences, what you actually completed and where you got stuck, then wait for their next instruction.")
@@ -1724,7 +1736,7 @@ class JarvisConversationService : Service() {
                             put("message", "Action blocked because the foreground app does not match the user's current task. Expected an app matching '$expectedPackage', but the current app is '$activePackage'. Reopen the intended app and inspect it before continuing.")
                             put("current_screen_elements", screenSummary)
                         }
-                        liveWebSocket?.sendToolResponse(callId, name, mismatchResult)
+                        deliverToolResult(callId, name, mismatchResult)
                         return@withTimeout
                     }
                 }
@@ -2571,7 +2583,7 @@ class JarvisConversationService : Service() {
                 }
 
                             logToolAction(name, args, result)
-                            liveWebSocket?.sendToolResponse(callId, name, result)
+                            deliverToolResult(callId, name, result)
                         }
                     } catch (e: TimeoutCancellationException) {
                         Log.e("JarvisService", "Tool call '$name' (callId=$callId) timed out after 25 seconds.")
@@ -2579,7 +2591,7 @@ class JarvisConversationService : Service() {
                             put("success", false)
                             put("message", "Tool execution timed out after 25 seconds.")
                         }
-                        liveWebSocket?.sendToolResponse(callId, name, timeoutResult)
+                        deliverToolResult(callId, name, timeoutResult)
                     } catch (e: CancellationException) {
                         Log.i("JarvisService", "Tool call '$name' (callId=$callId) was cancelled.")
                         throw e
@@ -2589,7 +2601,7 @@ class JarvisConversationService : Service() {
                             put("success", false)
                             put("message", "Error: ${e.message}")
                         }
-                        liveWebSocket?.sendToolResponse(callId, name, errResult)
+                        deliverToolResult(callId, name, errResult)
                     } finally {
                         isExecutingTool = false
                     }
@@ -3083,6 +3095,7 @@ class JarvisConversationService : Service() {
         consecutiveVoicedFrames = 0
         totalVoicedFramesInCurrentUtterance = 0
         hasExecutedCommandInCurrentTurn = false
+        automationHandledTurn = false
         lastHandledCommandText = ""
         lastHandledAssistantCommand = ""
         val prefs = (application as? JarvisApp)?.preferences
@@ -3563,7 +3576,9 @@ class JarvisConversationService : Service() {
             voiceName = voiceName,
             systemPromptText = systemPrompt,
             groqListener = listener
-        )
+        ).also { session ->
+            session.userTextInterceptor = { text -> tryLocalAutomation(text) }
+        }
     }
 
     private val activityLogSkippedTools = setOf(
@@ -3619,6 +3634,112 @@ class JarvisConversationService : Service() {
         } catch (e: Exception) {
             Log.w("JarvisService", "Noise cleaning failed, using the original audio: ${e.message}")
             chunk
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Automation Studio: local rules that run before (and instead of) the AI for matching voice commands
+    // ---------------------------------------------------------------------------------------------
+    private val automationStore by lazy { com.jarvis.assistant.studio.AutomationStore.get(applicationContext) }
+    private val automationEngine by lazy { com.jarvis.assistant.studio.AutomationEngine(automationStore) }
+    @Volatile private var automationHandledTurn = false
+    private var automationMatchJob: kotlinx.coroutines.Job? = null
+    private val automationResultSinks =
+        java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.CompletableDeferred<JSONObject>>()
+
+    private fun usingGroqEngine(): Boolean = liveWebSocket is com.jarvis.assistant.network.GroqLiveSession
+
+    /** Sends a tool result to the AI session, or to the automation that started the tool. */
+    private fun deliverToolResult(callId: String, name: String, result: JSONObject) {
+        val sink = automationResultSinks.remove(callId)
+        if (sink != null) {
+            sink.complete(result)
+            return
+        }
+        liveWebSocket?.sendToolResponse(callId, name, result)
+    }
+
+    /** Runs one of Jarvis's existing tools for an automation and waits for its result. */
+    private suspend fun runNativeTool(name: String, args: JSONObject): JSONObject {
+        val callId = "auto_" + System.nanoTime()
+        val waiter = kotlinx.coroutines.CompletableDeferred<JSONObject>()
+        automationResultSinks[callId] = waiter
+        handleToolCallExecution(callId, name, args)
+        val result = kotlinx.coroutines.withTimeoutOrNull(70_000L) { waiter.await() }
+        automationResultSinks.remove(callId)
+        return result ?: JSONObject().put("success", false).put("message", "The action took too long.")
+    }
+
+    private val automationRunner = object : com.jarvis.assistant.studio.ActionRunner {
+        override suspend fun runTool(name: String, args: JSONObject): JSONObject = runNativeTool(name, args)
+
+        override fun speak(text: String) {
+            batteryAnnouncer?.say(text)
+        }
+
+        override suspend fun openApp(name: String): Boolean =
+            com.jarvis.assistant.util.AppLauncher.launchApp(this@JarvisConversationService, name, null)
+
+        override suspend fun batterySaver(on: Boolean): String =
+            com.jarvis.assistant.power.PowerActions.setBatterySaver(applicationContext, on)
+
+        override suspend fun doNotDisturb(on: Boolean): String =
+            com.jarvis.assistant.power.PowerActions.setDoNotDisturb(applicationContext, on)
+    }
+
+    private fun ownerVerifiedForLocalAction(): Boolean {
+        val leaseActive = (System.currentTimeMillis() - lastOwnerVerifiedTimestamp) < 120_000L
+        return isCurrentTurnOwnerVoiceVerified || leaseActive
+    }
+
+    /**
+     * The priority interceptor. Checks what the user said against the Automation Studio voice rules. When one
+     * matches it runs at once, the AI's own answer and tool calls for this turn are dropped, and true is returned.
+     */
+    private suspend fun tryLocalAutomation(rawText: String): Boolean {
+        val text = rawText.trim()
+        if (text.isEmpty() || automationHandledTurn || hasExecutedCommandInCurrentTurn) return false
+        val match = automationEngine.matchVoice(text) ?: return false
+
+        if (ownerVoiceGateOn()) {
+            var waited = 0
+            while (!ownerVerifiedForLocalAction() && waited < 2_000) {
+                kotlinx.coroutines.delay(100)
+                waited += 100
+            }
+            if (!ownerVerifiedForLocalAction()) return false
+        }
+        if (automationHandledTurn || hasExecutedCommandInCurrentTurn) return false
+
+        automationHandledTurn = true
+        hasExecutedCommandInCurrentTurn = true
+        lastHandledCommandText = text
+        lastCommandExecutionTime = System.currentTimeMillis()
+        lastRealInteractionTime = lastCommandExecutionTime
+        suppressAudioUntilTurnComplete = true
+        audioPlayer?.flush()
+        Log.i("JarvisService", "AUTOMATION '" + match.rule.name + "' matched '" + text + "' via '" + match.phrase + "'")
+        com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).log(
+            com.jarvis.assistant.activitylog.ActivityLog.TYPE_ACTION,
+            "Automation '" + match.rule.name + "' ran from voice: " + text.take(120)
+        )
+        serviceScope.launch(Dispatchers.Default) {
+            val result = automationEngine.run(match.rule, match.variables, automationRunner)
+            if (!result.success) {
+                Log.w("JarvisService", result.message)
+                automationRunner.speak(result.message.take(160))
+            }
+        }
+        return true
+    }
+
+    /** Gemini mode: waits a moment after the last words of the transcript, then checks the voice rules. */
+    private fun scheduleAutomationMatch() {
+        automationMatchJob?.cancel()
+        automationMatchJob = serviceScope.launch {
+            kotlinx.coroutines.delay(450)
+            val text = currentTurnUserText.toString().trim()
+            if (text.isNotEmpty()) tryLocalAutomation(text)
         }
     }
 
