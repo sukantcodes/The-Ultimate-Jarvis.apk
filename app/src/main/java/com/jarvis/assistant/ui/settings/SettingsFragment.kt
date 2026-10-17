@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.jarvis.assistant.JarvisApp
+import com.jarvis.assistant.automation.studio.AutomationStudioActivity
 import com.jarvis.assistant.R
 import com.jarvis.assistant.data.model.GeminiConstants
 import com.jarvis.assistant.databinding.FragmentSettingsBinding
@@ -174,6 +175,11 @@ class SettingsFragment : Fragment() {
             startActivity(Intent(requireContext(), HandsFreeActivity::class.java))
         }
 
+        // Automation Studio is an additive Settings section; existing application controls remain unchanged.
+        binding.rowAutomationStudio.setOnClickListener {
+            startActivity(Intent(requireContext(), AutomationStudioActivity::class.java))
+        }
+
         // Section 3: Appearance & Security
         binding.rowAppTheme.setOnClickListener {
             ThemeSelectionBottomSheet.newInstance().show(childFragmentManager, ThemeSelectionBottomSheet.TAG)
@@ -203,11 +209,6 @@ class SettingsFragment : Fragment() {
         }
         binding.rowNotificationAccess.setOnClickListener { openNotificationAccessSettings() }
         updateNotificationAccessSubtitle()
-
-        updateNoiseCancelSubtitle()
-        binding.rowNoiseCancel.setOnClickListener { showNoiseCancelDialog() }
-        updateAutoSleepSubtitle()
-        binding.rowAutoSleep.setOnClickListener { showAutoSleepDialog() }
         requestMissingCallPermissions()
 
         val alertSettings = com.jarvis.assistant.power.AlertSettings(requireContext())
@@ -560,88 +561,5 @@ class SettingsFragment : Fragment() {
                 Toast.LENGTH_LONG
             ).show()
         }
-    }
-
-    private fun updateNoiseCancelSubtitle() {
-        if (_binding == null) return
-        val level = com.jarvis.assistant.audio.NoiseCancelSettings(requireContext()).level
-        binding.tvNoiseCancelSubtitle.text = "Currently: " + level.label
-    }
-
-    private fun showNoiseCancelDialog() {
-        val ctx = requireContext()
-        val settings = com.jarvis.assistant.audio.NoiseCancelSettings(ctx)
-        val levels = com.jarvis.assistant.audio.NoiseLevel.values()
-        var selected = levels.indexOf(settings.level).coerceAtLeast(0)
-        MaterialAlertDialogBuilder(ctx)
-            .setTitle("Noise Cancellation")
-            .setSingleChoiceItems(levels.map { it.label }.toTypedArray(), selected) { _, which -> selected = which }
-            .setPositiveButton("Save") { _, _ ->
-                settings.level = levels[selected]
-                updateNoiseCancelSubtitle()
-                Toast.makeText(ctx, "Saved. It takes effect the next time Jarvis wakes up.", Toast.LENGTH_LONG).show()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    private fun updateAutoSleepSubtitle() {
-        if (_binding == null) return
-        val settings = com.jarvis.assistant.audio.AutoSleepSettings(requireContext())
-        binding.tvAutoSleepSubtitle.text = if (settings.timeoutSeconds == 0) {
-            "Never goes back to standby by itself"
-        } else {
-            "After " + com.jarvis.assistant.audio.AutoSleepSettings.labelFor(settings.timeoutSeconds) +
-                (if (settings.countFromWake) " from waking up" else " without conversation")
-        }
-    }
-
-    private fun showAutoSleepDialog() {
-        val ctx = requireContext()
-        val settings = com.jarvis.assistant.audio.AutoSleepSettings(ctx)
-        val choices = com.jarvis.assistant.audio.AutoSleepSettings.CHOICES_SECONDS
-        var selected = choices.indexOf(settings.timeoutSeconds).let { if (it < 0) 1 else it }
-        var fromWake = settings.countFromWake
-        val pad = (20 * resources.displayMetrics.density).toInt()
-
-        val container = android.widget.LinearLayout(ctx).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(pad, pad / 2, pad, 0)
-        }
-        val group = android.widget.RadioGroup(ctx)
-        val ids = ArrayList<Int>()
-        for ((index, seconds) in choices.withIndex()) {
-            val button = android.widget.RadioButton(ctx).apply {
-                id = android.view.View.generateViewId()
-                text = com.jarvis.assistant.audio.AutoSleepSettings.labelFor(seconds) +
-                    (if (seconds == 60) " (default)" else "")
-                isChecked = index == selected
-            }
-            ids.add(button.id)
-            group.addView(button)
-        }
-        group.setOnCheckedChangeListener { _, checkedId ->
-            val position = ids.indexOf(checkedId)
-            if (position >= 0) selected = position
-        }
-        val box = android.widget.CheckBox(ctx).apply {
-            text = "Count from waking up, even if I am still talking"
-            isChecked = fromWake
-            setOnCheckedChangeListener { _, checked -> fromWake = checked }
-        }
-        container.addView(group)
-        container.addView(box)
-
-        MaterialAlertDialogBuilder(ctx)
-            .setTitle("Auto-Sleep")
-            .setView(container)
-            .setPositiveButton("Save") { _, _ ->
-                settings.timeoutSeconds = choices[selected]
-                settings.countFromWake = fromWake
-                updateAutoSleepSubtitle()
-                Toast.makeText(ctx, "Saved. Jarvis sleeps after that time, and wakes when you say Jarvis.", Toast.LENGTH_LONG).show()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
     }
 }
