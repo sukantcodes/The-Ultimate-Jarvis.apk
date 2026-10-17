@@ -7,6 +7,9 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.graphics.drawable.GradientDrawable
+import android.view.animation.DecelerateInterpolator
+import android.widget.SeekBar
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -14,7 +17,6 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.jarvis.assistant.JarvisApp
-import com.jarvis.assistant.automation.studio.AutomationStudioActivity
 import com.jarvis.assistant.R
 import com.jarvis.assistant.data.model.GeminiConstants
 import com.jarvis.assistant.databinding.FragmentSettingsBinding
@@ -43,6 +45,8 @@ class SettingsFragment : Fragment() {
 
         loadUserData()
         setupClickListeners()
+        setupLiquidGlassEffects()
+        animateSettingsEntrance()
     }
 
     override fun onResume() {
@@ -50,6 +54,7 @@ class SettingsFragment : Fragment() {
         if (_binding != null) {
             com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root)
             loadUserData()
+            setupLiquidGlassEffects()
             updateNotificationAccessSubtitle()
         }
     }
@@ -62,6 +67,98 @@ class SettingsFragment : Fragment() {
             loadUserData()
         } else if (hidden && _binding != null) {
             binding.root.visibility = View.GONE
+        }
+    }
+
+
+    /** Adds an opt-in, adjustable glass treatment without replacing the existing settings layout. */
+    private fun setupLiquidGlassEffects() {
+        val ctx = context ?: return
+        val prefs = ctx.getSharedPreferences("jarvis_liquid_glass", android.content.Context.MODE_PRIVATE)
+        val enabled = prefs.getBoolean("enabled", true)
+        val rate = prefs.getInt("refraction_rate", 60).coerceIn(0, 100)
+
+        binding.switchLiquidGlass.setOnCheckedChangeListener(null)
+        binding.switchLiquidGlass.isChecked = enabled
+        binding.seekRefractionRate.setOnSeekBarChangeListener(null)
+        binding.seekRefractionRate.progress = rate
+        binding.tvRefractionRate.text = "$rate%"
+        binding.seekRefractionRate.isEnabled = enabled
+        applyLiquidGlassVisuals(enabled, rate)
+
+        binding.switchLiquidGlass.setOnCheckedChangeListener { _, checked ->
+            prefs.edit().putBoolean("enabled", checked).apply()
+            binding.seekRefractionRate.isEnabled = checked
+            applyLiquidGlassVisuals(checked, binding.seekRefractionRate.progress)
+        }
+        binding.seekRefractionRate.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                binding.tvRefractionRate.text = "$progress%"
+                if (fromUser) {
+                    prefs.edit().putInt("refraction_rate", progress).apply()
+                    if (binding.switchLiquidGlass.isChecked) applyLiquidGlassVisuals(true, progress)
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        })
+    }
+
+    private fun applyLiquidGlassVisuals(enabled: Boolean, rate: Int) {
+        if (_binding == null) return
+        val strength = if (enabled) rate / 100f else 0f
+        // Existing ambient glow fields are retained; the slider controls their visible refraction strength.
+        binding.glowOrbTopRight.alpha = 0.08f + 0.62f * strength
+        binding.glowOrbCenterLeft.alpha = 0.06f + 0.50f * strength
+        binding.glowOrbBottom.alpha = 0.07f + 0.55f * strength
+        binding.cardLiquidGlass.animate().cancel()
+        binding.cardLiquidGlass.animate()
+            .alpha(if (enabled) 1f else 0.82f)
+            .translationY(0f)
+            .setDuration(220)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
+
+        val cards = listOfNotNull(
+            binding.cardProfile,
+            binding.cardLiquidGlass
+        )
+        cards.forEach { card ->
+            val strokeAlpha = if (enabled) (35 + 100 * strength).toInt() else 35
+            val glassStroke = GradientDrawable().apply {
+                setColor(android.graphics.Color.TRANSPARENT)
+                cornerRadius = 22f * resources.displayMetrics.density
+                setStroke((resources.displayMetrics.density).toInt().coerceAtLeast(1),
+                    android.graphics.Color.argb(strokeAlpha, 210, 235, 255))
+            }
+            card.foreground = glassStroke
+            card.elevation = if (enabled) 2f + 8f * strength else 0f
+        }
+    }
+
+    private fun animateSettingsEntrance() {
+        val root = _binding?.root ?: return
+        root.alpha = 0f
+        root.translationY = 10f * resources.displayMetrics.density
+        root.animate().alpha(1f).translationY(0f).setDuration(300)
+            .setInterpolator(DecelerateInterpolator()).start()
+        // Smooth, subtle press feedback for the existing clickable settings rows.
+        val clickableIds = intArrayOf(
+            R.id.cardProfile, R.id.rowOwnerVoice, R.id.rowLanguage, R.id.rowPersonaVoice,
+            R.id.rowApiConnection, R.id.rowMemory, R.id.rowPermissions, R.id.rowOverlayAvatars,
+            R.id.rowApplications, R.id.rowAppTheme, R.id.rowPrivacyPolicy, R.id.rowScreenUnlock,
+            R.id.rowAiEngine, R.id.rowVoiceGender, R.id.rowNotificationAccess
+        )
+        clickableIds.forEach { id ->
+            root.findViewById<View?>(id)?.let { item ->
+                item.setOnTouchListener { v, event ->
+                    when (event.actionMasked) {
+                        android.view.MotionEvent.ACTION_DOWN -> v.animate().scaleX(0.985f).scaleY(0.985f).setDuration(90).start()
+                        android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> v.animate().scaleX(1f).scaleY(1f).setDuration(160).setInterpolator(DecelerateInterpolator()).start()
+                    }
+                    false
+                }
+            }
         }
     }
 
@@ -173,11 +270,6 @@ class SettingsFragment : Fragment() {
 
         binding.rowApplications.setOnClickListener {
             startActivity(Intent(requireContext(), HandsFreeActivity::class.java))
-        }
-
-        // Automation Studio is an additive Settings section; existing application controls remain unchanged.
-        binding.rowAutomationStudio.setOnClickListener {
-            startActivity(Intent(requireContext(), AutomationStudioActivity::class.java))
         }
 
         // Section 3: Appearance & Security
