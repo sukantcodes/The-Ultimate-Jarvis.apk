@@ -60,7 +60,7 @@
                 android:id="@+id/tvSettingsTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Settings &amp; Intelligence"
+                android:text="@string/set_screen_title"
                 android:textColor="?attr/themeTextPrimary"
                 android:textSize="22sp"
                 android:fontFamily="sans-serif-medium"
@@ -69,7 +69,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="System preferences &amp; neural configuration"
+                android:text="@string/set_screen_subtitle"
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp"
                 android:fontFamily="sans-serif"
@@ -246,293 +246,278 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- SECTION 1: VOICE & NEURAL INTELLIGENCE -->
+            <!-- SECTION 1: AI & INTELLIGENCE -->
             <TextView
+                android:id="@+id/headerAiIntelligence"
+                style="@style/Widget.JarvisSettings.SectionTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="VOICE &amp; NEURAL INTELLIGENCE"
-                android:textColor="?attr/themeTextMuted"
-                android:textSize="11sp"
-                android:letterSpacing="0.08"
-                android:fontFamily="sans-serif-medium"
-                android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
+                android:text="@string/set_section_ai" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
+                android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_jarvis_card"
+                android:orientation="vertical"
                 android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:layout_marginBottom="22dp">
+                android:paddingEnd="16dp">
 
-                <!-- Row 1: Owner Voice Biometrics (FEATURE RESTORED & PROMINENT) -->
                 <LinearLayout
-                    android:id="@+id/rowOwnerVoice"
+                    android:id="@+id/rowAiEngine"
+                    style="@style/Widget.JarvisSettings.Row"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
+                    android:layout_height="wrap_content">
 
                     <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
                         android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
+                        android:layout_height="40dp">
 
                         <ImageView
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_owner_voice"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Owner Voice" />
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_chip"
+                            app:tint="?attr/themeAccent" />
                     </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
                         android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
+                        android:orientation="vertical">
 
                         <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Owner Voice Biometrics"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
+                            android:text="@string/set_aiengine_title" />
 
                         <TextView
-                            android:id="@+id/tvOwnerVoiceSubtitle"
+                            android:id="@+id/tvAiEngineSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Voice Profile Active • Only you can speak"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
+                            android:text="@string/set_aiengine_subtitle" />
                     </LinearLayout>
-
-                    <TextView
-                        android:id="@+id/tvOwnerVoiceBadge"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="ACTIVE"
-                        android:textSize="10sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/status_green"
-                        android:background="@drawable/bg_jarvis_status_badge_green"
-                        android:paddingHorizontal="8dp"
-                        android:paddingVertical="3dp"
-                        android:layout_marginEnd="8dp" />
 
                     <ImageView
                         android:layout_width="18dp"
                         android:layout_height="18dp"
+                        android:importantForAccessibility="no"
                         android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
+                        app:tint="?attr/themeTextMuted" />
                 </LinearLayout>
 
                 <View
+                    style="@style/Widget.JarvisSettings.Divider"
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
+                    android:layout_height="1dp" />
 
-                <!-- Row 2: Conversation Language (FEATURE RESTORED) -->
                 <LinearLayout
-                    android:id="@+id/rowLanguage"
+                    android:id="@+id/rowApiConnection"
+                    style="@style/Widget.JarvisSettings.Row"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
+                    android:layout_height="wrap_content">
 
                     <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
                         android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
+                        android:layout_height="40dp">
 
                         <ImageView
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_language"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Language" />
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_plug"
+                            app:tint="?attr/themeAccent" />
                     </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
                         android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
+                        android:orientation="vertical">
 
                         <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Conversation Language"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
+                            android:text="@string/set_apiconnection_title" />
+
+                        <TextView
+                            android:id="@+id/tvCurrentModel"
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_apiconnection_subtitle" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="?attr/themeTextMuted" />
+                </LinearLayout>
+
+                <View
+                    style="@style/Widget.JarvisSettings.Divider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
+                <LinearLayout
+                    android:id="@+id/rowLanguage"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_language"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_language_title" />
 
                         <TextView
                             android:id="@+id/tvCurrentLanguage"
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Auto (All Indian Languages)"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
+                            android:text="@string/set_language_subtitle" />
                     </LinearLayout>
 
                     <ImageView
                         android:layout_width="18dp"
                         android:layout_height="18dp"
+                        android:importantForAccessibility="no"
                         android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
+                        app:tint="?attr/themeTextMuted" />
                 </LinearLayout>
 
                 <View
+                    style="@style/Widget.JarvisSettings.Divider"
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
+                    android:layout_height="1dp" />
 
-                <!-- Row 3: AI Persona & Voice -->
                 <LinearLayout
                     android:id="@+id/rowPersonaVoice"
+                    style="@style/Widget.JarvisSettings.Row"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
+                    android:layout_height="wrap_content">
 
                     <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
                         android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
+                        android:layout_height="40dp">
 
                         <ImageView
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_voice"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Persona &amp; Voice" />
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_sparkle"
+                            app:tint="?attr/themeAccent" />
                     </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
                         android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
+                        android:orientation="vertical">
 
                         <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="AI Persona &amp; Voice"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
+                            android:text="@string/set_personavoice_title" />
 
                         <TextView
                             android:id="@+id/tvCurrentPersona"
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Jarvis Pro • Voice: Puck"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
+                            android:text="@string/set_personavoice_subtitle" />
                     </LinearLayout>
 
                     <ImageView
                         android:layout_width="18dp"
                         android:layout_height="18dp"
+                        android:importantForAccessibility="no"
                         android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
+                        app:tint="?attr/themeTextMuted" />
                 </LinearLayout>
 
-
-
                 <View
+                    style="@style/Widget.JarvisSettings.Divider"
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
+                    android:layout_height="1dp" />
 
-                <!-- Row 5: Silent Execution Mode (FEATURE RESTORED) -->
                 <LinearLayout
                     android:id="@+id/rowSilentMode"
+                    style="@style/Widget.JarvisSettings.Row"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item">
+                    android:layout_height="wrap_content">
 
                     <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
                         android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
+                        android:layout_height="40dp">
 
                         <ImageView
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:layout_gravity="center"
+                            android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_silent"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Silent Mode" />
+                            app:tint="?attr/themeAccent" />
                     </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
                         android:layout_marginStart="14dp"
-                        android:layout_marginEnd="8dp">
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
 
                         <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Silent Execution Mode"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
+                            android:text="@string/set_silentmode_title" />
 
                         <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Execute device commands without vocal reply"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
+                            android:text="@string/set_silentmode_subtitle" />
                     </LinearLayout>
 
                     <com.google.android.material.materialswitch.MaterialSwitch
@@ -542,1317 +527,355 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- SECTION 2: SYSTEM & INTELLIGENCE DATA -->
+            <!-- SECTION 2: VOICE & LISTENING -->
             <TextView
+                android:id="@+id/headerVoiceListening"
+                style="@style/Widget.JarvisSettings.SectionTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="SYSTEM &amp; DATA ENGINE"
-                android:textColor="?attr/themeTextMuted"
-                android:textSize="11sp"
-                android:letterSpacing="0.08"
-                android:fontFamily="sans-serif-medium"
-                android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
+                android:text="@string/set_section_voice" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
+                android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_jarvis_card"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:layout_marginBottom="22dp">
-
-                <!-- Row 1: API & Connection -->
-                <LinearLayout
-                    android:id="@+id/rowApiConnection"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
-
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_plug"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="API" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Gemini Live API &amp; Model"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tvCurrentModel"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Gemini 3.1 Flash Live • WebSocket Engine"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
-
-                <!-- Row 2: Long-Term Memory -->
-                <LinearLayout
-                    android:id="@+id/rowMemory"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
-
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_db"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Memory" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Neural Memory Bank"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Search, review and back up learned facts"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
-
-                <!-- Row 3: Permissions -->
-                <LinearLayout
-                    android:id="@+id/rowPermissions"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
-
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_shield"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Permissions" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="System Permissions"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Microphone, Accessibility, Notifications &amp; System"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
-
-                <!-- Floating task overlay and avatar selection -->
-                <LinearLayout
-                    android:id="@+id/rowOverlayAvatars"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_palette"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Overlay avatars" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Overlay Avatars"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:textStyle="bold" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Choose a floating avatar or turn the overlay off"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
-
-                <!-- Row 4: Applications & Automation -->
-                <LinearLayout
-                    android:id="@+id/rowApplications"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
-
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_apps"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Apps" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="App Control &amp; Hands-Free"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="WhatsApp, YouTube, Media &amp; Phone Automation"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- SECTION 3: APPEARANCE & SECURITY -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="APPEARANCE &amp; SECURITY"
-                android:textColor="?attr/themeTextMuted"
-                android:textSize="11sp"
-                android:letterSpacing="0.08"
-                android:fontFamily="sans-serif-medium"
-                android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:background="@drawable/bg_jarvis_card"
                 android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:layout_marginBottom="24dp">
-
-                <!-- Row 1: App Theme -->
-                <LinearLayout
-                    android:id="@+id/rowAppTheme"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
-
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_palette"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Theme" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Theme &amp; 3D Orb Colors"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tvCurrentTheme"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Light Theme"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
-
-                <!-- Row 2: Privacy Policy -->
-                <LinearLayout
-                    android:id="@+id/rowPrivacyPolicy"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
-
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_lock"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Privacy" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Privacy &amp; Data Shield"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="On-device biometric processing &amp; TLS encryption"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
-
-                <LinearLayout
-                    android:id="@+id/rowScreenUnlock"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
-
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_lock"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Screen Unlock" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Screen Unlock"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Save your PIN, password or pattern to unlock by voice"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
-
-                <LinearLayout
-                    android:id="@+id/rowActivityMemory"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
-
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_voice"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Activity memory" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp"
-                        android:layout_marginEnd="8dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Activity Memory (last 2 days)"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Jarvis remembers your chats, actions, messages and battery events for 48 hours, then forgets them"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchActivityMemory"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
-
-                <LinearLayout
-                    android:id="@+id/rowClearActivityMemory"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
-
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_voice"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Clear activity memory" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Clear Activity Memory"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Delete everything Jarvis remembers from the last 2 days"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
-
-                <LinearLayout
-                    android:id="@+id/rowChargingAlerts"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
-
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_plug"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Battery &amp; Charging Alerts" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp"
-                        android:layout_marginEnd="8dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Battery &amp; Charging Alerts"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Speaks when the charger is connected or removed, at 25% battery, and every 5 minutes at 100%"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchChargingAlerts"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
-
-                <LinearLayout
-                    android:id="@+id/rowAutoBatterySaver"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
-
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_plug"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Auto Battery Saver at 25%" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp"
-                        android:layout_marginEnd="8dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Auto Battery Saver at 25%"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Turns Battery Saver on when the battery is low and the phone is not charging"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchAutoBatterySaver"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
+                android:paddingEnd="16dp">
 
                 <LinearLayout
                     android:id="@+id/rowVoiceGender"
+                    style="@style/Widget.JarvisSettings.Row"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
+                    android:layout_height="wrap_content">
 
                     <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
                         android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
+                        android:layout_height="40dp">
 
                         <ImageView
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_owner_voice"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Voice and gender" />
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_voice"
+                            app:tint="?attr/themeAccent" />
                     </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
                         android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
+                        android:orientation="vertical">
 
                         <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Voice &amp; Gender"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
+                            android:text="@string/set_voicegender_title" />
 
                         <TextView
                             android:id="@+id/tvVoiceGenderSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Male, female or prefer not to say"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
+                            android:text="@string/set_voicegender_subtitle" />
                     </LinearLayout>
 
                     <ImageView
                         android:layout_width="18dp"
                         android:layout_height="18dp"
+                        android:importantForAccessibility="no"
                         android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
+                        app:tint="?attr/themeTextMuted" />
                 </LinearLayout>
 
                 <View
+                    style="@style/Widget.JarvisSettings.Divider"
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
-
-                <LinearLayout
-                    android:id="@+id/rowMessageAnnounce"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
-
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_voice"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Message Announcements" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp"
-                        android:layout_marginEnd="8dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Message Announcements"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Says who a new WhatsApp, Instazen or Instagram message is from"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchMessageAnnounce"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
-
-                <LinearLayout
-                    android:id="@+id/rowMessageJarvisVoice"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
-
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_owner_voice"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Use Jarvis Voice for Announcements" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp"
-                        android:layout_marginEnd="8dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Use Jarvis Voice for Announcements"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Only while Jarvis is listening. Otherwise the phone voice is used"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switchMessageJarvisVoice"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
-
-                <LinearLayout
-                    android:id="@+id/rowNotificationAccess"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
-
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_lock"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Notification access" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Notification Access"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tvNotificationAccessSubtitle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Needed so Jarvis can see new message notifications"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
+                    android:layout_height="1dp" />
 
                 <LinearLayout
                     android:id="@+id/rowNoiseCancel"
+                    style="@style/Widget.JarvisSettings.Row"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
+                    android:layout_height="wrap_content">
 
                     <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
                         android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
+                        android:layout_height="40dp">
 
                         <ImageView
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_voice"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Noise Cancellation" />
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_wave"
+                            app:tint="?attr/themeAccent" />
                     </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
                         android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
+                        android:orientation="vertical">
 
                         <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Noise Cancellation"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
+                            android:text="@string/set_noisecancel_title" />
 
                         <TextView
                             android:id="@+id/tvNoiseCancelSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Removes background noise from what Jarvis hears"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
+                            android:text="@string/set_noisecancel_subtitle" />
                     </LinearLayout>
 
                     <ImageView
                         android:layout_width="18dp"
                         android:layout_height="18dp"
+                        android:importantForAccessibility="no"
                         android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
+                        app:tint="?attr/themeTextMuted" />
                 </LinearLayout>
 
                 <View
+                    style="@style/Widget.JarvisSettings.Divider"
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
+                    android:layout_height="1dp" />
 
                 <LinearLayout
                     android:id="@+id/rowAutoSleep"
+                    style="@style/Widget.JarvisSettings.Row"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
+                    android:layout_height="wrap_content">
 
                     <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
                         android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
+                        android:layout_height="40dp">
 
                         <ImageView
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_lock"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Auto-Sleep" />
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_timer"
+                            app:tint="?attr/themeAccent" />
                     </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
                         android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
+                        android:orientation="vertical">
 
                         <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Auto-Sleep"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
+                            android:text="@string/set_autosleep_title" />
 
                         <TextView
                             android:id="@+id/tvAutoSleepSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Jarvis goes back to standby after a quiet minute"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
+                            android:text="@string/set_autosleep_subtitle" />
                     </LinearLayout>
 
                     <ImageView
                         android:layout_width="18dp"
                         android:layout_height="18dp"
+                        android:importantForAccessibility="no"
                         android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
+                        app:tint="?attr/themeTextMuted" />
                 </LinearLayout>
 
                 <View
+                    style="@style/Widget.JarvisSettings.Divider"
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
+                    android:layout_height="1dp" />
 
                 <LinearLayout
-                    android:id="@+id/rowAiEngine"
+                    android:id="@+id/rowDefaultAssistant"
+                    style="@style/Widget.JarvisSettings.Row"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
+                    android:layout_height="wrap_content">
 
                     <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
                         android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
+                        android:layout_height="40dp">
 
                         <ImageView
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_plug"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="AI engine" />
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_orb"
+                            app:tint="?attr/themeAccent" />
                     </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
                         android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
+                        android:orientation="vertical">
 
                         <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="AI Engine (Gemini / Groq)"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
+                            android:text="@string/set_defaultassistant_title" />
 
                         <TextView
-                            android:id="@+id/tvAiEngineSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Choose which AI runs the assistant and enter your Groq key"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
+                            android:text="@string/set_defaultassistant_subtitle" />
                     </LinearLayout>
 
                     <ImageView
                         android:layout_width="18dp"
                         android:layout_height="18dp"
+                        android:importantForAccessibility="no"
                         android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
+                        app:tint="?attr/themeTextMuted" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- SECTION 3: VOICE SECURITY & UNLOCK -->
+            <TextView
+                android:id="@+id/headerVoiceSecurity"
+                style="@style/Widget.JarvisSettings.SectionTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/set_section_security" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="22dp"
+                android:background="@drawable/bg_jarvis_card"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <LinearLayout
+                    android:id="@+id/rowOwnerVoice"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_owner_voice"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_ownervoice_title" />
+
+                        <TextView
+                            android:id="@+id/tvOwnerVoiceSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_ownervoice_subtitle" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvOwnerVoiceBadge"
+                        style="@style/Widget.JarvisSettings.Badge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_jarvis_status_badge_green"
+                        android:text="@string/set_ownervoice_badge"
+                        android:textColor="@color/status_green" />
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="?attr/themeTextMuted" />
                 </LinearLayout>
 
                 <View
+                    style="@style/Widget.JarvisSettings.Divider"
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
+                    android:layout_height="1dp" />
 
                 <LinearLayout
                     android:id="@+id/rowVoiceMode"
+                    style="@style/Widget.JarvisSettings.Row"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp">
+                    android:layout_height="wrap_content">
 
                     <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
                         android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
+                        android:layout_height="40dp">
 
                         <ImageView
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_owner_voice"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Owner voice only" />
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_shield"
+                            app:tint="?attr/themeAccent" />
                     </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
                         android:layout_marginStart="14dp"
-                        android:layout_marginEnd="8dp">
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
 
                         <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Owner Voice Only"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
+                            android:text="@string/set_voicemode_title" />
 
                         <TextView
                             android:id="@+id/tvVoiceModeSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="On: only your enrolled voice is accepted. Off: Jarvis answers every voice it hears."
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
+                            android:text="@string/set_voicemode_subtitle" />
                     </LinearLayout>
 
                     <com.google.android.material.materialswitch.MaterialSwitch
@@ -1862,129 +885,859 @@
                 </LinearLayout>
 
                 <View
+                    style="@style/Widget.JarvisSettings.Divider"
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
+                    android:layout_height="1dp" />
 
                 <LinearLayout
-                    android:id="@+id/rowDefaultAssistant"
+                    android:id="@+id/rowScreenUnlock"
+                    style="@style/Widget.JarvisSettings.Row"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
+                    android:layout_height="wrap_content">
 
                     <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
                         android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
+                        android:layout_height="40dp">
 
                         <ImageView
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_voice"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="Default assistant" />
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_lock"
+                            app:tint="?attr/themeAccent" />
                     </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
                         android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
+                        android:orientation="vertical">
 
                         <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Default Assistant"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
+                            android:text="@string/set_screenunlock_title" />
 
                         <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Make Jarvis your phone's assistant (power-button hold or corner swipe)"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:fontFamily="sans-serif"
-                            android:layout_marginTop="2dp" />
+                            android:text="@string/set_screenunlock_subtitle" />
                     </LinearLayout>
 
                     <ImageView
                         android:layout_width="18dp"
                         android:layout_height="18dp"
+                        android:importantForAccessibility="no"
                         android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
+                        app:tint="?attr/themeTextMuted" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- SECTION 4: ALERTS & ANNOUNCEMENTS -->
+            <TextView
+                android:id="@+id/headerAlerts"
+                style="@style/Widget.JarvisSettings.SectionTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/set_section_alerts" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="22dp"
+                android:background="@drawable/bg_jarvis_card"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <LinearLayout
+                    android:id="@+id/rowNotificationAccess"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_nav_bell"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_notificationaccess_title" />
+
+                        <TextView
+                            android:id="@+id/tvNotificationAccessSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_notificationaccess_subtitle" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="?attr/themeTextMuted" />
                 </LinearLayout>
 
                 <View
+                    style="@style/Widget.JarvisSettings.Divider"
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?attr/themeCardBorder" />
+                    android:layout_height="1dp" />
 
                 <LinearLayout
-                    android:id="@+id/rowAppIdentity"
+                    android:id="@+id/rowMessageAnnounce"
+                    style="@style/Widget.JarvisSettings.Row"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingTop="14dp"
-                    android:paddingBottom="14dp"
-                    android:background="@drawable/bg_jarvis_row_item"
-                    android:clickable="true"
-                    android:focusable="true">
+                    android:layout_height="wrap_content">
 
                     <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
                         android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_jarvis_icon_square">
+                        android:layout_height="40dp">
+
                         <ImageView
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_settings_shield"
-                            app:tint="?attr/themeAccent"
-                            android:contentDescription="App identity and integrity" />
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_chat_bubble"
+                            app:tint="?attr/themeAccent" />
                     </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="8dp"
                         android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp">
+                        android:orientation="vertical">
+
                         <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="App Identity &amp; Integrity"
-                            android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:textStyle="bold" />
+                            android:text="@string/set_messageannounce_title" />
+
                         <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Publisher, app ID and signing certificate status"
-                            android:textColor="?attr/themeTextMuted"
-                            android:textSize="12sp"
-                            android:layout_marginTop="2dp" />
+                            android:text="@string/set_messageannounce_subtitle" />
+                    </LinearLayout>
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchMessageAnnounce"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <View
+                    style="@style/Widget.JarvisSettings.Divider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
+                <LinearLayout
+                    android:id="@+id/rowMessageJarvisVoice"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_tts_play"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_messagejarvisvoice_title" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_messagejarvisvoice_subtitle" />
+                    </LinearLayout>
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchMessageJarvisVoice"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <View
+                    style="@style/Widget.JarvisSettings.Divider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
+                <LinearLayout
+                    android:id="@+id/rowChargingAlerts"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_plug"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_chargingalerts_title" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_chargingalerts_subtitle" />
+                    </LinearLayout>
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchChargingAlerts"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <View
+                    style="@style/Widget.JarvisSettings.Divider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
+                <LinearLayout
+                    android:id="@+id/rowAutoBatterySaver"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_battery"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_autobatterysaver_title" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_autobatterysaver_subtitle" />
+                    </LinearLayout>
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchAutoBatterySaver"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- SECTION 5: MEMORY & DATA -->
+            <TextView
+                android:id="@+id/headerMemoryData"
+                style="@style/Widget.JarvisSettings.SectionTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/set_section_memory" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="22dp"
+                android:background="@drawable/bg_jarvis_card"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <LinearLayout
+                    android:id="@+id/rowMemory"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_db"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_memory_title" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_memory_subtitle" />
                     </LinearLayout>
 
                     <ImageView
                         android:layout_width="18dp"
                         android:layout_height="18dp"
+                        android:importantForAccessibility="no"
                         android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted"
-                        android:contentDescription="Open" />
+                        app:tint="?attr/themeTextMuted" />
+                </LinearLayout>
+
+                <View
+                    style="@style/Widget.JarvisSettings.Divider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
+                <LinearLayout
+                    android:id="@+id/rowActivityMemory"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_stack_memory"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_activitymemory_title" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_activitymemory_subtitle" />
+                    </LinearLayout>
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchActivityMemory"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <View
+                    style="@style/Widget.JarvisSettings.Divider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
+                <LinearLayout
+                    android:id="@+id/rowClearActivityMemory"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_delete" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_clearactivitymemory_title" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_clearactivitymemory_subtitle" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="?attr/themeTextMuted" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- SECTION 6: PERMISSIONS & AUTOMATION -->
+            <TextView
+                android:id="@+id/headerPermissionsAutomation"
+                style="@style/Widget.JarvisSettings.SectionTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/set_section_permissions" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="22dp"
+                android:background="@drawable/bg_jarvis_card"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <LinearLayout
+                    android:id="@+id/rowPermissions"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_checklist_tasks"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_permissions_title" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_permissions_subtitle" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="?attr/themeTextMuted" />
+                </LinearLayout>
+
+                <View
+                    style="@style/Widget.JarvisSettings.Divider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
+                <LinearLayout
+                    android:id="@+id/rowApplications"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_apps"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_applications_title" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_applications_subtitle" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="?attr/themeTextMuted" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- SECTION 7: APPEARANCE -->
+            <TextView
+                android:id="@+id/headerAppearance"
+                style="@style/Widget.JarvisSettings.SectionTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/set_section_appearance" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="22dp"
+                android:background="@drawable/bg_jarvis_card"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <LinearLayout
+                    android:id="@+id/rowAppTheme"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_palette"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_apptheme_title" />
+
+                        <TextView
+                            android:id="@+id/tvCurrentTheme"
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_apptheme_subtitle" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="?attr/themeTextMuted" />
+                </LinearLayout>
+
+                <View
+                    style="@style/Widget.JarvisSettings.Divider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
+                <LinearLayout
+                    android:id="@+id/rowOverlayAvatars"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_user_profile"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_overlayavatars_title" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_overlayavatars_subtitle" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="?attr/themeTextMuted" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- SECTION 8: PRIVACY & ABOUT -->
+            <TextView
+                android:id="@+id/headerPrivacyAbout"
+                style="@style/Widget.JarvisSettings.SectionTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/set_section_about" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="22dp"
+                android:background="@drawable/bg_jarvis_card"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+                <LinearLayout
+                    android:id="@+id/rowPrivacyPolicy"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_lock"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_privacypolicy_title" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_privacypolicy_subtitle" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="?attr/themeTextMuted" />
+                </LinearLayout>
+
+                <View
+                    style="@style/Widget.JarvisSettings.Divider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
+                <LinearLayout
+                    android:id="@+id/rowAppIdentity"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_verified_badge"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_appidentity_title" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_appidentity_subtitle" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="?attr/themeTextMuted" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -2031,7 +1784,7 @@
                 android:id="@+id/tvFooterCredit"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="JARVIS INTELLIGENCE OS • v3.1 PRO\nEngineered by ♪Sukant♪Codes♪"
+                android:text="@string/set_footer_credit"
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp"
                 android:fontFamily="sans-serif-medium"
