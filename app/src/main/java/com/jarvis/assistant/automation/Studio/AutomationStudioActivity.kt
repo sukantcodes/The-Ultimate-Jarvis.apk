@@ -285,7 +285,7 @@ class AutomationStudioActivity : AppCompatActivity() {
 
     private fun tabButton(text: String, action: () -> Unit) = MaterialButton(this).apply {
         this.text = text
-        setOnClickListener(action)
+        setOnClickListener { action() }
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
