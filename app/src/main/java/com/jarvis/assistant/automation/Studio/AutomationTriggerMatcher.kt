@@ -23,6 +23,7 @@ class AutomationTriggerMatcher {
             RuleTriggerType.DEVICE_BOOT -> true
             RuleTriggerType.WIFI_CONNECTED -> payload["connected"]?.toBooleanStrictOrNull() ?: true
             RuleTriggerType.WIFI_DISCONNECTED -> !(payload["connected"]?.toBooleanStrictOrNull() ?: false)
+            RuleTriggerType.SCHEDULED_TIME -> true // The scheduler has already matched the configured time.
             RuleTriggerType.NOTIFICATION_MATCH -> {
                 val haystack = listOf(payload["title"].orEmpty(), payload["text"].orEmpty())
                     .joinToString(" ").trim()
