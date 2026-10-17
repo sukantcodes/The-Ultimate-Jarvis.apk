@@ -51,6 +51,9 @@ class GroqLiveSession(
 ) : GeminiLiveWebSocket(groqKey, "", voiceName, systemPromptText, groqListener) {
 
     private val genderStore = com.jarvis.assistant.voice.VoiceGenderStore(context)
+    /** Called with what the user said before the language model runs. Return true to handle it locally and skip the model. */
+    var userTextInterceptor: (suspend (String) -> Boolean)? = null
+
     private val ready = AtomicBoolean(false)
     private val activeTurns = AtomicInteger(0)
     private val turnMutex = Mutex()
@@ -288,7 +291,14 @@ class GroqLiveSession(
                     val text = transcribe(pcm)
                     if (!text.isNullOrBlank() && !isNoiseText(text)) {
                         groqListener.onUserTextReceived(text)
-                        respond(text)
+                        val handledLocally = try {
+                            userTextInterceptor?.invoke(text) ?: false
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            false
+                        }
+                        if (handledLocally) groqListener.onTurnCompleted() else respond(text)
                     }
                 }
             } catch (e: CancellationException) {
