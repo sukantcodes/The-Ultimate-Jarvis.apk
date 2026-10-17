@@ -7,6 +7,7 @@ import com.jarvis.assistant.automation.command.CommandExecutor
 import com.jarvis.assistant.automation.contacts.ContactResolver
 import com.jarvis.assistant.automation.phone.PhoneControlManager
 import com.jarvis.assistant.automation.whatsapp.WhatsAppAssistant
+import com.jarvis.assistant.automation.studio.AutomationStudioRuntime
 import com.jarvis.assistant.automation.youtube.YouTubeAutomationManager
 import com.jarvis.assistant.data.memory.MemoryDatabase
 import com.jarvis.assistant.data.memory.MemoryManager
@@ -55,6 +56,9 @@ class JarvisApp : Application() {
     lateinit var whatsAppAssistant: WhatsAppAssistant
         private set
 
+    lateinit var automationStudioRuntime: AutomationStudioRuntime
+        private set
+
     lateinit var commandExecutor: CommandExecutor
         private set
 
@@ -76,6 +80,7 @@ class JarvisApp : Application() {
         contactResolver = ContactResolver(this)
         phoneControlManager = PhoneControlManager(this, contactResolver)
         whatsAppAssistant = WhatsAppAssistant(this, contactResolver)
+        automationStudioRuntime = AutomationStudioRuntime(this, phoneControlManager, whatsAppAssistant)
 
         // Command Engine
         commandExecutor = CommandExecutor(
