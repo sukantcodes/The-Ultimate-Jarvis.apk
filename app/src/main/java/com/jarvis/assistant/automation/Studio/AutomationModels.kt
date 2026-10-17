@@ -15,6 +15,7 @@ enum class RuleTriggerType {
 }
 
 enum class RuleActionType {
+    OPEN_APP,
     SPEAK,
     PLACE_CALL,
     WHATSAPP_MESSAGE,

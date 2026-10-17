@@ -26,6 +26,15 @@ class SystemActionExecutor(
         fun value(key: String) = (action.parameters[key] ?: variables[key] ?: "").trim()
         return try {
             when (action.type) {
+                RuleActionType.OPEN_APP -> {
+                    val packageName = value("packageName")
+                    if (packageName.isBlank()) return ActionExecutionResult(false, "Choose an installed app first.")
+                    val launchIntent = appContext.packageManager.getLaunchIntentForPackage(packageName)
+                        ?: return ActionExecutionResult(false, "This app has no launchable activity or Android blocked it.")
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    appContext.startActivity(launchIntent)
+                    ActionExecutionResult(true, "Opening ${appContext.packageManager.getApplicationLabel(appContext.packageManager.getApplicationInfo(packageName, 0))}.", true)
+                }
                 RuleActionType.SET_FLASHLIGHT -> {
                     val enabled = value("enabled").lowercase() in setOf("true", "on", "yes", "1")
                     val manager = appContext.getSystemService(Context.CAMERA_SERVICE) as CameraManager

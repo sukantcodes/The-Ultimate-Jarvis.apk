@@ -1,6 +1,8 @@
 package com.jarvis.assistant.automation.studio
 
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
@@ -180,7 +182,7 @@ class AutomationStudioActivity : AppCompatActivity() {
         triggerSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, triggers.map { it.name.replace('_', ' ') })
         triggerSpinner.setSelection(triggers.indexOf(existing?.triggerType ?: RuleTriggerType.VOICE_COMMAND).coerceAtLeast(0))
         val actionSpinner = Spinner(this)
-        val actions = listOf(RuleActionType.SPEAK, RuleActionType.PLACE_CALL, RuleActionType.WHATSAPP_MESSAGE, RuleActionType.SET_VOLUME, RuleActionType.SET_BRIGHTNESS, RuleActionType.SET_FLASHLIGHT, RuleActionType.SET_RINGER_MODE, RuleActionType.MEDIA_PLAY, RuleActionType.MEDIA_PAUSE, RuleActionType.MEDIA_NEXT, RuleActionType.MEDIA_PREVIOUS, RuleActionType.OPEN_WIFI_SETTINGS, RuleActionType.OPEN_BLUETOOTH_SETTINGS)
+        val actions = listOf(RuleActionType.OPEN_APP, RuleActionType.SPEAK, RuleActionType.PLACE_CALL, RuleActionType.WHATSAPP_MESSAGE, RuleActionType.SET_VOLUME, RuleActionType.SET_BRIGHTNESS, RuleActionType.SET_FLASHLIGHT, RuleActionType.SET_RINGER_MODE, RuleActionType.MEDIA_PLAY, RuleActionType.MEDIA_PAUSE, RuleActionType.MEDIA_NEXT, RuleActionType.MEDIA_PREVIOUS, RuleActionType.OPEN_WIFI_SETTINGS, RuleActionType.OPEN_BLUETOOTH_SETTINGS)
         actionSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, actions.map { it.name.replace('_', ' ') })
         actionSpinner.setSelection(actions.indexOf(existing?.actions?.firstOrNull()?.type ?: RuleActionType.SPEAK).coerceAtLeast(0))
         val parameter = edit("Action value (e.g. text, 70, {contact})", existing?.actions?.firstOrNull()?.parameters?.values?.firstOrNull().orEmpty())
@@ -206,6 +208,7 @@ class AutomationStudioActivity : AppCompatActivity() {
                         val actionType = actions[actionSpinner.selectedItemPosition]
                         val param = parameter.text.toString().trim()
                         val params = when (actionType) {
+                            RuleActionType.OPEN_APP -> mapOf("packageName" to param)
                             RuleActionType.SPEAK -> mapOf("text" to param.ifBlank { "Automation triggered." })
                             RuleActionType.PLACE_CALL -> mapOf("contact" to param.ifBlank { "{contact}" })
                             RuleActionType.WHATSAPP_MESSAGE -> mapOf("contact" to "{contact}", "message" to "{message}")
@@ -237,6 +240,59 @@ class AutomationStudioActivity : AppCompatActivity() {
                 }
                 dialog.show()
             }
+    }
+
+    private data class InstalledApp(val label: String, val packageName: String)
+
+    /** Lists launchable apps visible to Android's package-visibility policy. */
+    private fun showInstalledAppPicker(onChosen: (InstalledApp) -> Unit) {
+        val pm = packageManager
+        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val apps = pm.queryIntentActivities(launcher, PackageManager.MATCH_ALL)
+            .mapNotNull { info ->
+                val pkg = info.activityInfo?.packageName ?: return@mapNotNull null
+                if (pkg == packageName) return@mapNotNull null
+                InstalledApp(info.loadLabel(pm).toString(), pkg)
+            }
+            .distinctBy { it.packageName }
+            .sortedBy { it.label.lowercase() }
+        if (apps.isEmpty()) {
+            Toast.makeText(this, "No launchable apps found.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val picker = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(10), dp(16), dp(8))
+        }
+        val search = EditText(this).apply {
+            hint = "Search installed apps"
+            setSingleLine(true)
+        }
+        val list = android.widget.ListView(this)
+        picker.addView(search, LinearLayout.LayoutParams(-1, -2))
+        picker.addView(list, LinearLayout.LayoutParams(-1, dp(420)))
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Choose installed app")
+            .setView(picker)
+            .setNegativeButton("CLOSE", null)
+            .create()
+        var filtered = apps
+        fun refresh(query: String) {
+            filtered = apps.filter { it.label.contains(query, true) || it.packageName.contains(query, true) }
+            list.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_2, android.R.id.text1,
+                filtered.map { "${it.label}\n${it.packageName}" })
+        }
+        refresh("")
+        search.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { refresh(s?.toString().orEmpty()) }
+            override fun afterTextChanged(s: android.text.Editable?) = Unit
+        })
+        list.setOnItemClickListener { _, _, position, _ ->
+            filtered.getOrNull(position)?.let(onChosen)
+            dialog.dismiss()
+        }
+        dialog.show()
     }
 
     private fun showImportDialog() {

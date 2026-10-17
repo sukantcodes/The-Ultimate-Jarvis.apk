@@ -23,6 +23,13 @@ class AutomationTriggerReceiver : BroadcastReceiver() {
             try {
                 val extras = intent.extras
                 when (intent.action) {
+                    ScheduledRuleScheduler.ACTION_SCHEDULED_RULE -> {
+                        val ruleId = ScheduledRuleScheduler.ruleId(intent)
+                        if (ruleId != null) {
+                            AutomationTriggerSink.dispatch(appContext, RuleTriggerType.SCHEDULED_TIME, mapOf("ruleId" to ruleId))
+                            if (!ScheduledRuleScheduler.isDaily(intent)) ScheduledRuleScheduler.cancel(appContext, ruleId)
+                        }
+                    }
                     Intent.ACTION_BATTERY_CHANGED -> {
                         val level = extras?.getInt(BatteryManager.EXTRA_LEVEL, -1) ?: -1
                         val scale = extras?.getInt(BatteryManager.EXTRA_SCALE, 100) ?: 100
@@ -42,8 +49,12 @@ class AutomationTriggerReceiver : BroadcastReceiver() {
                         AutomationTriggerSink.dispatch(appContext, RuleTriggerType.CHARGER_CONNECTED, emptyMap())
                     Intent.ACTION_POWER_DISCONNECTED ->
                         AutomationTriggerSink.dispatch(appContext, RuleTriggerType.CHARGER_DISCONNECTED, emptyMap())
-                    Intent.ACTION_BOOT_COMPLETED ->
+                    Intent.ACTION_BOOT_COMPLETED -> {
                         AutomationTriggerSink.dispatch(appContext, RuleTriggerType.DEVICE_BOOT, emptyMap())
+                        RuleRepository(appContext).getAll()
+                            .filter { it.enabled && it.triggerType == RuleTriggerType.SCHEDULED_TIME }
+                            .forEach { ScheduledRuleScheduler.schedule(appContext, it) }
+                    }
                     "android.net.wifi.STATE_CHANGE" -> {
                         val info = @Suppress("DEPRECATION") (intent.getParcelableExtra<android.net.wifi.WifiInfo>("wifiInfo"))
                         val connected = info?.networkId?.let { it >= 0 } == true
