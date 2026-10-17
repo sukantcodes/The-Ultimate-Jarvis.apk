@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared look for the Settings screen so every row, heading and divider stays consistent. -->
+<resources>
+
+    <!-- Small uppercase heading above each card. -->
+    <style name="Widget.JarvisSettings.SectionTitle" parent="">
+        <item name="android:textColor">?attr/themeTextMuted</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:layout_marginStart">4dp</item>
+        <item name="android:layout_marginBottom">8dp</item>
+    </style>
+
+    <!-- One tappable row inside a card. -->
+    <style name="Widget.JarvisSettings.Row" parent="">
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:minHeight">64dp</item>
+        <item name="android:paddingTop">12dp</item>
+        <item name="android:paddingBottom">12dp</item>
+        <item name="android:background">@drawable/bg_jarvis_row_item</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
+
+    <style name="Widget.JarvisSettings.IconBox" parent="">
+        <item name="android:background">@drawable/bg_jarvis_icon_square</item>
+    </style>
+
+    <style name="Widget.JarvisSettings.RowTitle" parent="">
+        <item name="android:textColor">?attr/themeTextPrimary</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="Widget.JarvisSettings.RowSubtitle" parent="">
+        <item name="android:textColor">?attr/themeTextMuted</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:layout_marginTop">2dp</item>
+    </style>
+
+    <!-- Hairline between rows, inset so it lines up with the row text. -->
+    <style name="Widget.JarvisSettings.Divider" parent="">
+        <item name="android:background">?attr/themeCardBorder</item>
+        <item name="android:layout_marginStart">54dp</item>
+    </style>
+
+    <!-- Small status pill (for example ACTIVE / SETUP). -->
+    <style name="Widget.JarvisSettings.Badge" parent="">
+        <item name="android:textSize">10sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:paddingHorizontal">8dp</item>
+        <item name="android:paddingVertical">3dp</item>
+        <item name="android:layout_marginEnd">8dp</item>
+    </style>
+
+</resources>
