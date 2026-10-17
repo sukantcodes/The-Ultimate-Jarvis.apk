@@ -1894,6 +1894,44 @@
                     android:contentDescription="YouTube" />
             </LinearLayout>
 
+            <!-- Dedicated entry: keeps the existing Applications row and its Hands-Free tools intact -->
+            <LinearLayout
+                android:id="@+id/cardAutomationStudio"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:layout_marginBottom="18dp"
+                android:background="@drawable/bg_jarvis_card"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="AUTOMATION STUDIO"
+                    android:textColor="?attr/themeTextPrimary"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:text="Create, manage and schedule your JARVIS automation rules"
+                    android:textColor="?attr/themeTextMuted"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="OPEN AUTOMATION STUDIO  →"
+                    android:textColor="?attr/themeAccent"
+                    android:textStyle="bold"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
             <!-- Liquid Glass controls: additive settings; all existing settings remain unchanged -->
             <LinearLayout
                 android:id="@+id/cardLiquidGlass"
