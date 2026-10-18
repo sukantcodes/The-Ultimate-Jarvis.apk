@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Widget.JarvisSettings.SectionTitle" parent="android:style/Widget.TextView">
+        <item name="android:textSize">12sp</item><item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item><item name="android:letterSpacing">0.08</item>
+        <item name="android:textColor">?attr/themeTextMuted</item><item name="android:layout_marginBottom">10dp</item>
+    </style>
+    <style name="Widget.JarvisSettings.Row" parent="android:style/Widget">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">64dp</item><item name="android:gravity">center_vertical</item>
+    </style>
+    <style name="Widget.JarvisSettings.IconBox" parent="android:style/Widget">
+        <item name="android:layout_width">42dp</item><item name="android:layout_height">42dp</item>
+        <item name="android:gravity">center</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowTitle" parent="android:style/Widget.TextView">
+        <item name="android:textSize">14sp</item><item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">?attr/themeTextPrimary</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowSubtitle" parent="android:style/Widget.TextView">
+        <item name="android:textSize">12sp</item><item name="android:fontFamily">sans-serif</item>
+        <item name="android:textColor">?attr/themeTextMuted</item>
+    </style>
+    <style name="Widget.JarvisSettings.Divider" parent="android:style/Widget">
+        <item name="android:layout_width">match_parent</item><item name="android:layout_height">1dp</item>
+    </style>
+    <style name="Widget.JarvisSettings.Badge" parent="android:style/Widget.TextView">
+        <item name="android:textSize">10sp</item><item name="android:textStyle">bold</item>
+    </style>
+</resources>
