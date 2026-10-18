@@ -58,6 +58,12 @@ class JarvisApp : Application() {
     lateinit var commandExecutor: CommandExecutor
         private set
 
+    lateinit var automationRepository: com.jarvis.assistant.automation.studio.repository.AutomationRuleRepository
+        private set
+
+    lateinit var automationEngine: com.jarvis.assistant.automation.studio.engine.AutomationEngine
+        private set
+
     override fun onCreate() {
         super.onCreate()
         SecurityManager.verify(this)
@@ -84,6 +90,11 @@ class JarvisApp : Application() {
             whatsappAssistant = whatsAppAssistant,
             memoryManager = memoryManager
         )
+
+        // Automation Studio Engine & Persistence
+        automationRepository = com.jarvis.assistant.automation.studio.repository.AutomationRuleRepository.getInstance(this)
+        automationEngine = com.jarvis.assistant.automation.studio.engine.AutomationEngine.getInstance(this)
+        automationEngine.rescheduleAllScheduledRules()
 
         VoskModelManager.init(this, CoroutineScope(Dispatchers.Default))
 
