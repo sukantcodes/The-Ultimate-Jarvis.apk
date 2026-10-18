@@ -77,7 +77,12 @@ class AppPreferences(context: Context) {
         private const val KEY_ORB_SCALE = "key_orb_scale"
         private const val KEY_ORB_HUE = "key_orb_hue"
         private const val KEY_CUSTOM_ENDPOINT = "key_custom_endpoint"
+        private const val KEY_LIQUID_GLASS_ENABLED = "key_liquid_glass_enabled"
     }
+
+    var isLiquidGlassEnabled: Boolean
+        get() = prefs.getBoolean(KEY_LIQUID_GLASS_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_LIQUID_GLASS_ENABLED, value).apply()
 
     var isOwnerVoiceEnabled: Boolean
         get() = prefs.getBoolean(KEY_OWNER_VOICE_ENABLED, false)
