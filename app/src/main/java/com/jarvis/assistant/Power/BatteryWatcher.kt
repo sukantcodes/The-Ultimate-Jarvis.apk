@@ -101,6 +101,14 @@ class BatteryWatcher(
         val percent = currentPercent()
         val percentText = if (percent >= 0) "$percent percent" else "unknown"
         note(if (connected) "Charger connected, battery $percentText" else "Charger disconnected, battery $percentText")
+        
+        try {
+            com.jarvis.assistant.automation.studio.engine.AutomationEngine.getInstance(context).evaluateDeviceEvent(
+                if (connected) com.jarvis.assistant.automation.studio.model.DeviceEventType.POWER_CONNECTED
+                else com.jarvis.assistant.automation.studio.model.DeviceEventType.POWER_DISCONNECTED,
+                percent
+            )
+        } catch (_: Exception) {}
         if (connected) {
             lowAnnounced = false
             if (settings.chargingAlerts) {
@@ -126,13 +134,27 @@ class BatteryWatcher(
             if (!lowAnnounced) {
                 lowAnnounced = true
                 if (!initial) handleLowBattery(percent)
+                try {
+                    com.jarvis.assistant.automation.studio.engine.AutomationEngine.getInstance(context).evaluateDeviceEvent(
+                        com.jarvis.assistant.automation.studio.model.DeviceEventType.BATTERY_LOW, percent
+                    )
+                } catch (_: Exception) {}
             }
         } else if (plugged || percent > LOW_PERCENT + 5) {
             lowAnnounced = false
         }
 
         val full = plugged && (percent >= 100 || status == BatteryManager.BATTERY_STATUS_FULL)
-        if (full) startFullReminder() else stopFullReminder()
+        if (full) {
+            startFullReminder()
+            try {
+                com.jarvis.assistant.automation.studio.engine.AutomationEngine.getInstance(context).evaluateDeviceEvent(
+                    com.jarvis.assistant.automation.studio.model.DeviceEventType.BATTERY_FULL, percent
+                )
+            } catch (_: Exception) {}
+        } else {
+            stopFullReminder()
+        }
     }
 
     private fun handleLowBattery(percent: Int) {
@@ -144,25 +166,7 @@ class BatteryWatcher(
     }
 
     /** Turns Battery Saver on when Android allows it, otherwise opens its settings page. Returns what to tell the user. */
-    private fun enableBatterySaver(): String {
-        val power = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-        if (power != null && power.isPowerSaveMode) return "Battery Saver is already on."
-        try {
-            if (Settings.Global.putInt(context.contentResolver, "low_power", 1)) {
-                return "I have turned on Battery Saver."
-            }
-        } catch (e: SecurityException) {
-            Log.i(TAG, "WRITE_SECURE_SETTINGS is not granted, opening Battery Saver settings instead")
-        } catch (e: Exception) {
-            Log.w(TAG, "Could not switch Battery Saver on: ${e.message}")
-        }
-        return try {
-            context.startActivity(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            "Please turn on Battery Saver on the screen I opened."
-        } catch (e: Exception) {
-            "Please turn on Battery Saver and plug in the charger."
-        }
-    }
+    private fun enableBatterySaver(): String = PowerActions.setBatterySaver(context, true)
 
     private fun startFullReminder() {
         if (fullReminderActive) return
