@@ -73,4 +73,46 @@ object ThemeManager {
         val color = getThemeBgColor(themeKey, customHex)
         view.setBackgroundColor(color)
     }
+
+    fun isLiquidGlassEnabled(): Boolean {
+        return try {
+            JarvisApp.instance.preferences.isLiquidGlassEnabled
+        } catch (_: Exception) {
+            true
+        }
+    }
+
+    fun applyLiquidGlassOrbs(vararg glowViews: View?) {
+        val glassEnabled = isLiquidGlassEnabled()
+        for (view in glowViews) {
+            if (view == null) continue
+            if (glassEnabled) {
+                view.visibility = View.VISIBLE
+                view.alpha = 0.85f
+            } else {
+                view.visibility = View.GONE
+            }
+        }
+    }
+
+    fun applyLiquidGlassCard(card: View, cornerRadiusDp: Float = 22f) {
+        val context = card.context
+        val glassEnabled = isLiquidGlassEnabled()
+        val density = context.resources.displayMetrics.density
+        val radiusPx = cornerRadiusDp * density
+
+        if (glassEnabled) {
+            // High-Tech Liquid Glass Drawable
+            val drawable = androidx.core.content.ContextCompat.getDrawable(context, R.drawable.bg_jarvis_card)
+            card.background = drawable
+        } else {
+            // Accessible Solid Surface Fallback for low-spec / battery-saving mode
+            val bg = android.graphics.drawable.GradientDrawable().apply {
+                setColor(android.graphics.Color.parseColor("#09101E"))
+                cornerRadius = radiusPx
+                setStroke((1 * density).toInt(), android.graphics.Color.parseColor("#1E293B"))
+            }
+            card.background = bg
+        }
+    }
 }
