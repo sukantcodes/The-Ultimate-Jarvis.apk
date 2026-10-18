@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/cardRuleContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:layout_marginBottom="12dp"
+    android:padding="16dp"
+    android:background="@drawable/bg_jarvis_card">
+
+    <!-- Top Row: Icon + Title + Switch -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ImageView
+            android:id="@+id/ivTriggerIcon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_sparkle"
+            app:tint="?attr/themeAccent"
+            android:contentDescription="Trigger Icon"
+            android:layout_marginEnd="10dp" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvRuleTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Morning Briefing"
+                android:textColor="?attr/themeTextPrimary"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium" />
+
+            <TextView
+                android:id="@+id/tvRuleDescription"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Speaks greeting and announces weather"
+                android:textColor="?attr/themeTextMuted"
+                android:textSize="12sp"
+                android:layout_marginTop="2dp"
+                android:maxLines="2"
+                android:ellipsize="end" />
+        </LinearLayout>
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/switchEnabled"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true" />
+    </LinearLayout>
+
+    <!-- Trigger Badge Strip -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/bg_jarvis_chip"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="5dp">
+
+        <TextView
+            android:id="@+id/tvTriggerBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⏰ Daily at 08:00 AM"
+            android:textColor="?attr/themeAccent"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium" />
+    </LinearLayout>
+
+    <!-- Actions Summary Strip -->
+    <TextView
+        android:id="@+id/tvActionsSummary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Speak: 'Good morning Sir' • Show Notification"
+        android:textColor="?attr/themeTextSecondary"
+        android:textSize="12sp"
+        android:layout_marginTop="8dp" />
+
+    <!-- Bottom Metadata & Actions -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="12dp"
+        android:paddingTop="8dp">
+
+        <TextView
+            android:id="@+id/tvExecutionMeta"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Never executed"
+            android:textColor="?attr/themeTextMuted"
+            android:textSize="11sp" />
+
+        <!-- Run Now Button -->
+        <ImageButton
+            android:id="@+id/btnRunNow"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_tts_play"
+            app:tint="?attr/themeAccent"
+            android:contentDescription="Run Rule Now"
+            android:layout_marginEnd="6dp" />
+
+        <!-- Edit Button -->
+        <ImageButton
+            android:id="@+id/btnEditRule"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_edit"
+            app:tint="?attr/themeTextPrimary"
+            android:contentDescription="Edit Rule"
+            android:layout_marginEnd="6dp" />
+
+        <!-- Delete Button -->
+        <ImageButton
+            android:id="@+id/btnDeleteRule"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_delete"
+            app:tint="#EF4444"
+            android:contentDescription="Delete Rule" />
+    </LinearLayout>
+
+</LinearLayout>
