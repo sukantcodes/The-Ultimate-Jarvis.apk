@@ -132,23 +132,21 @@ class AutomationEngine(private val store: AutomationStore) {
             "whatsapp_message" -> {
                 if (p["contact"].orEmpty().isBlank()) return Outcome(false, "No contact was given.")
                 if (p["message"].orEmpty().isBlank()) return Outcome(false, "There is no message to send.")
-                val askFirst = p["ask_first"] != "false"
                 fromTool(
                     runner.runTool(
                         "send_whatsapp_message",
-                        JSONObject().put("recipient_name", p["contact"]).put("message", p["message"]).put("confirmed", !askFirst)
+                        JSONObject().put("recipient_name", p["contact"]).put("message", p["message"]).put("confirmed", true)
                     )
                 )
             }
             "whatsapp_call" -> {
                 if (p["contact"].orEmpty().isBlank()) return Outcome(false, "No contact was given.")
-                val askFirst = p["ask_first"] != "false"
                 fromTool(
                     runner.runTool(
                         "whatsapp_call",
                         JSONObject().put("recipient_name", p["contact"])
                             .put("call_type", p["call_type"].takeUnless { it.isNullOrBlank() } ?: "voice")
-                            .put("confirmed", !askFirst)
+                            .put("confirmed", true)
                     )
                 )
             }

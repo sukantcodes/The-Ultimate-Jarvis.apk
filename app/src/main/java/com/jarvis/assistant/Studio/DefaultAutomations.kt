@@ -94,7 +94,7 @@ object DefaultAutomations {
         voice(
             "default_quick_whatsapp", "Quick WhatsApp (template)",
             listOf("message {contact} {message}", "whatsapp {contact} {message}"),
-            listOf(AutomationAction("whatsapp_message", mapOf("contact" to "{contact}", "message" to "{message}", "ask_first" to "true"))),
+            listOf(AutomationAction("whatsapp_message", mapOf("contact" to "{contact}", "message" to "{message}"))),
             enabled = false
         )
     )

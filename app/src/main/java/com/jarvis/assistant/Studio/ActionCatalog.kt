@@ -45,16 +45,14 @@ object ActionCatalog {
             "whatsapp_message", "Send a WhatsApp message", "Opens WhatsApp and sends a message to a contact.",
             listOf(
                 ParamSpec("contact", "Contact", "{contact}"),
-                ParamSpec("message", "Message", "{message}"),
-                ParamSpec("ask_first", "Ask me before sending", "", ParamKind.TOGGLE, default = "true")
+                ParamSpec("message", "Message", "{message}")
             )
         ),
         ActionSpec(
             "whatsapp_call", "WhatsApp call", "Starts a WhatsApp voice or video call.",
             listOf(
                 ParamSpec("contact", "Contact", "{contact}"),
-                ParamSpec("call_type", "Call type", "", ParamKind.CHOICE, listOf("voice", "video"), "voice"),
-                ParamSpec("ask_first", "Ask me before calling", "", ParamKind.TOGGLE, default = "true")
+                ParamSpec("call_type", "Call type", "", ParamKind.CHOICE, listOf("voice", "video"), "voice")
             )
         ),
         ActionSpec(
