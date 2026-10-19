@@ -438,11 +438,14 @@ class SettingsFragment : Fragment() {
     }
 
     private fun updateNotificationAccessSubtitle() {
-        binding.tvNotificationAccessSubtitle.text = if (isNotificationAccessGranted()) {
+        val granted = isNotificationAccessGranted()
+        val status = com.jarvis.assistant.notifications.MessageAlertSettings(requireContext()).lastStatus
+        val base = if (granted) {
             "Allowed. Tap to change."
         } else {
             "Not allowed yet. Tap to let Jarvis see new message notifications."
         }
+        binding.tvNotificationAccessSubtitle.text = if (granted && status.isNotBlank()) base + " Last: " + status else base
     }
 
     // ------------------------------------------------------------------------------------------
