@@ -35,7 +35,14 @@ class JarvisNotificationListener : NotificationListenerService() {
 
     private fun handle(sbn: StatusBarNotification) {
         if (sbn.packageName == packageName) return
-        val message = MessageNotificationParser.parse(applicationContext, sbn) ?: return
+        val message = MessageNotificationParser.parse(applicationContext, sbn)
+        if (message == null) {
+            val lowerPackage = sbn.packageName.lowercase()
+            if (lowerPackage.contains("whatsapp") || lowerPackage.contains("insta")) {
+                note("ignored a notification from " + sbn.packageName + " (not recognised as a chat message)")
+            }
+            return
+        }
         val now = System.currentTimeMillis()
 
         // The same message posted again (updates and reposts) is only handled once.
@@ -69,9 +76,18 @@ class JarvisNotificationListener : NotificationListenerService() {
             )
         }
 
-        if (!settings.enabled) return
-        if (isSilentMessage(sbn)) return
-        if (!canSpeakNow(sbn.packageName)) return
+        if (!settings.enabled) {
+            note("message announcements are switched off")
+            return
+        }
+        if (isSilentMessage(sbn)) {
+            note("skipped a silent or muted " + message.app.displayName + " message")
+            return
+        }
+        if (!canSpeakNow(sbn.packageName)) {
+            note("skipped: you were on a call, in silent mode, or " + message.app.displayName + " was open")
+            return
+        }
 
         // One announcement per sender every 30 seconds, so a chatty friend does not cause a flood.
         val allowed = synchronized(lastAnnounced) {
@@ -90,10 +106,16 @@ class JarvisNotificationListener : NotificationListenerService() {
         } else {
             "Sir, " + message.sender + " se " + message.app.displayName + " par message aaya hai."
         }
+        note("announced a " + message.app.displayName + " message from " + message.sender)
         if (!JarvisConversationService.announceMessage(text)) {
             val announcer = fallbackAnnouncer ?: SpeechAnnouncer(applicationContext).also { fallbackAnnouncer = it }
             announcer.say(text)
         }
+    }
+
+    private fun note(text: String) {
+        val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+        settings.lastStatus = time + " " + text
     }
 
     /** Muted chats and silent notification channels are not announced. */
