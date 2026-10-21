@@ -9,6 +9,8 @@ import android.util.Log
 import com.jarvis.assistant.activitylog.ActivityLog
 import com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService
 import com.jarvis.assistant.background.JarvisConversationService
+import com.jarvis.assistant.studio.AutomationEvents
+import com.jarvis.assistant.studio.TriggerType
 import com.jarvis.assistant.util.SpeechAnnouncer
 
 /**
@@ -23,6 +25,7 @@ class JarvisNotificationListener : NotificationListenerService() {
     private val lastAnnounced = HashMap<String, Long>()
     private val lastLogged = HashMap<String, Long>()
     private val lastContent = HashMap<String, Long>()
+    private val lastEventDispatch = HashMap<String, Long>()
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null) return
@@ -57,6 +60,28 @@ class JarvisNotificationListener : NotificationListenerService() {
         }
 
         val senderKey = message.app.name + "|" + message.sender + "|" + (message.group ?: "")
+
+        // Automations that start when a message arrives (one event per sender every 10 seconds).
+        val shouldDispatch = synchronized(lastEventDispatch) {
+            val seen = lastEventDispatch[senderKey]
+            if (seen != null && now - seen < 10_000L) {
+                false
+            } else {
+                lastEventDispatch[senderKey] = now
+                true
+            }
+        }
+        if (shouldDispatch) {
+            AutomationEvents.dispatch(
+                TriggerType.MESSAGE_RECEIVED,
+                mapOf(
+                    "sender" to message.sender,
+                    "app" to message.app.displayName.lowercase(),
+                    "app_name" to message.app.displayName,
+                    "group" to (message.group ?: "")
+                )
+            )
+        }
 
         // Remember who messaged (name and app only) for the activity memory.
         val shouldLog = synchronized(lastLogged) {
