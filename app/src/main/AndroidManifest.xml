@@ -134,6 +134,15 @@
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <activity
+            android:name=".studio.ui.AutomationStudioActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".studio.ui.AutomationEditorActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
         <service
             android:name=".assistant.JarvisVoiceInteractionService"
             android:exported="true"
