@@ -44,6 +44,7 @@ import com.jarvis.assistant.power.AlertSettings
 import com.jarvis.assistant.security.AiEngineStore
 import com.jarvis.assistant.security.AppIdentityVerifier
 import com.jarvis.assistant.security.VoiceModeStore
+import com.jarvis.assistant.studio.ui.AutomationStudioActivity
 import com.jarvis.assistant.ui.memory.MemoryActivity
 import com.jarvis.assistant.ui.permission.PermissionActivity
 import com.jarvis.assistant.ui.voice.VoiceEnrollmentActivity
@@ -266,6 +267,7 @@ class SettingsFragment : Fragment() {
             if (missing.isEmpty()) openPermissionsScreen() else callPermissionLauncher.launch(missing)
         }
         binding.rowApplications.setOnClickListener { open(HandsFreeActivity::class.java) }
+        binding.rowAutomationStudio.setOnClickListener { open(AutomationStudioActivity::class.java) }
     }
 
     private fun missingCallPermissions(): Array<String> {
