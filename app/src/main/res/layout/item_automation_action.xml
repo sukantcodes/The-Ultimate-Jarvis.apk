@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="10dp"
+    android:background="@drawable/bg_lg_input"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <Spinner
+            android:id="@+id/spActionType"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minHeight="44dp" />
+
+        <TextView
+            android:id="@+id/btnMoveUp"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_lg_row"
+            android:gravity="center"
+            android:text="▲"
+            android:textColor="?attr/themeTextMuted"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/btnMoveDown"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_lg_row"
+            android:gravity="center"
+            android:text="▼"
+            android:textColor="?attr/themeTextMuted"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/btnRemoveAction"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_lg_row"
+            android:gravity="center"
+            android:text="✕"
+            android:textColor="#FFEF4444"
+            android:textSize="16sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/llParams"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" />
+</LinearLayout>

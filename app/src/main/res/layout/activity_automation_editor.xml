@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/editorRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:paddingBottom="24dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingTop="16dp"
+            android:paddingEnd="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="4dp"
+                android:paddingBottom="12dp">
+
+                <FrameLayout
+                    android:id="@+id/btnEditorBack"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/bg_lg_icon"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:rotation="180"
+                        android:src="@drawable/ic_arrow_right"
+                        android:contentDescription="Back"
+                        app:tint="?attr/themeAccent" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/tvEditorTitle"
+                    style="@style/Widget.LiquidGlass.Title"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:layout_weight="1"
+                    android:text="Edit automation" />
+            </LinearLayout>
+
+            <LinearLayout
+                style="@style/Widget.LiquidGlass.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/Widget.LiquidGlass.Label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="0dp"
+                    android:text="NAME" />
+
+                <EditText
+                    android:id="@+id/etName"
+                    style="@style/Widget.LiquidGlass.Input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="For example: Good night"
+                    android:inputType="textCapSentences"
+                    android:maxLines="1" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Switched on"
+                        android:textColor="?attr/themeTextPrimary"
+                        android:textSize="14sp" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchEnabled"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                style="@style/Widget.LiquidGlass.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/Widget.LiquidGlass.Label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="0dp"
+                    android:text="WHEN THIS HAPPENS" />
+
+                <Spinner
+                    android:id="@+id/spTrigger"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_lg_input"
+                    android:minHeight="48dp" />
+
+                <LinearLayout
+                    android:id="@+id/groupVoice"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/Widget.LiquidGlass.Label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="PHRASES (ONE PER LINE)" />
+
+                    <EditText
+                        android:id="@+id/etPhrases"
+                        style="@style/Widget.LiquidGlass.Input"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="top|start"
+                        android:hint="call {contact}\nmessage {contact} {message}"
+                        android:inputType="textMultiLine|textNoSuggestions"
+                        android:minLines="3" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/groupBattery"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/Widget.LiquidGlass.Label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="BATTERY PERCENT" />
+
+                    <EditText
+                        android:id="@+id/etThreshold"
+                        style="@style/Widget.LiquidGlass.Input"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="20"
+                        android:inputType="number"
+                        android:maxLength="2" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/groupMessage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/Widget.LiquidGlass.Label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="MESSAGE APP" />
+
+                    <Spinner
+                        android:id="@+id/spAppFilter"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_lg_input"
+                        android:minHeight="48dp" />
+
+                    <TextView
+                        style="@style/Widget.LiquidGlass.Label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="ONLY FROM (OPTIONAL NAME)" />
+
+                    <EditText
+                        android:id="@+id/etSenderFilter"
+                        style="@style/Widget.LiquidGlass.Input"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Leave empty for anyone"
+                        android:inputType="textPersonName"
+                        android:maxLines="1" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                style="@style/Widget.LiquidGlass.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/Widget.LiquidGlass.Label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="0dp"
+                    android:text="DO THIS (IN ORDER)" />
+
+                <LinearLayout
+                    android:id="@+id/llActions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+
+                <TextView
+                    android:id="@+id/btnAddAction"
+                    style="@style/Widget.LiquidGlass.Pill"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="+  Add an action" />
+
+                <TextView
+                    android:id="@+id/tvVariablesHint"
+                    style="@style/Widget.LiquidGlass.Subtitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/btnSave"
+                style="@style/Widget.LiquidGlass.Button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="Save automation" />
+
+            <TextView
+                android:id="@+id/btnResetDefault"
+                style="@style/Widget.LiquidGlass.Pill"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:gravity="center"
+                android:text="Reset to the original version" />
+
+            <TextView
+                android:id="@+id/btnDelete"
+                style="@style/Widget.LiquidGlass.Pill"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:gravity="center"
+                android:text="Delete this automation"
+                android:textColor="#FFEF4444" />
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>
