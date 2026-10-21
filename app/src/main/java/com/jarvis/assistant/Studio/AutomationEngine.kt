@@ -9,6 +9,7 @@ interface ActionRunner {
     /** Runs one of Jarvis's existing tools (call_contact, send_whatsapp_message, set_volume and so on). */
     suspend fun runTool(name: String, args: JSONObject): JSONObject
     fun speak(text: String)
+    fun announce(text: String)
     suspend fun openApp(name: String): Boolean
     suspend fun batterySaver(on: Boolean): String
     suspend fun doNotDisturb(on: Boolean): String
@@ -115,6 +116,13 @@ class AutomationEngine(private val store: AutomationStore) {
                 if (p["text"].orEmpty().isBlank()) Outcome(false, "There is nothing to say.")
                 else {
                     runner.speak(p["text"].orEmpty())
+                    Outcome(true)
+                }
+            }
+            "announce" -> {
+                if (p["text"].orEmpty().isBlank()) Outcome(false, "There is nothing to say.")
+                else {
+                    runner.announce(p["text"].orEmpty())
                     Outcome(true)
                 }
             }

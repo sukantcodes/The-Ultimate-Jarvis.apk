@@ -35,6 +35,11 @@ object ActionCatalog {
             listOf(ParamSpec("text", "What to say", "Charging connected. Battery is at {battery} percent."))
         ),
         ActionSpec(
+            "announce", "Announce (your voice setting)",
+            "Says a sentence in Jarvis's voice when \"Use Jarvis Voice\" is on, otherwise with the phone's voice.",
+            listOf(ParamSpec("text", "What to say", "Sir, {sender} se {app_name} par message aaya hai."))
+        ),
+        ActionSpec(
             "call_contact", "Call a contact", "Phone call to a saved contact or number.",
             listOf(
                 ParamSpec("contact", "Contact or number", "{contact}"),
