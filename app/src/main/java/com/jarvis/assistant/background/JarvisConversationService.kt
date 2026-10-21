@@ -510,6 +510,7 @@ class JarvisConversationService : Service() {
         val announcer = com.jarvis.assistant.util.SpeechAnnouncer(applicationContext)
         batteryAnnouncer = announcer
         batteryWatcher = com.jarvis.assistant.power.BatteryWatcher(applicationContext, announcer).also { it.start() }
+        com.jarvis.assistant.studio.AutomationEvents.handler = { type, vars -> handleAutomationEvent(type, vars) }
         try {
             if (androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)) {
                 android.service.notification.NotificationListenerService.requestRebind(
@@ -3531,6 +3532,7 @@ class JarvisConversationService : Service() {
     }
 
     override fun onDestroy() {
+        com.jarvis.assistant.studio.AutomationEvents.handler = null
         batteryWatcher?.stop()
         batteryWatcher = null
         batteryAnnouncer?.shutdown()
@@ -3727,6 +3729,10 @@ class JarvisConversationService : Service() {
             batteryAnnouncer?.say(text)
         }
 
+        override fun announce(text: String) {
+            speakAnnouncement(text)
+        }
+
         override suspend fun openApp(name: String): Boolean =
             com.jarvis.assistant.util.AppLauncher.launchApp(this@JarvisConversationService, name, null)
 
@@ -3735,6 +3741,60 @@ class JarvisConversationService : Service() {
 
         override suspend fun doNotDisturb(on: Boolean): String =
             com.jarvis.assistant.power.PowerActions.setDoNotDisturb(applicationContext, on)
+    }
+
+    private val lowBatteryArmed = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
+    /** Decides whether a system event should start this automation (battery level crossing, message filters). */
+    private fun eventMatches(
+        rule: com.jarvis.assistant.studio.AutomationRule,
+        type: com.jarvis.assistant.studio.TriggerType,
+        vars: Map<String, String>
+    ): Boolean {
+        return when (type) {
+            com.jarvis.assistant.studio.TriggerType.BATTERY_LOW -> {
+                val percent = vars["battery"]?.toIntOrNull()
+                val plugged = vars["plugged"] == "true"
+                val armed = lowBatteryArmed[rule.id] ?: true
+                if (percent == null) {
+                    false
+                } else if (plugged || percent > rule.trigger.threshold + 5) {
+                    lowBatteryArmed[rule.id] = true
+                    false
+                } else if (percent <= rule.trigger.threshold && armed) {
+                    lowBatteryArmed[rule.id] = false
+                    true
+                } else {
+                    false
+                }
+            }
+            com.jarvis.assistant.studio.TriggerType.MESSAGE_RECEIVED -> {
+                val appFilter = rule.trigger.appFilter.trim().lowercase(Locale.ROOT)
+                val senderFilter = rule.trigger.senderFilter.trim()
+                val appOk = appFilter.isEmpty() || vars["app"] == appFilter
+                val senderOk = senderFilter.isEmpty() || vars["sender"].orEmpty().contains(senderFilter, ignoreCase = true)
+                appOk && senderOk
+            }
+            else -> true
+        }
+    }
+
+    /** Runs the automations that listen for a battery, charger or message event. They run in addition to Jarvis's built-in alerts. */
+    private fun handleAutomationEvent(type: com.jarvis.assistant.studio.TriggerType, vars: Map<String, String>) {
+        val rules = automationEngine.rulesFor(type)
+        if (rules.isEmpty()) return
+        for (rule in rules) {
+            if (!eventMatches(rule, type, vars)) continue
+            Log.i("JarvisService", "AUTOMATION '" + rule.name + "' started by " + type.key)
+            com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).log(
+                com.jarvis.assistant.activitylog.ActivityLog.TYPE_ACTION,
+                "Automation '" + rule.name + "' ran (" + type.label + ")"
+            )
+            serviceScope.launch(Dispatchers.Default) {
+                val result = automationEngine.run(rule, vars, automationRunner)
+                if (!result.success) Log.w("JarvisService", result.message)
+            }
+        }
     }
 
     private fun ownerVerifiedForLocalAction(): Boolean {
