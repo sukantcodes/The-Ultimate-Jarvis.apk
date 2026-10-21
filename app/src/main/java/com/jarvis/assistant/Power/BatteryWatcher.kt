@@ -13,6 +13,8 @@ import android.provider.Settings
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.jarvis.assistant.activitylog.ActivityLog
+import com.jarvis.assistant.studio.AutomationEvents
+import com.jarvis.assistant.studio.TriggerType
 import com.jarvis.assistant.util.SpeechAnnouncer
 
 /**
@@ -101,6 +103,10 @@ class BatteryWatcher(
         val percent = currentPercent()
         val percentText = if (percent >= 0) "$percent percent" else "unknown"
         note(if (connected) "Charger connected, battery $percentText" else "Charger disconnected, battery $percentText")
+        AutomationEvents.dispatch(
+            if (connected) TriggerType.PLUGGED_IN else TriggerType.UNPLUGGED,
+            mapOf("battery" to (if (percent >= 0) percent.toString() else ""))
+        )
         if (connected) {
             lowAnnounced = false
             if (settings.chargingAlerts) {
@@ -121,6 +127,12 @@ class BatteryWatcher(
         val percent = level * 100 / scale
         val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
         val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        if (!initial) {
+            AutomationEvents.dispatch(
+                TriggerType.BATTERY_LOW,
+                mapOf("battery" to percent.toString(), "plugged" to plugged.toString())
+            )
+        }
 
         if (!plugged && percent <= LOW_PERCENT) {
             if (!lowAnnounced) {
@@ -150,6 +162,7 @@ class BatteryWatcher(
         if (fullReminderActive) return
         fullReminderActive = true
         note("Battery full at 100 percent while the charger is still connected")
+        AutomationEvents.dispatch(TriggerType.BATTERY_FULL, mapOf("battery" to "100"))
         handler.post(reminder)
     }
 
