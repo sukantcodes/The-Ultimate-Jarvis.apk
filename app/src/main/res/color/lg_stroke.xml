@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Liquid glass colour: the theme colour at low opacity, so it follows every theme and accent. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:alpha="0.24" android:color="?attr/themeTextPrimary" />
+</selector>
