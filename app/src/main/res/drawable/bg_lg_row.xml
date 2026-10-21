@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A row inside a glass panel: invisible until pressed, then a soft glass glow in the theme colour. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/lg_ripple">
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFFFF" />
+            <corners android:radius="18dp" />
+        </shape>
+    </item>
+</ripple>
