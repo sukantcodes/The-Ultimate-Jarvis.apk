@@ -54,6 +54,8 @@
     <string name="set_permissions_subtitle">Microphone, accessibility, notifications and system access</string>
     <string name="set_applications_title">App Control &amp; Hands-Free</string>
     <string name="set_applications_subtitle">WhatsApp, YouTube, media and phone automation</string>
+    <string name="set_automationstudio_title">Automation Studio</string>
+    <string name="set_automationstudio_subtitle">Instant voice rules and system-event automations</string>
     <string name="set_section_appearance">Appearance</string>
     <string name="set_apptheme_title">Theme &amp; 3D Orb Colors</string>
     <string name="set_apptheme_subtitle">Light Theme</string>
