@@ -222,6 +222,7 @@ class SettingsFragment : Fragment() {
         }
 
         binding.rowScreenUnlock.setOnClickListener { open(ScreenUnlockActivity::class.java) }
+        binding.rowFaceLockSettings.setOnClickListener { open(FaceLockActivity::class.java) }
     }
 
     // ------------------------------------------------------------------------------------------
