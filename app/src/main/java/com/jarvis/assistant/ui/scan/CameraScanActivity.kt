@@ -17,6 +17,7 @@ import android.os.HandlerThread
 import android.provider.MediaStore
 import android.view.Surface
 import android.view.TextureView
+import android.animation.ValueAnimator
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -38,6 +39,7 @@ class CameraScanActivity : AppCompatActivity() {
     private var imageReader: ImageReader? = null
     private var cameraId: String? = null
     private var torchEnabled = false
+    private var scanAnimator: ValueAnimator? = null
     private var cameraThread: HandlerThread? = null
     private var cameraHandler: Handler? = null
 
@@ -60,6 +62,14 @@ class CameraScanActivity : AppCompatActivity() {
         }
         binding.btnScanCapture.setOnClickListener { captureImage() }
         binding.cameraPreview.surfaceTextureListener = surfaceListener
+        scanAnimator = ValueAnimator.ofFloat(-220f, 220f).apply {
+            duration = 1800L
+            repeatCount = ValueAnimator.INFINITE
+            addUpdateListener { animation ->
+                binding.scanLaserLine.translationY = animation.animatedValue as Float
+            }
+            start()
+        }
         startCameraThread()
         if (PermissionHelper.hasCameraPermission(this)) openCameraIfReady()
         else permissionLauncher.launch(Manifest.permission.CAMERA)
@@ -217,10 +227,14 @@ class CameraScanActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (::binding.isInitialized && PermissionHelper.hasCameraPermission(this)) openCameraIfReady()
+        if (::binding.isInitialized) {
+            if (scanAnimator?.isStarted != true) scanAnimator?.start()
+            if (PermissionHelper.hasCameraPermission(this)) openCameraIfReady()
+        }
     }
 
     override fun onPause() {
+        scanAnimator?.cancel()
         closeCamera()
         super.onPause()
     }
@@ -235,6 +249,8 @@ class CameraScanActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        scanAnimator?.cancel()
+        scanAnimator = null
         closeCamera()
         cameraThread?.quitSafely()
         try { cameraThread?.join(500) } catch (_: InterruptedException) {}
