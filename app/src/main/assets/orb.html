@@ -157,10 +157,17 @@ altHolo.add(holoShell);
 
 const helmet = new THREE.Group();
 scene.add(helmet);
-const redMetal = new THREE.MeshStandardMaterial({color:0x9e1822,metalness:.88,roughness:.24});
-const goldMetal = new THREE.MeshStandardMaterial({color:0xdba84b,metalness:.92,roughness:.22});
-const darkMetal = new THREE.MeshStandardMaterial({color:0x241b24,metalness:.72,roughness:.32});
-const eyeGlowMat = new THREE.MeshBasicMaterial({color:0x8cf7ff,transparent:true,opacity:.98});
+// The original helmet looked black because MeshStandardMaterial had no scene lights.
+// Add soft studio lighting and subtle emissive colour so its red/gold structure reads clearly.
+scene.add(new THREE.HemisphereLight(0xd9f5ff,0x321018,2.15));
+const helmetKey = new THREE.DirectionalLight(0xffffff,3.1); helmetKey.position.set(-3,4,6); scene.add(helmetKey);
+const helmetFill = new THREE.DirectionalLight(0xffb84d,2.0); helmetFill.position.set(4,1,4); scene.add(helmetFill);
+const helmetRim = new THREE.PointLight(0x35dcff,2.2,12); helmetRim.position.set(0,1,-3); scene.add(helmetRim);
+const redMetal = new THREE.MeshStandardMaterial({color:0xe5222d,metalness:.48,roughness:.28,emissive:0x4a0508,emissiveIntensity:.42});
+const goldMetal = new THREE.MeshStandardMaterial({color:0xffc94f,metalness:.38,roughness:.27,emissive:0x4b2600,emissiveIntensity:.28});
+const darkMetal = new THREE.MeshStandardMaterial({color:0x252b35,metalness:.55,roughness:.31,emissive:0x080c14,emissiveIntensity:.35});
+const trimMetal = new THREE.MeshStandardMaterial({color:0xf5e4b1,metalness:.5,roughness:.25,emissive:0x352000,emissiveIntensity:.2});
+const eyeGlowMat = new THREE.MeshBasicMaterial({color:0x9cfaff,transparent:true,opacity:1});
 function helmetPart(geometry, material, position, scale, rotation) {
   const m = new THREE.Mesh(geometry,material);
   m.position.set(position[0],position[1],position[2]);
@@ -168,19 +175,38 @@ function helmetPart(geometry, material, position, scale, rotation) {
   if(rotation) m.rotation.set(rotation[0],rotation[1],rotation[2]);
   helmet.add(m); return m;
 }
-// Faceted dome, forehead plate, cheek guards, jaw and central faceplate.
-helmetPart(new THREE.SphereGeometry(.82,48,36),redMetal,[0,.12,0],[1,1.16,.78]);
-helmetPart(new THREE.SphereGeometry(.64,32,24),goldMetal,[0,.03,.36],[.82,.90,.50]);
-helmetPart(new THREE.BoxGeometry(.48,.28,.12),redMetal,[0,.62,.72],[1,1,1]);
-helmetPart(new THREE.BoxGeometry(.22,.68,.18),goldMetal,[-.58,-.05,.45],[1,.72,1],[0,0,-.22]);
-helmetPart(new THREE.BoxGeometry(.22,.68,.18),goldMetal,[.58,-.05,.45],[1,.72,1],[0,0,.22]);
-helmetPart(new THREE.SphereGeometry(.50,32,20),redMetal,[0,-.48,.22],[.92,.52,.70]);
-helmetPart(new THREE.BoxGeometry(.34,.30,.24),darkMetal,[0,-.52,.68],[1,1,1]);
-helmetPart(new THREE.BoxGeometry(.20,.10,.06),goldMetal,[0,-.64,.80],[1,1,1]);
-const eyeL=helmetPart(new THREE.BoxGeometry(.30,.075,.055),eyeGlowMat,[-.31,.13,.735],[1,1,1],[0,0,.13]);
-const eyeR=helmetPart(new THREE.BoxGeometry(.30,.075,.055),eyeGlowMat,[.31,.13,.735],[1,1,1],[0,0,-.13]);
-helmetPart(new THREE.BoxGeometry(.08,.35,.08),goldMetal,[-.82,.03,.02],[1,1,1],[0,0,-.18]);
-helmetPart(new THREE.BoxGeometry(.08,.35,.08),goldMetal,[.82,.03,.02],[1,1,1],[0,0,.18]);
+function helmetPlate(points,material,z,depth=.055) {
+  const shape=new THREE.Shape();
+  shape.moveTo(points[0][0],points[0][1]);
+  for(let i=1;i<points.length;i++) shape.lineTo(points[i][0],points[i][1]);
+  shape.closePath();
+  const mesh=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth,bevelEnabled:true,bevelSegments:1,steps:1,bevelSize:.018,bevelThickness:.012}),material);
+  mesh.position.z=z; helmet.add(mesh); return mesh;
+}
+// Sculpted red crown and side shell, with a distinct angular gold faceplate.
+helmetPart(new THREE.SphereGeometry(.78,48,36),redMetal,[0,.12,0],[1,1.17,.76]);
+helmetPart(new THREE.SphereGeometry(.59,32,24),redMetal,[0,.38,.18],[.96,.76,.77]);
+helmetPlate([[-.43,.35],[-.32,.57],[0,.65],[.32,.57],[.43,.35],[.34,.12],[.25,-.20],[.13,-.43],[0,-.49],[-.13,-.43],[-.25,-.20],[-.34,.12]],goldMetal,.60,.07);
+// Raised red brow and centre ridge define the helmet silhouette.
+helmetPlate([[-.45,.43],[-.30,.61],[0,.69],[.30,.61],[.45,.43],[.31,.39],[0,.48],[-.31,.39]],redMetal,.69,.065);
+helmetPart(new THREE.BoxGeometry(.075,.54,.10),trimMetal,[0,.08,.705],[1,1,1]);
+// Angular red cheek guards and lower jaw panels.
+helmetPlate([[-.50,.16],[-.38,.12],[-.31,-.20],[-.18,-.39],[-.32,-.48],[-.48,-.29]],redMetal,.66,.06);
+helmetPlate([[.50,.16],[.38,.12],[.31,-.20],[.18,-.39],[.32,-.48],[.48,-.29]],redMetal,.66,.06);
+helmetPlate([[-.30,-.27],[-.17,-.43],[0,-.47],[.17,-.43],[.30,-.27],[.20,-.52],[0,-.59],[-.20,-.52]],goldMetal,.70,.065);
+// Dark mouth grille with visible horizontal vent slats.
+helmetPlate([[-.19,-.39],[.19,-.39],[.16,-.51],[0,-.55],[-.16,-.51]],darkMetal,.775,.035);
+for(let i=0;i<3;i++) helmetPart(new THREE.BoxGeometry(.22,.018,.018),trimMetal,[0,-.425-i*.035,.817],[1,1,1]);
+// Eye sockets and cyan luminous lenses, angled inward like a superhero faceplate.
+helmetPlate([[-.40,.19],[-.13,.22],[-.19,.10],[-.35,.08]],darkMetal,.735,.035);
+helmetPlate([[.40,.19],[.13,.22],[.19,.10],[.35,.08]],darkMetal,.735,.035);
+const eyeL=helmetPart(new THREE.BoxGeometry(.235,.065,.035),eyeGlowMat,[-.275,.145,.79],[1,1,1],[0,0,.22]);
+const eyeR=helmetPart(new THREE.BoxGeometry(.235,.065,.035),eyeGlowMat,[.275,.145,.79],[1,1,1],[0,0,-.22]);
+// Ear discs, segmented side armour, and gold panel seams.
+helmetPart(new THREE.CylinderGeometry(.13,.13,.10,12),goldMetal,[-.76,.03,.02],[1,1,1],[Math.PI/2,0,0]);
+helmetPart(new THREE.CylinderGeometry(.13,.13,.10,12),goldMetal,[.76,.03,.02],[1,1,1],[Math.PI/2,0,0]);
+helmetPart(new THREE.BoxGeometry(.12,.32,.10),redMetal,[-.69,-.12,.28],[1,1,1],[0,0,-.12]);
+helmetPart(new THREE.BoxGeometry(.12,.32,.10),redMetal,[.69,-.12,.28],[1,1,1],[0,0,.12]);
 helmet.scale.setScalar(1.08);
 helmet.visible=false; altPlasma.visible=false; altHolo.visible=false;
 helmet.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});
