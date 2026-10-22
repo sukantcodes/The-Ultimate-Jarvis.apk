@@ -21,6 +21,7 @@ import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.Spinner
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -73,6 +74,13 @@ class SettingsFragment : Fragment() {
 
     /** True while switches are being set from stored values, so their listeners do not fire. */
     private var syncingUi = false
+    private var settingsContent: LinearLayout? = null
+    private var settingsOverview: LinearLayout? = null
+    private var settingsPageBack: TextView? = null
+    private var settingsPageTitle: TextView? = null
+    private var settingsPagePairs: List<Triple<String, View, View>> = emptyList()
+    private var settingsAboutExtras: List<View> = emptyList()
+    private var activeSettingsPage: String? = null
 
     /**
      * Calling and SIM choice need contacts and phone permissions. They are asked for when the user
@@ -99,6 +107,7 @@ class SettingsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         ThemeManager.applyDynamicBackground(binding.root)
 
+        setupSettingsPages()
         markSectionHeadings()
         setupProfileCard()
         setupAiSection()
@@ -136,7 +145,177 @@ class SettingsFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+        settingsContent = null
+        settingsOverview = null
+        settingsPageBack = null
+        settingsPageTitle = null
+        settingsPagePairs = emptyList()
+        settingsAboutExtras = emptyList()
+        activeSettingsPage = null
     }
+
+    /**
+     * Turns the long settings list into a landing page plus eight focused settings pages.
+     * The existing section layouts and listeners remain in place; this only changes visibility.
+     */
+    private fun setupSettingsPages() {
+        val root = binding.root as? ViewGroup ?: return
+        val scroll = (0 until root.childCount)
+            .map { root.getChildAt(it) }
+            .firstOrNull { it is ScrollView } as? ScrollView ?: return
+        val content = scroll.getChildAt(0) as? LinearLayout ?: return
+        settingsContent = content
+
+        val sections = listOf(
+            Triple("AI & Models", binding.headerAiIntelligence, "AI engine, API connection, language and personality"),
+            Triple("Voice & Listening", binding.headerVoiceListening, "Voice style, listening and hands-free behavior"),
+            Triple("Security & Unlock", binding.headerVoiceSecurity, "Owner voice, face enrollment and screen unlock"),
+            Triple("Alerts & Notifications", binding.headerAlerts, "Message announcements and battery alerts"),
+            Triple("Memory & Data", binding.headerMemoryData, "Memories, activity history and data controls"),
+            Triple("Permissions & Automation", binding.headerPermissionsAutomation, "System permissions, apps and Automation Studio"),
+            Triple("Appearance & Display", binding.headerAppearance, "Themes and floating avatar appearance"),
+            Triple("Privacy & About", binding.headerPrivacyAbout, "Privacy controls, app identity and project links")
+        )
+        val pairs = sections.mapNotNull { (title, header, _) ->
+            val index = content.indexOfChild(header)
+            if (index >= 0 && index + 1 < content.childCount) Triple(title, header, content.getChildAt(index + 1)) else null
+        }
+        settingsPagePairs = pairs
+        val aboutCard = pairs.lastOrNull()?.third
+        val aboutIndex = if (aboutCard != null) content.indexOfChild(aboutCard) else -1
+        settingsAboutExtras = if (aboutIndex >= 0 && aboutIndex + 1 < content.childCount) {
+            (aboutIndex + 1 until content.childCount).map { content.getChildAt(it) }
+        } else emptyList()
+
+        val overview = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(4), 0, dp(18))
+            contentDescription = "Settings categories"
+        }
+        val intro = TextView(requireContext()).apply {
+            text = "PERSONALIZE YOUR JARVIS"
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_sapphire))
+            textSize = 11f
+            letterSpacing = 0.12f
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
+            setPadding(dp(2), dp(6), dp(2), dp(12))
+        }
+        overview.addView(intro)
+
+        sections.chunked(2).forEach { pair ->
+            val row = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+            }
+            pair.forEachIndexed { index, item ->
+                val tile = LinearLayout(requireContext()).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                    setPadding(dp(14), dp(15), dp(12), dp(15))
+                    background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_jarvis_card)
+                    isClickable = true
+                    isFocusable = true
+                    contentDescription = "${item.first}. ${item.third}"
+                    setOnClickListener { showSettingsPage(item.first) }
+                }
+                val title = TextView(requireContext()).apply {
+                    text = item.first
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.theme_text_primary))
+                    textSize = 14f
+                    typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
+                }
+                val subtitle = TextView(requireContext()).apply {
+                    text = item.third
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.theme_text_muted))
+                    textSize = 11f
+                    setLineSpacing(dp(2).toFloat(), 1f)
+                    setPadding(0, dp(6), 0, 0)
+                }
+                tile.addView(title)
+                tile.addView(subtitle)
+                val params = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+                if (index > 0) params.marginStart = dp(10)
+                params.bottomMargin = dp(10)
+                row.addView(tile, params)
+            }
+            if (pair.size == 1) {
+                row.addView(View(requireContext()), LinearLayout.LayoutParams(0, 1, 1f).apply { marginStart = dp(10) })
+            }
+            overview.addView(row)
+        }
+
+        val contentIndex = content.indexOfChild(binding.cardProfile).coerceAtLeast(0)
+        content.addView(overview, contentIndex)
+        settingsOverview = overview
+
+        // Add a visible back control to the existing header; no new screen/activity is required.
+        val back = TextView(requireContext()).apply {
+            text = "‹"
+            textSize = 32f
+            gravity = android.view.Gravity.CENTER
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.theme_text_primary))
+            visibility = View.GONE
+            contentDescription = "Back to all settings"
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { showSettingsOverview() }
+        }
+        binding.layoutHeader.addView(back, 0, LinearLayout.LayoutParams(dp(34), dp(42)).apply {
+            marginEnd = dp(8)
+        })
+        settingsPageBack = back
+        settingsPageTitle = binding.tvSettingsTitle
+        binding.tvSettingsTitle.setOnClickListener {
+            if (activeSettingsPage != null) showSettingsOverview()
+        }
+
+        // Hide every settings section initially. The overview is the first page.
+        (0 until content.childCount).map { content.getChildAt(it) }.forEach { child ->
+            if (child !== overview && child !== binding.cardProfile) child.visibility = View.GONE
+        }
+        binding.cardProfile.visibility = View.VISIBLE
+        showSettingsOverview()
+    }
+
+    private fun showSettingsOverview() {
+        activeSettingsPage = null
+        settingsOverview?.visibility = View.VISIBLE
+        binding.cardProfile.visibility = View.VISIBLE
+        settingsPageBack?.visibility = View.GONE
+        settingsPageTitle?.text = "Settings"
+        settingsPagePairs.forEach { (_, header, card) ->
+            header.visibility = View.GONE
+            card.visibility = View.GONE
+        }
+        settingsAboutExtras.forEach { it.visibility = View.GONE }
+        settingsContent?.let { content ->
+            // Keep only the overview and profile card visible on the landing page.
+            (0 until content.childCount).map { content.getChildAt(it) }.forEach { child ->
+                if (child !== settingsOverview && child !== binding.cardProfile) child.visibility = View.GONE
+            }
+        }
+        settingsContent?.let { (it.parent as? ScrollView)?.smoothScrollTo(0, 0) }
+    }
+
+    private fun showSettingsPage(pageTitle: String) {
+        val selected = settingsPagePairs.firstOrNull { it.first == pageTitle } ?: return
+        activeSettingsPage = pageTitle
+        settingsOverview?.visibility = View.GONE
+        binding.cardProfile.visibility = View.GONE
+        settingsPageBack?.visibility = View.VISIBLE
+        settingsPageTitle?.text = pageTitle
+        settingsPagePairs.forEach { (_, header, card) ->
+            header.visibility = View.GONE
+            card.visibility = View.GONE
+        }
+        settingsAboutExtras.forEach { it.visibility = View.GONE }
+        selected.second.visibility = View.VISIBLE
+        selected.third.visibility = View.VISIBLE
+        if (pageTitle == "Privacy & About") settingsAboutExtras.forEach { it.visibility = View.VISIBLE }
+        settingsContent?.let { (it.parent as? ScrollView)?.smoothScrollTo(0, 0) }
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     /** Lets screen readers jump between sections by heading. */
     private fun markSectionHeadings() {
