@@ -189,16 +189,16 @@ class SettingsFragment : Fragment() {
 
         val overview = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(4), 0, dp(18))
+            setPadding(0, dp(8), 0, dp(22))
             contentDescription = "Settings categories"
         }
         val intro = TextView(requireContext()).apply {
             text = "PERSONALIZE YOUR JARVIS"
             setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_sapphire))
-            textSize = 11f
-            letterSpacing = 0.12f
+            textSize = 12f
+            letterSpacing = 0.14f
             typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
-            setPadding(dp(2), dp(6), dp(2), dp(12))
+            setPadding(dp(4), dp(10), dp(4), dp(16))
         }
         overview.addView(intro)
 
@@ -211,8 +211,16 @@ class SettingsFragment : Fragment() {
                 val tile = LinearLayout(requireContext()).apply {
                     orientation = LinearLayout.VERTICAL
                     gravity = android.view.Gravity.CENTER_VERTICAL
-                    setPadding(dp(14), dp(15), dp(12), dp(15))
-                    background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_jarvis_card)
+                    setPadding(dp(16), dp(17), dp(14), dp(17))
+                    minimumHeight = dp(116)
+                    background = GradientDrawable(
+                        GradientDrawable.Orientation.TL_BR,
+                        intArrayOf(0xFF142D49.toInt(), 0xFF1A3858.toInt())
+                    ).apply {
+                        cornerRadius = dp(22).toFloat()
+                        setStroke(dp(1), 0xFF315E7C.toInt())
+                    }
+                    elevation = dp(2).toFloat()
                     isClickable = true
                     isFocusable = true
                     contentDescription = "${item.first}. ${item.third}"
@@ -221,21 +229,22 @@ class SettingsFragment : Fragment() {
                 val title = TextView(requireContext()).apply {
                     text = item.first
                     setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
-                    textSize = 14f
+                    textSize = 15f
+                    setLineSpacing(dp(1).toFloat(), 1f)
                     typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
                 }
                 val subtitle = TextView(requireContext()).apply {
                     text = item.third
                     setTextColor(ContextCompat.getColor(requireContext(), R.color.text_muted))
-                    textSize = 11f
-                    setLineSpacing(dp(2).toFloat(), 1f)
-                    setPadding(0, dp(6), 0, 0)
+                    textSize = 12f
+                    setLineSpacing(dp(3).toFloat(), 1f)
+                    setPadding(0, dp(8), 0, 0)
                 }
                 tile.addView(title)
                 tile.addView(subtitle)
                 val params = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
                 if (index > 0) params.marginStart = dp(10)
-                params.bottomMargin = dp(10)
+                params.bottomMargin = dp(12)
                 row.addView(tile, params)
             }
             if (pair.size == 1) {
