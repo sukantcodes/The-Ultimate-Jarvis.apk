@@ -73,6 +73,18 @@ class SpeechAnnouncer(context: Context) {
         }
     }
 
+    /** Stops any current/pending announcement without shutting down the reusable TTS engine. */
+    fun stop() {
+        mainHandler.post {
+            pending.clear()
+            try {
+                engine?.stop()
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not stop announcement speech: ${e.message}")
+            }
+        }
+    }
+
     fun shutdown() {
         mainHandler.post {
             try {
