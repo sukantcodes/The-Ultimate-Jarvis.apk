@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#050812">
+
+    <TextureView
+        android:id="@+id/cameraPreview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#44050A18" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="18dp"
+        android:paddingEnd="18dp"
+        android:paddingTop="24dp"
+        android:paddingBottom="16dp"
+        android:background="#CC070B18">
+
+        <TextView
+            android:id="@+id/btnScanClose"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:text="‹"
+            android:textSize="34sp"
+            android:textColor="#FFFFFF"
+            android:contentDescription="Close camera scan" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="JARVIS OPTICAL SCANNER"
+                android:textColor="#F5FAFF"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.06" />
+            <TextView
+                android:id="@+id/tvScanStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="INITIALIZING SENSOR..."
+                android:textColor="#55DDF7"
+                android:textSize="10sp"
+                android:letterSpacing="0.04" />
+        </LinearLayout>
+        <View
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:background="@drawable/bg_jarvis_mic_center"
+            android:backgroundTint="#32E6A1" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="36dp">
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="100dp"
+            android:layout_marginBottom="120dp"
+            android:background="@drawable/bg_scan_target" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:layout_marginTop="116dp"
+            android:text="ALIGN SUBJECT WITHIN FRAME"
+            android:textColor="#99DFF7"
+            android:textSize="10sp"
+            android:letterSpacing="0.08" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:padding="24dp"
+        android:background="#CC070B18">
+
+        <TextView
+            android:id="@+id/btnScanTorch"
+            android:layout_width="104dp"
+            android:layout_height="48dp"
+            android:gravity="center"
+            android:background="@drawable/bg_scan_control"
+            android:text="FLASH OFF"
+            android:textColor="#D9F8FF"
+            android:textStyle="bold"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/btnScanCapture"
+            android:layout_width="74dp"
+            android:layout_height="74dp"
+            android:layout_marginStart="28dp"
+            android:gravity="center"
+            android:background="@drawable/bg_scan_shutter"
+            android:text="SCAN"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:contentDescription="Capture scan image" />
+    </LinearLayout>
+</FrameLayout>
