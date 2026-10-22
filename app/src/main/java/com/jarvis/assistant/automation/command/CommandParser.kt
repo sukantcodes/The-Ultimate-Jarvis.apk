@@ -391,7 +391,7 @@ object CommandParser {
         }
 
         // Local social action fast-paths: no Gemini round-trip for known Instagram/Instazen intents.
-        val socialFollow = Regex("$prefixfollow\\s+@?([a-zA-Z0-9._]+)\\s+(?:on|in)\\s+(instagram|instazen)$", RegexOption.IGNORE_CASE).find(clean)
+        val socialFollow = Regex("${prefix}follow\\s+@?([a-zA-Z0-9._]+)\\s+(?:on|in)\\s+(instagram|instazen)$", RegexOption.IGNORE_CASE).find(clean)
         if (socialFollow != null) {
             return ParsedCommandResult(JarvisCommand.SocialAppAction(socialFollow.groupValues[2].lowercase(Locale.ROOT), "follow", socialFollow.groupValues[1]), 0.97f, "SOCIAL_FOLLOW_FAST")
         }
