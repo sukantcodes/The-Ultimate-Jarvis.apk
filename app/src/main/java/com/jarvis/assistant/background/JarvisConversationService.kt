@@ -3900,13 +3900,73 @@ class JarvisConversationService : Service() {
         return true
     }
 
-    /** Gemini mode: waits a moment after the last words of the transcript, then checks the voice rules. */
+    /**
+     * Fast-path for explicit app commands. Parse locally before waiting for Gemini's
+     * tool-call round trip, then reuse the same command executor as the existing YouTube path.
+     * Only app-targeted social commands are intercepted here; ordinary conversation stays with AI.
+     */
+    private suspend fun tryInstantSocialCommand(rawText: String): Boolean {
+        val text = rawText.trim()
+        if (text.isBlank() || automationHandledTurn || hasExecutedCommandInCurrentTurn) return false
+        val app = application as? JarvisApp ?: return false
+
+        if (ownerVoiceGateOn()) {
+            var waited = 0
+            while (!ownerVerifiedForLocalAction() && waited < 2_000) {
+                kotlinx.coroutines.delay(100)
+                waited += 100
+            }
+            if (!ownerVerifiedForLocalAction()) return false
+        }
+
+        val parsed = com.jarvis.assistant.automation.command.CommandParser.parse(
+            input = text,
+            isAwaitingConfirmation = app.whatsAppAssistant.hasPendingDraft() || pendingGenericCommand != null,
+            isAwaitingDisambiguation = app.whatsAppAssistant.isAwaitingDisambiguation()
+        )
+        val command = parsed.command ?: return false
+        if (parsed.confidence < 0.90f) return false
+
+        val isInstantSocial = when (command) {
+            is com.jarvis.assistant.automation.command.JarvisCommand.SearchSocialApp -> true
+            is com.jarvis.assistant.automation.command.JarvisCommand.SocialAppAction -> true
+            is com.jarvis.assistant.automation.command.JarvisCommand.WhatsAppMessage -> true
+            is com.jarvis.assistant.automation.command.JarvisCommand.WhatsAppCall -> true
+            is com.jarvis.assistant.automation.command.JarvisCommand.WhatsAppDeleteMessage -> true
+            is com.jarvis.assistant.automation.command.JarvisCommand.OpenApp ->
+                command.packageName.contains("whatsapp", ignoreCase = true) ||
+                command.packageName.contains("instagram", ignoreCase = true) ||
+                command.packageName.contains("instazen", ignoreCase = true)
+            is com.jarvis.assistant.automation.command.JarvisCommand.ConfirmAction,
+            is com.jarvis.assistant.automation.command.JarvisCommand.DisambiguationChoice ->
+                app.whatsAppAssistant.hasPendingDraft() || app.whatsAppAssistant.isAwaitingDisambiguation() ||
+                    pendingGenericCommand != null
+            else -> false
+        }
+        if (!isInstantSocial) return false
+        if (automationHandledTurn || hasExecutedCommandInCurrentTurn) return false
+
+        automationHandledTurn = true
+        hasExecutedCommandInCurrentTurn = true
+        lastHandledCommandText = text
+        lastCommandExecutionTime = System.currentTimeMillis()
+        lastRealInteractionTime = lastCommandExecutionTime
+        suppressAudioUntilTurnComplete = true
+        audioPlayer?.flush()
+        Log.i("JarvisService", "INSTANT SOCIAL ROUTER matched [${parsed.matchedPattern}] -> $command")
+        executeDetectedCommand(command, "instant-local: $text")
+        return true
+    }
+
+    /** Gemini mode: locally routes app commands first, then checks user-created voice rules. */
     private fun scheduleAutomationMatch() {
         automationMatchJob?.cancel()
         automationMatchJob = serviceScope.launch {
             kotlinx.coroutines.delay(450)
             val text = currentTurnUserText.toString().trim()
-            if (text.isNotEmpty()) tryLocalAutomation(text)
+            if (text.isNotEmpty() && !tryInstantSocialCommand(text)) {
+                tryLocalAutomation(text)
+            }
         }
     }
 
