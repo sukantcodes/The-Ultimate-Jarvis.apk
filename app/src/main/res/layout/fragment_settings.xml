@@ -939,6 +939,13 @@
                         android:importantForAccessibility="no"
                         android:src="@drawable/ic_arrow_right"
                         app:tint="?attr/themeTextMuted" />
+                </LinearLayout>
+
+                <View
+                    style="@style/Widget.JarvisSettings.Divider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
                 <LinearLayout
                     android:id="@+id/rowFaceLockSettings"
                     style="@style/Widget.JarvisSettings.Row"
@@ -984,7 +991,6 @@
                         android:importantForAccessibility="no"
                         android:src="@drawable/ic_arrow_right"
                         app:tint="?attr/themeTextMuted" />
-                </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
 
