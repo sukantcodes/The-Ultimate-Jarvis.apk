@@ -943,7 +943,9 @@
                     android:id="@+id/rowFaceLockSettings"
                     style="@style/Widget.JarvisSettings.Row"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
+                    android:layout_height="64dp"
+                    android:minHeight="64dp"
+                    android:gravity="center_vertical">
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
                         android:layout_width="40dp"
@@ -972,7 +974,9 @@
                             style="@style/Widget.JarvisSettings.RowSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@string/set_facelock_subtitle" />
+                            android:text="Guided face scan and profiles"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
                     </LinearLayout>
                     <ImageView
                         android:layout_width="18dp"
