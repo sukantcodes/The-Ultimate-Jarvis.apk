@@ -1005,7 +1005,8 @@ class JarvisConversationService : Service() {
                             updateNotification()
                             val userText = currentTurnUserText.toString().lowercase(Locale.ROOT)
                             if (isStopCommand(userText)) {
-                                Log.i("JarvisService", "Detected explicit stop/cancel in user speech: '$userText'. Aborting all tasks.")
+                                Log.i("JarvisService", "Detected explicit stop/cancel in user speech: '$userText'. Stopping speech and aborting active tasks.")
+                                stopSpeakingImmediately()
                                 cancelAllActiveTools()
                             }
                             if (isExplicitStandbyCommand(userText)) {
@@ -3122,6 +3123,29 @@ class JarvisConversationService : Service() {
         strictOwnerMatchedThisTurn = false
         pendingToolCalls.clear()
         synchronized(currentUtteranceAudioStream) { currentUtteranceAudioStream.reset() }
+    }
+
+    /**
+     * Hard-interrupt every local speech output path immediately. This is intentionally local and
+     * runs before any model/tool handling so a spoken "stop" is not queued behind the response.
+     */
+    private fun stopSpeakingImmediately() {
+        try {
+            tts?.stop()
+        } catch (e: Exception) {
+            Log.w("JarvisService", "Could not stop system TTS: ${e.message}")
+        }
+        try {
+            batteryAnnouncer?.stop()
+        } catch (e: Exception) {
+            Log.w("JarvisService", "Could not stop announcement speech: ${e.message}")
+        }
+        audioPlayer?.flush()
+        currentTurnAssistantText.clear()
+        _liveAssistantResponse.value = ""
+        if (_isSessionOn.value) {
+            setConversationState(ConversationState.LISTENING)
+        }
     }
 
     private fun stopActiveConversation() {
