@@ -210,7 +210,44 @@
             </LinearLayout>
         </FrameLayout>
 
-        <!-- Tab 5: Updates -->
+        <!-- Tab 5: Camera Scan -->
+        <FrameLayout
+            android:id="@+id/tabScan"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:clickable="true"
+            android:focusable="true">
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_gravity="center"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:paddingHorizontal="4dp"
+                android:paddingVertical="3dp">
+                <TextView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:text="▣"
+                    android:textSize="21sp"
+                    android:gravity="center"
+                    android:textColor="?attr/themeTextMuted"
+                    android:contentDescription="Camera Scan" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Scan"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:includeFontPadding="false"
+                    android:layout_marginTop="2dp"
+                    android:textColor="?attr/themeTextMuted" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- Tab 6: Updates -->
         <FrameLayout
             android:id="@+id/tabUpdates"
             android:layout_width="0dp"
