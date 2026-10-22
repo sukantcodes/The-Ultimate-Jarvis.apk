@@ -12,15 +12,16 @@
     android:paddingTop="16dp"
     android:paddingBottom="96dp">
 
-    <!-- Full-screen transparent 3D avatar layer; all home controls remain drawn above it -->
+    <!-- Dedicated orb stage: preserve the orb's home-screen position without covering the header or status area. -->
     <FrameLayout
         android:id="@+id/orbContainer"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="170dp"
         android:clipChildren="false"
         android:clipToPadding="false"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/layoutTitle"
+        app:layout_constraintBottom_toTopOf="@id/layoutStatusIndicator"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
