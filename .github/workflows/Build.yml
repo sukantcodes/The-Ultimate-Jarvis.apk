@@ -1,9 +1,6 @@
 name: Build Android APK (manual fallback)
 
 on:
-  push:
-    branches:
-      - Google
   workflow_dispatch:
 
 jobs:
