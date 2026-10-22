@@ -38,6 +38,11 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
             binding.viewCustomPreview.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor(customHex))
         } catch (_: Exception) {}
 
+        binding.btnOrbDefault.setOnClickListener { selectOrb("default", "Default Orb") }
+        binding.btnOrbPlasma.setOnClickListener { selectOrb("plasma_core", "Plasma Core") }
+        binding.btnOrbHolographic.setOnClickListener { selectOrb("holographic_pulse", "Holographic Pulse") }
+        binding.btnOrbIronMan.setOnClickListener { selectOrb("iron_man_head", "Iron Man 3D Helmet") }
+
         binding.cardThemeLight.setOnClickListener { selectTheme("light", "Light") }
         binding.cardThemeDark.setOnClickListener { selectTheme("dark", "Dark") }
         binding.cardThemeRed.setOnClickListener { selectTheme("red", "Red") }
@@ -59,6 +64,16 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         binding.swatch4.setOnClickListener { applyCustomColor("#451A03") }
         binding.swatch5.setOnClickListener { applyCustomColor("#F0FDF4") }
         binding.swatch6.setOnClickListener { applyCustomColor("#FAF5FF") }
+    }
+
+    private fun selectOrb(style: String, label: String) {
+        preferences.orbAnimation = style
+        val mainActivity = activity as? MainActivity
+        val homeFrag = mainActivity?.supportFragmentManager?.fragments
+            ?.filterIsInstance<HomeFragment>()
+            ?.firstOrNull()
+        homeFrag?.setOrbStyle(style)
+        Toast.makeText(requireContext(), "$label selected", Toast.LENGTH_SHORT).show()
     }
 
     private fun applyCustomColor(hexInput: String) {
