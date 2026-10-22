@@ -349,6 +349,14 @@ object CommandParser {
             }
         }
 
+        // Prefer app-specific social searches over the generic YouTube play pattern.
+        val earlySocial = Regex("$prefix(?:play|show|find|search)\\\\s+(.+?)\\\\s+(?:on|in)\\\\s+(instagram|instazen)$", RegexOption.IGNORE_CASE).find(clean)
+        if (earlySocial != null) {
+            val socialQuery = earlySocial.groupValues[1].trim()
+            val socialApp = earlySocial.groupValues[2].lowercase(Locale.ROOT)
+            if (socialQuery.isNotBlank()) return ParsedCommandResult(JarvisCommand.SearchSocialApp(socialApp, socialQuery), 0.96f, "SOCIAL_PLAY_SEARCH")
+        }
+
         // 9. YouTube Video Play & Search (Strict Intent Anchoring)
         // Compound command: "open youtube and play [song]" / "open youtube and search [query]"
         val openAndPlayMatch = Regex("$prefix(?:open\\s+youtube\\s+(?:and|&)?\\s*(?:play|search)\\s+)(.+)$", RegexOption.IGNORE_CASE).find(clean)
