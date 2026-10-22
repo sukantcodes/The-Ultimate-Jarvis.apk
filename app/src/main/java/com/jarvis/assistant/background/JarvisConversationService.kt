@@ -223,6 +223,22 @@ class JarvisConversationService : Service() {
         /** True while a foreground instance of this service exists in any mode. */
         fun isServiceRunning(): Boolean = activeInstance != null
 
+        fun sendScanImage(jpegBytes: ByteArray): Boolean {
+            val instance = activeInstance ?: return false
+            val ws = instance.liveWebSocket ?: return false
+            if (!_isSessionOn.value || !ws.isSessionReady() || jpegBytes.isEmpty()) return false
+            ws.sendMediaChunk(jpegBytes)
+            instance.serviceScope.launch(Dispatchers.IO) {
+                delay(1200L)
+                ws.sendClientContent(
+                    "Analyze the camera scan image I just sent. Describe the visible objects, scene, and any readable text. " +
+                    "Give a concise, useful explanation and mention uncertainty instead of guessing."
+                )
+            }
+            JarvisApp.instance.chatRepository.addTurn("[Camera scan image sent to JARVIS]", "")
+            return true
+        }
+
         fun sendTextMessage(text: String) {
             val instance = activeInstance ?: return
             instance.liveWebSocket?.sendClientContent(text)
