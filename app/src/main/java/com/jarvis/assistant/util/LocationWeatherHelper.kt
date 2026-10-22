@@ -58,6 +58,24 @@ object LocationWeatherHelper {
         fetchOpenMeteoWeather(lat, lon, cityName)
     }
 
+    /**
+     * Resolves the device's current location using Android's location providers.
+     * Returns null when permission or a usable location is unavailable.
+     */
+    @SuppressLint("MissingPermission")
+    suspend fun fetchCurrentLocationLabel(context: Context): String? = withContext(Dispatchers.IO) {
+        if (!PermissionHelper.hasLocationPermission(context)) return@withContext null
+        val location = getBestLocation(context) ?: return@withContext null
+        val ageMs = (System.currentTimeMillis() - location.time).coerceAtLeast(0L)
+        val city = resolveCityName(context, location.latitude, location.longitude)
+        val ageText = when {
+            ageMs < 60_000L -> "updated just now"
+            ageMs < 3_600_000L -> "updated ${ageMs / 60_000L} minutes ago"
+            else -> "location may be stale (${ageMs / 3_600_000L} hours old)"
+        }
+        "Your approximate current area is $city ($ageText). Coordinates: ${"%.5f".format(Locale.US, location.latitude)}, ${"%.5f".format(Locale.US, location.longitude)}."
+    }
+
     @SuppressLint("MissingPermission")
     private suspend fun getBestLocation(context: Context): Location? {
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
