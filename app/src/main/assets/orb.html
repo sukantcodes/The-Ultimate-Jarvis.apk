@@ -208,15 +208,77 @@ helmetPart(new THREE.CylinderGeometry(.13,.13,.10,12),goldMetal,[.76,.03,.02],[1
 helmetPart(new THREE.BoxGeometry(.12,.32,.10),redMetal,[-.69,-.12,.28],[1,1,1],[0,0,-.12]);
 helmetPart(new THREE.BoxGeometry(.12,.32,.10),redMetal,[.69,-.12,.28],[1,1,1],[0,0,.12]);
 helmet.scale.setScalar(1.08);
-helmet.visible=false; altPlasma.visible=false; altHolo.visible=false;
+helmet.visible=false; altPlasma.visible=false; altHolo.visible=false; fullHuman.visible=false;
+
+/* ---------- Full articulated human-like JARVIS avatar ---------- */
+const fullHuman = new THREE.Group();
+scene.add(fullHuman);
+const humanRoot = new THREE.Group();
+fullHuman.add(humanRoot);
+const skinMat = new THREE.MeshStandardMaterial({color:0xd9a77e, roughness:.72, metalness:.02});
+const skinShade = new THREE.MeshStandardMaterial({color:0x9b6549, roughness:.8});
+const suitMat = new THREE.MeshStandardMaterial({color:0x101a2e, metalness:.68, roughness:.3, emissive:0x06172a, emissiveIntensity:.35});
+const suitTrim = new THREE.MeshStandardMaterial({color:0x21d9ff, metalness:.55, roughness:.24, emissive:0x087da8, emissiveIntensity:1.25});
+const shirtMat = new THREE.MeshStandardMaterial({color:0x1e90b8, metalness:.25, roughness:.38});
+const hairMat = new THREE.MeshStandardMaterial({color:0x18202b, roughness:.86});
+const eyeMat = new THREE.MeshStandardMaterial({color:0x9ef8ff, emissive:0x36dfff, emissiveIntensity:1.4});
+function humanMesh(parent, geo, mat, pos, scale, rot){
+  const m=new THREE.Mesh(geo,mat);m.position.set(pos[0],pos[1],pos[2]);
+  if(scale)m.scale.set(scale[0],scale[1],scale[2]);
+  if(rot)m.rotation.set(rot[0],rot[1],rot[2]);
+  parent.add(m);return m;
+}
+function limb(parent,mat,a,b,r1,r2){
+  const A=new THREE.Vector3(...a),B=new THREE.Vector3(...b),d=new THREE.Vector3().subVectors(B,A);
+  const m=humanMesh(parent,new THREE.CylinderGeometry(r2,r1,d.length(),12),mat,[(A.x+B.x)/2,(A.y+B.y)/2,(A.z+B.z)/2]);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());return m;
+}
+humanMesh(humanRoot,new THREE.SphereGeometry(.23,24,18),skinMat,[0,1.27,0],[.83,1.08,.82]); // head
+humanMesh(humanRoot,new THREE.SphereGeometry(.245,24,16),hairMat,[0,1.39,-.025],[.86,.85,.83]); // hair cap
+humanMesh(humanRoot,new THREE.BoxGeometry(.32,.07,.07),skinMat,[0,1.24,.205]); // nose bridge
+humanMesh(humanRoot,new THREE.BoxGeometry(.11,.035,.025),eyeMat,[-.095,1.30,.205]);
+humanMesh(humanRoot,new THREE.BoxGeometry(.11,.035,.025),eyeMat,[.095,1.30,.205]);
+humanMesh(humanRoot,new THREE.CylinderGeometry(.075,.09,.18,16),skinMat,[0,1.02,0]); // neck
+humanMesh(humanRoot,new THREE.SphereGeometry(.37,28,22),suitMat,[0,.58,0],[1.12,1.28,.65]); // torso
+humanMesh(humanRoot,new THREE.BoxGeometry(.24,.42,.035),shirtMat,[0,.64,.235]); // chest panel
+humanMesh(humanRoot,new THREE.TorusGeometry(.09,.018,8,32),suitTrim,[0,.73,.265]); // arc core
+humanMesh(humanRoot,new THREE.SphereGeometry(.045,12,10),eyeMat,[0,.73,.27]);
+humanMesh(humanRoot,new THREE.SphereGeometry(.16,18,14),suitMat,[0,.17,0],[1.15,.62,.68]); // pelvis
+// shoulders, upper arms, elbows, forearms and articulated hands
+const arms=[];
+for(const side of [-1,1]){
+ const arm=new THREE.Group();arm.position.set(side*.39,.78,0);humanRoot.add(arm);arms.push({group:arm,side});
+ humanMesh(arm,new THREE.SphereGeometry(.14,16,12),suitMat,[side*.04,-.02,0],[1,1.05,.9]);
+ limb(arm,suitMat,[0,0,0],[side*.13,-.32,.015],.105,.082);
+ humanMesh(arm,new THREE.SphereGeometry(.085,14,12),suitTrim,[side*.13,-.32,.015]);
+ limb(arm,suitMat,[side*.13,-.32,.015],[side*.16,-.61,.045],.075,.055);
+ humanMesh(arm,new THREE.SphereGeometry(.065,14,12),skinMat,[side*.16,-.70,.06],[.85,1.2,.65]);
+ for(let f=0;f<4;f++) limb(arm,skinMat,[side*(.13+f*.018),-.72,.08],[side*(.12+f*.02),-.80,.085],.012,.009);
+ limb(arm,skinMat,[side*.20,-.70,.07],[side*.24,-.76,.09],.014,.009);
+}
+// legs have independent hip groups for natural walking motion
+const legs=[];
+for(const side of [-1,1]){
+ const leg=new THREE.Group();leg.position.set(side*.17,.12,0);humanRoot.add(leg);legs.push({group:leg,side});
+ limb(leg,suitMat,[0,0,0],[side*.015,-.43,0],.13,.09);
+ humanMesh(leg,new THREE.SphereGeometry(.09,14,12),suitTrim,[side*.015,-.43,.01]);
+ limb(leg,suitMat,[side*.015,-.43,0],[side*.025,-.80,.035],.08,.055);
+ humanMesh(leg,new THREE.BoxGeometry(.15,.09,.28),suitMat,[side*.025,-.84,.09]);
+ humanMesh(leg,new THREE.BoxGeometry(.12,.018,.23),suitTrim,[side*.025,-.79,.105]);
+}
+fullHuman.scale.setScalar(.72);
+fullHuman.position.set(0,-.12,0);
+fullHuman.visible=false;
+
 helmet.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});
 function setOrbStyle(style) {
-  const allowed=["default","plasma_core","holographic_pulse","iron_man_head"];
+  const allowed=["default","plasma_core","holographic_pulse","iron_man_head","full_human"];
   orbStyle=allowed.includes(style)?style:"default";
   orb.visible=orbStyle==="default";
   altPlasma.visible=orbStyle==="plasma_core";
   altHolo.visible=orbStyle==="holographic_pulse";
   helmet.visible=orbStyle==="iron_man_head";
+  fullHuman.visible=orbStyle==="full_human";
   if(orbStyle==="plasma_core") {altPlasma.rotation.set(orb.rotation.x,orb.rotation.y,0);}
   if(orbStyle==="holographic_pulse") {altHolo.rotation.set(orb.rotation.x,orb.rotation.y,0);}
 }
@@ -437,6 +499,16 @@ function updateOrb(dt){
     altHolo.rotation.x += dt*.08;
     holoShell.rotation.y -= dt*.12;
     holoShell.scale.setScalar(1+audio.level*.07+(state==="listening"?.025:0));
+  } else if(orbStyle==="full_human") {
+    // Idle breathing; speech uses subtle torso bounce and arm gestures, listening leans forward.
+    humanRoot.position.y=Math.sin(time*2.2)*.018 + (state==="speaking" ? Math.abs(Math.sin(time*7.5))*.045 : 0);
+    humanRoot.rotation.y=Math.sin(time*.65)*.07;
+    humanRoot.rotation.x=state==="listening" ? -.055 : state==="thinking" ? .035*Math.sin(time*2) : 0;
+    arms.forEach((a,i)=>{const sign=a.side; a.group.rotation.x=(state==="listening"?-.18:state==="speaking"?-.35-.16*Math.sin(time*8+i):.035*Math.sin(time*1.6+i));a.group.rotation.z=sign*(state==="speaking"?.18+.10*Math.sin(time*6+i):.045*Math.sin(time*1.5+i));});
+    legs.forEach((l,i)=>{const walk=state==="speaking"?.10*Math.sin(time*5+i*Math.PI):state==="listening"?.025*Math.sin(time*2+i):.012*Math.sin(time*1.3+i);l.group.rotation.x=walk;});
+    fullHuman.rotation.y += dragging ? 0 : dt*.10;
+    fullHuman.rotation.x += (orb.rotation.x-fullHuman.rotation.x)*Math.min(1,dt*2);
+    fullHuman.scale.setScalar(.72*(1+voicePulse*.18));
   } else if(orbStyle==="iron_man_head") {
     helmet.rotation.y += dragging ? 0 : dt*.12;
     helmet.rotation.x += (orb.rotation.x-helmet.rotation.x)*Math.min(1,dt*3);
