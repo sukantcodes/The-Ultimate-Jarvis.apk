@@ -3,6 +3,7 @@ package com.jarvis.assistant.automation.command
 sealed class JarvisCommand {
     data class PlayYouTube(val query: String) : JarvisCommand()
     data class SearchYouTube(val query: String) : JarvisCommand()
+    data class SearchSocialApp(val app: String, val query: String) : JarvisCommand()
     data class OpenApp(val packageName: String) : JarvisCommand()
     data class WhatsAppMessage(val contact: String, val message: String) : JarvisCommand()
     data class WhatsAppCall(val contact: String, val video: Boolean) : JarvisCommand()
