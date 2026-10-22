@@ -99,6 +99,12 @@ class SettingsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         ThemeManager.applyDynamicBackground(binding.root)
 
+        // Secret Maya companion settings: long-press the Settings heading to open.
+        binding.tvSettingsTitle.setOnLongClickListener {
+            startActivity(Intent(requireContext(), MayaModeActivity::class.java))
+            true
+        }
+
         markSectionHeadings()
         setupProfileCard()
         setupAiSection()
