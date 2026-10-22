@@ -7,6 +7,7 @@
 <style>
 :root{--bg:#fff;--fg:#1d2340;--sub:#6b7390;--glass:rgba(255,255,255,.72);--gb:rgba(255,255,255,.9);--chip:#4a527a;--t1:#2f6bff;--t2:#8b5cf6;--t3:#c15de0;--sh:rgba(70,80,170,.22)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+#touchParticles{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999}
 html,body{height:100%;overflow:hidden}
 body{display:flex;flex-direction:column;align-items:center;background:var(--bg);color:var(--fg);font-family:Inter,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
 header{text-align:center;padding-top:clamp(12px,3.5vh,36px);flex:none}
@@ -60,6 +61,7 @@ html, body {
 </style>
 </head>
 <body class="embedded">
+<canvas id="touchParticles" aria-hidden="true"></canvas>
 <div id="stage"><canvas id="c"></canvas><div id="shadow"></div></div>
 
 <script src="three.min.js"></script>
@@ -585,6 +587,13 @@ handleResize();
 applyTheme("light");
 setOrbState("idle");
 requestAnimationFrame(animate);
+})();
+</script>
+<script>
+(()=>{const c=document.getElementById('touchParticles'),x=c.getContext('2d');let w=0,h=0,p=[],raf=0;
+function size(){let d=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;c.width=w*d;c.height=h*d;c.style.width=w+'px';c.style.height=h+'px';x.setTransform(d,0,0,d,0,0)}addEventListener('resize',size,{passive:true});size();
+document.addEventListener('pointerdown',e=>{for(let i=0;i<14;i++){let a=2*Math.PI*i/14+(Math.random()-.5)*.3,s=1.2+Math.random()*2.4;p.push({x:e.clientX,y:e.clientY,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:1,r:1+Math.random()*2,h:180+Math.random()*90})}if(!raf)raf=requestAnimationFrame(draw)},{passive:true});
+function draw(){raf=0;x.clearRect(0,0,w,h);for(let i=p.length-1;i>=0;i--){let q=p[i];q.x+=q.vx;q.y+=q.vy;q.vx*=.975;q.vy=q.vy*.975+.01;q.l-=.035;if(q.l<=0){p.splice(i,1);continue}x.globalAlpha=q.l;x.fillStyle='hsl('+q.h+' 100% 68%)';x.shadowBlur=8;x.shadowColor=x.fillStyle;x.beginPath();x.arc(q.x,q.y,q.r*q.l,0,Math.PI*2);x.fill()}x.globalAlpha=1;x.shadowBlur=0;if(p.length)raf=requestAnimationFrame(draw)}
 })();
 </script>
 </body>
