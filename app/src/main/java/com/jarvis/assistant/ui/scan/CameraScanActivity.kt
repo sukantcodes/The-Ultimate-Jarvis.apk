@@ -145,8 +145,8 @@ class CameraScanActivity : AppCompatActivity() {
                 }
                 provider.unbindAll()
                 provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
-                status.text = "CAMERA READY • Live sharing is OFF"
                 toggleButton.isEnabled = true
+                setLiveScanEnabled(true)
             } catch (e: Exception) {
                 status.text = "Could not start camera: ${e.localizedMessage ?: "camera unavailable"}"
             }
@@ -193,7 +193,7 @@ class CameraScanActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
-        setLiveScanEnabled(false)
+        if (::toggleButton.isInitialized && ::status.isInitialized) setLiveScanEnabled(false)
         super.onStop()
     }
 
