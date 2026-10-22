@@ -307,9 +307,6 @@ class MainActivity : AppCompatActivity() {
         addDrawerItem(panel, "▤", "Memories", "Saved JARVIS memories") {
             startActivity(Intent(this, com.jarvis.assistant.ui.memory.MemoryActivity::class.java))
         }
-        addDrawerItem(panel, "▣", "Scan", "Capture and analyze what the camera sees") {
-            startActivity(Intent(this, com.jarvis.assistant.ui.scan.CameraScanActivity::class.java))
-        }
         addDrawerItem(panel, "▧", "Screen Share", "Share the screen with JARVIS") { toggleScreenShare() }
         panel.addView(TextView(this).apply {
             text = "Swipe right from the left edge to open"
@@ -381,6 +378,7 @@ class MainActivity : AppCompatActivity() {
         binding.tabChat.setOnClickListener { selectTab(TAB_CHAT) }
         binding.tabSettings.setOnClickListener { selectTab(TAB_SETTINGS) }
         binding.tabUpdates.setOnClickListener { selectTab(TAB_UPDATES) }
+        binding.tabScan.setOnClickListener { startActivity(Intent(this, com.jarvis.assistant.ui.scan.CameraScanActivity::class.java)) }
 
         binding.tabMic.setOnClickListener {
             handleMicOrOrbClick()
