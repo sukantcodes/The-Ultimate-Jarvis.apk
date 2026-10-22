@@ -43,6 +43,10 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         binding.cardThemeRed.setOnClickListener { selectTheme("red", "Red") }
         binding.cardThemeSunset.setOnClickListener { selectTheme("sunset", "Sunset") }
 
+        binding.btnSelectMoreColours.setOnClickListener {
+            startActivity(android.content.Intent(requireContext(), MoreThemeColoursActivity::class.java))
+        }
+
         binding.btnApplyCustom.setOnClickListener {
             val hex = binding.etCustomHex.text.toString().trim()
             applyCustomColor(hex)
