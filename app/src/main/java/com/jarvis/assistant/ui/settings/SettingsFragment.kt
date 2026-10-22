@@ -109,8 +109,20 @@ class SettingsFragment : Fragment() {
         setupPermissionsSection()
         setupAppearanceSection()
         setupAboutSection()
+        applyLiquidGlassStrength(binding.root)
 
         refreshState()
+    }
+
+    private fun applyLiquidGlassStrength(view: View) {
+        if (view.tag == "liquid_glass_surface") {
+            view.background?.alpha = ThemeManager.getLiquidGlassAlpha()
+        }
+        if (view is ViewGroup) {
+            for (index in 0 until view.childCount) {
+                applyLiquidGlassStrength(view.getChildAt(index))
+            }
+        }
     }
 
     override fun onResume() {
