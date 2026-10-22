@@ -266,7 +266,7 @@ for(const side of [-1,1]){
  humanMesh(leg,new THREE.BoxGeometry(.15,.09,.28),suitMat,[side*.025,-.84,.09]);
  humanMesh(leg,new THREE.BoxGeometry(.12,.018,.23),suitTrim,[side*.025,-.79,.105]);
 }
-fullHuman.scale.setScalar(.72);
+fullHuman.scale.setScalar(1.12);
 fullHuman.position.set(0,-.12,0);
 fullHuman.visible=false;
 
@@ -508,7 +508,7 @@ function updateOrb(dt){
     legs.forEach((l,i)=>{const walk=state==="speaking"?.10*Math.sin(time*5+i*Math.PI):state==="listening"?.025*Math.sin(time*2+i):.012*Math.sin(time*1.3+i);l.group.rotation.x=walk;});
     fullHuman.rotation.y += dragging ? 0 : dt*.10;
     fullHuman.rotation.x += (orb.rotation.x-fullHuman.rotation.x)*Math.min(1,dt*2);
-    fullHuman.scale.setScalar(.72*(1+voicePulse*.18));
+    fullHuman.scale.setScalar(1.12*(1+voicePulse*.18));
   } else if(orbStyle==="iron_man_head") {
     helmet.rotation.y += dragging ? 0 : dt*.12;
     helmet.rotation.x += (orb.rotation.x-helmet.rotation.x)*Math.min(1,dt*3);
