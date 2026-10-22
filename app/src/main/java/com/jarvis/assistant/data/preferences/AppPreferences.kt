@@ -259,6 +259,10 @@ class AppPreferences(context: Context) {
         get() = prefs.getString(KEY_CUSTOM_THEME_COLOR, "#FFFFFF") ?: "#FFFFFF"
         set(value) = prefs.edit().putString(KEY_CUSTOM_THEME_COLOR, value.trim()).apply()
 
+    var liquidGlassStrength: Int
+        get() = prefs.getInt("liquid_glass_strength", 60).coerceIn(0, 100)
+        set(value) = prefs.edit().putInt("liquid_glass_strength", value.coerceIn(0, 100)).apply()
+
     var orbAnimation: String
         get() {
             val valid = listOf("holographic_plasma", "cosmic_pulsar", "quantum_core", "cyber_ring", "siri_glow")
