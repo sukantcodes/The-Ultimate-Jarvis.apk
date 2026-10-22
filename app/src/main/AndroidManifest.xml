@@ -111,6 +111,11 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.settings.MoreThemeColoursActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
             android:name=".ui.settings.OverlayAvatarActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
