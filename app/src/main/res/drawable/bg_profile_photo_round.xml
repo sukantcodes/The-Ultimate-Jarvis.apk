@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Rounded glass-photo frame. clipToOutline on the profile ImageView clips the actual photo to these corners. -->
+<!-- Rounded, theme-coordinated photo mask. The photo is clipped to these 22dp corners. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <corners android:radius="22dp" />
     <gradient
         android:angle="135"
-        android:startColor="#263D5C"
-        android:centerColor="#17263D"
-        android:endColor="#101722" />
-    <stroke
-        android:width="1.5dp"
-        android:color="#80D9F5FF" />
+        android:startColor="?attr/themeCardGlassStart"
+        android:centerColor="?attr/themeAccentLight"
+        android:endColor="?attr/themeCardGlassEnd" />
 </shape>
