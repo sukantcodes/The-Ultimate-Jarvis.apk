@@ -3,11 +3,13 @@ package com.jarvis.assistant.ui.settings
 import android.Manifest
 import android.app.role.RoleManager
 import android.content.Intent
+import android.graphics.Color
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.TypedValue
 import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
@@ -133,8 +135,49 @@ class SettingsFragment : Fragment() {
         setupAppearanceSection()
         setupAboutSection()
         applyLiquidGlassStrength(binding.root)
+        applyThemeAdaptiveIconColors(binding.root)
 
         refreshState()
+    }
+
+    /**
+     * Give each Settings option a dimensional icon tint derived from the currently selected
+     * app accent. Small hue shifts keep icons distinct while making every palette follow themes.
+     */
+    private fun applyThemeAdaptiveIconColors(root: View) {
+        val resolvedAccent = TypedValue()
+        if (!requireContext().theme.resolveAttribute(R.attr.themeAccent, resolvedAccent, true)) return
+
+        val accentHsv = FloatArray(3)
+        Color.colorToHSV(resolvedAccent.data, accentHsv)
+        var iconIndex = 0
+
+        fun visit(view: View) {
+            if (view !is ViewGroup) return
+
+            if (view.childCount > 0 && view.getChildAt(0) is android.widget.FrameLayout) {
+                val iconBox = view.getChildAt(0) as android.widget.FrameLayout
+                val width = iconBox.layoutParams?.width ?: 0
+                val isSettingsIconSize = width in dp(36)..dp(44)
+                if (isSettingsIconSize && iconBox.childCount > 0 &&
+                    iconBox.getChildAt(0) is android.widget.ImageView
+                ) {
+                    val hsv = accentHsv.clone()
+                    val hueShift = ((iconIndex % 7) - 3) * 8f
+                    hsv[0] = (hsv[0] + hueShift + 360f) % 360f
+                    hsv[1] = (accentHsv[1] * 0.72f + 0.22f).coerceIn(0.55f, 0.95f)
+                    hsv[2] = accentHsv[2].coerceIn(0.72f, 1f)
+                    val tint = Color.HSVToColor(hsv)
+                    (iconBox.getChildAt(0) as android.widget.ImageView).imageTintList =
+                        ColorStateList.valueOf(tint)
+                    iconIndex++
+                }
+            }
+
+            for (index in 0 until view.childCount) visit(view.getChildAt(index))
+        }
+
+        visit(root)
     }
 
     private fun applyLiquidGlassStrength(view: View) {
@@ -152,6 +195,7 @@ class SettingsFragment : Fragment() {
         super.onResume()
         if (_binding != null) {
             ThemeManager.applyDynamicBackground(binding.root)
+            applyThemeAdaptiveIconColors(binding.root)
             refreshState()
         }
     }
