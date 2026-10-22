@@ -46,6 +46,7 @@ class AppPreferences(context: Context) {
         private const val KEY_VOICE = "key_voice"
         private const val KEY_PERSONALITY = "key_personality"
         private const val KEY_USER_NAME = "key_user_name"
+        private const val KEY_PROFILE_PHOTO_URI = "key_profile_photo_uri"
         private const val KEY_MIC_MUTED = "key_mic_muted"
         private const val KEY_CHAT_HISTORY = "key_chat_history"
         private const val KEY_FAVORITE_SONG = "key_favorite_song"
@@ -240,6 +241,10 @@ class AppPreferences(context: Context) {
         set(value) {
             prefs.edit().putString(KEY_USER_NAME, value.trim()).commit()
         }
+
+    var profilePhotoUri: String
+        get() = prefs.getString(KEY_PROFILE_PHOTO_URI, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_PROFILE_PHOTO_URI, value).apply()
 
     var appTheme: String
         get() {
