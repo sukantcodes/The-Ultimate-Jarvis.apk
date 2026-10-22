@@ -77,7 +77,7 @@
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Default Orb"
+                    android:text="🔵  Default Orb"
                     android:textAllCaps="false" />
 
                 <com.google.android.material.button.MaterialButton
@@ -85,7 +85,7 @@
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Plasma Core • Neon Rings"
+                    android:text="🟣  Plasma Core • Neon Rings"
                     android:textAllCaps="false" />
 
                 <com.google.android.material.button.MaterialButton
@@ -93,7 +93,7 @@
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Holographic Pulse • Glass"
+                    android:text="🫧  Holographic Pulse • Glass"
                     android:textAllCaps="false" />
 
                 <com.google.android.material.button.MaterialButton
@@ -101,14 +101,14 @@
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Iron Man • 3D Helmet"
+                    android:text="🦾  Iron Man • 3D Helmet"
                     android:textAllCaps="false" />
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnOrbFullCharacter"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Full Human • 3D Assistant"
+                    android:text="🧍  Full Human • 3D Assistant"
                     android:textAllCaps="false" />
             </LinearLayout>
 
