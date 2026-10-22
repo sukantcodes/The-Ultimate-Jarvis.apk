@@ -390,6 +390,24 @@ object CommandParser {
             }
         }
 
+        // Local social action fast-paths: no Gemini round-trip for known Instagram/Instazen intents.
+        val socialFollow = Regex("$prefixfollow\\s+@?([a-zA-Z0-9._]+)\\s+(?:on|in)\\s+(instagram|instazen)$", RegexOption.IGNORE_CASE).find(clean)
+        if (socialFollow != null) {
+            return ParsedCommandResult(JarvisCommand.SocialAppAction(socialFollow.groupValues[2].lowercase(Locale.ROOT), "follow", socialFollow.groupValues[1]), 0.97f, "SOCIAL_FOLLOW_FAST")
+        }
+        val socialLikeShare = Regex("$prefix(like|share)\\s+(https?://\\S+)\\s+(?:on|in)\\s+(instagram|instazen)$", RegexOption.IGNORE_CASE).find(clean)
+        if (socialLikeShare != null) {
+            return ParsedCommandResult(JarvisCommand.SocialAppAction(socialLikeShare.groupValues[3].lowercase(Locale.ROOT), socialLikeShare.groupValues[1].lowercase(Locale.ROOT), socialLikeShare.groupValues[2]), 0.97f, "SOCIAL_POST_ACTION_FAST")
+        }
+        val socialMessage = Regex("$prefix(?:message|dm|chat with)\\s+@?([a-zA-Z0-9._]+)\\s+(?:on|in)\\s+(instagram|instazen)(?:\\s+(?:saying|with message|that says)\\s+(.+))?$", RegexOption.IGNORE_CASE).find(clean)
+        if (socialMessage != null) {
+            return ParsedCommandResult(JarvisCommand.SocialAppAction(socialMessage.groupValues[2].lowercase(Locale.ROOT), "message", socialMessage.groupValues[1], socialMessage.groupValues[3]), 0.96f, "SOCIAL_MESSAGE_FAST")
+        }
+        val socialInbox = Regex("$prefix(?:open|show|check)\\s+(instagram|instazen)\\s+(?:inbox|messages|dms|direct messages)$", RegexOption.IGNORE_CASE).find(clean)
+        if (socialInbox != null) {
+            return ParsedCommandResult(JarvisCommand.SocialAppAction(socialInbox.groupValues[1].lowercase(Locale.ROOT), "inbox", ""), 0.97f, "SOCIAL_INBOX_FAST")
+        }
+
         // 9. YouTube Video Play & Search (Strict Intent Anchoring)
         // Compound command: "open youtube and play [song]" / "open youtube and search [query]"
         val openAndPlayMatch = Regex("$prefix(?:open\\s+youtube\\s+(?:and|&)?\\s*(?:play|search)\\s+)(.+)$", RegexOption.IGNORE_CASE).find(clean)
