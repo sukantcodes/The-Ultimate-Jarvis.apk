@@ -103,6 +103,13 @@
                     android:layout_height="wrap_content"
                     android:text="Iron Man • 3D Helmet"
                     android:textAllCaps="false" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOrbFullCharacter"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Full Human • 3D Assistant"
+                    android:textAllCaps="false" />
             </LinearLayout>
 
             <!-- Theme 1: Light -->
