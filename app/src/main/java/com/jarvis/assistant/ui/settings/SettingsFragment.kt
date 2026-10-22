@@ -82,6 +82,23 @@ class SettingsFragment : Fragment() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { openPermissionsScreen() }
 
+    private val profilePhotoPicker = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null && isAdded) {
+            try {
+                requireContext().contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: SecurityException) {
+                // Some document providers grant a temporary read permission only.
+            }
+            preferences.profilePhotoUri = uri.toString()
+            showProfilePhoto()
+            toast("Profile photo saved")
+        }
+    }
+
     // ------------------------------------------------------------------------------------------
     // Lifecycle
     // ------------------------------------------------------------------------------------------
@@ -176,8 +193,43 @@ class SettingsFragment : Fragment() {
 
     private fun setupProfileCard() {
         binding.cardProfile.setOnClickListener { showEditNameDialog() }
+        binding.ivProfileAvatar.setOnClickListener {
+            profilePhotoPicker.launch(arrayOf("image/*"))
+        }
+        binding.ivProfileAvatar.setOnLongClickListener {
+            preferences.profilePhotoUri = ""
+            showProfilePhoto()
+            toast("Profile photo removed")
+            true
+        }
         binding.chipProfileVoiceStatus.setOnClickListener { open(VoiceEnrollmentActivity::class.java) }
     }
+
+    private fun showProfilePhoto() {
+        val avatar = binding.ivProfileAvatar
+        val savedUri = preferences.profilePhotoUri
+        if (savedUri.isBlank()) {
+            avatar.setImageResource(R.drawable.ic_user_profile)
+            avatar.imageTintList = ColorStateList.valueOf(
+                ContextCompat.getColor(requireContext(), R.color.accent_sapphire)
+            )
+            avatar.scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
+            avatar.setPadding(dp(12), dp(12), dp(12), dp(12))
+            return
+        }
+        try {
+            avatar.setImageURI(Uri.parse(savedUri))
+            avatar.imageTintList = null
+            avatar.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+            avatar.setPadding(0, 0, 0, 0)
+        } catch (_: Exception) {
+            preferences.profilePhotoUri = ""
+            avatar.setImageResource(R.drawable.ic_user_profile)
+        }
+    }
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt()
 
     // ------------------------------------------------------------------------------------------
     // 1. AI & Intelligence
@@ -366,6 +418,7 @@ class SettingsFragment : Fragment() {
         val sapphire = ContextCompat.getColor(ctx, R.color.accent_sapphire)
 
         binding.tvProfileName.text = preferences.userName.ifBlank { "Sukant" }
+        showProfilePhoto()
         binding.tvProfileSubtitle.text = "JARVIS OPERATOR • PRIMARY USER"
 
         // Owner voice profile status (profile card chip and the Owner Voice Profile row)
