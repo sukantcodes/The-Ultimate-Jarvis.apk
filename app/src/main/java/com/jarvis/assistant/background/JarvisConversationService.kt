@@ -1774,6 +1774,18 @@ class JarvisConversationService : Service() {
                 val result = JSONObject()
 
                 when (name) {
+                    "get_live_info" -> {
+                        val topic = args.optString("topic", "").trim().lowercase(Locale.ROOT)
+                        val liveAnswer = com.jarvis.assistant.util.LiveInfoProvider.get(
+                            this@JarvisConversationService,
+                            topic
+                        )
+                        result.put("success", true)
+                        result.put("topic", topic)
+                        result.put("source", if (topic in setOf("battery", "time", "date", "connectivity", "device_status")) "android_device_api" else "live_location_or_weather_service")
+                        result.put("message", liveAnswer)
+                    }
+
                     "open_app" -> {
                         val appName = args.optString("app_name", "")
                         val appNumber = if (args.has("app_number")) args.optInt("app_number", 1) else null
