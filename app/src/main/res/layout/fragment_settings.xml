@@ -275,7 +275,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#39C6FF"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
                         android:elevation="5dp"
@@ -332,7 +331,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#A78BFA"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -387,7 +385,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#34D399"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -442,7 +439,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#F472B6"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -497,7 +493,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#FBBF24"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -564,7 +559,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#FB7185"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -619,7 +613,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#22D3EE"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -674,7 +667,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#A3E635"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -729,7 +721,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#60A5FA"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -797,7 +788,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#2DD4BF"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -862,7 +852,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#F87171"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -916,7 +905,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#C084FC"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -971,7 +959,6 @@
                     android:gravity="center_vertical">
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#F97316"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
                         <ImageView
@@ -1037,7 +1024,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#FACC15"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -1092,7 +1078,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#4ADE80"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -1145,7 +1130,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#E879F9"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -1198,7 +1182,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#FB923C"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -1251,7 +1234,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#84CC16"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -1318,7 +1300,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#38BDF8"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -1372,7 +1353,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#818CF8"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -1491,7 +1471,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#2DD4BF"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -1545,7 +1524,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#F472B6"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -1599,7 +1577,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#A78BFA"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -1667,7 +1644,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#FBBF24"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -1722,7 +1698,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#67E8F9"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -1790,7 +1765,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#F87171"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
@@ -1844,7 +1818,6 @@
 
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
-                        android:backgroundTint="#34D399"
                         android:layout_width="40dp"
                         android:layout_height="40dp">
 
