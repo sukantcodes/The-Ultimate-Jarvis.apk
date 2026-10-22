@@ -220,13 +220,13 @@ class SettingsFragment : Fragment() {
                 }
                 val title = TextView(requireContext()).apply {
                     text = item.first
-                    setTextColor(ContextCompat.getColor(requireContext(), R.color.theme_text_primary))
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
                     textSize = 14f
                     typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
                 }
                 val subtitle = TextView(requireContext()).apply {
                     text = item.third
-                    setTextColor(ContextCompat.getColor(requireContext(), R.color.theme_text_muted))
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.text_muted))
                     textSize = 11f
                     setLineSpacing(dp(2).toFloat(), 1f)
                     setPadding(0, dp(6), 0, 0)
