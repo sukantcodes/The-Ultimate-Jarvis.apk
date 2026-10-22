@@ -66,6 +66,12 @@ object ThemeManager {
         }
     }
 
+    /** Alpha derived from the user's persisted Liquid Glass strength (0..100%). */
+    fun getLiquidGlassAlpha(): Int {
+        val strength = try { JarvisApp.instance.preferences.liquidGlassStrength } catch (_: Exception) { 60 }
+        return (strength.coerceIn(0, 100) * 255 / 100)
+    }
+
     fun applyDynamicBackground(view: View) {
         val prefs = try { JarvisApp.instance.preferences } catch (_: Exception) { null }
         val themeKey = prefs?.appTheme ?: "sunset"
