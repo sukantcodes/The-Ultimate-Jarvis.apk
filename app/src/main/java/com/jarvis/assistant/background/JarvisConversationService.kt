@@ -1964,6 +1964,63 @@ class JarvisConversationService : Service() {
                         }
                     }
 
+                    "social_app_action" -> {
+                        val requestedApp = args.optString("app", "instagram").trim().lowercase(Locale.ROOT)
+                        val action = args.optString("action", "open").trim().lowercase(Locale.ROOT)
+                        val query = args.optString("query", "").trim()
+                        val instagramPackage = "com.instagram.android"
+                        try {
+                            if (requestedApp == "instagram" && action != "open") {
+                                val targetUrl = when (action) {
+                                    "search" -> if (query.isNotBlank()) "https://www.instagram.com/explore/search/keyword/?q=" + Uri.encode(query) else ""
+                                    "reels" -> "https://www.instagram.com/reels/"
+                                    "profile" -> "https://www.instagram.com/"
+                                    else -> ""
+                                }
+                                if (targetUrl.isBlank()) {
+                                    result.put("success", false)
+                                    result.put("message", "Please say what to search for on Instagram.")
+                                } else {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)).apply {
+                                        setPackage(instagramPackage)
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                                    }
+                                    startActivity(intent)
+                                    result.put("success", true)
+                                    result.put("message", when (action) {
+                                        "search" -> "Opened Instagram search for $query."
+                                        "reels" -> "Opening Instagram Reels."
+                                        else -> "Opening Instagram."
+                                    })
+                                }
+                            } else {
+                                val appName = if (requestedApp == "instazen") "Instazen" else "Instagram"
+                                val opened = com.jarvis.assistant.util.AppLauncher.openAppResult(applicationContext, appName)
+                                when (opened) {
+                                    is com.jarvis.assistant.util.AppLauncher.OpenAppResult.Success -> {
+                                        result.put("success", true)
+                                        result.put("message", "Opened $appName.")
+                                    }
+                                    is com.jarvis.assistant.util.AppLauncher.OpenAppResult.MultipleFound -> {
+                                        result.put("success", false)
+                                        result.put("message", "More than one $appName app/profile was found. Please specify the app instance.")
+                                    }
+                                    is com.jarvis.assistant.util.AppLauncher.OpenAppResult.NotFound -> {
+                                        result.put("success", false)
+                                        result.put("message", "$appName is not installed or could not be found.")
+                                    }
+                                    is com.jarvis.assistant.util.AppLauncher.OpenAppResult.Failure -> {
+                                        result.put("success", false)
+                                        result.put("message", "Could not open $appName.")
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            result.put("success", false)
+                            result.put("message", "Could not perform $action in $requestedApp: " + (e.message ?: "unknown error"))
+                        }
+                    }
+
                     "search_and_play_youtube" -> {
                         val query = args.optString("query", "").trim()
                         audioPlayer?.flush()
