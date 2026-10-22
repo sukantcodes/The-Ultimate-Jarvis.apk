@@ -415,6 +415,32 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // Social app instant actions (Instagram + Instazen)
+                        put(JSONObject().apply {
+                            put("name", "social_app_action")
+                            put("description", "Directly opens Instagram or Instazen, opens Instagram search for a requested keyword, or opens Reels/profile without a general AI planning loop. Use for explicit Instagram/Instazen app commands. Supported apps: instagram, instazen. Supported actions: open, search, reels, profile.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("app", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("enum", JSONArray().put("instagram").put("instazen"))
+                                        put("description", "Which app to control: instagram or instazen.")
+                                    })
+                                    put("action", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("enum", JSONArray().put("open").put("search").put("reels").put("profile"))
+                                        put("description", "Action: open the app, search a keyword, open Reels, or open the profile tab.")
+                                    })
+                                    put("query", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Search phrase when action is search.")
+                                    })
+                                })
+                                put("required", JSONArray().put("app").put("action"))
+                            })
+                        })
+
                         // 10. call_contact
                         put(JSONObject().apply {
                             put("name", "call_contact")
