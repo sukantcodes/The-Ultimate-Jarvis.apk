@@ -320,6 +320,20 @@ object CommandParser {
             }
         }
 
+        // Natural-order WhatsApp variants: "WhatsApp par Rahul ko message bhejo Hello" and "send Hello to Rahul on WhatsApp".
+        val waNaturalOrder = Regex("^whatsapp\\s+(?:par|pe|mein|me)\\s+([a-zA-Z0-9]+)\\s+ko\\s+(?:message|msg)\\s+(?:bhejo|bhej do|karo|send karo)\\s+(.+)$", RegexOption.IGNORE_CASE).find(clean)
+            ?: Regex("^send\\s+(.+?)\\s+to\\s+([a-zA-Z0-9]+)\\s+on\\s+whatsapp$", RegexOption.IGNORE_CASE).find(clean)
+        if (waNaturalOrder != null) {
+            val first = waNaturalOrder.groupValues[1].trim()
+            val second = waNaturalOrder.groupValues[2].trim()
+            val isSendToContactOrder = clean.startsWith("send ")
+            val contact = if (isSendToContactOrder) second else first
+            val message = if (isSendToContactOrder) first else second
+            if (contact.isNotBlank() && message.isNotBlank()) {
+                return ParsedCommandResult(JarvisCommand.WhatsAppMessage(contact, message), 0.96f, "WHATSAPP_NATURAL_ORDER")
+            }
+        }
+
         // D. Cellular Phone Call (SIM / Dialer)
         // Must start with call verb (e.g. "call mom", "dial 9876543210", "make a phone call to dad")
         val phoneCallRegex = Regex("$prefix(?:make\\s+(?:a\\s+)?(?:phone\\s+)?call\\s+to|phone\\s+call\\s+to|dial|call(?:\\s+to)?)\\s+([a-zA-Z0-9+\\s]+)$", RegexOption.IGNORE_CASE)
@@ -410,6 +424,25 @@ object CommandParser {
             if (query.isNotBlank()) {
                 return ParsedCommandResult(JarvisCommand.SearchYouTube(query), 0.96f, "YOUTUBE_SEARCH")
             }
+        }
+
+        // Instant local fast-path for Instagram / Instazen actions, before any AI fallback.
+        // "play/show/find X on Instagram" opens the app search for X.
+        val socialPlaySearch = Regex("$prefix(?:play|show|find|search|look up)\\s+(.+?)\\s+(?:on|in)\\s+(instagram|instazen)$", RegexOption.IGNORE_CASE).find(clean)
+        if (socialPlaySearch != null) {
+            val query = socialPlaySearch.groupValues[1].trim()
+            val app = socialPlaySearch.groupValues[2].lowercase(Locale.ROOT)
+            if (query.isNotBlank() && query !in setOf("the app", "app", "instagram", "instazen")) {
+                return ParsedCommandResult(JarvisCommand.SearchSocialApp(app, query), 0.96f, "SOCIAL_PLAY_SEARCH")
+            }
+        }
+
+        // Hinglish variants: "Instagram par X dikhao/chalao", "Instazen pe X dhundo".
+        val socialHinglishAction = Regex("^(.+?)\\s+(?:instagram|instazen)\\s+(?:pe|par|mein|me)\\s+(?:search|dhundo|khojo|dikhao|dikha do|chalao|chala do)\\s*(?:karo|kar do|kardo)?$", RegexOption.IGNORE_CASE).find(clean)
+        if (socialHinglishAction != null) {
+            val query = socialHinglishAction.groupValues[1].trim()
+            val app = if (clean.contains("instazen")) "instazen" else "instagram"
+            if (query.isNotBlank()) return ParsedCommandResult(JarvisCommand.SearchSocialApp(app, query), 0.95f, "SOCIAL_ACTION_HINGLISH")
         }
 
         // Instant local fast-path for Instagram / Instazen search. This runs before any AI fallback.
