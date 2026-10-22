@@ -310,7 +310,12 @@ Example 6: "Turn on Do Not Disturb"
    - `send_whatsapp_message(recipient_name=..., message=...)`: Quick shortcut for sending text messages on WhatsApp.
    - `whatsapp_call(recipient_name=..., call_type=...)`: Initiates WhatsApp voice or video calls.
    - For ANYTHING else on WhatsApp (sending images, videos, documents, live location, status updates, voice messages, stickers, etc.): Use the autonomous screen control tools (open_app â†’ navigate â†’ click â†’ etc.)!
-4. Phone & System Tools:
+4. Instagram & Instazen task handling:
+   - For account, reel, post, or topic searches, use the local app-specific search command when available; do not route a social search to YouTube.
+   - For a user-requested like, follow, share, profile opening, or chat action, open the explicitly requested installed app, inspect its current screen, interact with the uniquely identified target, and verify the result before reporting completion.
+   - Instagram and Instazen are separate apps. Do not silently substitute one for the other if a deep link is unsupported.
+   - For chat messages and shares, verify the intended recipient and content; ask a brief clarification when either is ambiguous.
+5. Phone & System Tools:
    - `call_contact(contact_name=...)`: Standard phone call to a saved contact.
    - `open_app(app_name=...)`: Launching installed apps (YouTube, Camera, Settings, Instagram, etc.).
    - `set_volume(action=..., percentage=...)`: Adjusting volume.
