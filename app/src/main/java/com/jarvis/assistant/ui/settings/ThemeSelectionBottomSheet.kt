@@ -42,6 +42,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         binding.btnOrbPlasma.setOnClickListener { selectOrb("plasma_core", "Plasma Core") }
         binding.btnOrbHolographic.setOnClickListener { selectOrb("holographic_pulse", "Holographic Pulse") }
         binding.btnOrbIronMan.setOnClickListener { selectOrb("iron_man_head", "Iron Man 3D Helmet") }
+        binding.btnOrbFullCharacter.setOnClickListener { selectOrb("full_human", "Full Human 3D Assistant") }
 
         binding.cardThemeLight.setOnClickListener { selectTheme("light", "Light") }
         binding.cardThemeDark.setOnClickListener { selectTheme("dark", "Dark") }
