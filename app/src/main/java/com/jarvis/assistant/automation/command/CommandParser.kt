@@ -349,12 +349,16 @@ object CommandParser {
             }
         }
 
-        // Prefer app-specific social searches over the generic YouTube play pattern.
-        val earlySocial = Regex("$prefix(?:play|show|find|search)\\\\s+(.+?)\\\\s+(?:on|in)\\\\s+(instagram|instazen)$", RegexOption.IGNORE_CASE).find(clean)
+        // LOCAL SOCIAL SEARCH FAST-PATH: route Instagram/Instazen searches before generic
+        // YouTube play parsing, so "play/find X on Instagram" never gets misrouted to YouTube.
+        val earlySocial = Regex("$prefix(?:play|show|find|search|look up)\\s+(.+?)\\s+(?:on|in)\\s+(instagram|instazen)$", RegexOption.IGNORE_CASE).find(clean)
+            ?: Regex("^(.+?)\\s+(?:instagram|instazen)\\s+(?:pe|par|mein|me)\\s+(?:search|dhundo|khojo|dikhao|dikha do)\\s*(?:karo|kar do|kardo)?$", RegexOption.IGNORE_CASE).find(clean)
         if (earlySocial != null) {
             val socialQuery = earlySocial.groupValues[1].trim()
-            val socialApp = earlySocial.groupValues[2].lowercase(Locale.ROOT)
-            if (socialQuery.isNotBlank()) return ParsedCommandResult(JarvisCommand.SearchSocialApp(socialApp, socialQuery), 0.96f, "SOCIAL_PLAY_SEARCH")
+            val socialApp = if (clean.contains("instazen")) "instazen" else "instagram"
+            if (socialQuery.isNotBlank() && socialQuery !in setOf("the app", "app", "instagram", "instazen")) {
+                return ParsedCommandResult(JarvisCommand.SearchSocialApp(socialApp, socialQuery), 0.97f, "SOCIAL_SEARCH_FAST_PATH")
+            }
         }
 
         // 9. YouTube Video Play & Search (Strict Intent Anchoring)
