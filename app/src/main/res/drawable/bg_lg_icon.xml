@@ -1,25 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Glass icon tile tinted by the theme accent. -->
+<!-- Dimensional liquid-glass tile: dark depth, soft top reflection, and luminous edge. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
+    <!-- Lower edge gives the tile a subtle raised / extruded appearance. -->
+    <item android:top="2dp">
         <shape android:shape="rectangle">
-            <solid android:color="@color/lg_accent_fill" />
+            <solid android:color="#18000000" />
             <corners android:radius="14dp" />
         </shape>
     </item>
-    <item android:gravity="top" android:height="22dp">
+    <!-- Deep glass body; the icon glyph above it keeps its own individual accent colour. -->
+    <item android:bottom="2dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="315"
+                android:startColor="#35445D"
+                android:centerColor="#18243A"
+                android:endColor="#0B1020" />
+            <corners android:radius="14dp" />
+            <stroke android:width="1dp" android:color="#668EAFFF" />
+        </shape>
+    </item>
+    <!-- Soft reflected light across the top edge. -->
+    <item android:bottom="10dp">
         <shape android:shape="rectangle">
             <gradient
                 android:angle="270"
-                android:endColor="#00FFFFFF"
-                android:startColor="#38FFFFFF" />
-            <corners android:topLeftRadius="14dp" android:topRightRadius="14dp" />
+                android:startColor="#55FFFFFF"
+                android:centerColor="#18FFFFFF"
+                android:endColor="#00FFFFFF" />
+            <corners android:topLeftRadius="14dp" android:topRightRadius="14dp"
+                android:bottomLeftRadius="7dp" android:bottomRightRadius="7dp" />
         </shape>
     </item>
+    <!-- Inner bevel gives the glass a visible dimensional rim. -->
     <item>
         <shape android:shape="rectangle">
-            <stroke android:width="1dp" android:color="@color/lg_accent_stroke" />
             <corners android:radius="14dp" />
+            <stroke android:width="1dp" android:color="#558FD7FF" />
         </shape>
     </item>
 </layer-list>
