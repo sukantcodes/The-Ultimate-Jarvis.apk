@@ -16,19 +16,18 @@
     <FrameLayout
         android:id="@+id/orbContainer"
         android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginTop="170dp"
+        android:layout_height="320dp"
+        android:layout_marginTop="58dp"
         android:clipChildren="false"
         android:clipToPadding="false"
         app:layout_constraintTop_toBottomOf="@id/layoutTitle"
-        app:layout_constraintBottom_toTopOf="@id/layoutStatusIndicator"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
         <View
             android:id="@+id/orbHaloRing"
-            android:layout_width="260dp"
-            android:layout_height="260dp"
+            android:layout_width="320dp"
+            android:layout_height="320dp"
             android:layout_gravity="center"
             android:background="@drawable/bg_jarvis_orb_halo" />
 
