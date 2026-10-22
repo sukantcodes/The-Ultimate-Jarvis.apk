@@ -101,6 +101,7 @@
             <!-- Executive VIP Profile & Identity Card -->
             <LinearLayout
                 android:id="@+id/cardProfile"
+                android:tag="liquid_glass_surface"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
@@ -259,6 +260,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_jarvis_card"
+                android:tag="liquid_glass_surface"
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
@@ -540,6 +542,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_jarvis_card"
+                android:tag="liquid_glass_surface"
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
@@ -768,6 +771,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_jarvis_card"
+                android:tag="liquid_glass_surface"
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
@@ -951,6 +955,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_jarvis_card"
+                android:tag="liquid_glass_surface"
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
@@ -1226,6 +1231,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_jarvis_card"
+                android:tag="liquid_glass_surface"
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
@@ -1396,6 +1402,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_jarvis_card"
+                android:tag="liquid_glass_surface"
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
@@ -1568,6 +1575,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_jarvis_card"
+                android:tag="liquid_glass_surface"
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
@@ -1688,6 +1696,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_jarvis_card"
+                android:tag="liquid_glass_surface"
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
