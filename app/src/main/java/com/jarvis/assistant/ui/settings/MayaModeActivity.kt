@@ -106,7 +106,19 @@ class MayaModeActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setPadding(0, dp(6), 0, 0)
         })
-        content.addView(hero, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(20) })
+        content.addView(hero, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(14) })
+
+        val premiumVoice = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(16), dp(18), dp(16))
+            background = rounded(Color.rgb(43, 34, 52), Color.rgb(229, 164, 255))
+        }
+        premiumVoice.addView(label("✦  MAYA PREMIUM VOICE", 15f, Color.rgb(237, 190, 255), true))
+        premiumVoice.addView(label("Sulafat · Warm feminine voice", 14f, ink, true).apply {
+            setPadding(0, dp(7), 0, dp(5))
+        })
+        premiumVoice.addView(label("A dedicated girlfriend-style voice profile using Gemini's supported warm voice. Selected automatically when Maya is activated.", 12f, muted))
+        content.addView(premiumVoice, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(20) })
 
         friendlyCard = modeCard("FRIENDLY", "Warm, close best-friend energy. Supportive, honest, and non-romantic.", "maya_friendly")
         romanticCard = modeCard("ROMANTIC", "Affectionate pet names, gentle flirting, playful nakhre, and harmless teasing.", "maya_romantic")
@@ -127,8 +139,8 @@ class MayaModeActivity : AppCompatActivity() {
             setPadding(dp(12), dp(8), dp(12), dp(8))
             setOnClickListener {
                 preferences.personality = selectedMode
-                preferences.voice = "Aoede"
-                Toast.makeText(this@MayaModeActivity, "Maya activated • Female voice: Aoede", Toast.LENGTH_LONG).show()
+                preferences.voice = "Sulafat"
+                Toast.makeText(this@MayaModeActivity, "Maya activated • Maya Premium Voice: Sulafat", Toast.LENGTH_LONG).show()
                 finish()
             }
         }
