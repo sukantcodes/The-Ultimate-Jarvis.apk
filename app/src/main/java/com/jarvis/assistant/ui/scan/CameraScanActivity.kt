@@ -70,7 +70,7 @@ class CameraScanActivity : AppCompatActivity() {
             scaleType = ImageView.ScaleType.FIT_CENTER
             contentDescription = "Camera scan preview"
             background = GradientDrawable().apply {
-                setColor(0x221FFFFFF)
+                setColor(0x221FFFFF)
                 cornerRadius = dp(18).toFloat()
                 setStroke(dp(1), 0x6655DDF5)
             }
