@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "main", "Google" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "Google" ]
   workflow_dispatch:
 
 jobs:
