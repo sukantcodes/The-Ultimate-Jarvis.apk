@@ -125,7 +125,8 @@
                             android:id="@+id/ivProfileAvatar"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
-                            android:background="@drawable/bg_jarvis_icon_square"
+                            android:background="@drawable/bg_profile_photo_round"
+                            android:clipToOutline="true"
                             android:scaleType="centerInside"
                             android:src="@drawable/ic_user_profile"
                             app:tint="?attr/themeAccent"
@@ -275,7 +276,9 @@
                     <FrameLayout
                         style="@style/Widget.JarvisSettings.IconBox"
                         android:layout_width="40dp"
-                        android:layout_height="40dp">
+                        android:layout_height="40dp"
+                        android:elevation="5dp"
+                        android:translationZ="2dp"
 
                         <ImageView
                             android:layout_width="22dp"
@@ -283,7 +286,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_chip"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#39C6FF" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -337,7 +340,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_plug"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#A78BFA" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -391,7 +394,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_language"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#34D399" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -445,7 +448,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_sparkle"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#F472B6" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -499,7 +502,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_silent"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#FBBF24" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -565,7 +568,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_voice"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#FB7185" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -619,7 +622,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_wave"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#22D3EE" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -673,7 +676,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_timer"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#A3E635" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -727,7 +730,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_orb"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#60A5FA" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -794,7 +797,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_owner_voice"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#2DD4BF" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -858,7 +861,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_shield"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#F87171" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -911,7 +914,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_lock"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#C084FC" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -964,7 +967,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_lock"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#F97316" />
                     </FrameLayout>
                     <LinearLayout
                         android:layout_width="0dp"
@@ -1030,7 +1033,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_nav_bell"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#FACC15" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1084,7 +1087,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_chat_bubble"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#4ADE80" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1136,7 +1139,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_tts_play"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#E879F9" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1188,7 +1191,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_plug"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#FB923C" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1240,7 +1243,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_battery"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#84CC16" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1306,7 +1309,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_db"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#38BDF8" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1359,7 +1362,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_stack_memory"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#818CF8" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1438,7 +1441,7 @@
                         android:layout_height="18dp"
                         android:importantForAccessibility="no"
                         android:src="@drawable/ic_arrow_right"
-                        app:tint="?attr/themeTextMuted" />
+                        app:tint="#F43F5E" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -1477,7 +1480,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_checklist_tasks"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#2DD4BF" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1530,7 +1533,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_apps"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#F472B6" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1583,7 +1586,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_automation"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#A78BFA" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1650,7 +1653,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_palette"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#FBBF24" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1704,7 +1707,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_user_profile"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#67E8F9" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1771,7 +1774,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_lock"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#F87171" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1824,7 +1827,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_verified_badge"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="#34D399" />
                     </FrameLayout>
 
                     <LinearLayout
