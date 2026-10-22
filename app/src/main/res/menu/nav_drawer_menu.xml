@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <group android:checkableBehavior="single">
+        <item android:id="@+id/drawerHome" android:icon="@drawable/ic_nav_home" android:title="Home" />
+        <item android:id="@+id/drawerChat" android:icon="@drawable/ic_nav_chat" android:title="Chat" />
+        <item android:id="@+id/drawerSettings" android:icon="@drawable/ic_nav_settings" android:title="Settings" />
+        <item android:id="@+id/drawerUpdates" android:icon="@drawable/ic_nav_bell" android:title="Updates" />
+    </group>
+    <item android:title="JARVIS TOOLS">
+        <menu>
+            <item android:id="@+id/drawerAutomation" android:icon="@drawable/ic_settings_automation" android:title="Automation Studio" />
+            <item android:id="@+id/drawerMemories" android:icon="@drawable/ic_settings_db" android:title="Memories" />
+            <item android:id="@+id/drawerScreenShare" android:icon="@drawable/ic_settings_apps" android:title="Screen Share" />
+        </menu>
+    </item>
+</menu>
