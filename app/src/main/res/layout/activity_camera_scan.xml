@@ -77,6 +77,13 @@
             android:layout_marginTop="100dp"
             android:layout_marginBottom="120dp"
             android:background="@drawable/bg_scan_target" />
+        <View
+            android:id="@+id/scanLaserLine"
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:layout_gravity="center"
+            android:background="#AA42E8FF"
+            android:elevation="4dp" />
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
