@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="?attr/themeBg">
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="18dp">
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:layout_marginBottom="16dp">
+<ImageButton android:id="@+id/btnBack" android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/bg_jarvis_icon_square" android:src="@drawable/ic_back" app:tint="?attr/themeTextPrimary" android:contentDescription="Back"/>
+<TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Face Lock Settings" android:textColor="?attr/themeTextPrimary" android:textSize="21sp" android:textStyle="bold"/>
+</LinearLayout>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp" android:background="@drawable/bg_jarvis_card" android:layout_marginBottom="14dp">
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Guided face scan" android:textColor="?attr/themeTextPrimary" android:textSize="18sp" android:textStyle="bold"/>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Follow the prompts: front, left, right, up and down. Detection runs on this device." android:textColor="?attr/themeTextMuted" android:textSize="13sp"/>
+<androidx.camera.view.PreviewView android:id="@+id/cameraPreview" android:layout_width="match_parent" android:layout_height="230dp" android:layout_marginTop="12dp" android:background="#101D30"/>
+<TextView android:id="@+id/tvScanStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="12dp" android:paddingBottom="8dp" android:text="Ready to scan." android:textColor="?attr/themeTextPrimary" android:textSize="14sp"/>
+<EditText android:id="@+id/etProfileName" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Person's name" android:singleLine="true" android:inputType="textPersonName" android:textColor="?attr/themeTextPrimary" android:textColorHint="?attr/themeTextMuted"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/btnStartScan" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Start / rescan face" android:textAllCaps="false" app:cornerRadius="14dp" app:backgroundTint="?attr/themeAccent"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/btnSaveProfile" android:layout_width="match_parent" android:layout_height="wrap_content" android:enabled="false" android:text="Save face profile" android:textAllCaps="false" app:cornerRadius="14dp" app:backgroundTint="?attr/themeAccent"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/btnCancelScan" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Cancel scan" android:textAllCaps="false"/>
+</LinearLayout>
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp" android:background="@drawable/bg_jarvis_card" android:layout_marginBottom="14dp">
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="SAVED FACE PROFILES" android:textColor="?attr/themeTextMuted" android:textSize="12sp" android:textStyle="bold"/>
+<TextView android:id="@+id/tvProfiles" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="No saved profiles yet." android:textColor="?attr/themeTextPrimary" android:textSize="14sp"/>
+<com.google.android.material.button.MaterialButton android:id="@+id/btnDeleteAll" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Delete all face data" android:textAllCaps="false" app:cornerRadius="14dp" app:backgroundTint="#C94C5A"/>
+</LinearLayout>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="12dp" android:text="Privacy: this prototype stores profile names and scan-angle records only. It does not identify a person or securely unlock your device." android:textColor="?attr/themeTextMuted" android:textSize="12sp"/>
+</LinearLayout></androidx.core.widget.NestedScrollView>
