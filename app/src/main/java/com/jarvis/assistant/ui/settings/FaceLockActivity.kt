@@ -81,7 +81,7 @@ class FaceLockActivity : AppCompatActivity() {
         if (matched) {
             angles.add(listOf("Front","Left","Right","Up","Down")[step]); step++
             if(step==5) { b.tvScanStatus.text="Guided scan complete. Save this profile."; b.btnSaveProfile.isEnabled=true; scanning=false; unbindCamera() }
-            else b.tvScanStatus.text=listOf("Now turn your face left.","Now turn your face right.","Now look slightly up.","Now look slightly down.")[step]
+            else b.tvScanStatus.text=listOf("Look straight at the camera.","Turn your face left.","Turn your face right.","Look slightly up.","Look slightly down.").getOrElse(step){"Scan complete."}
         } else b.tvScanStatus.text=listOf("Look straight at the camera.","Turn your face left.","Turn your face right.","Look slightly up.","Look slightly down.").getOrElse(step){"Scan complete."}
     }
 
