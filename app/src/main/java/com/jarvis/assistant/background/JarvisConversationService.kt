@@ -4319,34 +4319,6 @@ class JarvisConversationService : Service() {
     }
 }
 
-            val instance = activeInstance ?: return false
-            val ws = instance.liveWebSocket ?: return false
-            if (!_isSessionOn.value || !ws.isSessionReady() || jpegBytes.isEmpty()) return false
-            ws.sendMediaChunk(jpegBytes)
-            instance.serviceScope.launch(Dispatchers.IO) {
-                delay(1200L)
-                ws.sendClientContent(
-                    "Analyze the camera scan image I just sent. Describe the visible objects, scene, and any readable text. " +
-                    "Give a concise, useful explanation and mention uncertainty instead of guessing."
-                )
-            }
-            JarvisApp.instance.chatRepository.addTurn("[Camera scan image sent to JARVIS]", "")
-            return true
-        }
-
-        fun sendTextMessage(text: String) {
-            val instance = activeInstance ?: return
-            instance.liveWebSocket?.sendClientContent(text)
-            JarvisApp.instance.chatRepository.addTurn(text, "")
-        }
-
-        fun cancelActiveTaskFromOverlay() {
-            val service = activeInstance
-            if (service != null) service.cancelAllActiveTools()
-            else com.jarvis.assistant.automation.agent.AgentTaskEngine.requestCancellation()
-        }
-    }
-
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var taskProgressOverlay: com.jarvis.assistant.ui.agent.TaskProgressOverlay? = null
     private var taskProgressOverlayJob: Job? = null
