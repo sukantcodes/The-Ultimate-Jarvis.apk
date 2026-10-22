@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.GravityCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -198,11 +199,14 @@ class MainActivity : AppCompatActivity() {
         trans.commitNow()
 
         setupNavigationDock()
+        setupDrawerNavigation()
         selectTab(currentTab)
         observeViewModel()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (currentTab != TAB_HOME) {
+                if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                    binding.drawerLayout.closeDrawer(GravityCompat.START)
+                } else if (currentTab != TAB_HOME) {
                     selectTab(TAB_HOME)
                 } else {
                     // Preserve Android's normal root behavior (return to launcher) only
@@ -234,8 +238,10 @@ class MainActivity : AppCompatActivity() {
     private fun setupNavigationDock() {
         binding.tabHome.setOnClickListener { selectTab(TAB_HOME) }
         binding.tabChat.setOnClickListener { selectTab(TAB_CHAT) }
-        binding.tabSettings.setOnClickListener { selectTab(TAB_SETTINGS) }
         binding.tabUpdates.setOnClickListener { selectTab(TAB_UPDATES) }
+        binding.tabCameraScan.setOnClickListener {
+            startActivity(Intent(this, com.jarvis.assistant.ui.scan.CameraScanActivity::class.java))
+        }
 
         binding.tabMic.setOnClickListener {
             handleMicOrOrbClick()
@@ -243,6 +249,29 @@ class MainActivity : AppCompatActivity() {
 
         binding.tabMic.setOnLongClickListener {
             handleHoldMicOrOrb()
+            true
+        }
+    }
+
+    fun openNavigationDrawer() {
+        if (!binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
+            binding.drawerLayout.openDrawer(GravityCompat.START)
+        }
+    }
+
+    private fun setupDrawerNavigation() {
+        binding.navDrawer.setNavigationItemSelectedListener { item ->
+            binding.drawerLayout.closeDrawer(GravityCompat.START)
+            when (item.itemId) {
+                R.id.drawerHome -> selectTab(TAB_HOME)
+                R.id.drawerChat -> selectTab(TAB_CHAT)
+                R.id.drawerSettings -> selectTab(TAB_SETTINGS)
+                R.id.drawerUpdates -> selectTab(TAB_UPDATES)
+                R.id.drawerAutomation -> startActivity(Intent(this, com.jarvis.assistant.studio.ui.AutomationStudioActivity::class.java))
+                R.id.drawerMemories -> startActivity(Intent(this, com.jarvis.assistant.ui.memory.MemoryActivity::class.java))
+                R.id.drawerScreenShare -> toggleScreenShare()
+                else -> return@setNavigationItemSelectedListener false
+            }
             true
         }
     }
@@ -316,7 +345,6 @@ class MainActivity : AppCompatActivity() {
         val navItems = listOf(
             Triple(TAB_HOME, binding.pillTabHome, Pair(binding.ivTabHome, binding.tvTabHome)),
             Triple(TAB_CHAT, binding.pillTabChat, Pair(binding.ivTabChat, binding.tvTabChat)),
-            Triple(TAB_SETTINGS, binding.pillTabSettings, Pair(binding.ivTabSettings, binding.tvTabSettings)),
             Triple(TAB_UPDATES, binding.pillTabUpdates, Pair(binding.ivTabUpdates, binding.tvTabUpdates))
         )
 
