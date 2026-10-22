@@ -31,6 +31,8 @@
     <string name="set_voicemode_subtitle">Ignore every voice except your enrolled one</string>
     <string name="set_screenunlock_title">Screen Unlock</string>
     <string name="set_screenunlock_subtitle">Save your PIN, password or pattern to unlock by voice</string>
+    <string name="set_facelock_title">Face Lock Settings</string>
+    <string name="set_facelock_subtitle">On-device face scan • multiple profiles</string>
     <string name="set_section_alerts">Alerts &amp; Announcements</string>
     <string name="set_notificationaccess_title">Notification Access</string>
     <string name="set_notificationaccess_subtitle">Allow Jarvis to see new message notifications</string>
