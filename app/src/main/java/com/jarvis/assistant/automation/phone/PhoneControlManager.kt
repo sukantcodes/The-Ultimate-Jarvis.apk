@@ -627,6 +627,40 @@ class PhoneControlManager(
     // App Launching (Smart resolution with 100+ aliases)
     // -------------------------------------------------------------
 
+    /**
+     * Fast-path social search. Prefer opening the requested app directly with its search URL;
+     * if the app cannot handle it, open the app itself rather than sending the command to an AI.
+     */
+    fun searchSocialApp(appName: String, query: String): String {
+        val cleanQuery = query.trim()
+        if (cleanQuery.isBlank()) return "What should I search for in $appName?"
+        val encoded = Uri.encode(cleanQuery)
+        val normalized = appName.trim().lowercase(Locale.ROOT)
+        val packageName = when (normalized) {
+            "instagram", "insta" -> "com.instagram.android"
+            "instazen" -> resolveInstalledPackageByName("instazen")
+            else -> null
+        }
+        if (packageName == null) {
+            return openApp(appName)
+        }
+        val uri = when (normalized) {
+            "instagram", "insta" -> Uri.parse("https://www.instagram.com/explore/search/keyword/?q=$encoded")
+            else -> Uri.parse("https://www.instagram.com/explore/search/keyword/?q=$encoded")
+        }
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                setPackage(packageName)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            ActivityLauncherHelper.startActivitySafely(context, intent)
+            "Opening $appName search for $cleanQuery."
+        } catch (e: Exception) {
+            Log.w(TAG, "Direct $appName search failed; opening app: ${e.message}")
+            openApp(appName)
+        }
+    }
+
     fun openApp(appNameOrPackage: String): String {
         val clean = appNameOrPackage.trim().lowercase(Locale.ROOT)
         Log.i(TAG, "openApp called with: '$clean'")
