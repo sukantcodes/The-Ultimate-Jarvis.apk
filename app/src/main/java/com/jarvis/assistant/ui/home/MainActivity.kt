@@ -250,10 +250,12 @@ class MainActivity : AppCompatActivity() {
         if (ev.actionMasked == MotionEvent.ACTION_UP && drawerOverlay == null) {
             val dx = ev.x - swipeStartX
             val dy = ev.y - swipeStartY
-            val edge = 32 * resources.displayMetrics.density
-            if (swipeStartX <= edge && dx >= 100 * resources.displayMetrics.density &&
-                kotlin.math.abs(dy) < 100 * resources.displayMetrics.density) {
+            val threshold = 72 * resources.displayMetrics.density
+            // Accept a clear rightward swipe from anywhere on the screen.
+            // Vertical gestures remain available for scrolling.
+            if (dx >= threshold && kotlin.math.abs(dy) < kotlin.math.abs(dx) * 0.65f) {
                 showNavigationDrawer()
+                return true
             }
         }
         return handled
