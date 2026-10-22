@@ -88,6 +88,11 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.settings.FaceEnrollmentActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
             android:name=".ui.settings.ApiConnectionActivity"
             android:exported="false"
             android:screenOrientation="portrait"
