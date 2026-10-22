@@ -3140,6 +3140,7 @@ class JarvisConversationService : Service() {
         } catch (e: Exception) {
             Log.w("JarvisService", "Could not stop announcement speech: ${e.message}")
         }
+        suppressAudioUntilTurnComplete = true
         audioPlayer?.flush()
         currentTurnAssistantText.clear()
         _liveAssistantResponse.value = ""
