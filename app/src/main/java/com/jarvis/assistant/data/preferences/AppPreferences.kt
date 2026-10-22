@@ -265,9 +265,9 @@ class AppPreferences(context: Context) {
 
     var orbAnimation: String
         get() {
-            val valid = listOf("holographic_plasma", "cosmic_pulsar", "quantum_core", "cyber_ring", "siri_glow")
-            val stored = prefs.getString(KEY_ORB_ANIMATION, "holographic_plasma") ?: "holographic_plasma"
-            return if (stored in valid) stored else "holographic_plasma"
+            val valid = listOf("default", "plasma_core", "holographic_pulse", "iron_man_head", "holographic_plasma", "cosmic_pulsar", "quantum_core", "cyber_ring", "siri_glow")
+            val stored = prefs.getString(KEY_ORB_ANIMATION, "default") ?: "default"
+            return if (stored in valid) stored else "default"
         }
         set(value) = prefs.edit().putString(KEY_ORB_ANIMATION, value).apply()
 
