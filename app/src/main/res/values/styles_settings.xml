@@ -46,7 +46,7 @@
 
     <!-- Hairline between rows, inset so it lines up with the row text. -->
     <style name="Widget.JarvisSettings.Divider" parent="">
-        <item name="android:background">?attr/themeCardBorder</item>
+        <item name="android:background">@android:color/transparent</item>
         <item name="android:layout_marginStart">54dp</item>
     </style>
 
