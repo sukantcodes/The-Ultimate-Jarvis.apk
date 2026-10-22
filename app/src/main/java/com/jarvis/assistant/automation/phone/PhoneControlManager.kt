@@ -666,6 +666,72 @@ class PhoneControlManager(
         }
     }
 
+    /**
+     * Opens a targeted Instagram destination immediately without an AI round-trip.
+     * Instagram does not expose public deep links for silently liking/following or sending DMs;
+     * those requests navigate to the relevant screen and leave the final interaction to the user.
+     * Instazen's URI scheme is not assumed; it is launched directly where app-specific routes are unknown.
+     */
+    fun socialAppAction(appName: String, action: String, target: String): String {
+        val cleanTarget = target.trim().trimStart('@')
+        if (cleanTarget.isBlank()) return "Please tell me the Instagram username or post."
+        val normalized = appName.trim().lowercase(Locale.ROOT)
+        if (normalized == "instazen") {
+            val result = openApp("Instazen")
+            return if (result.startsWith("Opening")) {
+                when (action.lowercase(Locale.ROOT)) {
+                    "search" -> "Opening Instazen. Search for $cleanTarget there."
+                    "message" -> "Opening Instazen. Open the chat with $cleanTarget."
+                    "follow" -> "Opening Instazen. Open $cleanTarget and tap Follow if you want to follow them."
+                    "like" -> "Opening Instazen. Find $cleanTarget and tap Like on the intended post."
+                    "share" -> "Opening Instazen. Open the intended post from $cleanTarget and use Share."
+                    else -> "Opening Instazen for $cleanTarget."
+                }
+            } else result
+        }
+
+        val safeTarget = cleanTarget.removePrefix("https://www.instagram.com/").removePrefix("https://instagram.com/")
+            .trim('/').substringBefore('?')
+        val url = when (action.lowercase(Locale.ROOT)) {
+            "search" -> "https://www.instagram.com/explore/search/keyword/?q=" + Uri.encode(cleanTarget)
+            "message" -> "https://ig.me/m/" + Uri.encode(safeTarget)
+            "share" -> {
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, if (cleanTarget.startsWith("http")) cleanTarget else "https://www.instagram.com/$safeTarget/")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                return try {
+                    context.startActivity(Intent.createChooser(shareIntent, "Share using").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    "Opening the share sheet for $cleanTarget."
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not open social share sheet: ${e.message}")
+                    "Could not open the share sheet."
+                }
+            }
+            else -> if (cleanTarget.startsWith("http://") || cleanTarget.startsWith("https://")) cleanTarget
+                else "https://www.instagram.com/$safeTarget/"
+        }
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                setPackage("com.instagram.android")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            val launched = ActivityLauncherHelper.startActivitySafely(context, intent)
+            if (!launched) return openApp("Instagram")
+            when (action.lowercase(Locale.ROOT)) {
+                "follow" -> "Opened $cleanTarget on Instagram. Tap Follow to complete the action."
+                "like" -> "Opened the Instagram destination for $cleanTarget. Like the intended post there."
+                "message" -> "Opening Instagram chat with $cleanTarget."
+                "share" -> "Opened Instagram destination for $cleanTarget."
+                else -> "Opening Instagram profile/post for $cleanTarget."
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Instagram direct route failed: ${e.message}")
+            openApp("Instagram")
+        }
+    }
+
     fun openApp(appNameOrPackage: String): String {
         val clean = appNameOrPackage.trim().lowercase(Locale.ROOT)
         Log.i(TAG, "openApp called with: '$clean'")
