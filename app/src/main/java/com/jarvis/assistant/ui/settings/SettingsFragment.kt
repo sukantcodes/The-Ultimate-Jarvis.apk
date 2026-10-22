@@ -1,6 +1,7 @@
 package com.jarvis.assistant.ui.settings
 
 import android.Manifest
+import android.graphics.drawable.GradientDrawable
 import android.app.role.RoleManager
 import android.content.Intent
 import android.content.pm.PackageManager
