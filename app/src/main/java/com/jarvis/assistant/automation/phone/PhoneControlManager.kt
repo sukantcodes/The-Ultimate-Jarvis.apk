@@ -651,10 +651,15 @@ class PhoneControlManager(
         return try {
             val intent = Intent(Intent.ACTION_VIEW, uri).apply {
                 setPackage(packageName)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
-            ActivityLauncherHelper.startActivitySafely(context, intent)
-            "Opening $appName search for $cleanQuery."
+            val launched = ActivityLauncherHelper.startActivitySafely(context, intent)
+            if (launched) {
+                "Opening $appName search for $cleanQuery."
+            } else {
+                Log.w(TAG, "Direct $appName search URL was not handled; opening app instead.")
+                openApp(appName)
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Direct $appName search failed; opening app: ${e.message}")
             openApp(appName)
