@@ -6,6 +6,13 @@ import android.content.res.ColorStateList
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.view.Gravity
+import android.view.MotionEvent
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,6 +48,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     val viewModel: MainViewModel by viewModels()
     private var activeSnackbar: Snackbar? = null
+    private var drawerOverlay: FrameLayout? = null
+    private var swipeStartX = 0f
+    private var swipeStartY = 0f
 
     private var currentTab = TAB_HOME
     private val homeFragment by lazy { HomeFragment() }
@@ -230,6 +240,139 @@ class MainActivity : AppCompatActivity() {
             recreate()
         }
     }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
+            swipeStartX = ev.x
+            swipeStartY = ev.y
+        }
+        val handled = super.dispatchTouchEvent(ev)
+        if (ev.actionMasked == MotionEvent.ACTION_UP && drawerOverlay == null) {
+            val dx = ev.x - swipeStartX
+            val dy = ev.y - swipeStartY
+            val edge = 32 * resources.displayMetrics.density
+            if (swipeStartX <= edge && dx >= 100 * resources.displayMetrics.density &&
+                kotlin.math.abs(dy) < 100 * resources.displayMetrics.density) {
+                showNavigationDrawer()
+            }
+        }
+        return handled
+    }
+
+    private fun showNavigationDrawer() {
+        if (drawerOverlay != null) return
+        val overlay = FrameLayout(this).apply { isClickable = true }
+        val dim = View(this).apply {
+            setBackgroundColor(0x99000000.toInt())
+            setOnClickListener { dismissNavigationDrawer() }
+        }
+        overlay.addView(dim, FrameLayout.LayoutParams(-1, -1))
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(30), dp(18), dp(20))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(0xF51B2536.toInt(), 0xF509101C.toInt())
+            ).apply {
+                cornerRadii = floatArrayOf(0f, 0f, dp(24).toFloat(), dp(24).toFloat(),
+                    dp(24).toFloat(), dp(24).toFloat(), 0f, 0f)
+                setStroke(dp(1), 0x6655DDF5)
+            }
+            elevation = dp(22).toFloat()
+        }
+        overlay.addView(panel, FrameLayout.LayoutParams(dp(304), -1, Gravity.START))
+        panel.addView(TextView(this).apply {
+            text = "J.A.R.V.I.S"
+            textSize = 25f
+            setTextColor(Color.WHITE)
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
+            letterSpacing = 0.08f
+        }, LinearLayout.LayoutParams(-1, -2))
+        panel.addView(TextView(this).apply {
+            text = "NAVIGATION  •  CONTROL CENTER"
+            textSize = 10f
+            letterSpacing = 0.12f
+            setTextColor(0xFF80DDF1.toInt())
+            setPadding(0, dp(5), 0, dp(18))
+        })
+        addDrawerItem(panel, "⌂", "Home", "Return to the main orb") { selectTab(TAB_HOME) }
+        addDrawerItem(panel, "◉", "Chat", "Text conversation") { selectTab(TAB_CHAT) }
+        addDrawerItem(panel, "⚙", "Settings", "All app settings and permissions") { selectTab(TAB_SETTINGS) }
+        addDrawerItem(panel, "♧", "Updates", "System and feature updates") { selectTab(TAB_UPDATES) }
+        addDrawerItem(panel, "⌘", "Automation Studio", "Create and manage rules") {
+            startActivity(Intent(this, com.jarvis.assistant.studio.ui.AutomationStudioActivity::class.java))
+        }
+        addDrawerItem(panel, "▤", "Memories", "Saved JARVIS memories") {
+            startActivity(Intent(this, com.jarvis.assistant.ui.memory.MemoryActivity::class.java))
+        }
+        addDrawerItem(panel, "▣", "Scan", "Capture and analyze what the camera sees") {
+            startActivity(Intent(this, com.jarvis.assistant.ui.scan.CameraScanActivity::class.java))
+        }
+        addDrawerItem(panel, "▧", "Screen Share", "Share the screen with JARVIS") { toggleScreenShare() }
+        panel.addView(TextView(this).apply {
+            text = "Swipe right from the left edge to open"
+            textSize = 11f
+            setTextColor(0xFF8D9AAA.toInt())
+            setPadding(0, dp(18), 0, 0)
+        })
+        drawerOverlay = overlay
+        binding.rootMainLayout.addView(overlay, android.view.ViewGroup.LayoutParams(-1, -1))
+        panel.translationX = -dp(304).toFloat()
+        panel.animate().translationX(0f).setDuration(220L)
+            .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+    }
+
+    private fun addDrawerItem(
+        panel: LinearLayout, symbol: String, title: String, subtitle: String, action: () -> Unit
+    ) {
+        val item = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(10), dp(8), dp(10))
+            background = GradientDrawable().apply {
+                setColor(0x1AFFFFFF)
+                cornerRadius = dp(15).toFloat()
+                setStroke(dp(1), 0x224BDDF5)
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { dismissNavigationDrawer(); action() }
+        }
+        item.addView(TextView(this).apply {
+            text = symbol
+            textSize = 23f
+            gravity = Gravity.CENTER
+            setTextColor(0xFF8DEBFA.toInt())
+        }, LinearLayout.LayoutParams(dp(34), dp(38)))
+        val labels = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(10), 0, 0, 0)
+        }
+        labels.addView(TextView(this).apply {
+            text = title
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+        })
+        labels.addView(TextView(this).apply {
+            text = subtitle
+            textSize = 10.5f
+            setTextColor(0xFF9BAABD.toInt())
+            setPadding(0, dp(2), 0, 0)
+        })
+        item.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+        panel.addView(item, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+    }
+
+    private fun dismissNavigationDrawer() {
+        val overlay = drawerOverlay ?: return
+        drawerOverlay = null
+        overlay.animate().alpha(0f).setDuration(150L).withEndAction {
+            (overlay.parent as? android.view.ViewGroup)?.removeView(overlay)
+        }.start()
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun setupNavigationDock() {
         binding.tabHome.setOnClickListener { selectTab(TAB_HOME) }
