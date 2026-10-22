@@ -122,6 +122,7 @@
                         android:layout_height="56dp">
 
                         <ImageView
+                            android:id="@+id/ivProfileAvatar"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:background="@drawable/bg_jarvis_icon_square"
@@ -129,7 +130,7 @@
                             android:src="@drawable/ic_user_profile"
                             app:tint="?attr/themeAccent"
                             android:padding="12dp"
-                            android:contentDescription="Avatar" />
+                            android:contentDescription="Profile photo. Tap to choose from gallery." />
 
                         <!-- Online Status Dot -->
                         <View
