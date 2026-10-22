@@ -210,6 +210,7 @@ class SettingsFragment : Fragment() {
         }
 
         binding.rowScreenUnlock.setOnClickListener { open(ScreenUnlockActivity::class.java) }
+        binding.rowFaceEnrollment.setOnClickListener { open(FaceEnrollmentActivity::class.java) }
     }
 
     // ------------------------------------------------------------------------------------------
@@ -348,6 +349,15 @@ class SettingsFragment : Fragment() {
 
         binding.tvProfileName.text = preferences.userName.ifBlank { "Sukant" }
         binding.tvProfileSubtitle.text = "JARVIS OPERATOR • PRIMARY USER"
+
+        val faceReferenceFile = java.io.File(ctx.filesDir, "face_reference.jpg")
+        val facePhotoSaved = ctx.getSharedPreferences(FaceEnrollmentActivity.PREFS, android.content.Context.MODE_PRIVATE)
+            .getBoolean(FaceEnrollmentActivity.KEY_ENROLLED, false) && faceReferenceFile.exists()
+        binding.tvFaceEnrollmentSubtitle.text = if (facePhotoSaved) {
+            "Reference photo saved on this device • Tap to manage"
+        } else {
+            "Not enrolled • Tap to capture a reference photo"
+        }
 
         // Owner voice profile status (profile card chip and the Owner Voice Profile row)
         if (preferences.hasOwnerVoiceProfile()) {
