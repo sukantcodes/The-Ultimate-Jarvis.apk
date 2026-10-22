@@ -194,7 +194,7 @@ class SettingsFragment : Fragment() {
             contentDescription = "Settings categories"
         }
         val intro = TextView(requireContext()).apply {
-            text = "PERSONALIZE YOUR JARVIS"
+            text = "JARVIS CONTROL CENTER"
             setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_sapphire))
             textSize = 12f
             letterSpacing = 0.14f
@@ -216,12 +216,12 @@ class SettingsFragment : Fragment() {
                     minimumHeight = dp(116)
                     background = GradientDrawable(
                         GradientDrawable.Orientation.TL_BR,
-                        intArrayOf(0xFF142D49.toInt(), 0xFF1A3858.toInt())
+                        intArrayOf(0xE6122438.toInt(), 0xE61A3858.toInt())
                     ).apply {
                         cornerRadius = dp(22).toFloat()
-                        setStroke(dp(1), 0xFF315E7C.toInt())
+                        setStroke(dp(1), 0x664BDDF5.toInt())
                     }
-                    elevation = dp(2).toFloat()
+                    elevation = dp(5).toFloat()
                     isClickable = true
                     isFocusable = true
                     contentDescription = "${item.first}. ${item.third}"
@@ -229,14 +229,14 @@ class SettingsFragment : Fragment() {
                 }
                 val title = TextView(requireContext()).apply {
                     text = item.first
-                    setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
+                    setTextColor(0xFFF3FAFF.toInt())
                     textSize = 15f
                     setLineSpacing(dp(1).toFloat(), 1f)
                     typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
                 }
                 val subtitle = TextView(requireContext()).apply {
                     text = item.third
-                    setTextColor(ContextCompat.getColor(requireContext(), R.color.text_muted))
+                    setTextColor(0xFFB8D0E2.toInt())
                     textSize = 12f
                     setLineSpacing(dp(3).toFloat(), 1f)
                     setPadding(0, dp(8), 0, 0)
@@ -255,7 +255,7 @@ class SettingsFragment : Fragment() {
         }
 
         val contentIndex = content.indexOfChild(binding.cardProfile).coerceAtLeast(0)
-        content.addView(overview, contentIndex)
+        content.addView(overview, (contentIndex + 1).coerceAtMost(content.childCount))
         settingsOverview = overview
 
         // Add a visible back control to the existing header; no new screen/activity is required.
