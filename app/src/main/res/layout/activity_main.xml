@@ -168,9 +168,10 @@
             </LinearLayout>
         </FrameLayout>
 
-        <!-- Tab 4: Settings -->
+        <!-- Tab 4: Camera Scan -->
+        <!-- Tab 4: Scan -->
         <FrameLayout
-            android:id="@+id/tabSettings"
+            android:id="@+id/tabCameraScan"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
@@ -178,7 +179,7 @@
             android:focusable="true">
 
             <LinearLayout
-                android:id="@+id/pillTabSettings"
+                android:id="@+id/pillTabCameraScan"
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:layout_gravity="center"
@@ -189,18 +190,18 @@
                 android:paddingVertical="3dp">
 
                 <ImageView
-                    android:id="@+id/ivTabSettings"
+                    android:id="@+id/ivTabCameraScan"
                     android:layout_width="22dp"
                     android:layout_height="22dp"
-                    android:src="@drawable/ic_nav_settings"
+                    android:src="@drawable/ic_nav_scan"
                     app:tint="?attr/themeTextMuted"
-                    android:contentDescription="Settings" />
+                    android:contentDescription="Scan" />
 
                 <TextView
-                    android:id="@+id/tvTabSettings"
+                    android:id="@+id/tvTabCameraScan"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Settings"
+                    android:text="Scan"
                     android:textSize="10sp"
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-medium"
@@ -279,3 +280,19 @@
         android:layout_marginTop="-21dp" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/navDrawer"
+        android:layout_width="300dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:fitsSystemWindows="true"
+        android:background="?attr/themeBg"
+        android:elevation="28dp"
+        app:itemIconTint="?attr/themeAccent"
+        app:itemTextColor="?attr/themeTextPrimary"
+        app:itemRippleColor="?attr/themeAccentLight"
+        app:headerLayout="@layout/nav_drawer_header"
+        app:menu="@menu/nav_drawer_menu" />
+
+</androidx.drawerlayout.widget.DrawerLayout>
