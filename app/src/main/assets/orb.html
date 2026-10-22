@@ -130,6 +130,72 @@ const orb=new THREE.Group();
 const pointsMesh=buildParticles();
 orb.add(pointsMesh);scene.add(orb);
 
+/* ---------- Alternate orb skins and a procedural 3D Iron Man-inspired helmet ---------- */
+let orbStyle = "default";
+const altPlasma = new THREE.Group();
+const altHolo = new THREE.Group();
+scene.add(altPlasma); scene.add(altHolo);
+// Extra fine orbital bands give the selectable variants distinct silhouettes.
+function makeStyleRing(radius, tube, color, opacity, tiltX, tiltY) {
+  const mesh = new THREE.Mesh(
+    new THREE.TorusGeometry(radius, tube, 10, 180),
+    new THREE.MeshBasicMaterial({color, transparent:true, opacity, blending:THREE.AdditiveBlending, depthWrite:false})
+  );
+  mesh.rotation.set(tiltX, tiltY, 0);
+  return mesh;
+}
+altPlasma.add(makeStyleRing(1.10,.018,0x26eaff,.85,.85,.2));
+altPlasma.add(makeStyleRing(1.25,.012,0x6b62ff,.8,-.55,.65));
+altPlasma.add(makeStyleRing(1.38,.009,0xff4fe1,.55,.2,-.9));
+altHolo.add(makeStyleRing(1.13,.014,0x75f7ff,.65,.7,.35));
+altHolo.add(makeStyleRing(1.25,.008,0xa6bfff,.5,-.65,.8));
+const holoShell = new THREE.Mesh(
+  new THREE.IcosahedronGeometry(.94,3),
+  new THREE.MeshBasicMaterial({color:0x8ffaff,wireframe:true,transparent:true,opacity:.30,blending:THREE.AdditiveBlending,depthWrite:false})
+);
+altHolo.add(holoShell);
+
+const helmet = new THREE.Group();
+scene.add(helmet);
+const redMetal = new THREE.MeshStandardMaterial({color:0x9e1822,metalness:.88,roughness:.24});
+const goldMetal = new THREE.MeshStandardMaterial({color:0xdba84b,metalness:.92,roughness:.22});
+const darkMetal = new THREE.MeshStandardMaterial({color:0x241b24,metalness:.72,roughness:.32});
+const eyeGlowMat = new THREE.MeshBasicMaterial({color:0x8cf7ff,transparent:true,opacity:.98});
+function helmetPart(geometry, material, position, scale, rotation) {
+  const m = new THREE.Mesh(geometry,material);
+  m.position.set(position[0],position[1],position[2]);
+  m.scale.set(scale[0],scale[1],scale[2]);
+  if(rotation) m.rotation.set(rotation[0],rotation[1],rotation[2]);
+  helmet.add(m); return m;
+}
+// Faceted dome, forehead plate, cheek guards, jaw and central faceplate.
+helmetPart(new THREE.SphereGeometry(.82,48,36),redMetal,[0,.12,0],[1,1.16,.78]);
+helmetPart(new THREE.SphereGeometry(.64,32,24),goldMetal,[0,.03,.36],[.82,.90,.50]);
+helmetPart(new THREE.BoxGeometry(.48,.28,.12),redMetal,[0,.62,.72],[1,1,1]);
+helmetPart(new THREE.BoxGeometry(.22,.68,.18),goldMetal,[-.58,-.05,.45],[1,.72,1],[0,0,-.22]);
+helmetPart(new THREE.BoxGeometry(.22,.68,.18),goldMetal,[.58,-.05,.45],[1,.72,1],[0,0,.22]);
+helmetPart(new THREE.SphereGeometry(.50,32,20),redMetal,[0,-.48,.22],[.92,.52,.70]);
+helmetPart(new THREE.BoxGeometry(.34,.30,.24),darkMetal,[0,-.52,.68],[1,1,1]);
+helmetPart(new THREE.BoxGeometry(.20,.10,.06),goldMetal,[0,-.64,.80],[1,1,1]);
+const eyeL=helmetPart(new THREE.BoxGeometry(.30,.075,.055),eyeGlowMat,[-.31,.13,.735],[1,1,1],[0,0,.13]);
+const eyeR=helmetPart(new THREE.BoxGeometry(.30,.075,.055),eyeGlowMat,[.31,.13,.735],[1,1,1],[0,0,-.13]);
+helmetPart(new THREE.BoxGeometry(.08,.35,.08),goldMetal,[-.82,.03,.02],[1,1,1],[0,0,-.18]);
+helmetPart(new THREE.BoxGeometry(.08,.35,.08),goldMetal,[.82,.03,.02],[1,1,1],[0,0,.18]);
+helmet.scale.setScalar(1.08);
+helmet.visible=false; altPlasma.visible=false; altHolo.visible=false;
+helmet.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});
+function setOrbStyle(style) {
+  const allowed=["default","plasma_core","holographic_pulse","iron_man_head"];
+  orbStyle=allowed.includes(style)?style:"default";
+  orb.visible=orbStyle==="default";
+  altPlasma.visible=orbStyle==="plasma_core";
+  altHolo.visible=orbStyle==="holographic_pulse";
+  helmet.visible=orbStyle==="iron_man_head";
+  if(orbStyle==="plasma_core") {altPlasma.rotation.set(orb.rotation.x,orb.rotation.y,0);}
+  if(orbStyle==="holographic_pulse") {altHolo.rotation.set(orb.rotation.x,orb.rotation.y,0);}
+}
+
+
 /* ---------- Glow (outer halo only) ---------- */
 let glowMat,glow,ring1,ring2,orbitPts,ptData=[];
 function createGlow(){
@@ -335,6 +401,25 @@ function updateOrb(dt){
   U.uCyan.value=cur.cyan;U.uPurple.value=cur.purple;U.uBright.value=cur.bright+idlePulse;
   glowMat.uniforms.uTime.value=time;glowMat.uniforms.uMix.value=cur.cyan;
   glowMat.uniforms.uStrength.value=cur.glow+audio.level*.6+idlePulse*2;
+  const voicePulse = state==="speaking" ? .10 + audio.level*.12 : state==="listening" ? .035 + audio.level*.07 : .015;
+  if(orbStyle==="plasma_core") {
+    altPlasma.rotation.y += dt*(.25+cur.speed*.35);
+    altPlasma.rotation.x += dt*.12;
+    altPlasma.scale.setScalar(s*(1+voicePulse));
+  } else if(orbStyle==="holographic_pulse") {
+    altHolo.rotation.y += dt*(.18+cur.speed*.22);
+    altHolo.rotation.x += dt*.08;
+    holoShell.rotation.y -= dt*.12;
+    holoShell.scale.setScalar(1+audio.level*.07+(state==="listening"?.025:0));
+  } else if(orbStyle==="iron_man_head") {
+    helmet.rotation.y += dragging ? 0 : dt*.12;
+    helmet.rotation.x += (orb.rotation.x-helmet.rotation.x)*Math.min(1,dt*3);
+    helmet.rotation.y += velY*Math.min(dt*20,1)*.25;
+    helmet.scale.setScalar(1.08*(1+voicePulse));
+    const eyePower = state==="listening" ? .75 + .25*Math.abs(Math.sin(time*8)) : state==="speaking" ? .8 + .2*Math.abs(Math.sin(time*13)) : state==="thinking" ? .45 + .35*Math.abs(Math.sin(time*3)) : .8;
+    eyeGlowMat.opacity=eyePower;
+    eyeGlowMat.color.set(state==="thinking" ? 0xb18cff : 0x8cf7ff);
+  }
   const pulse=cur.ring*.5*(.5+.5*Math.sin(time*4))+audio.bass*.8;
   ring1.rotation.z=r1a;ring2.rotation.z=r2a;
   ring1.scale.setScalar(s*(1+pulse*.03));ring2.scale.setScalar(s*(1+pulse*.02));
@@ -383,6 +468,7 @@ if(window.ResizeObserver) new ResizeObserver(handleResize).observe(stage);
 
 window.JarvisOrb={
   setState:setOrbState,
+  setStyle:setOrbStyle,
   setTheme:n=>applyTheme(n),
   setBackground:hex=>{
     if(!isEmbedded) document.documentElement.style.setProperty("--bg",hex);
