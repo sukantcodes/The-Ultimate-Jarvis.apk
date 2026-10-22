@@ -413,9 +413,9 @@ object CommandParser {
         }
 
         // Instant local fast-path for Instagram / Instazen search. This runs before any AI fallback.
-        val socialSearch1 = Regex("$prefix(?:search|find|look up)\\\\s+(.+?)\\\\s+(?:on|in)\\\\s+(instagram|instazen)$", RegexOption.IGNORE_CASE).find(clean)
-        val socialSearch2 = Regex("^(.+?)\\\\s+(?:instagram|instazen)\\\\s+(?:pe|par|mein|me)\\\\s+(?:search|dhundo|khojo)\\\\s*(?:karo|kar do|kardo)?$", RegexOption.IGNORE_CASE).find(clean)
-        val socialSearch3 = Regex("$prefix(?:search|find|look up)\\\\s+(?:on|in)\\\\s+(instagram|instazen)\\\\s+(.+)$", RegexOption.IGNORE_CASE).find(clean)
+        val socialSearch1 = Regex("$prefix(?:search|find|look up)\\s+(.+?)\\s+(?:on|in)\\s+(instagram|instazen)$", RegexOption.IGNORE_CASE).find(clean)
+        val socialSearch2 = Regex("^(.+?)\\s+(?:instagram|instazen)\\s+(?:pe|par|mein|me)\\s+(?:search|dhundo|khojo)\\s*(?:karo|kar do|kardo)?$", RegexOption.IGNORE_CASE).find(clean)
+        val socialSearch3 = Regex("$prefix(?:search|find|look up)\\s+(?:on|in)\\s+(instagram|instazen)\\s+(.+)$", RegexOption.IGNORE_CASE).find(clean)
         if (socialSearch1 != null) {
             val query = socialSearch1.groupValues[1].trim()
             val app = socialSearch1.groupValues[2].lowercase(Locale.ROOT)
