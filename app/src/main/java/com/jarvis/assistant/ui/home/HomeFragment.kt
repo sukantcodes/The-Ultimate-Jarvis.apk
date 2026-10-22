@@ -78,7 +78,7 @@ class HomeFragment : Fragment() {
         }
 
         binding.btnTopSettings.setOnClickListener {
-            (activity as? MainActivity)?.selectTab(MainActivity.TAB_SETTINGS)
+            (activity as? MainActivity)?.openNavigationDrawer()
         }
 
         binding.btnDismissLiveError.setOnClickListener {
