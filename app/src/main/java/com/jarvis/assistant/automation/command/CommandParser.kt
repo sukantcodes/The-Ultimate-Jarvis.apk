@@ -349,6 +349,35 @@ object CommandParser {
             }
         }
 
+        // Fast local route for single Instagram/Instazen profile, follow, like, share and DM requests.
+        // The command opens the intended destination before AI fallback; final social actions stay user-controlled.
+        val socialTargetAction = Regex(
+            "$prefix(?:open\\s+(?:the\\s+)?profile\\s+|view\\s+(?:the\\s+)?profile\\s+|follow\\s+|like\\s+|share\\s+|dm\\s+|message\\s+|chat\\s+with\\s+|send\\s+(?:a\\s+)?message\\s+to\\s+)(.+?)\\s+(?:on|in)\\s+(instagram|instazen)$",
+            RegexOption.IGNORE_CASE
+        ).find(clean)
+        if (socialTargetAction != null) {
+            val matchedPhrase = socialTargetAction.groupValues[0].lowercase(Locale.ROOT)
+            val target = socialTargetAction.groupValues[1].trim().trimStart('@')
+            val app = socialTargetAction.groupValues[2].lowercase(Locale.ROOT)
+            val action = when {
+                matchedPhrase.contains("follow ") -> "follow"
+                matchedPhrase.contains("like ") -> "like"
+                matchedPhrase.contains("share ") -> "share"
+                matchedPhrase.contains("dm ") || matchedPhrase.contains("message ") || matchedPhrase.contains("chat with ") -> "message"
+                else -> "profile"
+            }
+            if (target.isNotBlank() && target !in setOf("the app", "app", "instagram", "instazen")) {
+                return ParsedCommandResult(JarvisCommand.SocialAppAction(app, action, target), 0.95f, "SOCIAL_ACTION")
+            }
+        }
+
+        // "Open Instagram chat with username" / "Instagram DM username".
+        val socialChat = Regex("$prefix(?:open\\s+)?(?:instagram|instazen)\\s+(?:chat|dm|messages?)\\s+(?:with\\s+)?@?([a-zA-Z0-9._]+)$", RegexOption.IGNORE_CASE).find(clean)
+        if (socialChat != null) {
+            val app = if (clean.contains("instazen")) "instazen" else "instagram"
+            return ParsedCommandResult(JarvisCommand.SocialAppAction(app, "message", socialChat.groupValues[1]), 0.95f, "SOCIAL_CHAT")
+        }
+
         // LOCAL SOCIAL SEARCH FAST-PATH: route Instagram/Instazen searches before generic
         // YouTube play parsing, so "play/find X on Instagram" never gets misrouted to YouTube.
         val earlySocial = Regex("$prefix(?:play|show|find|search|look up)\\s+(.+?)\\s+(?:on|in)\\s+(instagram|instazen)$", RegexOption.IGNORE_CASE).find(clean)
