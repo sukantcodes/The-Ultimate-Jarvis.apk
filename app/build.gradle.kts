@@ -115,6 +115,7 @@ dependencies {
     implementation("androidx.webkit:webkit:1.12.0")
     implementation("net.java.dev.jna:jna:5.13.0@aar")
     implementation("com.alphacephei:vosk-android:0.3.75@aar")
+    implementation("com.google.mlkit:face-detection:16.1.7")
 
     // Room Database
     implementation("androidx.room:room-runtime:2.6.1")
