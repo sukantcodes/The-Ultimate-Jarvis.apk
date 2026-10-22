@@ -1,7 +1,6 @@
 package com.jarvis.assistant.ui.scan
 
 import android.Manifest
-import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
@@ -10,11 +9,9 @@ import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.media.ImageReader
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
-import android.provider.MediaStore
 import android.view.Surface
 import android.view.TextureView
 import android.animation.ValueAnimator
@@ -88,6 +85,7 @@ class CameraScanActivity : AppCompatActivity() {
     }
 
     private fun openCameraIfReady() {
+        if (cameraDevice != null) return
         if (!binding.cameraPreview.isAvailable || !PermissionHelper.hasCameraPermission(this)) return
         try {
             val manager = getSystemService(CAMERA_SERVICE) as CameraManager
