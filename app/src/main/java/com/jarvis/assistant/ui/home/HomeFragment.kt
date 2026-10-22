@@ -41,6 +41,7 @@ class HomeFragment : Fragment() {
     private var pendingOrbState: String? = null
     private var pendingThemeKey: String? = null
     private var pendingCustomHex: String? = null
+    private var pendingOrbStyle: String? = null
     private var lastAudioPushTime = 0L
     private var taskFallbackPanel: android.widget.LinearLayout? = null
     private var taskFallbackText: android.widget.TextView? = null
@@ -148,6 +149,7 @@ class HomeFragment : Fragment() {
                     val currentTheme = pendingThemeKey ?: preferences.appTheme
                     val customHex = pendingCustomHex ?: preferences.customThemeColor
                     setOrbTheme(currentTheme, customHex)
+                    setOrbStyle(pendingOrbStyle ?: preferences.orbAnimation)
 
                     // Sync State
                     val state = pendingOrbState ?: when (viewModel.conversationState.value) {
@@ -189,6 +191,15 @@ class HomeFragment : Fragment() {
         }
     }
 
+    fun setOrbStyle(style: String) {
+        pendingOrbStyle = style
+        if (!isPageLoaded) return
+        val safeStyle = style.filter { it.isLetterOrDigit() || it == '_' }
+        activity?.runOnUiThread {
+            binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setStyle('$safeStyle');", null)
+        }
+    }
+
     fun setOrbTheme(themeKey: String, customHex: String?) {
         pendingThemeKey = themeKey
         pendingCustomHex = customHex
@@ -227,6 +238,7 @@ class HomeFragment : Fragment() {
 
         // Sync theme with settings
         setOrbTheme(preferences.appTheme, preferences.customThemeColor)
+        setOrbStyle(preferences.orbAnimation)
         updateHomeHeaderAndVoiceStatus()
 
         if (PermissionHelper.hasLocationPermission(requireContext())) {
