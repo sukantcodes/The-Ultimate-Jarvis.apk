@@ -736,6 +736,26 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 21. get_live_info
+                        put(JSONObject().apply {
+                            put("name", "get_live_info")
+                            put("description", "Reads real-time information from Android or a live data source. MUST call this before answering any question about current battery percentage/charging, current time/date, current location, current weather, network connectivity, or device status. Never guess these values from memory. For weather/location, explain clearly if permission or live data is unavailable.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("topic", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("enum", JSONArray().apply {
+                                            put("battery"); put("time"); put("date"); put("weather")
+                                            put("location"); put("connectivity"); put("device_status")
+                                        })
+                                        put("description", "Which live information to retrieve: battery, time, date, weather, location, connectivity, or device_status.")
+                                    })
+                                })
+                                put("required", JSONArray().put("topic"))
+                            })
+                        })
+
                         // 21. inspect_screen
                         put(JSONObject().apply {
                             put("name", "inspect_screen")
