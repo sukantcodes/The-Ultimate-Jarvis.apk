@@ -194,10 +194,12 @@ class FaceEnrollmentActivity : AppCompatActivity() {
         checking = true
         capture.isEnabled = false
         status.text = "Checking your photo…"
-        useCase.takePicture(cameraExecutor, object : ImageCapture.OnImageCapturedCallback() {
-            override fun onCaptureSuccess(image: ImageProxy) {
-                val bitmap = image.toBitmapCompat()
-                image.close()
+        val tempFile = File(cacheDir, "face_capture_temp.jpg")
+        val output = ImageCapture.OutputFileOptions.Builder(tempFile).build()
+        useCase.takePicture(output, cameraExecutor, object : ImageCapture.OnImageSavedCallback {
+            override fun onImageSaved(result: ImageCapture.OutputFileResults) {
+                val bitmap = android.graphics.BitmapFactory.decodeFile(tempFile.absolutePath)
+                tempFile.delete()
                 runOnUiThread {
                     if (bitmap == null) {
                         checking = false
@@ -207,6 +209,7 @@ class FaceEnrollmentActivity : AppCompatActivity() {
                 }
             }
             override fun onError(exception: ImageCaptureException) {
+                tempFile.delete()
                 runOnUiThread {
                     checking = false
                     capture.isEnabled = cameraReady
