@@ -91,9 +91,9 @@
         android:layout_width="46dp"
         android:layout_height="46dp"
         android:background="@drawable/bg_jarvis_icon_square"
-        android:src="@drawable/ic_nav_settings"
+        android:src="@drawable/ic_menu"
         app:tint="?attr/themeTextPrimary"
-        android:contentDescription="Settings"
+        android:contentDescription="Open navigation menu"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
