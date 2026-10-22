@@ -412,6 +412,26 @@ object CommandParser {
             }
         }
 
+        // Instant local fast-path for Instagram / Instazen search. This runs before any AI fallback.
+        val socialSearch1 = Regex("$prefix(?:search|find|look up)\\\\s+(.+?)\\\\s+(?:on|in)\\\\s+(instagram|instazen)$", RegexOption.IGNORE_CASE).find(clean)
+        val socialSearch2 = Regex("^(.+?)\\\\s+(?:instagram|instazen)\\\\s+(?:pe|par|mein|me)\\\\s+(?:search|dhundo|khojo)\\\\s*(?:karo|kar do|kardo)?$", RegexOption.IGNORE_CASE).find(clean)
+        val socialSearch3 = Regex("$prefix(?:search|find|look up)\\\\s+(?:on|in)\\\\s+(instagram|instazen)\\\\s+(.+)$", RegexOption.IGNORE_CASE).find(clean)
+        if (socialSearch1 != null) {
+            val query = socialSearch1.groupValues[1].trim()
+            val app = socialSearch1.groupValues[2].lowercase(Locale.ROOT)
+            if (query.isNotBlank()) return ParsedCommandResult(JarvisCommand.SearchSocialApp(app, query), 0.96f, "SOCIAL_SEARCH")
+        }
+        if (socialSearch2 != null) {
+            val query = socialSearch2.groupValues[1].trim()
+            val app = socialSearch2.groupValues[2].lowercase(Locale.ROOT)
+            if (query.isNotBlank()) return ParsedCommandResult(JarvisCommand.SearchSocialApp(app, query), 0.95f, "SOCIAL_SEARCH_HINGLISH")
+        }
+        if (socialSearch3 != null) {
+            val app = socialSearch3.groupValues[1].lowercase(Locale.ROOT)
+            val query = socialSearch3.groupValues[2].trim()
+            if (query.isNotBlank()) return ParsedCommandResult(JarvisCommand.SearchSocialApp(app, query), 0.95f, "SOCIAL_SEARCH_PREFIX")
+        }
+
         // 10. Multi-Website and Web URL Navigation
         val cleanForDomain = clean
             .replace(Regex("\\s+dot\\s+"), ".")
