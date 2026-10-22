@@ -253,7 +253,7 @@ class SettingsFragment : Fragment() {
             text = "‹"
             textSize = 32f
             gravity = android.view.Gravity.CENTER
-            setTextColor(ContextCompat.getColor(requireContext(), R.color.theme_text_primary))
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.text_primary))
             visibility = View.GONE
             contentDescription = "Back to all settings"
             isClickable = true
