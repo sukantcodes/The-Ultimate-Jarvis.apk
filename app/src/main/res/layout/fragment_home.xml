@@ -12,6 +12,33 @@
     android:paddingTop="16dp"
     android:paddingBottom="96dp">
 
+    <!-- Full-screen transparent 3D avatar layer; all home controls remain drawn above it -->
+    <FrameLayout
+        android:id="@+id/orbContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <View
+            android:id="@+id/orbHaloRing"
+            android:layout_width="260dp"
+            android:layout_height="260dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_jarvis_orb_halo" />
+
+        <WebView
+            android:id="@+id/orbWebView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:background="@android:color/transparent" />
+    </FrameLayout>
+
     <!-- Ambient Liquid Glass Glow Fields (Soft luminous refractions behind glass) -->
     <View
         android:id="@+id/glowOrbTopRight"
@@ -98,33 +125,7 @@
         app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- Center 3D Glowing Particle Orb Stage -->
-    <FrameLayout
-        android:id="@+id/orbContainer"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        app:layout_constraintHeight_percent="0.45"
-        app:layout_constraintVertical_bias="0.45"
-        app:layout_constraintTop_toBottomOf="@id/layoutTitle"
-        app:layout_constraintBottom_toTopOf="@id/layoutStatusIndicator"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
 
-        <View
-            android:id="@+id/orbHaloRing"
-            android:layout_width="260dp"
-            android:layout_height="260dp"
-            android:layout_gravity="center"
-            android:background="@drawable/bg_jarvis_orb_halo" />
-
-        <WebView
-            android:id="@+id/orbWebView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_gravity="center"
-            android:background="@android:color/transparent" />
-    </FrameLayout>
 
     <!-- Sleek Futuristic Status Pill -->
     <LinearLayout
