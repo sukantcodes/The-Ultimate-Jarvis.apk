@@ -28,6 +28,8 @@
 
     <style name="Widget.JarvisSettings.IconBox" parent="">
         <item name="android:background">@drawable/bg_jarvis_icon_square</item>
+        <item name="android:elevation">5dp</item>
+        <item name="android:translationZ">1dp</item>
     </style>
 
     <style name="Widget.JarvisSettings.RowTitle" parent="">
