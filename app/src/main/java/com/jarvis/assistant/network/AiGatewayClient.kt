@@ -68,7 +68,7 @@ object AiGatewayClient {
         for (provider in candidates) {
             val key = store.key(provider)
             if (key.isBlank()) continue
-            val model = store.model(provider)
+            val model = resolveModel(context, store, provider, key)
             val start = System.currentTimeMillis()
             try {
                 val text = when (provider) {
@@ -151,7 +151,7 @@ object AiGatewayClient {
         for (provider in candidates) {
             val key = store.key(provider)
             if (key.isBlank()) continue
-            val model = store.model(provider)
+            val model = resolveModel(context, store, provider, key)
             val start = System.currentTimeMillis()
             try {
                 val text = if (provider == AiGatewayStore.OPENAI) {
