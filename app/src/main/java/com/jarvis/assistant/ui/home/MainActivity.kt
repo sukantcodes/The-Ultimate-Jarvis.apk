@@ -154,22 +154,22 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // A restrained, hardware-accelerated entrance on cold launch only.
-        // Avoid replaying the animation during configuration changes or theme recreation.
+        // Premium JARVIS entrance: a smooth fade, subtle lift, and scale settle on cold launch.
+        // Keep it lightweight and avoid replaying it on configuration changes or theme recreation.
         if (savedInstanceState == null) {
             binding.rootMainLayout.apply {
                 alpha = 0f
-                translationY = 18f * resources.displayMetrics.density
-                scaleX = 0.985f
-                scaleY = 0.985f
+                translationY = 28f * resources.displayMetrics.density
+                scaleX = 0.965f
+                scaleY = 0.965f
                 post {
                     animate()
                         .alpha(1f)
                         .translationY(0f)
                         .scaleX(1f)
                         .scaleY(1f)
-                        .setDuration(420L)
-                        .setInterpolator(android.view.animation.DecelerateInterpolator())
+                        .setDuration(520L)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
                         .start()
                 }
             }
