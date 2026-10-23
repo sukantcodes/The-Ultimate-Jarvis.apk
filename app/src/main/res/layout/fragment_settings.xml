@@ -101,7 +101,6 @@
             <!-- Executive VIP Profile & Identity Card -->
             <LinearLayout
                 android:id="@+id/cardProfile"
-                android:tag="liquid_glass_surface"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
