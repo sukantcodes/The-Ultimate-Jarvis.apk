@@ -29,9 +29,9 @@ internal class InferenceEngineImpl private constructor(context:Context){
    val model=OfflineModelDownloader.modelFile(context)
    check(OfflineModelDownloader.isModelValid(model)){"Offline model missing or incomplete. Download it from Offline JARVIS."}
    ensureLoaded(model)
-   check(processUserPrompt(prompt,256)==0){"Local model could not process the prompt."}
+   check(processUserPrompt(prompt,96)==0){"Local model could not process the prompt."}
    val out=StringBuilder();var n=0
-   while(n<256){val token=generateNextToken()?:break;if(token.isNotEmpty())out.append(token);n++}
+   while(n<96){val token=generateNextToken()?:break;if(token.isNotEmpty())out.append(token);n++}
    out.toString().replace(Regex("<think>[\\s\\S]*?</think>"),"").replace("<|im_end|>","").replace("<|endoftext|>","").trim()
     .ifBlank{"I couldn't generate a response. Please try a shorter message."}
   }
