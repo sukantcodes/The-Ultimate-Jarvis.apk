@@ -324,6 +324,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.drawerAutomation -> startActivity(Intent(this, com.jarvis.assistant.studio.ui.AutomationStudioActivity::class.java))
                 R.id.drawerMemories -> startActivity(Intent(this, com.jarvis.assistant.ui.memory.MemoryActivity::class.java))
                 R.id.drawerScreenShare -> toggleScreenShare()
+                R.id.drawerOfflineJarvis -> startActivity(Intent(this, com.jarvis.assistant.ui.offline.OfflineModelActivity::class.java))
                 else -> return@setNavigationItemSelectedListener false
             }
             true
