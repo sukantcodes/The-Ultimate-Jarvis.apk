@@ -97,22 +97,24 @@ object AiGatewayClient {
         val request = Request.Builder().url("https://api.openai.com/v1/responses")
             .header("Authorization", "Bearer $key")
             .post(payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build()
-        http.newCall(request).execute().use { response ->
+        return http.newCall(request).execute().use { response ->
             val body = response.body?.string().orEmpty()
             if (!response.isSuccessful) throw IllegalStateException("OpenAI API HTTP ${response.code}: ${errorMessage(body)}")
             val json = JSONObject(body)
             val direct = json.optString("output_text")
-            if (direct.isNotBlank()) return direct.trim()
-            val output = json.optJSONArray("output") ?: JSONArray()
-            buildString {
-                for (i in 0 until output.length()) {
-                    val content = output.optJSONObject(i)?.optJSONArray("content") ?: JSONArray()
-                    for (j in 0 until content.length()) {
-                        val item = content.optJSONObject(j)
-                        if (item?.optString("type") == "output_text") append(item.optString("text"))
+            if (direct.isNotBlank()) direct.trim()
+            else {
+                val output = json.optJSONArray("output") ?: JSONArray()
+                buildString {
+                    for (i in 0 until output.length()) {
+                        val content = output.optJSONObject(i)?.optJSONArray("content") ?: JSONArray()
+                        for (j in 0 until content.length()) {
+                            val item = content.optJSONObject(j)
+                            if (item?.optString("type") == "output_text") append(item.optString("text"))
+                        }
                     }
-                }
-            }.trim()
+                }.trim()
+            }
         }
     }
 
@@ -133,7 +135,7 @@ object AiGatewayClient {
         val request = Request.Builder().url("https://api.anthropic.com/v1/messages")
             .header("x-api-key", key).header("anthropic-version", "2026-10-21")
             .post(payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build()
-        http.newCall(request).execute().use { response ->
+        return http.newCall(request).execute().use { response ->
             val body = response.body?.string().orEmpty()
             if (!response.isSuccessful) throw IllegalStateException("Claude API HTTP ${response.code}: ${errorMessage(body)}")
             val content = JSONObject(body).optJSONArray("content") ?: JSONArray()
