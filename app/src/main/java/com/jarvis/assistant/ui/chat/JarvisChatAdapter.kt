@@ -14,7 +14,8 @@ import com.jarvis.assistant.data.model.ChatTurn
 import com.jarvis.assistant.databinding.ItemNairaChatMessageBinding
 
 class JarvisChatAdapter(
-    private val onEditUserMessage: ((String) -> Unit)? = null
+    private val onEditUserMessage: ((String) -> Unit)? = null,
+    private val onSaveAssistantMessage: ((String) -> Unit)? = null
 ) : ListAdapter<ChatTurn, JarvisChatAdapter.MessageViewHolder>(DiffCallback) {
 
     companion object DiffCallback : DiffUtil.ItemCallback<ChatTurn>() {
@@ -23,11 +24,7 @@ class JarvisChatAdapter(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
-        val binding = ItemNairaChatMessageBinding.inflate(
-            LayoutInflater.from(parent.context),
-            parent,
-            false
-        )
+        val binding = ItemNairaChatMessageBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return MessageViewHolder(binding)
     }
 
@@ -41,35 +38,23 @@ class JarvisChatAdapter(
 
         fun bind(turn: ChatTurn) {
             val context = binding.root.context
-
-            // User Bubble
             if (turn.userTranscript.isNotBlank()) {
                 binding.layoutUserContainer.visibility = View.VISIBLE
                 binding.tvUserMessage.text = turn.userTranscript
-
-                binding.btnUserCopy.setOnClickListener {
-                    copyToClipboard(context, "User message", turn.userTranscript)
-                }
-
-                binding.btnUserEdit.setOnClickListener {
-                    onEditUserMessage?.invoke(turn.userTranscript)
-                }
+                binding.btnUserCopy.setOnClickListener { copyToClipboard(context, "User message", turn.userTranscript) }
+                binding.btnUserEdit.setOnClickListener { onEditUserMessage?.invoke(turn.userTranscript) }
             } else {
                 binding.layoutUserContainer.visibility = View.GONE
             }
 
-            // Assistant Bubble
             if (turn.jarvisResponse.isNotBlank()) {
                 binding.layoutAssistantContainer.visibility = View.VISIBLE
                 binding.tvAssistantMessage.text = turn.jarvisResponse
-
-                binding.btnAssistantCopy.setOnClickListener {
-                    copyToClipboard(context, "Jarvis response", turn.jarvisResponse)
-                }
-
+                binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", turn.jarvisResponse) }
                 binding.btnAssistantPlay.setOnClickListener {
-                    Toast.makeText(context, "Playing response...", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Text-to-speech playback is not connected to this control yet.", Toast.LENGTH_SHORT).show()
                 }
+                binding.btnAssistantSave.setOnClickListener { onSaveAssistantMessage?.invoke(turn.jarvisResponse) }
             } else {
                 binding.layoutAssistantContainer.visibility = View.GONE
             }
@@ -77,8 +62,7 @@ class JarvisChatAdapter(
 
         private fun copyToClipboard(context: Context, label: String, text: String) {
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clip = ClipData.newPlainText(label, text)
-            clipboard.setPrimaryClip(clip)
+            clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
             Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
         }
     }
