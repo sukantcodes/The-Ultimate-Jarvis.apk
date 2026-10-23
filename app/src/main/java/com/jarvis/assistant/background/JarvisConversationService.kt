@@ -244,6 +244,10 @@ class JarvisConversationService : Service() {
 
     // --- Active-conversation components ---
     private var audioRecorder: AudioRecorder? = null
+    @Volatile private var offlineLocalMode = false
+    @Volatile private var offlineRecognizer: Recognizer? = null
+    private var offlineGenerationJob: Job? = null
+    @Volatile private var lastOfflineTranscript = ""
     private var audioPlayer: AudioPlayer? = null
     private var liveWebSocket: GeminiLiveWebSocket? = null
     private var inactivityJob: Job? = null
@@ -761,16 +765,20 @@ class JarvisConversationService : Service() {
         val engineStore = com.jarvis.assistant.security.AiEngineStore(applicationContext)
         val useGroq = engineStore.useGroq
         val apiKey = if (useGroq) engineStore.groqKey().trim() else preferences.apiKey.trim()
-        if (apiKey.isBlank()) {
-            _liveError.value = JarvisLiveError(
-                title = "API KEY MISSING",
-                message = if (useGroq) "No Groq API key saved. Open Settings > AI Engine and enter your Groq key to activate Jarvis." else "No Gemini API Key configured. Please enter your API Key in Settings to activate Jarvis.",
-                errorCode = "API_KEY_MISSING",
-                actionText = "OPEN SETTINGS"
-            )
-            serviceScope.launch { _events.emit("Please configure your Gemini API Key in Settings first.") }
-            fullStop()
-            return
+        offlineLocalMode = apiKey.isBlank()
+        if (offlineLocalMode) {
+            val localModel = com.jarvis.assistant.offline.OfflineModelDownloader.modelFile(applicationContext)
+            if (!com.jarvis.assistant.offline.OfflineModelDownloader.isModelValid(localModel)) {
+                _liveError.value = JarvisLiveError(
+                    title = "OFFLINE BRAIN NOT READY",
+                    message = "No online API key is configured and the local Qwen3 model is not installed. Open Offline JARVIS and download the model once; after that, JARVIS can start without an API key.",
+                    errorCode = "OFFLINE_MODEL_REQUIRED",
+                    actionText = "OPEN OFFLINE JARVIS"
+                )
+                serviceScope.launch { _events.emit("Offline Brain needs its model downloaded once. Open Offline JARVIS; no API key is required.") }
+                fullStop()
+                return
+            }
         }
 
         if (!PermissionHelper.hasAllRequiredPermissions(this)) {
@@ -834,6 +842,37 @@ class JarvisConversationService : Service() {
         ).apply { start() }
 
         serviceScope.launch(Dispatchers.IO) {
+            if (offlineLocalMode) {
+                try {
+                    VoskModelManager.init(applicationContext, serviceScope)
+                    withTimeout(60_000L) {
+                        while (!VoskModelManager.isModelReady.value) delay(150L)
+                    }
+                    val model = VoskModelManager.model ?: error("Local speech model is unavailable.")
+                    offlineRecognizer?.close()
+                    offlineRecognizer = Recognizer(model, 16000.0f)
+                    withContext(Dispatchers.Main) {
+                        if (!_isSessionOn.value) return@withContext
+                        _connectionStatus.value = "OFFLINE"
+                        _liveError.value = null
+                        _events.emit("Offline Brain ready. Speak naturally; responses are generated on this phone.")
+                    }
+                } catch (error: Exception) {
+                    Log.e("JarvisService", "Offline voice initialization failed", error)
+                    withContext(Dispatchers.Main) {
+                        _liveError.value = JarvisLiveError(
+                            title = "OFFLINE BRAIN FAILED",
+                            message = error.message ?: "Could not initialize the local speech/model engine.",
+                            errorCode = "OFFLINE_INIT_FAILED",
+                            actionText = "RETRY"
+                        )
+                        _events.emit("Offline Brain could not start: " + (error.message ?: "initialization failed"))
+                        fullStop()
+                    }
+                }
+                return@launch
+            }
+
             val systemPrompt = generateCurrentSystemPrompt()
 
             withContext(Dispatchers.Main) {
@@ -1448,9 +1487,12 @@ class JarvisConversationService : Service() {
                     return@AudioRecorder
                 }
 
-                // Stream user speech to Gemini Live
+                // Route audio to the selected brain. Offline mode feeds local Vosk instead of
+                // opening a cloud socket; online mode retains the existing streaming path.
                 val cleanedChunk = cleanForModel(chunk)
-                if (liveWebSocket?.isSessionReady() == true) {
+                if (offlineLocalMode) {
+                    if (cleanedChunk.isNotEmpty()) handleOfflineAudioChunk(cleanedChunk)
+                } else if (liveWebSocket?.isSessionReady() == true) {
                     while (!preConnectAudioQueue.isEmpty()) {
                         val queued = preConnectAudioQueue.poll() ?: break
                         liveWebSocket?.sendAudioChunk(queued)
@@ -1674,6 +1716,67 @@ class JarvisConversationService : Service() {
         }.apply {
             setMuted(preferences.isMicMuted)
             start(serviceScope)
+        }
+    }
+
+    private fun handleOfflineAudioChunk(chunk: ByteArray) {
+        if (!offlineLocalMode || chunk.isEmpty()) return
+        try {
+            val recognizer = offlineRecognizer ?: return
+            if (recognizer.acceptWaveForm(chunk, chunk.size)) {
+                val text = JSONObject(recognizer.result).optString("text").trim()
+                if (text.isNotBlank()) processOfflineTranscript(text)
+            } else {
+                val partial = JSONObject(recognizer.partialResult).optString("partial").trim()
+                if (partial.isNotBlank()) _liveUserTranscript.value = partial
+            }
+        } catch (error: Exception) {
+            Log.w("JarvisService", "Offline speech recognition chunk failed: " + error.message)
+        }
+    }
+
+    private fun processOfflineTranscript(text: String) {
+        val clean = text.trim()
+        if (clean.isBlank() || !offlineLocalMode || offlineGenerationJob?.isActive == true) return
+        if (clean.equals(lastOfflineTranscript, ignoreCase = true)) return
+        lastOfflineTranscript = clean
+        lastRealInteractionTime = System.currentTimeMillis()
+        lastUserSpeechDetectedTime = lastRealInteractionTime
+        currentTurnUserText.clear()
+        currentTurnUserText.append(clean)
+        currentTurnAssistantText.clear()
+        _liveUserTranscript.value = clean
+        _liveAssistantResponse.value = "Thinking locally…"
+        setConversationState(ConversationState.THINKING)
+        offlineGenerationJob = serviceScope.launch(Dispatchers.IO) {
+            val answer = try {
+                com.jarvis.assistant.offline.OfflineLlm.generate(applicationContext, clean)
+            } catch (error: Exception) {
+                "I couldn't complete that offline request: " + (error.message ?: "local model error")
+            }
+            withContext(Dispatchers.Main) {
+                if (!_isSessionOn.value || !offlineLocalMode) return@withContext
+                currentTurnAssistantText.clear()
+                currentTurnAssistantText.append(answer)
+                _liveAssistantResponse.value = answer
+                val app = application as? JarvisApp
+                app?.chatRepository?.addTurn(clean, answer)
+                app?.memoryManager?.addShortTermTurn(clean, answer)
+                setConversationState(ConversationState.SPEAKING)
+                try {
+                    tts?.speak(answer, TextToSpeech.QUEUE_FLUSH, null, "offline_jarvis_reply")
+                } catch (error: Exception) {
+                    Log.w("JarvisService", "Offline TTS failed: " + error.message)
+                }
+                serviceScope.launch {
+                    var waited = 0
+                    while (_isSessionOn.value && offlineLocalMode && tts?.isSpeaking == true && waited < 90_000) {
+                        delay(200)
+                        waited += 200
+                    }
+                    if (_isSessionOn.value && offlineLocalMode) setConversationState(ConversationState.IDLE)
+                }
+            }
         }
     }
 
@@ -3281,6 +3384,12 @@ class JarvisConversationService : Service() {
 
         audioRecorder?.stop()
         audioRecorder = null
+        offlineGenerationJob?.cancel()
+        offlineGenerationJob = null
+        try { offlineRecognizer?.close() } catch (_: Exception) {}
+        offlineRecognizer = null
+        offlineLocalMode = false
+        lastOfflineTranscript = ""
 
         audioPlayer?.flush()
         audioPlayer?.release()
