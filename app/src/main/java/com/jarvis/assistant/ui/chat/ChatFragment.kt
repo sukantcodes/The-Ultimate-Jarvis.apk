@@ -34,13 +34,19 @@ class ChatFragment : Fragment() {
 
     private val documentPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri == null || _binding == null) return@registerForActivityResult
-        try {
-            selectedDocument = DocumentAnalysisClient.describe(requireContext(), uri)
-            binding.etMessageInput.hint = "Ask about ${selectedDocument?.name}"
-            Toast.makeText(requireContext(), "Attached: ${selectedDocument?.name}. Type a question or tap Send to analyze.", Toast.LENGTH_LONG).show()
-        } catch (error: Exception) {
-            selectedDocument = null
-            Toast.makeText(requireContext(), error.message ?: "Couldn't attach this file.", Toast.LENGTH_LONG).show()
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val picked = DocumentAnalysisClient.describe(requireContext(), uri)
+                Toast.makeText(requireContext(), "Saving ${picked.name} to this chat…", Toast.LENGTH_SHORT).show()
+                selectedDocument = DocumentAnalysisClient.persistForChat(requireContext(), picked)
+                if (_binding != null) {
+                    binding.etMessageInput.hint = "Ask about ${selectedDocument?.name}"
+                    Toast.makeText(requireContext(), "Attached and saved: ${selectedDocument?.name}. Type a question or tap Send.", Toast.LENGTH_LONG).show()
+                }
+            } catch (error: Exception) {
+                selectedDocument = null
+                if (_binding != null) Toast.makeText(requireContext(), "Couldn't save this attachment locally. Please check device storage and try again.", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -137,10 +143,16 @@ class ChatFragment : Fragment() {
                 try {
                     val key = (requireActivity().application as JarvisApp).preferences.apiKey
                     val answer = DocumentAnalysisClient.analyze(requireContext(), document, prompt, key)
-                    JarvisApp.instance.chatRepository.addTurn("📎 ${document.name}\n$prompt", answer)
+                    JarvisApp.instance.chatRepository.addTurn(
+                        "📎 ${document.name}\n$prompt", answer,
+                        document.savedPath, document.name, document.mimeType
+                    )
                 } catch (error: Exception) {
-                    val message = error.message ?: "Couldn't analyze this file."
-                    JarvisApp.instance.chatRepository.addTurn("📎 ${document.name}\n$prompt", "I couldn't analyze this file. $message")
+                    val friendlyMessage = "I couldn't complete the analysis of ${document.name} this time. Please check that the file opens normally, is within the provider's size limits, and that a suitable API key/model is configured in Settings. Your attachment is still saved in this chat, so you can try again."
+                    JarvisApp.instance.chatRepository.addTurn(
+                        "📎 ${document.name}\n$prompt", friendlyMessage,
+                        document.savedPath, document.name, document.mimeType
+                    )
                 } finally {
                     if (_binding != null) binding.btnSendMessage.isEnabled = true
                 }
