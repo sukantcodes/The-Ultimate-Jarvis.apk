@@ -52,6 +52,89 @@ object AiGatewayClient {
             throw IllegalStateException("All configured AI providers failed. Check API keys, model access, quota, and network. ${lastError?.message.orEmpty()}")
         }
 
+    /** Sends an image to a provider with native vision support; text-only providers are skipped. */
+    suspend fun completeImage(
+        context: Context,
+        prompt: String,
+        systemPrompt: String,
+        imageBytes: ByteArray,
+        mimeType: String
+    ): Result = withContext(Dispatchers.IO) {
+        val store = AiGatewayStore(context)
+        val candidates = store.candidates().filter { it == AiGatewayStore.OPENAI || it == AiGatewayStore.ANTHROPIC }
+        if (candidates.isEmpty()) throw IllegalStateException("No configured image-capable provider is available. Add an OpenAI or Claude API key in Settings → API Gateway.")
+        val encoded = android.util.Base64.encodeToString(imageBytes, android.util.Base64.NO_WRAP)
+        var lastError: Exception? = null
+        for (provider in candidates) {
+            val key = store.key(provider)
+            if (key.isBlank()) continue
+            val model = store.model(provider)
+            val start = System.currentTimeMillis()
+            try {
+                val text = when (provider) {
+                    AiGatewayStore.OPENAI -> {
+                        val content = JSONArray()
+                            .put(JSONObject().put("type", "input_text").put("text", prompt))
+                            .put(JSONObject().put("type", "input_image").put("image_url", "data:$mimeType;base64,$encoded"))
+                        val payload = JSONObject()
+                            .put("model", model)
+                            .put("instructions", systemPrompt)
+                            .put("input", JSONArray().put(JSONObject().put("role", "user").put("content", content)))
+                            .put("store", false)
+                        val request = Request.Builder().url("https://api.openai.com/v1/responses")
+                            .header("Authorization", "Bearer $key")
+                            .post(payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build()
+                        http.newCall(request).execute().use { response ->
+                            val body = response.body?.string().orEmpty()
+                            if (!response.isSuccessful) throw IllegalStateException("OpenAI image analysis HTTP ${response.code}: ${errorMessage(body)}")
+                            val json = JSONObject(body)
+                            val direct = json.optString("output_text")
+                            if (direct.isNotBlank()) direct.trim() else {
+                                val output = json.optJSONArray("output") ?: JSONArray()
+                                buildString {
+                                    for (i in 0 until output.length()) {
+                                        val items = output.optJSONObject(i)?.optJSONArray("content") ?: JSONArray()
+                                        for (j in 0 until items.length()) {
+                                            val item = items.optJSONObject(j)
+                                            if (item?.optString("type") == "output_text") append(item.optString("text"))
+                                        }
+                                    }
+                                }.trim()
+                            }
+                        }
+                    }
+                    else -> {
+                        val image = JSONObject().put("type", "image").put("source",
+                            JSONObject().put("type", "base64").put("media_type", mimeType).put("data", encoded))
+                        val messageContent = JSONArray().put(image).put(JSONObject().put("type", "text").put("text", prompt))
+                        val payload = JSONObject().put("model", model).put("max_tokens", 4096)
+                            .put("system", systemPrompt)
+                            .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", messageContent)))
+                        val request = Request.Builder().url("https://api.anthropic.com/v1/messages")
+                            .header("x-api-key", key).header("anthropic-version", "2023-06-01")
+                            .post(payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build()
+                        http.newCall(request).execute().use { response ->
+                            val body = response.body?.string().orEmpty()
+                            if (!response.isSuccessful) throw IllegalStateException("Claude image analysis HTTP ${response.code}: ${errorMessage(body)}")
+                            val blocks = JSONObject(body).optJSONArray("content") ?: JSONArray()
+                            buildString {
+                                for (i in 0 until blocks.length()) {
+                                    val block = blocks.optJSONObject(i)
+                                    if (block?.optString("type") == "text") append(block.optString("text"))
+                                }
+                            }.trim()
+                        }
+                    }
+                }
+                if (text.isBlank()) throw IllegalStateException("The selected AI provider returned no image analysis.")
+                val elapsed = System.currentTimeMillis() - start
+                store.setLatency(provider, elapsed)
+                return@withContext Result(text, provider, model, elapsed)
+            } catch (e: Exception) { lastError = e }
+        }
+        throw IllegalStateException("Configured image-capable providers couldn't analyze this image. Check the model supports vision, API key, quota, and network. ${lastError?.message.orEmpty()}")
+    }
+
     suspend fun listModels(context: Context, provider: String, apiKey: String): List<String> = withContext(Dispatchers.IO) {
         val request = when (provider) {
             AiGatewayStore.OPENAI -> Request.Builder().url("https://api.openai.com/v1/models").header("Authorization", "Bearer $apiKey").get().build()
