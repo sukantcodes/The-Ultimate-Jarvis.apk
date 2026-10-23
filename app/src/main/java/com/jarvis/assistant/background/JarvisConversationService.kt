@@ -765,13 +765,14 @@ class JarvisConversationService : Service() {
         val engineStore = com.jarvis.assistant.security.AiEngineStore(applicationContext)
         val useGroq = engineStore.useGroq
         val apiKey = if (useGroq) engineStore.groqKey().trim() else preferences.apiKey.trim()
-        offlineLocalMode = apiKey.isBlank()
+        offlineLocalMode = apiKey.isBlank() ||
+            !com.jarvis.assistant.offline.OfflineModelDownloader.isInternetAvailable(applicationContext)
         if (offlineLocalMode) {
             val localModel = com.jarvis.assistant.offline.OfflineModelDownloader.modelFile(applicationContext)
             if (!com.jarvis.assistant.offline.OfflineModelDownloader.isModelValid(localModel)) {
                 _liveError.value = JarvisLiveError(
                     title = "OFFLINE BRAIN NOT READY",
-                    message = "No online API key is configured and the local Qwen3 model is not installed. Open Offline JARVIS and download the model once; after that, JARVIS can start without an API key.",
+                    message = "JARVIS selected Offline Brain because the online provider is unavailable or there is no internet connection, but the local Qwen3 model is not installed. Open Offline JARVIS and download the model once.",
                     errorCode = "OFFLINE_MODEL_REQUIRED",
                     actionText = "OPEN OFFLINE JARVIS"
                 )
