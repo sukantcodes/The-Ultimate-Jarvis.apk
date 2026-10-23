@@ -1762,6 +1762,31 @@ class JarvisConversationService : Service() {
             }
         }
 
+        val mediaKeyCode = when {
+            lower.matches(Regex("^(?:pause|pause music|pause playback|stop music|stop playback)$")) -> android.view.KeyEvent.KEYCODE_MEDIA_PAUSE
+            lower.matches(Regex("^(?:resume|resume music|continue music|play music|start playback)$")) -> android.view.KeyEvent.KEYCODE_MEDIA_PLAY
+            lower.matches(Regex("^(?:next|next song|next track|skip song)$")) -> android.view.KeyEvent.KEYCODE_MEDIA_NEXT
+            lower.matches(Regex("^(?:previous|previous song|previous track|back track)$")) -> android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS
+            else -> null
+        }
+        if (mediaKeyCode != null) {
+            return withContext(Dispatchers.Main) {
+                try {
+                    val manager = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+                    manager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, mediaKeyCode))
+                    manager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, mediaKeyCode))
+                    when (mediaKeyCode) {
+                        android.view.KeyEvent.KEYCODE_MEDIA_PAUSE -> "Sent pause to the active music player."
+                        android.view.KeyEvent.KEYCODE_MEDIA_PLAY -> "Sent play to the active music player."
+                        android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> "Skipped to the next track."
+                        else -> "Requested the previous track."
+                    }
+                } catch (error: Exception) {
+                    "I couldn't control the active music player. Make sure a music app is open."
+                }
+            }
+        }
+
         val settingsAction = when {
             lower.matches(Regex("^(?:open|show) (?:the )?(?:device )?settings$")) -> android.provider.Settings.ACTION_SETTINGS
             lower.matches(Regex("^(?:open|show) (?:the )?wi.?fi settings$")) -> android.provider.Settings.ACTION_WIFI_SETTINGS
