@@ -1,6 +1,7 @@
 package com.jarvis.assistant.ui.chat
 
 import android.net.Uri
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -18,6 +19,9 @@ import com.jarvis.assistant.background.JarvisConversationService
 import com.jarvis.assistant.databinding.FragmentChatBinding
 import com.jarvis.assistant.ui.home.MainActivity
 import com.jarvis.assistant.ui.home.MainViewModel
+import com.jarvis.assistant.offline.OfflineLlm
+import com.jarvis.assistant.offline.OfflineModelDownloader
+import com.jarvis.assistant.ui.offline.OfflineModelActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -159,6 +163,29 @@ class ChatFragment : Fragment() {
         }
 
         if (text.isBlank()) return
+        val appContext = requireContext().applicationContext
+        // Offline typed turns use the local model without starting a Gemini Live session.
+        if (!OfflineModelDownloader.isInternetAvailable(appContext)) {
+            val modelFile = OfflineModelDownloader.modelFile(appContext)
+            if (!OfflineModelDownloader.isModelValid(modelFile)) {
+                Toast.makeText(requireContext(), "Internet is unavailable. Download Offline JARVIS while online first.", Toast.LENGTH_LONG).show()
+                startActivity(Intent(requireContext(), OfflineModelActivity::class.java))
+                return
+            }
+            binding.etMessageInput.text?.clear()
+            binding.btnSendMessage.isEnabled = false
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    val answer = OfflineLlm.generate(appContext, text)
+                    JarvisApp.instance.chatRepository.addTurn(text, answer)
+                } catch (error: Exception) {
+                    JarvisApp.instance.chatRepository.addTurn(text, "Offline JARVIS could not start the local model. Open Offline JARVIS in the navigation menu and check model status. (" + (error.message ?: "unknown error") + ")")
+                } finally {
+                    if (_binding != null) binding.btnSendMessage.isEnabled = true
+                }
+            }
+            return
+        }
         if (!JarvisConversationService.isServiceRunning()) {
             (activity as? MainActivity)?.handleMicOrOrbClick()
         }
