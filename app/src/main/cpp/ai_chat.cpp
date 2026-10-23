@@ -28,9 +28,9 @@ constexpr int   N_THREADS_MIN           = 2;
 constexpr int   N_THREADS_MAX           = 4;
 constexpr int   N_THREADS_HEADROOM      = 2;
 
-constexpr int   DEFAULT_CONTEXT_SIZE    = 2048;
+constexpr int   DEFAULT_CONTEXT_SIZE    = 1024;
 constexpr int   OVERFLOW_HEADROOM       = 4;
-constexpr int   BATCH_SIZE              = 256;
+constexpr int   BATCH_SIZE              = 64;
 constexpr float DEFAULT_SAMPLER_TEMP    = 0.3f;
 
 static llama_model                      * g_model;
@@ -462,7 +462,7 @@ Java_com_arm_aichat_internal_InferenceEngineImpl_processUserPrompt(
 
     // Update position
     current_position += user_prompt_size;
-    stop_generation_position = current_position + user_prompt_size + n_predict;
+    stop_generation_position = current_position + n_predict;
     return 0;
 }
 
