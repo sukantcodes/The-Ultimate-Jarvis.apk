@@ -97,7 +97,7 @@ object DocumentAnalysisClient {
             } else {
                 val text = extractText(bytes, extension, mime)
                 userParts.put(JSONObject().put("text",
-                    "FILE CONTENT BEGIN\\n$text\\nFILE CONTENT END"))
+                    "FILE CONTENT BEGIN\n$text\nFILE CONTENT END"))
             }
             val payload = JSONObject().put("contents", JSONArray().put(
                 JSONObject().put("role", "user").put("parts", userParts)
@@ -153,7 +153,7 @@ object DocumentAnalysisClient {
             )
         }
         if (text.isBlank()) throw IllegalArgumentException("No readable text was found in this file. It may be scanned or image-only.")
-        return text.take(MAX_TEXT_CHARS) + if (text.length > MAX_TEXT_CHARS) "\\n\\n[Content truncated to fit the AI request.]" else ""
+        return text.take(MAX_TEXT_CHARS) + if (text.length > MAX_TEXT_CHARS) "\n\n[Content truncated to fit the AI request.]" else ""
     }
 
     private fun extractOfficeXml(bytes: ByteArray): String {
@@ -173,7 +173,7 @@ object DocumentAnalysisClient {
                                 .replace("&quot;", "\"").replace("&apos;", "'"))
                             out.append(' ')
                         }
-                    out.append('\\n')
+                    out.append('\n')
                 }
                 zip.closeEntry()
                 entry = zip.nextEntry
