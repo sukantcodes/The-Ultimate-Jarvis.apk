@@ -642,6 +642,36 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 15b. device_status
+                        put(JSONObject().apply {
+                            put("name", "device_status")
+                            put("description", "Returns live, on-device non-sensitive status such as current time, battery percentage, charging state, Android version, and available memory. Use for questions about current phone status; do not infer or expose private content.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject())
+                            })
+                        })
+
+                        // 15c. clean_jarvis_cache
+                        put(JSONObject().apply {
+                            put("name", "clean_jarvis_cache")
+                            put("description", "Clears only JARVIS's own temporary cache files. It must never claim to clean other apps or personal files. Use only when the user explicitly asks to clean JARVIS cache or temporary files.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject())
+                            })
+                        })
+
+                        // 15d. show_power_menu
+                        put(JSONObject().apply {
+                            put("name", "show_power_menu")
+                            put("description", "Opens Android's system power menu so the user can choose Restart or Power off themselves. This does not reboot automatically and must only be used when the user explicitly asks to restart or power off.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject())
+                            })
+                        })
+
                         // 16. click_ui_element
                         put(JSONObject().apply {
                             put("name", "click_ui_element")
