@@ -14,6 +14,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.util.ThemeManager
+import com.jarvis.assistant.voice.VoiceGender
+import com.jarvis.assistant.voice.VoiceGenderStore
 
 /**
  * Hidden Maya companion settings. The selected mode is stored in the same persistent personality
@@ -21,7 +23,11 @@ import com.jarvis.assistant.util.ThemeManager
  */
 class MayaModeActivity : AppCompatActivity() {
     private val preferences by lazy { JarvisApp.instance.preferences }
-    private var selectedMode = "maya_friendly"
+    private val voiceGenderStore by lazy { VoiceGenderStore(this) }
+    private val mayaState by lazy { getSharedPreferences("jarvis_maya_mode", MODE_PRIVATE) }
+    private var mayaActive = false
+    private var selectedMode = "maya_romantic"
+    private lateinit var activationButton: Button
     private val ink = Color.rgb(245, 242, 250)
     private val muted = Color.rgb(190, 183, 204)
     private val accent = Color.rgb(255, 113, 177)
@@ -34,7 +40,9 @@ class MayaModeActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
-        selectedMode = preferences.personality.takeIf { it.startsWith("maya_") } ?: "maya_friendly"
+        mayaActive = mayaState.getBoolean("active", false)
+        selectedMode = preferences.personality.takeIf { it in setOf("maya_friendly", "maya_romantic", "maya_intense") }
+            ?: "maya_romantic"
         buildScreen()
         refreshSelection()
     }
@@ -131,20 +139,40 @@ class MayaModeActivity : AppCompatActivity() {
         status.setPadding(dp(4), dp(8), dp(4), dp(8))
         content.addView(status)
 
-        val activate = Button(this).apply {
-            text = "ACTIVATE MAYA"
+        activationButton = Button(this).apply {
+            text = if (mayaActive) "DEACTIVATE MAYA" else "ACTIVATE MAYA"
             textSize = 15f
             setTextColor(Color.WHITE)
             background = rounded(accent)
             setPadding(dp(12), dp(8), dp(12), dp(8))
             setOnClickListener {
-                preferences.personality = selectedMode
-                preferences.voice = "Sulafat"
-                Toast.makeText(this@MayaModeActivity, "Maya activated • Maya Premium Voice: Sulafat", Toast.LENGTH_LONG).show()
-                finish()
+                if (mayaActive) {
+                    preferences.personality = mayaState.getString("previous_personality", "assistant") ?: "assistant"
+                    preferences.voice = mayaState.getString("previous_voice", "Kore") ?: "Kore"
+                    voiceGenderStore.gender = VoiceGender.fromKey(mayaState.getString("previous_gender", "unspecified"))
+                    voiceGenderStore.femaleVoice = mayaState.getString("previous_female_voice", "Kore") ?: "Kore"
+                    mayaState.edit().putBoolean("active", false).apply()
+                    mayaActive = false
+                    Toast.makeText(this@MayaModeActivity, "Maya deactivated • previous JARVIS voice restored", Toast.LENGTH_LONG).show()
+                } else {
+                    mayaState.edit()
+                        .putString("previous_personality", preferences.personality)
+                        .putString("previous_voice", preferences.voice)
+                        .putString("previous_gender", voiceGenderStore.gender.key)
+                        .putString("previous_female_voice", voiceGenderStore.femaleVoice)
+                        .putBoolean("active", true)
+                        .apply()
+                    preferences.personality = selectedMode
+                    preferences.voice = "Sulafat"
+                    voiceGenderStore.gender = VoiceGender.FEMALE
+                    voiceGenderStore.femaleVoice = "Sulafat"
+                    mayaActive = true
+                    Toast.makeText(this@MayaModeActivity, "Maya activated • feminine voice: Sulafat", Toast.LENGTH_LONG).show()
+                }
+                refreshSelection()
             }
         }
-        root.addView(activate, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(12) })
+        root.addView(activationButton, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(12) })
         setContentView(root)
         ThemeManager.applyDynamicBackground(root)
     }
@@ -176,8 +204,11 @@ class MayaModeActivity : AppCompatActivity() {
             card.background = rounded(if (chosen) Color.rgb(63, 35, 62) else panel, if (chosen) accent else Color.rgb(73, 61, 84))
             card.alpha = if (chosen) 1f else 0.88f
         }
+        if (::activationButton.isInitialized) {
+            activationButton.text = if (mayaActive) "DEACTIVATE MAYA" else "ACTIVATE MAYA"
+        }
         if (::status.isInitialized) {
-            status.text = when (selectedMode) {
+            status.text = (if (mayaActive) "MAYA ACTIVE • FEMININE VOICE • " else "MAYA INACTIVE • ") + when (selectedMode) {
                 "maya_romantic" -> "Selected: Romantic • affectionate, playful, non-explicit"
                 "maya_intense" -> "Selected: Intense • expressive, wholesome, non-explicit"
                 else -> "Selected: Friendly • close friend, no romance"
