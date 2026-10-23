@@ -2,6 +2,7 @@ package com.jarvis.assistant.data.repository
 
 import com.jarvis.assistant.data.model.ChatTurn
 import com.jarvis.assistant.data.preferences.AppPreferences
+import java.io.File
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,37 +17,45 @@ class ChatRepository(private val preferences: AppPreferences) {
     }
 
     @Synchronized
-    fun addTurn(userText: String, jarvisText: String) {
+    fun addTurn(
+        userText: String,
+        jarvisText: String,
+        attachmentPath: String? = null,
+        attachmentName: String? = null,
+        attachmentMimeType: String? = null
+    ) {
         val cleanUser = userText.trim()
         val cleanJarvis = jarvisText.trim()
-
         if (cleanUser.isEmpty() && cleanJarvis.isEmpty()) return
 
         val currentList = _turns.value.toMutableList()
-
         if (currentList.isNotEmpty()) {
             val last = currentList.last()
-            if (last.userTranscript == cleanUser && last.jarvisResponse == cleanJarvis) {
-                return
-            }
+            if (last.userTranscript == cleanUser && last.jarvisResponse == cleanJarvis &&
+                last.attachmentPath == attachmentPath) return
         }
 
-        val newTurn = ChatTurn(
-            userTranscript = cleanUser.ifEmpty { "(Audio query)" },
-            jarvisResponse = cleanJarvis.ifEmpty { "(Audio response)" }
+        currentList.add(
+            ChatTurn(
+                userTranscript = cleanUser.ifEmpty { "(Audio query)" },
+                jarvisResponse = cleanJarvis.ifEmpty { "(Audio response)" },
+                attachmentPath = attachmentPath,
+                attachmentName = attachmentName,
+                attachmentMimeType = attachmentMimeType
+            )
         )
-
-        currentList.add(newTurn)
-        if (currentList.size > 100) {
-            currentList.removeAt(0)
-        }
-
+        // Chat history is persisted locally; don't silently discard older conversations at 100 turns.
         _turns.value = currentList
         preferences.saveChatHistory(currentList)
     }
 
     @Synchronized
     fun clearHistory() {
+        _turns.value.forEach { turn ->
+            turn.attachmentPath?.let { path ->
+                try { File(path).delete() } catch (_: Exception) { }
+            }
+        }
         _turns.value = emptyList()
         preferences.clearChatHistory()
     }
