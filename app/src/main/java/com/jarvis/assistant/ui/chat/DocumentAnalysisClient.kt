@@ -24,7 +24,7 @@ import java.util.zip.ZipInputStream
  * the app does not scan the user's storage.
  */
 object DocumentAnalysisClient {
-    private const val MAX_FILE_BYTES = 18 * 1024 * 1024
+    private const val MAX_FILE_BYTES = 14 * 1024 * 1024
     private const val MAX_TEXT_CHARS = 90000
     private val http = OkHttpClient.Builder()
         .callTimeout(120, TimeUnit.SECONDS)
@@ -67,13 +67,25 @@ object DocumentAnalysisClient {
 
             val inlineMime = when {
                 extension == "pdf" || mime == "application/pdf" -> "application/pdf"
-                mime.startsWith("image/") -> mime
+                mime.startsWith("image/") || mime.startsWith("audio/") || mime.startsWith("video/") -> mime
                 extension in listOf("png", "jpg", "jpeg", "webp", "gif") -> when (extension) {
                     "png" -> "image/png"
                     "webp" -> "image/webp"
                     "gif" -> "image/gif"
                     else -> "image/jpeg"
                 }
+                extension in listOf("mp3", "wav", "m4a", "aac", "ogg", "flac", "mp4", "mov", "webm") ->
+                    when (extension) {
+                        "mp3" -> "audio/mpeg"
+                        "wav" -> "audio/wav"
+                        "m4a" -> "audio/mp4"
+                        "aac" -> "audio/aac"
+                        "ogg" -> "audio/ogg"
+                        "flac" -> "audio/flac"
+                        "mov" -> "video/quicktime"
+                        "webm" -> "video/webm"
+                        else -> "video/mp4"
+                    }
                 else -> null
             }
             val userParts = JSONArray()
@@ -120,7 +132,7 @@ object DocumentAnalysisClient {
             val count = input.read(buffer)
             if (count < 0) break
             total += count
-            if (total > MAX_FILE_BYTES) throw IllegalArgumentException("This file is larger than 18 MB. Please choose a smaller copy.")
+            if (total > MAX_FILE_BYTES) throw IllegalArgumentException("This file is larger than 14 MB. Please choose a smaller copy.")
             output.write(buffer, 0, count)
         }
         return output.toByteArray()
@@ -137,7 +149,7 @@ object DocumentAnalysisClient {
             bytes.toString(Charsets.UTF_8)
         } else {
             throw IllegalArgumentException(
-                "This file type isn't text-extractable yet. Jarvis currently supports PDF, common images, text, code, CSV/JSON/XML/HTML, and Office Open XML files (DOCX/XLSX/PPTX)."
+                "This file type isn't text-extractable yet. Jarvis currently supports PDF, common images, audio/video clips, text, code, CSV/JSON/XML/HTML, and Office Open XML files (DOCX/XLSX/PPTX)."
             )
         }
         if (text.isBlank()) throw IllegalArgumentException("No readable text was found in this file. It may be scanned or image-only.")
