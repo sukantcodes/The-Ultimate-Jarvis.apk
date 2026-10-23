@@ -39,11 +39,24 @@ static common_batch                       g_batch;
 static common_chat_templates_ptr          g_chat_templates;
 static common_sampler                   * g_sampler;
 
+// Preserve llama.cpp errors so Android can show useful model-load diagnostics.
+static std::string g_last_native_error;
+static void aichat_capture_log(enum ggml_log_level level, const char * text, void * user_data) {
+    aichat_android_log_callback(level, text, user_data);
+    if (level == GGML_LOG_LEVEL_ERROR && text != nullptr) {
+        g_last_native_error.append(text);
+        if (g_last_native_error.size() > 1600) {
+            g_last_native_error.erase(0, g_last_native_error.size() - 1600);
+        }
+    }
+}
+
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_arm_aichat_internal_InferenceEngineImpl_init(JNIEnv *env, jobject /*unused*/, jstring nativeLibDir) {
     // Set llama log handler to Android
-    llama_log_set(aichat_android_log_callback, nullptr);
+    g_last_native_error.clear();
+    llama_log_set(aichat_capture_log, nullptr);
 
     // Loading all CPU backend variants
     const auto *path_to_backend = env->GetStringUTFChars(nativeLibDir, 0);
@@ -54,6 +67,14 @@ Java_com_arm_aichat_internal_InferenceEngineImpl_init(JNIEnv *env, jobject /*unu
     // Initialize backends
     llama_backend_init();
     LOGi("Backend initiated; Log handler set.");
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_arm_aichat_internal_InferenceEngineImpl_takeLastNativeError(JNIEnv *env, jobject /*unused*/) {
+    jstring result = env->NewStringUTF(g_last_native_error.c_str());
+    g_last_native_error.clear();
+    return result;
 }
 
 extern "C"
