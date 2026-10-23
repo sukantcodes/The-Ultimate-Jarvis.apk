@@ -11,6 +11,7 @@
             <item android:id="@+id/drawerAutomation" android:icon="@drawable/ic_settings_automation" android:title="Automation Studio" />
             <item android:id="@+id/drawerMemories" android:icon="@drawable/ic_settings_db" android:title="Memories" />
             <item android:id="@+id/drawerScreenShare" android:icon="@drawable/ic_settings_apps" android:title="Screen Share" />
+            <item android:id="@+id/drawerOfflineJarvis" android:icon="@drawable/ic_settings_db" android:title="Offline JARVIS" />
         </menu>
     </item>
 </menu>
