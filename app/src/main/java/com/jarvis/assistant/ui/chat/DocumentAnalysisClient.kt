@@ -5,6 +5,8 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Base64
+import com.jarvis.assistant.network.AiGatewayClient
+import com.jarvis.assistant.security.AiGatewayStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -88,6 +90,19 @@ object DocumentAnalysisClient {
                     }
                 else -> null
             }
+            // Route text/code/Office documents through the configured gateway when available.
+            // Inline multimodal content (PDF/image/audio/video) stays on Gemini until a provider-specific
+            // file adapter is available, so the app never sends unsupported payloads to another API.
+            if (inlineMime == null && AiGatewayStore(context).candidates().isNotEmpty()) {
+                val extracted = extractText(bytes, extension, mime)
+                val result = AiGatewayClient.complete(
+                    context,
+                    "$basePrompt\\n\\nFILE CONTENT BEGIN\\n$extracted\\nFILE CONTENT END",
+                    "You are Jarvis, analyzing a user-selected file. Be accurate, cite details from the supplied content, and do not execute code or macros."
+                )
+                return@withContext result.text + "\\n\\n— ${AiGatewayStore.label(result.provider)} · ${result.latencyMs} ms"
+            }
+
             val userParts = JSONArray()
             userParts.put(JSONObject().put("text", basePrompt))
             if (inlineMime != null) {

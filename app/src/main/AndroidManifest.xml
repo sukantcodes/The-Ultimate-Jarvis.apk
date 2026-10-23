@@ -98,6 +98,12 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.settings.ApiGatewayActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".ui.settings.ApiConnectionActivity"
             android:exported="false"
             android:screenOrientation="portrait"
