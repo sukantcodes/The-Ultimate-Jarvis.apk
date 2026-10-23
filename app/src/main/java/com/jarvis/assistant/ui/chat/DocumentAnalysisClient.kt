@@ -5,8 +5,6 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Base64
-import com.jarvis.assistant.network.AiGatewayClient
-import com.jarvis.assistant.security.AiGatewayStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -17,6 +15,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
+import java.io.File
+import java.io.FileInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
@@ -74,7 +74,12 @@ object DocumentAnalysisClient {
 
     suspend fun analyze(context: Context, document: SelectedDocument, prompt: String, apiKey: String): String =
         withContext(Dispatchers.IO) {
-            val bytes = context.contentResolver.openInputStream(document.uri)?.use { readLimited(it) }
+            val input = if (document.uri.scheme == "file") {
+                document.uri.path?.let { FileInputStream(File(it)) }
+            } else {
+                context.contentResolver.openInputStream(document.uri)
+            }
+            val bytes = input?.use { readLimited(it) }
                 ?: throw IllegalArgumentException("Jarvis couldn't open this file. Try selecting it again.")
             val extension = document.name.substringAfterLast('.', "").lowercase(Locale.ROOT)
             val mime = document.mimeType.lowercase(Locale.ROOT)
@@ -111,35 +116,8 @@ object DocumentAnalysisClient {
                     }
                 else -> null
             }
-            // Route text/code/Office documents through the configured gateway when available.
-            // Inline multimodal content (PDF/image/audio/video) stays on Gemini until a provider-specific
-            // file adapter is available, so the app never sends unsupported payloads to another API.
-            if (inlineMime == null && AiGatewayStore(context).candidates().isNotEmpty()) {
-                val extracted = extractText(bytes, extension, mime)
-                val result = AiGatewayClient.complete(
-                    context,
-                    "$basePrompt\n\nFILE CONTENT BEGIN\n$extracted\nFILE CONTENT END",
-                    "You are Jarvis, analyzing a user-selected file. Be accurate, cite details from the supplied content, and do not execute code or macros."
-                )
-                return@withContext result.text + "\n\n— ${AiGatewayStore.label(result.provider)} · ${result.latencyMs} ms"
-            }
-
-            if (inlineMime?.startsWith("image/") == true && apiKey.isBlank()) {
-                val gatewayResult = AiGatewayClient.completeImage(
-                    context, basePrompt, "You are Jarvis, an accurate visual assistant. Describe only what is visible and answer the user's question.",
-                    bytes, inlineMime
-                )
-                return@withContext gatewayResult.text + "\n\n— ${AiGatewayStore.label(gatewayResult.provider)} · ${gatewayResult.latencyMs} ms"
-            }
-            if (inlineMime == "application/pdf" && apiKey.isBlank()) {
-                val gatewayResult = AiGatewayClient.completePdf(
-                    context, basePrompt, "You are Jarvis, accurately analyzing the attached PDF. Do not invent missing content.",
-                    bytes, document.name
-                )
-                return@withContext gatewayResult.text + "\n\n— ${AiGatewayStore.label(gatewayResult.provider)} · ${gatewayResult.latencyMs} ms"
-            }
             if (apiKey.isBlank()) {
-                throw IllegalStateException("No suitable AI key is configured for this file type. Add Gemini for PDF/audio/video, or an OpenAI/Claude key for images and text files in Settings.")
+                throw IllegalStateException("Add your Gemini API key in Jarvis Settings first.")
             }
 
             val userParts = JSONArray()
@@ -178,26 +156,10 @@ object DocumentAnalysisClient {
                     answer
                 }
             } catch (error: Exception) {
-                if (AiGatewayStore(context).candidates().isNotEmpty() &&
-                    (inlineMime?.startsWith("image/") == true || inlineMime == "application/pdf")) {
-                    val fallback = if (inlineMime == "application/pdf") {
-                        AiGatewayClient.completePdf(
-                            context, basePrompt, "You are Jarvis, accurately analyzing the attached PDF. Do not invent missing content.",
-                            bytes, document.name
-                        )
-                    } else {
-                        AiGatewayClient.completeImage(
-                            context, basePrompt, "You are Jarvis, an accurate visual assistant. Describe only what is visible and answer the user's question.",
-                            bytes, inlineMime!!
-                        )
-                    }
-                    fallback.text + "\n\n— ${AiGatewayStore.label(fallback.provider)} · ${fallback.latencyMs} ms"
-                } else {
-                    throw IllegalStateException(
-                        "Jarvis couldn't finish analyzing this file. Check the file is readable and your API key has access to the required model. ${error.message.orEmpty()}",
-                        error
-                    )
-                }
+                throw IllegalStateException(
+                    "Jarvis couldn't finish analyzing this file. Check that it is readable and your Gemini API key has access to the required model. ${error.message.orEmpty()}",
+                    error
+                )
             }
         }
 
