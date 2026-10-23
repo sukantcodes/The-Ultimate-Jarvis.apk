@@ -309,7 +309,7 @@ class SettingsFragment : Fragment() {
 
     private fun setupAiSection() {
         binding.rowAiEngine.setOnClickListener { showAiEngineDialog() }
-        binding.rowApiConnection.setOnClickListener { open(ApiGatewayActivity::class.java) }
+        binding.rowApiConnection.setOnClickListener { open(ApiConnectionActivity::class.java) }
         binding.rowLanguage.setOnClickListener { showLanguageDialog() }
         binding.rowPersonaVoice.setOnClickListener { open(PersonaActivity::class.java) }
 
