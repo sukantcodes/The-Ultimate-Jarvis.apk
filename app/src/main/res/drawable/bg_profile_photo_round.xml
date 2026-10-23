@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Rounded, theme-coordinated photo mask. The photo is clipped to these 22dp corners. -->
+<!-- Rounded, theme-coordinated photo mask. The photo is clipped to these 24dp corners. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <corners android:radius="22dp" />
+    <corners android:radius="24dp" />
     <gradient
         android:angle="135"
         android:startColor="?attr/themeCardGlassStart"
