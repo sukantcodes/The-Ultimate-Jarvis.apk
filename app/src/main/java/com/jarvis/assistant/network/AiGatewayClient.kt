@@ -31,7 +31,7 @@ object AiGatewayClient {
             for (provider in candidates) {
                 val key = store.key(provider)
                 if (key.isBlank()) continue
-                val model = store.model(provider)
+                val model = resolveModel(context, store, provider, key)
                 val start = System.currentTimeMillis()
                 try {
                     val text = when (provider) {
@@ -211,6 +211,16 @@ object AiGatewayClient {
             } catch (e: Exception) { lastError = e }
         }
         throw IllegalStateException("Configured providers couldn't analyze this PDF. Check PDF support, model access, API quota, and network. ${lastError?.message.orEmpty()}")
+    }
+
+    private suspend fun resolveModel(context: Context, store: AiGatewayStore, provider: String, key: String): String {
+        val configured = store.model(provider)
+        return try {
+            val available = listModels(context, provider, key)
+            if (configured in available) configured else fastestSuggestedModel(provider, available)
+        } catch (_: Exception) {
+            configured
+        }
     }
 
     suspend fun listModels(context: Context, provider: String, apiKey: String): List<String> = withContext(Dispatchers.IO) {
