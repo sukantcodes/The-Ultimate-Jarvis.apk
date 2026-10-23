@@ -15,6 +15,7 @@ internal class InferenceEngineImpl private constructor(context:Context){
  private var loadedPath:String?=null
  private external fun init(nativeLibDir:String)
  private external fun load(modelPath:String):Int
+ private external fun takeLastNativeError():String
  private external fun prepare():Int
  private external fun systemInfo():String
  private external fun benchModel(pp:Int,tg:Int,pl:Int,nr:Int):String
@@ -39,7 +40,11 @@ internal class InferenceEngineImpl private constructor(context:Context){
   val path=model.absolutePath;if(loadedPath==path)return
   if(!initialized){System.loadLibrary("ai-chat");init(app.applicationInfo.nativeLibraryDir);initialized=true}
   if(loadedPath!=null){unload();loadedPath=null}
-  check(load(path)==0){"llama.cpp could not load the Qwen3 model on this device."}
+  val loadResult=load(path)
+  if(loadResult!=0){
+   val detail=takeLastNativeError().trim().take(900)
+   throw IllegalStateException(if(detail.isNotBlank()) "llama.cpp could not load Qwen3. Native diagnostic: $detail" else "llama.cpp could not load Qwen3. The native loader returned no detailed error; check model integrity and available memory.")
+  }
   check(prepare()==0){"Not enough available memory to initialize the model. Close other apps and retry."}
   check(processSystemPrompt("You are JARVIS, a helpful offline Android assistant. Reply naturally in the user's language, including Hinglish and English. Be concise and honest. You have no internet access; do not claim to know live news, weather, or current online information. Never claim to perform a phone action unless the app actually performed it.")==0){"Could not initialize the offline assistant prompt."}
   loadedPath=path
