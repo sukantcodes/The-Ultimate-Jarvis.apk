@@ -117,8 +117,12 @@
                     android:gravity="center_vertical">
 
                     <FrameLayout
-                        android:layout_width="56dp"
-                        android:layout_height="56dp">
+                        android:layout_width="60dp"
+                        android:layout_height="60dp"
+                        android:background="@drawable/bg_profile_photo_frame"
+                        android:padding="2dp"
+                        android:elevation="5dp"
+                        android:clipToOutline="true">
 
                         <ImageView
                             android:id="@+id/ivProfileAvatar"
