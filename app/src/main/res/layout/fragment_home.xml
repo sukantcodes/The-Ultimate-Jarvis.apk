@@ -16,8 +16,8 @@
     <FrameLayout
         android:id="@+id/orbContainer"
         android:layout_width="0dp"
-        android:layout_height="320dp"
-        android:layout_marginTop="58dp"
+        android:layout_height="350dp"
+        android:layout_marginTop="32dp"
         android:clipChildren="false"
         android:clipToPadding="false"
         app:layout_constraintTop_toBottomOf="@id/layoutTitle"
@@ -26,8 +26,8 @@
 
         <View
             android:id="@+id/orbHaloRing"
-            android:layout_width="320dp"
-            android:layout_height="320dp"
+            android:layout_width="350dp"
+            android:layout_height="350dp"
             android:layout_gravity="center"
             android:background="@drawable/bg_jarvis_orb_halo" />
 
