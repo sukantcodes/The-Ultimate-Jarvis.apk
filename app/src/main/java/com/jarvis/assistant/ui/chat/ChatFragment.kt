@@ -159,16 +159,16 @@ class ChatFragment : Fragment() {
             binding.btnSendMessage.isEnabled = false
             viewLifecycleOwner.lifecycleScope.launch {
                 try {
-                    val history = JarvisApp.instance.chatRepository.turns.value.takeLast(6).joinToString("\\n") {
-                        "User: ${it.userTranscript}\\nJarvis: ${it.jarvisResponse}"
+                    val history = JarvisApp.instance.chatRepository.turns.value.takeLast(6).joinToString("\n") {
+                        "User: ${it.userTranscript}\nJarvis: ${it.jarvisResponse}"
                     }
-                    val prompt = if (history.isBlank()) text else "Recent conversation:\\n$history\\n\\nCurrent user request: $text"
+                    val prompt = if (history.isBlank()) text else "Recent conversation:\n$history\n\nCurrent user request: $text"
                     val result = AiGatewayClient.complete(
                         requireContext(),
                         prompt,
                         "You are Jarvis, the user's Android AI assistant. Answer naturally and accurately. For requests requiring direct phone control, explain that device actions are handled by Jarvis's live assistant mode."
                     )
-                    JarvisApp.instance.chatRepository.addTurn(text, result.text + "\\n\\n— ${AiGatewayStore.label(result.provider)} · ${result.latencyMs} ms")
+                    JarvisApp.instance.chatRepository.addTurn(text, result.text + "\n\n— ${AiGatewayStore.label(result.provider)} · ${result.latencyMs} ms")
                 } catch (error: Exception) {
                     JarvisApp.instance.chatRepository.addTurn(text, "AI Gateway error: ${error.message ?: "No configured provider responded."}")
                 } finally {

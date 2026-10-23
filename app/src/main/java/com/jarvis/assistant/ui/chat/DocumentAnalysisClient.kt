@@ -97,10 +97,10 @@ object DocumentAnalysisClient {
                 val extracted = extractText(bytes, extension, mime)
                 val result = AiGatewayClient.complete(
                     context,
-                    "$basePrompt\\n\\nFILE CONTENT BEGIN\\n$extracted\\nFILE CONTENT END",
+                    "$basePrompt\n\nFILE CONTENT BEGIN\n$extracted\nFILE CONTENT END",
                     "You are Jarvis, analyzing a user-selected file. Be accurate, cite details from the supplied content, and do not execute code or macros."
                 )
-                return@withContext result.text + "\\n\\n— ${AiGatewayStore.label(result.provider)} · ${result.latencyMs} ms"
+                return@withContext result.text + "\n\n— ${AiGatewayStore.label(result.provider)} · ${result.latencyMs} ms"
             }
 
             val userParts = JSONArray()

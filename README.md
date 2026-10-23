@@ -91,3 +91,7 @@ The certificate fingerprint must be calculated from the same key used to sign th
 - `local.properties` is local-only; start from `local.properties.example` when setting up a new machine.
 - Screen sharing and accessibility automation require explicit Android user consent and permissions.
 - Bundled Vosk model assets are runtime dependencies; do not remove or rename their directories without updating the model-loading code.
+
+## AI API Gateway
+
+The Google branch includes a configurable text API gateway for OpenAI, Anthropic/Claude, and DeepSeek. Provider credentials are stored with Android encrypted preferences. The gateway can discover models available to the supplied key, suggest a low-latency model, remember measured response latency, and fall back to another configured provider after a request error. General text chat and text/code/Office document analysis can use this gateway; live voice sessions, phone-control tools, and inline PDF/image/audio/video analysis continue through the existing Gemini/Groq paths until provider-specific tool and multimodal adapters are implemented.

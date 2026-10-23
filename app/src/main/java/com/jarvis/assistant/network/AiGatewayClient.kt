@@ -55,7 +55,7 @@ object AiGatewayClient {
     suspend fun listModels(context: Context, provider: String, apiKey: String): List<String> = withContext(Dispatchers.IO) {
         val request = when (provider) {
             AiGatewayStore.OPENAI -> Request.Builder().url("https://api.openai.com/v1/models").header("Authorization", "Bearer $apiKey").get().build()
-            AiGatewayStore.ANTHROPIC -> Request.Builder().url("https://api.anthropic.com/v1/models?limit=1000").header("x-api-key", apiKey).header("anthropic-version", "2023-06-01").get().build()
+            AiGatewayStore.ANTHROPIC -> Request.Builder().url("https://api.anthropic.com/v1/models?limit=1000").header("x-api-key", apiKey).header("anthropic-version", "2026-10-21").get().build()
             AiGatewayStore.DEEPSEEK -> Request.Builder().url("https://api.deepseek.com/models").header("Authorization", "Bearer $apiKey").get().build()
             else -> return@withContext emptyList()
         }
@@ -89,11 +89,31 @@ object AiGatewayClient {
     }
 
     private fun openAi(key: String, model: String, prompt: String, system: String): String {
-        val messages = JSONArray()
-            .put(JSONObject().put("role", "system").put("content", system))
-            .put(JSONObject().put("role", "user").put("content", prompt))
-        val payload = JSONObject().put("model", model).put("messages", messages).put("stream", false)
-        return post("https://api.openai.com/v1/chat/completions", key, payload, "openai")
+        val payload = JSONObject()
+            .put("model", model)
+            .put("instructions", system)
+            .put("input", prompt)
+            .put("store", false)
+        val request = Request.Builder().url("https://api.openai.com/v1/responses")
+            .header("Authorization", "Bearer $key")
+            .post(payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build()
+        http.newCall(request).execute().use { response ->
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw IllegalStateException("OpenAI API HTTP ${response.code}: ${errorMessage(body)}")
+            val json = JSONObject(body)
+            val direct = json.optString("output_text")
+            if (direct.isNotBlank()) return direct.trim()
+            val output = json.optJSONArray("output") ?: JSONArray()
+            buildString {
+                for (i in 0 until output.length()) {
+                    val content = output.optJSONObject(i)?.optJSONArray("content") ?: JSONArray()
+                    for (j in 0 until content.length()) {
+                        val item = content.optJSONObject(j)
+                        if (item?.optString("type") == "output_text") append(item.optString("text"))
+                    }
+                }
+            }.trim()
+        }
     }
 
     private fun deepSeek(key: String, model: String, prompt: String, system: String): String {
@@ -111,7 +131,7 @@ object AiGatewayClient {
             .put("system", system)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", prompt)))
         val request = Request.Builder().url("https://api.anthropic.com/v1/messages")
-            .header("x-api-key", key).header("anthropic-version", "2023-06-01")
+            .header("x-api-key", key).header("anthropic-version", "2026-10-21")
             .post(payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build()
         http.newCall(request).execute().use { response ->
             val body = response.body?.string().orEmpty()

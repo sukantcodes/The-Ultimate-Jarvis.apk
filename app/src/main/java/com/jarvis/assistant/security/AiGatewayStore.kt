@@ -57,7 +57,7 @@ class AiGatewayStore(context: Context) {
         val configured = listOf(OPENAI, ANTHROPIC, DEEPSEEK).filter { hasKey(it) }
         if (configured.isEmpty()) return emptyList()
         if (provider != AUTO && provider in configured) return listOf(provider) + configured.filter { it != provider }
-        return configured.sortedBy { latency(it) }
+        return if (autoFastest) configured.sortedBy { latency(it) } else configured
     }
 
     companion object {
