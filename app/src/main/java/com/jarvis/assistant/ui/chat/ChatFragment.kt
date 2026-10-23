@@ -164,11 +164,14 @@ class ChatFragment : Fragment() {
 
         if (text.isBlank()) return
         val appContext = requireContext().applicationContext
-        // Offline typed turns use the local model without starting a Gemini Live session.
-        if (!OfflineModelDownloader.isInternetAvailable(appContext)) {
+        // Prefer the local brain whenever the selected online provider has no key,
+        // or the device has no internet. The offline model never needs a cloud API key.
+        val engineStore = com.jarvis.assistant.security.AiEngineStore(appContext)
+        val selectedProviderHasKey = if (engineStore.useGroq) engineStore.hasGroqKey() else JarvisApp.instance.preferences.apiKey.isNotBlank()
+        if (!selectedProviderHasKey || !OfflineModelDownloader.isInternetAvailable(appContext)) {
             val modelFile = OfflineModelDownloader.modelFile(appContext)
             if (!OfflineModelDownloader.isModelValid(modelFile)) {
-                Toast.makeText(requireContext(), "Internet is unavailable. Download Offline JARVIS while online first.", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "Offline Brain needs its model downloaded once. Open Offline JARVIS to download it; no API key is required.", Toast.LENGTH_LONG).show()
                 startActivity(Intent(requireContext(), OfflineModelActivity::class.java))
                 return
             }
