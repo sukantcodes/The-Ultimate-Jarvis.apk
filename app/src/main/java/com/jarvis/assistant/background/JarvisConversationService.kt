@@ -1516,9 +1516,9 @@ class JarvisConversationService : Service() {
                         hasSpeechInCurrentUtterance = true
                         hasSignalledUtteranceEnd = false
                         totalVoicedFramesInCurrentUtterance++
-                        // EARLY VOICE VERIFICATION: Verify owner as soon as we have enough voiced audio (300ms)
+                        // EARLY VOICE VERIFICATION: wait for ~800ms of voiced audio for a more stable speaker embedding
                         // This ensures verification completes BEFORE Gemini starts sending response audio
-                        if (!isCurrentTurnOwnerVoiceVerified && ownerVoiceGateOn() && totalVoicedFramesInCurrentUtterance == 15) {
+                        if (!isCurrentTurnOwnerVoiceVerified && ownerVoiceGateOn() && totalVoicedFramesInCurrentUtterance == 40) {
                             val audioSnapshot = synchronized(currentUtteranceAudioStream) { currentUtteranceAudioStream.toByteArray() }
                             if (audioSnapshot.size >= 16000 * 2 * 0.25) {
                                 serviceScope.launch(Dispatchers.Default) {
