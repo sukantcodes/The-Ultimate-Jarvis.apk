@@ -136,7 +136,7 @@ class SettingsFragment : Fragment() {
         setupAppearanceSection()
         setupAboutSection()
         applyLiquidGlassStrength(binding.root)
-        applyThemeAdaptiveIconColors(binding.root)
+        applyDimensionalIconColors(binding.root)
 
         refreshState()
     }
@@ -145,46 +145,56 @@ class SettingsFragment : Fragment() {
      * Give each Settings option a dimensional icon tint derived from the currently selected
      * app accent. Small hue shifts keep icons distinct while making every palette follow themes.
      */
-    private fun applyThemeAdaptiveIconColors(root: View) {
-        val resolvedAccent = TypedValue()
-        if (!requireContext().theme.resolveAttribute(R.attr.themeAccent, resolvedAccent, true)) return
-
-        val accentHsv = FloatArray(3)
-        Color.colorToHSV(resolvedAccent.data, accentHsv)
+    /**
+     * Give every Settings option its own dimensional, jewel-toned icon tile.
+     * A bright upper gradient, crisp edge and lower shadow create a raised 3D-glass look.
+     */
+    private fun applyDimensionalIconColors(root: View) {
+        val palette = intArrayOf(
+            Color.parseColor("#21B8F3"), Color.parseColor("#9B7BFF"),
+            Color.parseColor("#22C995"), Color.parseColor("#F064B8"),
+            Color.parseColor("#F6B93B"), Color.parseColor("#FF647C"),
+            Color.parseColor("#3D82F6"), Color.parseColor("#17B7A4"),
+            Color.parseColor("#8B72F8"), Color.parseColor("#E879F9"),
+            Color.parseColor("#F97352"), Color.parseColor("#38BDF8"),
+            Color.parseColor("#F59E0B"), Color.parseColor("#A3D635"),
+            Color.parseColor("#FB7185"), Color.parseColor("#FBBF24"),
+            Color.parseColor("#2DD4BF"), Color.parseColor("#60A5FA"),
+            Color.parseColor("#F472B6"), Color.parseColor("#34D399"),
+            Color.parseColor("#818CF8"), Color.parseColor("#FB923C"),
+            Color.parseColor("#4ADE80"), Color.parseColor("#A78BFA")
+        )
         var iconIndex = 0
 
         fun visit(view: View) {
             if (view !is ViewGroup) return
-
             if (view.childCount > 0 && view.getChildAt(0) is android.widget.FrameLayout) {
                 val iconBox = view.getChildAt(0) as android.widget.FrameLayout
                 val width = iconBox.layoutParams?.width ?: 0
-                val isSettingsIconSize = width in dp(36)..dp(44)
+                val height = iconBox.layoutParams?.height ?: 0
+                val isSettingsIconSize = width in dp(36)..dp(44) && height in dp(36)..dp(44)
                 if (isSettingsIconSize && iconBox.childCount > 0 &&
                     iconBox.getChildAt(0) is android.widget.ImageView
                 ) {
-                    val hsv = accentHsv.clone()
-                    val hueShift = ((iconIndex % 7) - 3) * 8f
-                    hsv[0] = (hsv[0] + hueShift + 360f) % 360f
-                    hsv[1] = (accentHsv[1] * 0.72f + 0.22f).coerceIn(0.55f, 0.95f)
-                    hsv[2] = accentHsv[2].coerceIn(0.72f, 1f)
-                    val tint = Color.HSVToColor(hsv)
-                    val lighter = hsv.clone().apply {
-                        this[1] = (this[1] * 0.72f).coerceIn(0.25f, 0.75f)
+                    val tint = palette[iconIndex % palette.size]
+                    val hsv = FloatArray(3)
+                    Color.colorToHSV(tint, hsv)
+                    val highlight = hsv.clone().apply {
+                        this[1] = (this[1] * 0.55f).coerceIn(0.18f, 0.65f)
                         this[2] = 1f
                     }
-                    val darker = hsv.clone().apply {
-                        this[1] = (this[1] * 1.12f).coerceIn(0.55f, 1f)
-                        this[2] = (this[2] * 0.48f).coerceIn(0.22f, 0.55f)
+                    val shadow = hsv.clone().apply {
+                        this[2] = (this[2] * 0.42f).coerceIn(0.18f, 0.48f)
                     }
                     iconBox.background = GradientDrawable(
                         GradientDrawable.Orientation.TL_BR,
-                        intArrayOf(Color.HSVToColor(lighter), tint, Color.HSVToColor(darker))
+                        intArrayOf(Color.HSVToColor(highlight), tint, Color.HSVToColor(shadow))
                     ).apply {
-                        cornerRadius = dp(12).toFloat()
-                        setStroke(dp(1), (tint and 0x00FFFFFF) or 0x66000000)
+                        cornerRadius = dp(13).toFloat()
+                        setStroke(dp(1), (tint and 0x00FFFFFF) or 0x77000000)
                     }
-                    iconBox.elevation = dp(5).toFloat()
+                    iconBox.elevation = dp(6).toFloat()
+                    iconBox.translationZ = dp(1).toFloat()
                     iconBox.clipToOutline = true
                     (iconBox.getChildAt(0) as android.widget.ImageView).apply {
                         imageTintList = ColorStateList.valueOf(Color.WHITE)
@@ -193,10 +203,8 @@ class SettingsFragment : Fragment() {
                     iconIndex++
                 }
             }
-
             for (index in 0 until view.childCount) visit(view.getChildAt(index))
         }
-
         visit(root)
     }
 
@@ -215,7 +223,7 @@ class SettingsFragment : Fragment() {
         super.onResume()
         if (_binding != null) {
             ThemeManager.applyDynamicBackground(binding.root)
-            applyThemeAdaptiveIconColors(binding.root)
+            applyDimensionalIconColors(binding.root)
             refreshState()
         }
     }
