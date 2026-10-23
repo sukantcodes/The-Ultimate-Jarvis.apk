@@ -17,6 +17,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipInputStream
@@ -34,7 +36,27 @@ object DocumentAnalysisClient {
         .readTimeout(120, TimeUnit.SECONDS)
         .build()
 
-    data class SelectedDocument(val uri: Uri, val name: String, val mimeType: String)
+    data class SelectedDocument(val uri: Uri, val name: String, val mimeType: String, val savedPath: String? = null)
+
+    /** Copies a picked attachment into app-private storage so it remains available with chat history. */
+    suspend fun persistForChat(context: Context, document: SelectedDocument): SelectedDocument =
+        withContext(Dispatchers.IO) {
+            val directory = File(context.filesDir, "chat_attachments")
+            if (!directory.exists() && !directory.mkdirs()) {
+                throw IllegalStateException("Jarvis couldn't reserve local storage for this attachment.")
+            }
+            val safeName = document.name.replace(Regex("[^A-Za-z0-9._ -]"), "_").take(100).ifBlank { "attachment" }
+            val destination = File(directory, "${System.currentTimeMillis()}_${safeName}")
+            try {
+                context.contentResolver.openInputStream(document.uri)?.use { input ->
+                    FileOutputStream(destination).use { output -> input.copyTo(output) }
+                } ?: throw IllegalStateException("Android couldn't reopen this attachment. Please select it again.")
+                document.copy(uri = Uri.fromFile(destination), savedPath = destination.absolutePath)
+            } catch (error: Exception) {
+                destination.delete()
+                throw error
+            }
+        }
 
     fun describe(context: Context, uri: Uri): SelectedDocument {
         val resolver = context.contentResolver
@@ -52,7 +74,6 @@ object DocumentAnalysisClient {
 
     suspend fun analyze(context: Context, document: SelectedDocument, prompt: String, apiKey: String): String =
         withContext(Dispatchers.IO) {
-            require(apiKey.isNotBlank()) { "Add your Gemini API key in Jarvis Settings first." }
             val bytes = context.contentResolver.openInputStream(document.uri)?.use { readLimited(it) }
                 ?: throw IllegalArgumentException("Jarvis couldn't open this file. Try selecting it again.")
             val extension = document.name.substringAfterLast('.', "").lowercase(Locale.ROOT)
@@ -103,6 +124,17 @@ object DocumentAnalysisClient {
                 return@withContext result.text + "\n\n— ${AiGatewayStore.label(result.provider)} · ${result.latencyMs} ms"
             }
 
+            if (inlineMime?.startsWith("image/") == true && apiKey.isBlank()) {
+                val gatewayResult = AiGatewayClient.completeImage(
+                    context, basePrompt, "You are Jarvis, an accurate visual assistant. Describe only what is visible and answer the user's question.",
+                    bytes, inlineMime
+                )
+                return@withContext gatewayResult.text + "\n\n— ${AiGatewayStore.label(gatewayResult.provider)} · ${gatewayResult.latencyMs} ms"
+            }
+            if (apiKey.isBlank()) {
+                throw IllegalStateException("No suitable AI key is configured for this file type. Add Gemini for PDF/audio/video, or an OpenAI/Claude key for images and text files in Settings.")
+            }
+
             val userParts = JSONArray()
             userParts.put(JSONObject().put("text", basePrompt))
             if (inlineMime != null) {
@@ -121,21 +153,36 @@ object DocumentAnalysisClient {
                 .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}")
                 .post(payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
                 .build()
-            http.newCall(request).execute().use { response ->
-                val body = response.body?.string().orEmpty()
-                if (!response.isSuccessful) {
-                    val message = try { JSONObject(body).optJSONObject("error")?.optString("message") } catch (_: Exception) { null }
-                    throw IllegalStateException("Gemini couldn't analyze this file (${response.code}): ${message ?: "Request failed"}")
+            try {
+                http.newCall(request).execute().use { response ->
+                    val body = response.body?.string().orEmpty()
+                    if (!response.isSuccessful) {
+                        val message = try { JSONObject(body).optJSONObject("error")?.optString("message") } catch (_: Exception) { null }
+                        throw IllegalStateException("Gemini couldn't analyze this file (${response.code}): ${message ?: "Request failed"}")
+                    }
+                    val json = JSONObject(body)
+                    val candidates = json.optJSONArray("candidates") ?: JSONArray()
+                    val parts = candidates.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts")
+                        ?: JSONArray()
+                    val answer = buildString {
+                        for (i in 0 until parts.length()) append(parts.optJSONObject(i)?.optString("text").orEmpty())
+                    }.trim()
+                    if (answer.isBlank()) throw IllegalStateException("Gemini returned an empty answer.")
+                    answer
                 }
-                val json = JSONObject(body)
-                val candidates = json.optJSONArray("candidates") ?: JSONArray()
-                val parts = candidates.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts")
-                    ?: JSONArray()
-                val answer = buildString {
-                    for (i in 0 until parts.length()) append(parts.optJSONObject(i)?.optString("text").orEmpty())
-                }.trim()
-                if (answer.isBlank()) throw IllegalStateException("Gemini returned an empty answer. Try a smaller file or a more specific request.")
-                answer
+            } catch (error: Exception) {
+                if (inlineMime?.startsWith("image/") == true && AiGatewayStore(context).candidates().isNotEmpty()) {
+                    val fallback = AiGatewayClient.completeImage(
+                        context, basePrompt, "You are Jarvis, an accurate visual assistant. Describe only what is visible and answer the user's question.",
+                        bytes, inlineMime
+                    )
+                    fallback.text + "\n\n— ${AiGatewayStore.label(fallback.provider)} · ${fallback.latencyMs} ms"
+                } else {
+                    throw IllegalStateException(
+                        "Jarvis couldn't finish analyzing this file. Check the file is readable and your API key has access to the required model. ${error.message.orEmpty()}",
+                        error
+                    )
+                }
             }
         }
 
