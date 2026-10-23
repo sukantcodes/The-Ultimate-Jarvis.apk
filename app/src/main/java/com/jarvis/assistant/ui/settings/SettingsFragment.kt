@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.role.RoleManager
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.net.Uri
@@ -168,8 +169,27 @@ class SettingsFragment : Fragment() {
                     hsv[1] = (accentHsv[1] * 0.72f + 0.22f).coerceIn(0.55f, 0.95f)
                     hsv[2] = accentHsv[2].coerceIn(0.72f, 1f)
                     val tint = Color.HSVToColor(hsv)
-                    (iconBox.getChildAt(0) as android.widget.ImageView).imageTintList =
-                        ColorStateList.valueOf(tint)
+                    val lighter = hsv.clone().apply {
+                        this[1] = (this[1] * 0.72f).coerceIn(0.25f, 0.75f)
+                        this[2] = 1f
+                    }
+                    val darker = hsv.clone().apply {
+                        this[1] = (this[1] * 1.12f).coerceIn(0.55f, 1f)
+                        this[2] = (this[2] * 0.48f).coerceIn(0.22f, 0.55f)
+                    }
+                    iconBox.background = GradientDrawable(
+                        GradientDrawable.Orientation.TL_BR,
+                        intArrayOf(Color.HSVToColor(lighter), tint, Color.HSVToColor(darker))
+                    ).apply {
+                        cornerRadius = dp(12).toFloat()
+                        setStroke(dp(1), (tint and 0x00FFFFFF) or 0x66000000)
+                    }
+                    iconBox.elevation = dp(5).toFloat()
+                    iconBox.clipToOutline = true
+                    (iconBox.getChildAt(0) as android.widget.ImageView).apply {
+                        imageTintList = ColorStateList.valueOf(Color.WHITE)
+                        elevation = dp(2).toFloat()
+                    }
                     iconIndex++
                 }
             }
