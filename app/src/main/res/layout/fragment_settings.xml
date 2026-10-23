@@ -261,8 +261,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_jarvis_card"
-                android:tag="liquid_glass_surface"
+                android:background="@android:color/transparent"
+                
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
@@ -545,8 +545,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_jarvis_card"
-                android:tag="liquid_glass_surface"
+                android:background="@android:color/transparent"
+                
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
@@ -774,8 +774,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_jarvis_card"
-                android:tag="liquid_glass_surface"
+                android:background="@android:color/transparent"
+                
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
@@ -1010,8 +1010,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_jarvis_card"
-                android:tag="liquid_glass_surface"
+                android:background="@android:color/transparent"
+                
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
@@ -1286,8 +1286,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_jarvis_card"
-                android:tag="liquid_glass_surface"
+                android:background="@android:color/transparent"
+                
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
@@ -1457,8 +1457,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_jarvis_card"
-                android:tag="liquid_glass_surface"
+                android:background="@android:color/transparent"
+                
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
@@ -1630,8 +1630,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_jarvis_card"
-                android:tag="liquid_glass_surface"
+                android:background="@android:color/transparent"
+                
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
@@ -1751,8 +1751,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_jarvis_card"
-                android:tag="liquid_glass_surface"
+                android:background="@android:color/transparent"
+                
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
