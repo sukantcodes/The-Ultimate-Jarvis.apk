@@ -136,13 +136,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 return
             }
-            val apiKey = preferences.apiKey.trim()
-            if (apiKey.isBlank()) {
-                viewModelScope.launch {
-                    _eventFlow.emit("Please configure your Gemini API Key in Settings first.")
-                }
-                return
-            }
+            // The service selects the local offline brain when the configured online
+            // provider has no key and a valid local model is installed.
             sendServiceAction(JarvisConversationService.ACTION_START_CONVERSATION)
         }
     }
