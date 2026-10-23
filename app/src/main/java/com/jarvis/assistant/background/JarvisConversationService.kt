@@ -1720,6 +1720,104 @@ class JarvisConversationService : Service() {
         }
     }
 
+    /**
+     * Execute deterministic, on-device commands before asking the local LLM.
+     * This keeps common device actions fast and prevents the offline model from
+     * having to invent tool calls. Message sending remains confirmation-based.
+     */
+    private suspend fun executeOfflineLocalCommand(text: String): String? {
+        val clean = text.trim()
+        val lower = clean.lowercase(Locale.ROOT)
+        val accessibility = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance
+
+        if (lower.matches(Regex("^(?:hey\\s+)?jarvis[, ]*\\s*(?:lock (?:the )?(?:screen|phone|device)|lock my phone)$"))) {
+            return withContext(Dispatchers.Main) {
+                when {
+                    accessibility == null -> "I can't lock the screen until JARVIS Accessibility is enabled in Android Settings."
+                    Build.VERSION.SDK_INT < Build.VERSION_CODES.P -> "Screen locking requires Android 9 or newer."
+                    accessibility.lockScreenNow() -> "Done. The screen is locked."
+                    else -> "Android did not lock the screen. Please check the JARVIS Accessibility permission."
+                }
+            }
+        }
+
+        if (lower.matches(Regex("^(?:hey\\s+)?jarvis[, ]*\\s*(?:unlock (?:the )?(?:screen|phone|device)|unlock my phone)$"))) {
+            val store = com.jarvis.assistant.security.UnlockCredentialStore(applicationContext)
+            if (!store.hasCredential()) return "For security, save your screen-lock credential in JARVIS Settings > Screen Unlock first."
+            val voiceAllowed = if (ownerVoiceGateOn()) isCurrentTurnOwnerVoiceVerified else store.allowWithoutVoiceMatch
+            if (!voiceAllowed) return "For security, I couldn't verify the owner's voice. The phone will stay locked. Enroll your voice or review Screen Unlock settings."
+            if (accessibility == null) return "I can't unlock the phone until JARVIS Accessibility is enabled in Android Settings."
+            val result = withContext(Dispatchers.Main) { accessibility.unlockDevice() }
+            return result.message
+        }
+
+        val typeMatch = Regex("^(?:hey\\s+)?jarvis[, ]*\\s*(?:type|enter|write)\\s+(.+)$", RegexOption.IGNORE_CASE).find(clean)
+        if (typeMatch != null) {
+            val textToType = typeMatch.groupValues[1].trim()
+            if (textToType.isBlank()) return "Tell me what text to type."
+            return withContext(Dispatchers.Main) {
+                if (accessibility == null) "Enable JARVIS Accessibility and focus a text field first."
+                else if (accessibility.typeText(textToType)) "Typed the requested text."
+                else "I couldn't type because no supported text field is focused. Open the target app and tap its text field first."
+            }
+        }
+
+        val settingsAction = when {
+            lower.matches(Regex("^(?:open|show) (?:the )?(?:device )?settings$")) -> android.provider.Settings.ACTION_SETTINGS
+            lower.matches(Regex("^(?:open|show) (?:the )?wi.?fi settings$")) -> android.provider.Settings.ACTION_WIFI_SETTINGS
+            lower.matches(Regex("^(?:open|show) (?:the )?bluetooth settings$")) -> android.provider.Settings.ACTION_BLUETOOTH_SETTINGS
+            lower.matches(Regex("^(?:open|show) (?:the )?display settings$")) -> android.provider.Settings.ACTION_DISPLAY_SETTINGS
+            lower.matches(Regex("^(?:open|show) (?:the )?sound settings$")) -> android.provider.Settings.ACTION_SOUND_SETTINGS
+            lower.matches(Regex("^(?:open|show) (?:the )?accessibility settings$")) -> android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS
+            else -> null
+        }
+        if (settingsAction != null) {
+            return withContext(Dispatchers.Main) {
+                try {
+                    startActivity(Intent(settingsAction).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    "Opening the requested Android settings."
+                } catch (error: Exception) {
+                    "I couldn't open those settings on this Android version."
+                }
+            }
+        }
+
+        val app = application as? JarvisApp ?: return null
+        val awaitingConfirmation = app.whatsAppAssistant.hasPendingDraft() || pendingGenericCommand != null
+        val parsed = com.jarvis.assistant.automation.command.CommandParser.parse(
+            input = clean,
+            isAwaitingConfirmation = awaitingConfirmation,
+            isAwaitingDisambiguation = app.whatsAppAssistant.isAwaitingDisambiguation()
+        )
+        val command = parsed.command ?: return null
+        if (parsed.confidence < 0.90f) return null
+
+        return when (command) {
+            is com.jarvis.assistant.automation.command.JarvisCommand.WhatsAppMessage -> {
+                // Prepare a draft first; do not send it until the user confirms.
+                app.whatsAppAssistant.createDraft(command.contact, command.message)
+            }
+            is com.jarvis.assistant.automation.command.JarvisCommand.WhatsAppCall,
+            is com.jarvis.assistant.automation.command.JarvisCommand.WhatsAppDeleteMessage,
+            is com.jarvis.assistant.automation.command.JarvisCommand.PhoneCall,
+            is com.jarvis.assistant.automation.command.JarvisCommand.SocialAppAction,
+            is com.jarvis.assistant.automation.command.JarvisCommand.SearchSocialApp,
+            is com.jarvis.assistant.automation.command.JarvisCommand.SearchYouTube,
+            is com.jarvis.assistant.automation.command.JarvisCommand.PlayYouTube,
+            is com.jarvis.assistant.automation.command.JarvisCommand.OpenWebUrls,
+            is com.jarvis.assistant.automation.command.JarvisCommand.SearchWeb -> null
+            else -> {
+                hasExecutedCommandInCurrentTurn = false
+                try {
+                    app.commandExecutor.execute(command)
+                } catch (error: Exception) {
+                    Log.e("JarvisService", "Offline local command failed: $command", error)
+                    "I couldn't complete that device action: " + (error.message ?: "action failed")
+                }
+            }
+        }
+    }
+
     private fun handleOfflineAudioChunk(chunk: ByteArray) {
         if (!offlineLocalMode || chunk.isEmpty()) return
         try {
@@ -1751,8 +1849,10 @@ class JarvisConversationService : Service() {
         setConversationState(ConversationState.THINKING)
         offlineGenerationJob = serviceScope.launch(Dispatchers.IO) {
             val answer = try {
-                com.jarvis.assistant.offline.OfflineLlm.generate(applicationContext, clean)
+                executeOfflineLocalCommand(clean)
+                    ?: com.jarvis.assistant.offline.OfflineLlm.generate(applicationContext, clean)
             } catch (error: Exception) {
+                Log.e("JarvisService", "Offline command/model execution failed", error)
                 "I couldn't complete that offline request: " + (error.message ?: "local model error")
             }
             withContext(Dispatchers.Main) {
