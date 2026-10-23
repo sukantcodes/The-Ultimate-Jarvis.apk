@@ -154,6 +154,27 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // A restrained, hardware-accelerated entrance on cold launch only.
+        // Avoid replaying the animation during configuration changes or theme recreation.
+        if (savedInstanceState == null) {
+            binding.rootMainLayout.apply {
+                alpha = 0f
+                translationY = 18f * resources.displayMetrics.density
+                scaleX = 0.985f
+                scaleY = 0.985f
+                post {
+                    animate()
+                        .alpha(1f)
+                        .translationY(0f)
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(420L)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator())
+                        .start()
+                }
+            }
+        }
+
         if (!com.jarvis.assistant.security.AppIdentityVerifier.isTrustedRelease(this)) {
             MaterialAlertDialogBuilder(this)
                 .setTitle("App integrity check failed")
