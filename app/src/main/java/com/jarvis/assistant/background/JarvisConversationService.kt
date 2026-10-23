@@ -2319,6 +2319,73 @@ class JarvisConversationService : Service() {
                         }
                     }
 
+                    "device_status" -> {
+                        val batteryIntent = registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+                        val level = batteryIntent?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                        val scale = batteryIntent?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100) ?: 100
+                        val percent = if (level >= 0 && scale > 0) (level * 100 / scale) else -1
+                        val status = batteryIntent?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1) ?: -1
+                        val plugged = batteryIntent?.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) ?: 0
+                        val charging = status == android.os.BatteryManager.BATTERY_STATUS_CHARGING ||
+                            status == android.os.BatteryManager.BATTERY_STATUS_FULL
+                        val chargingText = when {
+                            status == android.os.BatteryManager.BATTERY_STATUS_FULL -> "full"
+                            charging -> "charging"
+                            plugged != 0 -> "connected to power"
+                            else -> "not charging"
+                        }
+                        val memoryInfo = android.app.ActivityManager.MemoryInfo()
+                        (getSystemService(android.content.Context.ACTIVITY_SERVICE) as? android.app.ActivityManager)?.getMemoryInfo(memoryInfo)
+                        val time = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss z", java.util.Locale.getDefault()).format(java.util.Date())
+                        result.put("success", true)
+                        result.put("current_time", time)
+                        result.put("battery_percent", percent)
+                        result.put("charging_state", chargingText)
+                        result.put("android_version", android.os.Build.VERSION.RELEASE ?: "unknown")
+                        result.put("device_model", "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim())
+                        result.put("available_memory_mb", memoryInfo.availMem / (1024L * 1024L))
+                        result.put("message", "Live device status collected from Android. Battery: ${if (percent >= 0) "$percent%" else "unavailable"}, $chargingText. Time: $time.")
+                    }
+
+                    "clean_jarvis_cache" -> {
+                        val requested = currentTurnUserText.toString().lowercase(Locale.ROOT)
+                        if (!(requested.contains("cache") || requested.contains("temporary") || requested.contains("temp files"))) {
+                            result.put("success", false)
+                            result.put("message", "For safety, this action only clears JARVIS temporary cache when the user explicitly asks for cache or temporary-file cleanup.")
+                        } else {
+                            fun clearChildren(directory: java.io.File?): Long {
+                                if (directory == null || !directory.isDirectory) return 0L
+                                var bytes = 0L
+                                directory.listFiles()?.forEach { file ->
+                                    try {
+                                        val size = if (file.isFile) file.length() else file.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+                                        if (file.deleteRecursively()) bytes += size
+                                    } catch (e: Exception) {
+                                        Log.w("JarvisService", "Could not clear cache entry: ${file.name}", e)
+                                    }
+                                }
+                                return bytes
+                            }
+                            val clearedBytes = clearChildren(cacheDir) + clearChildren(externalCacheDir)
+                            result.put("success", true)
+                            result.put("cleared_bytes", clearedBytes)
+                            result.put("message", "Cleared JARVIS temporary cache only (${clearedBytes / 1024} KB). Other apps and personal files were not touched.")
+                        }
+                    }
+
+                    "show_power_menu" -> {
+                        val request = currentTurnUserText.toString().lowercase(Locale.ROOT)
+                        if (!(request.contains("restart") || request.contains("reboot") || request.contains("power off") || request.contains("shutdown"))) {
+                            result.put("success", false)
+                            result.put("message", "The Android power menu was not opened because the current request did not explicitly ask to restart or power off.")
+                        } else {
+                            val accessibility = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance
+                            val opened = accessibility?.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_POWER_DIALOG) == true
+                            result.put("success", opened)
+                            result.put("message", if (opened) "Opened Android's system power menu. The user must select Restart or Power off and confirm it; JARVIS cannot reboot a normal phone directly." else "Could not open the power menu. Enable JARVIS Accessibility Service and try again.")
+                        }
+                    }
+
                     "recall_activity" -> {
                         val recallQuery = args.optString("query", "").trim()
                         val recallHours = args.optInt("hours", 0)
