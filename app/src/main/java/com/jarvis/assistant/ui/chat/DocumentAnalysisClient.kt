@@ -131,6 +131,13 @@ object DocumentAnalysisClient {
                 )
                 return@withContext gatewayResult.text + "\n\n— ${AiGatewayStore.label(gatewayResult.provider)} · ${gatewayResult.latencyMs} ms"
             }
+            if (inlineMime == "application/pdf" && apiKey.isBlank()) {
+                val gatewayResult = AiGatewayClient.completePdf(
+                    context, basePrompt, "You are Jarvis, accurately analyzing the attached PDF. Do not invent missing content.",
+                    bytes, document.name
+                )
+                return@withContext gatewayResult.text + "\n\n— ${AiGatewayStore.label(gatewayResult.provider)} · ${gatewayResult.latencyMs} ms"
+            }
             if (apiKey.isBlank()) {
                 throw IllegalStateException("No suitable AI key is configured for this file type. Add Gemini for PDF/audio/video, or an OpenAI/Claude key for images and text files in Settings.")
             }
@@ -171,11 +178,19 @@ object DocumentAnalysisClient {
                     answer
                 }
             } catch (error: Exception) {
-                if (inlineMime?.startsWith("image/") == true && AiGatewayStore(context).candidates().isNotEmpty()) {
-                    val fallback = AiGatewayClient.completeImage(
-                        context, basePrompt, "You are Jarvis, an accurate visual assistant. Describe only what is visible and answer the user's question.",
-                        bytes, inlineMime
-                    )
+                if (AiGatewayStore(context).candidates().isNotEmpty() &&
+                    (inlineMime?.startsWith("image/") == true || inlineMime == "application/pdf")) {
+                    val fallback = if (inlineMime == "application/pdf") {
+                        AiGatewayClient.completePdf(
+                            context, basePrompt, "You are Jarvis, accurately analyzing the attached PDF. Do not invent missing content.",
+                            bytes, document.name
+                        )
+                    } else {
+                        AiGatewayClient.completeImage(
+                            context, basePrompt, "You are Jarvis, an accurate visual assistant. Describe only what is visible and answer the user's question.",
+                            bytes, inlineMime!!
+                        )
+                    }
                     fallback.text + "\n\n— ${AiGatewayStore.label(fallback.provider)} · ${fallback.latencyMs} ms"
                 } else {
                     throw IllegalStateException(
