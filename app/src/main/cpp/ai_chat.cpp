@@ -53,20 +53,16 @@ static void aichat_capture_log(enum ggml_log_level level, const char * text, voi
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_arm_aichat_internal_InferenceEngineImpl_init(JNIEnv *env, jobject /*unused*/, jstring nativeLibDir) {
-    // Set llama log handler to Android
+Java_com_arm_aichat_internal_InferenceEngineImpl_init(JNIEnv * /*env*/, jobject /*unused*/, jstring /*nativeLibDir*/) {
+    // Set llama log handler to Android.
     g_last_native_error.clear();
     llama_log_set(aichat_capture_log, nullptr);
 
-    // Loading all CPU backend variants
-    const auto *path_to_backend = env->GetStringUTFChars(nativeLibDir, 0);
-    LOGi("Loading backends from %s", path_to_backend);
-    ggml_backend_load_all_from_path(path_to_backend);
-    env->ReleaseStringUTFChars(nativeLibDir, path_to_backend);
-
-    // Initialize backends
+    // The CPU backend is linked into ai-chat/llama at build time. Do not
+    // search nativeLibraryDir for dynamic backend .so files: Android packaging
+    // may omit those unlinked libraries, leaving llama.cpp with zero backends.
     llama_backend_init();
-    LOGi("Backend initiated; Log handler set.");
+    LOGi("Statically linked llama.cpp CPU backend initialized.");
 }
 
 extern "C"
