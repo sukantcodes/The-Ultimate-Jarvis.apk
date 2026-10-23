@@ -1487,6 +1487,14 @@ class JarvisConversationService : Service() {
 
                     // Declare speech start only after several consecutive voiced frames (not a short noise blip)
                     if (consecutiveVoicedFrames >= VAD_START_FRAMES) {
+                        // Barge-in: stop Jarvis's spoken output when a real user utterance begins,
+                        // without cancelling the task executor or live session.
+                        if (_conversationState.value == ConversationState.SPEAKING) {
+                            Log.i("JarvisService", "User speech detected during playback; stopping speech output")
+                            audioPlayer?.flush()
+                            try { tts?.stop() } catch (_: Exception) {}
+                            setConversationState(ConversationState.LISTENING)
+                        }
                         if (!hasSpeechInCurrentUtterance) {
                             currentTurnUserText.clear()
                             currentTurnAssistantText.clear()
@@ -2902,6 +2910,7 @@ class JarvisConversationService : Service() {
             "stop", "stop talking", "stop speaking", "shut up", "shut down",
             "ruk jao", "ruko", "ruk ja", "bas karo", "bas ab", "band karo",
             "band ho jao", "band ho ja", "chup ho jao", "chup karo",
+            "बंद हो जाओ", "बंद हो जा", "बंद करो", "रुक जाओ", "रुको", "चुप हो जाओ",
             "cancel", "abort", "pause", "thahar", "hold on", "enough", "quiet"
         )
         val matched = patterns.firstOrNull { containsPhrase(clean, it) } ?: return false
