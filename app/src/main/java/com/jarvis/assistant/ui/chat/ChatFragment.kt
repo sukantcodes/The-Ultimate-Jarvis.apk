@@ -15,8 +15,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.background.JarvisConversationService
-import com.jarvis.assistant.network.AiGatewayClient
-import com.jarvis.assistant.security.AiGatewayStore
 import com.jarvis.assistant.databinding.FragmentChatBinding
 import com.jarvis.assistant.ui.home.MainActivity
 import com.jarvis.assistant.ui.home.MainViewModel
@@ -161,34 +159,6 @@ class ChatFragment : Fragment() {
         }
 
         if (text.isBlank()) return
-        val gatewayStore = AiGatewayStore(requireContext())
-        val deviceAction = Regex(
-            "\\b(open|launch|call|dial|send message|text |turn on|turn off|enable|disable|set alarm|set timer|volume|brightness|bluetooth|wifi|wi-fi|flashlight|torch|play music|pause music|take a photo|screenshot|navigate to)\\b",
-            RegexOption.IGNORE_CASE
-        ).containsMatchIn(text)
-        if (gatewayStore.candidates().isNotEmpty() && !deviceAction) {
-            binding.etMessageInput.text?.clear()
-            binding.btnSendMessage.isEnabled = false
-            viewLifecycleOwner.lifecycleScope.launch {
-                try {
-                    val history = JarvisApp.instance.chatRepository.turns.value.takeLast(6).joinToString("\n") {
-                        "User: ${it.userTranscript}\nJarvis: ${it.jarvisResponse}"
-                    }
-                    val prompt = if (history.isBlank()) text else "Recent conversation:\n$history\n\nCurrent user request: $text"
-                    val result = AiGatewayClient.complete(
-                        requireContext(),
-                        prompt,
-                        "You are Jarvis, the user's Android AI assistant. Answer naturally and accurately. For requests requiring direct phone control, explain that device actions are handled by Jarvis's live assistant mode."
-                    )
-                    JarvisApp.instance.chatRepository.addTurn(text, result.text + "\n\n— ${AiGatewayStore.label(result.provider)} · ${result.latencyMs} ms")
-                } catch (error: Exception) {
-                    JarvisApp.instance.chatRepository.addTurn(text, "AI Gateway error: ${error.message ?: "No configured provider responded."}")
-                } finally {
-                    if (_binding != null) binding.btnSendMessage.isEnabled = true
-                }
-            }
-            return
-        }
         if (!JarvisConversationService.isServiceRunning()) {
             (activity as? MainActivity)?.handleMicOrOrbClick()
         }
