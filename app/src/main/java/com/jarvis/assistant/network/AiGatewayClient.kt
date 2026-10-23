@@ -135,6 +135,84 @@ object AiGatewayClient {
         throw IllegalStateException("Configured image-capable providers couldn't analyze this image. Check the model supports vision, API key, quota, and network. ${lastError?.message.orEmpty()}")
     }
 
+    /** Sends a PDF using providers' native document-input formats. */
+    suspend fun completePdf(
+        context: Context,
+        prompt: String,
+        systemPrompt: String,
+        pdfBytes: ByteArray,
+        fileName: String
+    ): Result = withContext(Dispatchers.IO) {
+        val store = AiGatewayStore(context)
+        val candidates = store.candidates().filter { it == AiGatewayStore.OPENAI || it == AiGatewayStore.ANTHROPIC }
+        if (candidates.isEmpty()) throw IllegalStateException("No configured provider supports native PDF input. Add an OpenAI or Claude key, or configure Gemini.")
+        val encoded = android.util.Base64.encodeToString(pdfBytes, android.util.Base64.NO_WRAP)
+        var lastError: Exception? = null
+        for (provider in candidates) {
+            val key = store.key(provider)
+            if (key.isBlank()) continue
+            val model = store.model(provider)
+            val start = System.currentTimeMillis()
+            try {
+                val text = if (provider == AiGatewayStore.OPENAI) {
+                    val content = JSONArray().put(JSONObject().put("type", "input_file")
+                        .put("filename", fileName).put("file_data", "data:application/pdf;base64,$encoded"))
+                        .put(JSONObject().put("type", "input_text").put("text", prompt))
+                    val payload = JSONObject().put("model", model).put("instructions", systemPrompt)
+                        .put("input", JSONArray().put(JSONObject().put("role", "user").put("content", content)))
+                        .put("store", false)
+                    val request = Request.Builder().url("https://api.openai.com/v1/responses")
+                        .header("Authorization", "Bearer $key")
+                        .post(payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build()
+                    http.newCall(request).execute().use { response ->
+                        val body = response.body?.string().orEmpty()
+                        if (!response.isSuccessful) throw IllegalStateException("OpenAI PDF analysis HTTP ${response.code}: ${errorMessage(body)}")
+                        val json = JSONObject(body)
+                        val direct = json.optString("output_text")
+                        if (direct.isNotBlank()) direct.trim() else {
+                            val output = json.optJSONArray("output") ?: JSONArray()
+                            buildString {
+                                for (i in 0 until output.length()) {
+                                    val items = output.optJSONObject(i)?.optJSONArray("content") ?: JSONArray()
+                                    for (j in 0 until items.length()) {
+                                        val item = items.optJSONObject(j)
+                                        if (item?.optString("type") == "output_text") append(item.optString("text"))
+                                    }
+                                }
+                            }.trim()
+                        }
+                    }
+                } else {
+                    val doc = JSONObject().put("type", "document").put("source",
+                        JSONObject().put("type", "base64").put("media_type", "application/pdf").put("data", encoded))
+                    val content = JSONArray().put(doc).put(JSONObject().put("type", "text").put("text", prompt))
+                    val payload = JSONObject().put("model", model).put("max_tokens", 4096)
+                        .put("system", systemPrompt)
+                        .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", content)))
+                    val request = Request.Builder().url("https://api.anthropic.com/v1/messages")
+                        .header("x-api-key", key).header("anthropic-version", "2023-06-01")
+                        .post(payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build()
+                    http.newCall(request).execute().use { response ->
+                        val body = response.body?.string().orEmpty()
+                        if (!response.isSuccessful) throw IllegalStateException("Claude PDF analysis HTTP ${response.code}: ${errorMessage(body)}")
+                        val blocks = JSONObject(body).optJSONArray("content") ?: JSONArray()
+                        buildString {
+                            for (i in 0 until blocks.length()) {
+                                val block = blocks.optJSONObject(i)
+                                if (block?.optString("type") == "text") append(block.optString("text"))
+                            }
+                        }.trim()
+                    }
+                }
+                if (text.isBlank()) throw IllegalStateException("The selected provider returned no PDF analysis.")
+                val elapsed = System.currentTimeMillis() - start
+                store.setLatency(provider, elapsed)
+                return@withContext Result(text, provider, model, elapsed)
+            } catch (e: Exception) { lastError = e }
+        }
+        throw IllegalStateException("Configured providers couldn't analyze this PDF. Check PDF support, model access, API quota, and network. ${lastError?.message.orEmpty()}")
+    }
+
     suspend fun listModels(context: Context, provider: String, apiKey: String): List<String> = withContext(Dispatchers.IO) {
         val request = when (provider) {
             AiGatewayStore.OPENAI -> Request.Builder().url("https://api.openai.com/v1/models").header("Authorization", "Bearer $apiKey").get().build()
