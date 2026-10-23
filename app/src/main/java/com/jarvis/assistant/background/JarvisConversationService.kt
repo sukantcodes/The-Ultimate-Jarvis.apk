@@ -1005,8 +1005,15 @@ class JarvisConversationService : Service() {
                             updateNotification()
                             val userText = currentTurnUserText.toString().lowercase(Locale.ROOT)
                             if (isStopCommand(userText)) {
-                                Log.i("JarvisService", "Detected explicit stop/cancel in user speech: '$userText'. Aborting all tasks.")
+                                Log.i("JarvisService", "Detected explicit stop/cancel in user speech: '$userText'. Stopping speech and active tasks immediately.")
+                                audioPlayer?.flush()
+                                try { tts?.stop() } catch (_: Exception) {}
                                 cancelAllActiveTools()
+                                pendingToolCalls.clear()
+                                suppressAudioUntilTurnComplete = true
+                                currentTurnAssistantText.clear()
+                                _liveAssistantResponse.value = ""
+                                setConversationState(ConversationState.LISTENING)
                             }
                             if (isExplicitStandbyCommand(userText)) {
                                 Log.i("JarvisService", "Detected explicit background / standby command in user speech: '$userText'")
@@ -1405,37 +1412,34 @@ class JarvisConversationService : Service() {
 
                 if (isSpeakerActive) {
                     val hasHeadset = headsetAudioRouter?.isHeadsetConnected() == true
-                    // Only allow voice barge-in if headphones/headset are connected AND assistant is already speaking!
-                    // Over the phone loudspeaker, acoustic leakage from speaker into microphone
-                    // hits amplitudes of 0.8-1.0, which causes false self-interruption ("talks in middle and cuts off").
-                    // Over loudspeaker, users tap mic/orb to interrupt, as prompted on screen.
-                    if (hasHeadset) {
-                        if (amplitude > 0.25f) {
-                            consecutiveVoicedFrames++
-                            if (consecutiveVoicedFrames >= 4) {
-                                Log.i("JarvisService", "Headset voice barge-in: user spoke over assistant (amp=$amplitude)")
-                                audioPlayer?.flush()
-                                try { tts?.stop() } catch (_: Exception) {}
-                                setConversationState(ConversationState.LISTENING)
-                                lastUserSpeechDetectedTime = now
-                                hasSpeechInCurrentUtterance = true
-                                hasSignalledUtteranceEnd = false
-                                currentTurnUserText.clear()
-                                currentTurnAssistantText.clear()
-                                _liveUserTranscript.value = ""
-                                _liveAssistantResponse.value = ""
-                                hasExecutedCommandInCurrentTurn = false
-                                totalVoicedFramesInCurrentUtterance = 4
-                                synchronized(currentUtteranceAudioStream) {
-                                    currentUtteranceAudioStream.reset()
-                                    currentUtteranceAudioStream.write(chunk)
-                                }
-                                isCurrentTurnOwnerVoiceVerified = !ownerVoiceGateOn()
-                                strictOwnerMatchedThisTurn = false
-                                return@AudioRecorder
-                            }
-                        } else {
+                    // Voice barge-in works on both headset and phone speaker.
+                    // Loudspeaker uses a higher amplitude threshold to reduce false triggers from audio leakage.
+                    val interruptThreshold = if (hasHeadset) 0.22f else maxOf(0.36f, ambientNoiseFloor * 3.2f)
+                    if (amplitude > interruptThreshold) {
+                        consecutiveVoicedFrames++
+                        val requiredFrames = if (hasHeadset) 3 else 6
+                        if (consecutiveVoicedFrames >= requiredFrames) {
+                            Log.i("JarvisService", "Voice barge-in: user spoke over assistant (headset=$hasHeadset, amp=$amplitude)")
+                            audioPlayer?.flush()
+                            try { tts?.stop() } catch (_: Exception) {}
                             consecutiveVoicedFrames = 0
+                            setConversationState(ConversationState.LISTENING)
+                            lastUserSpeechDetectedTime = now
+                            hasSpeechInCurrentUtterance = true
+                            hasSignalledUtteranceEnd = false
+                            currentTurnUserText.clear()
+                            currentTurnAssistantText.clear()
+                            _liveUserTranscript.value = ""
+                            _liveAssistantResponse.value = ""
+                            hasExecutedCommandInCurrentTurn = false
+                            totalVoicedFramesInCurrentUtterance = requiredFrames
+                            synchronized(currentUtteranceAudioStream) {
+                                currentUtteranceAudioStream.reset()
+                                currentUtteranceAudioStream.write(chunk)
+                            }
+                            isCurrentTurnOwnerVoiceVerified = !ownerVoiceGateOn()
+                            strictOwnerMatchedThisTurn = false
+                            return@AudioRecorder
                         }
                     } else {
                         consecutiveVoicedFrames = 0
@@ -1511,7 +1515,7 @@ class JarvisConversationService : Service() {
                             if (audioSnapshot.size >= 16000 * 2 * 0.25) {
                                 serviceScope.launch(Dispatchers.Default) {
                                     val match = com.jarvis.assistant.audio.OwnerVoiceManager.verifySpeakerAudio(audioSnapshot, preferences)
-                                    if (match.isMatch || match.distance < match.threshold * 1.35f) {
+                                    if (match.isMatch) {
                                         lastOwnerVerifiedTimestamp = System.currentTimeMillis()
                                         strictOwnerMatchedThisTurn = true
                                         isCurrentTurnOwnerVoiceVerified = true
@@ -1563,7 +1567,7 @@ class JarvisConversationService : Service() {
                                         if (leaseAudio.size >= 16000 * 2 * 0.3) {
                                             serviceScope.launch(Dispatchers.Default) {
                                                 val leaseMatch = com.jarvis.assistant.audio.OwnerVoiceManager.verifySpeakerAudio(leaseAudio, preferences)
-                                                if (leaseMatch.isMatch || leaseMatch.distance < leaseMatch.threshold * 1.35f) {
+                                                if (leaseMatch.isMatch) {
                                                     strictOwnerMatchedThisTurn = true
                                                 }
                                             }
@@ -1577,7 +1581,7 @@ class JarvisConversationService : Service() {
                                     }
                                     if (audioBytes.size >= 16000 * 2 * 0.3) {
                                         val match = com.jarvis.assistant.audio.OwnerVoiceManager.verifySpeakerAudio(audioBytes, preferences)
-                                        if (match.isMatch || match.distance < match.threshold * 1.35f) {
+                                        if (match.isMatch) {
                                             lastOwnerVerifiedTimestamp = now
                                             strictOwnerMatchedThisTurn = true
                                             isCurrentTurnOwnerVoiceVerified = true
@@ -2893,9 +2897,12 @@ class JarvisConversationService : Service() {
 
     private fun isStopCommand(text: String): Boolean {
         val clean = text.lowercase(Locale.ROOT).trim()
+        // Keep stop phrases short and language-flexible so a user can interrupt a task naturally.
         val patterns = listOf(
-            "stop", "ruk jao", "ruko", "cancel", "abort", "pause",
-            "bas karo", "thahar", "hold on", "ruk ja", "band karo"
+            "stop", "stop talking", "stop speaking", "shut up", "shut down",
+            "ruk jao", "ruko", "ruk ja", "bas karo", "bas ab", "band karo",
+            "band ho jao", "band ho ja", "chup ho jao", "chup karo",
+            "cancel", "abort", "pause", "thahar", "hold on", "enough", "quiet"
         )
         val matched = patterns.firstOrNull { containsPhrase(clean, it) } ?: return false
         val matchIndex = clean.indexOf(matched)
