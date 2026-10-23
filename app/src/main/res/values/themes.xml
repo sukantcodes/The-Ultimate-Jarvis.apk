@@ -127,6 +127,7 @@
 
     <!-- 4. SUNSET THEME - LIQUID SUNSET GLASS EDITION -->
     <style name="Theme.JarvisAssistant.Sunset" parent="Theme.Material3.Light.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
         <item name="android:statusBarColor">#FFF0EA</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:navigationBarColor">#FFF0EA</item>
@@ -166,6 +167,7 @@
 
     <!-- 5. CUSTOM LIGHT - LIQUID GLASS -->
     <style name="Theme.JarvisAssistant.CustomLight" parent="Theme.Material3.Light.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
@@ -206,6 +208,7 @@
 
     <!-- 6. CUSTOM DARK - LIQUID GLASS -->
     <style name="Theme.JarvisAssistant.CustomDark" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
