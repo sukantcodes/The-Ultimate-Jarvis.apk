@@ -104,7 +104,21 @@
                 android:layout_width="16dp"
                 android:layout_height="16dp"
                 android:src="@drawable/ic_tts_play"
-                app:tint="?attr/themeTextMuted" />
+                app:tint="?attr/themeTextMuted"
+                android:layout_marginEnd="12dp" />
+
+            <TextView
+                android:id="@+id/btnAssistantSave"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Save response"
+                android:textColor="?attr/themeTextSecondary"
+                android:textSize="12sp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:contentDescription="Save Jarvis response as a text file" />
         </LinearLayout>
     </LinearLayout>
 
