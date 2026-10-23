@@ -9,7 +9,11 @@ data class ChatTurn(
     val id: String = UUID.randomUUID().toString(),
     val userTranscript: String,
     val jarvisResponse: String,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    /** Absolute app-private path for a chat attachment, if this turn contains one. */
+    val attachmentPath: String? = null,
+    val attachmentName: String? = null,
+    val attachmentMimeType: String? = null
 ) {
     val formattedTime: String
         get() {
