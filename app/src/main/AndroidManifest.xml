@@ -61,6 +61,12 @@
             android:screenOrientation="unspecified" />
 
         <activity
+            android:name=".ui.offline.OfflineModelActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".ui.home.MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
