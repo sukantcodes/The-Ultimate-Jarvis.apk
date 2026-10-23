@@ -45,6 +45,8 @@ class MainActivity : AppCompatActivity() {
     private var activeSnackbar: Snackbar? = null
     private var swipeStartX = 0f
     private var swipeStartY = 0f
+    // One consent request per active Jarvis session; Android still requires its system prompt.
+    private var autoScreenCaptureRequestedForSession = false
 
     private var currentTab = TAB_HOME
     private val homeFragment by lazy { HomeFragment() }
@@ -141,6 +143,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Start Jarvis and wait for LIVE before sharing your screen.", Toast.LENGTH_LONG).show()
                 return
             }
+            autoScreenCaptureRequestedForSession = true
             screenCaptureLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
         }
     }
@@ -495,6 +498,32 @@ class MainActivity : AppCompatActivity() {
     private fun observeViewModel() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    combine(viewModel.isSessionOn, JarvisConversationService.connectionStatus) { isOn, status ->
+                        isOn to status
+                    }.collect { (isOn, status) ->
+                        if (!isOn) {
+                            autoScreenCaptureRequestedForSession = false
+                            if (com.jarvis.assistant.vision.ScreenCaptureManager.getInstance().isSharing.value) {
+                                JarvisConversationService.stopScreenCapture()
+                            }
+                        } else if (
+                            status == "LIVE" &&
+                            !autoScreenCaptureRequestedForSession &&
+                            !com.jarvis.assistant.vision.ScreenCaptureManager.getInstance().isSharing.value
+                        ) {
+                            // Launch Android's mandatory consent UI automatically once Jarvis is LIVE.
+                            // The OS prompt cannot be suppressed or permanently pre-approved by an APK.
+                            autoScreenCaptureRequestedForSession = true
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Allow screen capture to enable JARVIS Screen Awareness. Screen frames are sent to the active AI session for analysis.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            screenCaptureLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
+                        }
+                    }
+                }
                 launch {
                     combine(viewModel.isMicMuted, viewModel.conversationState, viewModel.isSessionOn) { isMuted, state, isOn ->
                         Triple(isMuted, state, isOn)
