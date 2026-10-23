@@ -68,7 +68,7 @@ class ApiGatewayActivity : AppCompatActivity() {
             addView(keyInput, LinearLayout.LayoutParams(-1, dp(54)))
             addView(label("Model ID • refresh to discover available models"))
             modelInput = TextInputEditText(this@ApiGatewayActivity).apply {
-                setTextColor(Color.WHITE); setHintTextColor(Color.GRAY); singleLine = true
+                setTextColor(Color.WHITE); setHintTextColor(Color.GRAY); setSingleLine(true)
             }
             addView(modelInput, LinearLayout.LayoutParams(-1, dp(54)))
             status = TextView(this@ApiGatewayActivity).apply { textSize = 12f; setTextColor(Color.LTGRAY); setPadding(0, dp(8), 0, dp(8)) }
