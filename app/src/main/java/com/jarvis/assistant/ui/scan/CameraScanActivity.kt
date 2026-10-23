@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class CameraScanActivity : AppCompatActivity() {
     private lateinit var binding: ActivityCameraScanBinding
+    private lateinit var appPreferences: AppPreferences
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
     private var previewRequestBuilder: CaptureRequest.Builder? = null
@@ -80,6 +81,7 @@ class CameraScanActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityCameraScanBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        appPreferences = AppPreferences(this)
         speechAnnouncer = SpeechAnnouncer(this)
         binding.btnScanClose.setOnClickListener { finish() }
         binding.btnScanTorch.setOnClickListener {
@@ -224,7 +226,7 @@ class CameraScanActivity : AppCompatActivity() {
                 scheduleNextAnalysis()
                 return@postDelayed
             }
-            val key = AppPreferences(this).apiKey
+            val key = appPreferences.apiKey
             if (key.isBlank()) {
                 runOnUiThread {
                     binding.tvScanStatus.text = "API KEY REQUIRED FOR LIVE AI"
@@ -433,7 +435,7 @@ class CameraScanActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "CameraScanActivity"
-        private const val ANALYSIS_INTERVAL_MS = 3500L
+        private const val ANALYSIS_INTERVAL_MS = 4000L
         private const val SPEECH_COOLDOWN_MS = 9000L
     }
 }
