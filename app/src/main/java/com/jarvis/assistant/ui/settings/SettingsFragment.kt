@@ -446,36 +446,7 @@ class SettingsFragment : Fragment() {
         }
         binding.rowOverlayAvatars.setOnClickListener { open(OverlayAvatarActivity::class.java) }
 
-        val orbStyles = listOf(
-            "default" to "Particle Orb",
-            "aurora_orb" to "Aurora Orb",
-            "holographic_plasma" to "Holographic Plasma",
-            "cosmic_pulsar" to "Cosmic Pulsar",
-            "cyber_ring" to "Cyber Ring",
-            "siri_glow" to "Siri Glow",
-            "iron_man_head" to "Iron Man Helmet",
-            "full_human" to "Full Human Avatar"
-        )
-        fun refreshOrbStyleLabel() {
-            binding.tvCurrentOrbStyle.text = orbStyles.firstOrNull { it.first == preferences.orbAnimation }?.second
-                ?: "Particle Orb"
-        }
-        refreshOrbStyleLabel()
-        binding.rowOrbStyle.setOnClickListener {
-            val selected = orbStyles.indexOfFirst { it.first == preferences.orbAnimation }.let { if (it >= 0) it else 0 }
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Choose Orb Appearance")
-                .setSingleChoiceItems(orbStyles.map { it.second }.toTypedArray(), selected) { dialog, which ->
-                    val style = orbStyles[which]
-                    preferences.orbAnimation = style.first
-                    refreshOrbStyleLabel()
-                    (parentFragmentManager.findFragmentByTag("TAB_0") as? com.jarvis.assistant.ui.home.HomeFragment)
-                        ?.setOrbStyle(style.first)
-                    dialog.dismiss()
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
-        }
+
     }
 
     // ------------------------------------------------------------------------------------------
