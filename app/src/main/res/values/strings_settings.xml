@@ -63,7 +63,9 @@
     <string name="set_apptheme_subtitle">Light Theme</string>
     <string name="set_overlayavatars_title">Overlay Avatars</string>
     <string name="set_overlayavatars_subtitle">Choose a floating avatar or turn the overlay off</string>
-    <string name="set_section_about">Privacy &amp; About</string>
+        <string name="set_orbstyle_title">3D Orb Style</string>
+    <string name="set_orbstyle_subtitle">Quantum Aurora</string>
+<string name="set_section_about">Privacy &amp; About</string>
     <string name="set_privacypolicy_title">Privacy &amp; Data Shield</string>
     <string name="set_privacypolicy_subtitle">On-device processing and encrypted connections</string>
     <string name="set_appidentity_title">App Identity &amp; Integrity</string>
