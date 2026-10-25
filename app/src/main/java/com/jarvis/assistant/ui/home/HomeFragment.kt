@@ -211,7 +211,7 @@ class HomeFragment : Fragment() {
     fun setOrbTheme(themeKey: String, customHex: String?) {
         pendingThemeKey = themeKey
         pendingCustomHex = customHex
-        if (!isPageLoaded) return
+        if (!isPageLoaded || loadedAuroraOrb) return
         activity?.runOnUiThread {
             if (themeKey == "custom" && !customHex.isNullOrBlank()) {
                 binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setBackground('$customHex');", null)
