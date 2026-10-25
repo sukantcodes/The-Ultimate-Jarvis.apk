@@ -92,7 +92,15 @@ object ThemeManager {
             "dark" -> Color.parseColor("#5B8CFF")
             "red" -> Color.parseColor("#FF4D5E")
             "sunset" -> Color.parseColor("#FF6A3D")
-            "custom" -> try { Color.parseColor(customHex) } catch (_: Exception) { Color.parseColor("#2F6BFF") }
+            "custom" -> {
+                val chosen = try { Color.parseColor(customHex) } catch (_: Exception) { Color.parseColor("#2F6BFF") }
+                // Keep pale custom colours readable on the pale custom-theme canvas.
+                if (isLight(chosen)) Color.rgb(
+                    (Color.red(chosen) * 0.62f).toInt(),
+                    (Color.green(chosen) * 0.62f).toInt(),
+                    (Color.blue(chosen) * 0.62f).toInt()
+                ) else chosen
+            }
             else -> Color.parseColor("#2F6BFF")
         }
     }
@@ -123,7 +131,7 @@ object ThemeManager {
             canvas.drawColor(baseColor)
             val width = area.width().toFloat()
             val height = area.height().toFloat()
-            val lightCanvas = isLight(baseColor)
+            val lightCanvas = ThemeManager.isLight(baseColor)
             val primaryAlpha = if (lightCanvas) 0x26 else 0x62
             val primaryRadius = maxOf(width, height) * 0.92f
             paint.shader = RadialGradient(

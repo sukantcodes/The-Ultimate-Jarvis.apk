@@ -142,33 +142,34 @@ class SettingsFragment : Fragment() {
     }
 
     /**
-     * Give each Settings option a dimensional icon tint derived from the currently selected
-     * app accent. Small hue shifts keep icons distinct while making every palette follow themes.
-     */
-    /**
-     * Give every Settings option its own dimensional, jewel-toned icon tile.
-     * A bright upper gradient, crisp edge and lower shadow create a raised 3D-glass look.
-     */
-    /**
-     * Use the active theme accent directly on settings icons. Avoid opaque jewel-coloured
-     * square tiles: they read as disconnected patches when the user changes the theme.
+     * Tint the existing settings icons with the selected theme colour. The icon containers
+     * remain transparent, so opaque coloured squares do not appear behind them.
      */
     private fun applyDimensionalIconColors(root: View) {
         val accent = ThemeManager.getThemeAccentColor()
 
         fun visit(view: View) {
-            if (view is ViewGroup) {
-                if (view.childCount > 0 && view.getChildAt(0) is android.widget.ImageView) {
-                    // Keep the icon itself coloured, but let the ambient theme background show through.
-                    view.background = null
-                    view.backgroundTintList = null
-                    view.elevation = 0f
-                    val icon = view.getChildAt(0) as android.widget.ImageView
-                    icon.imageTintList = ColorStateList.valueOf(accent)
-                    icon.elevation = dp(2).toFloat()
+            if (view !is ViewGroup) return
+            if (view.childCount > 0 && view.getChildAt(0) is android.widget.FrameLayout) {
+                val iconBox = view.getChildAt(0) as android.widget.FrameLayout
+                val width = iconBox.layoutParams?.width ?: 0
+                val height = iconBox.layoutParams?.height ?: 0
+                val isSettingsIconSize = width in dp(36)..dp(44) && height in dp(36)..dp(44)
+                if (isSettingsIconSize && iconBox.childCount > 0 &&
+                    iconBox.getChildAt(0) is android.widget.ImageView
+                ) {
+                    iconBox.background = null
+                    iconBox.backgroundTintList = null
+                    iconBox.elevation = 0f
+                    iconBox.translationZ = 0f
+                    iconBox.clipToOutline = false
+                    (iconBox.getChildAt(0) as android.widget.ImageView).apply {
+                        imageTintList = ColorStateList.valueOf(accent)
+                        elevation = dp(2).toFloat()
+                    }
                 }
-                for (index in 0 until view.childCount) visit(view.getChildAt(index))
             }
+            for (index in 0 until view.childCount) visit(view.getChildAt(index))
         }
 
         visit(root)
