@@ -3713,8 +3713,9 @@ class JarvisConversationService : Service() {
 
         try {
             standbyActivatedTime = System.currentTimeMillis()
-            // Phrase grammar: allow single-word "jarvis", multi-syllable wake phrases, and [unk]
-            val grammar = "[\"jarvis\", \"hey jarvis\", \"hi jarvis\", \"hello jarvis\", \"ok jarvis\", \"okay jarvis\", \"wake up jarvis\", \"sun jarvis\", \"suno jarvis\", \"jarvis jarvis\", \"[unk]\"]"
+            // Jarvis-only grammar. Do not include [unk]: an unknown/noisy utterance must never
+            // wake the assistant without an actual Jarvis phrase.
+            val grammar = "[\"jarvis\", \"hey jarvis\", \"hi jarvis\", \"hello jarvis\", \"ok jarvis\", \"okay jarvis\", \"wake up jarvis\", \"sun jarvis\", \"suno jarvis\", \"jarvis jarvis\"]"
             val rec = Recognizer(model, 16000.0f, grammar)
             rec.setWords(true)
             val spkModel = VoskModelManager.speakerModel
