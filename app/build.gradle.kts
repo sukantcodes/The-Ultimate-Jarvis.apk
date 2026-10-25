@@ -128,6 +128,8 @@ dependencies {
     implementation("com.google.mlkit:face-detection:16.1.7")
     implementation("net.java.dev.jna:jna:5.13.0@aar")
     implementation("com.alphacephei:vosk-android:0.3.75@aar")
+    // Native on-device WebRTC VAD; accepts the existing 16 kHz / 20 ms PCM frames.
+    implementation("com.github.gkonovalov.android-vad:webrtc:2.0.10")
 
     // Room Database
     implementation("androidx.room:room-runtime:2.6.1")
