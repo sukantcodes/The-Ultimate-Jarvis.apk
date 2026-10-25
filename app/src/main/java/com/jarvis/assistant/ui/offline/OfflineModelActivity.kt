@@ -18,6 +18,8 @@ import com.jarvis.assistant.offline.OfflineLlm
 import com.jarvis.assistant.offline.OfflineModelDownloader
 import com.jarvis.assistant.util.ThemeManager
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 import java.util.Locale
 
 class OfflineModelActivity:AppCompatActivity(){
@@ -73,13 +75,18 @@ class OfflineModelActivity:AppCompatActivity(){
   status.text="Loading local model. The first response can take longer while the model initializes."
   lifecycleScope.launch{
    try{
-    answer.text=OfflineLlm.generate(this@OfflineModelActivity,input){partial,generated,total->
-     runOnUiThread{
-      if(partial.isNotBlank()) answer.text=partial
-      status.text=if(generated==0) "Model loaded · preparing response…" else "Generating offline response · $generated/$total tokens"
+    answer.text=withTimeout(120_000L) {
+     OfflineLlm.generate(this@OfflineModelActivity,input){partial,generated,total->
+      runOnUiThread{
+       if(partial.isNotBlank()) answer.text=partial
+       status.text=if(generated==0) "Model loaded · preparing response…" else "Generating offline response · $generated/$total tokens"
+      }
      }
     }
     status.text="Offline model is ready."
+   }catch(error:TimeoutCancellationException){
+    answer.text="Offline generation exceeded 2 minutes. The engine may be stuck initializing or this device may not have enough available RAM. Close other apps and try again."
+    status.text="Offline model timed out after 2 minutes."
    }catch(error:Exception){
     answer.text="The local model could not respond.\n${error.message?:"Unknown error"}"
     status.text="Model initialization failed. Check available RAM and model integrity."
