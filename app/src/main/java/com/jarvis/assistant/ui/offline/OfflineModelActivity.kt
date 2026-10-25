@@ -79,7 +79,11 @@ class OfflineModelActivity:AppCompatActivity(){
      OfflineLlm.generate(this@OfflineModelActivity,input){partial,generated,total->
       runOnUiThread{
        if(partial.isNotBlank()) answer.text=partial
-       status.text=if(generated==0) "Model loaded · preparing response…" else "Generating offline response · $generated/$total tokens"
+       status.text=when {
+        generated < 0 -> "Loading local model into memory…"
+        generated == 0 -> "Model loaded · preparing response…"
+        else -> "Generating offline response · $generated/$total tokens"
+       }
       }
      }
     }
