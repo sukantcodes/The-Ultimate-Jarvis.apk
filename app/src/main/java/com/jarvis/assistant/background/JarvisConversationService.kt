@@ -584,35 +584,70 @@ class JarvisConversationService : Service() {
     }
 
     private fun initTts() {
+        val pocketEngine = "org.pockettts.android.engine"
+        val pocketInstalled = try {
+            packageManager.getPackageInfo(pocketEngine, 0)
+            true
+        } catch (_: Exception) {
+            false
+        }
+
         try {
-            tts = TextToSpeech(applicationContext) { status ->
-                if (status == TextToSpeech.SUCCESS) {
-                    tts?.language = Locale.US
-                    tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                        override fun onStart(utteranceId: String?) {
-                            Log.d("JarvisService", "TTS onStart: $utteranceId")
+            if (pocketInstalled) {
+                Log.i("JarvisService", "Pocket TTS Android engine detected; requesting it directly instead of merely opening speech settings.")
+                tts = TextToSpeech(applicationContext, { status ->
+                    if (status == TextToSpeech.SUCCESS) {
+                        configureTtsEngine(status, "Pocket TTS")
+                    } else {
+                        Log.w("JarvisService", "Pocket TTS engine initialization failed; falling back to Android's default TTS engine.")
+                        try { tts?.shutdown() } catch (_: Exception) {}
+                        tts = TextToSpeech(applicationContext) { fallbackStatus ->
+                            configureTtsEngine(fallbackStatus, "Android default TTS")
                         }
-
-                        override fun onDone(utteranceId: String?) {
-                            Log.d("JarvisService", "TTS onDone: $utteranceId")
-                            handleTtsDone(utteranceId)
-                        }
-
-                        @Deprecated("Deprecated in Java")
-                        override fun onError(utteranceId: String?) {
-                            Log.e("JarvisService", "TTS onError: $utteranceId")
-                            handleTtsDone(utteranceId)
-                        }
-
-                        override fun onError(utteranceId: String?, errorCode: Int) {
-                            Log.e("JarvisService", "TTS onError: $utteranceId code: $errorCode")
-                            handleTtsDone(utteranceId)
-                        }
-                    })
+                    }
+                }, pocketEngine)
+            } else {
+                tts = TextToSpeech(applicationContext) { status ->
+                    configureTtsEngine(status, "Android default TTS")
                 }
+                Log.i("JarvisService", "Pocket TTS engine is not installed; using the configured Android TTS engine.")
             }
-        } catch (e: Exception) {
-            Log.e("JarvisService", "Failed to init TTS: ${e.message}")
+        } catch (error: Exception) {
+            Log.e("JarvisService", "Failed to initialize preferred TTS engine: ${error.message}", error)
+        }
+    }
+
+    private fun configureTtsEngine(status: Int, engineLabel: String) {
+        if (status != TextToSpeech.SUCCESS) {
+            Log.e("JarvisService", "$engineLabel initialization failed (status=$status)")
+            return
+        }
+        try {
+            tts?.language = Locale.US
+            tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {
+                    Log.d("JarvisService", "$engineLabel onStart: $utteranceId")
+                }
+
+                override fun onDone(utteranceId: String?) {
+                    Log.d("JarvisService", "$engineLabel onDone: $utteranceId")
+                    handleTtsDone(utteranceId)
+                }
+
+                @Deprecated("Deprecated in Java")
+                override fun onError(utteranceId: String?) {
+                    Log.e("JarvisService", "$engineLabel onError: $utteranceId")
+                    handleTtsDone(utteranceId)
+                }
+
+                override fun onError(utteranceId: String?, errorCode: Int) {
+                    Log.e("JarvisService", "$engineLabel onError: $utteranceId code: $errorCode")
+                    handleTtsDone(utteranceId)
+                }
+            })
+            Log.i("JarvisService", "$engineLabel initialized successfully.")
+        } catch (error: Exception) {
+            Log.e("JarvisService", "Failed to configure $engineLabel: ${error.message}", error)
         }
     }
 
