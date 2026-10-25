@@ -325,9 +325,25 @@ class SettingsFragment : Fragment() {
 
     private fun setupVoiceSection() {
         binding.rowVoiceGender.setOnClickListener { showVoiceGenderDialog() }
+        binding.rowPocketTts.setOnClickListener { openPocketTtsSettings() }
         binding.rowNoiseCancel.setOnClickListener { showNoiseCancelDialog() }
         binding.rowAutoSleep.setOnClickListener { showAutoSleepDialog() }
         binding.rowDefaultAssistant.setOnClickListener { requestDefaultAssistant() }
+    }
+
+    /**
+     * Pocket TTS is installed as an Android system TTS engine with separately imported model packs.
+     * Opening the system panel lets the user choose it without bundling an unverified native runtime.
+     */
+    private fun openPocketTtsSettings() {
+        val context = requireContext()
+        val intent = android.content.Intent(android.provider.Settings.ACTION_TEXT_TO_SPEECH_SETTINGS)
+        try {
+            startActivity(intent)
+            Toast.makeText(context, "Choose Pocket TTS as the preferred engine after installing its app and importing a voice pack.", Toast.LENGTH_LONG).show()
+        } catch (error: android.content.ActivityNotFoundException) {
+            Toast.makeText(context, "Text-to-speech settings are unavailable on this device.", Toast.LENGTH_LONG).show()
+        }
     }
 
     // ------------------------------------------------------------------------------------------
