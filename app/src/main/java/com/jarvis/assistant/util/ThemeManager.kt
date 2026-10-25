@@ -60,7 +60,8 @@ object ThemeManager {
         activity.setTheme(themeRes)
         fun background() = createThemeBackgroundDrawable(themeKey, prefs?.customThemeColor ?: "#FFFFFF")
         activity.window.setBackgroundDrawable(background())
-        activity.window.decorView.background = background()
+        // Keep the decor transparent so the window glow remains continuous behind content.
+        activity.window.decorView.background = ColorDrawable(Color.TRANSPARENT)
         activity.window.statusBarColor = bgColor
         activity.window.navigationBarColor = bgColor
 
@@ -166,6 +167,12 @@ object ThemeManager {
         val prefs = try { JarvisApp.instance.preferences } catch (_: Exception) { null }
         val themeKey = prefs?.appTheme ?: "sunset"
         val customHex = prefs?.customThemeColor ?: "#FFFFFF"
-        view.background = createThemeBackgroundDrawable(themeKey, customHex)
+        // Custom-theme glow is drawn once by the Activity content background. A second
+        // fragment-sized glow would restart the gradient at the fragment edges like a colour patch.
+        view.background = if (themeKey == "custom") {
+            ColorDrawable(Color.TRANSPARENT)
+        } else {
+            ColorDrawable(getThemeBgColor(themeKey, customHex))
+        }
     }
 }
