@@ -592,37 +592,47 @@ class JarvisConversationService : Service() {
             false
         }
 
+        if (!pocketInstalled) {
+            Log.i("JarvisService", "Pocket TTS engine is not installed; using Android's configured TTS engine.")
+            startDefaultTts("Pocket TTS is not installed")
+            return
+        }
+
         try {
-            if (pocketInstalled) {
-                Log.i("JarvisService", "Pocket TTS Android engine detected; requesting it directly instead of merely opening speech settings.")
-                tts = TextToSpeech(applicationContext, { status ->
-                    if (status == TextToSpeech.SUCCESS) {
-                        configureTtsEngine(status, "Pocket TTS")
-                    } else {
-                        Log.w("JarvisService", "Pocket TTS engine initialization failed; falling back to Android's default TTS engine.")
-                        try { tts?.shutdown() } catch (_: Exception) {}
-                        tts = TextToSpeech(applicationContext) { fallbackStatus ->
-                            configureTtsEngine(fallbackStatus, "Android default TTS")
-                        }
-                    }
-                }, pocketEngine)
-            } else {
-                tts = TextToSpeech(applicationContext) { status ->
-                    configureTtsEngine(status, "Android default TTS")
+            Log.i("JarvisService", "Pocket TTS engine detected; requesting it directly through Android TextToSpeech.")
+            tts = TextToSpeech(applicationContext, { status ->
+                if (status != TextToSpeech.SUCCESS) {
+                    startDefaultTts("Pocket TTS initialization failed (status=$status)")
+                } else if (!configureTtsEngine(status, "Pocket TTS")) {
+                    // An installed engine may still have no imported voice pack for the chosen
+                    // language. Do not leave speech silent: fall back to the device's default.
+                    startDefaultTts("Pocket TTS has no usable voice for the selected language")
                 }
-                Log.i("JarvisService", "Pocket TTS engine is not installed; using the configured Android TTS engine.")
-            }
+            }, pocketEngine)
         } catch (error: Exception) {
-            Log.e("JarvisService", "Failed to initialize preferred TTS engine: ${error.message}", error)
+            Log.e("JarvisService", "Failed to initialize Pocket TTS: ${error.message}", error)
+            startDefaultTts("Pocket TTS could not be initialized")
         }
     }
 
-    private fun configureTtsEngine(status: Int, engineLabel: String) {
+    private fun startDefaultTts(reason: String) {
+        Log.w("JarvisService", "$reason; falling back to Android's configured TTS engine.")
+        try {
+            try { tts?.shutdown() } catch (_: Exception) {}
+            tts = TextToSpeech(applicationContext) { status ->
+                configureTtsEngine(status, "Android default TTS")
+            }
+        } catch (error: Exception) {
+            Log.e("JarvisService", "Failed to initialize Android default TTS: ${error.message}", error)
+        }
+    }
+
+    private fun configureTtsEngine(status: Int, engineLabel: String): Boolean {
         if (status != TextToSpeech.SUCCESS) {
             Log.e("JarvisService", "$engineLabel initialization failed (status=$status)")
-            return
+            return false
         }
-        try {
+        return try {
             val selectedLanguage = preferences.language.lowercase(Locale.ROOT)
             val requestedLocale = when {
                 selectedLanguage.contains("hindi") || selectedLanguage.contains("हिन्दी") -> Locale("hi", "IN")
@@ -637,11 +647,18 @@ class JarvisConversationService : Service() {
                 else -> Locale.getDefault()
             }
             val languageResult = tts?.setLanguage(requestedLocale) ?: TextToSpeech.LANG_NOT_SUPPORTED
-            if (languageResult == TextToSpeech.LANG_MISSING_DATA ||
-                languageResult == TextToSpeech.LANG_NOT_SUPPORTED
-            ) {
-                Log.w("JarvisService", "$engineLabel does not support $requestedLocale; falling back to US English.")
-                tts?.setLanguage(Locale.US)
+            val usableLanguage = languageResult != TextToSpeech.LANG_MISSING_DATA &&
+                languageResult != TextToSpeech.LANG_NOT_SUPPORTED
+            if (!usableLanguage) {
+                Log.w("JarvisService", "$engineLabel does not support $requestedLocale.")
+                if (engineLabel == "Pocket TTS") return false
+                val fallbackResult = tts?.setLanguage(Locale.US) ?: TextToSpeech.LANG_NOT_SUPPORTED
+                if (fallbackResult == TextToSpeech.LANG_MISSING_DATA ||
+                    fallbackResult == TextToSpeech.LANG_NOT_SUPPORTED
+                ) {
+                    Log.e("JarvisService", "Android default TTS has no available voice for $requestedLocale or US English.")
+                    return false
+                }
             }
             tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {
@@ -665,8 +682,10 @@ class JarvisConversationService : Service() {
                 }
             })
             Log.i("JarvisService", "$engineLabel initialized successfully.")
+            true
         } catch (error: Exception) {
             Log.e("JarvisService", "Failed to configure $engineLabel: ${error.message}", error)
+            false
         }
     }
 
