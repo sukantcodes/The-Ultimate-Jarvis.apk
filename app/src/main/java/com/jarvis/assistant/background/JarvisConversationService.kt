@@ -35,6 +35,7 @@ import org.vosk.android.RecognitionListener as VoskRecognitionListener
 import org.vosk.android.SpeechService
 import com.jarvis.assistant.audio.AudioPlayer
 import com.jarvis.assistant.audio.AudioRecorder
+import com.jarvis.assistant.audio.OnDeviceVoiceActivityDetector
 import com.jarvis.assistant.data.model.ConversationState
 import com.jarvis.assistant.network.GeminiLiveWebSocket
 import com.jarvis.assistant.ui.home.MainActivity
@@ -323,6 +324,7 @@ class JarvisConversationService : Service() {
     private var autonomousLoopJob: Job? = null
     private val MAX_AUTONOMOUS_STEPS = 25
     // Mic voice-activity tuning. Raised so room noise no longer flips LISTENING/THINKING when nobody speaks.
+    private val onDeviceVad = OnDeviceVoiceActivityDetector()
     private val VAD_MIN_THRESHOLD = 0.05f
     private val VAD_NOISE_MULTIPLIER = 2.0f
     private val VAD_START_FRAMES = 5
@@ -1522,7 +1524,7 @@ class JarvisConversationService : Service() {
                 // Dynamic voice threshold: responsive to normal conversational volume (0.035f)
                 val voiceThreshold = maxOf(VAD_MIN_THRESHOLD, ambientNoiseFloor * VAD_NOISE_MULTIPLIER)
 
-                if (amplitude > voiceThreshold) {
+                if (onDeviceVad.isSpeech(chunk, amplitude, voiceThreshold)) {
                     consecutiveVoicedFrames++
                     lastUserSpeechDetectedTime = now
                     _audioLevel.value = amplitude
@@ -3916,6 +3918,7 @@ class JarvisConversationService : Service() {
     }
 
     override fun onDestroy() {
+        onDeviceVad.close()
         com.jarvis.assistant.studio.AutomationEvents.handler = null
         batteryWatcher?.stop()
         batteryWatcher = null
