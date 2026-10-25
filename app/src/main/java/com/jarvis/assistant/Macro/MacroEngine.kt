@@ -51,8 +51,8 @@ class MacroEngine(private val actions: MacroActions) {
     suspend fun run(
         macro: Macro,
         input: String,
-        onProgress: (String) -> Unit = {},
-        namedInputs: Map<String, String> = emptyMap()
+        namedInputs: Map<String, String> = emptyMap(),
+        onProgress: (String) -> Unit = {}
     ): MacroOutcome {
         var output = ""
         val total = macro.steps.size
