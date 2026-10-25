@@ -448,7 +448,7 @@ class SettingsFragment : Fragment() {
 
         val orbStyles = listOf(
             "default" to "Particle Orb",
-            "quantum_core" to "Quantum Aurora",
+            "siri_glass_aurora" to "Siri Glass Aurora",
             "holographic_plasma" to "Holographic Plasma",
             "cosmic_pulsar" to "Cosmic Pulsar",
             "cyber_ring" to "Cyber Ring",
