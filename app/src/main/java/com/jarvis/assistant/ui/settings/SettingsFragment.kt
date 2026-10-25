@@ -349,12 +349,24 @@ class SettingsFragment : Fragment() {
             return
         }
 
-        val settingsIntent = android.content.Intent("com.android.settings.TTS_SETTINGS")
+        // Pocket TTS is a separate Android system engine and its language weights are
+        // distributed as model packs. Direct users to the upstream release page rather than
+        // falsely implying that opening Android settings installs the runtime.
+        val releaseIntent = android.content.Intent(
+            android.content.Intent.ACTION_VIEW,
+            android.net.Uri.parse("https://github.com/The-unknown-Shadowman/PocketTTS-Android-Engine/releases/latest")
+        )
         try {
-            startActivity(settingsIntent)
-            Toast.makeText(context, "Pocket TTS engine is not installed yet. Android settings alone do not install it; JARVIS will use the available system voice until the engine and a voice pack are installed.", Toast.LENGTH_LONG).show()
+            startActivity(releaseIntent)
+            Toast.makeText(context, "Install Pocket TTS Android Engine from its official releases, import a language pack, then reopen JARVIS. Until then, JARVIS uses the device's available TTS voice.", Toast.LENGTH_LONG).show()
         } catch (error: android.content.ActivityNotFoundException) {
-            Toast.makeText(context, "Pocket TTS engine is not installed and text-to-speech settings are unavailable on this device.", Toast.LENGTH_LONG).show()
+            val settingsIntent = android.content.Intent("com.android.settings.TTS_SETTINGS")
+            try {
+                startActivity(settingsIntent)
+                Toast.makeText(context, "Pocket TTS is not installed. Android speech settings cannot install it.", Toast.LENGTH_LONG).show()
+            } catch (_: android.content.ActivityNotFoundException) {
+                Toast.makeText(context, "Pocket TTS is not installed and no browser or speech settings app is available.", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
