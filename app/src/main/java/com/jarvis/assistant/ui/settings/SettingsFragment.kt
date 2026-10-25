@@ -448,7 +448,7 @@ class SettingsFragment : Fragment() {
 
         val orbStyles = listOf(
             "default" to "Particle Orb",
-            "siri_glass_aurora" to "Siri Glass Aurora",
+            "aurora_orb" to "Aurora Orb",
             "holographic_plasma" to "Holographic Plasma",
             "cosmic_pulsar" to "Cosmic Pulsar",
             "cyber_ring" to "Cyber Ring",
@@ -464,7 +464,7 @@ class SettingsFragment : Fragment() {
         binding.rowOrbStyle.setOnClickListener {
             val selected = orbStyles.indexOfFirst { it.first == preferences.orbAnimation }.let { if (it >= 0) it else 0 }
             MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Choose 3D Orb Style")
+                .setTitle("Choose Orb Appearance")
                 .setSingleChoiceItems(orbStyles.map { it.second }.toTypedArray(), selected) { dialog, which ->
                     val style = orbStyles[which]
                     preferences.orbAnimation = style.first
