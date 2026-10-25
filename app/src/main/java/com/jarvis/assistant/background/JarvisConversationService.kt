@@ -1865,7 +1865,7 @@ class JarvisConversationService : Service() {
         }
 
         // Launch installed apps locally without sending the request to a cloud model.
-        val launchMatch = Regex("^(?:hey\\s+)?jarvis[, ]*\\s*(?:open|launch|start)\\s+(?:the\\s+)?(.+)$", RegexOption.IGNORE_CASE)
+        val launchMatch = Regex("^(?:(?:hey\\s+)?jarvis[, ]*\\s*)?(?:open|launch|start)\\s+(?:the\\s+)?(.+)$", RegexOption.IGNORE_CASE)
             .find(clean)
         if (launchMatch != null) {
             val requestedApp = launchMatch.groupValues[1].trim().lowercase(Locale.ROOT)
