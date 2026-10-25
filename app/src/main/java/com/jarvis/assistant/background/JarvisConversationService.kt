@@ -4383,7 +4383,7 @@ class JarvisConversationService : Service() {
         macroJob = serviceScope.launch(Dispatchers.Default) {
             val engine = com.jarvis.assistant.macro.MacroEngine(ServiceMacroActions())
             try {
-                val outcome = engine.run(macro, input, { progress -> Log.i("JarvisMacro", macro.name + ": " + progress) }, namedInputs)
+                val outcome = engine.run(macro, input, namedInputs) { progress -> Log.i("JarvisMacro", macro.name + ": " + progress) }
                 reportMacroResult(macro, outcome.success, outcome.message, outcome.output)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 reportMacroResult(macro, false, "The macro was stopped.", "")
