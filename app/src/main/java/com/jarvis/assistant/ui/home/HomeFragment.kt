@@ -38,6 +38,7 @@ class HomeFragment : Fragment() {
     private val preferences by lazy { JarvisApp.instance.preferences }
 
     private var isPageLoaded = false
+    private var loadedAuroraOrb = false
     private var pendingOrbState: String? = null
     private var pendingThemeKey: String? = null
     private var pendingCustomHex: String? = null
@@ -193,7 +194,14 @@ class HomeFragment : Fragment() {
 
     fun setOrbStyle(style: String) {
         pendingOrbStyle = style
-        if (!isPageLoaded) return
+        val wantsAurora = style == "aurora_orb"
+        if (wantsAurora != loadedAuroraOrb) {
+            loadedAuroraOrb = wantsAurora
+            isPageLoaded = false
+            binding.orbWebView.loadUrl(if (wantsAurora) "file:///android_asset/aurora_orb.html?embedded=1" else "file:///android_asset/orb.html?embedded=1")
+            return
+        }
+        if (!isPageLoaded || wantsAurora) return
         val safeStyle = style.filter { it.isLetterOrDigit() || it == '_' }
         activity?.runOnUiThread {
             binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setStyle('$safeStyle');", null)
