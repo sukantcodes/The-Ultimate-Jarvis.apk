@@ -40,11 +40,11 @@ internal class InferenceEngineImpl private constructor(context: Context) {
                 "Offline model missing or incomplete. Download it from Offline JARVIS."
             }
 
-            onProgress("", 0, MAX_GENERATION_TOKENS)
             ensureLoaded(model)
             check(processUserPrompt(prompt, MAX_GENERATION_TOKENS) == 0) {
                 "Local model could not process the prompt."
             }
+            onProgress("", 0, MAX_GENERATION_TOKENS)
 
             val output = StringBuilder()
             var generated = 0
