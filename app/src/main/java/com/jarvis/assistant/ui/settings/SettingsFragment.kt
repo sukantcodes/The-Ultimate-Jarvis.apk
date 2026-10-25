@@ -325,7 +325,7 @@ class SettingsFragment : Fragment() {
 
     private fun setupVoiceSection() {
         binding.rowVoiceGender.setOnClickListener { showVoiceGenderDialog() }
-        binding.rowPocketTts.setOnClickListener { openPocketTtsSettings() }
+        binding.rowPocketTts.setOnClickListener { open(PocketTtsSetupActivity::class.java) }
         binding.rowNoiseCancel.setOnClickListener { showNoiseCancelDialog() }
         binding.rowAutoSleep.setOnClickListener { showAutoSleepDialog() }
         binding.rowDefaultAssistant.setOnClickListener { requestDefaultAssistant() }
