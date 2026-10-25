@@ -68,11 +68,22 @@ class OfflineModelActivity:AppCompatActivity(){
   val input=prompt.text?.toString()?.trim().orEmpty()
   if(input.isBlank()){prompt.error="Enter a message to test the model.";return}
   if(!OfflineModelDownloader.isModelValid(OfflineModelDownloader.modelFile(this))){status.text="Download the model before testing it.";return}
-  testButton.isEnabled=false;answer.text="Loading local model and generating response…"
+  testButton.isEnabled=false
+  answer.text="Loading local model…"
+  status.text="Loading local model. The first response can take longer while the model initializes."
   lifecycleScope.launch{
-   try{answer.text=OfflineLlm.generate(this@OfflineModelActivity,input);status.text="Offline model is ready."}
-   catch(error:Exception){answer.text="The local model could not respond.\n${error.message?:"Unknown error"}";status.text="Model initialization failed. Check available RAM and model integrity."}
-   finally{testButton.isEnabled=true}
+   try{
+    answer.text=OfflineLlm.generate(this@OfflineModelActivity,input){partial,generated,total->
+     runOnUiThread{
+      if(partial.isNotBlank()) answer.text=partial
+      status.text=if(generated==0) "Model loaded · preparing response…" else "Generating offline response · $generated/$total tokens"
+     }
+    }
+    status.text="Offline model is ready."
+   }catch(error:Exception){
+    answer.text="The local model could not respond.\n${error.message?:"Unknown error"}"
+    status.text="Model initialization failed. Check available RAM and model integrity."
+   }finally{testButton.isEnabled=true}
   }
  }
  private fun refreshModelState(){
