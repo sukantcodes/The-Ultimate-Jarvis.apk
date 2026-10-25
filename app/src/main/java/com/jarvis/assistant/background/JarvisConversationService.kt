@@ -1864,6 +1864,42 @@ class JarvisConversationService : Service() {
             }
         }
 
+        // Launch installed apps locally without sending the request to a cloud model.
+        val launchMatch = Regex("^(?:hey\\s+)?jarvis[, ]*\\s*(?:open|launch|start)\\s+(?:the\\s+)?(.+)$", RegexOption.IGNORE_CASE)
+            .find(clean)
+        if (launchMatch != null) {
+            val requestedApp = launchMatch.groupValues[1].trim().lowercase(Locale.ROOT)
+            if (requestedApp.isNotBlank()) {
+                return withContext(Dispatchers.Main) {
+                    try {
+                        val pm = packageManager
+                        val installed = pm.getInstalledApplications(android.content.pm.PackageManager.GET_META_DATA)
+                        val matches = installed.mapNotNull { info ->
+                            val label = pm.getApplicationLabel(info).toString()
+                            val launchIntent = pm.getLaunchIntentForPackage(info.packageName)
+                            if (launchIntent == null) null else Triple(label, info.packageName, launchIntent)
+                        }
+                        val exact = matches.filter { it.first.equals(requestedApp, ignoreCase = true) }
+                        val candidates = if (exact.isNotEmpty()) exact else matches.filter {
+                            it.first.lowercase(Locale.ROOT).startsWith(requestedApp) ||
+                                it.first.lowercase(Locale.ROOT).contains(requestedApp)
+                        }
+                        when {
+                            candidates.size == 1 -> {
+                                startActivity(candidates.single().third.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                "Opening ${candidates.single().first}."
+                            }
+                            candidates.size > 1 -> "I found multiple apps matching '$requestedApp': ${candidates.take(4).joinToString { it.first }}. Say the exact app name."
+                            else -> "I couldn't find an installed app named '$requestedApp'."
+                        }
+                    } catch (error: Exception) {
+                        Log.e("JarvisService", "Offline app launch failed", error)
+                        "I couldn't open that app on this device."
+                    }
+                }
+            }
+        }
+
         val app = application as? JarvisApp ?: return null
         val awaitingConfirmation = app.whatsAppAssistant.hasPendingDraft() || pendingGenericCommand != null
         val parsed = com.jarvis.assistant.automation.command.CommandParser.parse(
