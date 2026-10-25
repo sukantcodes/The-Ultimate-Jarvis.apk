@@ -249,6 +249,7 @@ class JarvisConversationService : Service() {
     @Volatile private var offlineRecognizer: Recognizer? = null
     private var offlineGenerationJob: Job? = null
     @Volatile private var lastOfflineTranscript = ""
+    @Volatile private var lastOfflineTranscriptAt = 0L
     private var audioPlayer: AudioPlayer? = null
     private var liveWebSocket: GeminiLiveWebSocket? = null
     private var inactivityJob: Job? = null
@@ -1864,10 +1865,14 @@ class JarvisConversationService : Service() {
     private fun processOfflineTranscript(text: String) {
         val clean = text.trim()
         if (clean.isBlank() || !offlineLocalMode || offlineGenerationJob?.isActive == true) return
-        if (clean.equals(lastOfflineTranscript, ignoreCase = true)) return
+        val now = System.currentTimeMillis()
+        // Ignore duplicate final/partial recognizer callbacks briefly, but allow the user to
+        // ask the same question again after the debounce window.
+        if (clean.equals(lastOfflineTranscript, ignoreCase = true) && now - lastOfflineTranscriptAt < 2_500L) return
         lastOfflineTranscript = clean
-        lastRealInteractionTime = System.currentTimeMillis()
-        lastUserSpeechDetectedTime = lastRealInteractionTime
+        lastOfflineTranscriptAt = now
+        lastRealInteractionTime = now
+        lastUserSpeechDetectedTime = now
         currentTurnUserText.clear()
         currentTurnUserText.append(clean)
         currentTurnAssistantText.clear()
@@ -1876,8 +1881,15 @@ class JarvisConversationService : Service() {
         setConversationState(ConversationState.THINKING)
         offlineGenerationJob = serviceScope.launch(Dispatchers.IO) {
             val answer = try {
-                executeOfflineLocalCommand(clean)
-                    ?: com.jarvis.assistant.offline.OfflineLlm.generate(applicationContext, clean)
+                withTimeout(120_000L) {
+                    executeOfflineLocalCommand(clean)
+                        ?: com.jarvis.assistant.offline.OfflineLlm.generate(applicationContext, clean)
+                }
+            } catch (error: TimeoutCancellationException) {
+                Log.e("JarvisService", "Offline response exceeded the 120-second safety limit", error)
+                "The offline model did not finish within two minutes. It may still be loading or may not have enough available memory. Try again after closing other apps."
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 Log.e("JarvisService", "Offline command/model execution failed", error)
                 "I couldn't complete that offline request: " + (error.message ?: "local model error")
