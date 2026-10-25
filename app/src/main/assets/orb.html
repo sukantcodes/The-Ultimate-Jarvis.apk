@@ -1,3532 +1,660 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>J.A.R.V.I.S. — Concentric Aurora Light Glow Orb Engine (v5.0 Quantum Mark-LXXXV)</title>
-  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@500;700;800;900&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --orb-primary: #00f2fe;
-      --orb-secondary: #4facfe;
-      --orb-tertiary: #00ffaa;
-      --orb-accent: #a855f7;
-      --hud-border: rgba(0, 242, 254, 0.26);
-      --hud-bg: rgba(4, 12, 26, 0.78);
-      --hud-text: #e0f7ff;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>JARVIS Particle Orb</title>
+<style>
+:root{--bg:#fff;--fg:#1d2340;--sub:#6b7390;--glass:rgba(255,255,255,.72);--gb:rgba(255,255,255,.9);--chip:#4a527a;--t1:#2f6bff;--t2:#8b5cf6;--t3:#c15de0;--sh:rgba(70,80,170,.22)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+#touchParticles{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999}
+html,body{height:100%;overflow:hidden}
+body{display:flex;flex-direction:column;align-items:center;background:var(--bg);color:var(--fg);font-family:Inter,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+header{text-align:center;padding-top:clamp(12px,3.5vh,36px);flex:none}
+h1{font-size:clamp(22px,4.2vh,34px);font-weight:700;letter-spacing:.3em;padding-left:.3em;background:linear-gradient(90deg,var(--t1),var(--t2) 60%,var(--t3));-webkit-background-clip:text;background-clip:text;color:transparent}
+header p{margin-top:6px;font-size:clamp(12px,1.8vh,15px);color:var(--sub);letter-spacing:.04em}
+#stage{position:relative;flex:1 1 auto;min-height:0;width:100%;max-width:900px}
+#stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#shadow{position:absolute;left:50%;height:22px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,var(--sh),transparent);filter:blur(4px);animation:float 5s ease-in-out infinite;pointer-events:none}
+@keyframes float{50%{opacity:.6;transform:translateX(-50%) scaleX(.9)}}
+#status{flex:none;display:flex;align-items:center;gap:10px;padding:9px 20px;border-radius:999px;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 4px 18px rgba(0,0,0,.12),inset 0 0 0 1px var(--gb);font-size:13px;font-weight:600;letter-spacing:.22em;color:var(--fg)}
+#dot{width:8px;height:8px;border-radius:50%;background:var(--t1);animation:ping 1.6s infinite}
+@keyframes ping{70%{box-shadow:0 0 0 9px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.panel{flex:none;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;margin-top:10px;padding:6px;border-radius:20px;background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 8px 28px rgba(0,0,0,.12),inset 0 0 0 1px var(--gb);max-width:100%}
+#panel{margin-bottom:clamp(12px,2.5vh,24px)}
+button{font:inherit;font-size:11.5px;font-weight:600;letter-spacing:.1em;border:0;border-radius:13px;padding:10px 13px;color:var(--chip);background:transparent;cursor:pointer;transition:all .2s}
+button.on{color:#fff;background:linear-gradient(135deg,var(--t1),var(--t2));box-shadow:0 4px 14px rgba(0,0,0,.25)}
+#bgc{width:34px;height:34px;border:0;border-radius:50%;padding:0;background:none;cursor:pointer;overflow:hidden}
+#bgc::-webkit-color-swatch-wrapper{padding:0}#bgc::-webkit-color-swatch{border:2px solid var(--gb);border-radius:50%}
+#toast{position:fixed;left:50%;bottom:110px;transform:translate(-50%,20px);opacity:0;background:#1d2340;color:#fff;font-size:13px;padding:10px 16px;border-radius:12px;transition:all .3s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+/* Hide all HTML panels immediately so they never flash */
+#themes,
+#panel,
+#status,
+#toast,
+#err,
+header {
+  display: none !important;
+}
 
-    * {
-      box-sizing: border-box;
-      user-select: none;
-      -webkit-user-select: none;
-    }
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 
-    /*
-     * =========================================================================
-     * TRUE TRANSPARENT BACKGROUND ARCHITECTURE (RGBA 0, 0, 0, 0)
-     * =========================================================================
-     * Default state uses 100% transparent alpha channel so this HTML file
-     * integrates directly into Electron frameless windows, OBS Browser Sources,
-     * Rainmeter WebView2 widgets, or desktop Jarvis HUD overlays.
-     */
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: transparent !important;
-      background-color: rgba(0, 0, 0, 0) !important;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      color: var(--hud-text);
-    }
-
-    body.backdrop-transparent {
-      background: transparent !important;
-      background-color: rgba(0, 0, 0, 0) !important;
-    }
-
-    body.backdrop-checker {
-      background-color: transparent !important;
-      background-image:
-        linear-gradient(45deg, rgba(15, 23, 42, 0.35) 25%, transparent 25%),
-        linear-gradient(-45deg, rgba(15, 23, 42, 0.35) 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, rgba(15, 23, 42, 0.35) 75%),
-        linear-gradient(-45deg, transparent 75%, rgba(15, 23, 42, 0.35) 75%) !important;
-      background-size: 28px 28px !important;
-      background-position: 0 0, 0 14px, 14px -14px, -14px 0 !important;
-    }
-
-    body.backdrop-abyss {
-      background: radial-gradient(circle at 50% 50%, #061326 0%, #020611 65%, #000000 100%) !important;
-    }
-
-    body.backdrop-cybergrid {
-      background-color: #020813 !important;
-      background-image:
-        radial-gradient(circle at 50% 50%, rgba(0, 242, 254, 0.08) 0%, transparent 60%),
-        linear-gradient(rgba(0, 242, 254, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 242, 254, 0.05) 1px, transparent 1px) !important;
-      background-size: 100% 100%, 40px 40px, 40px 40px !important;
-    }
-
-    .font-orbitron {
-      font-family: 'Orbitron', sans-serif;
-    }
-
-    .font-mono-tech {
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* Main Interactive Concentric Orb Stage */
-    #orb-stage {
-      position: fixed;
-      inset: 0;
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: auto;
-      z-index: 1;
-    }
-
-    #aurora-canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-      background: transparent !important;
-      cursor: crosshair;
-    }
-
-    /* Sci-Fi Glassmorphic HUD Panels */
-    .hud-glass {
-      background: var(--hud-bg);
-      backdrop-filter: blur(16px) saturate(165%);
-      -webkit-backdrop-filter: blur(16px) saturate(165%);
-      border: 1px solid var(--hud-border);
-      box-shadow:
-        0 10px 40px -10px rgba(0, 0, 0, 0.72),
-        0 0 24px -4px rgba(0, 242, 254, 0.15),
-        inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
-      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .hud-glass:hover {
-      border-color: rgba(0, 242, 254, 0.44);
-    }
-
-    .hud-hidden .hud-element {
-      opacity: 0 !important;
-      pointer-events: none !important;
-      transform: translateY(12px) scale(0.97);
-    }
-
-    /* State Pill Buttons */
-    .state-btn {
-      position: relative;
-      overflow: hidden;
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      background: rgba(15, 23, 42, 0.65);
-    }
-
-    .state-btn::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(0, 242, 254, 0.22), rgba(79, 172, 254, 0.04));
-      opacity: 0;
-      transition: opacity 0.25s ease;
-    }
-
-    .state-btn:hover::before {
-      opacity: 1;
-    }
-
-    .state-btn.active {
-      border-color: var(--orb-primary);
-      box-shadow: 0 0 20px rgba(0, 242, 254, 0.35), inset 0 0 12px rgba(0, 242, 254, 0.2);
-      background: rgba(0, 242, 254, 0.14);
-      color: #ffffff;
-    }
-
-    .state-btn.active-listening {
-      border-color: #00ffaa;
-      box-shadow: 0 0 22px rgba(0, 255, 170, 0.42), inset 0 0 12px rgba(0, 255, 170, 0.22);
-      background: rgba(0, 255, 170, 0.16);
-    }
-
-    .state-btn.active-thinking {
-      border-color: #c084fc;
-      box-shadow: 0 0 22px rgba(192, 132, 252, 0.45), inset 0 0 12px rgba(192, 132, 252, 0.22);
-      background: rgba(192, 132, 252, 0.17);
-    }
-
-    .state-btn.active-speaking {
-      border-color: #38bdf8;
-      box-shadow: 0 0 24px rgba(56, 189, 248, 0.52), inset 0 0 14px rgba(56, 189, 248, 0.25);
-      background: rgba(56, 189, 248, 0.19);
-    }
-
-    .state-btn.active-overdrive {
-      border-color: #fb7185;
-      box-shadow: 0 0 24px rgba(251, 113, 133, 0.52), inset 0 0 14px rgba(251, 113, 133, 0.25);
-      background: rgba(251, 113, 133, 0.19);
-    }
-
-    /* Custom Range Sliders */
-    input[type="range"].jarvis-slider {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 100%;
-      height: 5px;
-      background: rgba(30, 41, 59, 0.9);
-      border-radius: 999px;
-      outline: none;
-      border: 1px solid rgba(0, 242, 254, 0.22);
-    }
-
-    input[type="range"].jarvis-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: #00f2fe;
-      box-shadow: 0 0 10px #00f2fe;
-      cursor: pointer;
-      border: 2px solid #ffffff;
-      transition: transform 0.15s ease;
-    }
-
-    input[type="range"].jarvis-slider::-webkit-slider-thumb:hover {
-      transform: scale(1.2);
-    }
-
-    /* Custom Scrollbar for Control Drawer */
-    .hud-scroll::-webkit-scrollbar {
-      width: 5px;
-    }
-    .hud-scroll::-webkit-scrollbar-track {
-      background: rgba(15, 23, 42, 0.4);
-    }
-    .hud-scroll::-webkit-scrollbar-thumb {
-      background: rgba(0, 242, 254, 0.35);
-      border-radius: 999px;
-    }
-
-    /* Corner Tech Brackets */
-    .tech-corner {
-      position: relative;
-    }
-    .tech-corner::after {
-      content: '';
-      position: absolute;
-      top: -1px;
-      right: -1px;
-      width: 10px;
-      height: 10px;
-      border-top: 2px solid #00f2fe;
-      border-right: 2px solid #00f2fe;
-      pointer-events: none;
-    }
-
-    @keyframes pulse-dot {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.45); opacity: 0.55; }
-    }
-    .animate-pulse-dot {
-      animation: pulse-dot 1.8s infinite ease-in-out;
-    }
-  
-    /* =========================================================================
-       EXTENDED CONCENTRIC AURORA & HOLOGRAPHIC HUD STYLING SUBSYSTEM
-       ========================================================================= */
-    @keyframes spin-slow-cw {
-      0% { transform: translate(-50%, -50%) rotate(0deg); }
-      100% { transform: translate(-50%, -50%) rotate(360deg); }
-    }
-
-    @keyframes spin-slow-ccw {
-      0% { transform: translate(-50%, -50%) rotate(360deg); }
-      100% { transform: translate(-50%, -50%) rotate(0deg); }
-    }
-
-    @keyframes aurora-breathe {
-      0%, 100% { opacity: 0.42; transform: translate(-50%, -50%) scale(0.98); }
-      50% { opacity: 0.78; transform: translate(-50%, -50%) scale(1.03); }
-    }
-
-    .svg-astrolabe-ring {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 0;
-      transition: opacity 0.4s ease, filter 0.4s ease;
-    }
-
-    .astrolabe-cw {
-      animation: spin-slow-cw 64s linear infinite;
-    }
-
-    .astrolabe-ccw {
-      animation: spin-slow-ccw 48s linear infinite;
-    }
-
-    .astrolabe-breathe {
-      animation: aurora-breathe 5.5s ease-in-out infinite;
-    }
-
-    /* Diagnostic Telemetry Matrix Table */
-    .diag-cell {
-      background: rgba(8, 20, 42, 0.68);
-      border: 1px solid rgba(0, 242, 254, 0.18);
-      border-radius: 0.65rem;
-      padding: 0.5rem 0.65rem;
-      transition: border-color 0.2s ease, background 0.2s ease;
-    }
-
-    .diag-cell:hover {
-      border-color: rgba(0, 242, 254, 0.45);
-      background: rgba(12, 28, 56, 0.82);
-    }
-
-    /* Preset Sequence Pill */
-    .seq-step-pill {
-      border: 1px solid rgba(0, 242, 254, 0.25);
-      background: rgba(15, 23, 42, 0.75);
-      transition: all 0.2s ease;
-    }
-
-    .seq-step-pill.seq-active {
-      border-color: #00ffaa;
-      background: rgba(0, 255, 170, 0.18);
-      box-shadow: 0 0 14px rgba(0, 255, 170, 0.3);
-    }
-
-  </style>
+#stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+</style>
 </head>
-<body class="backdrop-transparent">
-
-  <!-- MAIN CONCENTRIC AURORA ORB CANVAS STAGE -->
-  
-  <!-- CONCENTRIC VECTOR ASTROLABE & SACRED GEOMETRY SVG HALO LAYER (TRANSPARENT SAFE) -->
-  <div id="svg-halo-container" class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-    <svg
-      id="svg-astrolabe-outer"
-      class="svg-astrolabe-ring astrolabe-cw w-[76vmin] h-[76vmin] opacity-55"
-      viewBox="0 0 600 600"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <defs>
-        <radialGradient id="auroraSvgGrad1" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#00f2fe" stop-opacity="0.0" />
-          <stop offset="72%" stop-color="#00f2fe" stop-opacity="0.18" />
-          <stop offset="92%" stop-color="#4facfe" stop-opacity="0.42" />
-          <stop offset="100%" stop-color="#00ffaa" stop-opacity="0.0" />
-        </radialGradient>
-        <linearGradient id="auroraRingStroke1" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#00f2fe" stop-opacity="0.75" />
-          <stop offset="50%" stop-color="#a855f7" stop-opacity="0.35" />
-          <stop offset="100%" stop-color="#00ffaa" stop-opacity="0.75" />
-        </linearGradient>
-      </defs>
-      <circle cx="300" cy="300" r="286" stroke="url(#auroraRingStroke1)" stroke-width="1" stroke-dasharray="3 9" />
-      <circle cx="300" cy="300" r="274" stroke="url(#auroraRingStroke1)" stroke-width="1.5" stroke-dasharray="48 16 8 16" />
-      <circle cx="300" cy="300" r="260" stroke="#00f2fe" stroke-opacity="0.22" stroke-width="0.75" />
-      <circle cx="300" cy="300" r="244" stroke="url(#auroraRingStroke1)" stroke-width="1.2" stroke-dasharray="2 14" />
-      <!-- Precision Cardinal & Intercardinal Astrolabe Fiducials -->
-      <g stroke="#00f2fe" stroke-opacity="0.55" stroke-width="1.2">
-        <line x1="300" y1="6" x2="300" y2="24" />
-        <line x1="300" y1="576" x2="300" y2="594" />
-        <line x1="6" y1="300" x2="24" y2="300" />
-        <line x1="576" y1="300" x2="594" y2="300" />
-        <line x1="92" y1="92" x2="106" y2="106" />
-        <line x1="508" y1="508" x2="494" y2="494" />
-        <line x1="508" y1="92" x2="494" y2="106" />
-        <line x1="92" y1="508" x2="106" y2="494" />
-      </g>
-    </svg>
-
-    <svg
-      id="svg-astrolabe-inner"
-      class="svg-astrolabe-ring astrolabe-ccw w-[62vmin] h-[62vmin] opacity-50"
-      viewBox="0 0 500 500"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <circle cx="250" cy="250" r="238" stroke="#00ffaa" stroke-opacity="0.32" stroke-width="1.1" stroke-dasharray="18 10 4 10" />
-      <circle cx="250" cy="250" r="222" stroke="#38bdf8" stroke-opacity="0.25" stroke-width="1" stroke-dasharray="6 6" />
-      <circle cx="250" cy="250" r="204" stroke="#c084fc" stroke-opacity="0.28" stroke-width="1.4" stroke-dasharray="80 40" />
-      <!-- Sacred Octagram Geometric Resonance Frame -->
-      <polygon
-        points="250,26 408,92 474,250 408,408 250,474 92,408 26,250 92,92"
-        stroke="#00f2fe"
-        stroke-opacity="0.14"
-        stroke-width="0.9"
-        fill="none"
-      />
-      <polygon
-        points="250,52 390,110 448,250 390,390 250,448 110,390 52,250 110,110"
-        stroke="#00ffaa"
-        stroke-opacity="0.12"
-        stroke-width="0.8"
-        stroke-dasharray="4 8"
-        fill="none"
-      />
-    </svg>
-  </div>
-
-  <div id="orb-stage" title="Double-click anywhere on the orb to toggle HUD overlay, or click/drag to interact with the Aurora field">
-    <canvas id="aurora-canvas"></canvas>
-  </div>
-
-  <!-- FLOATING MINIMAL RESTORE BUTTON (VISIBLE EVEN WHEN HUD IS HIDDEN) -->
-  <div class="fixed top-3 right-3 z-50 flex items-center gap-2">
-    <button
-      id="btn-pure-orb-mode"
-      type="button"
-      class="hud-element hud-glass px-2.5 py-1.5 rounded-full text-[11px] font-mono-tech tracking-wider uppercase text-emerald-300 hover:text-white"
-      title="Switch to 100% Transparent Pure Orb Mode for OBS / Desktop Overlay"
-    >
-      ◎ Pure Overlay
-    </button>
-    <button
-      id="btn-toggle-hud"
-      type="button"
-      class="hud-glass px-3 py-1.5 rounded-full text-xs font-mono-tech tracking-wider uppercase flex items-center gap-2 text-cyan-200 hover:text-white opacity-85 hover:opacity-100"
-      title="Toggle HUD Overlay (Shortcut: H or Double-Click Orb)"
-    >
-      <span id="hud-indicator-dot" class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse-dot"></span>
-      <span id="hud-toggle-label">Hide HUD [H]</span>
-    </button>
-  </div>
-
-  <!-- TOP TELEMETRY & STATE HEADER BAR -->
-  <header class="hud-element fixed top-3 left-3 z-40 flex flex-wrap items-center gap-2.5 max-w-[calc(100vw-240px)]">
-    <div class="hud-glass tech-corner px-3.5 py-2 rounded-xl flex items-center gap-3">
-      <div class="relative flex items-center justify-center w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-400/40">
-        <svg class="w-4 h-4 text-cyan-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="9" stroke-dasharray="4 2" />
-          <circle cx="12" cy="12" r="5" />
-          <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-        </svg>
-      </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <span class="font-orbitron text-xs sm:text-sm font-bold tracking-widest text-white">J.A.R.V.I.S.</span>
-          <span class="text-[10px] font-mono-tech uppercase px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">Aurora Core v5.0</span>
-        </div>
-        <div class="text-[11px] font-mono-tech text-cyan-200/80 flex items-center gap-3 mt-0.5">
-          <span>STATE: <strong id="telemetry-state" class="text-cyan-300">LISTENING</strong></span>
-          <span class="hidden sm:inline">|</span>
-          <span class="hidden sm:inline">ALPHA: <strong id="telemetry-alpha" class="text-emerald-300">TRANSPARENT RGBA(0,0,0,0)</strong></span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Live Acoustic & Neural Micro-Telemetry Badge -->
-    <div class="hud-glass px-3 py-2 rounded-xl hidden lg:flex items-center gap-4 text-[11px] font-mono-tech">
-      <div>
-        <div class="text-slate-400 text-[9px] uppercase">FPS / Frame</div>
-        <div id="telemetry-fps" class="text-cyan-300 font-semibold">60 FPS (16.6ms)</div>
-      </div>
-      <div class="h-6 w-px bg-cyan-500/20"></div>
-      <div>
-        <div class="text-slate-400 text-[9px] uppercase">Harmonic Flux</div>
-        <div id="telemetry-flux" class="text-emerald-300 font-semibold">0.428 GHz</div>
-      </div>
-      <div class="h-6 w-px bg-cyan-500/20"></div>
-      <div>
-        <div class="text-slate-400 text-[9px] uppercase">Vocal Formants</div>
-        <div id="telemetry-formant" class="text-purple-300 font-semibold">F1: 520Hz / F2: 1480Hz</div>
-      </div>
-      <div class="h-6 w-px bg-cyan-500/20"></div>
-      <div>
-        <div class="text-slate-400 text-[9px] uppercase">Active Shells / Ions</div>
-        <div id="telemetry-entities" class="text-sky-300 font-semibold">16 Rings · 420 Ions</div>
-      </div>
-      <div class="h-6 w-px bg-cyan-500/20"></div>
-      <div>
-        <div class="text-slate-400 text-[9px] uppercase">Radial Vector</div>
-        <div id="telemetry-vector" class="text-amber-300 font-semibold">INWARD (–1.35m/s)</div>
-      </div>
-    </div>
-  </header>
-
-  <!-- LEFT BOTTOM MINI OSCILLOSCOPE & STATE KINEMATIC DIAGNOSTIC CARD -->
-  <section class="hud-element fixed bottom-24 left-3 z-30 hidden xl:flex flex-col w-72 hud-glass rounded-2xl p-3 space-y-2.5">
-    <div class="flex items-center justify-between border-b border-cyan-500/20 pb-1.5">
-      <span class="text-[10px] font-mono-tech uppercase tracking-wider text-cyan-300 font-semibold">Acoustic &amp; Neural Oscilloscope</span>
-      <span id="scope-mode-tag" class="text-[9px] font-mono-tech px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">CENTRIPETAL LOCK</span>
-    </div>
-    <div class="relative h-24 w-full rounded-xl bg-slate-950/75 border border-cyan-500/25 overflow-hidden">
-      <canvas id="scope-canvas" class="w-full h-full block"></canvas>
-    </div>
-    <div class="grid grid-cols-3 gap-1.5 text-[10px] font-mono-tech">
-      <div class="p-1.5 rounded-lg bg-slate-900/70 border border-slate-800">
-        <div class="text-slate-400 text-[8px]">LOW / FUNDAMENTAL</div>
-        <div id="metric-bass" class="text-cyan-300 font-semibold">34%</div>
-      </div>
-      <div class="p-1.5 rounded-lg bg-slate-900/70 border border-slate-800">
-        <div class="text-slate-400 text-[8px]">MID / FORMANTS</div>
-        <div id="metric-mid" class="text-emerald-300 font-semibold">58%</div>
-      </div>
-      <div class="p-1.5 rounded-lg bg-slate-900/70 border border-slate-800">
-        <div class="text-slate-400 text-[8px]">HIGH / HARMONIC</div>
-        <div id="metric-treble" class="text-purple-300 font-semibold">41%</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- RIGHT / COLLAPSIBLE DEEP SYNTHESIS & SHADER INSPECTOR DRAWER -->
-  <aside
-    id="inspector-drawer"
-    class="hud-element fixed top-16 right-3 bottom-24 z-40 w-80 sm:w-88 max-w-[calc(100vw-24px)] hud-glass rounded-2xl flex flex-col overflow-hidden transition-transform duration-300"
-  >
-    <!-- Drawer Header + Tabs -->
-    <div class="p-2.5 border-b border-cyan-500/20 flex items-center justify-between bg-slate-950/40">
-      <div class="flex items-center gap-1">
-        <button type="button" data-tab="tab-layers" class="inspector-tab px-2 py-1 rounded-lg text-[11px] font-mono-tech font-medium bg-cyan-500/20 text-cyan-200 border border-cyan-400/40">
-          Layers
-        </button>
-        <button type="button" data-tab="tab-colors" class="inspector-tab px-2 py-1 rounded-lg text-[11px] font-mono-tech font-medium text-slate-300 hover:text-white border border-transparent">
-          Colors
-        </button>
-        <button type="button" data-tab="tab-voice" class="inspector-tab px-2 py-1 rounded-lg text-[11px] font-mono-tech font-medium text-slate-300 hover:text-white border border-transparent">
-          Voice/Mic
-        </button>
-        <button type="button" data-tab="tab-api" class="inspector-tab px-2 py-1 rounded-lg text-[11px] font-mono-tech font-medium text-slate-300 hover:text-white border border-transparent">
-          API
-        </button>
-      </div>
-      <button
-        id="btn-collapse-drawer"
-        type="button"
-        class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 text-xs font-mono-tech"
-        title="Minimize Inspector Panel"
-      >
-        [–]
-      </button>
-    </div>
-
-    <!-- Drawer Body -->
-    <div id="drawer-content-wrap" class="flex-1 overflow-y-auto hud-scroll p-3.5 space-y-4 text-xs">
-
-      <!-- TAB 1: ORB LAYERS & VISUAL ENGINE -->
-      <div id="tab-layers" class="tab-pane space-y-3.5">
-        <!-- Transparency & Backdrop Mode -->
-        <div class="space-y-1.5">
-          <div class="flex items-center justify-between">
-            <label class="font-mono-tech uppercase text-[10px] tracking-wider text-cyan-300">Background / Alpha Mode</label>
-            <span class="text-[10px] font-mono-tech text-emerald-300">RGBA(0,0,0,0)</span>
-          </div>
-          <div class="grid grid-cols-2 gap-1.5">
-            <button type="button" data-backdrop="transparent" class="backdrop-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-cyan-400 bg-cyan-500/20 text-white text-left">
-              ● Pure Transparent
-            </button>
-            <button type="button" data-backdrop="checker" class="backdrop-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-slate-700 bg-slate-900/60 text-slate-300 text-left">
-              ◌ Alpha Grid
-            </button>
-            <button type="button" data-backdrop="abyss" class="backdrop-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-slate-700 bg-slate-900/60 text-slate-300 text-left">
-              ◌ Deep Space
-            </button>
-            <button type="button" data-backdrop="cybergrid" class="backdrop-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-slate-700 bg-slate-900/60 text-slate-300 text-left">
-              ◌ Cyber Matrix
-            </button>
-          </div>
-        </div>
-
-        <!-- Sliders for Concentric Aurora Geometry -->
-        <div class="space-y-2.5 pt-2 border-t border-cyan-500/15">
-          <div>
-            <div class="flex justify-between text-[11px] font-mono-tech mb-1">
-              <span class="text-slate-300">Orb Master Scale</span>
-              <span id="val-scale" class="text-cyan-300">1.00x</span>
-            </div>
-            <input id="slider-scale" type="range" min="0.45" max="1.65" step="0.05" value="1.00" class="jarvis-slider" />
-          </div>
-
-          <div>
-            <div class="flex justify-between text-[11px] font-mono-tech mb-1">
-              <span class="text-slate-300">Concentric Ring Density</span>
-              <span id="val-rings" class="text-cyan-300">16 Rings</span>
-            </div>
-            <input id="slider-rings" type="range" min="6" max="24" step="1" value="16" class="jarvis-slider" />
-          </div>
-
-          <div>
-            <div class="flex justify-between text-[11px] font-mono-tech mb-1">
-              <span class="text-slate-300">Aurora Curtain Luminance</span>
-              <span id="val-aurora" class="text-cyan-300">1.30</span>
-            </div>
-            <input id="slider-aurora" type="range" min="0.2" max="2.5" step="0.05" value="1.30" class="jarvis-slider" />
-          </div>
-
-          <div>
-            <div class="flex justify-between text-[11px] font-mono-tech mb-1">
-              <span class="text-slate-300">Harmonic Wave Turbulence</span>
-              <span id="val-turbulence" class="text-cyan-300">1.05</span>
-            </div>
-            <input id="slider-turbulence" type="range" min="0.1" max="2.5" step="0.05" value="1.05" class="jarvis-slider" />
-          </div>
-
-          <div>
-            <div class="flex justify-between text-[11px] font-mono-tech mb-1">
-              <span class="text-slate-300">Quantum Ion Particle Count</span>
-              <span id="val-particles" class="text-cyan-300">420</span>
-            </div>
-            <input id="slider-particles" type="range" min="60" max="700" step="20" value="420" class="jarvis-slider" />
-          </div>
-
-          <div>
-            <div class="flex justify-between text-[11px] font-mono-tech mb-1">
-              <span class="text-slate-300">Orbital Rotation Velocity</span>
-              <span id="val-speed" class="text-cyan-300">1.00x</span>
-            </div>
-            <input id="slider-speed" type="range" min="0.1" max="3.0" step="0.05" value="1.00" class="jarvis-slider" />
-          </div>
-
-          <div>
-            <div class="flex justify-between text-[11px] font-mono-tech mb-1">
-              <span class="text-slate-300">Internal Contrast Aura (Alpha-Safe)</span>
-              <span id="val-contrast-aura" class="text-cyan-300">74%</span>
-            </div>
-            <input id="slider-contrast-aura" type="range" min="0" max="100" step="2" value="74" class="jarvis-slider" />
-          </div>
-        </div>
-
-        <!-- 10 Sub-System Layer Toggles -->
-        <div class="space-y-1.5 pt-2 border-t border-cyan-500/15">
-          <div class="font-mono-tech uppercase text-[10px] tracking-wider text-cyan-300 mb-1">Concentric Render Passes (10 Layers)</div>
-          <div class="grid grid-cols-2 gap-1.5 text-[11px] font-mono-tech">
-            <label class="flex items-center gap-1.5 cursor-pointer text-slate-200">
-              <input type="checkbox" id="chk-aurora" checked class="accent-cyan-400" /> Aurora Curtains
-            </label>
-            <label class="flex items-center gap-1.5 cursor-pointer text-slate-200">
-              <input type="checkbox" id="chk-techrings" checked class="accent-cyan-400" /> HUD Tech Rings
-            </label>
-            <label class="flex items-center gap-1.5 cursor-pointer text-slate-200">
-              <input type="checkbox" id="chk-gyro" checked class="accent-cyan-400" /> 3D Gyro Gimbals
-            </label>
-            <label class="flex items-center gap-1.5 cursor-pointer text-slate-200">
-              <input type="checkbox" id="chk-fourier" checked class="accent-cyan-400" /> Fourier Waves
-            </label>
-            <label class="flex items-center gap-1.5 cursor-pointer text-slate-200">
-              <input type="checkbox" id="chk-spectrogram" checked class="accent-cyan-400" /> Polar Spectrogram
-            </label>
-            <label class="flex items-center gap-1.5 cursor-pointer text-slate-200">
-              <input type="checkbox" id="chk-synapse" checked class="accent-cyan-400" /> Neural Lattice
-            </label>
-            <label class="flex items-center gap-1.5 cursor-pointer text-slate-200">
-              <input type="checkbox" id="chk-tendrils" checked class="accent-cyan-400" /> Plasma Filaments
-            </label>
-            <label class="flex items-center gap-1.5 cursor-pointer text-slate-200">
-              <input type="checkbox" id="chk-glyphs" checked class="accent-cyan-400" /> Telemetry Glyphs
-            </label>
-            <label class="flex items-center gap-1.5 cursor-pointer text-slate-200">
-              <input type="checkbox" id="chk-chromatic" checked class="accent-cyan-400" /> Chromatic Lens
-            </label>
-            <label class="flex items-center gap-1.5 cursor-pointer text-slate-200">
-              <input type="checkbox" id="chk-reticle" checked class="accent-cyan-400" /> Lock-On Reticle
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <!-- TAB 2: SPECTRAL PALETTES & CUSTOM HSL STUDIO -->
-      <div id="tab-colors" class="tab-pane hidden space-y-4">
-        <div class="space-y-1.5">
-          <label class="font-mono-tech uppercase text-[10px] tracking-wider text-cyan-300 block">Spectral Aurora Presets</label>
-          <div class="grid grid-cols-2 gap-1.5" id="palette-grid">
-            <button type="button" data-palette="jarvis_classic" class="palette-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-cyan-400 bg-cyan-500/20 text-white flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-500"></span>Jarvis MK-85
-            </button>
-            <button type="button" data-palette="borealis_emerald" class="palette-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-slate-700 bg-slate-900/60 text-slate-300 flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-emerald-400 to-cyan-300"></span>Polar Aurora
-            </button>
-            <button type="button" data-palette="quantum_synth" class="palette-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-slate-700 bg-slate-900/60 text-slate-300 flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-fuchsia-500 to-indigo-400"></span>Neural Synth
-            </button>
-            <button type="button" data-palette="solar_arc" class="palette-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-slate-700 bg-slate-900/60 text-slate-300 flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-amber-400 to-orange-500"></span>Solar Core
-            </button>
-            <button type="button" data-palette="crimson_guard" class="palette-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-slate-700 bg-slate-900/60 text-slate-300 flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-rose-500 to-amber-400"></span>Protocol Red
-            </button>
-            <button type="button" data-palette="prismatic" class="palette-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-slate-700 bg-slate-900/60 text-slate-300 flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-cyan-400 via-purple-400 to-emerald-400"></span>Bifrost
-            </button>
-            <button type="button" data-palette="arctic_zero" class="palette-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-slate-700 bg-slate-900/60 text-slate-300 flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-sky-200 to-indigo-300"></span>Cryo Zero
-            </button>
-            <button type="button" data-palette="custom_hsl" class="palette-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-slate-700 bg-slate-900/60 text-slate-300 flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-pink-400 to-yellow-300"></span>Custom HSL
-            </button>
-          </div>
-        </div>
-
-        <!-- Custom HSL Hue Sliders -->
-        <div class="space-y-3 pt-2 border-t border-cyan-500/15">
-          <div class="font-mono-tech uppercase text-[10px] tracking-wider text-cyan-300">Custom Harmonic Hue Synthesizer</div>
-          <div>
-            <div class="flex justify-between text-[11px] font-mono-tech mb-1">
-              <span class="text-slate-300">Primary Inner Ring Hue</span>
-              <span id="val-hue1" class="text-cyan-300">190°</span>
-            </div>
-            <input id="slider-hue1" type="range" min="0" max="360" step="1" value="190" class="jarvis-slider" />
-          </div>
-          <div>
-            <div class="flex justify-between text-[11px] font-mono-tech mb-1">
-              <span class="text-slate-300">Secondary Mid Aurora Hue</span>
-              <span id="val-hue2" class="text-cyan-300">265°</span>
-            </div>
-            <input id="slider-hue2" type="range" min="0" max="360" step="1" value="265" class="jarvis-slider" />
-          </div>
-          <div>
-            <div class="flex justify-between text-[11px] font-mono-tech mb-1">
-              <span class="text-slate-300">Tertiary Outer Corona Hue</span>
-              <span id="val-hue3" class="text-cyan-300">155°</span>
-            </div>
-            <input id="slider-hue3" type="range" min="0" max="360" step="1" value="155" class="jarvis-slider" />
-          </div>
-        </div>
-
-        <!-- State Animation Architecture Reference -->
-        <div class="p-2.5 rounded-xl bg-slate-950/75 border border-cyan-500/20 space-y-1.5 text-[11px]">
-          <div class="font-mono-tech text-cyan-300 text-[10px] uppercase">State Signature Kinematics</div>
-          <div class="text-slate-300"><strong class="text-emerald-300">Listening:</strong> Inward centripetal wave suction + dual sonar voice lock brackets + emerald-cyan aurora shift.</div>
-          <div class="text-slate-300"><strong class="text-purple-300">Thinking:</strong> 3D tilted gyroscopic gimbals + asynchronous counter-rotating shells + firing synaptic neural lattice.</div>
-          <div class="text-slate-300"><strong class="text-sky-300">Speaking:</strong> Outward centrifugal formant shockwaves + radial EQ telemetry bars + syllabic core flares.</div>
-        </div>
-      </div>
-
-      <!-- TAB 3: VOICE SYNTHESIS & MICROPHONE REACTIVITY -->
-      <div id="tab-voice" class="tab-pane hidden space-y-4">
-        <div class="space-y-2">
-          <label class="font-mono-tech uppercase text-[10px] tracking-wider text-cyan-300 block">Interactive J.A.R.V.I.S. Vocalizer</label>
-          <p class="text-[11px] text-slate-300 leading-relaxed">
-            Trigger synchronized <strong>Speaking</strong> formant animations with Web Speech synthesis &amp; harmonic prosody envelopes.
-          </p>
-          <textarea
-            id="jarvis-tts-input"
-            rows="3"
-            class="w-full rounded-xl bg-slate-950/80 border border-cyan-500/30 p-2.5 text-xs text-cyan-100 font-mono-tech focus:outline-none focus:border-cyan-400"
-          >Good evening, Sir. All concentric aurora containment rings are online and operating at peak quantum efficiency.</textarea>
-          <div class="flex gap-2">
-            <button
-              id="btn-speak-tts"
-              type="button"
-              class="flex-1 py-2 px-3 rounded-xl bg-cyan-500/25 hover:bg-cyan-500/35 border border-cyan-400 text-cyan-100 font-mono-tech text-xs font-semibold transition"
-            >
-              ▶ Speak with Orb Sync
-            </button>
-            <button
-              id="btn-stop-tts"
-              type="button"
-              class="py-2 px-3 rounded-xl bg-slate-800/70 hover:bg-rose-500/30 border border-slate-600 text-slate-200 font-mono-tech text-xs transition"
-            >
-              ■ Stop
-            </button>
-          </div>
-        </div>
-
-        <!-- Preset Jarvis Voice Lines -->
-        <div class="space-y-1.5 pt-2 border-t border-cyan-500/15">
-          <label class="font-mono-tech uppercase text-[10px] tracking-wider text-cyan-300 block">Preset Command Responses</label>
-          <div class="space-y-1.5">
-            <button type="button" data-phrase="Diagnostics complete. Acoustic sensors locked onto your voice signature, Sir." class="phrase-btn w-full text-left px-2.5 py-1.5 rounded-lg bg-slate-900/70 hover:bg-cyan-500/15 border border-slate-700/80 text-[11px] font-mono-tech text-slate-200">
-              "Diagnostics complete. Acoustic sensors locked..."
-            </button>
-            <button type="button" data-phrase="Synthesizing neural pathways across sixteen concentric harmonic shells. Stand by." class="phrase-btn w-full text-left px-2.5 py-1.5 rounded-lg bg-slate-900/70 hover:bg-cyan-500/15 border border-slate-700/80 text-[11px] font-mono-tech text-slate-200">
-              "Synthesizing neural pathways across sixteen..."
-            </button>
-            <button type="button" data-phrase="At your service, Sir. I have calibrated the transparent HUD overlay for seamless desktop integration." class="phrase-btn w-full text-left px-2.5 py-1.5 rounded-lg bg-slate-900/70 hover:bg-cyan-500/15 border border-slate-700/80 text-[11px] font-mono-tech text-slate-200">
-              "At your service, Sir. I have calibrated..."
-            </button>
-          </div>
-        </div>
-
-        <!-- Live Microphone FFT Input & Synth Sound Effects -->
-        <div class="space-y-2.5 pt-2 border-t border-cyan-500/15">
-          <label class="font-mono-tech uppercase text-[10px] tracking-wider text-cyan-300 block">Real-Time Audio Input &amp; SFX</label>
-          <div class="flex flex-col gap-2">
-            <button
-              id="btn-toggle-mic"
-              type="button"
-              class="w-full py-2 px-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/50 text-emerald-200 font-mono-tech text-xs flex items-center justify-between"
-            >
-              <span>🎙️ Live Microphone FFT</span>
-              <span id="mic-status-badge" class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px]">SIMULATED</span>
-            </button>
-
-            <button
-              id="btn-toggle-sfx"
-              type="button"
-              class="w-full py-2 px-3 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-400/50 text-purple-200 font-mono-tech text-xs flex items-center justify-between"
-            >
-              <span>🔊 Ambient Sci-Fi Harmonic Audio</span>
-              <span id="sfx-status-badge" class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px]">MUTED</span>
-            </button>
-          </div>
-
-          <div>
-            <div class="flex justify-between text-[11px] font-mono-tech mb-1">
-              <span class="text-slate-300">Manual Acoustic Gain / Reactivity</span>
-              <span id="val-gain" class="text-cyan-300">1.35x</span>
-            </div>
-            <input id="slider-gain" type="range" min="0.2" max="3.0" step="0.05" value="1.35" class="jarvis-slider" />
-          </div>
-        </div>
-      </div>
-
-      <!-- TAB 4: JARVIS INTEGRATION API & EXPORT -->
-      <div id="tab-api" class="tab-pane hidden space-y-3.5">
-        <div class="space-y-1.5">
-          <label class="font-mono-tech uppercase text-[10px] tracking-wider text-cyan-300 block">Jarvis External Control API</label>
-          <p class="text-[11px] text-slate-300 leading-relaxed">
-            Control this orb from Python, Electron, WebView2, OBS Browser Source, or parent iframes:
-          </p>
-          <pre id="api-code-snippet" class="p-2.5 rounded-xl bg-slate-950/90 border border-cyan-500/25 text-[10px] font-mono-tech text-cyan-200 overflow-x-auto leading-relaxed">// 1. Direct JS API
-window.JarvisOrb.setState('listening'); // 'idle'|'listening'|'thinking'|'speaking'|'overdrive'
-window.JarvisOrb.setAudioLevel(0.85);   // 0.0 to 1.0 real-time amplitude
-window.JarvisOrb.speak("Hello Sir");    // Auto-switches to 'speaking'
-window.JarvisOrb.setHUDVisible(false);  // Pure transparent orb mode
-
-// 2. URL Query Params for OBS / Electron:
-// ?state=speaking&amp;hud=0&amp;palette=jarvis_classic
-
-// 3. Window postMessage API:
-window.postMessage({
-  type: 'JARVIS_COMMAND',
-  state: 'thinking',
-  audioLevel: 0.75
-}, '*');</pre>
-          <button
-            id="btn-copy-api"
-            type="button"
-            class="w-full py-1.5 px-3 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50 text-cyan-200 font-mono-tech text-xs"
-          >
-            📋 Copy Integration Snippet
-          </button>
-        </div>
-
-        <div class="space-y-2 pt-2 border-t border-cyan-500/15">
-          <label class="font-mono-tech uppercase text-[10px] tracking-wider text-cyan-300 block">Capture &amp; Diagnostics</label>
-          <button
-            id="btn-export-png"
-            type="button"
-            class="w-full py-2 px-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/50 text-emerald-200 font-mono-tech text-xs font-semibold"
-          >
-            📸 Export Transparent PNG Snapshot
-          </button>
-          
-        <!-- Programmable Jarvis Conversation Workflow Choreography -->
-        <div class="space-y-2 pt-2.5 border-t border-cyan-500/15">
-          <div class="flex items-center justify-between">
-            <label class="font-mono-tech uppercase text-[10px] tracking-wider text-cyan-300">Assistant Workflow Macro</label>
-            <span id="macro-status-label" class="text-[10px] font-mono-tech text-emerald-300">READY</span>
-          </div>
-          <p class="text-[11px] text-slate-300 leading-relaxed">
-            Run a full realistic Jarvis interaction cycle: <strong>Wake &amp; Listen (3.5s) → Neural Thinking (3.2s) → Vocal Response (4.5s) → Standby</strong>.
-          </p>
-          <div class="grid grid-cols-4 gap-1 text-[9px] font-mono-tech text-center">
-            <div id="seq-pill-listen" class="seq-step-pill py-1 rounded">1. LISTEN</div>
-            <div id="seq-pill-think" class="seq-step-pill py-1 rounded">2. THINK</div>
-            <div id="seq-pill-speak" class="seq-step-pill py-1 rounded">3. SPEAK</div>
-            <div id="seq-pill-idle" class="seq-step-pill py-1 rounded">4. STANDBY</div>
-          </div>
-          <button
-            id="btn-run-workflow"
-            type="button"
-            class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-cyan-500/25 via-emerald-500/25 to-purple-500/25 hover:from-cyan-500/35 hover:to-purple-500/35 border border-cyan-400/50 text-white font-mono-tech text-xs font-semibold transition"
-          >
-            ⚡ Run Full Jarvis Wake → Think → Speak Macro
-          </button>
-        </div>
-
-        <!-- Real-Time Harmonic Ring Telemetry Matrix -->
-        <div class="space-y-2 pt-2.5 border-t border-cyan-500/15">
-          <label class="font-mono-tech uppercase text-[10px] tracking-wider text-cyan-300 block">Concentric Shell Matrix Readout</label>
-          <div class="grid grid-cols-2 gap-1.5 text-[10px] font-mono-tech">
-            <div class="diag-cell">
-              <div class="text-slate-400 text-[8px]">INNER SINGULARITY</div>
-              <div id="diag-core-temp" class="text-cyan-200 font-semibold">4,820 K · LOCKED</div>
-            </div>
-            <div class="diag-cell">
-              <div class="text-slate-400 text-[8px]">AURORA CURTAIN Φ</div>
-              <div id="diag-curtain-phase" class="text-emerald-300 font-semibold">0.84 rad/s</div>
-            </div>
-            <div class="diag-cell">
-              <div class="text-slate-400 text-[8px]">SYNAPTIC FIRING</div>
-              <div id="diag-synapse-rate" class="text-purple-300 font-semibold">42.0 Hz</div>
-            </div>
-            <div class="diag-cell">
-              <div class="text-slate-400 text-[8px]">GYRO EULER TILT</div>
-              <div id="diag-gyro-tilt" class="text-sky-300 font-semibold">12.4° COAXIAL</div>
-            </div>
-          </div>
-        </div>
-
-          <button
-            id="btn-trigger-pulse"
-            type="button"
-            class="w-full py-2 px-3 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/50 text-sky-200 font-mono-tech text-xs"
-          >
-            ⚡ Emit Quantum Shockwave Ripple
-          </button>
-        </div>
-      </div>
-
-    </div>
-  </aside>
-
-  <!-- BOTTOM PRIMARY JARVIS STATE CONTROLLER BAR -->
-  <footer class="hud-element fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-[95vw] max-w-3xl">
-    <div class="hud-glass rounded-2xl p-2 sm:p-2.5 flex flex-col sm:flex-row items-center justify-between gap-2">
-      <!-- State Buttons -->
-      <div class="flex flex-wrap items-center justify-center gap-1.5 w-full sm:w-auto">
-        <button
-          type="button"
-          data-state="idle"
-          class="state-btn px-3 py-2 rounded-xl text-xs font-mono-tech font-medium text-slate-200 flex items-center gap-2"
-        >
-          <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-          <span>1. Standby</span>
-        </button>
-
-        <button
-          type="button"
-          data-state="listening"
-          class="state-btn active active-listening px-3.5 py-2 rounded-xl text-xs font-mono-tech font-semibold text-white flex items-center gap-2"
-        >
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-          <span>2. Listening</span>
-        </button>
-
-        <button
-          type="button"
-          data-state="thinking"
-          class="state-btn px-3.5 py-2 rounded-xl text-xs font-mono-tech font-semibold text-slate-200 flex items-center gap-2"
-        >
-          <span class="w-2 h-2 rounded-full bg-purple-400"></span>
-          <span>3. Thinking</span>
-        </button>
-
-        <button
-          type="button"
-          data-state="speaking"
-          class="state-btn px-3.5 py-2 rounded-xl text-xs font-mono-tech font-semibold text-slate-200 flex items-center gap-2"
-        >
-          <span class="w-2 h-2 rounded-full bg-sky-400"></span>
-          <span>4. Speaking</span>
-        </button>
-
-        <button
-          type="button"
-          data-state="overdrive"
-          class="state-btn px-3 py-2 rounded-xl text-xs font-mono-tech font-medium text-slate-200 flex items-center gap-2"
-        >
-          <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-          <span>5. Overdrive</span>
-        </button>
-      </div>
-
-      <!-- Auto-Demo Cycle & State Description -->
-      <div class="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-cyan-500/20 pt-1.5 sm:pt-0 sm:pl-2.5 w-full sm:w-auto justify-between sm:justify-end">
-        <div class="text-[11px] font-mono-tech text-cyan-200/90 truncate max-w-[205px]" id="state-signature-desc">
-          Centripetal sonar pull + dual voice lock
-        </div>
-        <button
-          id="btn-auto-cycle"
-          type="button"
-          class="px-2.5 py-1.5 rounded-xl text-[11px] font-mono-tech border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-200 whitespace-nowrap"
-          title="Automatically cycle through Listening, Thinking, and Speaking animations"
-        >
-          ↻ Auto-Cycle: OFF
-        </button>
-      </div>
-    </div>
-  </footer>
-
-  <!-- TOAST NOTIFICATION -->
-  <div
-    id="jarvis-toast"
-    class="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-opacity duration-300 hud-glass px-4 py-2 rounded-full text-xs font-mono-tech text-cyan-200"
-  >
-    System notification
-  </div>
-
-  <!-- =========================================================================
-       J.A.R.V.I.S. CONCENTRIC AURORA LIGHT GLOW ORB — CORE MATHEMATICAL ENGINE
-       ========================================================================= -->
-  <script>
-    (function () {
-      'use strict';
-
-      /* -----------------------------------------------------------------------
-         SECTION 1: FAST 3D SIMPLEX & FRACTIONAL BROWNIAN MOTION (fBm) NOISE
-         Provides organic, non-repeating fluid aurora borealis curtains,
-         Kelvin-Helmholtz plasma core turbulence, and harmonic ring warping.
-      ----------------------------------------------------------------------- */
-      class SimplexNoise3D {
-        constructor(seed = 1337) {
-          this.p = new Uint8Array(256);
-          this.perm = new Uint8Array(512);
-          this.permMod12 = new Uint8Array(512);
-
-          for (let i = 0; i < 256; i++) {
-            this.p[i] = i;
-          }
-
-          let n = seed;
-          for (let i = 255; i > 0; i--) {
-            n = (n * 16807) % 2147483647;
-            const j = n % (i + 1);
-            const tmp = this.p[i];
-            this.p[i] = this.p[j];
-            this.p[j] = tmp;
-          }
-
-          for (let i = 0; i < 512; i++) {
-            this.perm[i] = this.p[i & 255];            this.permMod12[i] = this.perm[i] % 12;
-          }
-
-          this.grad3 = new Float32Array([
-            1, 1, 0,  -1, 1, 0,  1, -1, 0,  -1, -1, 0,
-            1, 0, 1,  -1, 0, 1,  1, 0, -1,  -1, 0, -1,
-            0, 1, 1,   0, -1, 1, 0, 1, -1,   0, -1, -1
-          ]);
-        }
-
-        noise3D(xin, yin, zin) {
-          const permMod12 = this.permMod12;
-          const perm = this.perm;
-          const grad3 = this.grad3;
-
-          const F3 = 1.0 / 3.0;
-          const G3 = 1.0 / 6.0;
-
-          let n0, n1, n2, n3;
-          const s = (xin + yin + zin) * F3;
-          const i = Math.floor(xin + s);
-          const j = Math.floor(yin + s);
-          const k = Math.floor(zin + s);
-          const t = (i + j + k) * G3;
-          const X0 = i - t;
-          const Y0 = j - t;
-          const Z0 = k - t;
-          const x0 = xin - X0;
-          const y0 = yin - Y0;
-          const z0 = zin - Z0;
-
-          let i1, j1, k1, i2, j2, k2;
-          if (x0 >= y0) {
-            if (y0 >= z0) {
-              i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 1; k2 = 0;
-            } else if (x0 >= z0) {
-              i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 0; k2 = 1;
-            } else {
-              i1 = 0; j1 = 0; k1 = 1; i2 = 1; j2 = 0; k2 = 1;
-            }
-          } else {
-            if (y0 < z0) {
-              i1 = 0; j1 = 0; k1 = 1; i2 = 0; j2 = 1; k2 = 1;
-            } else if (x0 < z0) {
-              i1 = 0; j1 = 1; k1 = 0; i2 = 0; j2 = 1; k2 = 1;
-            } else {
-              i1 = 0; j1 = 1; k1 = 0; i2 = 1; j2 = 1; k2 = 0;
-            }
-          }
-
-          const x1 = x0 - i1 + G3;
-          const y1 = y0 - j1 + G3;
-          const z1 = z0 - k1 + G3;
-          const x2 = x0 - i2 + 2.0 * G3;
-          const y2 = y0 - j2 + 2.0 * G3;
-          const z2 = z0 - k2 + 2.0 * G3;
-          const x3 = x0 - 1.0 + 3.0 * G3;
-          const y3 = y0 - 1.0 + 3.0 * G3;
-          const z3 = z0 - 1.0 + 3.0 * G3;
-
-          const ii = i & 255;
-          const jj = j & 255;
-          const kk = k & 255;
-
-          let t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0;
-          if (t0 < 0) {
-            n0 = 0.0;
-          } else {
-            const gi0 = permMod12[ii + perm[jj + perm[kk]]] * 3;
-            t0 *= t0;
-            n0 = t0 * t0 * (grad3[gi0] * x0 + grad3[gi0 + 1] * y0 + grad3[gi0 + 2] * z0);
-          }
-
-          let t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1;
-          if (t1 < 0) {
-            n1 = 0.0;
-          } else {
-            const gi1 = permMod12[ii + i1 + perm[jj + j1 + perm[kk + k1]]] * 3;
-            t1 *= t1;
-            n1 = t1 * t1 * (grad3[gi1] * x1 + grad3[gi1 + 1] * y1 + grad3[gi1 + 2] * z1);
-          }
-
-          let t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2;
-          if (t2 < 0) {
-            n2 = 0.0;
-          } else {
-            const gi2 = permMod12[ii + i2 + perm[jj + j2 + perm[kk + k2]]] * 3;
-            t2 *= t2;
-            n2 = t2 * t2 * (grad3[gi2] * x2 + grad3[gi2 + 1] * y2 + grad3[gi2 + 2] * z2);
-          }
-
-          let t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3;
-          if (t3 < 0) {
-            n3 = 0.0;
-          } else {
-            const gi3 = permMod12[ii + 1 + perm[jj + 1 + perm[kk + 1]]] * 3;
-            t3 *= t3;
-            n3 = t3 * t3 * (grad3[gi3] * x3 + grad3[gi3 + 1] * y3 + grad3[gi3 + 2] * z3);
-          }
-
-          return 32.0 * (n0 + n1 + n2 + n3);
-        }
-
-        fbm(x, y, z, octaves = 3, lacunarity = 2.0, gain = 0.5) {
-          let total = 0;
-          let frequency = 1.0;
-          let amplitude = 1.0;
-          let maxValue = 0;
-          for (let i = 0; i < octaves; i++) {
-            total += this.noise3D(x * frequency, y * frequency, z * frequency) * amplitude;
-            maxValue += amplitude;
-            amplitude *= gain;
-            frequency *= lacunarity;
-          }
-          return total / maxValue;
-        }
-      }
-
-      /* -----------------------------------------------------------------------
-         SECTION 2: SPECTRAL PALETTES & STATE PHYSICS PROFILES
-         Defines unique multi-stop HSL/RGB signatures and physics profiles
-         for Standby, Listening, Thinking, Speaking, and Overdrive.
-      ----------------------------------------------------------------------- */
-      const PALETTES = {
-        jarvis_classic: {
-          name: 'Jarvis MK-85',
-          idle:      { h1: 192, s1: 100, l1: 55, h2: 210, s2: 96, l2: 60, h3: 170, s3: 95, l3: 50, core: [215, 250, 255] },
-          listening: { h1: 162, s1: 100, l1: 54, h2: 188, s2: 100, l2: 56, h3: 140, s3: 95, l3: 55, core: [200, 255, 238] },
-          thinking:  { h1: 268, s1: 95,  l1: 64, h2: 195, s2: 100, l2: 58, h3: 312, s3: 92, l3: 60, core: [238, 215, 255] },
-          speaking:  { h1: 195, s1: 100, l1: 60, h2: 175, s2: 100, l2: 55, h3: 222, s3: 98, l3: 64, core: [240, 252, 255] },
-          overdrive: { h1: 348, s1: 100, l1: 60, h2: 24,  s2: 100, l2: 58, h3: 190, s3: 100, l3: 56, core: [255, 230, 235] }
-        },
-        borealis_emerald: {
-          name: 'Polar Aurora',
-          idle:      { h1: 156, s1: 96,  l1: 52, h2: 182, s2: 95, l2: 50, h3: 130, s3: 90, l3: 52, core: [210, 255, 235] },
-          listening: { h1: 142, s1: 100, l1: 55, h2: 170, s2: 100, l2: 54, h3: 195, s3: 95, l3: 56, core: [215, 255, 230] },
-          thinking:  { h1: 175, s1: 95,  l1: 55, h2: 265, s2: 92, l2: 64, h3: 145, s3: 96, l3: 54, core: [225, 255, 250] },
-          speaking:  { h1: 152, s1: 100, l1: 58, h2: 186, s2: 100, l2: 58, h3: 118, s3: 95, l3: 56, core: [235, 255, 245] },
-          overdrive: { h1: 42,  s1: 100, l1: 58, h2: 158, s2: 100, l2: 55, h3: 350, s3: 96, l3: 60, core: [255, 250, 220] }
-        },
-        quantum_synth: {
-          name: 'Neural Synth',
-          idle:      { h1: 262, s1: 95,  l1: 62, h2: 295, s2: 92, l2: 58, h3: 200, s3: 100, l3: 56, core: [240, 225, 255] },
-          listening: { h1: 185, s1: 100, l1: 56, h2: 270, s2: 95, l2: 64, h3: 320, s3: 95, l3: 60, core: [225, 250, 255] },
-          thinking:  { h1: 288, s1: 98,  l1: 64, h2: 325, s2: 96, l2: 60, h3: 235, s3: 96, l3: 65, core: [250, 225, 255] },
-          speaking:  { h1: 310, s1: 98,  l1: 62, h2: 192, s2: 100, l2: 58, h3: 265, s3: 96, l3: 64, core: [255, 238, 255] },
-          overdrive: { h1: 338, s1: 100, l1: 60, h2: 280, s2: 100, l2: 62, h3: 45,  s3: 100, l3: 58, core: [255, 230, 245] }
-        },
-        solar_arc: {
-          name: 'Solar Core',
-          idle:      { h1: 36,  s1: 100, l1: 56, h2: 18,  s2: 98, l2: 54, h3: 52,  s3: 96, l3: 56, core: [255, 245, 215] },
-          listening: { h1: 48,  s1: 100, l1: 56, h2: 168, s2: 95, l2: 52, h3: 26,  s3: 100, l3: 56, core: [255, 252, 220] },
-          thinking:  { h1: 28,  s1: 100, l1: 58, h2: 275, s2: 92, l2: 62, h3: 50,  s3: 100, l3: 58, core: [255, 238, 225] },
-          speaking:  { h1: 42,  s1: 100, l1: 60, h2: 14,  s2: 100, l2: 58, h3: 192, s3: 96, l3: 58, core: [255, 250, 235] },
-          overdrive: { h1: 8,   s1: 100, l1: 58, h2: 45,  s2: 100, l2: 60, h3: 340, s3: 100, l3: 58, core: [255, 235, 225] }
-        },
-        crimson_guard: {
-          name: 'Protocol Red',
-          idle:      { h1: 350, s1: 96,  l1: 58, h2: 15,  s2: 95, l2: 55, h3: 325, s3: 90, l3: 56, core: [255, 225, 230] },
-          listening: { h1: 355, s1: 100, l1: 60, h2: 38,  s2: 100, l2: 58, h3: 175, s3: 92, l3: 54, core: [255, 235, 230] },
-          thinking:  { h1: 330, s1: 96,  l1: 60, h2: 270, s2: 94, l2: 62, h3: 8,   s3: 98, l3: 58, core: [255, 225, 245] },
-          speaking:  { h1: 356, s1: 100, l1: 62, h2: 25,  s2: 100, l2: 60, h3: 48,  s3: 100, l3: 60, core: [255, 242, 238] },
-          overdrive: { h1: 0,   s1: 100, l1: 60, h2: 40,  s2: 100, l2: 60, h3: 190, s3: 100, l3: 58, core: [255, 245, 245] }
-        },
-        prismatic: {
-          name: 'Bifrost Spectrum',
-          idle:      { h1: 190, s1: 100, l1: 58, h2: 280, s2: 95, l2: 62, h3: 145, s3: 96, l3: 54, core: [240, 250, 255] },
-          listening: { h1: 155, s1: 100, l1: 56, h2: 205, s2: 100, l2: 58, h3: 290, s3: 95, l3: 62, core: [230, 255, 245] },
-          thinking:  { h1: 275, s1: 98,  l1: 64, h2: 330, s2: 96, l2: 60, h3: 180, s3: 100, l3: 56, core: [248, 235, 255] },
-          speaking:  { h1: 195, s1: 100, l1: 60, h2: 45,  s2: 100, l2: 58, h3: 310, s3: 96, l3: 62, core: [255, 252, 245] },
-          overdrive: { h1: 350, s1: 100, l1: 60, h2: 185, s2: 100, l2: 58, h3: 55,  s3: 100, l3: 58, core: [255, 248, 248] }
-        },
-        arctic_zero: {
-          name: 'Cryo Zero',
-          idle:      { h1: 198, s1: 92,  l1: 66, h2: 218, s2: 90, l2: 68, h3: 180, s3: 85, l3: 64, core: [245, 252, 255] },
-          listening: { h1: 178, s1: 96,  l1: 64, h2: 202, s2: 95, l2: 66, h3: 160, s3: 90, l3: 62, core: [235, 255, 252] },
-          thinking:  { h1: 228, s1: 94,  l1: 68, h2: 255, s2: 92, l2: 68, h3: 195, s3: 95, l3: 64, core: [242, 245, 255] },
-          speaking:  { h1: 192, s1: 100, l1: 68, h2: 212, s2: 98, l2: 68, h3: 172, s3: 95, l3: 64, core: [250, 255, 255] },
-          overdrive: { h1: 185, s1: 100, l1: 70, h2: 345, s2: 95, l2: 64, h3: 220, s3: 100, l3: 68, core: [255, 250, 255] }
-        },
-        custom_hsl: {
-          name: 'Custom HSL',
-          idle:      { h1: 190, s1: 100, l1: 58, h2: 265, s2: 95, l2: 60, h3: 155, s3: 95, l3: 55, core: [235, 250, 255] },
-          listening: { h1: 190, s1: 100, l1: 58, h2: 265, s2: 95, l2: 60, h3: 155, s3: 95, l3: 55, core: [235, 250, 255] },
-          thinking:  { h1: 265, s1: 100, l1: 62, h2: 190, s2: 95, l2: 60, h3: 155, s3: 95, l3: 55, core: [245, 235, 255] },
-          speaking:  { h1: 190, s1: 100, l1: 62, h2: 155, s2: 95, l2: 58, h3: 265, s3: 95, l3: 62, core: [245, 255, 250] },
-          overdrive: { h1: 155, s1: 100, l1: 62, h2: 190, s2: 100, l2: 60, h3: 265, s3: 100, l3: 62, core: [255, 250, 245] }
-        }
-      };
-
-      const STATE_PROFILES = {
-        idle: {
-          label: 'STANDBY',
-          scopeTag: 'ORBITAL SENTRY',
-          desc: 'Deep harmonic breathing · low-power orbital sentry',
-          rotSpeed: 0.42,
-          auroraSpeed: 0.38,
-          radialFlow: 0.08,
-          waveAmp: 0.25,
-          waveFreq: 4,
-          synapseActivity: 0.15,
-          corePulseSpeed: 1.4,
-          coreExpansion: 0.92,
-          sonarSweepSpeed: 0.6,
-          formantModulation: 0.14,
-          gyroTiltFactor: 0.22,
-          rippleInterval: 2.8,
-          rippleDirection: 1
-        },
-        listening: {
-          label: 'LISTENING',
-          scopeTag: 'CENTRIPETAL LOCK',
-          desc: 'Centripetal sonar pull · dual-hemisphere voice lock',
-          rotSpeed: 0.95,
-          auroraSpeed: 0.92,
-          radialFlow: -1.35,
-          waveAmp: 0.88,
-          waveFreq: 8,
-          synapseActivity: 0.35,
-          corePulseSpeed: 2.8,
-          coreExpansion: 1.04,
-          sonarSweepSpeed: 2.6,
-          formantModulation: 0.72,
-          gyroTiltFactor: 0.12,
-          rippleInterval: 0.52,
-          rippleDirection: -1
-        },
-        thinking: {
-          label: 'THINKING',
-          scopeTag: 'NEURAL MATRIX 3D',
-          desc: '3D gyroscopic gimbals · counter-rotating synaptic shells',
-          rotSpeed: 2.35,
-          auroraSpeed: 1.65,
-          radialFlow: 0.0,
-          waveAmp: 0.72,
-          waveFreq: 12,
-          synapseActivity: 1.0,
-          corePulseSpeed: 4.5,
-          coreExpansion: 0.98,
-          sonarSweepSpeed: 4.2,
-          formantModulation: 0.45,
-          gyroTiltFactor: 1.0,
-          rippleInterval: 0.40,
-          rippleDirection: 0
-        },
-        speaking: {
-          label: 'SPEAKING',
-          scopeTag: 'VOCAL FORMANT TX',
-          desc: 'Centrifugal vocal formants · syllabic shockwave projection',
-          rotSpeed: 1.28,
-          auroraSpeed: 1.48,
-          radialFlow: 1.85,
-          waveAmp: 1.38,
-          waveFreq: 6,
-          synapseActivity: 0.55,
-          corePulseSpeed: 6.2,
-          coreExpansion: 1.22,
-          sonarSweepSpeed: 1.8,
-          formantModulation: 1.42,
-          gyroTiltFactor: 0.38,
-          rippleInterval: 0.26,
-          rippleDirection: 1
-        },
-        overdrive: {
-          label: 'OVERDRIVE',
-          scopeTag: 'MAX CONTAINMENT',
-          desc: 'High-energy tactical lock · maximum containment flux',
-          rotSpeed: 3.1,
-          auroraSpeed: 2.2,
-          radialFlow: 2.2,
-          waveAmp: 1.55,
-          waveFreq: 14,
-          synapseActivity: 0.95,
-          corePulseSpeed: 7.5,
-          coreExpansion: 1.30,
-          sonarSweepSpeed: 5.5,
-          formantModulation: 1.45,
-          gyroTiltFactor: 0.85,
-          rippleInterval: 0.20,
-          rippleDirection: 1
-        }
-      };
-
-      /* -----------------------------------------------------------------------
-         SECTION 3: GLOBAL ENGINE CONFIGURATION & SMOOTH INTERPOLATION STATE
-      ----------------------------------------------------------------------- */
-      const config = {
-        state: 'listening',
-        palette: 'jarvis_classic',
-        backdrop: 'transparent',
-        hudVisible: true,
-        autoCycle: false,
-        masterScale: 1.0,
-        ringCount: 16,
-        auroraIntensity: 1.30,
-        turbulence: 1.05,
-        particleCount: 420,
-        speedMultiplier: 1.0,
-        contrastAuraOpacity: 0.74,
-        acousticGain: 1.35,
-        layers: {
-          aurora: true,
-          techRings: true,
-          gyro: true,
-          fourier: true,
-          spectrogram: true,
-          synapse: true,
-          tendrils: true,
-          glyphs: true,
-          chromatic: true,
-          reticle: true
-        },
-        micEnabled: false,
-        sfxEnabled: false,
-        externalAudioLevel: null
-      };
-
-      const live = {
-        h1: 162, s1: 100, l1: 54,
-        h2: 188, s2: 100, l2: 56,
-        h3: 140, s3: 95,  l3: 55,
-        coreR: 200, coreG: 255, coreB: 238,
-        rotSpeed: 0.95,
-        auroraSpeed: 0.92,
-        radialFlow: -1.35,
-        waveAmp: 0.88,
-        waveFreq: 8,
-        synapseActivity: 0.35,
-        corePulseSpeed: 2.8,
-        coreExpansion: 1.04,
-        sonarSweepSpeed: 2.6,
-        formantModulation: 0.72,
-        gyroTiltFactor: 0.12,
-        audioEnergy: 0.25,
-        bassEnergy: 0.2,
-        midEnergy: 0.25,
-        trebleEnergy: 0.18,
-        f1Hz: 520,
-        f2Hz: 1480,
-        dominantAngle: 0,
-        pointerX: 0,
-        pointerY: 0,
-        pointerActive: false
-      };
-
-      /* -----------------------------------------------------------------------
-         SECTION 4: ACOUSTIC & VOCAL FORMANT SYNTHESIS + POLAR SPECTROGRAM BUFFER
-      ----------------------------------------------------------------------- */
-      class AcousticEngine {
-        constructor(simplex) {
-          this.simplex = simplex;
-          this.bins = 128;
-          this.spectrum = new Float32Array(this.bins);
-          this.smoothSpectrum = new Float32Array(this.bins);
-          this.waveform = new Float32Array(this.bins);
-
-          this.historyDepth = 20;
-          this.historyBins = 64;
-          this.spectrogramRingBuffer = [];
-          for (let h = 0; h < this.historyDepth; h++) {
-            this.spectrogramRingBuffer.push(new Float32Array(this.historyBins));
-          }
-          this.historyWriteIndex = 0;
-          this.historySampleTimer = 0;
-
-          this.audioCtx = null;
-          this.analyser = null;
-          this.micStream = null;
-          this.rawFreqData = null;
-          this.rawTimeData = null;
-          this.sfxNodes = null;
-          this.isSpeakingTTS = false;
-        }
-
-        async toggleMicrophone() {
-          if (config.micEnabled) {
-            this.disableMicrophone();
-            return false;
-          }
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-              audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
-              }
-            });
-            if (!this.audioCtx) {
-              const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-              this.audioCtx = new AudioContextClass();
-            }
-            if (this.audioCtx.state === 'suspended') {
-              await this.audioCtx.resume();
-            }
-            const source = this.audioCtx.createMediaStreamSource(stream);
-            this.analyser = this.audioCtx.createAnalyser();
-            this.analyser.fftSize = 256;
-            this.analyser.smoothingTimeConstant = 0.76;
-            source.connect(this.analyser);
-
-            this.micStream = stream;
-            this.rawFreqData = new Uint8Array(this.analyser.frequencyBinCount);
-            this.rawTimeData = new Uint8Array(this.analyser.frequencyBinCount);
-            config.micEnabled = true;
-            return true;
-          } catch (err) {
-            config.micEnabled = false;
-            return false;
-          }
-        }
-
-        disableMicrophone() {
-          if (this.micStream) {
-            this.micStream.getTracks().forEach(t => t.stop());
-            this.micStream = null;
-          }
-          config.micEnabled = false;
-        }
-
-        toggleAmbientSFX() {
-          if (!this.audioCtx) {
-            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-            this.audioCtx = new AudioContextClass();
-          }
-          if (this.audioCtx.state === 'suspended') {
-            this.audioCtx.resume();
-          }
-
-          if (config.sfxEnabled && this.sfxNodes) {
-            this.sfxNodes.masterGain.gain.setTargetAtTime(0.0001, this.audioCtx.currentTime, 0.15);
-            setTimeout(() => {
-              if (this.sfxNodes) {
-                try {
-                  this.sfxNodes.osc1.stop();
-                  this.sfxNodes.osc2.stop();
-                  this.sfxNodes.lfo.stop();
-                } catch (e) {}
-                this.sfxNodes = null;
-              }
-            }, 250);
-            config.sfxEnabled = false;
-            return false;
-          }
-
-          const ctx = this.audioCtx;
-          const masterGain = ctx.createGain();
-          masterGain.gain.setValueAtTime(0.001, ctx.currentTime);
-          masterGain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.4);
-
-          const filter = ctx.createBiquadFilter();
-          filter.type = 'lowpass';
-          filter.frequency.setValueAtTime(340, ctx.currentTime);
-          filter.Q.setValueAtTime(4.5, ctx.currentTime);
-
-          const osc1 = ctx.createOscillator();
-          const osc2 = ctx.createOscillator();
-          const lfo = ctx.createOscillator();
-          const lfoGain = ctx.createGain();
-
-          osc1.type = 'sine';
-          osc2.type = 'triangle';
-          osc1.frequency.setValueAtTime(64, ctx.currentTime);
-          osc2.frequency.setValueAtTime(128.4, ctx.currentTime);
-
-          lfo.type = 'sine';
-          lfo.frequency.setValueAtTime(1.8, ctx.currentTime);
-          lfoGain.gain.setValueAtTime(110, ctx.currentTime);
-
-          lfo.connect(lfoGain);
-          lfoGain.connect(filter.frequency);
-
-          osc1.connect(filter);
-          osc2.connect(filter);
-          filter.connect(masterGain);
-          masterGain.connect(ctx.destination);
-
-          osc1.start();
-          osc2.start();
-          lfo.start();
-
-          this.sfxNodes = { osc1, osc2, lfo, lfoGain, filter, masterGain };
-          config.sfxEnabled = true;
-          return true;
-        }
-
-        triggerPulseChime() {
-          if (!config.sfxEnabled || !this.audioCtx) return;
-          const ctx = this.audioCtx;
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          const now = ctx.currentTime;
-          osc.frequency.setValueAtTime(520, now);
-          osc.frequency.exponentialRampToValueAtTime(1480, now + 0.18);
-          osc.frequency.exponentialRampToValueAtTime(280, now + 0.55);
-
-          gain.gain.setValueAtTime(0.001, now);
-          gain.gain.exponentialRampToValueAtTime(0.11, now + 0.04);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.58);
-
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.6);
-        }
-
-        update(time, dt) {
-          const gain = config.acousticGain;
-
-          if (config.micEnabled && this.analyser && this.rawFreqData) {
-            this.analyser.getByteFrequencyData(this.rawFreqData);
-            this.analyser.getByteTimeDomainData(this.rawTimeData);
-            for (let i = 0; i < this.bins; i++) {
-              const val = (this.rawFreqData[i] / 255.0) * gain;
-              this.spectrum[i] = Math.min(1.5, val);
-              this.smoothSpectrum[i] += (this.spectrum[i] - this.smoothSpectrum[i]) * Math.min(1, dt * 18);
-              this.waveform[i] = ((this.rawTimeData[i] - 128) / 128.0) * gain;
-            }
-          } else {
-            const state = config.state;
-            const extLevel = config.externalAudioLevel;
-
-            let syllableEnvelope = 0.25;
-            if (state === 'speaking' || this.isSpeakingTTS) {
-              const cadence1 = Math.max(0, Math.sin(time * 7.4) * 0.65 + Math.sin(time * 3.1) * 0.45);
-              const cadence2 = Math.max(0, this.simplex.noise3D(time * 2.6, 1.2, 0.4) * 0.8 + 0.35);
-              const pauseGate = Math.sin(time * 1.15) > -0.65 ? 1.0 : 0.12;
-              syllableEnvelope = (0.15 + 0.85 * cadence1 * cadence2 * pauseGate) * gain;
-            } else if (state === 'listening') {
-              const voicePhrase = Math.max(0.08, (this.simplex.noise3D(time * 1.9, 4.5, 0) + 0.55) * 0.72);
-              const harmonicBurst = Math.pow(Math.max(0, Math.sin(time * 4.2 + Math.sin(time * 1.7))), 2);
-              syllableEnvelope = (0.18 + 0.68 * voicePhrase * (0.4 + 0.6 * harmonicBurst)) * gain;
-            } else if (state === 'thinking') {
-              const cognitiveOsc = 0.42 + 0.38 * Math.sin(time * 6.5) * Math.cos(time * 2.9);
-              syllableEnvelope = cognitiveOsc * gain * 0.85;
-            } else if (state === 'overdrive') {
-              syllableEnvelope = (0.75 + 0.35 * Math.sin(time * 11.0)) * gain;
-            } else {
-              syllableEnvelope = (0.12 + 0.06 * Math.sin(time * 1.8)) * gain;
-            }
-
-            if (typeof extLevel === 'number') {
-              syllableEnvelope = Math.max(0.05, extLevel * gain);
-            }
-
-            const f1Bin = Math.floor(14 + 10 * Math.sin(time * 2.3));
-            const f2Bin = Math.floor(42 + 22 * Math.cos(time * 1.7 + 0.8));
-            const f3Bin = Math.floor(82 + 18 * Math.sin(time * 3.1 + 1.9));
-
-            live.f1Hz = Math.round(280 + f1Bin * 24);
-            live.f2Hz = Math.round(850 + f2Bin * 32);
-
-            for (let i = 0; i < this.bins; i++) {
-              const d1 = (i - f1Bin) / 7.5;
-              const d2 = (i - f2Bin) / 11.0;
-              const d3 = (i - f3Bin) / 14.0;
-              const formantPeak =
-                Math.exp(-0.5 * d1 * d1) * 0.95 +
-                Math.exp(-0.5 * d2 * d2) * 0.75 +
-                Math.exp(-0.5 * d3 * d3) * 0.45;
-
-              const noiseRipples = 0.5 + 0.5 * this.simplex.noise3D(i * 0.09, time * 3.5, 2.0);
-              const target = syllableEnvelope * (0.2 + 0.8 * formantPeak) * noiseRipples;
-
-              this.spectrum[i] = Math.min(1.6, target);
-              this.smoothSpectrum[i] += (this.spectrum[i] - this.smoothSpectrum[i]) * Math.min(1, dt * 16);
-
-              const angle = (i / this.bins) * Math.PI * 2;
-              this.waveform[i] =
-                syllableEnvelope *
-                (Math.sin(angle * 3 + time * 10) * 0.5 +
-                 Math.cos(angle * 7 - time * 14) * 0.3 +
-                 Math.sin(angle * 13 + time * 22) * 0.2);
-            }
-          }
-
-          let bass = 0, mid = 0, treble = 0;
-          for (let i = 0; i < 24; i++) bass += this.smoothSpectrum[i];
-          for (let i = 24; i < 72; i++) mid += this.smoothSpectrum[i];
-          for (let i = 72; i < 128; i++) treble += this.smoothSpectrum[i];
-
-          live.bassEnergy = bass / 24;
-          live.midEnergy = mid / 48;
-          live.trebleEnergy = treble / 56;
-          live.audioEnergy = live.bassEnergy * 0.45 + live.midEnergy * 0.38 + live.trebleEnergy * 0.17;
-
-          const targetBearing = Math.atan2(
-            Math.sin(time * 0.85) * live.midEnergy,
-            Math.cos(time * 0.62) * live.bassEnergy
-          );
-          live.dominantAngle += (targetBearing - live.dominantAngle) * Math.min(1, dt * 3.5);
-
-          this.historySampleTimer += dt;
-          if (this.historySampleTimer >= 0.045) {
-            this.historySampleTimer = 0;
-            const slice = this.spectrogramRingBuffer[this.historyWriteIndex];
-            for (let b = 0; b < this.historyBins; b++) {
-              slice[b] = this.smoothSpectrum[b * 2];
-            }
-            this.historyWriteIndex = (this.historyWriteIndex + 1) % this.historyDepth;
-          }
-
-          if (config.sfxEnabled && this.sfxNodes && this.audioCtx) {
-            const now = this.audioCtx.currentTime;
-            const targetFreq = 58 + live.rotSpeed * 18 + live.audioEnergy * 45;
-            const targetFilter = 220 + live.audioEnergy * 680 + live.synapseActivity * 320;
-            this.sfxNodes.osc1.frequency.setTargetAtTime(targetFreq, now, 0.08);
-            this.sfxNodes.osc2.frequency.setTargetAtTime(targetFreq * 1.5, now, 0.08);
-            this.sfxNodes.filter.frequency.setTargetAtTime(targetFilter, now, 0.08);
-          }
-        }
-      }
-
-      /* -----------------------------------------------------------------------
-         SECTION 5: CONCENTRIC TECHNICAL & 3D GYROSCOPIC GIMBAL RING SYSTEM
-         Combines 24 2D concentric optical/HUD rings with 6 3D-projected
-         gyroscopic gimbal rings that tilt across X/Y/Z axes during Thinking.
-      ----------------------------------------------------------------------- */
-      class ConcentricRingSystem {
-        constructor() {
-          this.maxRings = 24;
-          this.rings = [];
-          this.gyroRings = [];
-          this.telemetryGlyphs = [
-            '0x7F', 'Δφ:04', 'Ω:128', 'Ψ:LOCK', 'F1:520', 'ARC:09',
-            'Q:0.99', 'λ:488nm', 'Σ:SYNC', 'μ:0.42', '∇×B', 'ℏω'
-          ];
-          this.initRings();
-        }
-
-        initRings() {
-          this.rings = [];
-          const archetypes = [
-            'inner_caustic',
-            'segmented_arc',
-            'fourier_harmonic',
-            'degree_ticks',
-            'aurora_ribbon_track',
-            'vernier_caliper',
-            'hex_telemetry',
-            'sonar_sector',
-            'quantum_dotted',
-            'fourier_formant',
-            'double_rail',
-            'outer_containment'
-          ];
-
-          for (let i = 0; i < this.maxRings; i++) {
-            const t = i / (this.maxRings - 1);
-            const archetype = archetypes[i % archetypes.length];
-            const dir = i % 2 === 0 ? 1 : -1;
-
-            const segCount = 3 + ((i * 5) % 9);
-            const segments = [];
-            for (let s = 0; s < segCount; s++) {
-              const start = (s / segCount) * Math.PI * 2 + (i * 0.21);
-              const span = ((Math.PI * 2) / segCount) * (0.38 + 0.42 * ((s + i) % 3) / 2);
-              segments.push({ start, span });
-            }
-
-            this.rings.push({
-              index: i,
-              normRadius: 0.16 + t * 0.78,
-              archetype,
-              direction: dir,
-              angle: (i * 1.17) % (Math.PI * 2),
-              baseSpeed: (0.18 + (1.0 - t * 0.65) * 0.85) * dir,
-              thickness: 1.0 + ((i % 4 === 0) ? 1.4 : 0.4),
-              alpha: 0.34 + 0.55 * Math.sin(t * Math.PI),
-              colorSlot: i % 3,
-              segments,
-              tickCount: 36 + (i % 5) * 24,
-              breathScale: 1.0
-            });
-          }
-
-          this.gyroRings = [];
-          for (let g = 0; g < 6; g++) {
-            this.gyroRings.push({
-              normRadius: 0.28 + g * 0.11,
-              rx: g * 0.52,
-              ry: g * 0.78,
-              rz: g * 0.34,
-              vx: (g % 2 === 0 ? 1 : -1) * (0.65 + g * 0.18),
-              vy: (g % 3 === 0 ? -1 : 1) * (0.55 + g * 0.15),
-              vz: (0.4 + g * 0.12),
-              colorSlot: g % 3,
-              dashPattern: g % 2 === 0 ? [] : [8, 5]
-            });
-          }
-        }
-
-        update(time, dt) {
-          const activeCount = config.ringCount;
-          const state = config.state;
-
-          for (let i = 0; i < activeCount; i++) {
-            const r = this.rings[i];
-            let speedMult = live.rotSpeed * config.speedMultiplier;
-
-            if (state === 'thinking') {
-              const shellBoost = (i % 3 === 0) ? -2.25 : (i % 2 === 0 ? 1.9 : -1.45);
-              speedMult *= shellBoost;
-            } else if (state === 'listening') {
-              speedMult *= (0.7 + live.audioEnergy * 1.6);
-            } else if (state === 'speaking') {
-              speedMult *= (0.9 + live.bassEnergy * 2.1);
-            }
-
-            r.angle += r.baseSpeed * speedMult * dt;
-
-            const radialWave = Math.sin(time * live.corePulseSpeed + i * 0.52 * live.radialFlow);
-            if (state === 'listening') {
-              const pullPhase = ((time * 1.35 + (1 - r.normRadius) * 2.2) % 1.0);
-              r.breathScale = 1.0 - 0.045 * Math.sin(pullPhase * Math.PI * 2) * (0.5 + live.audioEnergy);
-            } else if (state === 'speaking') {
-              const bandIdx = Math.min(127, Math.floor(r.normRadius * 100));
-              const bandVal = acoustic.smoothSpectrum[bandIdx] || 0;
-              r.breathScale = 1.0 + 0.085 * bandVal + 0.025 * radialWave;
-            } else if (state === 'thinking') {
-              r.breathScale = 1.0 + 0.042 * Math.sin(time * 5.2 + i * 1.3) * Math.cos(time * 2.7 - i * 0.6);
-            } else {
-              r.breathScale = 1.0 + 0.02 * radialWave;
-            }
-          }
-
-          const gyroSpeed = config.speedMultiplier * (0.5 + live.rotSpeed * 0.65);
-          for (let g = 0; g < this.gyroRings.length; g++) {
-            const gr = this.gyroRings[g];
-            gr.rx += gr.vx * gyroSpeed * dt;
-            gr.ry += gr.vy * gyroSpeed * dt;
-            gr.rz += gr.vz * gyroSpeed * dt;
-          }
-        }
-      }
-
-      /* -----------------------------------------------------------------------
-         SECTION 6: SYNAPTIC NEURAL LATTICE & COGNITIVE PATHWAYS (THINKING ENGINE)
-      ----------------------------------------------------------------------- */
-      class SynapticLattice {
-        constructor() {
-          this.nodeCount = 45;
-          this.nodes = [];
-          this.pulses = [];
-          this.initNodes();
-        }
-
-        initNodes() {
-          this.nodes = [];
-          for (let i = 0; i < this.nodeCount; i++) {
-            const shell = i % 5;
-            const normR = 0.22 + shell * 0.145;
-            const angle = (i / this.nodeCount) * Math.PI * 2 + shell * 0.4;
-            this.nodes.push({
-              id: i,
-              shell,
-              normR,
-              angle,
-              angularSpeed: (shell % 2 === 0 ? 1 : -1) * (0.22 + shell * 0.08),
-              energy: Math.random(),
-              x: 0,
-              y: 0
-            });
-          }
-        }
-
-        spawnPulse() {
-          if (this.pulses.length > 52) return;
-          const aIdx = Math.floor(Math.random() * this.nodes.length);
-          let bIdx = (aIdx + 3 + Math.floor(Math.random() * 9)) % this.nodes.length;
-          if (bIdx === aIdx) bIdx = (aIdx + 1) % this.nodes.length;
-
-          this.pulses.push({
-            from: aIdx,
-            to: bIdx,
-            progress: 0,
-            speed: 1.6 + Math.random() * 2.2,
-            colorSlot: Math.floor(Math.random() * 3)
-          });
-        }
-
-        update(time, dt, cx, cy, baseRadius) {
-          const activity = live.synapseActivity;
-          const speedMult = config.speedMultiplier * (0.6 + activity * 1.8);
-
-          for (let i = 0; i < this.nodes.length; i++) {
-            const n = this.nodes[i];
-            n.angle += n.angularSpeed * speedMult * dt;
-            const r = baseRadius * n.normR * (1.0 + 0.03 * Math.sin(time * 3.0 + i));
-            n.x = cx + Math.cos(n.angle) * r;
-            n.y = cy + Math.sin(n.angle) * r;
-            n.energy = 0.35 + 0.65 * Math.abs(Math.sin(time * (2.5 + activity * 4.0) + i * 0.9));
-          }
-
-          const spawnChance = (0.14 + activity * 0.88) * dt * 34;
-          if (Math.random() < spawnChance) {
-            this.spawnPulse();
-          }
-
-          for (let i = this.pulses.length - 1; i >= 0; i--) {
-            const p = this.pulses[i];
-            p.progress += p.speed * dt;
-            if (p.progress >= 1.0) {
-              if (this.nodes[p.to]) {
-                this.nodes[p.to].energy = 1.35;
-              }
-              this.pulses.splice(i, 1);
-            }
-          }
-        }
-      }
-
-      /* -----------------------------------------------------------------------
-         SECTION 7: QUANTUM ION PARTICLE FIELD & SHOCKWAVE RIPPLE EMITTER
-      ----------------------------------------------------------------------- */
-      class QuantumParticleField {
-        constructor() {
-          this.maxParticles = 700;
-          this.particles = [];
-          this.ripples = [];
-          this.rippleTimer = 0;
-
-          for (let i = 0; i < this.maxParticles; i++) {
-            this.particles.push(this.createParticle(true));
-          }
-        }
-
-        createParticle(randomRadius = false) {
-          const angle = Math.random() * Math.PI * 2;
-          const normR = randomRadius ? (0.08 + Math.random() * 0.95) : (live.radialFlow < 0 ? 0.92 + Math.random() * 0.18 : 0.08 + Math.random() * 0.15);
-          return {
-            angle,
-            normR,
-            angularVel: (Math.random() > 0.5 ? 1 : -1) * (0.35 + Math.random() * 1.4),
-            radialVel: (Math.random() - 0.5) * 0.15,
-            size: 1.0 + Math.random() * 2.6,
-            alpha: 0.25 + Math.random() * 0.75,
-            colorSlot: Math.floor(Math.random() * 3),
-            trailLength: 0.04 + Math.random() * 0.09,
-            phase: Math.random() * Math.PI * 2
-          };
-        }
-
-        emitRipple(direction = 1, customIntensity = 1.0) {
-          if (this.ripples.length > 16) return;
-          this.ripples.push({
-            normR: direction >= 0 ? 0.14 : 0.98,
-            direction: direction === 0 ? (Math.random() > 0.5 ? 1 : -1) : direction,
-            speed: (0.48 + live.audioEnergy * 0.45) * config.speedMultiplier,
-            alpha: 0.78 * customIntensity,
-            thickness: 2.2 * customIntensity,
-            colorSlot: Math.floor(Math.random() * 3),
-            harmonicLobes: config.state === 'thinking' ? 6 : (config.state === 'speaking' ? 4 : 0)
-          });
-        }
-
-        update(time, dt) {
-          const count = config.particleCount;
-          const state = config.state;
-
-          for (let i = 0; i < count; i++) {
-            const p = this.particles[i];
-            const orbitBoost = 1.0 + (1.0 - Math.min(1, p.normR)) * 1.25;
-            p.angle += p.angularVel * orbitBoost * live.rotSpeed * config.speedMultiplier * 0.55 * dt;
-
-            if (state === 'listening') {
-              p.normR -= (0.22 + live.audioEnergy * 0.48) * dt * config.speedMultiplier;
-              if (p.normR < 0.09) {
-                p.normR = 0.95 + Math.random() * 0.15;
-                p.angle = Math.random() * Math.PI * 2;
-              }
-            } else if (state === 'speaking') {
-              p.normR += (0.28 + live.audioEnergy * 0.65) * dt * config.speedMultiplier;
-              if (p.normR > 1.08) {
-                p.normR = 0.10 + Math.random() * 0.12;
-                p.angle = Math.random() * Math.PI * 2;
-              }
-            } else if (state === 'thinking') {
-              const targetShell = 0.20 + (i % 6) * 0.135 + 0.035 * Math.sin(p.angle * 4 + time * 5);
-              p.normR += (targetShell - p.normR) * Math.min(1, dt * 4.5);
-            } else {
-              p.normR += Math.sin(time * 1.5 + p.phase) * 0.04 * dt;
-              if (p.normR < 0.1) p.normR = 0.95;
-              if (p.normR > 1.02) p.normR = 0.15;
-            }
-          }
-
-          const profile = STATE_PROFILES[state] || STATE_PROFILES.listening;
-          this.rippleTimer += dt * (1.0 + live.audioEnergy * 1.4);
-          if (this.rippleTimer >= profile.rippleInterval) {
-            this.rippleTimer = 0;
-            this.emitRipple(profile.rippleDirection, 0.65 + live.audioEnergy * 0.6);
-          }
-
-          for (let i = this.ripples.length - 1; i >= 0; i--) {
-            const rp = this.ripples[i];
-            rp.normR += rp.direction * rp.speed * dt;
-            rp.alpha -= dt * 0.52;
-            if (rp.alpha <= 0.01 || rp.normR > 1.15 || rp.normR < 0.05) {
-              this.ripples.splice(i, 1);
-            }
-          }
-        }
-      }
-
-      /* -----------------------------------------------------------------------
-         SECTION 8: MASTER CANVAS RENDERER — 10 CONCENTRIC LIGHT GLOW PASSES
-      ----------------------------------------------------------------------- */
-      const canvas = document.getElementById('aurora-canvas');
-      const ctx = canvas.getContext('2d', { alpha: true });
-
-      const scopeCanvas = document.getElementById('scope-canvas');
-      const scopeCtx = scopeCanvas ? scopeCanvas.getContext('2d') : null;
-
-      const simplex = new SimplexNoise3D(2049);
-      const acoustic = new AcousticEngine(simplex);
-      const ringSystem = new ConcentricRingSystem();
-      const synapseSystem = new SynapticLattice();
-      const particleField = new QuantumParticleField();
-
-      let width = window.innerWidth;
-      let height = window.innerHeight;
-      let dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-      function resizeCanvas() {
-        width = window.innerWidth;
-        height = window.innerHeight;
-        dpr = Math.min(window.devicePixelRatio || 1, 2);
-        canvas.width = Math.floor(width * dpr);
-        canvas.height = Math.floor(height * dpr);
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-        if (scopeCanvas && scopeCtx) {
-          const rect = scopeCanvas.getBoundingClientRect();
-          if (rect.width > 0 && rect.height > 0) {
-            scopeCanvas.width = Math.floor(rect.width * dpr);
-            scopeCanvas.height = Math.floor(rect.height * dpr);
-            scopeCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          }
-        }
-      }
-      window.addEventListener('resize', resizeCanvas);
-      resizeCanvas();
-
-      function hsl(h, s, l, a = 1.0) {
-        return `hsla(${((h % 360) + 360) % 360}, ${s}%, ${l}%, ${Math.max(0, Math.min(1, a))})`;
-      }
-
-      function getSlotHue(slot) {
-        if (slot === 0) return { h: live.h1, s: live.s1, l: live.l1 };
-        if (slot === 1) return { h: live.h2, s: live.s2, l: live.l2 };
-        return { h: live.h3, s: live.s3, l: live.l3 };
-      }
-
-      function interpolateState(dt) {
-        const palGroup = PALETTES[config.palette] || PALETTES.jarvis_classic;
-        const targetPal = palGroup[config.state] || palGroup.listening;
-        const targetProf = STATE_PROFILES[config.state] || STATE_PROFILES.listening;
-
-        const lerpRate = Math.min(1, dt * 4.2);
-
-        live.h1 += (targetPal.h1 - live.h1) * lerpRate;
-        live.s1 += (targetPal.s1 - live.s1) * lerpRate;
-        live.l1 += (targetPal.l1 - live.l1) * lerpRate;
-
-        live.h2 += (targetPal.h2 - live.h2) * lerpRate;
-        live.s2 += (targetPal.s2 - live.s2) * lerpRate;
-        live.l2 += (targetPal.l2 - live.l2) * lerpRate;
-
-        live.h3 += (targetPal.h3 - live.h3) * lerpRate;
-        live.s3 += (targetPal.s3 - live.s3) * lerpRate;
-        live.l3 += (targetPal.l3 - live.l3) * lerpRate;
-
-        live.coreR += (targetPal.core[0] - live.coreR) * lerpRate;
-        live.coreG += (targetPal.core[1] - live.coreG) * lerpRate;
-        live.coreB += (targetPal.core[2] - live.coreB) * lerpRate;
-
-        live.rotSpeed += (targetProf.rotSpeed - live.rotSpeed) * lerpRate;
-        live.auroraSpeed += (targetProf.auroraSpeed - live.auroraSpeed) * lerpRate;
-        live.radialFlow += (targetProf.radialFlow - live.radialFlow) * lerpRate;
-        live.waveAmp += (targetProf.waveAmp - live.waveAmp) * lerpRate;
-        live.waveFreq += (targetProf.waveFreq - live.waveFreq) * lerpRate;
-        live.synapseActivity += (targetProf.synapseActivity - live.synapseActivity) * lerpRate;
-        live.corePulseSpeed += (targetProf.corePulseSpeed - live.corePulseSpeed) * lerpRate;
-        live.coreExpansion += (targetProf.coreExpansion - live.coreExpansion) * lerpRate;
-        live.sonarSweepSpeed += (targetProf.sonarSweepSpeed - live.sonarSweepSpeed) * lerpRate;
-        live.formantModulation += (targetProf.formantModulation - live.formantModulation) * lerpRate;
-        live.gyroTiltFactor += (targetProf.gyroTiltFactor - live.gyroTiltFactor) * lerpRate;
-      }
-
-      /*
-       * PASS 1: ALPHA-SAFE RADIAL CONTRAST SHIELD & VOLUMETRIC CORONA
-       */
-      function renderCoronaAndContrastAura(cx, cy, baseR, time) {
-        const auraOpacity = config.contrastAuraOpacity;
-        if (auraOpacity > 0.01) {
-          ctx.save();
-          ctx.globalCompositeOperation = 'source-over';
-          const shieldR = baseR * 1.28;
-          const shieldGrad = ctx.createRadialGradient(cx, cy, baseR * 0.04, cx, cy, shieldR);          shieldGrad.addColorStop(0.0, `rgba(2, 8, 20, ${0.88 * auraOpacity})`);
-          shieldGrad.addColorStop(0.52, `rgba(3, 12, 28, ${0.74 * auraOpacity})`);
-          shieldGrad.addColorStop(0.78, `rgba(2, 10, 24, ${0.32 * auraOpacity})`);
-          shieldGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
-          ctx.fillStyle = shieldGrad;
-          ctx.beginPath();
-          ctx.arc(cx, cy, shieldR, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
-        }
-
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        const bloomBoost = (0.35 + live.audioEnergy * 0.35) * config.auroraIntensity;
-        const coronaR = baseR * (1.22 + 0.08 * Math.sin(time * live.corePulseSpeed));
-        const coronaGrad = ctx.createRadialGradient(cx, cy, baseR * 0.05, cx, cy, coronaR);
-        coronaGrad.addColorStop(0.0, hsl(live.h1, live.s1, 65, 0.38 * bloomBoost));
-        coronaGrad.addColorStop(0.35, hsl(live.h2, live.s2, 55, 0.24 * bloomBoost));
-        coronaGrad.addColorStop(0.68, hsl(live.h3, live.s3, 50, 0.12 * bloomBoost));
-        coronaGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
-
-        ctx.fillStyle = coronaGrad;
-        ctx.beginPath();
-        ctx.arc(cx, cy, coronaR, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-
-      /*
-       * PASS 2: CONCENTRIC POLAR SPECTROGRAM WATERFALL HISTORY RINGS
-       */
-      function renderPolarSpectrogram(cx, cy, baseR, time) {
-        if (!config.layers.spectrogram) return;
-
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-
-        const depth = acoustic.historyDepth;
-        const bins = acoustic.historyBins;
-        const lum = config.auroraIntensity;
-
-        for (let d = 0; d < depth; d++) {
-          const bufIdx = (acoustic.historyWriteIndex - 1 - d + depth) % depth;
-          const slice = acoustic.spectrogramRingBuffer[bufIdx];
-          const ageNorm = d / (depth - 1);
-
-          const rNorm = config.state === 'listening'
-            ? (0.86 - ageNorm * 0.56)
-            : (0.24 + ageNorm * 0.62);
-
-          const ringR = baseR * rNorm * live.coreExpansion;
-          const alphaScale = (1.0 - ageNorm * 0.82) * 0.22 * lum;
-
-          ctx.beginPath();
-          for (let b = 0; b <= bins; b++) {
-            const idx = b % bins;
-            const theta = (b / bins) * Math.PI * 2 + time * 0.12;
-            const val = slice[idx] || 0;
-            const r = ringR + baseR * 0.028 * val;
-            const x = cx + Math.cos(theta) * r;
-            const y = cy + Math.sin(theta) * r;
-            if (b === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-          }
-          ctx.closePath();
-
-          const hue = live.h1 + ageNorm * (live.h2 - live.h1);
-          ctx.strokeStyle = hsl(hue, 95, 64, alphaScale);
-          ctx.lineWidth = 1.2;
-          ctx.stroke();
-        }
-
-        ctx.restore();
-      }
-
-      /*
-       * PASS 3: CONCENTRIC AURORA BOREALIS SPECTRAL CURTAINS (3 LAYERED RIBBONS)
-       */
-      function renderAuroraCurtains(cx, cy, baseR, time) {
-        if (!config.layers.aurora) return;
-
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-
-        const curtainLayers = 3;
-        const steps = 120;
-        const turb = config.turbulence;
-        const lum = config.auroraIntensity;
-
-        for (let layer = 0; layer < curtainLayers; layer++) {
-          const cSlot = getSlotHue(layer);
-          const layerNormR = 0.36 + layer * 0.22;
-          const baseLayerR = baseR * layerNormR * live.coreExpansion;
-          const zTime = time * live.auroraSpeed * (0.45 + layer * 0.22) * config.speedMultiplier;
-          const rotDir = layer % 2 === 0 ? 1 : -1;
-
-          const outerPts = [];
-          const innerPts = [];
-
-          for (let s = 0; s <= steps; s++) {
-            const theta = (s / steps) * Math.PI * 2;
-            const rotTheta = theta + time * 0.25 * rotDir * live.rotSpeed;
-
-            const nx = Math.cos(rotTheta) * (1.35 + layer * 0.4) * turb;
-            const ny = Math.sin(rotTheta) * (1.35 + layer * 0.4) * turb;
-            const nVal = simplex.fbm(nx, ny, zTime + layer * 3.7, 3, 2.1, 0.52);
-
-            const binIdx = Math.floor(((s / steps) * 96 + layer * 16) % 128);
-            const audioMod = acoustic.smoothSpectrum[binIdx] * live.formantModulation * 0.22;
-
-            const radialDisplacement = baseR * (0.095 * nVal * turb + audioMod);
-            const rMid = baseLayerR + radialDisplacement;
-            const curtainWidth = baseR * (0.055 + 0.045 * Math.abs(nVal) + audioMod * 0.55);
-
-            const rOut = rMid + curtainWidth;
-            const rIn = Math.max(baseR * 0.08, rMid - curtainWidth * 0.65);
-
-            const cosT = Math.cos(theta);
-            const sinT = Math.sin(theta);
-
-            outerPts.push({ x: cx + cosT * rOut, y: cy + sinT * rOut, nVal, cosT, sinT, rIn, rOut });
-            innerPts.push({ x: cx + cosT * rIn, y: cy + sinT * rIn });
-          }
-
-          ctx.beginPath();
-          for (let i = 0; i < outerPts.length; i++) {
-            if (i === 0) ctx.moveTo(outerPts[i].x, outerPts[i].y);
-            else ctx.lineTo(outerPts[i].x, outerPts[i].y);
-          }
-          for (let i = innerPts.length - 1; i >= 0; i--) {
-            ctx.lineTo(innerPts[i].x, innerPts[i].y);
-          }
-          ctx.closePath();
-
-          const hueShift = cSlot.h + Math.sin(time * 0.8 + layer) * 14;
-          const grad = ctx.createRadialGradient(cx, cy, baseLayerR * 0.65, cx, cy, baseLayerR * 1.35);
-          grad.addColorStop(0.0, hsl(hueShift, cSlot.s, cSlot.l, 0.02));
-          grad.addColorStop(0.45, hsl(hueShift, cSlot.s, cSlot.l + 8, Math.min(0.48, 0.18 * lum)));
-          grad.addColorStop(0.75, hsl((hueShift + 28) % 360, cSlot.s, cSlot.l, Math.min(0.36, 0.12 * lum)));
-          grad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
-          ctx.fillStyle = grad;
-          ctx.fill();
-
-          ctx.beginPath();
-          for (let i = 0; i < outerPts.length; i++) {
-            const p = outerPts[i];
-            const rCrest = (p.rIn + p.rOut) * 0.5;
-            const x = cx + p.cosT * rCrest;
-            const y = cy + p.sinT * rCrest;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-          }
-          ctx.strokeStyle = hsl(hueShift, 100, 72, Math.min(0.75, 0.34 * lum));
-          ctx.lineWidth = 1.6 + layer * 0.4;
-          ctx.stroke();
-
-          for (let i = 0; i < steps; i += 2) {
-            const p = outerPts[i];
-            const rayIntensity = Math.max(0, p.nVal + 0.35);
-            if (rayIntensity > 0.25) {
-              ctx.beginPath();
-              ctx.moveTo(cx + p.cosT * p.rIn, cy + p.sinT * p.rIn);
-              ctx.lineTo(cx + p.cosT * (p.rOut + baseR * 0.04 * rayIntensity), cy + p.sinT * (p.rOut + baseR * 0.04 * rayIntensity));
-              ctx.strokeStyle = hsl(hueShift + p.nVal * 20, 100, 76, Math.min(0.42, rayIntensity * 0.22 * lum));
-              ctx.lineWidth = 1.3;
-              ctx.stroke();
-            }
-          }
-        }
-
-        ctx.restore();
-      }
-
-      /*
-       * PASS 4: 3D GYROSCOPIC GIMBAL RINGS (EULER MATRIX 3D PROJECTION)
-       */
-      function render3DGyroGimbalRings(cx, cy, baseR, time) {
-        if (!config.layers.gyro) return;
-
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-
-        const tiltAmt = live.gyroTiltFactor;
-        const lum = config.auroraIntensity;
-        const segs = 84;
-
-        for (let g = 0; g < ringSystem.gyroRings.length; g++) {
-          const gr = ringSystem.gyroRings[g];
-          const r = baseR * gr.normRadius * live.coreExpansion;
-          const cSlot = getSlotHue(gr.colorSlot);
-
-          const rx = gr.rx * tiltAmt;
-          const ry = gr.ry * tiltAmt;
-          const rz = gr.rz;
-
-          const cosX = Math.cos(rx), sinX = Math.sin(rx);
-          const cosY = Math.cos(ry), sinY = Math.sin(ry);
-          const cosZ = Math.cos(rz), sinZ = Math.sin(rz);
-
-          if (gr.dashPattern.length > 0) ctx.setLineDash(gr.dashPattern);
-          else ctx.setLineDash([]);
-
-          ctx.beginPath();
-          for (let s = 0; s <= segs; s++) {
-            const a = (s / segs) * Math.PI * 2;
-            let x = Math.cos(a) * r;
-            let y = Math.sin(a) * r;
-            let z = 0;
-
-            let y1 = y * cosX - z * sinX;
-            let z1 = y * sinX + z * cosX;
-            let x2 = x * cosY + z1 * sinY;
-            let z2 = -x * sinY + z1 * cosY;
-            let x3 = x2 * cosZ - y1 * sinZ;
-            let y3 = x2 * sinZ + y1 * cosZ;
-
-            const fov = baseR * 3.2;
-            const scale = fov / (fov + z2 + baseR * 0.5);
-            const px = cx + x3 * scale;
-            const py = cy + y3 * scale;
-
-            if (s === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
-          }
-
-          const alpha = Math.min(0.85, (0.24 + tiltAmt * 0.42) * lum);
-          ctx.strokeStyle = hsl(cSlot.h, 100, 74, alpha);
-          ctx.lineWidth = 1.4;
-          ctx.stroke();
-        }
-
-        ctx.setLineDash([]);
-        ctx.restore();
-      }
-
-      /*
-       * PASS 5: CONCENTRIC JARVIS HUD & SACRED GEOMETRY RINGS + AZIMUTH GLYPHS
-       */
-      function renderConcentricTechRings(cx, cy, baseR, time) {
-        if (!config.layers.techRings) return;
-
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-
-        const activeCount = config.ringCount;
-        const lum = config.auroraIntensity;
-
-        for (let i = 0; i < activeCount; i++) {
-          const ring = ringSystem.rings[i];
-          const r = baseR * ring.normRadius * ring.breathScale * live.coreExpansion;
-          if (r < 6) continue;
-
-          const cSlot = getSlotHue(ring.colorSlot);
-          const alpha = Math.min(0.92, ring.alpha * (0.65 + 0.35 * lum));
-
-          ctx.save();
-          ctx.translate(cx, cy);
-          ctx.rotate(ring.angle);
-
-          switch (ring.archetype) {
-            case 'segmented_arc': {
-              ctx.lineWidth = ring.thickness * 1.4;
-              ctx.strokeStyle = hsl(cSlot.h, cSlot.s, cSlot.l + 10, alpha * 0.78);
-              for (let s = 0; s < ring.segments.length; s++) {
-                const seg = ring.segments[s];
-                ctx.beginPath();
-                ctx.arc(0, 0, r, seg.start, seg.start + seg.span);
-                ctx.stroke();
-
-                const ex = Math.cos(seg.start) * r;
-                const ey = Math.sin(seg.start) * r;
-                ctx.fillStyle = hsl(cSlot.h, 100, 82, alpha);
-                ctx.beginPath();
-                ctx.arc(ex, ey, 2.1, 0, Math.PI * 2);
-                ctx.fill();
-              }
-              break;
-            }
-
-            case 'degree_ticks': {
-              const ticks = ring.tickCount;
-              const tickStep = (Math.PI * 2) / ticks;
-              ctx.strokeStyle = hsl(cSlot.h, cSlot.s, cSlot.l + 8, alpha * 0.65);
-              ctx.lineWidth = 1.1;
-              ctx.beginPath();
-              for (let t = 0; t < ticks; t++) {
-                const a = t * tickStep;
-                const isMajor = t % 6 === 0;
-                const len = isMajor ? baseR * 0.028 : baseR * 0.012;
-                const cosA = Math.cos(a);
-                const sinA = Math.sin(a);
-                ctx.moveTo(cosA * (r - len * 0.5), sinA * (r - len * 0.5));
-                ctx.lineTo(cosA * (r + len * 0.5), sinA * (r + len * 0.5));
-              }
-              ctx.stroke();
-              break;
-            }
-
-            case 'vernier_caliper': {
-              ctx.beginPath();
-              ctx.arc(0, 0, r, 0, Math.PI * 2);
-              ctx.strokeStyle = hsl(cSlot.h, cSlot.s, cSlot.l, alpha * 0.28);
-              ctx.lineWidth = 0.9;
-              ctx.stroke();
-
-              const notches = 8;
-              ctx.strokeStyle = hsl(cSlot.h, 100, 75, alpha * 0.85);
-              ctx.lineWidth = 1.8;
-              for (let n = 0; n < notches; n++) {
-                const a = (n / notches) * Math.PI * 2;
-                ctx.beginPath();
-                ctx.arc(0, 0, r, a - 0.08, a + 0.08);
-                ctx.stroke();
-              }
-              break;
-            }
-
-            case 'sonar_sector': {
-              const sweepBoost = config.state === 'listening' ? 1.5 : 1.0;
-              ctx.setLineDash([4, 8]);
-              ctx.beginPath();
-              ctx.arc(0, 0, r, 0, Math.PI * 2);
-              ctx.strokeStyle = hsl(cSlot.h, cSlot.s, cSlot.l + 5, alpha * 0.45 * sweepBoost);
-              ctx.lineWidth = 1.3;
-              ctx.stroke();
-              ctx.setLineDash([]);
-
-              for (let k = 0; k < 2; k++) {
-                const startA = k * Math.PI + Math.sin(time * live.sonarSweepSpeed + i) * 0.4;
-                ctx.beginPath();
-                ctx.arc(0, 0, r, startA, startA + 0.55);
-                ctx.strokeStyle = hsl(cSlot.h, 100, 78, Math.min(1, alpha * 0.95 * sweepBoost));
-                ctx.lineWidth = 2.8;
-                ctx.stroke();
-              }
-              break;
-            }
-
-            case 'quantum_dotted': {
-              ctx.setLineDash([2, 6, 10, 6]);
-              ctx.beginPath();
-              ctx.arc(0, 0, r, 0, Math.PI * 2);
-              ctx.strokeStyle = hsl(cSlot.h, cSlot.s, cSlot.l + 12, alpha * 0.62);
-              ctx.lineWidth = 1.5;
-              ctx.stroke();
-              ctx.setLineDash([]);
-              break;
-            }
-
-            case 'double_rail': {
-              const gap = baseR * 0.012;
-              ctx.strokeStyle = hsl(cSlot.h, cSlot.s, cSlot.l + 6, alpha * 0.52);
-              ctx.lineWidth = 1.1;
-              ctx.beginPath();
-              ctx.arc(0, 0, r - gap, 0, Math.PI * 2);
-              ctx.arc(0, 0, r + gap, 0, Math.PI * 2);
-              ctx.stroke();
-              break;
-            }
-
-            default: {
-              ctx.beginPath();
-              ctx.arc(0, 0, r, 0, Math.PI * 2);
-              ctx.strokeStyle = hsl(cSlot.h, cSlot.s, cSlot.l + 8, alpha * 0.55);
-              ctx.lineWidth = ring.thickness;
-              ctx.stroke();
-              break;
-            }
-          }
-
-          ctx.restore();
-        }
-
-        if (config.layers.glyphs && baseR > 95) {
-          const glyphR = baseR * 0.91 * live.coreExpansion;
-          const glyphs = ringSystem.telemetryGlyphs;
-          ctx.save();
-          ctx.translate(cx, cy);
-          ctx.rotate(-time * 0.08 * config.speedMultiplier);
-          ctx.font = '600 9px "JetBrains Mono", monospace';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillStyle = hsl(live.h1, 100, 80, Math.min(0.75, 0.45 * lum));
-
-          for (let g = 0; g < glyphs.length; g++) {
-            const a = (g / glyphs.length) * Math.PI * 2;
-            ctx.save();
-            ctx.rotate(a);
-            ctx.translate(0, -glyphR);
-            ctx.fillText(glyphs[g], 0, 0);
-            ctx.restore();
-          }
-          ctx.restore();
-        }
-
-        if (config.layers.reticle && (config.state === 'listening' || config.state === 'overdrive')) {
-          const lockR = baseR * 0.97 * live.coreExpansion;
-          const bearing = live.dominantAngle;
-          ctx.save();
-          ctx.translate(cx, cy);
-          ctx.rotate(bearing);
-
-          ctx.strokeStyle = hsl(live.h1, 100, 78, Math.min(0.95, 0.72 * lum));
-          ctx.lineWidth = 2.2;
-          for (let side = 0; side < 2; side++) {
-            const a0 = side * Math.PI - 0.18;
-            const a1 = side * Math.PI + 0.18;
-            ctx.beginPath();
-            ctx.arc(0, 0, lockR, a0, a1);
-            ctx.stroke();
-          }
-          ctx.restore();
-        }
-
-        ctx.restore();
-      }
-
-      /*
-       * PASS 6: HARMONIC FOURIER WAVE & VOCAL FORMANT OSCILLOSCOPE RINGS
-       */
-      function renderFourierAndFormantRings(cx, cy, baseR, time) {
-        if (!config.layers.fourier) return;
-
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-
-        const state = config.state;
-        const lum = config.auroraIntensity;
-        const waveCount = 4;
-        const points = 128;
-
-        for (let w = 0; w < waveCount; w++) {
-          const cSlot = getSlotHue(w % 3);
-          const normR = 0.28 + w * 0.175;
-          const ringR = baseR * normR * live.coreExpansion;
-          const harmonicK = live.waveFreq + w * 2;
-          const phase = time * (2.2 + w * 0.9) * (w % 2 === 0 ? 1 : -1) * config.speedMultiplier;
-
-          ctx.beginPath();
-          for (let p = 0; p <= points; p++) {
-            const idx = p % points;
-            const theta = (p / points) * Math.PI * 2;
-
-            const specIdx = idx < 64 ? idx * 2 : (127 - idx) * 2;
-            const specVal = acoustic.smoothSpectrum[specIdx] || 0;
-            const waveVal = acoustic.waveform[specIdx] || 0;
-
-            let radialOffset = 0;
-            if (state === 'thinking') {
-              const rose1 = Math.sin(theta * (3 + w * 2) + phase);
-              const rose2 = Math.cos(theta * (5 + w) - phase * 1.3);
-              radialOffset = baseR * 0.048 * live.waveAmp * (rose1 * 0.65 + rose2 * 0.35) * (0.7 + specVal);
-            } else if (state === 'speaking') {
-              const formantWave = Math.sin(theta * harmonicK + phase) * specVal * 1.35 + waveVal * 0.45;
-              radialOffset = baseR * 0.068 * live.waveAmp * formantWave;
-            } else if (state === 'listening') {
-              const sonarWave = Math.sin(theta * (harmonicK + 4) - phase * 1.4) * (0.3 + specVal * 1.15);
-              radialOffset = baseR * 0.052 * live.waveAmp * sonarWave;
-            } else {
-              radialOffset = baseR * 0.025 * live.waveAmp * Math.sin(theta * harmonicK + phase);
-            }
-
-            const r = ringR + radialOffset;
-            const x = cx + Math.cos(theta) * r;
-            const y = cy + Math.sin(theta) * r;
-            if (p === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-          }
-          ctx.closePath();
-
-          ctx.strokeStyle = hsl(cSlot.h, 100, 70, Math.min(0.9, (0.42 + live.audioEnergy * 0.45) * lum));
-          ctx.lineWidth = 1.6 + (w === 1 ? 1.0 : 0.2);
-          ctx.stroke();
-        }
-
-        if (state === 'speaking' || state === 'listening' || state === 'overdrive') {
-          const barCount = 96;
-          const eqBaseR = baseR * (state === 'listening' ? 0.82 : 0.56) * live.coreExpansion;
-          const dir = state === 'listening' ? -1 : 1;
-
-          ctx.lineWidth = 2.0;
-          for (let b = 0; b < barCount; b++) {
-            const theta = (b / barCount) * Math.PI * 2 + time * 0.18 * live.rotSpeed;
-            const specIdx = Math.floor((Math.abs(b - barCount / 2) / (barCount / 2)) * 96);
-            const val = acoustic.smoothSpectrum[specIdx] || 0;
-            const barLen = baseR * (0.012 + val * 0.13 * live.formantModulation);
-
-            const cosT = Math.cos(theta);
-            const sinT = Math.sin(theta);
-            const r1 = eqBaseR;
-            const r2 = eqBaseR + dir * barLen;
-
-            const cSlot = getSlotHue(b % 3);
-            ctx.strokeStyle = hsl(cSlot.h + val * 25, 100, 68, Math.min(0.88, (0.28 + val * 0.65) * lum));
-            ctx.beginPath();
-            ctx.moveTo(cx + cosT * r1, cy + sinT * r1);
-            ctx.lineTo(cx + cosT * r2, cy + sinT * r2);
-            ctx.stroke();
-          }
-        }
-
-        ctx.restore();
-      }
-
-      /*
-       * PASS 7: SYNAPTIC NEURAL LATTICE & COGNITIVE CONSTELLATION
-       */
-      function renderSynapticLattice(cx, cy, baseR, time) {
-        if (!config.layers.synapse) return;
-
-        const activity = live.synapseActivity;
-        if (activity < 0.05) return;
-
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-
-        const nodes = synapseSystem.nodes;
-        const maxDist = baseR * (0.34 + activity * 0.24);
-        const maxDistSq = maxDist * maxDist;
-
-        ctx.lineWidth = 1.0;
-        for (let i = 0; i < nodes.length; i++) {
-          const a = nodes[i];
-          for (let j = i + 1; j < nodes.length; j++) {
-            const b = nodes[j];
-            const dx = a.x - b.x;
-            const dy = a.y - b.y;
-            const dSq = dx * dx + dy * dy;
-            if (dSq < maxDistSq) {
-              const distFactor = 1.0 - Math.sqrt(dSq) / maxDist;
-              const alpha = distFactor * activity * 0.42 * config.auroraIntensity;
-              if (alpha > 0.02) {
-                const cSlot = getSlotHue((i + j) % 3);
-                ctx.strokeStyle = hsl(cSlot.h, 95, 68, alpha);
-                ctx.beginPath();
-                ctx.moveTo(a.x, a.y);
-                const midX = (a.x + b.x) * 0.5;
-                const midY = (a.y + b.y) * 0.5;
-                ctx.quadraticCurveTo(
-                  midX + (midX - cx) * 0.12,
-                  midY + (midY - cy) * 0.12,
-                  b.x,
-                  b.y
-                );
-                ctx.stroke();
-              }
-            }
-          }
-        }
-
-        const pulses = synapseSystem.pulses;
-        for (let i = 0; i < pulses.length; i++) {
-          const p = pulses[i];
-          const nFrom = nodes[p.from];
-          const nTo = nodes[p.to];
-          if (!nFrom || !nTo) continue;
-
-          const t = p.progress;
-          const midX = (nFrom.x + nTo.x) * 0.5 + ((nFrom.x + nTo.x) * 0.5 - cx) * 0.15;
-          const midY = (nFrom.y + nTo.y) * 0.5 + ((nFrom.y + nTo.y) * 0.5 - cy) * 0.15;
-
-          const invT = 1 - t;
-          const px = invT * invT * nFrom.x + 2 * invT * t * midX + t * t * nTo.x;
-          const py = invT * invT * nFrom.y + 2 * invT * t * midY + t * t * nTo.y;
-
-          const cSlot = getSlotHue(p.colorSlot);
-          const pulseAlpha = Math.sin(t * Math.PI) * (0.45 + activity * 0.55);
-
-          ctx.fillStyle = hsl(cSlot.h, 100, 85, pulseAlpha);
-          ctx.beginPath();
-          ctx.arc(px, py, 2.4 + activity * 1.4, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        for (let i = 0; i < nodes.length; i++) {
-          const n = nodes[i];
-          const cSlot = getSlotHue(n.shell % 3);
-          const nodeAlpha = Math.min(0.95, (0.2 + activity * 0.65) * n.energy);
-          const rNode = 1.6 + n.energy * 1.8 * activity;
-
-          ctx.fillStyle = hsl(cSlot.h, 100, 78, nodeAlpha);
-          ctx.beginPath();
-          ctx.arc(n.x, n.y, rNode, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        ctx.restore();
-      }
-
-      /*
-       * PASS 8: MAGNETOSPHERIC PLASMA TENDRILS & ELECTROMAGNETIC FILAMENTS
-       */
-      function renderPlasmaTendrils(cx, cy, baseR, time) {
-        if (!config.layers.tendrils) return;
-
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-
-        const tendrilCount = config.state === 'thinking' ? 14 : (config.state === 'speaking' ? 12 : 8);
-        const innerR = baseR * 0.12 * live.coreExpansion;
-        const outerR = baseR * (0.68 + live.audioEnergy * 0.22) * live.coreExpansion;
-
-        for (let i = 0; i < tendrilCount; i++) {
-          const baseAngle = (i / tendrilCount) * Math.PI * 2 + time * 0.35 * live.rotSpeed * (i % 2 === 0 ? 1 : -1);
-          const n1 = simplex.noise3D(Math.cos(baseAngle) * 1.5, Math.sin(baseAngle) * 1.5, time * 1.4 + i);
-          const n2 = simplex.noise3D(Math.cos(baseAngle) * 2.2, Math.sin(baseAngle) * 2.2, time * 2.1 - i);
-
-          const startAngle = baseAngle + n1 * 0.25;
-          const endAngle = baseAngle + n2 * 0.65 + (live.radialFlow * 0.18);
-
-          const x0 = cx + Math.cos(startAngle) * innerR;
-          const y0 = cy + Math.sin(startAngle) * innerR;
-          const x3 = cx + Math.cos(endAngle) * outerR;
-          const y3 = cy + Math.sin(endAngle) * outerR;
-
-          const cp1Angle = startAngle + n2 * 0.85;
-          const cp2Angle = endAngle - n1 * 0.85;
-          const cp1R = baseR * 0.32;
-          const cp2R = baseR * 0.52;
-
-          const x1 = cx + Math.cos(cp1Angle) * cp1R;
-          const y1 = cy + Math.sin(cp1Angle) * cp1R;
-          const x2 = cx + Math.cos(cp2Angle) * cp2R;
-          const y2 = cy + Math.sin(cp2Angle) * cp2R;
-
-          const cSlot = getSlotHue(i % 3);
-          const alpha = Math.min(0.65, (0.18 + live.audioEnergy * 0.32) * config.auroraIntensity);
-
-          ctx.beginPath();
-          ctx.moveTo(x0, y0);
-          ctx.bezierCurveTo(x1, y1, x2, y2, x3, y3);
-          ctx.strokeStyle = hsl(cSlot.h, 100, 74, alpha);
-          ctx.lineWidth = 1.4 + (i % 3) * 0.5;
-          ctx.stroke();
-        }
-
-        ctx.restore();
-      }
-
-      /*
-       * PASS 9: QUANTUM ION PARTICLES & CONCENTRIC ACOUSTIC SHOCKWAVE RIPPLES
-       */
-      function renderParticlesAndRipples(cx, cy, baseR, time) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-
-        const lum = config.auroraIntensity;
-        const count = config.particleCount;
-        const particles = particleField.particles;
-
-        for (let i = 0; i < count; i++) {
-          const p = particles[i];
-          const r = baseR * p.normR * live.coreExpansion;
-          const x = cx + Math.cos(p.angle) * r;
-          const y = cy + Math.sin(p.angle) * r;
-
-          let px = x, py = y;
-          if (live.pointerActive) {
-            const dx = x - live.pointerX;
-            const dy = y - live.pointerY;
-            const dist = Math.sqrt(dx * dx + dy * dy) + 1;
-            const maxForceR = baseR * 0.45;
-            if (dist < maxForceR) {
-              const push = (1 - dist / maxForceR) * 26;
-              px += (dx / dist) * push;
-              py += (dy / dist) * push;
-            }
-          }
-
-          const cSlot = getSlotHue(p.colorSlot);
-          const flicker = 0.65 + 0.35 * Math.sin(time * 6.0 + p.phase);
-          const alpha = Math.min(0.95, p.alpha * flicker * lum * 0.85);
-
-          const trailAngle = p.angle - p.trailLength * (p.angularVel > 0 ? 1 : -1) * live.rotSpeed;
-          const trailR = r - live.radialFlow * 6.5;
-          const tx = cx + Math.cos(trailAngle) * trailR;
-          const ty = cy + Math.sin(trailAngle) * trailR;
-
-          ctx.strokeStyle = hsl(cSlot.h, 100, 76, alpha * 0.65);
-          ctx.lineWidth = p.size * 0.75;
-          ctx.beginPath();
-          ctx.moveTo(tx, ty);
-          ctx.lineTo(px, py);
-          ctx.stroke();
-
-          ctx.fillStyle = hsl(cSlot.h, 100, 86, alpha);
-          ctx.beginPath();
-          ctx.arc(px, py, p.size * 0.65, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        const ripples = particleField.ripples;
-        for (let i = 0; i < ripples.length; i++) {
-          const rp = ripples[i];
-          const r = baseR * rp.normR * live.coreExpansion;
-          const cSlot = getSlotHue(rp.colorSlot);
-          const alpha = Math.min(0.88, rp.alpha * lum);
-
-          ctx.beginPath();
-          if (rp.harmonicLobes > 0) {
-            const segs = 96;
-            for (let s = 0; s <= segs; s++) {
-              const a = (s / segs) * Math.PI * 2;
-              const modR = r * (1.0 + 0.025 * Math.sin(a * rp.harmonicLobes + time * 4));
-              const rx = cx + Math.cos(a) * modR;
-              const ry = cy + Math.sin(a) * modR;
-              if (s === 0) ctx.moveTo(rx, ry);
-              else ctx.lineTo(rx, ry);
-            }
-            ctx.closePath();
-          } else {
-            ctx.arc(cx, cy, r, 0, Math.PI * 2);
-          }
-
-          ctx.strokeStyle = hsl(cSlot.h, 100, 76, alpha);
-          ctx.lineWidth = rp.thickness;
-          ctx.stroke();
-        }
-
-        ctx.restore();
-      }
-
-      /*
-       * PASS 10: CHROMATIC ABERRATION LENS & SINGULARITY AURORA CORE
-       */
-      function renderSingularityCore(cx, cy, baseR, time) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-
-        const lum = config.auroraIntensity;
-        const pulse = 1.0 + 0.08 * Math.sin(time * live.corePulseSpeed) + live.audioEnergy * 0.22;
-        const coreR = baseR * 0.19 * live.coreExpansion * pulse;
-
-        if (config.layers.chromatic) {
-          const lensR = coreR * 1.48;
-          const shift = 2.2 + live.audioEnergy * 4.5 + (config.state === 'thinking' ? 2.5 : 0);
-          const lensColors = [
-            `rgba(255, 60, 120, ${0.28 * lum})`,
-            `rgba(0, 255, 190, ${0.32 * lum})`,
-            `rgba(60, 160, 255, ${0.32 * lum})`
-          ];
-
-          for (let c = 0; c < 3; c++) {
-            const a = time * 2.4 + (c * Math.PI * 2) / 3;
-            const ox = Math.cos(a) * shift;
-            const oy = Math.sin(a) * shift;
-            ctx.beginPath();
-            ctx.arc(cx + ox, cy + oy, lensR, 0, Math.PI * 2);
-            ctx.strokeStyle = lensColors[c];
-            ctx.lineWidth = 2.0;
-            ctx.stroke();
-          }
-        }
-
-        for (let lobe = 0; lobe < 3; lobe++) {
-          const cSlot = getSlotHue(lobe);
-          const pts = 72;
-          const lobeR = coreR * (0.78 + lobe * 0.16);
-          ctx.beginPath();
-          for (let i = 0; i <= pts; i++) {
-            const theta = (i / pts) * Math.PI * 2;
-            const n = simplex.noise3D(
-              Math.cos(theta) * 1.8,
-              Math.sin(theta) * 1.8,
-              time * (1.8 + lobe * 0.6) + lobe * 5
-            );
-            const r = lobeR * (1.0 + 0.16 * n * config.turbulence + live.bassEnergy * 0.14);
-            const x = cx + Math.cos(theta) * r;
-            const y = cy + Math.sin(theta) * r;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-          }
-          ctx.closePath();
-
-          const lobeGrad = ctx.createRadialGradient(cx, cy, 1, cx, cy, lobeR * 1.3);
-          lobeGrad.addColorStop(0.0, `rgba(${Math.round(live.coreR)}, ${Math.round(live.coreG)}, ${Math.round(live.coreB)}, ${Math.min(0.95, 0.55 * lum)})`);
-          lobeGrad.addColorStop(0.55, hsl(cSlot.h, 100, 65, Math.min(0.8, 0.35 * lum)));
-          lobeGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
-          ctx.fillStyle = lobeGrad;
-          ctx.fill();
-
-          ctx.strokeStyle = hsl(cSlot.h, 100, 82, Math.min(0.9, 0.48 * lum));
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-        }
-
-        const centerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR * 0.95);
-        centerGrad.addColorStop(0.0, `rgba(255, 255, 255, ${Math.min(1, 0.96 * lum)})`);
-        centerGrad.addColorStop(0.32, `rgba(${Math.round(live.coreR)}, ${Math.round(live.coreG)}, ${Math.round(live.coreB)}, ${Math.min(0.95, 0.78 * lum)})`);
-        centerGrad.addColorStop(0.7, hsl(live.h1, 100, 62, Math.min(0.7, 0.35 * lum)));
-        centerGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
-
-        ctx.fillStyle = centerGrad;
-        ctx.beginPath();
-        ctx.arc(cx, cy, coreR * 0.95, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = `rgba(255, 255, 255, ${Math.min(0.75, 0.42 * lum)})`;
-        ctx.lineWidth = 1.1;
-        ctx.beginPath();
-        ctx.arc(cx, cy, coreR * 0.36, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.restore();
-      }
-
-      /*
-       * SECONDARY MINI OSCILLOSCOPE DIAGNOSTIC RENDERER
-       */
-      function renderMiniOscilloscope(time) {
-        if (!scopeCanvas || !scopeCtx || !config.hudVisible) return;
-        const w = scopeCanvas.width / dpr;
-        const h = scopeCanvas.height / dpr;
-        if (w <= 0 || h <= 0) return;
-
-        scopeCtx.clearRect(0, 0, w, h);
-
-        scopeCtx.strokeStyle = 'rgba(0, 242, 254, 0.1)';
-        scopeCtx.lineWidth = 1;
-        scopeCtx.beginPath();
-        scopeCtx.moveTo(0, h * 0.5);
-        scopeCtx.lineTo(w, h * 0.5);
-        scopeCtx.stroke();
-
-        const barCount = 32;
-        const barW = w / barCount;
-        for (let i = 0; i < barCount; i++) {
-          const val = acoustic.smoothSpectrum[i * 3] || 0;
-          const bh = Math.min(h * 0.85, val * h * 0.75);
-          scopeCtx.fillStyle = hsl(live.h1 + i * 2, 95, 60, 0.35);
-          scopeCtx.fillRect(i * barW + 1, h - bh, Math.max(1, barW - 2), bh);
-        }
-
-        scopeCtx.beginPath();
-        for (let i = 0; i < 64; i++) {
-          const x = (i / 63) * w;
-          const y = h * 0.5 + (acoustic.waveform[i * 2] || 0) * h * 0.36;
-          if (i === 0) scopeCtx.moveTo(x, y);
-          else scopeCtx.lineTo(x, y);
-        }
-        scopeCtx.strokeStyle = hsl(live.h2, 100, 75, 0.92);
-        scopeCtx.lineWidth = 1.6;
-        scopeCtx.stroke();
-      }
-
-      /* -----------------------------------------------------------------------
-         SECTION 9: MAIN ANIMATION LOOP & TELEMETRY UPDATER
-      ----------------------------------------------------------------------- */
-      let lastTime = performance.now();
-      let elapsedTime = 0;
-      let frameCount = 0;
-      let fpsAccum = 0;
-      let autoCycleTimer = 0;
-      const autoCycleStates = ['listening', 'thinking', 'speaking', 'idle'];
-      let autoCycleIdx = 0;
-
-      const elTelemetryState = document.getElementById('telemetry-state');
-      const elTelemetryFps = document.getElementById('telemetry-fps');
-      const elTelemetryFlux = document.getElementById('telemetry-flux');
-      const elTelemetryFormant = document.getElementById('telemetry-formant');
-      const elTelemetryEntities = document.getElementById('telemetry-entities');
-      const elTelemetryVector = document.getElementById('telemetry-vector');
-      const elMetricBass = document.getElementById('metric-bass');
-      const elMetricMid = document.getElementById('metric-mid');
-      const elMetricTreble = document.getElementById('metric-treble');
-
-      function animate(now) {
-        const rawDt = (now - lastTime) / 1000;
-        const dt = Math.min(0.05, Math.max(0.001, rawDt));
-        lastTime = now;
-        elapsedTime += dt;
-
-        if (config.autoCycle) {
-          autoCycleTimer += dt;
-          if (autoCycleTimer >= 6.0) {
-            autoCycleTimer = 0;
-            autoCycleIdx = (autoCycleIdx + 1) % autoCycleStates.length;
-            setOrbState(autoCycleStates[autoCycleIdx], false);
-          }
-        }
-
-        interpolateState(dt);
-        acoustic.update(elapsedTime, dt);
-
-        const cx = width * 0.5;
-        const cy = height * 0.5;
-        const minDim = Math.min(width, height);
-        const baseR = minDim * 0.36 * config.masterScale;
-
-        ringSystem.update(elapsedTime, dt);
-        synapseSystem.update(elapsedTime, dt, cx, cy, baseR);
-        particleField.update(elapsedTime, dt);
-
-        ctx.clearRect(0, 0, width, height);
-
-        renderCoronaAndContrastAura(cx, cy, baseR, elapsedTime);
-        renderPolarSpectrogram(cx, cy, baseR, elapsedTime);
-        renderAuroraCurtains(cx, cy, baseR, elapsedTime);
-        render3DGyroGimbalRings(cx, cy, baseR, elapsedTime);
-        renderConcentricTechRings(cx, cy, baseR, elapsedTime);
-        renderFourierAndFormantRings(cx, cy, baseR, elapsedTime);
-        renderSynapticLattice(cx, cy, baseR, elapsedTime);
-        renderPlasmaTendrils(cx, cy, baseR, elapsedTime);
-        renderParticlesAndRipples(cx, cy, baseR, elapsedTime);
-        renderSingularityCore(cx, cy, baseR, elapsedTime);
-
-        renderMiniOscilloscope(elapsedTime);
-
-        frameCount++;
-        fpsAccum += dt;
-        if (frameCount >= 12) {
-          const fps = Math.round(frameCount / fpsAccum);
-          const ms = ((fpsAccum / frameCount) * 1000).toFixed(1);
-          if (elTelemetryFps) elTelemetryFps.textContent = `${fps} FPS (${ms}ms)`;
-          if (elTelemetryFlux) {
-            const flux = (0.35 + live.audioEnergy * 1.45 + live.synapseActivity * 0.65).toFixed(3);
-            elTelemetryFlux.textContent = `${flux} GHz`;
-          }
-          if (elTelemetryFormant) {
-            elTelemetryFormant.textContent = `F1: ${live.f1Hz}Hz / F2: ${live.f2Hz}Hz`;
-          }
-          if (elTelemetryEntities) {
-            elTelemetryEntities.textContent = `${config.ringCount} Rings · ${config.particleCount} Ions`;
-          }
-          if (elTelemetryVector) {
-            const dirLabel = live.radialFlow < -0.2 ? 'INWARD' : (live.radialFlow > 0.2 ? 'OUTWARD' : 'ORBITAL');
-            elTelemetryVector.textContent = `${dirLabel} (${live.radialFlow.toFixed(2)}m/s)`;
-          }
-          if (elMetricBass) elMetricBass.textContent = `${Math.min(100, Math.round(live.bassEnergy * 100))}%`;
-          if (elMetricMid) elMetricMid.textContent = `${Math.min(100, Math.round(live.midEnergy * 100))}%`;
-          if (elMetricTreble) elMetricTreble.textContent = `${Math.min(100, Math.round(live.trebleEnergy * 100))}%`;
-          frameCount = 0;
-          fpsAccum = 0;
-        }
-
-        
-      /* -----------------------------------------------------------------------
-         SECTION 11: FULL JARVIS INTERACTION WORKFLOW CHOREOGRAPHY MACRO
-         Simulates a complete AI assistant turn:
-         Wakeword Detected -> Listening -> Neural Thinking -> Vocal Speaking -> Standby
-      ----------------------------------------------------------------------- */
-      const btnRunWorkflow = document.getElementById('btn-run-workflow');
-      const macroStatusLabel = document.getElementById('macro-status-label');
-      const seqPillListen = document.getElementById('seq-pill-listen');
-      const seqPillThink = document.getElementById('seq-pill-think');
-      const seqPillSpeak = document.getElementById('seq-pill-speak');
-      const seqPillIdle = document.getElementById('seq-pill-idle');
-      let workflowTimers = [];
-
-      function clearWorkflowTimers() {
-        workflowTimers.forEach(t => clearTimeout(t));
-        workflowTimers = [];
-        [seqPillListen, seqPillThink, seqPillSpeak, seqPillIdle].forEach(el => {
-          if (el) el.classList.remove('seq-active');
-        });
-      }
-
-      function runJarvisInteractionMacro() {
-        clearWorkflowTimers();
-        if (macroStatusLabel) macroStatusLabel.textContent = 'WAKE LOCK';
-
-        // Step 1: Listening (0.0s -> 3.4s)
-        setOrbState('listening', true);
-        if (seqPillListen) seqPillListen.classList.add('seq-active');
-        showToast('Wake Word Detected — Listening to Command...');
-
-        // Step 2: Thinking (3.4s -> 6.8s)
-        workflowTimers.push(setTimeout(() => {
-          [seqPillListen, seqPillThink, seqPillSpeak, seqPillIdle].forEach(el => el && el.classList.remove('seq-active'));
-          if (seqPillThink) seqPillThink.classList.add('seq-active');
-          if (macroStatusLabel) macroStatusLabel.textContent = 'SYNTHESIZING';
-          setOrbState('thinking', true);
-          particleField.emitRipple(0, 1.5);
-          showToast('Processing Neural Lattice & Quantum Telemetry...');
-        }, 3400));
-
-        // Step 3: Speaking (6.8s -> 11.8s)
-        workflowTimers.push(setTimeout(() => {
-          [seqPillListen, seqPillThink, seqPillSpeak, seqPillIdle].forEach(el => el && el.classList.remove('seq-active'));
-          if (seqPillSpeak) seqPillSpeak.classList.add('seq-active');
-          if (macroStatusLabel) macroStatusLabel.textContent = 'VOCALIZING';
-          speakJarvisText('Analysis complete, Sir. All concentric aurora rings are synchronized and ready for your next command.');
-        }, 6800));
-
-        // Step 4: Return to Standby/Listening (12.2s)
-        workflowTimers.push(setTimeout(() => {
-          [seqPillListen, seqPillThink, seqPillSpeak, seqPillIdle].forEach(el => el && el.classList.remove('seq-active'));
-          if (seqPillIdle) seqPillIdle.classList.add('seq-active');
-          if (macroStatusLabel) macroStatusLabel.textContent = 'COMPLETE';
-          setOrbState('idle', false);
-          setTimeout(() => {
-            if (seqPillIdle) seqPillIdle.classList.remove('seq-active');
-            if (macroStatusLabel) macroStatusLabel.textContent = 'READY';
-          }, 1800);
-        }, 12200));
-      }
-
-      if (btnRunWorkflow) {
-        btnRunWorkflow.addEventListener('click', runJarvisInteractionMacro);
-      }
-      // Live Diagnostic Matrix Updater
-      const elDiagCoreTemp = document.getElementById('diag-core-temp');
-      const elDiagCurtainPhase = document.getElementById('diag-curtain-phase');
-      const elDiagSynapseRate = document.getElementById('diag-synapse-rate');
-      const elDiagGyroTilt = document.getElementById('diag-gyro-tilt');
-      const svgAstrolabeOuter = document.getElementById('svg-astrolabe-outer');
-      const svgAstrolabeInner = document.getElementById('svg-astrolabe-inner');
-
-      setInterval(() => {
-        if (elDiagCoreTemp) {
-          const kelvin = Math.round(4200 + live.audioEnergy * 2400 + live.synapseActivity * 1100);
-          elDiagCoreTemp.textContent = `${kelvin.toLocaleString()} K · ${config.state.toUpperCase()}`;
-        }
-        if (elDiagCurtainPhase) {
-          const rad = (live.auroraSpeed * config.speedMultiplier).toFixed(2);
-          elDiagCurtainPhase.textContent = `${rad} rad/s`;
-        }
-        if (elDiagSynapseRate) {
-          const hz = (12 + live.synapseActivity * 86 + live.trebleEnergy * 28).toFixed(1);
-          elDiagSynapseRate.textContent = `${hz} Hz`;
-        }
-        if (elDiagGyroTilt) {
-          const deg = (live.gyroTiltFactor * 90).toFixed(1);
-          const mode = live.gyroTiltFactor > 0.5 ? '3D GIMBAL' : 'COAXIAL';
-          elDiagGyroTilt.textContent = `${deg}° ${mode}`;
-        }
-        // Sync SVG Astrolabe scale with masterScale
-        if (svgAstrolabeOuter && svgAstrolabeInner) {
-          const s = config.masterScale;
-          svgAstrolabeOuter.style.width = `${76 * s}vmin`;
-          svgAstrolabeOuter.style.height = `${76 * s}vmin`;
-          svgAstrolabeInner.style.width = `${62 * s}vmin`;
-          svgAstrolabeInner.style.height = `${62 * s}vmin`;
-          svgAstrolabeOuter.style.opacity = config.layers.techRings ? '0.55' : '0';
-          svgAstrolabeInner.style.opacity = config.layers.techRings ? '0.5' : '0';
-        }
-      }, 250);
-
-      requestAnimationFrame(animate);
-      }
-
-      /* -----------------------------------------------------------------------
-         SECTION 10: INTERACTIVE UI HANDLERS, WEB SPEECH TTS & PUBLIC JARVIS API
-      ----------------------------------------------------------------------- */
-      const toastEl = document.getElementById('jarvis-toast');
-      let toastTimeout = null;
-      function showToast(msg) {
-        if (!toastEl) return;
-        toastEl.textContent = msg;
-        toastEl.style.opacity = '1';
-        if (toastTimeout) clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => {
-          toastEl.style.opacity = '0';
-        }, 2300);
-      }
-
-      function setOrbState(newState, disableAutoCycle = true) {
-        if (!STATE_PROFILES[newState]) return;
-        config.state = newState;
-
-        if (disableAutoCycle && config.autoCycle) {
-          config.autoCycle = false;
-          const btnAuto = document.getElementById('btn-auto-cycle');
-          if (btnAuto) btnAuto.textContent = '↻ Auto-Cycle: OFF';
-        }
-
-        document.querySelectorAll('.state-btn').forEach(btn => {
-          const st = btn.getAttribute('data-state');
-          btn.classList.remove('active', 'active-listening', 'active-thinking', 'active-speaking', 'active-overdrive');
-          if (st === newState) {
-            btn.classList.add('active');
-            if (newState === 'listening') btn.classList.add('active-listening');
-            if (newState === 'thinking') btn.classList.add('active-thinking');
-            if (newState === 'speaking') btn.classList.add('active-speaking');
-            if (newState === 'overdrive') btn.classList.add('active-overdrive');
-          }
-        });
-
-        const prof = STATE_PROFILES[newState];
-        if (elTelemetryState) elTelemetryState.textContent = prof.label;
-        const descEl = document.getElementById('state-signature-desc');
-        if (descEl) descEl.textContent = prof.desc;
-        const scopeTagEl = document.getElementById('scope-mode-tag');
-        if (scopeTagEl) scopeTagEl.textContent = prof.scopeTag;
-
-        particleField.emitRipple(prof.rippleDirection, 1.25);
-        acoustic.triggerPulseChime();
-      }
-
-      document.querySelectorAll('.state-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const st = btn.getAttribute('data-state');
-          setOrbState(st, true);
-        });
-      });
-
-      const btnAutoCycle = document.getElementById('btn-auto-cycle');
-      if (btnAutoCycle) {
-        btnAutoCycle.addEventListener('click', () => {
-          config.autoCycle = !config.autoCycle;
-          autoCycleTimer = 0;
-          btnAutoCycle.textContent = config.autoCycle ? '↻ Auto-Cycle: ON' : '↻ Auto-Cycle: OFF';
-          showToast(config.autoCycle ? 'Auto-Cycle Demo Activated' : 'Manual State Control');
-        });
-      }
-
-      const btnToggleHud = document.getElementById('btn-toggle-hud');
-      const btnPureOrbMode = document.getElementById('btn-pure-orb-mode');
-      const hudToggleLabel = document.getElementById('hud-toggle-label');
-      function setHUDVisible(visible) {
-        config.hudVisible = Boolean(visible);
-        document.body.classList.toggle('hud-hidden', !config.hudVisible);
-        if (hudToggleLabel) {
-          hudToggleLabel.textContent = config.hudVisible ? 'Hide HUD [H]' : 'Show HUD [H]';
-        }
-        if (config.hudVisible) {
-          setTimeout(resizeCanvas, 50);
-        }
-      }
-      if (btnToggleHud) {
-        btnToggleHud.addEventListener('click', () => setHUDVisible(!config.hudVisible));
-      }
-      if (btnPureOrbMode) {
-        btnPureOrbMode.addEventListener('click', () => {
-          config.backdrop = 'transparent';
-          document.body.classList.remove('backdrop-checker', 'backdrop-abyss', 'backdrop-cybergrid');
-          document.body.classList.add('backdrop-transparent');
-          setHUDVisible(false);
-          showToast('Pure Transparent Overlay Mode (Press H to restore HUD)');
-        });
-      }
-
-      window.addEventListener('keydown', (e) => {
-        if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) return;
-        if (e.key === 'h' || e.key === 'H') {
-          setHUDVisible(!config.hudVisible);
-        } else if (e.key === '1') {
-          setOrbState('idle');
-        } else if (e.key === '2') {
-          setOrbState('listening');
-        } else if (e.key === '3') {
-          setOrbState('thinking');
-        } else if (e.key === '4') {
-          setOrbState('speaking');
-        } else if (e.key === '5') {
-          setOrbState('overdrive');
-        } else if (e.key === ' ') {
-          e.preventDefault();
-          particleField.emitRipple(1, 1.45);
-          acoustic.triggerPulseChime();
-        }
-      });
-
-      canvas.addEventListener('dblclick', () => {
-        setHUDVisible(!config.hudVisible);
-      });
-
-      canvas.addEventListener('pointerdown', (e) => {
-        live.pointerActive = true;
-        live.pointerX = e.clientX;
-        live.pointerY = e.clientY;
-        particleField.emitRipple(config.state === 'listening' ? -1 : 1, 1.3);
-        acoustic.triggerPulseChime();
-      });
-
-      window.addEventListener('pointermove', (e) => {
-        live.pointerX = e.clientX;
-        live.pointerY = e.clientY;
-      });
-
-      window.addEventListener('pointerup', () => {
-        live.pointerActive = false;
-      });
-
-      const btnCollapseDrawer = document.getElementById('btn-collapse-drawer');
-      const drawerContentWrap = document.getElementById('drawer-content-wrap');
-      const inspectorDrawer = document.getElementById('inspector-drawer');
-      let drawerCollapsed = false;
-      if (btnCollapseDrawer && drawerContentWrap && inspectorDrawer) {
-        btnCollapseDrawer.addEventListener('click', () => {
-          drawerCollapsed = !drawerCollapsed;
-          drawerContentWrap.classList.toggle('hidden', drawerCollapsed);
-          inspectorDrawer.classList.toggle('bottom-24', !drawerCollapsed);
-          btnCollapseDrawer.textContent = drawerCollapsed ? '[+]' : '[–]';
-        });
-      }
-
-      document.querySelectorAll('.inspector-tab').forEach(tabBtn => {
-        tabBtn.addEventListener('click', () => {
-          const targetId = tabBtn.getAttribute('data-tab');
-          document.querySelectorAll('.inspector-tab').forEach(b => {
-            b.className = 'inspector-tab px-2 py-1 rounded-lg text-[11px] font-mono-tech font-medium text-slate-300 hover:text-white border border-transparent';
-          });
-          tabBtn.className = 'inspector-tab px-2 py-1 rounded-lg text-[11px] font-mono-tech font-medium bg-cyan-500/20 text-cyan-200 border border-cyan-400/40';
-
-          document.querySelectorAll('.tab-pane').forEach(pane => {
-            pane.classList.toggle('hidden', pane.id !== targetId);
-          });
-          if (drawerCollapsed && btnCollapseDrawer) {
-            btnCollapseDrawer.click();
-          }
-        });
-      });
-
-      const elTelemetryAlpha = document.getElementById('telemetry-alpha');
-      document.querySelectorAll('.backdrop-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const mode = btn.getAttribute('data-backdrop');
-          config.backdrop = mode;
-          document.body.classList.remove('backdrop-transparent', 'backdrop-checker', 'backdrop-abyss', 'backdrop-cybergrid');
-          document.body.classList.add(`backdrop-${mode}`);
-
-          document.querySelectorAll('.backdrop-btn').forEach(b => {
-            const active = b.getAttribute('data-backdrop') === mode;
-            b.className = active
-              ? 'backdrop-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-cyan-400 bg-cyan-500/20 text-white text-left'
-              : 'backdrop-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-slate-700 bg-slate-900/60 text-slate-300 text-left';
-            b.textContent = (active ? '● ' : '◌ ') + b.textContent.replace(/^[●◌]\s*/, '');
-          });
-
-          if (elTelemetryAlpha) {
-            elTelemetryAlpha.textContent = mode === 'transparent' ? 'TRANSPARENT RGBA(0,0,0,0)' : mode.toUpperCase();
-          }
-        });
-      });
-
-      function highlightPaletteButton(pal) {
-        document.querySelectorAll('.palette-btn').forEach(b => {
-          const active = b.getAttribute('data-palette') === pal;
-          b.className = active
-            ? 'palette-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-cyan-400 bg-cyan-500/20 text-white flex items-center gap-2'
-            : 'palette-btn px-2.5 py-1.5 rounded-lg text-[11px] font-mono-tech border border-slate-700 bg-slate-900/60 text-slate-300 flex items-center gap-2';
-        });
-      }
-
-      document.querySelectorAll('.palette-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const pal = btn.getAttribute('data-palette');
-          if (!PALETTES[pal]) return;
-          config.palette = pal;
-          highlightPaletteButton(pal);
-          showToast(`Spectral Palette: ${PALETTES[pal].name}`);
-        });
-      });
-
-      function bindSlider(sliderId, valId, formatter, onChange) {
-        const slider = document.getElementById(sliderId);
-        const valEl = document.getElementById(valId);
-        if (!slider) return;
-        slider.addEventListener('input', () => {
-          const v = parseFloat(slider.value);
-          if (valEl) valEl.textContent = formatter(v);
-          onChange(v);
-        });
-      }
-
-      bindSlider('slider-scale', 'val-scale', v => `${v.toFixed(2)}x`, v => { config.masterScale = v; });
-      bindSlider('slider-rings', 'val-rings', v => `${Math.round(v)} Rings`, v => { config.ringCount = Math.round(v); });
-      bindSlider('slider-aurora', 'val-aurora', v => v.toFixed(2), v => { config.auroraIntensity = v; });
-      bindSlider('slider-turbulence', 'val-turbulence', v => v.toFixed(2), v => { config.turbulence = v; });
-      bindSlider('slider-particles', 'val-particles', v => `${Math.round(v)}`, v => { config.particleCount = Math.round(v); });
-      bindSlider('slider-speed', 'val-speed', v => `${v.toFixed(2)}x`, v => { config.speedMultiplier = v; });
-      bindSlider('slider-contrast-aura', 'val-contrast-aura', v => `${Math.round(v)}%`, v => { config.contrastAuraOpacity = v / 100.0; });
-      bindSlider('slider-gain', 'val-gain', v => `${v.toFixed(2)}x`, v => { config.acousticGain = v; });
-
-      function updateCustomHsl(slotKey, deg) {
-        const custom = PALETTES.custom_hsl;
-        ['idle', 'listening', 'thinking', 'speaking', 'overdrive'].forEach(st => {
-          custom[st][slotKey] = deg;
-        });
-        config.palette = 'custom_hsl';
-        highlightPaletteButton('custom_hsl');
-      }
-      bindSlider('slider-hue1', 'val-hue1', v => `${Math.round(v)}°`, v => updateCustomHsl('h1', v));
-      bindSlider('slider-hue2', 'val-hue2', v => `${Math.round(v)}°`, v => updateCustomHsl('h2', v));
-      bindSlider('slider-hue3', 'val-hue3', v => `${Math.round(v)}°`, v => updateCustomHsl('h3', v));
-
-      const layerMap = {
-        'chk-aurora': 'aurora',
-        'chk-techrings': 'techRings',
-        'chk-gyro': 'gyro',
-        'chk-fourier': 'fourier',
-        'chk-spectrogram': 'spectrogram',
-        'chk-synapse': 'synapse',
-        'chk-tendrils': 'tendrils',
-        'chk-glyphs': 'glyphs',
-        'chk-chromatic': 'chromatic',
-        'chk-reticle': 'reticle'
-      };
-      Object.keys(layerMap).forEach(chkId => {
-        const el = document.getElementById(chkId);
-        if (el) {
-          el.addEventListener('change', () => {
-            config.layers[layerMap[chkId]] = el.checked;
-          });
-        }
-      });
-
-      const ttsInput = document.getElementById('jarvis-tts-input');
-      const btnSpeakTts = document.getElementById('btn-speak-tts');
-      const btnStopTts = document.getElementById('btn-stop-tts');
-      let speechFallbackTimer = null;
-
-      function speakJarvisText(text) {
-        const cleanText = (text || '').trim();
-        if (!cleanText) return;
-
-        if (speechFallbackTimer) {
-          clearTimeout(speechFallbackTimer);
-          speechFallbackTimer = null;
-        }
-
-        const previousState = config.state === 'speaking' ? 'listening' : config.state;
-        setOrbState('speaking', true);
-        acoustic.isSpeakingTTS = true;
-
-        if ('speechSynthesis' in window) {
-          try {
-            window.speechSynthesis.cancel();
-            const utter = new SpeechSynthesisUtterance(cleanText);
-            utter.rate = 1.02;
-            utter.pitch = 0.92;
-
-            const voices = window.speechSynthesis.getVoices();
-            const preferred = voices.find(v => /daniel|uk|british|google uk english male|arthur/i.test(v.name)) || voices[0];
-            if (preferred) utter.voice = preferred;
-
-            utter.onboundary = () => {
-              particleField.emitRipple(1, 0.95);
-            };
-
-            utter.onend = () => {
-              acoustic.isSpeakingTTS = false;
-              setOrbState(previousState, false);
-            };
-
-            utter.onerror = () => {
-              acoustic.isSpeakingTTS = false;
-            };
-
-            window.speechSynthesis.speak(utter);
-          } catch (e) {}
-        }
-
-        const estimatedDurationMs = Math.max(2400, Math.min(14000, cleanText.length * 68));
-        speechFallbackTimer = setTimeout(() => {
-          if (acoustic.isSpeakingTTS) {
-            acoustic.isSpeakingTTS = false;
-            setOrbState('listening', false);
-          }
-        }, estimatedDurationMs);
-
-        showToast('J.A.R.V.I.S. Vocal Synthesis Active');
-      }
-
-      if (btnSpeakTts && ttsInput) {
-        btnSpeakTts.addEventListener('click', () => speakJarvisText(ttsInput.value));
-      }
-
-      if (btnStopTts) {
-        btnStopTts.addEventListener('click', () => {
-          if ('speechSynthesis' in window) {
-            try { window.speechSynthesis.cancel(); } catch (e) {}
-          }
-          if (speechFallbackTimer) clearTimeout(speechFallbackTimer);
-          acoustic.isSpeakingTTS = false;
-          setOrbState('listening', false);
-          showToast('Vocalizer Halted');
-        });
-      }
-
-      document.querySelectorAll('.phrase-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const phrase = btn.getAttribute('data-phrase');
-          if (ttsInput && phrase) {
-            ttsInput.value = phrase;
-            speakJarvisText(phrase);
-          }
-        });
-      });
-
-      const btnToggleMic = document.getElementById('btn-toggle-mic');
-      const micStatusBadge = document.getElementById('mic-status-badge');
-      if (btnToggleMic) {
-        btnToggleMic.addEventListener('click', async () => {
-          const active = await acoustic.toggleMicrophone();
-          if (micStatusBadge) {
-            micStatusBadge.textContent = active ? 'LIVE FFT' : 'SIMULATED';
-            micStatusBadge.className = active
-              ? 'px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 text-[10px]'
-              : 'px-1.5 py-0.5 rounded bg-slate-800 text-[10px]';
-          }
-          if (active) {
-            setOrbState('listening', true);
-            showToast('Live Microphone FFT Analyzer Connected');
-          } else {
-            showToast('Using Simulated Voice Prosody Engine');
-          }
-        });
-      }
-
-      const btnToggleSfx = document.getElementById('btn-toggle-sfx');
-      const sfxStatusBadge = document.getElementById('sfx-status-badge');
-      if (btnToggleSfx) {
-        btnToggleSfx.addEventListener('click', () => {
-          const active = acoustic.toggleAmbientSFX();
-          if (sfxStatusBadge) {
-            sfxStatusBadge.textContent = active ? 'ACTIVE' : 'MUTED';
-            sfxStatusBadge.className = active
-              ? 'px-1.5 py-0.5 rounded bg-purple-500/30 text-purple-200 text-[10px]'
-              : 'px-1.5 py-0.5 rounded bg-slate-800 text-[10px]';
-          }
-          showToast(active ? 'Harmonic Reactor Audio Online' : 'Reactor Audio Muted');
-        });
-      }
-
-      const btnCopyApi = document.getElementById('btn-copy-api');
-      const apiCodeSnippet = document.getElementById('api-code-snippet');
-      if (btnCopyApi && apiCodeSnippet) {
-        btnCopyApi.addEventListener('click', () => {
-          const text = apiCodeSnippet.textContent;
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(() => showToast('API Snippet Copied')).catch(() => fallbackCopy(text));
-          } else {
-            fallbackCopy(text);
-          }
-        });
-      }
-
-      function fallbackCopy(text) {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        try { document.execCommand('copy'); showToast('API Snippet Copied'); } catch (e) {}
-        document.body.removeChild(ta);
-      }
-
-      const btnExportPng = document.getElementById('btn-export-png');
-      if (btnExportPng) {
-        btnExportPng.addEventListener('click', () => {
-          try {
-            const dataUrl = canvas.toDataURL('image/png');
-            const link = document.createElement('a');
-            link.download = `jarvis-aurora-orb-${config.state}.png`;
-            link.href = dataUrl;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast('Exported Transparent PNG Snapshot');
-          } catch (e) {
-            showToast('Snapshot captured');
-          }
-        });
-      }
-
-      const btnTriggerPulse = document.getElementById('btn-trigger-pulse');
-      if (btnTriggerPulse) {
-        btnTriggerPulse.addEventListener('click', () => {
-          particleField.emitRipple(1, 1.5);
-          particleField.emitRipple(-1, 1.2);
-          acoustic.triggerPulseChime();
-          showToast('Quantum Shockwave Emitted');
-        });
-      }
-
-      (function applyUrlParams() {
-        try {
-          const params = new URLSearchParams(window.location.search);
-          const qState = params.get('state');
-          if (qState && STATE_PROFILES[qState]) {
-            setOrbState(qState, true);
-          }
-          const qHud = params.get('hud');
-          if (qHud === '0' || qHud === 'false') {
-            setHUDVisible(false);
-          }
-          const qPalette = params.get('palette');
-          if (qPalette && PALETTES[qPalette]) {
-            config.palette = qPalette;
-            highlightPaletteButton(qPalette);
-          }
-          const qScale = parseFloat(params.get('scale'));
-          if (!isNaN(qScale) && qScale >= 0.3 && qScale <= 2.5) {
-            config.masterScale = qScale;
-          }
-        } catch (e) {}
-      })();
-
-      window.addEventListener('message', (event) => {
-        const data = event.data;
-        if (!data || typeof data !== 'object') return;
-        if (data.type === 'JARVIS_COMMAND' || data.type === 'JARVIS_STATE') {
-          if (data.state && STATE_PROFILES[data.state]) {
-            setOrbState(data.state, true);
-          }
-          if (typeof data.audioLevel === 'number') {
-            config.externalAudioLevel = Math.max(0, Math.min(2.0, data.audioLevel));
-          }
-          if (typeof data.hudVisible === 'boolean') {
-            setHUDVisible(data.hudVisible);
-          }
-          if (typeof data.speak === 'string') {
-            speakJarvisText(data.speak);
-          }
-        }
-      });
-
-      window.JarvisOrb = {
-        setState: (state) => setOrbState(state, true),
-        getState: () => config.state,
-        setPalette: (paletteName) => {
-          if (PALETTES[paletteName]) {
-            config.palette = paletteName;
-            highlightPaletteButton(paletteName);
-          }
-        },
-        setAudioLevel: (level) => {
-          config.externalAudioLevel = typeof level === 'number' ? Math.max(0, Math.min(2.0, level)) : null;
-        },
-        speak: (text) => speakJarvisText(text),
-        emitShockwave: (dir = 1, intensity = 1.35) => particleField.emitRipple(dir, intensity),
-        setHUDVisible: (visible) => setHUDVisible(visible),
-        setConfig: (partial) => Object.assign(config, partial),
-        getConfig: () => ({ ...config })
-      };
-
-      requestAnimationFrame(animate);
-    })();
-  </script>
+<body class="embedded">
+<canvas id="touchParticles" aria-hidden="true"></canvas>
+<div id="stage"><canvas id="c"></canvas><div id="shadow"></div></div>
+
+<script src="three.min.js"></script>
+<script>
+(function(){
+"use strict";
+const isEmbedded = true;
+if (isEmbedded) {
+  document.body.classList.add("embedded");
+  document.documentElement.style.background = "transparent";
+  document.body.style.background = "transparent";
+}
+
+const FOV=45, VIS=3.1, ORBIT=36, COUNT=6000;
+const STATES={
+  idle:     {scale:1.00,speed:.35,cyan:.35,purple:.45,bright:1.00,glow:.50,ring:.15,wob:0},
+  listening:{scale:1.05,speed:.85,cyan:1.00,purple:.25,bright:1.12,glow:.95,ring:.35,wob:0},
+  thinking: {scale:1.00,speed:1.55,cyan:.30,purple:1.00,bright:1.05,glow:.75,ring:1.00,wob:1},
+  speaking: {scale:1.04,speed:1.15,cyan:.90,purple:.90,bright:1.20,glow:1.00,ring:.45,wob:0}
+};
+const LABELS={idle:"READY",listening:"LISTENING",thinking:"THINKING...",speaking:"SPEAKING"};
+const $=s=>document.querySelector(s);
+const stage=$("#stage"),canvas=$("#c"),shadowEl=$("#shadow");
+
+let renderer;
+try{renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:"high-performance"});}
+catch(e){$("#err").style.display="block";stage.style.display="none";return;}
+renderer.setClearColor(0x000000,0);
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(FOV,1,.1,50);
+camera.position.set(0,0,6);
+
+/* Shared uniforms */
+const U={uTime:{value:0},uAmp:{value:0},uBass:{value:0},uHigh:{value:0},uCyan:{value:.35},uPurple:{value:.45},uBright:{value:1},uPx:{value:300},uCamZ:{value:6},DEEP:{value:new THREE.Color()},BLUE:{value:new THREE.Color()},CYAN:{value:new THREE.Color()},PURP:{value:new THREE.Color()}};
+const UNI="uniform float uTime,uAmp,uBass,uHigh,uCyan,uPurple,uBright,uPx,uCamZ;uniform vec3 DEEP,BLUE,CYAN,PURP;";
+const PAL="";
+
+/* ---------- 3D particle volume ---------- */
+const partV=UNI+PAL+`attribute float aRnd;varying vec3 vC;varying float vA;
+void main(){
+ float base=length(position);vec3 d=position/base;float t=uTime;
+ float n=sin(d.x*3.+t*.8+aRnd*6.)*sin(d.y*3.-t*.6)*sin(d.z*3.+t*.5);
+ float r=base*(1.+n*.05+uAmp*.1*aRnd+.015*sin(t*2.+aRnd*20.));
+ vec4 mv=modelViewMatrix*vec4(d*r,1.);
+ float depth=smoothstep(-1.,1.,mv.z+uCamZ);          /* 0 = back, 1 = front */
+ vA=mix(.22,1.,depth);
+ vec3 c=mix(BLUE,CYAN,smoothstep(-.5,.9,d.y+n)*uCyan);
+ c=mix(c,PURP,smoothstep(.1,.9,d.x*.6-d.y*.3+aRnd*.4)*uPurple);
+ c=mix(DEEP,c,.5+.5*aRnd);
+ vC=c*uBright*mix(.6,1.,depth);
+ gl_PointSize=max((.009+aRnd*.017)*(1.+uAmp*.5)*uPx/(-mv.z)*mix(.85,1.2,depth),1.7);
+ gl_Position=projectionMatrix*mv;}`;
+const dotF="precision highp float;varying vec3 vC;varying float vA;void main(){float d=length(gl_PointCoord-.5);gl_FragColor=vec4(vC,smoothstep(.5,.05,d)*vA);}";
+function buildParticles(){
+  const pos=new Float32Array(COUNT*3),rnd=new Float32Array(COUNT);
+  for(let i=0;i<COUNT;i++){
+    const y=1-2*(i+.5)/COUNT,r=Math.sqrt(1-y*y),th=i*2.39996;
+    const shell=.93+.07*Math.random();   /* outer skin + filled interior */
+    pos.set([Math.cos(th)*r*shell,y*shell,Math.sin(th)*r*shell],i*3);rnd[i]=Math.random();
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute("position",new THREE.BufferAttribute(pos,3));g.setAttribute("aRnd",new THREE.BufferAttribute(rnd,1));
+  const p=new THREE.Points(g,new THREE.ShaderMaterial({vertexShader:partV,fragmentShader:dotF,uniforms:U,transparent:true,depthWrite:false}));
+  p.frustumCulled=false;p.renderOrder=1;return p;
+}
+
+const orb=new THREE.Group();
+const pointsMesh=buildParticles();
+orb.add(pointsMesh);scene.add(orb);
+
+/* ---------- Alternate orb skins and a procedural 3D Iron Man-inspired helmet ---------- */
+let orbStyle = "default";
+const altPlasma = new THREE.Group();
+const altHolo = new THREE.Group();
+scene.add(altPlasma); scene.add(altHolo);
+// Extra fine orbital bands give the selectable variants distinct silhouettes.
+function makeStyleRing(radius, tube, color, opacity, tiltX, tiltY) {
+  const mesh = new THREE.Mesh(
+    new THREE.TorusGeometry(radius, tube, 10, 180),
+    new THREE.MeshBasicMaterial({color, transparent:true, opacity, blending:THREE.AdditiveBlending, depthWrite:false})
+  );
+  mesh.rotation.set(tiltX, tiltY, 0);
+  return mesh;
+}
+altPlasma.add(makeStyleRing(1.10,.018,0x26eaff,.85,.85,.2));
+altPlasma.add(makeStyleRing(1.25,.012,0x6b62ff,.8,-.55,.65));
+altPlasma.add(makeStyleRing(1.38,.009,0xff4fe1,.55,.2,-.9));
+altHolo.add(makeStyleRing(1.13,.014,0x75f7ff,.65,.7,.35));
+altHolo.add(makeStyleRing(1.25,.008,0xa6bfff,.5,-.65,.8));
+
+/* Siri-style transparent glass Aurora orb adapted from the supplied standalone HTML.
+   Runs inside JARVIS's existing Three.js canvas and uses the app's voice-state animation. */
+const siriGlassAurora = new THREE.Group();
+scene.add(siriGlassAurora);
+const glassUniforms = {
+  uTime:{value:0}, uEnergy:{value:0}, uState:{value:0},
+  uCyan:{value:new THREE.Color(0x00f2fe)}, uBlue:{value:new THREE.Color(0x2962ff)},
+  uPurple:{value:new THREE.Color(0xa855f7)}, uMint:{value:new THREE.Color(0x00ffaa)}
+};
+const glassMaterial = new THREE.ShaderMaterial({
+  uniforms:glassUniforms, transparent:true, depthWrite:false, side:THREE.FrontSide,
+  vertexShader:`varying vec3 vNormalW; varying vec3 vPos; varying vec2 vUv;
+    void main(){ vUv=uv; vPos=position; vNormalW=normalize(normalMatrix*normal);
+      gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+  fragmentShader:`uniform float uTime,uEnergy,uState; uniform vec3 uCyan,uBlue,uPurple,uMint;
+    varying vec3 vNormalW; varying vec3 vPos; varying vec2 vUv;
+    void main(){
+      vec3 n=normalize(vNormalW); float fres=pow(1.0-abs(n.z),3.0);
+      float r=length(vPos.xy); float a=atan(vPos.y,vPos.x);
+      float warp=0.035*sin(a*3.0+uTime*1.4)+0.018*cos(a*5.0-uTime*1.9);
+      float phase=(r+warp)*31.0-uTime*(1.8+uState*.5);
+      float bands=pow(.5+.5*cos(phase),11.0);
+      float silk=exp(-abs(sin(a*2.4+vPos.z*5.0+uTime*1.1))*13.0);
+      vec3 aurora=mix(uCyan,uBlue,.5+.5*sin(a*2.0-uTime));
+      aurora=mix(aurora,uPurple,.5+.5*sin(a*1.7+uTime*.7));
+      aurora=mix(aurora,uMint,.5+.5*cos(vPos.y*5.0-uTime*1.4));
+      vec3 col=vec3(.008,.02,.055)+aurora*(bands*.48+silk*.22+fres*.8);
+      float highlight=pow(max(0.0,dot(n,normalize(vec3(-.45,.6,.8)))),42.0);
+      col+=vec3(.82,.96,1.0)*highlight*.95;
+      col+=aurora*fres*(.7+uEnergy*.65);
+      float alpha=clamp(.34+fres*.56+bands*.18+highlight*.3,0.0,.96);
+      gl_FragColor=vec4(col,alpha);
+    }`
+});
+const glassSphere = new THREE.Mesh(new THREE.SphereGeometry(.99,96,64),glassMaterial);
+siriGlassAurora.add(glassSphere);
+const glassRings=[];
+[
+  [1.025,.010,0x00f2fe,.70,.52,.20],
+  [1.075,.008,0x4facfe,.62,-.66,.54],
+  [1.125,.007,0x00ffaa,.52,.22,-.78],
+  [1.175,.006,0xa855f7,.44,-.34,-.45],
+  [0.91,.005,0xffffff,.28,.95,.12]
+].forEach(([r,t,c,o,x,y])=>{
+  const ring=makeStyleRing(r,t,c,o,x,y);
+  ring.material.blending=THREE.AdditiveBlending;
+  ring.material.depthWrite=false;
+  glassRings.push(ring); siriGlassAurora.add(ring);
+});
+siriGlassAurora.visible=false;
+
+const helmet = new THREE.Group();
+scene.add(helmet);
+// The original helmet looked black because MeshStandardMaterial had no scene lights.
+// Add soft studio lighting and subtle emissive colour so its red/gold structure reads clearly.
+scene.add(new THREE.HemisphereLight(0xd9f5ff,0x321018,2.15));
+const helmetKey = new THREE.DirectionalLight(0xffffff,3.1); helmetKey.position.set(-3,4,6); scene.add(helmetKey);
+const helmetFill = new THREE.DirectionalLight(0xffb84d,2.0); helmetFill.position.set(4,1,4); scene.add(helmetFill);
+const helmetRim = new THREE.PointLight(0x35dcff,2.2,12); helmetRim.position.set(0,1,-3); scene.add(helmetRim);
+const redMetal = new THREE.MeshStandardMaterial({color:0xe5222d,metalness:.48,roughness:.28,emissive:0x4a0508,emissiveIntensity:.42});
+const goldMetal = new THREE.MeshStandardMaterial({color:0xffc94f,metalness:.38,roughness:.27,emissive:0x4b2600,emissiveIntensity:.28});
+const darkMetal = new THREE.MeshStandardMaterial({color:0x252b35,metalness:.55,roughness:.31,emissive:0x080c14,emissiveIntensity:.35});
+const trimMetal = new THREE.MeshStandardMaterial({color:0xf5e4b1,metalness:.5,roughness:.25,emissive:0x352000,emissiveIntensity:.2});
+const eyeGlowMat = new THREE.MeshBasicMaterial({color:0x9cfaff,transparent:true,opacity:1});
+function helmetPart(geometry, material, position, scale, rotation) {
+  const m = new THREE.Mesh(geometry,material);
+  m.position.set(position[0],position[1],position[2]);
+  m.scale.set(scale[0],scale[1],scale[2]);
+  if(rotation) m.rotation.set(rotation[0],rotation[1],rotation[2]);
+  helmet.add(m); return m;
+}
+function helmetPlate(points,material,z,depth=.055) {
+  const shape=new THREE.Shape();
+  shape.moveTo(points[0][0],points[0][1]);
+  for(let i=1;i<points.length;i++) shape.lineTo(points[i][0],points[i][1]);
+  shape.closePath();
+  const mesh=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth,bevelEnabled:true,bevelSegments:1,steps:1,bevelSize:.018,bevelThickness:.012}),material);
+  mesh.position.z=z; helmet.add(mesh); return mesh;
+}
+// Sculpted red crown and side shell, with a distinct angular gold faceplate.
+helmetPart(new THREE.SphereGeometry(.78,48,36),redMetal,[0,.12,0],[1,1.17,.76]);
+helmetPart(new THREE.SphereGeometry(.59,32,24),redMetal,[0,.38,.18],[.96,.76,.77]);
+helmetPlate([[-.43,.35],[-.32,.57],[0,.65],[.32,.57],[.43,.35],[.34,.12],[.25,-.20],[.13,-.43],[0,-.49],[-.13,-.43],[-.25,-.20],[-.34,.12]],goldMetal,.60,.07);
+// Raised red brow and centre ridge define the helmet silhouette.
+helmetPlate([[-.45,.43],[-.30,.61],[0,.69],[.30,.61],[.45,.43],[.31,.39],[0,.48],[-.31,.39]],redMetal,.69,.065);
+helmetPart(new THREE.BoxGeometry(.075,.54,.10),trimMetal,[0,.08,.705],[1,1,1]);
+// Angular red cheek guards and lower jaw panels.
+helmetPlate([[-.50,.16],[-.38,.12],[-.31,-.20],[-.18,-.39],[-.32,-.48],[-.48,-.29]],redMetal,.66,.06);
+helmetPlate([[.50,.16],[.38,.12],[.31,-.20],[.18,-.39],[.32,-.48],[.48,-.29]],redMetal,.66,.06);
+helmetPlate([[-.30,-.27],[-.17,-.43],[0,-.47],[.17,-.43],[.30,-.27],[.20,-.52],[0,-.59],[-.20,-.52]],goldMetal,.70,.065);
+// Dark mouth grille with visible horizontal vent slats.
+helmetPlate([[-.19,-.39],[.19,-.39],[.16,-.51],[0,-.55],[-.16,-.51]],darkMetal,.775,.035);
+for(let i=0;i<3;i++) helmetPart(new THREE.BoxGeometry(.22,.018,.018),trimMetal,[0,-.425-i*.035,.817],[1,1,1]);
+// Eye sockets and cyan luminous lenses, angled inward like a superhero faceplate.
+helmetPlate([[-.40,.19],[-.13,.22],[-.19,.10],[-.35,.08]],darkMetal,.735,.035);
+helmetPlate([[.40,.19],[.13,.22],[.19,.10],[.35,.08]],darkMetal,.735,.035);
+const eyeL=helmetPart(new THREE.BoxGeometry(.235,.065,.035),eyeGlowMat,[-.275,.145,.79],[1,1,1],[0,0,.22]);
+const eyeR=helmetPart(new THREE.BoxGeometry(.235,.065,.035),eyeGlowMat,[.275,.145,.79],[1,1,1],[0,0,-.22]);
+// Ear discs, segmented side armour, and gold panel seams.
+helmetPart(new THREE.CylinderGeometry(.13,.13,.10,12),goldMetal,[-.76,.03,.02],[1,1,1],[Math.PI/2,0,0]);
+helmetPart(new THREE.CylinderGeometry(.13,.13,.10,12),goldMetal,[.76,.03,.02],[1,1,1],[Math.PI/2,0,0]);
+helmetPart(new THREE.BoxGeometry(.12,.32,.10),redMetal,[-.69,-.12,.28],[1,1,1],[0,0,-.12]);
+helmetPart(new THREE.BoxGeometry(.12,.32,.10),redMetal,[.69,-.12,.28],[1,1,1],[0,0,.12]);
+helmet.scale.setScalar(1.08);
+helmet.visible=false; altPlasma.visible=false; altHolo.visible=false; siriGlassAurora.visible=false;
+
+/* ---------- Full articulated human-like JARVIS avatar ---------- */
+const fullHuman = new THREE.Group();
+scene.add(fullHuman);
+const humanRoot = new THREE.Group();
+fullHuman.add(humanRoot);
+const skinMat = new THREE.MeshStandardMaterial({color:0xd9a77e, roughness:.72, metalness:.02});
+const skinShade = new THREE.MeshStandardMaterial({color:0x9b6549, roughness:.8});
+const suitMat = new THREE.MeshStandardMaterial({color:0x101a2e, metalness:.68, roughness:.3, emissive:0x06172a, emissiveIntensity:.35});
+const suitTrim = new THREE.MeshStandardMaterial({color:0x21d9ff, metalness:.55, roughness:.24, emissive:0x087da8, emissiveIntensity:1.25});
+const shirtMat = new THREE.MeshStandardMaterial({color:0x1e90b8, metalness:.25, roughness:.38});
+const hairMat = new THREE.MeshStandardMaterial({color:0x18202b, roughness:.86});
+const eyeMat = new THREE.MeshStandardMaterial({color:0x9ef8ff, emissive:0x36dfff, emissiveIntensity:1.4});
+function humanMesh(parent, geo, mat, pos, scale, rot){
+  const m=new THREE.Mesh(geo,mat);m.position.set(pos[0],pos[1],pos[2]);
+  if(scale)m.scale.set(scale[0],scale[1],scale[2]);
+  if(rot)m.rotation.set(rot[0],rot[1],rot[2]);
+  parent.add(m);return m;
+}
+function limb(parent,mat,a,b,r1,r2){
+  const A=new THREE.Vector3(...a),B=new THREE.Vector3(...b),d=new THREE.Vector3().subVectors(B,A);
+  const m=humanMesh(parent,new THREE.CylinderGeometry(r2,r1,d.length(),12),mat,[(A.x+B.x)/2,(A.y+B.y)/2,(A.z+B.z)/2]);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());return m;
+}
+humanMesh(humanRoot,new THREE.SphereGeometry(.23,24,18),skinMat,[0,1.27,0],[.83,1.08,.82]); // head
+humanMesh(humanRoot,new THREE.SphereGeometry(.245,24,16),hairMat,[0,1.39,-.025],[.86,.85,.83]); // hair cap
+humanMesh(humanRoot,new THREE.BoxGeometry(.32,.07,.07),skinMat,[0,1.24,.205]); // nose bridge
+humanMesh(humanRoot,new THREE.BoxGeometry(.11,.035,.025),eyeMat,[-.095,1.30,.205]);
+humanMesh(humanRoot,new THREE.BoxGeometry(.11,.035,.025),eyeMat,[.095,1.30,.205]);
+humanMesh(humanRoot,new THREE.CylinderGeometry(.075,.09,.18,16),skinMat,[0,1.02,0]); // neck
+humanMesh(humanRoot,new THREE.SphereGeometry(.37,28,22),suitMat,[0,.58,0],[1.12,1.28,.65]); // torso
+humanMesh(humanRoot,new THREE.BoxGeometry(.24,.42,.035),shirtMat,[0,.64,.235]); // chest panel
+humanMesh(humanRoot,new THREE.TorusGeometry(.09,.018,8,32),suitTrim,[0,.73,.265]); // arc core
+humanMesh(humanRoot,new THREE.SphereGeometry(.045,12,10),eyeMat,[0,.73,.27]);
+humanMesh(humanRoot,new THREE.SphereGeometry(.16,18,14),suitMat,[0,.17,0],[1.15,.62,.68]); // pelvis
+// shoulders, upper arms, elbows, forearms and articulated hands
+const arms=[];
+for(const side of [-1,1]){
+ const arm=new THREE.Group();arm.position.set(side*.39,.78,0);humanRoot.add(arm);arms.push({group:arm,side});
+ humanMesh(arm,new THREE.SphereGeometry(.14,16,12),suitMat,[side*.04,-.02,0],[1,1.05,.9]);
+ limb(arm,suitMat,[0,0,0],[side*.13,-.32,.015],.105,.082);
+ humanMesh(arm,new THREE.SphereGeometry(.085,14,12),suitTrim,[side*.13,-.32,.015]);
+ limb(arm,suitMat,[side*.13,-.32,.015],[side*.16,-.61,.045],.075,.055);
+ humanMesh(arm,new THREE.SphereGeometry(.065,14,12),skinMat,[side*.16,-.70,.06],[.85,1.2,.65]);
+ for(let f=0;f<4;f++) limb(arm,skinMat,[side*(.13+f*.018),-.72,.08],[side*(.12+f*.02),-.80,.085],.012,.009);
+ limb(arm,skinMat,[side*.20,-.70,.07],[side*.24,-.76,.09],.014,.009);
+}
+// legs have independent hip groups for natural walking motion
+const legs=[];
+for(const side of [-1,1]){
+ const leg=new THREE.Group();leg.position.set(side*.17,.12,0);humanRoot.add(leg);legs.push({group:leg,side});
+ limb(leg,suitMat,[0,0,0],[side*.015,-.43,0],.13,.09);
+ humanMesh(leg,new THREE.SphereGeometry(.09,14,12),suitTrim,[side*.015,-.43,.01]);
+ limb(leg,suitMat,[side*.015,-.43,0],[side*.025,-.80,.035],.08,.055);
+ humanMesh(leg,new THREE.BoxGeometry(.15,.09,.28),suitMat,[side*.025,-.84,.09]);
+ humanMesh(leg,new THREE.BoxGeometry(.12,.018,.23),suitTrim,[side*.025,-.79,.105]);
+}
+fullHuman.scale.setScalar(1.12);
+fullHuman.position.set(0,-.12,0);
+fullHuman.visible=false;
+
+helmet.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});
+function setOrbStyle(style) {
+  const aliases={holographic_plasma:"plasma_core",cosmic_pulsar:"holographic_pulse",quantum_core:"default",aurora_quantum:"default",cyber_ring:"holographic_pulse",siri_glow:"default"};
+  const requested=aliases[style]||style;
+  const allowed=["default","plasma_core","holographic_pulse","siri_glass_aurora","iron_man_head","full_human"];
+  orbStyle=allowed.includes(requested)?requested:"default";
+  orb.visible=orbStyle==="default";
+  altPlasma.visible=orbStyle==="plasma_core";
+  altHolo.visible=orbStyle==="holographic_pulse";
+  siriGlassAurora.visible=orbStyle==="siri_glass_aurora";
+  helmet.visible=orbStyle==="iron_man_head";
+  fullHuman.visible=orbStyle==="full_human";
+  if(orbStyle==="plasma_core") altPlasma.rotation.set(orb.rotation.x,orb.rotation.y,0);
+  if(orbStyle==="holographic_pulse") altHolo.rotation.set(orb.rotation.x,orb.rotation.y,0);
+  if(orbStyle==="siri_glass_aurora") siriGlassAurora.rotation.set(orb.rotation.x,orb.rotation.y,0);
+}
+
+
+/* ---------- Glow (outer halo only) ---------- */
+let glowMat,glow,ring1,ring2,orbitPts,ptData=[];
+function createGlow(){
+  glowMat=new THREE.ShaderMaterial({
+    vertexShader:"varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
+    fragmentShader:`varying vec2 vUv;uniform float uTime,uStrength,uMix;uniform vec3 uA,uB,uC;
+void main(){vec2 c=vUv-.5;float d=length(c)*2.,a=atan(c.y,c.x);
+ float g=(d>.68?exp(-(d-.68)*6.5)*.75:0.)*smoothstep(1.,.78,d);
+ vec3 col=mix(mix(uA,uB,.5+.5*sin(a+uTime*.4)),uC,uMix*(.5+.5*sin(a*2.-uTime*.6)));
+ gl_FragColor=vec4(col,clamp(g*uStrength*.5,0.,.55));}`,
+    transparent:true,depthWrite:false,depthTest:false,uniforms:{uTime:{value:0},uStrength:{value:.5},uMix:{value:.3},uA:U.BLUE,uB:U.PURP,uC:U.CYAN}});
+  glow=new THREE.Mesh(new THREE.PlaneGeometry(VIS,VIS),glowMat);glow.position.z=-.05;glow.renderOrder=-2;scene.add(glow);
+}
+function createRing(r0,r1,segs,seed,alpha){
+  const m=new THREE.Mesh(new THREE.RingGeometry(r0,r1,128,1),new THREE.ShaderMaterial({
+    vertexShader:"varying vec2 vP;void main(){vP=position.xy;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
+    fragmentShader:`varying vec2 vP;uniform float uAlpha,uSeed,uSegs;uniform vec3 uA,uB,uC;
+void main(){float a=atan(vP.y,vP.x);
+ float m=smoothstep(-.25,.35,sin(a*uSegs+uSeed))*smoothstep(-.9,-.2,sin(a+uSeed*.7));
+ vec3 col=mix(mix(uC,uA,.5+.5*sin(a+uSeed)),uB,.5+.5*sin(a*2.-uSeed));
+ gl_FragColor=vec4(col,m*uAlpha);}`,
+    transparent:true,depthWrite:false,side:THREE.DoubleSide,uniforms:{uAlpha:{value:alpha},uSeed:{value:seed},uSegs:{value:segs},uA:U.BLUE,uB:U.PURP,uC:U.CYAN}}));
+  m.renderOrder=0;scene.add(m);return m;
+}
+function createParticles(){
+  const pos=new Float32Array(ORBIT*3),size=new Float32Array(ORBIT),alpha=new Float32Array(ORBIT),color=new Float32Array(ORBIT*3);
+  const pal=[[.1,.7,1],[.2,.4,1],[.55,.3,.95]];
+  for(let i=0;i<ORBIT;i++){color.set(pal[i%3],i*3);size[i]=.02+Math.random()*.045;
+    ptData.push({a:Math.random()*6.283,r:1.5+Math.random()*.55,sp:(.08+Math.random()*.18)*(Math.random()<.5?-1:1),ph:Math.random()*6.283,tilt:(Math.random()-.5)*1.2,y:(Math.random()-.5)*1.1,fs:.2+Math.random()*.4});}
+  const g=new THREE.BufferGeometry();
+  g.setAttribute("position",new THREE.BufferAttribute(pos,3));g.setAttribute("aSize",new THREE.BufferAttribute(size,1));
+  g.setAttribute("aAlpha",new THREE.BufferAttribute(alpha,1));g.setAttribute("aColor",new THREE.BufferAttribute(color,3));
+  orbitPts=new THREE.Points(g,new THREE.ShaderMaterial({
+    vertexShader:"attribute float aSize,aAlpha;attribute vec3 aColor;uniform float uPx;varying float vA;varying vec3 vC;void main(){vA=aAlpha;vC=aColor;vec4 mv=modelViewMatrix*vec4(position,1.);gl_PointSize=max(aSize*uPx/(-mv.z),1.);gl_Position=projectionMatrix*mv;}",
+    fragmentShader:dotF,transparent:true,depthWrite:false,uniforms:{uPx:U.uPx}}));
+  orbitPts.frustumCulled=false;orbitPts.renderOrder=3;scene.add(orbitPts);
+}
+createGlow();ring1=createRing(1.255,1.272,2,0,.5);ring2=createRing(1.38,1.388,3,2.1,.3);createParticles();
+
+/* ---------- Themes / background ---------- */
+const LIGHTPAL=[[.04,.10,.50],[.12,.32,.95],[.10,.78,1],[.55,.28,.95]];
+const THEMES={
+ light:{bg:"radial-gradient(120% 80% at 50% 35%,#fff 0%,#f4f6fb 60%,#eceff7 100%)",fg:"#1d2340",sub:"#6b7390",glass:"rgba(255,255,255,.72)",gb:"rgba(255,255,255,.9)",chip:"#4a527a",t:["#2f6bff","#8b5cf6","#c15de0"],add:false,sh:"rgba(70,80,170,.22)",pal:LIGHTPAL},
+ dark:{bg:"radial-gradient(120% 80% at 50% 35%,#171c40 0%,#0a0d1f 60%,#04050d 100%)",fg:"#e8ecff",sub:"#8f98c8",glass:"rgba(255,255,255,.07)",gb:"rgba(255,255,255,.12)",chip:"#aab3e6",t:["#5b8cff","#9b7bff","#4fe3ff"],add:true,sh:"rgba(80,120,255,.2)",pal:[[.10,.20,.80],[.25,.50,1],[.30,.92,1],[.70,.45,1]]},
+ red:{bg:"radial-gradient(120% 80% at 50% 35%,#2a0a10 0%,#120508 60%,#050203 100%)",fg:"#ffe8ea",sub:"#c98a92",glass:"rgba(255,255,255,.07)",gb:"rgba(255,120,130,.18)",chip:"#f0a8b0",t:["#ff4d5e","#ff2d6f","#ff8a5c"],add:true,sh:"rgba(255,60,80,.2)",pal:[[.55,.05,.10],[.95,.15,.20],[1,.45,.30],[1,.25,.55]]},
+ sunset:{bg:"radial-gradient(120% 80% at 50% 35%,#fff6ef 0%,#ffe7e1 60%,#fbd8e8 100%)",fg:"#4a2340",sub:"#98677f",glass:"rgba(255,255,255,.6)",gb:"rgba(255,255,255,.85)",chip:"#7a4566",t:["#ff6a3d","#e83e8c","#8b5cf6"],add:false,sh:"rgba(170,70,110,.22)",pal:[[.55,.12,.45],[.95,.30,.45],[1,.55,.20],[.60,.30,.90]]}
+};
+let themeName="light";
+function setBlend(add){
+  [pointsMesh.material,orbitPts.material,glowMat,ring1.material,ring2.material].forEach(m=>{m.blending=add?THREE.AdditiveBlending:THREE.NormalBlending;m.needsUpdate=true;});
+}
+function applyTheme(name,custom){
+  let t=THEMES[name]||THEMES.light;
+  if(custom){
+    const c=new THREE.Color(custom),L=.299*c.r+.587*c.g+.114*c.b,light=L>.55;
+    const hsl={h:0,s:0,l:0};
+    c.getHSL(hsl);
+
+    let pal;
+    if(hsl.s<.06){
+      pal=light?LIGHTPAL:[[.10,.20,.80],[.25,.50,1],[.30,.92,1],[.70,.45,1]];
+    }else{
+      const h=hsl.h;
+      const cDeep=new THREE.Color().setHSL(h,Math.min(1,Math.max(.6,hsl.s*1.2)),Math.max(.1,Math.min(.35,hsl.l*.45)));
+      const cMain=new THREE.Color().setHSL(h,Math.max(.85,hsl.s),Math.max(.45,Math.min(.65,hsl.l)));
+      const cAcc1=new THREE.Color().setHSL((h+.08)%1.,.95,.65);
+      const cAcc2=new THREE.Color().setHSL((h-.08+1.)%1.,.95,.70);
+      pal=[
+        [cDeep.r,cDeep.g,cDeep.b],
+        [cMain.r,cMain.g,cMain.b],
+        [cAcc1.r,cAcc1.g,cAcc1.b],
+        [cAcc2.r,cAcc2.g,cAcc2.b]
+      ];
+    }
+
+    const baseTheme=light?THEMES.light:THEMES.dark;
+    t=Object.assign({},baseTheme,{
+      bg:custom,
+      fg:light?"#0f172a":"#ffffff",
+      sub:light?"#475569":"#cbd5e1",
+      glass:light?"rgba(255,255,255,.65)":"rgba(255,255,255,.14)",
+      gb:light?"rgba(255,255,255,.85)":"rgba(255,255,255,.22)",
+      chip:light?"#1e293b":"#f1f5f9",
+      pal:pal,
+      add:!light,
+      t:[
+        "#"+new THREE.Color(pal[1][0],pal[1][1],pal[1][2]).getHexString(),
+        "#"+new THREE.Color(pal[2][0],pal[2][1],pal[2][2]).getHexString(),
+        "#"+new THREE.Color(pal[3][0],pal[3][1],pal[3][2]).getHexString()
+      ]
+    });
+    name=null;
+  }
+  themeName=name||themeName;
+  const r=document.documentElement.style;
+  if(!isEmbedded){
+    r.setProperty("--bg",t.bg);
+  }else{
+    r.setProperty("--bg","transparent");
+    document.documentElement.style.background="transparent";
+    document.body.style.background="transparent";
+  }
+  r.setProperty("--fg",t.fg);r.setProperty("--sub",t.sub);r.setProperty("--glass",t.glass);r.setProperty("--gb",t.gb);r.setProperty("--chip",t.chip);
+  r.setProperty("--t1",t.t[0]);r.setProperty("--t2",t.t[1]);r.setProperty("--t3",t.t[2]);r.setProperty("--sh",t.sh);
+  ["DEEP","BLUE","CYAN","PURP"].forEach((k,i)=>U[k].value.setRGB(t.pal[i][0],t.pal[i][1],t.pal[i][2]));
+  const oc=orbitPts.geometry.attributes.aColor,cols=[t.pal[2],t.pal[1],t.pal[3]];
+  for(let i=0;i<ORBIT;i++) oc.setXYZ(i,cols[i%3][0],cols[i%3][1],cols[i%3][2]);
+  oc.needsUpdate=true;
+  setBlend(t.add);
+  document.querySelectorAll("[data-t]").forEach(b=>b.classList.toggle("on",!custom&&b.dataset.t===themeName));
+}
+
+/* ---------- State ---------- */
+let state="idle";
+const cur=Object.assign({},STATES.idle),tgt=Object.assign({},STATES.idle);
+function setOrbState(s){
+  if(!STATES[s]) return;
+  state=s;Object.assign(tgt,STATES[s]);
+  const lbl = $("#stext");
+  if(lbl) lbl.textContent=LABELS[s] || "READY";
+  document.querySelectorAll("[data-s]").forEach(b=>b.classList.toggle("on",b.dataset.s===s));
+}
+
+/* ---------- Audio (Simulated, Web mic, or External Native) ---------- */
+const audio={level:0,bass:0,high:0};
+let actx=null,analyser=null,micStream=null,freq=null,micOn=false;
+let externalAudioTime=0;
+const extAudio={level:0,bass:0,high:0};
+
+function setExternalAudio(level, bass, high){
+  const l = Math.max(0, Math.min(1, Number(level) || 0));
+  extAudio.level = l;
+  extAudio.bass = Math.max(0, Math.min(1, bass !== undefined && bass !== null ? Number(bass) : l));
+  extAudio.high = Math.max(0, Math.min(1, high !== undefined && high !== null ? Number(high) : l));
+  externalAudioTime = performance.now();
+}
+
+function toast(m){const t=$("#toast");if(!t)return;t.textContent=m;t.classList.add("show");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("show"),2600);}
+function updateMicUI(){const b=$("#mic");if(b){b.classList.toggle("on",micOn);b.textContent=micOn?"MIC ON":"MIC TEST";}}
+async function startAudioReactive(){
+  if(micOn) return true;
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;
+    micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+    actx=new AC();if(actx.state==="suspended") await actx.resume();
+    analyser=actx.createAnalyser();analyser.fftSize=256;analyser.smoothingTimeConstant=.8;
+    actx.createMediaStreamSource(micStream).connect(analyser);
+    freq=new Uint8Array(analyser.frequencyBinCount);micOn=true;updateMicUI();return true;
+  }catch(e){micOn=false;updateMicUI();toast("Microphone unavailable — using simulated audio");return false;}
+}
+function stopAudioReactive(){
+  if(micStream) micStream.getTracks().forEach(t=>t.stop());
+  if(actx&&actx.close) actx.close().catch(()=>{});
+  micStream=null;actx=null;analyser=null;micOn=false;updateMicUI();
+}
+function simulateAudio(t){
+  let l,b,h;
+  if(state==="speaking"){const syl=Math.pow(Math.abs(Math.sin(t*7.3)*Math.sin(t*2.1+1)),.8),gate=Math.sin(t*.9)>-.7?1:.15;l=(.3+.45*syl)*gate;b=l*(.6+.4*Math.sin(t*5));h=l*(.5+.5*Math.sin(t*11));}
+  else if(state==="listening"){l=.2+.2*Math.abs(Math.sin(t*3.1)*Math.sin(t*1.3));b=l*.8;h=l*.5;}
+  else if(state==="thinking"){l=.12+.07*Math.sin(t*2.2);b=l*.7;h=l*.6;}
+  else{l=.05+.03*Math.sin(t*1.1);b=l;h=l*.5;}
+  return [l,b,h];
+}
+function readAudio(t,dt){
+  let l,b,h;
+  if(performance.now() - externalAudioTime < 220){
+    l = extAudio.level;
+    b = extAudio.bass;
+    h = extAudio.high;
+  } else if(micOn&&analyser){
+    analyser.getByteFrequencyData(freq);
+    const avg=(a,z)=>{let s=0;for(let i=a;i<z;i++)s+=freq[i];return s/((z-a)*255);};
+    l=Math.min(avg(0,freq.length)*2.6,1);b=Math.min(avg(0,6)*2.2,1);h=Math.min(avg(48,110)*3,1);
+  } else {
+    [l,b,h]=simulateAudio(t);
+  }
+  const k=1-Math.exp(-dt*(l>audio.level?18:6));
+  audio.level+=(l-audio.level)*k;audio.bass+=(b-audio.bass)*k;audio.high+=(h-audio.high)*k;
+}
+
+/* ---------- Drag to rotate (3D) ---------- */
+let dragging=false,px=0,py=0,velX=0,velY=0;
+canvas.addEventListener("pointerdown",e=>{dragging=true;px=e.clientX;py=e.clientY;canvas.setPointerCapture(e.pointerId);canvas.style.cursor="grabbing";});
+canvas.addEventListener("pointermove",e=>{if(!dragging)return;velY+=(e.clientX-px)*.012;velX+=(e.clientY-py)*.012;px=e.clientX;py=e.clientY;});
+const endDrag=()=>{dragging=false;canvas.style.cursor="grab";};
+canvas.addEventListener("pointerup",endDrag);canvas.addEventListener("pointercancel",endDrag);
+
+/* ---------- Update ---------- */
+let time=0,flow=0,r1a=0,r2a=0,pxPerUnit=300;
+function updateOrb(dt){
+  const k=1-Math.exp(-dt*3.5);
+  for(const key in cur) cur[key]+=(tgt[key]-cur[key])*k;
+  time+=dt;flow+=dt*cur.speed;r1a+=dt*(.12+cur.ring*.6);r2a-=dt*(.08+cur.ring*.35);
+  readAudio(time,dt);
+  const idlePulse=Math.pow(Math.max(0,Math.sin(time*.5)),12)*.15*(1-cur.wob);
+  const s=cur.scale*(1+.018*Math.sin(time*1.2)+audio.level*.07+cur.wob*.025*Math.sin(time*3.6));
+  orb.scale.setScalar(s);
+  orb.rotation.y+=dt*.18*(.5+cur.speed)+velY*Math.min(dt*20,1)*.5;
+  orb.rotation.x=Math.max(-1.2,Math.min(1.2,orb.rotation.x+velX*Math.min(dt*20,1)*.5));
+  velX*=Math.exp(-dt*5);velY*=Math.exp(-dt*5);
+  if(!dragging&&Math.abs(orb.rotation.x)>.001) orb.rotation.x*=Math.exp(-dt*.6);
+  U.uTime.value=flow;U.uAmp.value=audio.level+cur.wob*.25;U.uBass.value=audio.bass;U.uHigh.value=audio.high;
+  U.uCyan.value=cur.cyan;U.uPurple.value=cur.purple;U.uBright.value=cur.bright+idlePulse;
+  glowMat.uniforms.uTime.value=time;glowMat.uniforms.uMix.value=cur.cyan;
+  glowMat.uniforms.uStrength.value=cur.glow+audio.level*.6+idlePulse*2;
+  const voicePulse = state==="speaking" ? .10 + audio.level*.12 : state==="listening" ? .035 + audio.level*.07 : .015;
+  if(orbStyle==="plasma_core") {
+    altPlasma.rotation.y += dt*(.25+cur.speed*.35);
+    altPlasma.rotation.x += dt*.12;
+    altPlasma.scale.setScalar(s*(1+voicePulse));
+  } else if(orbStyle==="holographic_pulse") {
+    altHolo.rotation.y += dt*(.18+cur.speed*.22);
+    altHolo.rotation.x += dt*.08;
+    holoShell.rotation.y -= dt*.12;
+    holoShell.scale.setScalar(1+audio.level*.07+(state==="listening"?.025:0));
+  } else if(orbStyle==="siri_glass_aurora") {
+    siriGlassAurora.rotation.y += dt*(.16+cur.speed*.22);
+    siriGlassAurora.rotation.x += dt*.045;
+    const speakingBoost=state==="speaking"?.22:state==="listening"?.10:state==="thinking"?.16:.035;
+    glassUniforms.uTime.value=time;
+    glassUniforms.uEnergy.value=Math.min(1.4,audio.level+speakingBoost);
+    glassUniforms.uState.value=state==="thinking"?1.0:state==="speaking"?.8:state==="listening"?.55:.15;
+    const pulse=1+audio.level*.055+speakingBoost*.045;
+    siriGlassAurora.scale.setScalar(s*pulse);
+    glassRings.forEach((ring,i)=>ring.scale.setScalar(1+speakingBoost*.12+Math.sin(time*1.6+i*.7)*.008));
+  } else if(orbStyle==="full_human") {
+    // Idle breathing; speech uses subtle torso bounce and arm gestures, listening leans forward.
+    humanRoot.position.y=Math.sin(time*2.2)*.018 + (state==="speaking" ? Math.abs(Math.sin(time*7.5))*.045 : 0);
+    humanRoot.rotation.y=Math.sin(time*.65)*.07;
+    humanRoot.rotation.x=state==="listening" ? -.055 : state==="thinking" ? .035*Math.sin(time*2) : 0;
+    arms.forEach((a,i)=>{const sign=a.side; a.group.rotation.x=(state==="listening"?-.18:state==="speaking"?-.35-.16*Math.sin(time*8+i):.035*Math.sin(time*1.6+i));a.group.rotation.z=sign*(state==="speaking"?.18+.10*Math.sin(time*6+i):.045*Math.sin(time*1.5+i));});
+    legs.forEach((l,i)=>{const walk=state==="speaking"?.10*Math.sin(time*5+i*Math.PI):state==="listening"?.025*Math.sin(time*2+i):.012*Math.sin(time*1.3+i);l.group.rotation.x=walk;});
+    fullHuman.rotation.y += dragging ? 0 : dt*.10;
+    fullHuman.rotation.x += (orb.rotation.x-fullHuman.rotation.x)*Math.min(1,dt*2);
+    fullHuman.scale.setScalar(1.12*(1+voicePulse*.18));
+  } else if(orbStyle==="iron_man_head") {
+    helmet.rotation.y += dragging ? 0 : dt*.12;
+    helmet.rotation.x += (orb.rotation.x-helmet.rotation.x)*Math.min(1,dt*3);
+    helmet.rotation.y += velY*Math.min(dt*20,1)*.25;
+    helmet.scale.setScalar(1.08*(1+voicePulse));
+    const eyePower = state==="listening" ? .75 + .25*Math.abs(Math.sin(time*8)) : state==="speaking" ? .8 + .2*Math.abs(Math.sin(time*13)) : state==="thinking" ? .45 + .35*Math.abs(Math.sin(time*3)) : .8;
+    eyeGlowMat.opacity=eyePower;
+    eyeGlowMat.color.set(state==="thinking" ? 0xb18cff : 0x8cf7ff);
+  }
+  const pulse=cur.ring*.5*(.5+.5*Math.sin(time*4))+audio.bass*.8;
+  ring1.rotation.z=r1a;ring2.rotation.z=r2a;
+  ring1.scale.setScalar(s*(1+pulse*.03));ring2.scale.setScalar(s*(1+pulse*.02));
+  ring1.material.uniforms.uAlpha.value=.4+cur.ring*.3+audio.level*.35;
+  ring2.material.uniforms.uAlpha.value=.22+cur.ring*.2+audio.level*.2;
+  shadowEl.style.width=Math.round(pxPerUnit*1.5*s)+"px";
+}
+function updateParticles(dt){
+  const P=orbitPts.geometry.attributes,boost=.6+cur.speed*.8+(state==="thinking"?1.2:0);
+  for(let i=0;i<ORBIT;i++){
+    const d=ptData[i];d.a+=d.sp*dt*boost;
+    const r=d.r+Math.sin(time*d.fs+d.ph)*.12-(state==="thinking"?.15:0)+audio.level*.1;
+    const x=Math.cos(d.a)*r,z=Math.sin(d.a)*r*.6,y=d.y*.8+Math.sin(d.a*1.3+d.ph)*.18+x*d.tilt*.25;
+    P.position.setXYZ(i,x,y,z);
+    P.aAlpha.setX(i,Math.pow(.5+.5*Math.sin(time*d.fs*1.6+d.ph),1.5)*(.55+cur.glow*.3));
+  }
+  P.position.needsUpdate=true;P.aAlpha.needsUpdate=true;
+}
+
+/* ---------- Resize / loop ---------- */
+function handleResize(){
+  const w=Math.max(stage.clientWidth,1),h=Math.max(stage.clientHeight,1),pr=Math.min(window.devicePixelRatio,2);
+  renderer.setPixelRatio(pr);renderer.setSize(w,h,false);
+  camera.aspect=w/h;
+  const visH=VIS/Math.min(1,w/h),tan=Math.tan(THREE.MathUtils.degToRad(FOV/2));
+  camera.position.z=visH/(2*tan);U.uCamZ.value=camera.position.z;camera.updateProjectionMatrix();
+  pxPerUnit=h/visH;U.uPx.value=h*pr/(2*tan);
+  shadowEl.style.top=Math.round(h/2+pxPerUnit*1.2)+"px";
+}
+let last=performance.now();
+function animate(now){
+  requestAnimationFrame(animate);
+  const dt=Math.min((now-last)/1000,.05);last=now;
+  updateOrb(dt);updateParticles(dt);renderer.render(scene,camera);
+}
+
+document.querySelectorAll("[data-s]").forEach(b=>b.addEventListener("click",()=>setOrbState(b.dataset.s)));
+document.querySelectorAll("[data-t]").forEach(b=>b.addEventListener("click",()=>applyTheme(b.dataset.t)));
+const bgcInput = $("#bgc");
+if(bgcInput) bgcInput.addEventListener("input",e=>applyTheme(null,e.target.value));
+const micBtn = $("#mic");
+if(micBtn) micBtn.addEventListener("click",()=>micOn?stopAudioReactive():startAudioReactive());
+window.addEventListener("resize",handleResize);
+window.addEventListener("orientationchange",()=>setTimeout(handleResize,200));
+if(window.ResizeObserver) new ResizeObserver(handleResize).observe(stage);
+
+window.JarvisOrb={
+  setState:setOrbState,
+  setStyle:setOrbStyle,
+  setTheme:n=>applyTheme(n),
+  setBackground:hex=>{
+    if(!isEmbedded) document.documentElement.style.setProperty("--bg",hex);
+    applyTheme(null,hex);
+  },
+  setExternalAudio:setExternalAudio,
+  startListening:()=>setOrbState("listening"),
+  startThinking:()=>setOrbState("thinking"),
+  startSpeaking:()=>setOrbState("speaking"),
+  stopSpeaking:()=>setOrbState("idle"),
+  startAudioReactive:startAudioReactive,
+  stopAudioReactive:stopAudioReactive
+};
+
+handleResize();
+applyTheme("light");
+setOrbState("idle");
+requestAnimationFrame(animate);
+})();
+</script>
+<script>
+(()=>{const c=document.getElementById('touchParticles'),x=c.getContext('2d');let w=0,h=0,p=[],raf=0;
+function size(){let d=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;c.width=w*d;c.height=h*d;c.style.width=w+'px';c.style.height=h+'px';x.setTransform(d,0,0,d,0,0)}addEventListener('resize',size,{passive:true});size();
+document.addEventListener('pointerdown',e=>{for(let i=0;i<14;i++){let a=2*Math.PI*i/14+(Math.random()-.5)*.3,s=1.2+Math.random()*2.4;p.push({x:e.clientX,y:e.clientY,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:1,r:1+Math.random()*2,h:180+Math.random()*90})}if(!raf)raf=requestAnimationFrame(draw)},{passive:true});
+function draw(){raf=0;x.clearRect(0,0,w,h);for(let i=p.length-1;i>=0;i--){let q=p[i];q.x+=q.vx;q.y+=q.vy;q.vx*=.975;q.vy=q.vy*.975+.01;q.l-=.035;if(q.l<=0){p.splice(i,1);continue}x.globalAlpha=q.l;x.fillStyle='hsl('+q.h+' 100% 68%)';x.shadowBlur=8;x.shadowColor=x.fillStyle;x.beginPath();x.arc(q.x,q.y,q.r*q.l,0,Math.PI*2);x.fill()}x.globalAlpha=1;x.shadowBlur=0;if(p.length)raf=requestAnimationFrame(draw)}
+})();
+</script>
 </body>
 </html>
