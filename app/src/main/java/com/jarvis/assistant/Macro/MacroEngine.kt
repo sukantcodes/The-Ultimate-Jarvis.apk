@@ -6,7 +6,13 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
 
-data class MacroStep(val tool: String, val args: JSONObject)
+data class MacroStep(
+    val tool: String,
+    val args: JSONObject,
+    /** MAYA stores optional/why at step level; older JARVIS macros stored optional inside args. */
+    val optional: Boolean = false,
+    val why: String = ""
+)
 
 data class Macro(
     val name: String,
@@ -14,7 +20,11 @@ data class Macro(
     val description: String,
     /** Name of the single text input the macro needs (for example "image_prompt"), or empty when it needs none. */
     val param: String,
-    val steps: List<MacroStep>
+    val steps: List<MacroStep>,
+    /** Optional natural-language intent from MAYA's v3 macro format. */
+    val intent: String = "",
+    /** MAYA v3 supports multiple named inputs; JARVIS currently accepts one spoken input. */
+    val params: List<String> = emptyList()
 )
 
 data class StepResult(val ok: Boolean, val message: String = "")
@@ -42,8 +52,9 @@ class MacroEngine(private val actions: MacroActions) {
         var output = ""
         val total = macro.steps.size
         for ((index, step) in macro.steps.withIndex()) {
-            val optional = step.args.optBoolean("_optional", false)
-            onProgress("Step " + (index + 1) + "/" + total + ": " + step.tool)
+            val optional = step.optional || step.args.optBoolean("_optional", false)
+            val progressText = "Step " + (index + 1) + "/" + total + ": " + step.tool
+            onProgress(if (step.why.isNotBlank()) "$progressText — ${step.why}" else progressText)
             val result = try {
                 execute(macro, step, input)
             } catch (e: CancellationException) {
