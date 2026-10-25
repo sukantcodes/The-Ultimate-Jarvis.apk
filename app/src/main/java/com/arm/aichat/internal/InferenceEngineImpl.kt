@@ -92,6 +92,15 @@ internal class InferenceEngineImpl private constructor(context: Context) {
             loadedPath = null
         }
 
+        // Fail fast on low-memory devices instead of leaving the voice assistant apparently
+        // stuck while the native loader struggles to map a 1.28 GB model.
+        val memoryInfo = android.app.ActivityManager.MemoryInfo()
+        (app.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(memoryInfo)
+        val minimumAvailableBytes = 900L * 1024L * 1024L
+        check(memoryInfo.availMem >= minimumAvailableBytes) {
+            "Not enough free RAM to load the offline model (${memoryInfo.availMem / (1024L * 1024L)} MB available). Close other apps and retry; the 1.28 GB model needs additional working memory."
+        }
+
         val loadResult = load(path)
         if (loadResult != 0) {
             val detail = takeLastNativeError().trim().take(900)
