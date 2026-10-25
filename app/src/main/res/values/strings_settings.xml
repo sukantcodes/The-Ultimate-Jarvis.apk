@@ -70,5 +70,5 @@
     <string name="set_appidentity_subtitle">Publisher, app ID and signing certificate status</string>
     <string name="set_footer_credit" formatted="true">JARVIS INTELLIGENCE OS • v%1$s\nEngineered by %2$s</string>
     <string name="set_pockettts_title">Offline Neural Voice (Pocket TTS)</string>
-    <string name="set_pockettts_subtitle">Configure the phone's text-to-speech engine for offline speech</string>
+    <string name="set_pockettts_subtitle">Set up offline speech in Android text-to-speech settings</string>
 </resources>
