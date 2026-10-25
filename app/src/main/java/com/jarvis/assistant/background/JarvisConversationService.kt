@@ -1883,7 +1883,18 @@ class JarvisConversationService : Service() {
             val answer = try {
                 withTimeout(120_000L) {
                     executeOfflineLocalCommand(clean)
-                        ?: com.jarvis.assistant.offline.OfflineLlm.generate(applicationContext, clean)
+                        ?: com.jarvis.assistant.offline.OfflineLlm.generate(applicationContext, clean) { partial, generated, total ->
+                            if (generated < 0) {
+                                _events.tryEmit("Loading the offline language model into memory…")
+                            } else if (generated == 0) {
+                                _events.tryEmit("Offline model loaded. Preparing your response…")
+                            } else {
+                                if (partial.isNotBlank()) _liveAssistantResponse.value = partial
+                                if (generated % 8 == 0 || generated == total) {
+                                    _events.tryEmit("Generating offline response: $generated/$total tokens")
+                                }
+                            }
+                        }
                 }
             } catch (error: TimeoutCancellationException) {
                 Log.e("JarvisService", "Offline response exceeded the 120-second safety limit", error)
