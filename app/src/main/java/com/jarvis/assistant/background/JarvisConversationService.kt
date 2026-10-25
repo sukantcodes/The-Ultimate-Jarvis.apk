@@ -1915,9 +1915,10 @@ class JarvisConversationService : Service() {
                 // Prepare a draft first; do not send it until the user confirms.
                 app.whatsAppAssistant.createDraft(command.contact, command.message)
             }
+            is com.jarvis.assistant.automation.command.JarvisCommand.PhoneCall ->
+                openDialerForOfflineCall(command.contactOrNumber)
             is com.jarvis.assistant.automation.command.JarvisCommand.WhatsAppCall,
             is com.jarvis.assistant.automation.command.JarvisCommand.WhatsAppDeleteMessage,
-            is com.jarvis.assistant.automation.command.JarvisCommand.PhoneCall,
             is com.jarvis.assistant.automation.command.JarvisCommand.SocialAppAction,
             is com.jarvis.assistant.automation.command.JarvisCommand.SearchSocialApp,
             is com.jarvis.assistant.automation.command.JarvisCommand.SearchYouTube,
@@ -1933,6 +1934,64 @@ class JarvisConversationService : Service() {
                     "I couldn't complete that device action: " + (error.message ?: "action failed")
                 }
             }
+        }
+    }
+
+    /**
+     * Offline call commands open the dialer for user review; JARVIS never places a call silently.
+     */
+    private suspend fun openDialerForOfflineCall(contactOrNumber: String): String = withContext(Dispatchers.Main) {
+        val query = contactOrNumber.trim()
+        if (query.isBlank()) return@withContext "Tell me the contact name or phone number to call."
+        val numberPattern = Regex("^[+0-9() .-]{5,}$")
+        val number = if (numberPattern.matches(query) && query.any { it.isDigit() }) {
+            query.filter { it.isDigit() || it == '+' }
+        } else {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                    this@JarvisConversationService,
+                    android.Manifest.permission.READ_CONTACTS
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                return@withContext "Enable Contacts permission for JARVIS to find that person, or say their phone number."
+            }
+            try {
+                val projection = arrayOf(
+                    android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                    android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER
+                )
+                val found = mutableListOf<Pair<String, String>>()
+                contentResolver.query(
+                    android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    projection,
+                    "${android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ?",
+                    arrayOf("%$query%"),
+                    android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " COLLATE NOCASE ASC"
+                )?.use { cursor ->
+                    val nameColumn = cursor.getColumnIndexOrThrow(android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                    val numberColumn = cursor.getColumnIndexOrThrow(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER)
+                    while (cursor.moveToNext()) {
+                        val name = cursor.getString(nameColumn).orEmpty()
+                        val phone = cursor.getString(numberColumn).orEmpty()
+                        if (phone.isNotBlank()) found += name to phone
+                    }
+                }
+                val unique = found.distinctBy { it.second }
+                when {
+                    unique.isEmpty() -> return@withContext "I couldn't find a phone number for '$query' in your contacts."
+                    unique.size > 1 -> return@withContext "I found multiple numbers for '$query': ${unique.take(4).joinToString { "${it.first} (${it.second})" }}. Say the exact contact."
+                    else -> unique.single().second.filter { it.isDigit() || it == '+' }
+                }
+            } catch (error: Exception) {
+                Log.e("JarvisService", "Offline contact lookup failed", error)
+                return@withContext "I couldn't read that contact. Check Contacts permission and try again."
+            }
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            "I opened the dialer for $query. Review the number and tap Call when you're ready."
+        } catch (error: Exception) {
+            Log.e("JarvisService", "Could not open dialer for offline call", error)
+            "I couldn't open the phone dialer on this device."
         }
     }
 
