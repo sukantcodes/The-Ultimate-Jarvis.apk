@@ -270,11 +270,11 @@ class AppPreferences(context: Context) {
 
     var orbAnimation: String
         get() {
-            val valid = listOf("default", "plasma_core", "holographic_pulse", "iron_man_head", "full_human", "holographic_plasma", "cosmic_pulsar", "quantum_core", "cyber_ring", "siri_glow")
+            val valid = listOf("default", "aurora_orb", "plasma_core", "holographic_pulse", "iron_man_head", "full_human", "holographic_plasma", "cosmic_pulsar", "quantum_core", "cyber_ring", "siri_glow")
             val stored = prefs.getString(KEY_ORB_ANIMATION, "default") ?: "default"
             return if (stored in valid) stored else "default"
         }
-        set(value) = prefs.edit().putString(KEY_ORB_ANIMATION, value).apply()
+        set(value) { prefs.edit().putString(KEY_ORB_ANIMATION, value).commit() }
 
     var orbSpeed: Float
         get() = prefs.getFloat(KEY_ORB_SPEED, 1.0f)
