@@ -1,10 +1,8 @@
 name: Build Android APK
 
 on:
-  push:
-    branches: [ "main", "Google" ]
-  pull_request:
-    branches: [ "main", "Google" ]
+  # Builds are intentionally manual while the multi-part voice runtime integration
+  # is being assembled. Run the workflow only after integration is complete.
   workflow_dispatch:
 
 jobs:
@@ -14,13 +12,13 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-
+      with:
+        ref: Google
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
-
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
     - name: Set up Android SDK
@@ -29,10 +27,8 @@ jobs:
         packages: 'platform-tools'
     - name: Install native build tools
       run: sdkmanager "ndk;27.2.12479018" "cmake;3.31.6"
-
     - name: Build with Gradle
       run: ./gradlew assembleDebug
-
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
