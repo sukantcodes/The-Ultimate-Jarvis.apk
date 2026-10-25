@@ -48,7 +48,12 @@ interface MacroActions {
  */
 class MacroEngine(private val actions: MacroActions) {
 
-    suspend fun run(macro: Macro, input: String, onProgress: (String) -> Unit = {}): MacroOutcome {
+    suspend fun run(
+        macro: Macro,
+        input: String,
+        onProgress: (String) -> Unit = {},
+        namedInputs: Map<String, String> = emptyMap()
+    ): MacroOutcome {
         var output = ""
         val total = macro.steps.size
         for ((index, step) in macro.steps.withIndex()) {
@@ -56,7 +61,7 @@ class MacroEngine(private val actions: MacroActions) {
             val progressText = "Step " + (index + 1) + "/" + total + ": " + step.tool
             onProgress(if (step.why.isNotBlank()) "$progressText — ${step.why}" else progressText)
             val result = try {
-                execute(macro, step, input)
+                execute(macro, step, input, namedInputs)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -74,7 +79,7 @@ class MacroEngine(private val actions: MacroActions) {
         return MacroOutcome(true, "Macro '" + macro.name + "' completed.", output)
     }
 
-    private suspend fun execute(macro: Macro, step: MacroStep, input: String): StepResult {
+    private suspend fun execute(macro: Macro, step: MacroStep, input: String, namedInputs: Map<String, String>): StepResult {
         val args = step.args
         return when (step.tool) {
             "open_app_by_name" -> actions.openApp(args.optString("name", ""), labels(args.opt("package_hints")))
@@ -83,7 +88,7 @@ class MacroEngine(private val actions: MacroActions) {
                 StepResult(true)
             }
             "tap_text" -> tap(labels(args.opt("text")), args.optInt("retries", 3))
-            "type_text" -> type(fill(args.optString("text", ""), macro.param, input), labels(args.opt("focus")))
+            "type_text" -> type(fill(args.optString("text", ""), macro.param, input, namedInputs), labels(args.opt("focus")))
             "wait_for_screen_text" -> waitForText(
                 labels(args.opt("text")),
                 args.optString("mode", "appear"),
@@ -107,9 +112,13 @@ class MacroEngine(private val actions: MacroActions) {
         else -> emptyList()
     }
 
-    private fun fill(template: String, param: String, input: String): String {
+    private fun fill(template: String, param: String, input: String, namedInputs: Map<String, String>): String {
         var text = template.replace("{input}", input)
         if (param.isNotEmpty()) text = text.replace("{" + param + "}", input)
+        // MAYA v3 macros can declare several named inputs; substitute each placeholder independently.
+        for ((name, value) in namedInputs) {
+            if (name.isNotBlank()) text = text.replace("{$name}", value)
+        }
         return text
     }
 
