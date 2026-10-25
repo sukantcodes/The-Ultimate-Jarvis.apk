@@ -151,6 +151,18 @@ altPlasma.add(makeStyleRing(1.25,.012,0x6b62ff,.8,-.55,.65));
 altPlasma.add(makeStyleRing(1.38,.009,0xff4fe1,.55,.2,-.9));
 altHolo.add(makeStyleRing(1.13,.014,0x75f7ff,.65,.7,.35));
 altHolo.add(makeStyleRing(1.25,.008,0xa6bfff,.5,-.65,.8));
+
+/* Quantum Aurora orb: concentric tilted rings with a live particle core. */
+const altAurora = new THREE.Group();
+scene.add(altAurora);
+const auroraRings = [];
+auroraRings.push(makeStyleRing(1.03,.020,0x00f2fe,.92,.45,.18));
+auroraRings.push(makeStyleRing(1.17,.014,0x4facfe,.82,-.72,.55));
+auroraRings.push(makeStyleRing(1.30,.010,0x00ffaa,.72,.24,-.82));
+auroraRings.push(makeStyleRing(1.42,.007,0xa855f7,.58,-.38,-.42));
+auroraRings.forEach(ring=>{ring.material.blending=THREE.AdditiveBlending;ring.material.depthWrite=false;altAurora.add(ring);});
+const auroraShell = new THREE.Mesh(new THREE.IcosahedronGeometry(.99,2),new THREE.MeshBasicMaterial({color:0x4facfe,wireframe:true,transparent:true,opacity:.12,blending:THREE.AdditiveBlending,depthWrite:false}));
+altAurora.add(auroraShell);
 const holoShell = new THREE.Mesh(
   new THREE.IcosahedronGeometry(.94,3),
   new THREE.MeshBasicMaterial({color:0x8ffaff,wireframe:true,transparent:true,opacity:.30,blending:THREE.AdditiveBlending,depthWrite:false})
@@ -210,7 +222,7 @@ helmetPart(new THREE.CylinderGeometry(.13,.13,.10,12),goldMetal,[.76,.03,.02],[1
 helmetPart(new THREE.BoxGeometry(.12,.32,.10),redMetal,[-.69,-.12,.28],[1,1,1],[0,0,-.12]);
 helmetPart(new THREE.BoxGeometry(.12,.32,.10),redMetal,[.69,-.12,.28],[1,1,1],[0,0,.12]);
 helmet.scale.setScalar(1.08);
-helmet.visible=false; altPlasma.visible=false; altHolo.visible=false;
+helmet.visible=false; altPlasma.visible=false; altHolo.visible=false; altAurora.visible=false;
 
 /* ---------- Full articulated human-like JARVIS avatar ---------- */
 const fullHuman = new THREE.Group();
@@ -274,15 +286,19 @@ fullHuman.visible=false;
 
 helmet.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});
 function setOrbStyle(style) {
-  const allowed=["default","plasma_core","holographic_pulse","iron_man_head","full_human"];
-  orbStyle=allowed.includes(style)?style:"default";
-  orb.visible=orbStyle==="default";
+  const aliases={holographic_plasma:"default",cosmic_pulsar:"plasma_core",quantum_core:"aurora_quantum",cyber_ring:"holographic_pulse",siri_glow:"default"};
+  const requested=aliases[style]||style;
+  const allowed=["default","plasma_core","holographic_pulse","aurora_quantum","iron_man_head","full_human"];
+  orbStyle=allowed.includes(requested)?requested:"default";
+  orb.visible=orbStyle==="default"||orbStyle==="aurora_quantum";
   altPlasma.visible=orbStyle==="plasma_core";
   altHolo.visible=orbStyle==="holographic_pulse";
+  altAurora.visible=orbStyle==="aurora_quantum";
   helmet.visible=orbStyle==="iron_man_head";
   fullHuman.visible=orbStyle==="full_human";
-  if(orbStyle==="plasma_core") {altPlasma.rotation.set(orb.rotation.x,orb.rotation.y,0);}
-  if(orbStyle==="holographic_pulse") {altHolo.rotation.set(orb.rotation.x,orb.rotation.y,0);}
+  if(orbStyle==="plasma_core") altPlasma.rotation.set(orb.rotation.x,orb.rotation.y,0);
+  if(orbStyle==="holographic_pulse") altHolo.rotation.set(orb.rotation.x,orb.rotation.y,0);
+  if(orbStyle==="aurora_quantum") altAurora.rotation.set(orb.rotation.x,orb.rotation.y,0);
 }
 
 
@@ -501,6 +517,14 @@ function updateOrb(dt){
     altHolo.rotation.x += dt*.08;
     holoShell.rotation.y -= dt*.12;
     holoShell.scale.setScalar(1+audio.level*.07+(state==="listening"?.025:0));
+  } else if(orbStyle==="aurora_quantum") {
+    altAurora.rotation.y += dt*(.20+cur.speed*.30);
+    altAurora.rotation.x += dt*.045;
+    auroraShell.rotation.y -= dt*.16;
+    auroraShell.rotation.x += dt*.07;
+    auroraShell.scale.setScalar(1+audio.level*.09+(state==="listening"?.025:0));
+    const ringPulse=state==="speaking"?.10+audio.level*.15:state==="listening"?.035+audio.level*.10:state==="thinking"?.07:.018;
+    auroraRings.forEach((ring,i)=>ring.scale.setScalar(1+ringPulse+Math.sin(time*2.2+i*.8)*.012));
   } else if(orbStyle==="full_human") {
     // Idle breathing; speech uses subtle torso bounce and arm gestures, listening leans forward.
     humanRoot.position.y=Math.sin(time*2.2)*.018 + (state==="speaking" ? Math.abs(Math.sin(time*7.5))*.045 : 0);
