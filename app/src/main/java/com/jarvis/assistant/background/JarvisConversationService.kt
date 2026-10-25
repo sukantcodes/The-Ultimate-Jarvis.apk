@@ -623,7 +623,26 @@ class JarvisConversationService : Service() {
             return
         }
         try {
-            tts?.language = Locale.US
+            val selectedLanguage = preferences.language.lowercase(Locale.ROOT)
+            val requestedLocale = when {
+                selectedLanguage.contains("hindi") || selectedLanguage.contains("हिन्दी") -> Locale("hi", "IN")
+                selectedLanguage.contains("bengali") || selectedLanguage.contains("বাংলা") -> Locale("bn", "IN")
+                selectedLanguage.contains("english") -> Locale.US
+                selectedLanguage.contains("spanish") -> Locale("es", "ES")
+                selectedLanguage.contains("french") -> Locale.FRENCH
+                selectedLanguage.contains("german") -> Locale.GERMAN
+                selectedLanguage.contains("italian") -> Locale.ITALIAN
+                selectedLanguage.contains("portuguese") -> Locale("pt", "PT")
+                selectedLanguage.contains("dutch") -> Locale("nl", "NL")
+                else -> Locale.getDefault()
+            }
+            val languageResult = tts?.setLanguage(requestedLocale) ?: TextToSpeech.LANG_NOT_SUPPORTED
+            if (languageResult == TextToSpeech.LANG_MISSING_DATA ||
+                languageResult == TextToSpeech.LANG_NOT_SUPPORTED
+            ) {
+                Log.w("JarvisService", "$engineLabel does not support $requestedLocale; falling back to US English.")
+                tts?.setLanguage(Locale.US)
+            }
             tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {
                     Log.d("JarvisService", "$engineLabel onStart: $utteranceId")
