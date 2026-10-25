@@ -3829,7 +3829,7 @@ class JarvisConversationService : Service() {
             standbyActivatedTime = System.currentTimeMillis()
             // Jarvis-only grammar. Do not include [unk]: an unknown/noisy utterance must never
             // wake the assistant without an actual Jarvis phrase.
-            val grammar = "[\"jarvis\", \"hey jarvis\", \"hi jarvis\", \"hello jarvis\", \"ok jarvis\", \"okay jarvis\", \"wake up jarvis\", \"sun jarvis\", \"suno jarvis\", \"jarvis jarvis\"]"
+            val grammar = com.jarvis.assistant.audio.JarvisWakeWordGrammar.VOSK_JSON
             val rec = Recognizer(model, 16000.0f, grammar)
             rec.setWords(true)
             val spkModel = VoskModelManager.speakerModel
@@ -3884,18 +3884,7 @@ class JarvisConversationService : Service() {
         }
     }
 
-    private val VALID_WAKE_PHRASES = setOf(
-        "jarvis",
-        "hey jarvis",
-        "hi jarvis",
-        "hello jarvis",
-        "ok jarvis",
-        "okay jarvis",
-        "wake up jarvis",
-        "sun jarvis",
-        "suno jarvis",
-        "jarvis jarvis"
-    )
+    private val VALID_WAKE_PHRASES = com.jarvis.assistant.audio.JarvisWakeWordGrammar.phrases
 
     private fun checkVoskHypothesis(hypothesisJson: String?) {
         if (hypothesisJson.isNullOrBlank() || !_isStandby.value) return
@@ -3937,8 +3926,7 @@ class JarvisConversationService : Service() {
             if (wordList.isEmpty()) return
 
             val cleanPhrase = wordList.joinToString(" ")
-            val isMatch = cleanPhrase in VALID_WAKE_PHRASES ||
-                    VALID_WAKE_PHRASES.any { cleanPhrase.contains(it) }
+            val isMatch = com.jarvis.assistant.audio.JarvisWakeWordGrammar.isValidFinalPhrase(cleanPhrase)
 
             if (!isMatch) {
                 Log.d("JarvisService", "WAKE REJECTED: '$cleanPhrase' is not an exact valid wake phrase.")
