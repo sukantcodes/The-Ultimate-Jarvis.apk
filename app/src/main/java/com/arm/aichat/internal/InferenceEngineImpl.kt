@@ -40,7 +40,13 @@ internal class InferenceEngineImpl private constructor(context: Context) {
                 "Offline model missing or incomplete. Download it from Offline JARVIS."
             }
 
+            currentCoroutineContext().ensureActive()
+            // Report native model initialization separately; otherwise the UI looks frozen
+            // while llama.cpp maps the multi-gigabyte model into memory.
+            onProgress("", -1, MAX_GENERATION_TOKENS)
             ensureLoaded(model)
+            currentCoroutineContext().ensureActive()
+            onProgress("", 0, MAX_GENERATION_TOKENS)
             check(processUserPrompt(prompt, MAX_GENERATION_TOKENS) == 0) {
                 "Local model could not process the prompt."
             }
