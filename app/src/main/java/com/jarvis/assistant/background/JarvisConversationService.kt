@@ -2674,7 +2674,6 @@ class JarvisConversationService : Service() {
                                         "Tell the user it has started in one short sentence. Do NOT tap, type, scroll or call any other tool until a MACRO RESULT message arrives."
                                 )
                             }
-                            /*startMacro(macro, macroInput)*/
                         }
                     }
 
