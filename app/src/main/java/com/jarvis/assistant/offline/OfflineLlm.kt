@@ -2,6 +2,8 @@ package com.jarvis.assistant.offline
 
 import android.content.Context
 import com.arm.aichat.internal.InferenceEngineImpl
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 object OfflineLlm {
     suspend fun generate(
@@ -10,7 +12,11 @@ object OfflineLlm {
         onProgress: (partialResponse: String, generatedTokens: Int, totalTokens: Int) -> Unit = { _, _, _ -> }
     ): String {
         require(prompt.isNotBlank()) { "Enter a message first." }
-        return InferenceEngineImpl.getInstance(context.applicationContext)
-            .generate(context.applicationContext, prompt.trim(), onProgress)
+        // Native model initialization and token generation can take seconds and must never
+        // execute on the Android main thread. Keep UI responsive while the local engine works.
+        return withContext(Dispatchers.IO) {
+            InferenceEngineImpl.getInstance(context.applicationContext)
+                .generate(context.applicationContext, prompt.trim(), onProgress)
+        }
     }
 }
