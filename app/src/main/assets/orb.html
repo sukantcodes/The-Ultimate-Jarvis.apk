@@ -286,7 +286,7 @@ fullHuman.visible=false;
 
 helmet.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});
 function setOrbStyle(style) {
-  const aliases={holographic_plasma:"default",cosmic_pulsar:"plasma_core",quantum_core:"aurora_quantum",cyber_ring:"holographic_pulse",siri_glow:"default"};
+  const aliases={holographic_plasma:"plasma_core",cosmic_pulsar:"holographic_pulse",quantum_core:"aurora_quantum",cyber_ring:"holographic_pulse",siri_glow:"default"};
   const requested=aliases[style]||style;
   const allowed=["default","plasma_core","holographic_pulse","aurora_quantum","iron_man_head","full_human"];
   orbStyle=allowed.includes(requested)?requested:"default";
