@@ -76,6 +76,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
             ?.firstOrNull()
         homeFrag?.setOrbStyle(style)
         Toast.makeText(requireContext(), "$label selected", Toast.LENGTH_SHORT).show()
+        dismiss()
     }
 
     private fun applyCustomColor(hexInput: String) {
