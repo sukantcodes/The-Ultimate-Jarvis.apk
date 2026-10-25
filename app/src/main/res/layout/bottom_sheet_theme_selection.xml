@@ -61,7 +61,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Transparent animated visuals for the home screen"
+                android:text="Transparent animated visuals • microphone noise suppression supported"
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp"
                 android:layout_marginBottom="10dp" />
@@ -78,6 +78,14 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="🔵  Default Orb"
+                    android:textAllCaps="false" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOrbAurora"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🌌  Aurora Orb • Concentric Light Glow"
                     android:textAllCaps="false" />
 
                 <com.google.android.material.button.MaterialButton
