@@ -337,7 +337,7 @@ class SettingsFragment : Fragment() {
      */
     private fun openPocketTtsSettings() {
         val context = requireContext()
-        val intent = android.content.Intent(Settings.ACTION_TTS_SETTINGS)
+        val intent = android.content.Intent("com.android.settings.TTS_SETTINGS")
         try {
             startActivity(intent)
             Toast.makeText(context, "Choose Pocket TTS as the preferred engine after installing its app and importing a voice pack.", Toast.LENGTH_LONG).show()
