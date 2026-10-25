@@ -2640,24 +2640,41 @@ class JarvisConversationService : Service() {
                     "run_macro" -> {
                         val macroName = args.optString("name", "").trim()
                         val macroInput = args.optString("input", "").trim()
+                        val namedInputs = linkedMapOf<String, String>()
+                        args.optJSONObject("params")?.let { supplied ->
+                            val keys = supplied.keys()
+                            while (keys.hasNext()) {
+                                val key = keys.next()
+                                val value = supplied.optString(key, "").trim()
+                                if (value.isNotEmpty()) namedInputs[key] = value
+                            }
+                        }
                         val macro = com.jarvis.assistant.macro.MacroLibrary.find(macroName)
                         if (macro == null) {
                             result.put("success", false)
                             result.put("message", "There is no macro called '" + macroName + "'. Available macros: " + com.jarvis.assistant.macro.MacroLibrary.describe())
-                        } else if (macro.param.isNotEmpty() && macroInput.isBlank()) {
+                        } else if (macro.param.isNotEmpty() && macroInput.isBlank() && namedInputs[macro.param].isNullOrBlank()) {
                             result.put("success", false)
                             result.put("message", "The macro '" + macro.name + "' needs the text to use as input. Ask the user for it.")
                         } else if (macroJob?.isActive == true) {
                             result.put("success", false)
                             result.put("message", "Another macro is still running. Wait for its MACRO RESULT or use stop_macro.")
                         } else {
-                            startMacro(macro, macroInput)
-                            result.put("success", true)
-                            result.put(
-                                "message",
-                                "Started macro '" + macro.name + "'. It runs in the background and can take several minutes. " +
-                                    "Tell the user it has started in one short sentence. Do NOT tap, type, scroll or call any other tool until a MACRO RESULT message arrives."
-                            )
+                            if (macro.param.isNotEmpty() && namedInputs[macro.param].isNullOrBlank()) namedInputs[macro.param] = macroInput
+                            val missingParams = macro.params.filter { namedInputs[it].isNullOrBlank() }
+                            if (missingParams.isNotEmpty()) {
+                                result.put("success", false)
+                                result.put("message", "The macro '" + macro.name + "' needs these named inputs: " + missingParams.joinToString(", ") + ". Ask the user for each missing value, then call run_macro with a params object.")
+                            } else {
+                                startMacro(macro, macroInput, namedInputs)
+                                result.put("success", true)
+                                result.put(
+                                    "message",
+                                    "Started macro '" + macro.name + "'. It runs in the background and can take several minutes. " +
+                                        "Tell the user it has started in one short sentence. Do NOT tap, type, scroll or call any other tool until a MACRO RESULT message arrives."
+                                )
+                            }
+                            /*startMacro(macro, macroInput)*/
                         }
                     }
 
@@ -4363,11 +4380,11 @@ class JarvisConversationService : Service() {
 
     @Volatile private var macroJob: kotlinx.coroutines.Job? = null
 
-    private fun startMacro(macro: com.jarvis.assistant.macro.Macro, input: String) {
+    private fun startMacro(macro: com.jarvis.assistant.macro.Macro, input: String, namedInputs: Map<String, String> = emptyMap()) {
         macroJob = serviceScope.launch(Dispatchers.Default) {
             val engine = com.jarvis.assistant.macro.MacroEngine(ServiceMacroActions())
             try {
-                val outcome = engine.run(macro, input) { progress -> Log.i("JarvisMacro", macro.name + ": " + progress) }
+                val outcome = engine.run(macro, input, { progress -> Log.i("JarvisMacro", macro.name + ": " + progress) }, namedInputs)
                 reportMacroResult(macro, outcome.success, outcome.message, outcome.output)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 reportMacroResult(macro, false, "The macro was stopped.", "")
