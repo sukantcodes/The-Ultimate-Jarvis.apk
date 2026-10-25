@@ -332,17 +332,29 @@ class SettingsFragment : Fragment() {
     }
 
     /**
-     * Pocket TTS is installed as an Android system TTS engine with separately imported model packs.
-     * Opening the system panel lets the user choose it without bundling an unverified native runtime.
+     * Prefer opening Pocket TTS itself. JARVIS also selects this engine directly for synthesis
+     * when the engine package is installed; the Android panel is only the setup fallback.
      */
     private fun openPocketTtsSettings() {
         val context = requireContext()
-        val intent = android.content.Intent("com.android.settings.TTS_SETTINGS")
+        val enginePackage = "org.pockettts.android.engine"
+        val launchIntent = try {
+            context.packageManager.getLaunchIntentForPackage(enginePackage)
+        } catch (_: Exception) {
+            null
+        }
+        if (launchIntent != null) {
+            startActivity(launchIntent)
+            Toast.makeText(context, "Pocket TTS opened. Import a supported voice pack there; JARVIS will request this engine directly when speaking offline.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val settingsIntent = android.content.Intent("com.android.settings.TTS_SETTINGS")
         try {
-            startActivity(intent)
-            Toast.makeText(context, "Choose Pocket TTS as the preferred engine after installing its app and importing a voice pack.", Toast.LENGTH_LONG).show()
+            startActivity(settingsIntent)
+            Toast.makeText(context, "Pocket TTS engine is not installed yet. Android settings alone do not install it; JARVIS will use the available system voice until the engine and a voice pack are installed.", Toast.LENGTH_LONG).show()
         } catch (error: android.content.ActivityNotFoundException) {
-            Toast.makeText(context, "Text-to-speech settings are unavailable on this device.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Pocket TTS engine is not installed and text-to-speech settings are unavailable on this device.", Toast.LENGTH_LONG).show()
         }
     }
 
