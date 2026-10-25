@@ -33,7 +33,7 @@ jobs:
     - name: Install native build tools
       run: sdkmanager "ndk;27.2.12479018" "cmake;3.31.6"
     - name: Run unit tests
-      run: ./gradlew testDebugUnitTest
+      run: ./gradlew testDebugUnitTest --stacktrace --info
     - name: Build debug APK
       run: ./gradlew assembleDebug
     - name: Upload Debug APK
