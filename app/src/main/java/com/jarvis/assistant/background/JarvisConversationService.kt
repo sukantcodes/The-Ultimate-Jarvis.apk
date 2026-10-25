@@ -3700,7 +3700,12 @@ class JarvisConversationService : Service() {
         "wake up jarvis",
         "sun jarvis",
         "suno jarvis",
-        "jarvis jarvis"
+        "jarvis jarvis",
+        "maya",
+        "hey maya",
+        "hi maya",
+        "hello maya",
+        "wake up maya"
     )
 
     private fun checkVoskHypothesis(hypothesisJson: String?) {
@@ -3744,8 +3749,7 @@ class JarvisConversationService : Service() {
 
             val cleanPhrase = wordList.joinToString(" ")
             val isMatch = cleanPhrase in VALID_WAKE_PHRASES ||
-                    VALID_WAKE_PHRASES.any { cleanPhrase.contains(it) } ||
-                    wordList.contains("jarvis")
+                    VALID_WAKE_PHRASES.any { cleanPhrase.contains(it) }
 
             if (!isMatch) {
                 Log.d("JarvisService", "WAKE REJECTED: '$cleanPhrase' is not an exact valid wake phrase.")
@@ -3759,27 +3763,22 @@ class JarvisConversationService : Service() {
 
             Log.i("JarvisService", "Vosk candidate hypothesis: '$cleanPhrase' (words=$wordList, avgConf=$avgConf, duration=${duration}s)")
 
-            // 4. Acoustic Verification:
-            // 4. Acoustic Verification:
-            // "jarvis" must be specifically recognized with confidence
-            val jarvisConf = wordConfMap["jarvis"] ?: 0.0
-            if (jarvisConf < 0.70) {
-                Log.w("JarvisService", "WAKE REJECTED: 'jarvis' word confidence too low ($jarvisConf < 0.70). Ignored.")
+            // 4. Acoustic verification: check confidence for the wake name actually spoken.
+            val wakeName = if (wordList.contains("jarvis")) "jarvis" else "maya"
+            val wakeNameConf = wordConfMap[wakeName] ?: 0.0
+            if (wakeNameConf < 0.70) {
+                Log.w("JarvisService", "WAKE REJECTED: '$wakeName' word confidence too low ($wakeNameConf < 0.70). Ignored.")
                 return
             }
 
-            if (wordList.size == 1 && wordList[0] == "jarvis") {
-                // Standalone single-word "jarvis"
+            if (wordList.size == 1 && wordList[0] == wakeName) {
                 if (avgConf < 0.75) {
-                    Log.w("JarvisService", "WAKE REJECTED: Standalone 'jarvis' failed checks (conf=$avgConf). Ignored.")
+                    Log.w("JarvisService", "WAKE REJECTED: Standalone '$wakeName' failed checks (conf=$avgConf). Ignored.")
                     return
                 }
-            } else {
-                // Multi-word phrases like "hey jarvis", "hello jarvis", "ok jarvis"
-                if (avgConf < 0.65) {
-                    Log.w("JarvisService", "WAKE REJECTED: Wake phrase failed checks (conf=$avgConf). Ignored.")
-                    return
-                }
+            } else if (avgConf < 0.65) {
+                Log.w("JarvisService", "WAKE REJECTED: Wake phrase failed checks (conf=$avgConf). Ignored.")
+                return
             }
 
             // 5. Owner Voice Verification (if enabled)
