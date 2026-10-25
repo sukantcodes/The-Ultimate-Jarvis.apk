@@ -39,6 +39,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         } catch (_: Exception) {}
 
         binding.btnOrbDefault.setOnClickListener { selectOrb("default", "Default Orb") }
+        binding.btnOrbAurora.setOnClickListener { selectOrb("aurora_orb", "Aurora Orb") }
         binding.btnOrbPlasma.setOnClickListener { selectOrb("plasma_core", "Plasma Core") }
         binding.btnOrbHolographic.setOnClickListener { selectOrb("holographic_pulse", "Holographic Pulse") }
         binding.btnOrbIronMan.setOnClickListener { selectOrb("iron_man_head", "Iron Man 3D Helmet") }
