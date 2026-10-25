@@ -18,7 +18,7 @@ object MacroLibrary {
             normalize(macro.name) == q || macro.aliases.any { normalize(it) == q }
         }?.let { return it }
         return macros.firstOrNull { macro ->
-            val names = listOf(macro.name) + macro.aliases
+            val names = listOf(macro.name, macro.intent) + macro.aliases
             names.any { raw ->
                 val n = normalize(raw)
                 n.isNotEmpty() && (q.contains(n) || n.contains(q))
@@ -27,7 +27,10 @@ object MacroLibrary {
     }
 
     /** One line per macro, used in the tool description so the assistant knows what is available. */
-    fun describe(): String = macros.joinToString("; ") { it.name + " (" + it.description + ")" }
+    fun describe(): String = macros.joinToString("; ") {
+        val detail = it.description.ifBlank { it.intent }
+        it.name + if (detail.isBlank()) "" else " (" + detail + ")"
+    }
 
     private fun parse(json: String): List<Macro> {
         val out = ArrayList<Macro>()
@@ -39,19 +42,40 @@ object MacroLibrary {
                 obj.optJSONArray("aliases")?.let { list ->
                     for (j in 0 until list.length()) aliases.add(list.optString(j, ""))
                 }
+                val params = ArrayList<String>()
+                obj.optJSONArray("params")?.let { list ->
+                    for (j in 0 until list.length()) {
+                        val value = list.optString(j, "").trim()
+                        if (value.isNotEmpty()) params.add(value)
+                    }
+                }
+
                 val steps = ArrayList<MacroStep>()
                 val stepArray = obj.getJSONArray("steps")
                 for (j in 0 until stepArray.length()) {
                     val stepObj = stepArray.getJSONObject(j)
-                    steps.add(MacroStep(stepObj.getString("tool"), stepObj.optJSONObject("args") ?: JSONObject()))
+                    val args = stepObj.optJSONObject("args") ?: JSONObject()
+                    // MAYA v3 stores _optional and _why beside "tool"; older JARVIS macros
+                    // stored _optional inside "args". Accept both without breaking old macros.
+                    steps.add(
+                        MacroStep(
+                            tool = stepObj.getString("tool"),
+                            args = args,
+                            optional = stepObj.optBoolean("_optional", args.optBoolean("_optional", false)),
+                            why = stepObj.optString("_why", "")
+                        )
+                    )
                 }
+                val paramFromMaya = params.firstOrNull()?.replace(Regex("\\s+"), "_").orEmpty()
                 out.add(
                     Macro(
                         name = obj.getString("name"),
                         aliases = aliases,
                         description = obj.optString("description", ""),
-                        param = obj.optString("param", ""),
-                        steps = steps
+                        param = obj.optString("param", paramFromMaya),
+                        steps = steps,
+                        intent = obj.optString("intent", ""),
+                        params = params
                     )
                 )
             }
