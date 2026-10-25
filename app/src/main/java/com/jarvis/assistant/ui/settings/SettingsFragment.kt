@@ -447,6 +447,7 @@ class SettingsFragment : Fragment() {
         binding.rowOverlayAvatars.setOnClickListener { open(OverlayAvatarActivity::class.java) }
 
         val orbStyles = listOf(
+            "default" to "Particle Orb",
             "quantum_core" to "Quantum Aurora",
             "holographic_plasma" to "Holographic Plasma",
             "cosmic_pulsar" to "Cosmic Pulsar",
@@ -457,7 +458,7 @@ class SettingsFragment : Fragment() {
         )
         fun refreshOrbStyleLabel() {
             binding.tvCurrentOrbStyle.text = orbStyles.firstOrNull { it.first == preferences.orbAnimation }?.second
-                ?: "Quantum Aurora"
+                ?: "Particle Orb"
         }
         refreshOrbStyleLabel()
         binding.rowOrbStyle.setOnClickListener {
