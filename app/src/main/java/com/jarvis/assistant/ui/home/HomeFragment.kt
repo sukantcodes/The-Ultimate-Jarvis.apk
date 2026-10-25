@@ -198,7 +198,7 @@ class HomeFragment : Fragment() {
         if (wantsAurora != loadedAuroraOrb) {
             loadedAuroraOrb = wantsAurora
             isPageLoaded = false
-            binding.orbWebView.loadUrl(if (wantsAurora) "file:///android_asset/aurora_orb.html?embedded=1" else "file:///android_asset/orb.html?embedded=1")
+            binding.orbWebView.loadUrl(if (wantsAurora) "file:///android_asset/aurora_orb.html?hud=0&state=idle" else "file:///android_asset/orb.html?embedded=1")
             return
         }
         if (!isPageLoaded || wantsAurora) return
@@ -233,7 +233,7 @@ class HomeFragment : Fragment() {
         if (now - lastAudioPushTime < 33L) return // ~30 calls per second throttle
         lastAudioPushTime = now
         activity?.runOnUiThread {
-            binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setExternalAudio($amp, $bass, $high);", null)
+            if (loadedAuroraOrb) binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setAudioLevel(${amp.coerceIn(0f, 2f)});", null) else binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setExternalAudio($amp, $bass, $high);", null)
         }
     }
 
