@@ -134,16 +134,16 @@
             android:textSize="11sp" />
 
         <TextView
-            android:id="@+id/btnScanCapture"
-            android:layout_width="74dp"
-            android:layout_height="74dp"
-            android:layout_marginStart="28dp"
+            android:id="@+id/btnScanSwitch"
+            android:layout_width="132dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="16dp"
             android:gravity="center"
-            android:background="@drawable/bg_scan_shutter"
-            android:text="PHOTO"
-            android:textColor="#FFFFFF"
+            android:background="@drawable/bg_scan_control"
+            android:text="REAR CAMERA"
+            android:textColor="#D9F8FF"
             android:textStyle="bold"
-            android:textSize="12sp"
-            android:contentDescription="Save a photo from the live camera" />
+            android:textSize="11sp"
+            android:contentDescription="Switch between the rear and front camera" />
     </LinearLayout>
 </FrameLayout>

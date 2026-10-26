@@ -8,7 +8,6 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
-import android.media.ImageReader
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
@@ -33,18 +32,15 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import com.jarvis.assistant.offline.NetworkStateMonitor
-import java.io.File
-import java.io.FileOutputStream
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Live visual assistant. The camera is active only while this foreground screen is visible.
- * It samples one frame at a time and sends it to Gemini for scene understanding; it does not
- * continuously upload a full-rate camera stream or save every frame to storage.
+ * It never takes photos and never saves anything: every few seconds it reads a small snapshot of
+ * the live preview, sends it to Gemini for scene understanding and discards it. The rear or front
+ * camera can be chosen with the flip button.
  */
 class CameraScanActivity : AppCompatActivity() {
     private lateinit var binding: ActivityCameraScanBinding
@@ -52,7 +48,6 @@ class CameraScanActivity : AppCompatActivity() {
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
     private var previewRequestBuilder: CaptureRequest.Builder? = null
-    private var imageReader: ImageReader? = null
     private var cameraId: String? = null
     private var torchEnabled = false
     private var scanAnimator: ValueAnimator? = null
@@ -65,9 +60,8 @@ class CameraScanActivity : AppCompatActivity() {
         .readTimeout(20, TimeUnit.SECONDS)
         .callTimeout(25, TimeUnit.SECONDS)
         .build()
-    @Volatile private var manualSaveRequested = false
-    @Volatile private var capturePending = false
-    @Volatile private var captureStartedAt = 0L
+    private var useFrontCamera = false
+    private val mainHandler = Handler(android.os.Looper.getMainLooper())
     @Volatile private var lastSpokenInsight = ""
     @Volatile private var lastSpokenAt = 0L
     @Volatile private var activityVisible = false
@@ -92,15 +86,7 @@ class CameraScanActivity : AppCompatActivity() {
             updateTorch()
             binding.btnScanTorch.text = if (torchEnabled) "FLASH ON" else "FLASH OFF"
         }
-        // This button remains an optional save-a-photo action. Live understanding starts by itself.
-        binding.btnScanCapture.setOnClickListener {
-            manualSaveRequested = true
-            if (capturePending) {
-                binding.tvScanStatus.text = "CAPTURE QUEUED"
-            } else {
-                captureStillFrame()
-            }
-        }
+        binding.btnScanSwitch.setOnClickListener { switchCamera() }
         binding.cameraPreview.surfaceTextureListener = surfaceListener
         scanAnimator = ValueAnimator.ofFloat(-220f, 220f).apply {
             duration = 1800L
@@ -131,9 +117,17 @@ class CameraScanActivity : AppCompatActivity() {
         if (!binding.cameraPreview.isAvailable || !PermissionHelper.hasCameraPermission(this)) return
         try {
             val manager = getSystemService(CAMERA_SERVICE) as CameraManager
+            val wanted = if (useFrontCamera) CameraCharacteristics.LENS_FACING_FRONT else CameraCharacteristics.LENS_FACING_BACK
             cameraId = manager.cameraIdList.firstOrNull { id ->
-                manager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_BACK
+                manager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING) == wanted
             } ?: manager.cameraIdList.firstOrNull()
+            if (cameraId == null) {
+                binding.tvScanStatus.text = "NO CAMERA AVAILABLE"
+                return
+            }
+            useFrontCamera = manager.getCameraCharacteristics(cameraId!!).get(CameraCharacteristics.LENS_FACING) ==
+                CameraCharacteristics.LENS_FACING_FRONT
+            updateCameraButtons()
             val id = cameraId ?: run {
                 binding.tvScanStatus.text = "NO CAMERA AVAILABLE"
                 return
@@ -168,7 +162,7 @@ class CameraScanActivity : AppCompatActivity() {
         val camera = cameraDevice ?: return
         val texture = binding.cameraPreview.surfaceTexture ?: return
         try {
-            // Use sizes the camera really supports. An arbitrary view-sized buffer can make the
+            // Use a size the camera really supports; an arbitrary view-sized buffer can make the
             // session fail to configure or stretch the picture on many phones.
             val map = cameraId?.let {
                 (getSystemService(CAMERA_SERVICE) as CameraManager).getCameraCharacteristics(it)
@@ -178,38 +172,16 @@ class CameraScanActivity : AppCompatActivity() {
             val viewShort = minOf(binding.cameraPreview.width, binding.cameraPreview.height).coerceAtLeast(9)
             val previewSize = chooseSize(map?.getOutputSizes(SurfaceTexture::class.java), viewLong.toFloat() / viewShort, 1920)
                 ?: Size(1280, 720)
-            val jpegSize = chooseSize(map?.getOutputSizes(android.graphics.ImageFormat.JPEG), viewLong.toFloat() / viewShort, 1280)
-                ?: Size(1280, 720)
             texture.setDefaultBufferSize(previewSize.width, previewSize.height)
             val previewSurface = Surface(texture)
-            val reader = ImageReader.newInstance(jpegSize.width, jpegSize.height, android.graphics.ImageFormat.JPEG, 2)
-            imageReader?.close()
-            imageReader = reader
-            reader.setOnImageAvailableListener({ source ->
-                val image = source.acquireLatestImage() ?: run {
-                    capturePending = false // never leave the loop waiting for a frame that is gone
-                    return@setOnImageAvailableListener
-                }
-                val bytes = try {
-                    val buffer = image.planes[0].buffer
-                    ByteArray(buffer.remaining()).also { buffer.get(it) }
-                } finally {
-                    image.close()
-                    capturePending = false
-                }
-                if (manualSaveRequested) {
-                    manualSaveRequested = false
-                    saveCapturedImage(bytes)
-                }
-                if (activityVisible) analyzeFrame(bytes)
-            }, cameraHandler)
             val builder = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
                 addTarget(previewSurface)
                 set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
                 set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                if (torchEnabled) set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH)
             }
             previewRequestBuilder = builder
-            camera.createCaptureSession(listOf(previewSurface, reader.surface), object : CameraCaptureSession.StateCallback() {
+            camera.createCaptureSession(listOf(previewSurface), object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
                     if (!activityVisible) {
                         session.close()
@@ -237,6 +209,26 @@ class CameraScanActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateCameraButtons() {
+        binding.btnScanSwitch.text = if (useFrontCamera) "FRONT CAMERA" else "REAR CAMERA"
+        // Front cameras have no flash.
+        binding.btnScanTorch.visibility = if (useFrontCamera) android.view.View.GONE else android.view.View.VISIBLE
+        if (useFrontCamera) {
+            torchEnabled = false
+            binding.btnScanTorch.text = "FLASH OFF"
+        }
+    }
+
+    /** Switches between the rear and front camera without leaving the screen. */
+    private fun switchCamera() {
+        useFrontCamera = !useFrontCamera
+        mainHandler.removeCallbacksAndMessages(null)
+        binding.tvScanStatus.text = "SWITCHING CAMERA…"
+        updateCameraButtons()
+        closeCamera()
+        mainHandler.postDelayed({ openCameraIfReady() }, 350L)
+    }
+
     /** Largest supported size no wider than [maxWidth] whose shape is closest to [targetRatio] (long side / short side). */
     private fun chooseSize(options: Array<Size>?, targetRatio: Float, maxWidth: Int): Size? {
         val usable = options?.filter { maxOf(it.width, it.height) <= maxWidth && minOf(it.width, it.height) >= 240 } ?: return null
@@ -248,76 +240,69 @@ class CameraScanActivity : AppCompatActivity() {
     }
 
     private fun scheduleNextAnalysis(delayMs: Long = ANALYSIS_INTERVAL_MS) {
-        cameraHandler?.postDelayed({
+        mainHandler.postDelayed({
             if (!activityVisible || cameraDevice == null || captureSession == null) return@postDelayed
-            if (capturePending) {
-                if (System.currentTimeMillis() - captureStartedAt > 6_000L) capturePending = false
-                scheduleNextAnalysis()
+            if (analysisInProgress.get()) {
+                scheduleNextAnalysis(1000L)
                 return@postDelayed
             }
             if (!NetworkStateMonitor.isOnline.value) {
-                runOnUiThread {
-                    binding.tvScanStatus.text = "OFFLINE • CAMERA ONLY"
-                    binding.tvScanInsight.text = "Live object recognition needs an internet connection. The camera will start describing things again as soon as you are back online."
-                }
+                binding.tvScanStatus.text = "OFFLINE • CAMERA ONLY"
+                binding.tvScanInsight.text = "Live object recognition needs an internet connection. The camera will start describing things again as soon as you are back online."
                 scheduleNextAnalysis()
                 return@postDelayed
             }
             val key = appPreferences.apiKey
             if (key.isBlank()) {
-                runOnUiThread {
-                    binding.tvScanStatus.text = "API KEY REQUIRED FOR LIVE AI"
-                    binding.tvScanInsight.text = "Add your Gemini API key in JARVIS Settings → API Connection. The camera preview works, but visual understanding needs an AI key."
-                }
+                binding.tvScanStatus.text = "API KEY REQUIRED FOR LIVE AI"
+                binding.tvScanInsight.text = "Add your Gemini API key in JARVIS Settings → API Connection. The camera preview works, but visual understanding needs an AI key."
                 if (!apiKeyMissingReported) {
                     apiKeyMissingReported = true
                     speechAnnouncer?.say("Please add your Gemini API key in settings to enable live visual understanding.")
                 }
+                scheduleNextAnalysis()
                 return@postDelayed
             }
-            captureStillFrame()
+            val jpeg = snapshotOfPreview()
+            if (jpeg != null) analyzeFrame(jpeg)
             scheduleNextAnalysis()
         }, delayMs)
     }
 
-    private fun captureStillFrame() {
-        val camera = cameraDevice ?: return
-        val session = captureSession ?: return
-        val reader = imageReader ?: return
-        if (capturePending) return
-        capturePending = true
-        captureStartedAt = System.currentTimeMillis()
-        try {
-            val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
-                addTarget(reader.surface)
-                set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
-                set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
-                set(CaptureRequest.JPEG_ORIENTATION, 90)
-                set(CaptureRequest.FLASH_MODE, if (torchEnabled) CaptureRequest.FLASH_MODE_TORCH else CaptureRequest.FLASH_MODE_OFF)
-            }
-            session.capture(request.build(), object : CameraCaptureSession.CaptureCallback() {
-                override fun onCaptureFailed(session: CameraCaptureSession, request: CaptureRequest, failure: android.hardware.camera2.CaptureFailure) {
-                    capturePending = false
-                    Log.w(TAG, "Live scan frame capture failed: ${failure.reason}")
-                }
-            }, cameraHandler)
+    /**
+     * Reads a small copy of what the live preview is showing right now. Nothing is photographed
+     * and nothing is written to storage; the bytes only exist in memory until they are sent.
+     */
+    private fun snapshotOfPreview(): ByteArray? {
+        val view = binding.cameraPreview
+        if (!view.isAvailable || view.width <= 0 || view.height <= 0) return null
+        val scale = 960f / maxOf(view.width, view.height)
+        val bitmap = try {
+            view.getBitmap((view.width * scale).toInt().coerceAtLeast(2), (view.height * scale).toInt().coerceAtLeast(2))
         } catch (e: Exception) {
-            capturePending = false
-            Log.w(TAG, "Could not capture live analysis frame", e)
-            runOnUiThread { binding.tvScanStatus.text = "FRAME CAPTURE FAILED • RETRYING" }
+            Log.w(TAG, "Could not read the live preview", e)
+            null
+        } ?: return null
+        return try {
+            java.io.ByteArrayOutputStream().use { out ->
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 72, out)
+                out.toByteArray()
+            }
+        } finally {
+            bitmap.recycle()
         }
     }
 
     private fun analyzeFrame(jpegBytes: ByteArray) {
         val key = AppPreferences(this).apiKey
         if (key.isBlank() || !analysisInProgress.compareAndSet(false, true)) return
-        runOnUiThread { binding.tvScanStatus.text = "LIVE VISUAL ANALYSIS • THINKING" }
+        binding.tvScanStatus.text = "LIVE VISUAL ANALYSIS • THINKING"
         Thread({
             try {
                 val imageData = Base64.encodeToString(jpegBytes, Base64.NO_WRAP)
                 val parts = JSONArray()
                     .put(JSONObject().put("text",
-                        "You are JARVIS, a real-time visual assistant looking at a phone camera frame. " +
+                        "You are JARVIS, a real-time visual assistant looking at a live phone camera view. " +
                         "Describe only what is visibly supported by this image. Identify the main objects, text, " +
                         "actions, hazards or useful details. Be concise, natural and practical, in 1-3 sentences. " +
                         "If the image is unclear, say so. Do not claim to see anything outside this frame. " +
@@ -446,21 +431,6 @@ class CameraScanActivity : AppCompatActivity() {
         }
     }
 
-    private fun saveCapturedImage(bytes: ByteArray) {
-        try {
-            val dir = File(getExternalFilesDir(null), "Scans").apply { mkdirs() }
-            val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            val file = File(dir, "JARVIS_SCAN_$stamp.jpg")
-            FileOutputStream(file).use { it.write(bytes) }
-            runOnUiThread {
-                if (activityVisible) binding.tvScanStatus.text = "PHOTO SAVED • LIVE SCAN CONTINUES"
-                Toast.makeText(this, "Photo saved in JARVIS/Scans.", Toast.LENGTH_LONG).show()
-            }
-        } catch (e: Exception) {
-            runOnUiThread { binding.tvScanStatus.text = "PHOTO SAVE FAILED" }
-        }
-    }
-
     override fun onResume() {
         super.onResume()
         activityVisible = true
@@ -474,6 +444,7 @@ class CameraScanActivity : AppCompatActivity() {
         activityVisible = false
         scanAnimator?.cancel()
         cameraHandler?.removeCallbacksAndMessages(null)
+        mainHandler.removeCallbacksAndMessages(null)
         closeCamera()
         super.onPause()
     }
@@ -483,15 +454,13 @@ class CameraScanActivity : AppCompatActivity() {
         captureSession = null
         try { cameraDevice?.close() } catch (_: Exception) {}
         cameraDevice = null
-        try { imageReader?.close() } catch (_: Exception) {}
-        imageReader = null
-        capturePending = false
     }
 
     override fun onDestroy() {
         activityVisible = false
         scanAnimator?.cancel()
         scanAnimator = null
+        mainHandler.removeCallbacksAndMessages(null)
         closeCamera()
         speechAnnouncer?.shutdown()
         speechAnnouncer = null
