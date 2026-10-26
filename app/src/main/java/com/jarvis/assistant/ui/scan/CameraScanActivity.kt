@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Base64
+import android.util.Size
 import android.util.Log
 import android.view.Surface
 import android.view.TextureView
@@ -31,6 +32,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import com.jarvis.assistant.offline.NetworkStateMonitor
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -65,6 +67,7 @@ class CameraScanActivity : AppCompatActivity() {
         .build()
     @Volatile private var manualSaveRequested = false
     @Volatile private var capturePending = false
+    @Volatile private var captureStartedAt = 0L
     @Volatile private var lastSpokenInsight = ""
     @Volatile private var lastSpokenAt = 0L
     @Volatile private var activityVisible = false
@@ -165,13 +168,28 @@ class CameraScanActivity : AppCompatActivity() {
         val camera = cameraDevice ?: return
         val texture = binding.cameraPreview.surfaceTexture ?: return
         try {
-            texture.setDefaultBufferSize(binding.cameraPreview.width.coerceAtLeast(640), binding.cameraPreview.height.coerceAtLeast(480))
+            // Use sizes the camera really supports. An arbitrary view-sized buffer can make the
+            // session fail to configure or stretch the picture on many phones.
+            val map = cameraId?.let {
+                (getSystemService(CAMERA_SERVICE) as CameraManager).getCameraCharacteristics(it)
+                    .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            }
+            val viewLong = maxOf(binding.cameraPreview.width, binding.cameraPreview.height).coerceAtLeast(16)
+            val viewShort = minOf(binding.cameraPreview.width, binding.cameraPreview.height).coerceAtLeast(9)
+            val previewSize = chooseSize(map?.getOutputSizes(SurfaceTexture::class.java), viewLong.toFloat() / viewShort, 1920)
+                ?: Size(1280, 720)
+            val jpegSize = chooseSize(map?.getOutputSizes(android.graphics.ImageFormat.JPEG), viewLong.toFloat() / viewShort, 1280)
+                ?: Size(1280, 720)
+            texture.setDefaultBufferSize(previewSize.width, previewSize.height)
             val previewSurface = Surface(texture)
-            val reader = ImageReader.newInstance(1280, 720, android.graphics.ImageFormat.JPEG, 2)
+            val reader = ImageReader.newInstance(jpegSize.width, jpegSize.height, android.graphics.ImageFormat.JPEG, 2)
             imageReader?.close()
             imageReader = reader
             reader.setOnImageAvailableListener({ source ->
-                val image = source.acquireLatestImage() ?: return@setOnImageAvailableListener
+                val image = source.acquireLatestImage() ?: run {
+                    capturePending = false // never leave the loop waiting for a frame that is gone
+                    return@setOnImageAvailableListener
+                }
                 val bytes = try {
                     val buffer = image.planes[0].buffer
                     ByteArray(buffer.remaining()).also { buffer.get(it) }
@@ -219,10 +237,29 @@ class CameraScanActivity : AppCompatActivity() {
         }
     }
 
+    /** Largest supported size no wider than [maxWidth] whose shape is closest to [targetRatio] (long side / short side). */
+    private fun chooseSize(options: Array<Size>?, targetRatio: Float, maxWidth: Int): Size? {
+        val usable = options?.filter { maxOf(it.width, it.height) <= maxWidth && minOf(it.width, it.height) >= 240 } ?: return null
+        if (usable.isEmpty()) return options.minByOrNull { it.width * it.height }
+        return usable.minWithOrNull(
+            compareBy<Size> { kotlin.math.abs(maxOf(it.width, it.height).toFloat() / minOf(it.width, it.height) - targetRatio) }
+                .thenByDescending { it.width * it.height }
+        )
+    }
+
     private fun scheduleNextAnalysis(delayMs: Long = ANALYSIS_INTERVAL_MS) {
         cameraHandler?.postDelayed({
             if (!activityVisible || cameraDevice == null || captureSession == null) return@postDelayed
             if (capturePending) {
+                if (System.currentTimeMillis() - captureStartedAt > 6_000L) capturePending = false
+                scheduleNextAnalysis()
+                return@postDelayed
+            }
+            if (!NetworkStateMonitor.isOnline.value) {
+                runOnUiThread {
+                    binding.tvScanStatus.text = "OFFLINE • CAMERA ONLY"
+                    binding.tvScanInsight.text = "Live object recognition needs an internet connection. The camera will start describing things again as soon as you are back online."
+                }
                 scheduleNextAnalysis()
                 return@postDelayed
             }
@@ -249,6 +286,7 @@ class CameraScanActivity : AppCompatActivity() {
         val reader = imageReader ?: return
         if (capturePending) return
         capturePending = true
+        captureStartedAt = System.currentTimeMillis()
         try {
             val request = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
                 addTarget(reader.surface)
@@ -288,34 +326,36 @@ class CameraScanActivity : AppCompatActivity() {
                     .put(JSONObject().put("inline_data", JSONObject()
                         .put("mime_type", "image/jpeg")
                         .put("data", imageData)))
-                val body = JSONObject().put("contents", JSONArray().put(JSONObject().put("parts", parts)))
-                    .put("generationConfig", JSONObject().put("temperature", 0.25).put("maxOutputTokens", 160))
-                    .toString().toRequestBody("application/json; charset=utf-8".toMediaType())
-                val request = Request.Builder()
-                    .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$key")
-                    .post(body)
-                    .build()
-                analysisClient.newCall(request).execute().use { response ->
-                    val responseText = response.body?.string().orEmpty()
-                    if (!response.isSuccessful) {
+                var response = callGemini(parts, key, "gemini-2.5-flash")
+                var responseText = response.second
+                if (response.first == 404) {
+                    // The model name was retired for this key: try the rolling alias instead.
+                    response = callGemini(parts, key, "gemini-flash-latest")
+                    responseText = response.second
+                }
+                run {
+                    val code = response.first
+                    if (code !in 200..299) {
                         val apiMessage = try {
                             JSONObject(responseText).optJSONObject("error")?.optString("message")
                         } catch (_: Exception) { null }
-                        val message = when (response.code) {
+                        val message = when (code) {
                             400, 401, 403 -> "Gemini API key/model access error"
                             429 -> "AI rate limit reached • waiting to retry"
-                            else -> "Visual AI unavailable (HTTP ${response.code})"
+                            else -> "Visual AI unavailable (HTTP $code)"
                         }
-                        Log.w(TAG, "Visual analysis failed: HTTP ${response.code}; ${apiMessage ?: "no details"}")
+                        Log.w(TAG, "Visual analysis failed: HTTP $code; ${apiMessage ?: "no details"}")
                         runOnUiThread {
                             if (activityVisible) {
                                 binding.tvScanStatus.text = message.uppercase(Locale.US)
-                                if (response.code == 400 || response.code == 401 || response.code == 403) {
-                                    binding.tvScanInsight.text = "Live camera is running, but Gemini rejected the request. Check your API key and model access in Settings."
+                                if (code == 400 || code == 401 || code == 403) {
+                                    binding.tvScanInsight.text = "Live camera is running, but Gemini rejected the request" +
+                                        (apiMessage?.let { ": ${it.take(160)}" } ?: ".") +
+                                        " Check your Gemini API key in Settings."
                                 }
                             }
                         }
-                        return@use
+                        return@run
                     }
                     val root = JSONObject(responseText)
                     val candidates = root.optJSONArray("candidates")
@@ -342,6 +382,12 @@ class CameraScanActivity : AppCompatActivity() {
                                 speechAnnouncer?.say(insight)
                             }
                         }
+                    } else {
+                        val reason = candidates?.optJSONObject(0)?.optString("finishReason").orEmpty()
+                        Log.w(TAG, "Gemini returned no text (finishReason=$reason)")
+                        runOnUiThread {
+                            if (activityVisible) binding.tvScanStatus.text = "NOTHING CLEAR TO DESCRIBE • RETRYING"
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -353,6 +399,30 @@ class CameraScanActivity : AppCompatActivity() {
                 analysisInProgress.set(false)
             }
         }, "JarvisVisualAnalysis").start()
+    }
+
+    /** Sends one frame to Gemini. Returns the HTTP status and the raw body. */
+    private fun callGemini(parts: JSONArray, key: String, model: String): Pair<Int, String> {
+        val config = JSONObject().put("temperature", 0.25)
+        if (model == "gemini-2.5-flash") {
+            // 2.5 "thinks" by default and the thinking tokens count against the output limit, which
+            // used to leave no room for the answer (an empty reply, so the screen never updated).
+            config.put("maxOutputTokens", 400)
+                .put("thinkingConfig", JSONObject().put("thinkingBudget", 0))
+        } else {
+            config.put("maxOutputTokens", 1024)
+        }
+        val body = JSONObject().put("contents", JSONArray().put(JSONObject().put("parts", parts)))
+            .put("generationConfig", config)
+            .toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+        val request = Request.Builder()
+            .url("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent")
+            .header("x-goog-api-key", key)
+            .post(body)
+            .build()
+        analysisClient.newCall(request).execute().use { response ->
+            return Pair(response.code, response.body?.string().orEmpty())
+        }
     }
 
     private fun updateTorch() {
