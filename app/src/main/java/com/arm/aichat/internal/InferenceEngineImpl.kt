@@ -47,7 +47,8 @@ internal class InferenceEngineImpl private constructor(context: Context) {
             ensureLoaded(model)
             currentCoroutineContext().ensureActive()
             onProgress("", 0, MAX_GENERATION_TOKENS)
-            check(processUserPrompt(prompt, MAX_GENERATION_TOKENS) == 0) {
+            // Qwen3 "thinks" first by default, which would use the whole short token budget. "/no_think" skips that.
+            check(processUserPrompt("$prompt /no_think", MAX_GENERATION_TOKENS) == 0) {
                 "Local model could not process the prompt."
             }
             onProgress("", 0, MAX_GENERATION_TOKENS)
@@ -64,6 +65,24 @@ internal class InferenceEngineImpl private constructor(context: Context) {
 
             cleanOutput(output.toString()).ifBlank {
                 "I couldn't generate a response. Please try a shorter message."
+            }
+        }
+    }
+
+    /**
+     * Loads the model into memory ahead of time so the first offline answer does not wait for it.
+     * Returns false when the model is not installed or could not be loaded.
+     */
+    suspend fun warmUp(context: Context): Boolean = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val model = OfflineModelDownloader.modelFile(context)
+            if (!OfflineModelDownloader.isModelValid(model)) return@withLock false
+            try {
+                ensureLoaded(model)
+                true
+            } catch (error: Exception) {
+                android.util.Log.w("InferenceEngine", "Model warm-up failed: ${error.message}")
+                false
             }
         }
     }

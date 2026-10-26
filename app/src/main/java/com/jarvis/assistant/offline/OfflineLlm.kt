@@ -19,4 +19,8 @@ object OfflineLlm {
                 .generate(context.applicationContext, prompt.trim(), onProgress)
         }
     }
+
+    /** Loads the Qwen3 model in the background so the first offline answer is fast. */
+    suspend fun warmUp(context: Context): Boolean =
+        InferenceEngineImpl.getInstance(context.applicationContext).warmUp(context.applicationContext)
 }

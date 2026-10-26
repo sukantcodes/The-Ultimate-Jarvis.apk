@@ -424,6 +424,7 @@ class SettingsFragment : Fragment() {
         val wanted = listOf(
             Manifest.permission.READ_CONTACTS,
             Manifest.permission.CALL_PHONE,
+            Manifest.permission.SEND_SMS,
             Manifest.permission.READ_PHONE_STATE,
             Manifest.permission.READ_PHONE_NUMBERS
         )
