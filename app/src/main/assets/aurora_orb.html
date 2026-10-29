@@ -1020,7 +1020,7 @@
           gl.uniform1f(u.u_petalDeform, liveState.petalDeform);
           gl.uniform1f(u.u_vortexTwist, liveState.vortexTwist);
           gl.uniform1f(u.u_radialFlow, liveState.radialWaveFlow);
-          gl.uniform1f(u.u_concentricGlow, liveState.concentricGlow);
+          gl.uniform1f(u.u_concentricGlow, liveState.concentricGlow * (typeof window.jarvisGlowMul === 'number' ? window.jarvisGlowMul : 1));
           gl.uniform1f(u.u_coreBrightness, liveState.coreBrightness);
           gl.uniform1f(u.u_rimIridescence, liveState.rimIridescence);
           gl.uniform3f(u.u_audioBands, acoustic.lowBand, acoustic.midBand, acoustic.highBand);
@@ -1178,7 +1178,7 @@
             }
             ctx.closePath();
 
-            const alpha = edgeFade * liveState.concentricGlow * (0.28 + acoustic.energy * 0.25);
+            const alpha = edgeFade * liveState.concentricGlow * (typeof window.jarvisGlowMul === 'number' ? window.jarvisGlowMul : 1) * (0.28 + acoustic.energy * 0.25);
             ctx.strokeStyle = rgba(c, alpha * 0.42);
             ctx.lineWidth = Math.max(2.2, bubbleR * 0.013);
             ctx.stroke();
@@ -1868,6 +1868,10 @@
         resetRotation3D: () => cam3D.resetOrientation(),
         setTargetFPS: (fps) => {
           if (fps === 90 || fps === 120) targetFPS = fps;
+        },
+        setGlow: (v) => {
+          const n = parseFloat(v);
+          if (!isNaN(n)) window.jarvisGlowMul = Math.max(0, Math.min(2, n));
         },
         triggerPulse: (dir = 1) => crystalEngine.triggerBurst(dir)
       };

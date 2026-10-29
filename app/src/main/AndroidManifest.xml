@@ -175,6 +175,10 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <activity
+            android:name=".ui.skills.SkillStoreActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".studio.ui.AutomationStudioActivity"
             android:exported="false" />
 

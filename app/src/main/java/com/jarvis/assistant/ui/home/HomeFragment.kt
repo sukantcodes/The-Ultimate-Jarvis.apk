@@ -155,6 +155,7 @@ class HomeFragment : Fragment() {
                     val customHex = pendingCustomHex ?: preferences.customThemeColor
                     setOrbTheme(currentTheme, customHex)
                     setOrbStyle(pendingOrbStyle ?: preferences.orbAnimation)
+                    applyOrbLook()
 
                     // Sync State
                     val state = pendingOrbState ?: when (viewModel.conversationState.value) {
@@ -196,8 +197,31 @@ class HomeFragment : Fragment() {
         }
     }
 
+    /**
+     * Applies the glow and size chosen in Settings > Theme & 3D Orb Colors for the selected orb.
+     * Size scales the whole orb stage; glow drives the halo behind it and the orb page's own glow.
+     */
+    fun applyOrbLook(style: String = preferences.orbAnimation) {
+        if (_binding == null) return
+        val size = preferences.getOrbSize(style)
+        val glow = preferences.getOrbGlow(style)
+        binding.orbWebView.scaleX = size
+        binding.orbWebView.scaleY = size
+        binding.orbHaloRing.scaleX = size
+        binding.orbHaloRing.scaleY = size
+        binding.orbHaloRing.alpha = (glow / 1.5f).coerceIn(0f, 1f)
+        if (isPageLoaded) {
+            activity?.runOnUiThread {
+                if (_binding != null) {
+                    binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setGlow && window.JarvisOrb.setGlow($glow);", null)
+                }
+            }
+        }
+    }
+
     fun setOrbStyle(style: String) {
         pendingOrbStyle = style
+        applyOrbLook(style)
         val wantsAurora = style == "aurora_orb"
         if (wantsAurora != loadedAuroraOrb) {
             loadedAuroraOrb = wantsAurora
@@ -262,6 +286,7 @@ class HomeFragment : Fragment() {
         // Sync theme with settings
         setOrbTheme(preferences.appTheme, preferences.customThemeColor)
         setOrbStyle(preferences.orbAnimation)
+        applyOrbLook()
         updateHomeHeaderAndVoiceStatus()
 
         if (PermissionHelper.hasLocationPermission(requireContext())) {

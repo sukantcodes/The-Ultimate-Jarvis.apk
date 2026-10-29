@@ -78,6 +78,11 @@ class AppPreferences(context: Context) {
         private const val KEY_ORB_GLOW = "key_orb_glow"
         private const val KEY_ORB_SCALE = "key_orb_scale"
         private const val KEY_ORB_HUE = "key_orb_hue"
+        private const val KEY_SETTINGS_ICON_SHAPE = "key_settings_icon_shape"
+        const val ORB_GLOW_MIN = 0f
+        const val ORB_GLOW_MAX = 2f
+        const val ORB_SIZE_MIN = 0.6f
+        const val ORB_SIZE_MAX = 1.4f
         private const val KEY_CUSTOM_ENDPOINT = "key_custom_endpoint"
     }
 
@@ -301,6 +306,30 @@ class AppPreferences(context: Context) {
     var orbHue: Float
         get() = prefs.getFloat(KEY_ORB_HUE, -1f)
         set(value) = prefs.edit().putFloat(KEY_ORB_HUE, value).apply()
+
+    /** Glow strength of one orb style, 0.0 (off) to 2.0 (intense). Each orb remembers its own value. */
+    fun getOrbGlow(style: String): Float =
+        prefs.getFloat(KEY_ORB_GLOW + "_" + style, 1.0f).coerceIn(ORB_GLOW_MIN, ORB_GLOW_MAX)
+
+    fun setOrbGlow(style: String, value: Float) {
+        prefs.edit().putFloat(KEY_ORB_GLOW + "_" + style, value.coerceIn(ORB_GLOW_MIN, ORB_GLOW_MAX)).apply()
+    }
+
+    /** Size of one orb style as a multiplier, 0.6 (small) to 1.4 (large). Each orb remembers its own value. */
+    fun getOrbSize(style: String): Float =
+        prefs.getFloat(KEY_ORB_SCALE + "_" + style, 1.0f).coerceIn(ORB_SIZE_MIN, ORB_SIZE_MAX)
+
+    fun setOrbSize(style: String, value: Float) {
+        prefs.edit().putFloat(KEY_ORB_SCALE + "_" + style, value.coerceIn(ORB_SIZE_MIN, ORB_SIZE_MAX)).apply()
+    }
+
+    /**
+     * Shape of the tile behind each Settings icon: 0 = plain (no tile, the original look), 1 = rectangular,
+     * 2 = pillowy (soft squircle), 3 = circular.
+     */
+    var settingsIconShape: Int
+        get() = prefs.getInt(KEY_SETTINGS_ICON_SHAPE, 0).coerceIn(0, 3)
+        set(value) = prefs.edit().putInt(KEY_SETTINGS_ICON_SHAPE, value.coerceIn(0, 3)).apply()
 
     var customEndpoint: String
         get() = prefs.getString(KEY_CUSTOM_ENDPOINT, "") ?: ""

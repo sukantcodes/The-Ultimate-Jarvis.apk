@@ -43,6 +43,8 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         binding.btnOrbIronMan.setOnClickListener { selectOrb("iron_man_head", "Iron Man 3D Helmet") }
         binding.btnOrbFullCharacter.setOnClickListener { selectOrb("full_human", "Full Human 3D Assistant") }
 
+        setupOrbLookControls()
+
         binding.cardThemeLight.setOnClickListener { selectTheme("light", "Light") }
         binding.cardThemeDark.setOnClickListener { selectTheme("dark", "Dark") }
         binding.cardThemeRed.setOnClickListener { selectTheme("red", "Red") }
@@ -64,6 +66,68 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         binding.swatch4.setOnClickListener { applyCustomColor("#451A03") }
         binding.swatch5.setOnClickListener { applyCustomColor("#F0FDF4") }
         binding.swatch6.setOnClickListener { applyCustomColor("#FAF5FF") }
+    }
+
+    private fun homeFragment(): HomeFragment? =
+        (activity as? MainActivity)?.supportFragmentManager?.fragments?.filterIsInstance<HomeFragment>()?.firstOrNull()
+
+    /**
+     * Glow and size of the selected orb, and the shape of the Settings icons. Every slider applies live,
+     * so you see the orb and the icons change as you drag.
+     */
+    private fun setupOrbLookControls() {
+        val style = preferences.orbAnimation
+        binding.tvOrbControlsHint.text = "Applies to the selected orb: " + when (style) {
+            "aurora_orb" -> "Aurora Orb"
+            "iron_man_head" -> "Iron Man 3D Helmet"
+            "full_human" -> "Full Human 3D Assistant"
+            else -> "Default Orb"
+        }
+
+        fun glowLabel(p: Int) = "Glow: " + (if (p == 0) "off" else "$p%")
+        fun sizeLabel(p: Int) = "Size: ${60 + p}%"
+
+        val glowStart = Math.round(preferences.getOrbGlow(style) * 100f)
+        binding.seekOrbGlow.progress = glowStart
+        binding.tvOrbGlowValue.text = glowLabel(glowStart)
+        binding.seekOrbGlow.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(bar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                binding.tvOrbGlowValue.text = glowLabel(progress)
+                if (!fromUser) return
+                preferences.setOrbGlow(style, progress / 100f)
+                homeFragment()?.applyOrbLook(style)
+            }
+            override fun onStartTrackingTouch(bar: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(bar: android.widget.SeekBar?) {}
+        })
+
+        val sizeStart = Math.round(preferences.getOrbSize(style) * 100f) - 60
+        binding.seekOrbSize.progress = sizeStart
+        binding.tvOrbSizeValue.text = sizeLabel(sizeStart)
+        binding.seekOrbSize.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(bar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                binding.tvOrbSizeValue.text = sizeLabel(progress)
+                if (!fromUser) return
+                preferences.setOrbSize(style, (60 + progress) / 100f)
+                homeFragment()?.applyOrbLook(style)
+            }
+            override fun onStartTrackingTouch(bar: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(bar: android.widget.SeekBar?) {}
+        })
+
+        val shapeNames = arrayOf("Plain", "Rectangular", "Pillowy", "Circular")
+        binding.seekIconShape.progress = preferences.settingsIconShape
+        binding.tvIconShapeValue.text = "Settings icon shape: " + shapeNames[preferences.settingsIconShape]
+        binding.seekIconShape.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(bar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                binding.tvIconShapeValue.text = "Settings icon shape: " + shapeNames[progress.coerceIn(0, 3)]
+                if (!fromUser) return
+                preferences.settingsIconShape = progress
+                (parentFragment as? SettingsFragment)?.applyIconShape()
+            }
+            override fun onStartTrackingTouch(bar: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(bar: android.widget.SeekBar?) {}
+        })
     }
 
     private fun selectOrb(style: String, label: String) {

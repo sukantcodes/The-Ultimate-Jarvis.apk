@@ -10,7 +10,7 @@ eight headings. Sections appear on screen in this order.
 | 3 | Voice Security & Unlock | Owner Voice Profile, Owner Voice Only (switch), Screen Unlock |
 | 4 | Alerts & Announcements | Notification Access, Message Announcements (switch), Announce in Jarvis Voice (switch), Battery & Charging Alerts (switch), Auto Battery Saver (switch) |
 | 5 | Memory & Data | Neural Memory Bank, Activity Memory (switch), Clear Activity Memory |
-| 6 | Permissions & Automation | System Permissions, App Control & Hands-Free |
+| 6 | Permissions & Automation | System Permissions, App Control & Hands-Free, Automation Studio, Skill Store |
 | 7 | Appearance | Theme & 3D Orb Colors, Overlay Avatars |
 | 8 | Privacy & About | Privacy & Data Shield, App Identity & Integrity |
 
@@ -37,3 +37,23 @@ The profile card sits above section 1. The community buttons and the version foo
 - Contacts and phone permissions (needed for calling and SIM choice) are requested when System Permissions is
   opened, not each time Settings opens.
 - The footer shows the app version and publisher name from `BuildConfig`.
+
+## Skill Store
+
+Settings > Permissions & Automation > Skill Store opens `ui/skills/SkillStoreActivity.kt`.
+
+- **Installed skills** lists every skill with an on/off switch. Only enabled skills are offered to the AI.
+- **Skill store** lists the skills of a GitHub store (default `HunterisLive-1/mobile-maya-skills`: an `index.json` plus a `skills/` folder). Tap **Install** or **Update**. Nothing updates silently. **Source** changes the store; only use stores you trust, because installed skills give instructions to the AI that controls the phone.
+- Built-in skills live in `app/src/main/assets/skills/` and are written for Jarvis's real tools. A store skill with the same name is shown as **Built in** and never replaces the built-in copy.
+- Downloaded skills are saved in the app's private `files/skills/` folder.
+- How the AI uses them: `SkillStore.promptSection()` adds a one-line index to the system prompt (Gemini and Groq). The AI calls the `use_skill` tool to load a skill's full steps. Downloaded skills get a tool-name map appended, because they may be written for another assistant's tools.
+- Changes apply from the next conversation.
+
+To add a built-in skill, add `assets/skills/<name>.md` (front matter with `name` and a one-line `description`, then the steps) using only tool names declared in `GeminiLiveWebSocket.kt`.
+
+## Orb look and icon shape
+
+Settings > Appearance > Theme & 3D Orb Colors has an **Orb look** panel under the orb buttons:
+
+- **Glow** (0 to 200%) and **Size** (60 to 140%) are remembered separately for each orb and apply live on the Home screen (`HomeFragment.applyOrbLook`). Glow drives `JarvisOrb.setGlow` in `orb.html` and `aurora_orb.html`, plus the halo behind the orb. Size scales the orb stage.
+- **Settings icon shape** is one slider: Plain (the original look, no tile), Rectangular, Pillowy, Circular. It is stored as `settingsIconShape` and painted by `SettingsFragment.applyIconTile`.

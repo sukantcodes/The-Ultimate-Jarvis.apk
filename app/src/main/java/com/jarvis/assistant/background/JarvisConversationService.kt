@@ -819,7 +819,8 @@ class JarvisConversationService : Service() {
             } else {
                 com.jarvis.assistant.util.ConfirmationPolicy.promptSection()
             }
-            basePrompt + policySection + genderSection + com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).promptSection()
+            val skillsSection = com.jarvis.assistant.skills.SkillStore.get(applicationContext).promptSection()
+            basePrompt + policySection + genderSection + skillsSection + com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).promptSection()
         }
     }
 
@@ -3008,6 +3009,12 @@ class JarvisConversationService : Service() {
                         result.put("message", recalled)
                     }
 
+                    "use_skill" -> {
+                        val skillText = com.jarvis.assistant.skills.SkillStore.get(applicationContext).useSkill(args.optString("name", ""))
+                        result.put("success", !skillText.startsWith("No enabled skill"))
+                        result.put("message", skillText)
+                    }
+
                     "run_macro" -> {
                         val macroName = args.optString("name", "").trim()
                         val macroInput = args.optString("input", "").trim()
@@ -4352,7 +4359,7 @@ class JarvisConversationService : Service() {
 
     private val activityLogSkippedTools = setOf(
         "inspect_screen", "scroll_screen", "press_key", "click_ui_element", "type_text",
-        "task_completed", "recall_activity"
+        "task_completed", "recall_activity", "use_skill"
     )
 
     /** Remembers what Jarvis did (calls, apps opened, messages sent and so on) in the activity log. */

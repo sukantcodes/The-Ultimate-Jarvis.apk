@@ -163,6 +163,7 @@ class SettingsFragment : Fragment() {
                     iconBox.elevation = 0f
                     iconBox.translationZ = 0f
                     iconBox.clipToOutline = false
+                    applyIconTile(iconBox, accent)
                     (iconBox.getChildAt(0) as android.widget.ImageView).apply {
                         imageTintList = ColorStateList.valueOf(accent)
                         elevation = dp(2).toFloat()
@@ -173,6 +174,35 @@ class SettingsFragment : Fragment() {
         }
 
         visit(root)
+    }
+
+    /** Repaints every Settings icon with the shape chosen in Theme & 3D Orb Colors. */
+    fun applyIconShape() {
+        if (_binding != null) applyDimensionalIconColors(binding.root)
+    }
+
+    /**
+     * The tile behind one icon. Plain keeps the original look (no tile); Rectangular is a flat square with
+     * small corners; Pillowy is a soft, raised squircle; Circular is a round badge.
+     */
+    private fun applyIconTile(box: android.widget.FrameLayout, accent: Int) {
+        val shape = JarvisApp.instance.preferences.settingsIconShape
+        if (shape == 0) return
+        val tile = GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf(
+                androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 70),
+                androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 22)
+            )
+        )
+        when (shape) {
+            1 -> { tile.shape = GradientDrawable.RECTANGLE; tile.cornerRadius = dp(4).toFloat() }
+            2 -> { tile.shape = GradientDrawable.RECTANGLE; tile.cornerRadius = dp(15).toFloat() }
+            else -> tile.shape = GradientDrawable.OVAL
+        }
+        tile.setStroke(dp(1), androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 90))
+        box.background = tile
+        box.elevation = if (shape == 2) dp(3).toFloat() else 0f
     }
 
     private fun applyLiquidGlassStrength(view: View) {
@@ -418,6 +448,7 @@ class SettingsFragment : Fragment() {
         }
         binding.rowApplications.setOnClickListener { open(HandsFreeActivity::class.java) }
         binding.rowAutomationStudio.setOnClickListener { open(AutomationStudioActivity::class.java) }
+        binding.rowSkillStore.setOnClickListener { open(com.jarvis.assistant.ui.skills.SkillStoreActivity::class.java) }
     }
 
     private fun missingCallPermissions(): Array<String> {

@@ -792,6 +792,22 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 22. use_skill (loads the step-by-step playbook of an installed skill)
+                        put(JSONObject().apply {
+                            put("name", "use_skill")
+                            put("description", "Loads the full step-by-step playbook of an installed skill. When the user's request matches a skill listed under INSTALLED SKILLS in your instructions, call this FIRST with that skill's name, then follow the steps using only your real tools. Do not call it for ordinary conversation.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("name", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "The skill's exact name, for example whatsapp-pro.")
+                                    })
+                                })
+                                put("required", JSONArray().put("name"))
+                            })
+                        })
+
                         // 21. inspect_screen
                         put(JSONObject().apply {
                             put("name", "inspect_screen")

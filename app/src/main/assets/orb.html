@@ -798,6 +798,7 @@ canvas.addEventListener("pointerup",endDrag);canvas.addEventListener("pointercan
 
 /* ---------- Update ---------- */
 let time=0,flow=0,r1a=0,r2a=0,pxPerUnit=300;
+let glowMul=1; /* user glow setting from Settings: 0 = no halo, 1 = normal, 2 = intense */
 function updateOrb(dt){
   const k=1-Math.exp(-dt*3.5);
   for(const key in cur) cur[key]+=(tgt[key]-cur[key])*k;
@@ -813,7 +814,7 @@ function updateOrb(dt){
   U.uTime.value=flow;U.uAmp.value=audio.level+cur.wob*.25;U.uBass.value=audio.bass;U.uHigh.value=audio.high;
   U.uCyan.value=cur.cyan;U.uPurple.value=cur.purple;U.uBright.value=cur.bright+idlePulse;
   glowMat.uniforms.uTime.value=time;glowMat.uniforms.uMix.value=cur.cyan;
-  glowMat.uniforms.uStrength.value=cur.glow+audio.level*.6+idlePulse*2;
+  glowMat.uniforms.uStrength.value=(cur.glow+audio.level*.6+idlePulse*2)*glowMul;
   const voicePulse = state==="speaking" ? .10 + audio.level*.12 : state==="listening" ? .035 + audio.level*.07 : .015;
   if(false) {
   } else if(orbStyle==="siri_glass_aurora") {
@@ -847,8 +848,8 @@ function updateOrb(dt){
   const pulse=cur.ring*.5*(.5+.5*Math.sin(time*4))+audio.bass*.8;
   ring1.rotation.z=r1a;ring2.rotation.z=r2a;
   ring1.scale.setScalar(s*(1+pulse*.03));ring2.scale.setScalar(s*(1+pulse*.02));
-  ring1.material.uniforms.uAlpha.value=.4+cur.ring*.3+audio.level*.35;
-  ring2.material.uniforms.uAlpha.value=.22+cur.ring*.2+audio.level*.2;
+  ring1.material.uniforms.uAlpha.value=(.4+cur.ring*.3+audio.level*.35)*Math.min(glowMul,1.5);
+  ring2.material.uniforms.uAlpha.value=(.22+cur.ring*.2+audio.level*.2)*Math.min(glowMul,1.5);
   shadowEl.style.width=Math.round(pxPerUnit*1.5*s)+"px";
 }
 function updateParticles(dt){
@@ -899,6 +900,7 @@ window.JarvisOrb={
     applyTheme(null,hex,hex2);
   },
   setWorking:b=>{working=!!b;},
+  setGlow:v=>{const n=parseFloat(v);if(!isNaN(n))glowMul=Math.max(0,Math.min(2,n));},
   setExternalAudio:setExternalAudio,
   startListening:()=>setOrbState("listening"),
   startThinking:()=>setOrbState("thinking"),

@@ -1673,6 +1673,59 @@
                         android:src="@drawable/ic_arrow_right"
                         app:tint="?attr/themeTextMuted" />
                 </LinearLayout>
+
+                <View
+                    style="@style/Widget.JarvisSettings.Divider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
+                <LinearLayout
+                    android:id="@+id/rowSkillStore"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_settings_skill_store"
+                            app:tint="#34D399" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_skillstore_title" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_skillstore_subtitle" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="?attr/themeTextMuted" />
+                </LinearLayout>
             </LinearLayout>
 
             <!-- SECTION 7: APPEARANCE -->

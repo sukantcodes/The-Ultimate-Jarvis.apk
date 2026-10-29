@@ -104,6 +104,86 @@
                     android:textAllCaps="false" />
             </LinearLayout>
 
+            <!-- Orb and icon look controls -->
+            <TextView
+                android:id="@+id/tvOrbControlsTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Orb look"
+                android:textColor="?attr/themeTextPrimary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvOrbControlsHint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:text="Applies to the selected orb"
+                android:textColor="?attr/themeTextMuted"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tvOrbGlowValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Glow"
+                android:textColor="?attr/themeTextSecondary"
+                android:textSize="13sp" />
+
+            <SeekBar
+                android:id="@+id/seekOrbGlow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="200"
+                android:progressTint="?attr/themeAccent"
+                android:thumbTint="?attr/themeAccent" />
+
+            <TextView
+                android:id="@+id/tvOrbSizeValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Size"
+                android:textColor="?attr/themeTextSecondary"
+                android:textSize="13sp" />
+
+            <SeekBar
+                android:id="@+id/seekOrbSize"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="80"
+                android:progressTint="?attr/themeAccent"
+                android:thumbTint="?attr/themeAccent" />
+
+            <TextView
+                android:id="@+id/tvIconShapeValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Settings icon shape"
+                android:textColor="?attr/themeTextSecondary"
+                android:textSize="13sp" />
+
+            <SeekBar
+                android:id="@+id/seekIconShape"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="3"
+                android:progressTint="?attr/themeAccent"
+                android:thumbTint="?attr/themeAccent" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="18dp"
+                android:orientation="horizontal">
+
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Plain" android:textColor="?attr/themeTextMuted" android:textSize="11sp" />
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Rectangular" android:textColor="?attr/themeTextMuted" android:textSize="11sp" />
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Pillowy" android:textColor="?attr/themeTextMuted" android:textSize="11sp" />
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="end" android:text="Circular" android:textColor="?attr/themeTextMuted" android:textSize="11sp" />
+            </LinearLayout>
+
             <!-- Theme 1: Light -->
             <LinearLayout
                 android:id="@+id/cardThemeLight"
