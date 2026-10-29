@@ -72,6 +72,7 @@ class AppPreferences(context: Context) {
         private const val KEY_TASK_OVERLAY_Y = "key_task_overlay_y"
         private const val KEY_APP_THEME = "key_app_theme"
         private const val KEY_CUSTOM_THEME_COLOR = "key_custom_theme_color"
+        private const val KEY_CUSTOM_THEME_COLOR_2 = "key_custom_theme_color_2"
         private const val KEY_ORB_ANIMATION = "key_orb_animation"
         private const val KEY_ORB_SPEED = "key_orb_speed"
         private const val KEY_ORB_GLOW = "key_orb_glow"
@@ -264,13 +265,22 @@ class AppPreferences(context: Context) {
         get() = prefs.getString(KEY_CUSTOM_THEME_COLOR, "#FFFFFF") ?: "#FFFFFF"
         set(value) = prefs.edit().putString(KEY_CUSTOM_THEME_COLOR, value.trim()).apply()
 
+    /** Second colour of a two-colour blend; empty for a plain single-colour theme. */
+    var customThemeColor2: String
+        get() = prefs.getString(KEY_CUSTOM_THEME_COLOR_2, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_CUSTOM_THEME_COLOR_2, value.trim()).apply()
+
+    /** Changes whenever either custom colour changes, so screens know when to repaint. */
+    val customThemeSignature: String get() = customThemeColor + "|" + customThemeColor2
+
     var liquidGlassStrength: Int
         get() = prefs.getInt("liquid_glass_strength", 60).coerceIn(0, 100)
         set(value) = prefs.edit().putInt("liquid_glass_strength", value.coerceIn(0, 100)).apply()
 
     var orbAnimation: String
         get() {
-            val valid = listOf("default", "aurora_orb", "plasma_core", "holographic_pulse", "iron_man_head", "full_human", "holographic_plasma", "cosmic_pulsar", "quantum_core", "cyber_ring", "siri_glow")
+            // Removed orbs (plasma_core, holographic_pulse and their old aliases) fall back to the default orb.
+            val valid = listOf("default", "aurora_orb", "iron_man_head", "full_human", "quantum_core", "siri_glow")
             val stored = prefs.getString(KEY_ORB_ANIMATION, "default") ?: "default"
             return if (stored in valid) stored else "default"
         }

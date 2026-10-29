@@ -134,9 +134,6 @@ orb.add(pointsMesh);scene.add(orb);
 
 /* ---------- Alternate orb skins and a procedural 3D Iron Man-inspired helmet ---------- */
 let orbStyle = "default";
-const altPlasma = new THREE.Group();
-const altHolo = new THREE.Group();
-scene.add(altPlasma); scene.add(altHolo);
 // Extra fine orbital bands give the selectable variants distinct silhouettes.
 function makeStyleRing(radius, tube, color, opacity, tiltX, tiltY) {
   const mesh = new THREE.Mesh(
@@ -146,11 +143,6 @@ function makeStyleRing(radius, tube, color, opacity, tiltX, tiltY) {
   mesh.rotation.set(tiltX, tiltY, 0);
   return mesh;
 }
-altPlasma.add(makeStyleRing(1.10,.018,0x26eaff,.85,.85,.2));
-altPlasma.add(makeStyleRing(1.25,.012,0x6b62ff,.8,-.55,.65));
-altPlasma.add(makeStyleRing(1.38,.009,0xff4fe1,.55,.2,-.9));
-altHolo.add(makeStyleRing(1.13,.014,0x75f7ff,.65,.7,.35));
-altHolo.add(makeStyleRing(1.25,.008,0xa6bfff,.5,-.65,.8));
 
 /* Siri-style transparent glass Aurora orb adapted from the supplied standalone HTML.
    Runs inside JARVIS's existing Three.js canvas and uses the app's voice-state animation. */
@@ -207,10 +199,11 @@ const helmet = new THREE.Group();
 scene.add(helmet);
 // The original helmet looked black because MeshStandardMaterial had no scene lights.
 // Add soft studio lighting and subtle emissive colour so its red/gold structure reads clearly.
-scene.add(new THREE.HemisphereLight(0xd9f5ff,0x321018,2.15));
+const helmetHemi=new THREE.HemisphereLight(0xd9f5ff,0x321018,2.15); scene.add(helmetHemi);
 const helmetKey = new THREE.DirectionalLight(0xffffff,3.1); helmetKey.position.set(-3,4,6); scene.add(helmetKey);
 const helmetFill = new THREE.DirectionalLight(0xffb84d,2.0); helmetFill.position.set(4,1,4); scene.add(helmetFill);
 const helmetRim = new THREE.PointLight(0x35dcff,2.2,12); helmetRim.position.set(0,1,-3); scene.add(helmetRim);
+function setStudioLight(mult){helmetHemi.intensity=2.15*mult;helmetKey.intensity=3.1*mult;helmetFill.intensity=2.0*mult;helmetRim.intensity=2.2*mult;}
 const redMetal = new THREE.MeshStandardMaterial({color:0xe5222d,metalness:.48,roughness:.28,emissive:0x4a0508,emissiveIntensity:.42});
 const goldMetal = new THREE.MeshStandardMaterial({color:0xffc94f,metalness:.38,roughness:.27,emissive:0x4b2600,emissiveIntensity:.28});
 const darkMetal = new THREE.MeshStandardMaterial({color:0x252b35,metalness:.55,roughness:.31,emissive:0x080c14,emissiveIntensity:.35});
@@ -256,83 +249,352 @@ helmetPart(new THREE.CylinderGeometry(.13,.13,.10,12),goldMetal,[.76,.03,.02],[1
 helmetPart(new THREE.BoxGeometry(.12,.32,.10),redMetal,[-.69,-.12,.28],[1,1,1],[0,0,-.12]);
 helmetPart(new THREE.BoxGeometry(.12,.32,.10),redMetal,[.69,-.12,.28],[1,1,1],[0,0,.12]);
 helmet.scale.setScalar(1.08);
-helmet.visible=false; altPlasma.visible=false; altHolo.visible=false; siriGlassAurora.visible=false;
+helmet.visible=false; siriGlassAurora.visible=false;
 
-/* ---------- Full articulated human-like JARVIS avatar ---------- */
+/* ---------- Full 3D human assistant: head with face, torso, arms with real hands and fingers, legs ---------- */
 const fullHuman = new THREE.Group();
 scene.add(fullHuman);
-const humanRoot = new THREE.Group();
-fullHuman.add(humanRoot);
-const skinMat = new THREE.MeshStandardMaterial({color:0xd9a77e, roughness:.72, metalness:.02});
-const skinShade = new THREE.MeshStandardMaterial({color:0x9b6549, roughness:.8});
-const suitMat = new THREE.MeshStandardMaterial({color:0x101a2e, metalness:.68, roughness:.3, emissive:0x06172a, emissiveIntensity:.35});
-const suitTrim = new THREE.MeshStandardMaterial({color:0x21d9ff, metalness:.55, roughness:.24, emissive:0x087da8, emissiveIntensity:1.25});
-const shirtMat = new THREE.MeshStandardMaterial({color:0x1e90b8, metalness:.25, roughness:.38});
-const hairMat = new THREE.MeshStandardMaterial({color:0x18202b, roughness:.86});
-const eyeMat = new THREE.MeshStandardMaterial({color:0x9ef8ff, emissive:0x36dfff, emissiveIntensity:1.4});
-function humanMesh(parent, geo, mat, pos, scale, rot){
-  const m=new THREE.Mesh(geo,mat);m.position.set(pos[0],pos[1],pos[2]);
-  if(scale)m.scale.set(scale[0],scale[1],scale[2]);
-  if(rot)m.rotation.set(rot[0],rot[1],rot[2]);
-  parent.add(m);return m;
+const human = (function buildHuman(){
+  const M = (c,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.62,metalness:.04},o||{}));
+  const skin   = M(0xc08a64,{roughness:.58});
+  const skinDk = M(0x8e5a3c,{roughness:.7});
+  const lipMat = M(0x9a4a44,{roughness:.5});
+  const hairM  = M(0x120f12,{roughness:.55,metalness:.1});
+  const jacket = M(0x151e30,{roughness:.5,metalness:.25});
+  const jacketDk = M(0x0d1424,{roughness:.55,metalness:.2});
+  const shirt  = M(0x2a3a52,{roughness:.7});
+  const pants  = M(0x1b2437,{roughness:.62});
+  const shoe   = M(0xeef3f8,{roughness:.45});
+  const sole   = new THREE.MeshStandardMaterial({color:0x21d9ff,emissive:0x21d9ff,emissiveIntensity:1.1,roughness:.4});
+  const trim   = new THREE.MeshStandardMaterial({color:0x21d9ff,emissive:0x21d9ff,emissiveIntensity:1.3,roughness:.35,metalness:.3});
+  const white  = new THREE.MeshStandardMaterial({color:0xf6f6f2,roughness:.3});
+  const iris   = new THREE.MeshStandardMaterial({color:0x3b2a1e,roughness:.25});
+  const pupil  = new THREE.MeshBasicMaterial({color:0x030303});
+  const mouthIn= new THREE.MeshBasicMaterial({color:0x2a0a0c});
+  const accentMats=[sole,trim];
+
+  const add=(parent,geo,mat,x,y,z,sx,sy,sz)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x||0,y||0,z||0);if(sx!==undefined)m.scale.set(sx,sy,sz);parent.add(m);return m;};
+  const sph=(r,w,h)=>new THREE.SphereGeometry(r,w||24,h||18);
+  // Tapered limb segment hanging down from the origin: top radius r1, bottom radius r2.
+  const seg=(parent,len,r1,r2,mat)=>{const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,len,20,1),mat);m.position.y=-len/2;parent.add(m);return m;};
+
+  const root=new THREE.Group(); root.position.y=1.18; fullHuman.add(root);
+
+  /* ---- pelvis and torso ---- */
+  add(root,sph(.19,24,16),pants,0,-.02,0,1.25,.66,.72);
+  const spine=new THREE.Group(); root.add(spine);
+  // Torso: a smooth lathe (jacket), squashed front-to-back so it reads as a chest rather than a barrel.
+  const prof=[[.0,0],[.175,0],[.19,.06],[.168,.22],[.19,.40],[.215,.55],[.225,.66],[.2,.74],[.12,.79],[.0,.80]]
+    .map(p=>new THREE.Vector2(p[0],p[1]));
+  const torso=new THREE.Mesh(new THREE.LatheGeometry(prof,36),jacket); torso.scale.set(1.22,1,.68); spine.add(torso);
+  add(spine,new THREE.CylinderGeometry(.062,.07,.09,16),skin,0,.83,0);           // neck base
+  add(spine,new THREE.BoxGeometry(.13,.34,.012),shirt,0,.58,.138);                 // shirt under open jacket
+  add(spine,new THREE.TorusGeometry(.052,.009,10,32),trim,0,.52,.146);             // chest light
+  add(spine,sph(.02,12,10),trim,0,.52,.15);
+  add(spine,new THREE.BoxGeometry(.008,.5,.012),trim,-.074,.45,.134);              // jacket seams
+  add(spine,new THREE.BoxGeometry(.008,.5,.012),trim,.074,.45,.134);
+  add(spine,new THREE.TorusGeometry(.215,.007,8,48),trim,0,.02,0).rotation.x=Math.PI/2; // belt line glow
+  spine.children[spine.children.length-1].scale.set(1,.62,1);
+
+  /* ---- neck and head ---- */
+  const neck=new THREE.Group(); neck.position.set(0,.84,0); spine.add(neck);
+  add(neck,new THREE.CylinderGeometry(.055,.062,.12,16),skin,0,.05,0);
+  const head=new THREE.Group(); head.position.set(0,.085,0); head.scale.setScalar(1.22); neck.add(head);
+  const HC=.17; // head centre above the head pivot
+  add(head,sph(1,40,30),skin,0,HC,0,.118,.150,.135);                              // cranium
+  add(head,sph(1,30,22),skin,0,HC-.085,.028,.093,.092,.098);                      // jaw / chin mass
+  add(head,sph(1,16,12),skin,0,HC-.105,.092,.04,.026,.03);                        // chin
+  for(const s of [-1,1]){
+    add(head,sph(1,14,10),skin,s*.123,HC-.01,-.005,.014,.032,.022);               // ears
+    add(head,sph(1,16,12),skinDk,s*.118,HC-.01,.0,.004,.02,.014);
+    add(head,sph(1,16,12),skin,s*.07,HC-.07,.104,.03,.026,.02);                  // cheeks
+  }
+  // hair: cap, fringe and sideburns
+  const hairCap=add(head,new THREE.SphereGeometry(1,36,24,0,Math.PI*2,0,Math.PI*.58),hairM,0,HC+.006,-.008,.126,.158,.146);
+  add(head,sph(1,20,14),hairM,0,HC+.105,.085,.1,.036,.06);
+  add(head,sph(1,14,10),hairM,-.055,HC+.095,.1,.05,.03,.04);
+  add(head,sph(1,14,10),hairM,.06,HC+.098,.095,.045,.028,.04);
+  for(const s of [-1,1]) add(head,sph(1,10,8),hairM,s*.112,HC-.02,.03,.013,.05,.022);
+  // nose
+  add(head,sph(1,14,10),skin,0,HC-.02,.136,.017,.04,.02).rotation.x=-.25;
+  add(head,sph(1,14,10),skin,0,HC-.052,.146,.022,.017,.02);
+  for(const s of [-1,1]) add(head,sph(1,10,8),skin,s*.017,HC-.056,.138,.011,.011,.012);
+  // eyes (eyeball group looks around; lids blink)
+  const eyes=[];
+  for(const s of [-1,1]){
+    const socket=add(head,sph(1,14,10),skinDk,s*.052,HC+.026,.108,.034,.026,.02);  // soft socket shadow
+    const eg=new THREE.Group(); eg.position.set(s*.052,HC+.026,.112); head.add(eg);
+    add(eg,sph(.026,22,16),white,0,0,0);
+    const ir=add(eg,new THREE.CircleGeometry(.0135,22),iris,0,0,.0255);
+    add(eg,new THREE.CircleGeometry(.0068,18),pupil,0,0,.0258);
+    const lidGeo=new THREE.SphereGeometry(.0285,20,12,0,Math.PI*2,0,Math.PI/2);
+    const lid=new THREE.Mesh(lidGeo,skin); lid.position.set(s*.052,HC+.026,.112); head.add(lid);
+    const brow=add(head,new THREE.BoxGeometry(.05,.0085,.011),hairM,s*.055,HC+.066,.126);
+    eyes.push({s,eg,lid,brow});
+  }
+  // mouth
+  const mouth=new THREE.Group(); mouth.position.set(0,HC-.074,.128); head.add(mouth);
+  const mIn=add(mouth,new THREE.CircleGeometry(.026,20),mouthIn,0,0,-.002); mIn.scale.set(1,.05,1);
+  const lipU=add(mouth,sph(1,16,10),lipMat,0,.004,.004,.027,.0085,.011);
+  const lipL=add(mouth,sph(1,16,10),lipMat,0,-.005,.004,.025,.0095,.011);
+
+  /* ---- arms with real hands ---- */
+  const L1=.46, L2=.42;
+  function makeArm(s){
+    const upper=new THREE.Group(); upper.position.set(s*.33,.73,0); spine.add(upper);
+    add(upper,sph(.095,18,14),jacket,0,0,0);                                           // shoulder cap
+    seg(upper,L1,.082,.064,jacket);
+    const fore=new THREE.Group(); fore.position.set(0,-L1,0); upper.add(fore);
+    add(fore,sph(.064,16,12),jacket,0,0,0);                                            // elbow
+    seg(fore,L2,.064,.045,jacket);
+    const cuff=add(fore,new THREE.TorusGeometry(.043,.007,8,24),trim,0,-L2+.045,0); cuff.rotation.x=Math.PI/2;
+    add(fore,new THREE.CylinderGeometry(.036,.034,.07,14),skin,0,-L2+.01,0);           // wrist
+    const hand=new THREE.Group(); hand.position.set(0,-L2,0); hand.scale.setScalar(1.35); fore.add(hand);
+    add(hand,sph(1,18,14),skin,0,-.05,0,.044,.06,.017);                                // palm
+    add(hand,sph(1,12,10),skin,s*0,-.015,0,.036,.03,.02);                              // heel of hand
+    const fingers=[];
+    const flen=[.040,.044,.041,.032], fx=[-.030,-.010,.010,.030], fz=[0,0.001,0,-.001];
+    const fdx=[.0,.0,.0,.0];
+    for(let i=0;i<4;i++){
+      const j1=new THREE.Group(); j1.position.set(fx[i]*s*-1,-.098,fz[i]); hand.add(j1);
+      const len1=flen[i], len2=flen[i]*.9, len3=flen[i]*.75, r=.0098-i*.0003;
+      seg(j1,len1,r,r*.92,skin); add(j1,sph(r*.95,10,8),skin,0,-len1,0);
+      const j2=new THREE.Group(); j2.position.set(0,-len1,0); j1.add(j2);
+      seg(j2,len2,r*.92,r*.84,skin); add(j2,sph(r*.88,10,8),skin,0,-len2,0);
+      const j3=new THREE.Group(); j3.position.set(0,-len2,0); j2.add(j3);
+      seg(j3,len3,r*.84,r*.7,skin); add(j3,sph(r*.74,10,8),skin,0,-len3,0);
+      fingers.push([j1,j2,j3]);
+    }
+    // thumb sits on the inner side of the palm and swings across it
+    const t1=new THREE.Group(); t1.position.set(s*.036,-.05,.006); t1.rotation.z=s*.55; hand.add(t1);
+    seg(t1,.04,.0125,.0112,skin); add(t1,sph(.0115,10,8),skin,0,-.04,0);
+    const t2=new THREE.Group(); t2.position.set(0,-.04,0); t1.add(t2);
+    seg(t2,.034,.0112,.0098,skin); add(t2,sph(.0098,10,8),skin,0,-.034,0);
+    return {s,upper,fore,hand,fingers,thumb:[t1,t2],shoulder:new THREE.Vector3(s*.33,.73,0),
+      T:new THREE.Vector3(s*.33,-.06,.02), fd:new THREE.Vector3(0,-1,0), pn:new THREE.Vector3(-s,0,0), pole:new THREE.Vector3(s*.5,-.6,-.35),
+      curl:.25};
+  }
+  const armR=makeArm(1), armL=makeArm(-1);
+
+  /* ---- legs ---- */
+  function makeLeg(s){
+    const hip=new THREE.Group(); hip.position.set(s*.12,-.06,0); root.add(hip);
+    seg(hip,.56,.125,.09,pants);
+    const knee=new THREE.Group(); knee.position.set(0,-.56,0); hip.add(knee);
+    add(knee,sph(.09,16,12),pants,0,0,0);
+    seg(knee,.55,.086,.06,pants);
+    const ankle=new THREE.Group(); ankle.position.set(0,-.55,0); knee.add(ankle);
+    add(ankle,sph(.052,14,10),pants,0,0,0);
+    add(ankle,sph(1,22,14),shoe,0,-.04,.07,.062,.05,.14);                              // shoe
+    add(ankle,sph(1,18,12),shoe,0,-.02,-.01,.056,.06,.07);
+    add(ankle,new THREE.BoxGeometry(.118,.016,.27),sole,0,-.085,.06);                  // glowing sole
+    return {s,hip,knee,ankle};
+  }
+  const legR=makeLeg(1), legL=makeLeg(-1);
+
+  /* ---- holographic work panel (shown while Jarvis is doing a task) ---- */
+  const holo=new THREE.Group(); holo.position.set(0,1.62,.55); holo.visible=false; fullHuman.add(holo);
+  const holoMat=new THREE.MeshBasicMaterial({color:0x21d9ff,transparent:true,opacity:.14,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide});
+  const holoLine=new THREE.MeshBasicMaterial({color:0x7ff3ff,transparent:true,opacity:.85,blending:THREE.AdditiveBlending,depthWrite:false});
+  accentMats.push(holoMat,holoLine);
+  add(holo,new THREE.PlaneGeometry(.95,.58),holoMat,0,0,0);
+  const holoBars=[];
+  for(let i=0;i<7;i++){
+    const b=add(holo,new THREE.PlaneGeometry(1,.022),holoLine,0,.22-i*.07,.002); b.userData.seed=Math.random()*6; holoBars.push(b);
+  }
+  const holoRing=add(holo,new THREE.RingGeometry(.1,.108,40),holoLine,.33,-.02,.003);
+  const kb=new THREE.Mesh(new THREE.PlaneGeometry(.78,.3),holoMat); kb.position.set(0,-.56,-.12); kb.rotation.x=-1.15; holo.add(kb);
+  const kbKeys=[];
+  for(let r=0;r<3;r++)for(let c=0;c<9;c++){
+    const k=new THREE.Mesh(new THREE.PlaneGeometry(.065,.05),holoLine); k.position.set(-.34+c*.085,-.46-r*.075*.5,-.12-r*.075*.42); k.rotation.x=-1.15; k.material=holoLine.clone(); k.material.opacity=.25; holo.add(k); kbKeys.push(k);
+  }
+
+  /* ---- ground shadow and glow ring ---- */
+  const sc=document.createElement("canvas"); sc.width=sc.height=128;
+  const sx=sc.getContext("2d"), gr=sx.createRadialGradient(64,64,2,64,64,62); gr.addColorStop(0,"rgba(0,0,0,.55)"); gr.addColorStop(1,"rgba(0,0,0,0)");
+  sx.fillStyle=gr; sx.fillRect(0,0,128,128);
+  const shadow=new THREE.Mesh(new THREE.PlaneGeometry(1.1,1.1),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(sc),transparent:true,depthWrite:false}));
+  shadow.rotation.x=-Math.PI/2; shadow.position.y=.004; fullHuman.add(shadow);
+  const floorRing=new THREE.Mesh(new THREE.RingGeometry(.52,.545,64),new THREE.MeshBasicMaterial({color:0x21d9ff,transparent:true,opacity:.5,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+  floorRing.rotation.x=-Math.PI/2; floorRing.position.y=.006; fullHuman.add(floorRing); accentMats.push(floorRing.material);
+
+  fullHuman.scale.setScalar(.98);
+  fullHuman.position.set(0,-1.24,0);
+  fullHuman.visible=false;
+  return {root,spine,neck,head,eyes,mouth,mIn,lipU,lipL,armR,armL,legR,legL,holo,holoBars,holoRing,kbKeys,accentMats,floorRing,
+    setAccent:(c)=>{accentMats.forEach(m=>{if(m.emissive)m.emissive.copy(c);m.color.copy(c);});holoLine.color.copy(c).lerp(new THREE.Color(1,1,1),.35);}};
+})();
+
+/* ---- character animation ---- */
+const _v=new THREE.Vector3(),_d=new THREE.Vector3(),_dir=new THREE.Vector3(),_po=new THREE.Vector3(),_E=new THREE.Vector3(),_e1=new THREE.Vector3(),_e2=new THREE.Vector3();
+const _q1=new THREE.Quaternion(),_q2=new THREE.Quaternion(),_qd=new THREE.Quaternion(),_qp=new THREE.Quaternion(),_m=new THREE.Matrix4();
+const _x=new THREE.Vector3(),_y=new THREE.Vector3(),_z=new THREE.Vector3(),DOWN=new THREE.Vector3(0,-1,0);
+const ARM_L1=.46,ARM_L2=.42;
+/* Two-bone IK: put the wrist at arm.T, bend the elbow towards arm.pole, then orient the hand so its fingers
+   point along arm.fd and its palm faces arm.pn (all in the torso's coordinate space). */
+function solveArm(arm){
+  _d.copy(arm.T).sub(arm.shoulder);
+  let l=Math.min(Math.max(_d.length(),.14),ARM_L1+ARM_L2-.004);
+  _dir.copy(_d).normalize();
+  const a=(ARM_L1*ARM_L1-ARM_L2*ARM_L2+l*l)/(2*l), h=Math.sqrt(Math.max(ARM_L1*ARM_L1-a*a,0));
+  _po.copy(arm.pole).addScaledVector(_dir,-arm.pole.dot(_dir));
+  if(_po.lengthSq()<1e-6) _po.set(0,0,-1);
+  _po.normalize();
+  _E.copy(arm.shoulder).addScaledVector(_dir,a).addScaledVector(_po,h);
+  _e1.copy(_E).sub(arm.shoulder).normalize();
+  _q1.setFromUnitVectors(DOWN,_e1); arm.upper.quaternion.copy(_q1);
+  _e2.copy(arm.shoulder).addScaledVector(_dir,l).sub(_E).normalize().applyQuaternion(_qp.copy(_q1).invert());
+  _q2.setFromUnitVectors(DOWN,_e2); arm.fore.quaternion.copy(_q2);
+  // hand orientation from desired finger direction and palm normal
+  _y.copy(arm.fd).negate().normalize();
+  _x.crossVectors(_y,_v.copy(arm.pn)).normalize();
+  _z.crossVectors(_x,_y).normalize();
+  _m.makeBasis(_x,_y,_z); _qd.setFromRotationMatrix(_m);
+  _qp.copy(_q1).multiply(_q2).invert();
+  arm.hand.quaternion.copy(_qp.multiply(_qd));
 }
-function limb(parent,mat,a,b,r1,r2){
-  const A=new THREE.Vector3(...a),B=new THREE.Vector3(...b),d=new THREE.Vector3().subVectors(B,A);
-  const m=humanMesh(parent,new THREE.CylinderGeometry(r2,r1,d.length(),12),mat,[(A.x+B.x)/2,(A.y+B.y)/2,(A.z+B.z)/2]);
-  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());return m;
+function setFingers(arm,curl,spread,tapPhase,tapAmt){
+  for(let i=0;i<4;i++){
+    const tap=tapAmt?Math.max(0,Math.sin(tapPhase+i*1.7+(arm.s>0?0:.9)))*tapAmt:0;
+    const c=Math.max(0,Math.min(1.2,curl+tap+i*.04));
+    arm.fingers[i][0].rotation.x=-c*.9; arm.fingers[i][1].rotation.x=-c*1.25; arm.fingers[i][2].rotation.x=-c*.85;
+    arm.fingers[i][0].rotation.z=arm.s*(i-1.5)*spread;
+  }
+  arm.thumb[0].rotation.x=-curl*.35-.12; arm.thumb[1].rotation.x=-curl*.5;
 }
-humanMesh(humanRoot,new THREE.SphereGeometry(.23,24,18),skinMat,[0,1.27,0],[.83,1.08,.82]); // head
-humanMesh(humanRoot,new THREE.SphereGeometry(.245,24,16),hairMat,[0,1.39,-.025],[.86,.85,.83]); // hair cap
-humanMesh(humanRoot,new THREE.BoxGeometry(.32,.07,.07),skinMat,[0,1.24,.205]); // nose bridge
-humanMesh(humanRoot,new THREE.BoxGeometry(.11,.035,.025),eyeMat,[-.095,1.30,.205]);
-humanMesh(humanRoot,new THREE.BoxGeometry(.11,.035,.025),eyeMat,[.095,1.30,.205]);
-humanMesh(humanRoot,new THREE.CylinderGeometry(.075,.09,.18,16),skinMat,[0,1.02,0]); // neck
-humanMesh(humanRoot,new THREE.SphereGeometry(.37,28,22),suitMat,[0,.58,0],[1.12,1.28,.65]); // torso
-humanMesh(humanRoot,new THREE.BoxGeometry(.24,.42,.035),shirtMat,[0,.64,.235]); // chest panel
-humanMesh(humanRoot,new THREE.TorusGeometry(.09,.018,8,32),suitTrim,[0,.73,.265]); // arc core
-humanMesh(humanRoot,new THREE.SphereGeometry(.045,12,10),eyeMat,[0,.73,.27]);
-humanMesh(humanRoot,new THREE.SphereGeometry(.16,18,14),suitMat,[0,.17,0],[1.15,.62,.68]); // pelvis
-// shoulders, upper arms, elbows, forearms and articulated hands
-const arms=[];
-for(const side of [-1,1]){
- const arm=new THREE.Group();arm.position.set(side*.39,.78,0);humanRoot.add(arm);arms.push({group:arm,side});
- humanMesh(arm,new THREE.SphereGeometry(.14,16,12),suitMat,[side*.04,-.02,0],[1,1.05,.9]);
- limb(arm,suitMat,[0,0,0],[side*.13,-.32,.015],.105,.082);
- humanMesh(arm,new THREE.SphereGeometry(.085,14,12),suitTrim,[side*.13,-.32,.015]);
- limb(arm,suitMat,[side*.13,-.32,.015],[side*.16,-.61,.045],.075,.055);
- humanMesh(arm,new THREE.SphereGeometry(.065,14,12),skinMat,[side*.16,-.70,.06],[.85,1.2,.65]);
- for(let f=0;f<4;f++) limb(arm,skinMat,[side*(.13+f*.018),-.72,.08],[side*(.12+f*.02),-.80,.085],.012,.009);
- limb(arm,skinMat,[side*.20,-.70,.07],[side*.24,-.76,.09],.014,.009);
+
+// Smoothed pose parameters; each frame the targets for the current state are written then eased in.
+const HS={
+  rT:new THREE.Vector3(.33,-.06,.02), lT:new THREE.Vector3(-.33,-.06,.02),
+  rFd:new THREE.Vector3(0,-1,0), lFd:new THREE.Vector3(0,-1,0), rPn:new THREE.Vector3(-1,0,0), lPn:new THREE.Vector3(1,0,0),
+  rPole:new THREE.Vector3(.5,-.6,-.35), lPole:new THREE.Vector3(-.5,-.6,-.35),
+  rCurl:.25, lCurl:.25, spread:.05, tap:0,
+  headX:0, headY:0, headZ:0, spineX:0, spineY:0, spineZ:0, rootX:0,
+  eyeX:0, eyeY:0, browUp:0, browTilt:0, smile:.15, holo:0
+};
+const HT=JSON.parse(JSON.stringify({}));
+let blinkT=2.5, blink=0, blinkTarget=0, glanceT=3, glanceX=0, glanceY=0, mouthOpen=0, mouthWide=0, humanYaw=0, humanVelY=0, stepPhase=0;
+function ease(cur,tgt,k){return cur+(tgt-cur)*k;}
+function easeVec(cur,tgt,k){cur.x+=(tgt.x-cur.x)*k;cur.y+=(tgt.y-cur.y)*k;cur.z+=(tgt.z-cur.z)*k;}
+const P={rT:new THREE.Vector3(),lT:new THREE.Vector3(),rFd:new THREE.Vector3(),lFd:new THREE.Vector3(),rPn:new THREE.Vector3(),lPn:new THREE.Vector3(),rPole:new THREE.Vector3(),lPole:new THREE.Vector3()};
+function setPose(t,pose){
+  // pose is one of idle|listening|thinking|speaking|working. Values are in torso space (x sideways, y up, z forward).
+  const L=audio.level, br=Math.sin(t*1.9)*.006;
+  const defaults=()=>{
+    P.rT.set(.34,-.07+br,.03); P.lT.set(-.34,-.07+br,.03);
+    P.rFd.set(.05,-1,.1); P.lFd.set(-.05,-1,.1); P.rPn.set(-1,0,.1); P.lPn.set(1,0,.1);
+    P.rPole.set(.6,-.5,-.45); P.lPole.set(-.6,-.5,-.45);
+  };
+  defaults();
+  const tg={rCurl:.28,lCurl:.28,spread:.05,tap:0,headX:Math.sin(t*.7)*.02,headY:Math.sin(t*.45)*.05,headZ:Math.sin(t*.55)*.02,
+    spineX:.02,spineY:Math.sin(t*.4)*.04,spineZ:Math.sin(t*.5)*.015,rootX:Math.sin(t*.45)*.012,eyeX:0,eyeY:0,browUp:0,browTilt:0,smile:.2,holo:0};
+  if(pose==="listening"){
+    // leans in, tilts the head, one hand cupped behind the ear, the other resting at the waist
+    P.rT.set(.215,1.0,.045); P.rFd.set(.15,.95,-.2); P.rPn.set(-.9,.0,.55); P.rPole.set(.9,-.3,-.35);
+    P.lT.set(-.14,.28,.24); P.lFd.set(.35,-.4,.9); P.lPn.set(.1,1,0); P.lPole.set(-.7,-.6,-.3);
+    Object.assign(tg,{rCurl:.2,lCurl:.35,spread:.12,headX:.03+Math.sin(t*2.4)*.035*(.5+L),headY:Math.sin(t*.9)*.05,headZ:-.17,spineX:.1,spineZ:.03,
+      eyeX:Math.sin(t*.7)*.06,eyeY:.02,browUp:.9,smile:.1,rootX:-.01});
+  }else if(pose==="thinking"){
+    // right hand on the chin, left arm across the body supporting the elbow, eyes up and aside
+    P.rT.set(.04,.985,.185); P.rFd.set(-.35,.9,-.25); P.rPn.set(-.35,.1,-.95); P.rPole.set(.6,-.9,-.1);
+    P.lT.set(.05,.44,.25); P.lFd.set(.9,-.1,.4); P.lPn.set(0,1,-.1); P.lPole.set(-.2,-1,-.3);
+    Object.assign(tg,{rCurl:.62+Math.sin(t*3)*.08,lCurl:.3,spread:.04,tap:.25,headX:-.1+Math.sin(t*1.1)*.025,headY:-.22,headZ:.13,spineX:.04,spineY:.07,spineZ:-.02,
+      eyeX:.55,eyeY:.5,browUp:.3,browTilt:.5,smile:-.05,rootX:.012});
+  }else if(pose==="speaking"){
+    // both hands gesture in time with the voice
+    const g1=Math.sin(t*3.1)*.5+Math.sin(t*5.3)*.5, g2=Math.sin(t*2.7+1.3)*.5+Math.sin(t*4.9+.4)*.5, e=.5+L*1.6;
+    P.rT.set(.3+g1*.07*e,.26+g1*.09*e,.3+.07*e); P.rFd.set(.25,-.35,.9); P.rPn.set(-.35,.9,.15); P.rPole.set(.7,-.7,-.2);
+    P.lT.set(-.3-g2*.07*e,.24+g2*.09*e,.3+.07*e); P.lFd.set(-.25,-.35,.9); P.lPn.set(.35,.9,.15); P.lPole.set(-.7,-.7,-.2);
+    Object.assign(tg,{rCurl:.2+L*.1,lCurl:.2+L*.1,spread:.16,headX:Math.sin(t*5.2)*.04*(.4+L)-.02,headY:Math.sin(t*1.3)*.1,headZ:Math.sin(t*1.7)*.05,
+      spineX:.03+L*.03,spineY:Math.sin(t*1.1)*.08,eyeX:Math.sin(t*.6)*.1,eyeY:Math.sin(t*.9)*.05,browUp:.25+L*1.2,smile:.55,rootX:Math.sin(t*1.2)*.02});
+  }else if(pose==="working"){
+    // hands over a holographic keyboard, eyes on the floating panel, fingers typing
+    const k=Math.sin(t*2.2)*.012;
+    P.rT.set(.13+k,.3,.4); P.rFd.set(0,-.3,1); P.rPn.set(-.1,-1,-.1); P.rPole.set(.7,-.5,-.1);
+    P.lT.set(-.13-k,.3,.4); P.lFd.set(0,-.3,1); P.lPn.set(.1,-1,-.1); P.lPole.set(-.7,-.5,-.1);
+    Object.assign(tg,{rCurl:.34,lCurl:.34,spread:.07,tap:.42,headX:.14+Math.sin(t*.9)*.03,headY:Math.sin(t*.6)*.1,headZ:Math.sin(t*.8)*.025,spineX:.09,spineY:Math.sin(t*.6)*.05,
+      eyeX:Math.sin(t*1.7)*.2,eyeY:-.15+Math.sin(t*2.6)*.1,browUp:.1,smile:.05,holo:1,rootX:0});
+  }
+  return tg;
 }
-// legs have independent hip groups for natural walking motion
-const legs=[];
-for(const side of [-1,1]){
- const leg=new THREE.Group();leg.position.set(side*.17,.12,0);humanRoot.add(leg);legs.push({group:leg,side});
- limb(leg,suitMat,[0,0,0],[side*.015,-.43,0],.13,.09);
- humanMesh(leg,new THREE.SphereGeometry(.09,14,12),suitTrim,[side*.015,-.43,.01]);
- limb(leg,suitMat,[side*.015,-.43,0],[side*.025,-.80,.035],.08,.055);
- humanMesh(leg,new THREE.BoxGeometry(.15,.09,.28),suitMat,[side*.025,-.84,.09]);
- humanMesh(leg,new THREE.BoxGeometry(.12,.018,.23),suitTrim,[side*.025,-.79,.105]);
+function animateHuman(dt,pose){
+  const t=time, k=1-Math.exp(-dt*5);
+  const tg=setPose(t,pose);
+  easeVec(HS.rT,P.rT,k);easeVec(HS.lT,P.lT,k);easeVec(HS.rFd,P.rFd,k);easeVec(HS.lFd,P.lFd,k);
+  easeVec(HS.rPn,P.rPn,k);easeVec(HS.lPn,P.lPn,k);easeVec(HS.rPole,P.rPole,k);easeVec(HS.lPole,P.lPole,k);
+  for(const key of ["rCurl","lCurl","spread","tap","headX","headY","headZ","spineX","spineY","spineZ","rootX","eyeX","eyeY","browUp","browTilt","smile","holo"]) HS[key]=ease(HS[key],tg[key],key==="tap"||key==="holo"?k*.7:k);
+
+  // body
+  const H=human;
+  H.root.position.y=1.18+Math.sin(t*1.9)*.005+(pose==="speaking"?Math.abs(Math.sin(t*6.5))*.01*audio.level*4:0);
+  H.root.position.x=HS.rootX; H.root.rotation.z=-HS.rootX*.6; H.root.rotation.y=HS.spineY*.4;
+  H.spine.rotation.set(HS.spineX,HS.spineY,HS.spineZ);
+  H.neck.rotation.set(HS.headX*.4,HS.headY*.4,HS.headZ*.4);
+  H.head.rotation.set(HS.headX*.6,HS.headY*.6,HS.headZ*.6);
+
+  // arms
+  const ar=H.armR, al=H.armL;
+  ar.T.copy(HS.rT); ar.fd.copy(HS.rFd); ar.pn.copy(HS.rPn); ar.pole.copy(HS.rPole);
+  al.T.copy(HS.lT); al.fd.copy(HS.lFd); al.pn.copy(HS.lPn); al.pole.copy(HS.lPole);
+  solveArm(ar); solveArm(al);
+  setFingers(ar,HS.rCurl,HS.spread,t*11,HS.tap); setFingers(al,HS.lCurl,HS.spread,t*11+1.4,HS.tap);
+
+  // legs: gentle weight shift, knees soften, feet stay planted
+  const sh=Math.sin(t*.45)*.5+(pose==="speaking"?Math.sin(t*1.6)*.35:0), sw=pose==="working"?Math.sin(t*.8)*.04:0;
+  H.legR.hip.rotation.set(-.03+sh*.03+sw,0,-.02-sh*.03); H.legL.hip.rotation.set(-.03-sh*.03-sw,0,.02-sh*.03);
+  H.legR.knee.rotation.x=.06+Math.max(0,sh)*.06; H.legL.knee.rotation.x=.06+Math.max(0,-sh)*.06;
+  H.legR.ankle.rotation.x=-.03; H.legL.ankle.rotation.x=-.03;
+
+  // eyes: look target, glance now and then, blink
+  glanceT-=dt; if(glanceT<=0){glanceT=1.8+Math.random()*3.2;glanceX=(Math.random()-.5)*.5;glanceY=(Math.random()-.5)*.25;}
+  blinkT-=dt; if(blinkT<=0){blinkTarget=1;blinkT=2.2+Math.random()*3.5;}
+  if(blinkTarget>0){blink=Math.min(1,blink+dt*16); if(blink>=1)blinkTarget=0;} else blink=Math.max(0,blink-dt*10);
+  const ex=HS.eyeX+(pose==="idle"?glanceX:glanceX*.3), ey=HS.eyeY+(pose==="idle"?glanceY:glanceY*.3);
+  for(const e of H.eyes){
+    e.eg.rotation.set(-ey*.5,ex*.5,0);
+    const open=Math.PI/2-1.1-(HS.browUp*.15)+blink*1.1;
+    e.lid.rotation.set(open+(pose==="thinking"?.08:0),0,0);
+    e.brow.position.y=.17+.066+HS.browUp*.012+(e.s>0?HS.browTilt*.01:-HS.browTilt*.002);
+    e.brow.rotation.z=e.s*(-.12-HS.browUp*.05)+(e.s>0?HS.browTilt*.18:-HS.browTilt*.05);
+  }
+
+  // mouth: opens with the voice level while speaking, otherwise a soft expression
+  const lvl=pose==="speaking"?Math.min(1,audio.level*1.5+Math.abs(Math.sin(t*9))*.18*audio.level):0;
+  mouthOpen=ease(mouthOpen,lvl,1-Math.exp(-dt*22)); mouthWide=ease(mouthWide,audio.high,1-Math.exp(-dt*14));
+  const open=mouthOpen*.034;
+  H.mIn.scale.set(1-mouthWide*.15*mouthOpen,.05+mouthOpen*1.1,1);
+  H.lipL.position.y=-.005-open; H.lipU.position.y=.004+open*.15;
+  H.lipU.scale.x=.027*(1+HS.smile*.14-mouthOpen*.12); H.lipL.scale.x=.025*(1+HS.smile*.14-mouthOpen*.12);
+  H.lipU.rotation.z=0; H.mouth.rotation.z=pose==="thinking"?.08:0;
+  H.mouth.position.y=.17-.074+HS.smile*.003;
+
+  // holographic panel
+  H.holo.visible=HS.holo>.02;
+  if(H.holo.visible){
+    H.holo.scale.setScalar(.6+HS.holo*.4); H.holo.children.forEach(c=>{if(c.material&&c.material.opacity!==undefined&&!c.userData.keep){c.material.transparent=true;}});
+    H.holoBars.forEach((b,i)=>{const w=.35+.55*(.5+.5*Math.sin(t*(1.2+i*.3)+b.userData.seed));b.scale.x=w;b.position.x=-.45+w/2+.04;});
+    H.holoRing.rotation.z=t*1.2;
+    H.kbKeys.forEach((k,i)=>{k.material.opacity=.2+.6*Math.max(0,Math.sin(t*9+i*2.1))*HS.holo;});
+  }
+  H.floorRing.material.opacity=.35+.15*Math.sin(t*2)+audio.level*.3;
+  H.floorRing.scale.setScalar(1+audio.level*.08);
 }
-fullHuman.scale.setScalar(1.12);
-fullHuman.position.set(0,-.12,0);
-fullHuman.visible=false;
+function resetHuman(){fullHuman.rotation.set(0,0,0);humanYaw=0;humanVelY=0;}
 
 helmet.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});
 function setOrbStyle(style) {
-  const aliases={holographic_plasma:"plasma_core",cosmic_pulsar:"holographic_pulse",quantum_core:"default",aurora_quantum:"default",cyber_ring:"holographic_pulse",siri_glow:"default"};
+  // Plasma Core and Holographic Pulse were removed; anything that used them (or their old aliases) shows the default orb.
+  const aliases={plasma_core:"default",holographic_pulse:"default",holographic_plasma:"default",cosmic_pulsar:"default",quantum_core:"default",aurora_quantum:"default",cyber_ring:"default",siri_glow:"default"};
   const requested=aliases[style]||style;
-  const allowed=["default","plasma_core","holographic_pulse","siri_glass_aurora","iron_man_head","full_human"];
+  const allowed=["default","siri_glass_aurora","iron_man_head","full_human"];
   orbStyle=allowed.includes(requested)?requested:"default";
   orb.visible=orbStyle==="default";
-  altPlasma.visible=orbStyle==="plasma_core";
-  altHolo.visible=orbStyle==="holographic_pulse";
   siriGlassAurora.visible=orbStyle==="siri_glass_aurora";
   helmet.visible=orbStyle==="iron_man_head";
   fullHuman.visible=orbStyle==="full_human";
-  if(orbStyle==="plasma_core") altPlasma.rotation.set(orb.rotation.x,orb.rotation.y,0);
-  if(orbStyle==="holographic_pulse") altHolo.rotation.set(orb.rotation.x,orb.rotation.y,0);
   if(orbStyle==="siri_glass_aurora") siriGlassAurora.rotation.set(orb.rotation.x,orb.rotation.y,0);
+  setStudioLight(orbStyle==="full_human"?.42:1);
+  if(orbStyle==="full_human") resetHuman();
 }
 
 
@@ -387,7 +649,7 @@ let themeName="light";
 function setBlend(add){
   [pointsMesh.material,orbitPts.material,glowMat,ring1.material,ring2.material].forEach(m=>{m.blending=add?THREE.AdditiveBlending:THREE.NormalBlending;m.needsUpdate=true;});
 }
-function applyTheme(name,custom){
+function applyTheme(name,custom,custom2){
   let t=THEMES[name]||THEMES.light;
   if(custom){
     const c=new THREE.Color(custom),L=.299*c.r+.587*c.g+.114*c.b,light=L>.55;
@@ -395,7 +657,17 @@ function applyTheme(name,custom){
     c.getHSL(hsl);
 
     let pal;
-    if(hsl.s<.06){
+    const c2=custom2?new THREE.Color(custom2):null, hsl2={h:0,s:0,l:0};
+    if(c2) c2.getHSL(hsl2);
+    if(c2&&hsl.s>=.06){
+      // Two-colour blend: the first colour drives the body of the orb, the second its highlights.
+      const deep=new THREE.Color().setHSL(hsl.h,Math.min(1,Math.max(.6,hsl.s*1.2)),Math.max(.1,Math.min(.35,hsl.l*.45)));
+      const main=new THREE.Color().setHSL(hsl.h,Math.max(.85,hsl.s),Math.max(.45,Math.min(.65,hsl.l)));
+      const h2=hsl2.s<.06?hsl.h:hsl2.h;
+      const hi1=new THREE.Color().setHSL(h2,Math.max(.8,hsl2.s),Math.max(.55,Math.min(.72,hsl2.l+.1)));
+      const hi2=new THREE.Color().setHSL((h2+.06)%1.,.95,.68);
+      pal=[[deep.r,deep.g,deep.b],[main.r,main.g,main.b],[hi1.r,hi1.g,hi1.b],[hi2.r,hi2.g,hi2.b]];
+    }else if(hsl.s<.06){
       pal=light?LIGHTPAL:[[.10,.20,.80],[.25,.50,1],[.30,.92,1],[.70,.45,1]];
     }else{
       const h=hsl.h;
@@ -445,11 +717,12 @@ function applyTheme(name,custom){
   for(let i=0;i<ORBIT;i++) oc.setXYZ(i,cols[i%3][0],cols[i%3][1],cols[i%3][2]);
   oc.needsUpdate=true;
   setBlend(t.add);
+  human.setAccent(new THREE.Color(t.pal[2][0],t.pal[2][1],t.pal[2][2]));
   document.querySelectorAll("[data-t]").forEach(b=>b.classList.toggle("on",!custom&&b.dataset.t===themeName));
 }
 
 /* ---------- State ---------- */
-let state="idle";
+let state="idle",working=false;
 const cur=Object.assign({},STATES.idle),tgt=Object.assign({},STATES.idle);
 function setOrbState(s){
   if(!STATES[s]) return;
@@ -542,15 +815,7 @@ function updateOrb(dt){
   glowMat.uniforms.uTime.value=time;glowMat.uniforms.uMix.value=cur.cyan;
   glowMat.uniforms.uStrength.value=cur.glow+audio.level*.6+idlePulse*2;
   const voicePulse = state==="speaking" ? .10 + audio.level*.12 : state==="listening" ? .035 + audio.level*.07 : .015;
-  if(orbStyle==="plasma_core") {
-    altPlasma.rotation.y += dt*(.25+cur.speed*.35);
-    altPlasma.rotation.x += dt*.12;
-    altPlasma.scale.setScalar(s*(1+voicePulse));
-  } else if(orbStyle==="holographic_pulse") {
-    altHolo.rotation.y += dt*(.18+cur.speed*.22);
-    altHolo.rotation.x += dt*.08;
-    holoShell.rotation.y -= dt*.12;
-    holoShell.scale.setScalar(1+audio.level*.07+(state==="listening"?.025:0));
+  if(false) {
   } else if(orbStyle==="siri_glass_aurora") {
     siriGlassAurora.rotation.y += dt*(.16+cur.speed*.22);
     siriGlassAurora.rotation.x += dt*.045;
@@ -562,15 +827,14 @@ function updateOrb(dt){
     siriGlassAurora.scale.setScalar(s*pulse);
     glassRings.forEach((ring,i)=>ring.scale.setScalar(1+speakingBoost*.12+Math.sin(time*1.6+i*.7)*.008));
   } else if(orbStyle==="full_human") {
-    // Idle breathing; speech uses subtle torso bounce and arm gestures, listening leans forward.
-    humanRoot.position.y=Math.sin(time*2.2)*.018 + (state==="speaking" ? Math.abs(Math.sin(time*7.5))*.045 : 0);
-    humanRoot.rotation.y=Math.sin(time*.65)*.07;
-    humanRoot.rotation.x=state==="listening" ? -.055 : state==="thinking" ? .035*Math.sin(time*2) : 0;
-    arms.forEach((a,i)=>{const sign=a.side; a.group.rotation.x=(state==="listening"?-.18:state==="speaking"?-.35-.16*Math.sin(time*8+i):.035*Math.sin(time*1.6+i));a.group.rotation.z=sign*(state==="speaking"?.18+.10*Math.sin(time*6+i):.045*Math.sin(time*1.5+i));});
-    legs.forEach((l,i)=>{const walk=state==="speaking"?.10*Math.sin(time*5+i*Math.PI):state==="listening"?.025*Math.sin(time*2+i):.012*Math.sin(time*1.3+i);l.group.rotation.x=walk;});
-    fullHuman.rotation.y += dragging ? 0 : dt*.10;
-    fullHuman.rotation.x += (orb.rotation.x-fullHuman.rotation.x)*Math.min(1,dt*2);
-    fullHuman.scale.setScalar(1.12*(1+voicePulse*.18));
+    // Which pose to show: speaking and listening win; while a task runs, idle/thinking become "working".
+    const pose=(working&&(state==="idle"||state==="thinking"))?"working":state;
+    animateHuman(dt,pose);
+    // Drag to turn the character; it eases back to face you.
+    humanVelY+=velY*.6; humanYaw+=humanVelY*Math.min(dt*10,1)*.6; humanVelY*=Math.exp(-dt*6);
+    if(!dragging) humanYaw*=Math.exp(-dt*1.2);
+    fullHuman.rotation.y=humanYaw;
+    fullHuman.scale.setScalar(.98*(1+voicePulse*.03));
   } else if(orbStyle==="iron_man_head") {
     helmet.rotation.y += dragging ? 0 : dt*.12;
     helmet.rotation.x += (orb.rotation.x-helmet.rotation.x)*Math.min(1,dt*3);
@@ -630,10 +894,11 @@ window.JarvisOrb={
   setState:setOrbState,
   setStyle:setOrbStyle,
   setTheme:n=>applyTheme(n),
-  setBackground:hex=>{
+  setBackground:(hex,hex2)=>{
     if(!isEmbedded) document.documentElement.style.setProperty("--bg",hex);
-    applyTheme(null,hex);
+    applyTheme(null,hex,hex2);
   },
+  setWorking:b=>{working=!!b;},
   setExternalAudio:setExternalAudio,
   startListening:()=>setOrbState("listening"),
   startThinking:()=>setOrbState("thinking"),

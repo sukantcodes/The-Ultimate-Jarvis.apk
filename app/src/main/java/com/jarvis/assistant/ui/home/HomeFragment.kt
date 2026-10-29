@@ -145,6 +145,10 @@ class HomeFragment : Fragment() {
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     isPageLoaded = true
+                    if (!loadedAuroraOrb) {
+                        val working = com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value != null
+                        view?.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setWorking($working);", null)
+                    }
 
                     // Sync Theme
                     val currentTheme = pendingThemeKey ?: preferences.appTheme
@@ -208,13 +212,24 @@ class HomeFragment : Fragment() {
         }
     }
 
+    /** The soft halo behind the orb follows the theme colour instead of staying fixed blue. */
+    private fun tintOrbHalo() {
+        if (_binding == null) return
+        binding.orbHaloRing.backgroundTintList =
+            android.content.res.ColorStateList.valueOf(com.jarvis.assistant.util.ThemeManager.getThemeAccentColor())
+    }
+
     fun setOrbTheme(themeKey: String, customHex: String?) {
         pendingThemeKey = themeKey
         pendingCustomHex = customHex
+        tintOrbHalo()
         if (!isPageLoaded || loadedAuroraOrb) return
         activity?.runOnUiThread {
             if (themeKey == "custom" && !customHex.isNullOrBlank()) {
-                binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setBackground('$customHex');", null)
+                val second = preferences.customThemeColor2.takeIf { it.isNotBlank() } ?: customHex
+                val safeFirst = customHex.filter { it.isLetterOrDigit() || it == '#' }
+                val safeSecond = second.filter { it.isLetterOrDigit() || it == '#' }
+                binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setBackground('$safeFirst','$safeSecond');", null)
             } else {
                 val mapped = when (themeKey) {
                     "dark" -> "dark"
@@ -347,6 +362,9 @@ class HomeFragment : Fragment() {
                 launch {
                     com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.collect { snapshot ->
                         renderTaskFallback(snapshot)
+                        if (isPageLoaded && !loadedAuroraOrb) {
+                            binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setWorking(${snapshot != null});", null)
+                        }
                     }
                 }
                 launch {

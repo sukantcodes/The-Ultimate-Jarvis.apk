@@ -40,8 +40,6 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
 
         binding.btnOrbDefault.setOnClickListener { selectOrb("default", "Default Orb") }
         binding.btnOrbAurora.setOnClickListener { selectOrb("aurora_orb", "Aurora Orb") }
-        binding.btnOrbPlasma.setOnClickListener { selectOrb("plasma_core", "Plasma Core") }
-        binding.btnOrbHolographic.setOnClickListener { selectOrb("holographic_pulse", "Holographic Pulse") }
         binding.btnOrbIronMan.setOnClickListener { selectOrb("iron_man_head", "Iron Man 3D Helmet") }
         binding.btnOrbFullCharacter.setOnClickListener { selectOrb("full_human", "Full Human 3D Assistant") }
 
@@ -89,6 +87,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         }
 
         preferences.customThemeColor = hex
+        preferences.customThemeColor2 = "" // a single colour, not a blend
         preferences.appTheme = "custom"
         updateCheckmarks("custom")
 

@@ -12,8 +12,8 @@ import android.widget.TextView
 import com.jarvis.assistant.JarvisApp
 
 /**
- * Palette of 50 curated two-colour blends. Each swatch stores the blended midpoint
- * as the custom theme colour, so it works with the existing theme preference system.
+ * Palette of 50 curated two-colour blends. Choosing one applies both of its colours: the first
+ * becomes the main custom colour and the second the companion glow colour.
  */
 class MoreThemeColoursActivity : Activity() {
 
@@ -121,13 +121,16 @@ class MoreThemeColoursActivity : Activity() {
                 setTypeface(typeface, Typeface.BOLD)
             })
             labels.addView(TextView(this).apply {
-                text = "${blend.first} + ${blend.second}  →  ${blend.result}"
+                text = "${blend.first}  +  ${blend.second}"
                 setTextColor(Color.rgb(166, 179, 204))
                 textSize = 11f
             })
             row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
             row.addView(View(this).apply {
-                background = rounded(Color.parseColor(blend.result), dp(24).toFloat())
+                background = android.graphics.drawable.GradientDrawable(
+                    android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                    intArrayOf(Color.parseColor(blend.first), Color.parseColor(blend.second))
+                ).apply { shape = android.graphics.drawable.GradientDrawable.OVAL }
             }, LinearLayout.LayoutParams(dp(24), dp(24)))
             row.setOnClickListener { applyBlend(blend) }
             list.addView(row)
@@ -138,7 +141,9 @@ class MoreThemeColoursActivity : Activity() {
     }
 
     private fun applyBlend(blend: Blend) {
-        JarvisApp.instance.preferences.customThemeColor = blend.result
+        // Apply BOTH colours of the blend (the old midpoint was a muddy colour that looked nothing like the swatch).
+        JarvisApp.instance.preferences.customThemeColor = blend.first
+        JarvisApp.instance.preferences.customThemeColor2 = blend.second
         JarvisApp.instance.preferences.appTheme = "custom"
         setResult(RESULT_OK)
         finish()

@@ -152,7 +152,7 @@ class MainActivity : AppCompatActivity() {
         com.jarvis.assistant.util.ThemeManager.applyTheme(this)
         val prefs = com.jarvis.assistant.JarvisApp.instance.preferences
         appliedThemeKey = prefs.appTheme
-        appliedCustomHex = prefs.customThemeColor
+        appliedCustomHex = prefs.customThemeSignature
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -282,9 +282,9 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         viewModel.refreshSettings()
         val prefs = com.jarvis.assistant.JarvisApp.instance.preferences
-        if (appliedThemeKey != prefs.appTheme || appliedCustomHex != prefs.customThemeColor) {
+        if (appliedThemeKey != prefs.appTheme || appliedCustomHex != prefs.customThemeSignature) {
             appliedThemeKey = prefs.appTheme
-            appliedCustomHex = prefs.customThemeColor
+            appliedCustomHex = prefs.customThemeSignature
             recreate()
         }
     }
