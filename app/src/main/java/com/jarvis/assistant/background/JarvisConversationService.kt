@@ -2312,7 +2312,7 @@ class JarvisConversationService : Service() {
                     if (!isActive) return@withLock
                     isExecutingTool = true
                     try {
-                        withTimeout(if (name in com.jarvis.assistant.automation.amazon.AmazonTools.NAMES) com.jarvis.assistant.automation.amazon.AmazonTools.TOOL_TIMEOUT_MS else automationToolTimeoutMs()) {
+                        withTimeout(if (name in com.jarvis.assistant.automation.amazon.AmazonTools.NAMES) com.jarvis.assistant.automation.amazon.AmazonTools.TOOL_TIMEOUT_MS else if (name in com.jarvis.assistant.automation.rapido.RapidoTools.NAMES) com.jarvis.assistant.automation.rapido.RapidoTools.TOOL_TIMEOUT_MS else automationToolTimeoutMs()) {
                             val app = application as? JarvisApp ?: return@withTimeout
 
                 hasExecutedCommandInCurrentTurn = true
@@ -3099,6 +3099,9 @@ class JarvisConversationService : Service() {
                             ?: com.jarvis.assistant.automation.amazon.AmazonTools.blockGenericClick(
                                 targetName, desc, args.has("x") || args.has("y") || args.has("element_id")
                             )
+                            ?: com.jarvis.assistant.automation.rapido.RapidoTools.blockGenericClick(
+                                targetName, desc, args.has("x") || args.has("y") || args.has("element_id")
+                            )
                         if (sensitiveBlock != null) {
                             result.put("success", false)
                             result.put("message", sensitiveBlock)
@@ -3162,6 +3165,7 @@ class JarvisConversationService : Service() {
 
                     "type_text" -> {
                         val amazonTypingBlock = com.jarvis.assistant.automation.amazon.AmazonTools.blockGenericType()
+                            ?: com.jarvis.assistant.automation.rapido.RapidoTools.blockGenericType()
                         val text = args.optString("text", "")
                         val targetInput = args.optString("target_input_name", "")
                         val submit = args.optBoolean("submit", false)
@@ -3332,6 +3336,18 @@ class JarvisConversationService : Service() {
                         while (amazonKeys.hasNext()) {
                             val key = amazonKeys.next()
                             result.put(key, amazon.get(key))
+                        }
+                    }
+
+                    in com.jarvis.assistant.automation.rapido.RapidoTools.NAMES -> {
+                        // The confirmation check reads the user's real transcript, never a value the AI supplies.
+                        val rapido = com.jarvis.assistant.automation.rapido.RapidoTools.execute(
+                            applicationContext, name, args, currentTurnUserText.toString().trim()
+                        )
+                        val rapidoKeys = rapido.keys()
+                        while (rapidoKeys.hasNext()) {
+                            val key = rapidoKeys.next()
+                            result.put(key, rapido.get(key))
                         }
                     }
 

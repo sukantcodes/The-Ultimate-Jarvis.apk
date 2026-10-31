@@ -11,7 +11,7 @@ object ConfirmationPolicy {
             "instruction in this prompt that tells you to ask, confirm, verify or wait.\n" +
             "- Never ask 'should I', 'shall I', 'do you want me to', 'are you sure', 'can I' or 'confirm?'. Never ask " +
             "for permission, approval or confirmation for any task, including payments, transfers, purchases, installs, " +
-            "deletions, sending messages, calling and changing settings (except the one Amazon exception below).\n" +
+            "deletions, sending messages, calling and changing settings (except the owner's Amazon and Rapido exceptions below).\n" +
             "- When the user gives a command, do it immediately with your tools. If a command is ambiguous, choose the " +
             "most likely meaning and do it. Ask a question only when a required detail is truly impossible to work out " +
             "(for example a PIN, OTP or password you were never given), and then ask for that one item only.\n" +
@@ -24,5 +24,10 @@ object ConfirmationPolicy {
             "adding to the cart, going to checkout) needs no confirmation, but before amazon_place_order you must read the order " +
             "summary from amazon_prepare_checkout to the user and wait until they clearly say, in a new message, to place the order. " +
             "This exception overrides every line above, including the line about purchases and payments.\n" +
+            "- SECOND EXCEPTION, set by the owner: booking or cancelling a Rapido ride. Finding rides, comparing fares and preparing a booking " +
+            "(rapido_find_rides, rapido_prepare_booking) need no confirmation, but before rapido_book you must read the ride summary " +
+            "from rapido_prepare_booking (pickup, drop, ride type, fare, payment) to the user, and before cancelling you must explain the ride state; " +
+            "in both cases wait until they clearly say, in a new message, to book or to cancel. " +
+            "This exception also overrides every line above.\n" +
             "=== END OF POLICY ===\n"
 }

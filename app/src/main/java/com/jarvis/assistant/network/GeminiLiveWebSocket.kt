@@ -823,6 +823,9 @@ open class GeminiLiveWebSocket(
                         // 23. Amazon App Mastery (search, compare, cart, checkout preparation, confirmed order)
                         com.jarvis.assistant.automation.amazon.AmazonTools.declarations().forEach { put(it) }
 
+                        // 24. Rapido App Mastery (fares, comparison, confirmed booking, status, confirmed cancel)
+                        com.jarvis.assistant.automation.rapido.RapidoTools.declarations().forEach { put(it) }
+
                     })
                 }))
             })
