@@ -2312,7 +2312,7 @@ class JarvisConversationService : Service() {
                     if (!isActive) return@withLock
                     isExecutingTool = true
                     try {
-                        withTimeout(automationToolTimeoutMs()) {
+                        withTimeout(if (name in com.jarvis.assistant.automation.amazon.AmazonTools.NAMES) com.jarvis.assistant.automation.amazon.AmazonTools.TOOL_TIMEOUT_MS else automationToolTimeoutMs()) {
                             val app = application as? JarvisApp ?: return@withTimeout
 
                 hasExecutedCommandInCurrentTurn = true
@@ -3096,6 +3096,9 @@ class JarvisConversationService : Service() {
                         val x = if (args.has("x")) args.optInt("x") else null
                         val y = if (args.has("y")) args.optInt("y") else null
                         val sensitiveBlock = sensitiveActionBlock(targetName, desc)
+                            ?: com.jarvis.assistant.automation.amazon.AmazonTools.blockGenericClick(
+                                targetName, desc, args.has("x") || args.has("y") || args.has("element_id")
+                            )
                         if (sensitiveBlock != null) {
                             result.put("success", false)
                             result.put("message", sensitiveBlock)
@@ -3158,13 +3161,16 @@ class JarvisConversationService : Service() {
                     }
 
                     "type_text" -> {
+                        val amazonTypingBlock = com.jarvis.assistant.automation.amazon.AmazonTools.blockGenericType()
                         val text = args.optString("text", "")
                         val targetInput = args.optString("target_input_name", "")
                         val submit = args.optBoolean("submit", false)
                         val x = if (args.has("x")) args.optInt("x") else null
                         val y = if (args.has("y")) args.optInt("y") else null
                         val orchestrator = com.jarvis.assistant.vision.VisualTaskOrchestrator.getInstance()
-                        val actionRes = orchestrator.handleType(text, targetInput.takeIf { it.isNotBlank() }, submit, x, y)
+                        val actionRes = if (amazonTypingBlock != null) {
+                            com.jarvis.assistant.vision.TaskActionResult(success = false, message = amazonTypingBlock, verified = false)
+                        } else orchestrator.handleType(text, targetInput.takeIf { it.isNotBlank() }, submit, x, y)
                         result.put("success", actionRes.success)
                         result.put("message", actionRes.message)
                         actionRes.verified?.let { result.put("verified", it) }
@@ -3316,6 +3322,18 @@ class JarvisConversationService : Service() {
                         result.put("message", "Screen inspected successfully.")
                     }
 
+
+                    in com.jarvis.assistant.automation.amazon.AmazonTools.NAMES -> {
+                        // The confirmation check reads the user's real transcript, never a value the AI supplies.
+                        val amazon = com.jarvis.assistant.automation.amazon.AmazonTools.execute(
+                            applicationContext, name, args, currentTurnUserText.toString().trim()
+                        )
+                        val amazonKeys = amazon.keys()
+                        while (amazonKeys.hasNext()) {
+                            val key = amazonKeys.next()
+                            result.put(key, amazon.get(key))
+                        }
+                    }
 
                     else -> {
                         Log.w("JarvisService", "Unknown toolCall name: $name")
