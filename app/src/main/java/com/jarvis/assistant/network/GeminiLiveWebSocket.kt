@@ -826,6 +826,9 @@ open class GeminiLiveWebSocket(
                         // 24. Rapido App Mastery (fares, comparison, confirmed booking, status, confirmed cancel)
                         com.jarvis.assistant.automation.rapido.RapidoTools.declarations().forEach { put(it) }
 
+                        // 25. Blinkit App Mastery (search, value comparison, budget plan, cart, address, confirmed order, status)
+                        com.jarvis.assistant.automation.blinkit.BlinkitTools.declarations().forEach { put(it) }
+
                     })
                 }))
             })

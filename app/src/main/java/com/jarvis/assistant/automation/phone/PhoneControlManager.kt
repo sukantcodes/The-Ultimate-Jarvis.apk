@@ -137,6 +137,7 @@ class PhoneControlManager(
             "amazon shopping" to "in.amazon.mShop.android.shopping",
             "flipkart" to "com.flipkart.android",
             "rapido" to "com.rapido.passenger",
+            "blinkit" to "com.grofers.customerapp",
             "cred" to "com.dreamplug.androidapp",
             "myntra" to "com.myntra.android",
 
