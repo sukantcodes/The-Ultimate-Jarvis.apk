@@ -55,5 +55,7 @@
     <string name="category_contacts">Contacts</string>
     <string name="category_routines">Routines</string>
     <string name="category_notes">Notes</string>
+    <string name="google_web_client_id">684324005847-mqf8reui1gqtu9v70s02dci56dt4j64i.apps.googleusercontent.com.apps.googleusercontent.com</string>
+  
 </resources>
 
