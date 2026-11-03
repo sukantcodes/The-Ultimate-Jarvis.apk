@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Clock strings, pa (main labels; the rest fall back to English). -->
+<resources>
+    <string name="clock_title">ਘੜੀ</string>
+    <string name="clock_subtitle">ਅਲਾਰਮ, ਟੋਨ ਅਤੇ ਉਨ੍ਹਾਂ ਦਾ ਵਿਹਾਰ</string>
+    <string name="clock_ok">ਠੀਕ ਹੈ</string>
+    <string name="clock_cancel">ਰੱਦ ਕਰੋ</string>
+    <string name="clock_save">ਸੰਭਾਲੋ</string>
+    <string name="clock_edit">ਬਦਲੋ</string>
+    <string name="clock_delete">ਮਿਟਾਓ</string>
+    <string name="clock_play">ਸੁਣੋ</string>
+    <string name="clock_stop">ਬੰਦ ਕਰੋ</string>
+    <string name="clock_snooze">ਸਨੂਜ਼</string>
+    <string name="clock_today">ਅੱਜ</string>
+    <string name="clock_tomorrow">ਕੱਲ੍ਹ</string>
+    <string name="clock_alarms_title">ਅਲਾਰਮ</string>
+    <string name="clock_tones_title">ਅਲਾਰਮ ਟੋਨ</string>
+    <string name="clock_display_title">ਘੜੀ ਡਿਸਪਲੇ ਸੈਟਿੰਗਾਂ</string>
+    <string name="clock_behaviour_title">ਅਲਾਰਮ ਵਿਹਾਰ</string>
+    <string name="clock_add_alarm">ਅਲਾਰਮ ਜੋੜੋ</string>
+    <string name="clock_new_alarm">ਨਵਾਂ ਅਲਾਰਮ</string>
+    <string name="clock_edit_alarm">ਅਲਾਰਮ ਬਦਲੋ</string>
+    <string name="clock_next_alarm">ਅਗਲਾ ਅਲਾਰਮ</string>
+    <string name="clock_next_alarm_none">ਕੋਈ ਅਲਾਰਮ ਸੈੱਟ ਨਹੀਂ</string>
+    <string name="clock_alarm_default_label">ਅਲਾਰਮ</string>
+    <string name="clock_label_hint">ਨਾਂ (ਵਿਕਲਪਿਕ)</string>
+    <string name="clock_repeat">ਦੁਹਰਾਓ</string>
+    <string name="clock_repeat_once">ਇੱਕ ਵਾਰ</string>
+    <string name="clock_repeat_daily">ਹਰ ਰੋਜ਼</string>
+    <string name="clock_repeat_weekdays">ਹਫ਼ਤੇ ਦੇ ਦਿਨ</string>
+    <string name="clock_repeat_weekends">ਹਫ਼ਤੇ ਦਾ ਅੰਤ</string>
+    <string name="clock_tone">ਟੋਨ</string>
+    <string name="clock_vibrate">ਵਾਈਬ੍ਰੇਸ਼ਨ</string>
+    <string name="clock_snooze_length">ਸਨੂਜ਼ ਸਮਾਂ</string>
+    <string name="clock_minutes_fmt">%1$d ਮਿੰਟ</string>
+    <string name="clock_alarm_set_for">ਅਲਾਰਮ %1$s ਲਈ ਸੈੱਟ ਹੋਇਆ</string>
+    <string name="clock_alarm_off_toast">ਅਲਾਰਮ ਬੰਦ ਕੀਤਾ</string>
+    <string name="clock_deleted_toast">ਅਲਾਰਮ ਮਿਟਾਇਆ</string>
+    <string name="clock_snoozed_until">%1$s ਤੱਕ ਸਨੂਜ਼ ਕੀਤਾ</string>
+    <string name="clock_tone_phone_default">ਫ਼ੋਨ ਡਿਫ਼ਾਲਟ</string>
+    <string name="clock_tone_phone_default_named">ਫ਼ੋਨ ਡਿਫ਼ਾਲਟ (%1$s)</string>
+    <string name="clock_tone_vibration_only">ਸਿਰਫ਼ ਵਾਈਬ੍ਰੇਸ਼ਨ (ਆਵਾਜ਼ ਨਹੀਂ)</string>
+    <string name="clock_time_format">ਸਮੇਂ ਦਾ ਫਾਰਮੈਟ</string>
+    <string name="clock_format_system">ਫ਼ੋਨ ਅਨੁਸਾਰ</string>
+    <string name="clock_format_12">12 ਘੰਟੇ (AM/PM)</string>
+    <string name="clock_format_24">24 ਘੰਟੇ</string>
+    <string name="clock_perm_open_settings">ਸੈਟਿੰਗਾਂ ਖੋਲ੍ਹੋ</string>
+    <string name="clock_could_not_title">ਇਹ ਨਹੀਂ ਹੋ ਸਕਿਆ</string>
+    <string name="clock_err_invalid_time">ਇਹ ਸਹੀ ਸਮਾਂ ਨਹੀਂ ਹੈ।</string>
+    <string name="clock_err_needs_am_pm">ਕਿਰਪਾ ਕਰਕੇ ਦੱਸੋ ਕਿ ਇਹ AM ਹੈ ਜਾਂ PM।</string>
+    <string name="clock_err_nothing_ringing">ਇਸ ਵੇਲੇ ਕੋਈ ਅਲਾਰਮ ਨਹੀਂ ਵੱਜ ਰਿਹਾ।</string>
+</resources>

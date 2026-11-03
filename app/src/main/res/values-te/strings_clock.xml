@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Clock strings, te (main labels; the rest fall back to English). -->
+<resources>
+    <string name="clock_title">గడియారం</string>
+    <string name="clock_subtitle">అలారాలు, టోన్లు మరియు వాటి ప్రవర్తన</string>
+    <string name="clock_ok">సరే</string>
+    <string name="clock_cancel">రద్దు</string>
+    <string name="clock_save">సేవ్ చేయి</string>
+    <string name="clock_edit">మార్చు</string>
+    <string name="clock_delete">తొలగించు</string>
+    <string name="clock_play">వినండి</string>
+    <string name="clock_stop">ఆపు</string>
+    <string name="clock_snooze">స్నూజ్</string>
+    <string name="clock_today">ఈరోజు</string>
+    <string name="clock_tomorrow">రేపు</string>
+    <string name="clock_alarms_title">అలారాలు</string>
+    <string name="clock_tones_title">అలారం టోన్లు</string>
+    <string name="clock_display_title">గడియార ప్రదర్శన సెట్టింగ్‌లు</string>
+    <string name="clock_behaviour_title">అలారం ప్రవర్తన</string>
+    <string name="clock_add_alarm">అలారం జోడించు</string>
+    <string name="clock_new_alarm">కొత్త అలారం</string>
+    <string name="clock_edit_alarm">అలారం మార్చు</string>
+    <string name="clock_next_alarm">తదుపరి అలారం</string>
+    <string name="clock_next_alarm_none">ఏ అలారం సెట్ చేయలేదు</string>
+    <string name="clock_alarm_default_label">అలారం</string>
+    <string name="clock_label_hint">పేరు (ఐచ్ఛికం)</string>
+    <string name="clock_repeat">పునరావృతం</string>
+    <string name="clock_repeat_once">ఒకసారి</string>
+    <string name="clock_repeat_daily">ప్రతిరోజూ</string>
+    <string name="clock_repeat_weekdays">వారపు రోజులు</string>
+    <string name="clock_repeat_weekends">వారాంతం</string>
+    <string name="clock_tone">టోన్</string>
+    <string name="clock_vibrate">వైబ్రేషన్</string>
+    <string name="clock_snooze_length">స్నూజ్ వ్యవధి</string>
+    <string name="clock_minutes_fmt">%1$d నిమిషాలు</string>
+    <string name="clock_alarm_set_for">అలారం %1$s కి సెట్ చేయబడింది</string>
+    <string name="clock_alarm_off_toast">అలారం ఆఫ్ చేయబడింది</string>
+    <string name="clock_deleted_toast">అలారం తొలగించబడింది</string>
+    <string name="clock_snoozed_until">%1$s వరకు స్నూజ్ చేయబడింది</string>
+    <string name="clock_tone_phone_default">ఫోన్ డిఫాల్ట్</string>
+    <string name="clock_tone_phone_default_named">ఫోన్ డిఫాల్ట్ (%1$s)</string>
+    <string name="clock_tone_vibration_only">వైబ్రేషన్ మాత్రమే (శబ్దం లేదు)</string>
+    <string name="clock_time_format">సమయ ఆకృతి</string>
+    <string name="clock_format_system">ఫోన్‌ను అనుసరించు</string>
+    <string name="clock_format_12">12 గంటలు (AM/PM)</string>
+    <string name="clock_format_24">24 గంటలు</string>
+    <string name="clock_perm_open_settings">సెట్టింగ్‌లు తెరువు</string>
+    <string name="clock_could_not_title">ఇది చేయలేకపోయాం</string>
+    <string name="clock_err_invalid_time">ఇది సరైన సమయం కాదు.</string>
+    <string name="clock_err_needs_am_pm">ఇది AM లేదా PM అని చెప్పండి.</string>
+    <string name="clock_err_nothing_ringing">ప్రస్తుతం ఏ అలారం మోగడం లేదు.</string>
+</resources>

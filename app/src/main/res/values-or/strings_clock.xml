@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Clock strings, or (main labels; the rest fall back to English). -->
+<resources>
+    <string name="clock_title">ଘଡ଼ି</string>
+    <string name="clock_subtitle">ଆଲାର୍ମ, ଟୋନ୍ ଏବଂ ସେମାନଙ୍କ ଆଚରଣ</string>
+    <string name="clock_ok">ଠିକ୍ ଅଛି</string>
+    <string name="clock_cancel">ବାତିଲ୍</string>
+    <string name="clock_save">ସଞ୍ଚୟ</string>
+    <string name="clock_edit">ବଦଳାନ୍ତୁ</string>
+    <string name="clock_delete">ଲିଭାନ୍ତୁ</string>
+    <string name="clock_play">ଶୁଣନ୍ତୁ</string>
+    <string name="clock_stop">ବନ୍ଦ କରନ୍ତୁ</string>
+    <string name="clock_snooze">ସ୍ନୁଜ୍</string>
+    <string name="clock_today">ଆଜି</string>
+    <string name="clock_tomorrow">କାଲି</string>
+    <string name="clock_alarms_title">ଆଲାର୍ମ</string>
+    <string name="clock_tones_title">ଆଲାର୍ମ ଟୋନ୍</string>
+    <string name="clock_display_title">ଘଡ଼ି ପ୍ରଦର୍ଶନ ସେଟିଂସ୍</string>
+    <string name="clock_behaviour_title">ଆଲାର୍ମ ଆଚରଣ</string>
+    <string name="clock_add_alarm">ଆଲାର୍ମ ଯୋଡ଼ନ୍ତୁ</string>
+    <string name="clock_new_alarm">ନୂଆ ଆଲାର୍ମ</string>
+    <string name="clock_edit_alarm">ଆଲାର୍ମ ବଦଳାନ୍ତୁ</string>
+    <string name="clock_next_alarm">ପରବର୍ତ୍ତୀ ଆଲାର୍ମ</string>
+    <string name="clock_next_alarm_none">କୌଣସି ଆଲାର୍ମ ସେଟ୍ ହୋଇନାହିଁ</string>
+    <string name="clock_alarm_default_label">ଆଲାର୍ମ</string>
+    <string name="clock_label_hint">ନାମ (ବୈକଳ୍ପିକ)</string>
+    <string name="clock_repeat">ପୁନରାବୃତ୍ତି</string>
+    <string name="clock_repeat_once">ଥରେ</string>
+    <string name="clock_repeat_daily">ପ୍ରତିଦିନ</string>
+    <string name="clock_repeat_weekdays">କାର୍ଯ୍ୟଦିବସ</string>
+    <string name="clock_repeat_weekends">ସପ୍ତାହାନ୍ତ</string>
+    <string name="clock_tone">ଟୋନ୍</string>
+    <string name="clock_vibrate">କମ୍ପନ</string>
+    <string name="clock_snooze_length">ସ୍ନୁଜ୍ ସମୟ</string>
+    <string name="clock_minutes_fmt">%1$d ମିନିଟ୍</string>
+    <string name="clock_alarm_set_for">ଆଲାର୍ମ %1$s ପାଇଁ ସେଟ୍ ହେଲା</string>
+    <string name="clock_alarm_off_toast">ଆଲାର୍ମ ବନ୍ଦ ହେଲା</string>
+    <string name="clock_deleted_toast">ଆଲାର୍ମ ଲିଭାଗଲା</string>
+    <string name="clock_snoozed_until">%1$s ପର୍ଯ୍ୟନ୍ତ ସ୍ନୁଜ୍ ହେଲା</string>
+    <string name="clock_tone_phone_default">ଫୋନ୍ ଡିଫଲ୍ଟ</string>
+    <string name="clock_tone_phone_default_named">ଫୋନ୍ ଡିଫଲ୍ଟ (%1$s)</string>
+    <string name="clock_tone_vibration_only">କେବଳ କମ୍ପନ (ଶବ୍ଦ ନାହିଁ)</string>
+    <string name="clock_time_format">ସମୟ ଫର୍ମାଟ୍</string>
+    <string name="clock_format_system">ଫୋନ୍ ଅନୁସାରେ</string>
+    <string name="clock_format_12">12 ଘଣ୍ଟା (AM/PM)</string>
+    <string name="clock_format_24">24 ଘଣ୍ଟା</string>
+    <string name="clock_perm_open_settings">ସେଟିଂସ୍ ଖୋଲନ୍ତୁ</string>
+    <string name="clock_could_not_title">ଏହା କରାଯାଇପାରିଲା ନାହିଁ</string>
+    <string name="clock_err_invalid_time">ଏହା ଠିକ୍ ସମୟ ନୁହେଁ।</string>
+    <string name="clock_err_needs_am_pm">ଦୟାକରି କୁହନ୍ତୁ ଏହା AM ନା PM।</string>
+    <string name="clock_err_nothing_ringing">ବର୍ତ୍ତମାନ କୌଣସି ଆଲାର୍ମ ବାଜୁନାହିଁ।</string>
+</resources>

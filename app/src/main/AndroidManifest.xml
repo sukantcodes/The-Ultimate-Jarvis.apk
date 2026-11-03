@@ -39,6 +39,8 @@
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
@@ -177,6 +179,38 @@
         <activity
             android:name=".ui.skills.SkillStoreActivity"
             android:exported="false" />
+
+        <!-- Clock: alarms, tones, display and behaviour pages (Settings > Clock) -->
+        <activity android:name=".ui.clock.ClockSettingsActivity" android:exported="false" />
+        <activity android:name=".ui.clock.AlarmsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.clock.AlarmTonesActivity" android:exported="false" />
+        <activity android:name=".ui.clock.ClockDisplayActivity" android:exported="false" />
+        <activity android:name=".ui.clock.AlarmBehaviourActivity" android:exported="false" />
+        <activity
+            android:name=".ui.clock.AlarmRingActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.JarvisAssistant.Dark" />
+
+        <service
+            android:name=".clock.AlarmRingService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <receiver android:name=".clock.AlarmReceiver" android:exported="false" />
+
+        <receiver android:name=".clock.ClockSystemReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
 
         <activity
             android:name=".studio.ui.AutomationStudioActivity"

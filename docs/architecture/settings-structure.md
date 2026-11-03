@@ -10,7 +10,7 @@ eight headings. Sections appear on screen in this order.
 | 3 | Voice Security & Unlock | Owner Voice Profile, Owner Voice Only (switch), Screen Unlock |
 | 4 | Alerts & Announcements | Notification Access, Message Announcements (switch), Announce in Jarvis Voice (switch), Battery & Charging Alerts (switch), Auto Battery Saver (switch) |
 | 5 | Memory & Data | Neural Memory Bank, Activity Memory (switch), Clear Activity Memory |
-| 6 | Permissions & Automation | System Permissions, App Control & Hands-Free, Automation Studio, Skill Store |
+| 6 | Permissions & Automation | System Permissions, App Control & Hands-Free, Automation Studio, Skill Store, Clock |
 | 7 | Appearance | Theme & 3D Orb Colors, Overlay Avatars |
 | 8 | Privacy & About | Privacy & Data Shield, App Identity & Integrity |
 
@@ -57,3 +57,17 @@ Settings > Appearance > Theme & 3D Orb Colors has an **Orb look** panel under th
 
 - **Glow** (0 to 200%) and **Size** (60 to 140%) are remembered separately for each orb and apply live on the Home screen (`HomeFragment.applyOrbLook`). Glow drives `JarvisOrb.setGlow` in `orb.html` and `aurora_orb.html`, plus the halo behind the orb. Size scales the orb stage.
 - **Settings icon shape** is one slider: Plain (the original look, no tile), Rectangular, Pillowy, Circular. It is stored as `settingsIconShape` and painted by `SettingsFragment.applyIconTile`.
+
+## Clock (alarms)
+
+Settings > Permissions & Automation > Clock opens `ui/clock/ClockSettingsActivity.kt`, a hub for four pages:
+Alarms (`AlarmsActivity`), Alarm Tones (`AlarmTonesActivity`), Clock Display Settings (`ClockDisplayActivity`) and
+Alarm Behaviour (`AlarmBehaviourActivity`). All pages share `ClockPageActivity` (JARVIS theme, permission notices).
+
+- One engine: `clock/ClockEngine.kt` (create / update / delete / resolve / snooze / restore). It has no Android code; storage is
+  `KeyValueStore` (SharedPreferences `jarvis_clock`) and scheduling is `AlarmSchedulerPort` (`AlarmScheduler`, AlarmManager.setAlarmClock).
+  The screens, the AI tools (`ClockTools`, `clock_*`), voice/offline commands (`ClockAssistant`/`ClockDialog`/`ClockOps`) all use `ClockServices.engine()`.
+- Ringing: `AlarmReceiver` -> `AlarmRingService` (foreground, owns sound and vibration) -> `AlarmRingActivity` (display only).
+  `ClockSystemReceiver` restores alarms after boot / app update / time or zone change.
+- Tones: only the phone's own alarm sounds (`ToneCatalog`, RingtoneManager TYPE_ALARM); stored as a system URI.
+- Strings: `values/strings_clock.xml` plus `values-xx/` (hi, bn, kn complete; ta, te, ml, mr, gu, pa, ur, or, as main labels, English fallback).

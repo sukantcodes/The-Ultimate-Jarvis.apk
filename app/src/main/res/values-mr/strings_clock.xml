@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Clock strings, mr (main labels; the rest fall back to English). -->
+<resources>
+    <string name="clock_title">घड्याळ</string>
+    <string name="clock_subtitle">अलार्म, टोन आणि त्यांचे वर्तन</string>
+    <string name="clock_ok">ठीक आहे</string>
+    <string name="clock_cancel">रद्द करा</string>
+    <string name="clock_save">जतन करा</string>
+    <string name="clock_edit">बदला</string>
+    <string name="clock_delete">हटवा</string>
+    <string name="clock_play">ऐका</string>
+    <string name="clock_stop">थांबवा</string>
+    <string name="clock_snooze">स्नूझ</string>
+    <string name="clock_today">आज</string>
+    <string name="clock_tomorrow">उद्या</string>
+    <string name="clock_alarms_title">अलार्म</string>
+    <string name="clock_tones_title">अलार्म टोन</string>
+    <string name="clock_display_title">घड्याळ प्रदर्शन सेटिंग्ज</string>
+    <string name="clock_behaviour_title">अलार्म वर्तन</string>
+    <string name="clock_add_alarm">अलार्म जोडा</string>
+    <string name="clock_new_alarm">नवीन अलार्म</string>
+    <string name="clock_edit_alarm">अलार्म बदला</string>
+    <string name="clock_next_alarm">पुढील अलार्म</string>
+    <string name="clock_next_alarm_none">कोणताही अलार्म सेट नाही</string>
+    <string name="clock_alarm_default_label">अलार्म</string>
+    <string name="clock_label_hint">नाव (ऐच्छिक)</string>
+    <string name="clock_repeat">पुनरावृत्ती</string>
+    <string name="clock_repeat_once">एकदा</string>
+    <string name="clock_repeat_daily">दररोज</string>
+    <string name="clock_repeat_weekdays">आठवड्याचे दिवस</string>
+    <string name="clock_repeat_weekends">आठवड्याचा शेवट</string>
+    <string name="clock_tone">टोन</string>
+    <string name="clock_vibrate">कंपन</string>
+    <string name="clock_snooze_length">स्नूझ कालावधी</string>
+    <string name="clock_minutes_fmt">%1$d मिनिटे</string>
+    <string name="clock_alarm_set_for">अलार्म %1$s साठी सेट केला</string>
+    <string name="clock_alarm_off_toast">अलार्म बंद केला</string>
+    <string name="clock_deleted_toast">अलार्म हटवला</string>
+    <string name="clock_snoozed_until">%1$s पर्यंत स्नूझ केला</string>
+    <string name="clock_tone_phone_default">फोन डीफॉल्ट</string>
+    <string name="clock_tone_phone_default_named">फोन डीफॉल्ट (%1$s)</string>
+    <string name="clock_tone_vibration_only">फक्त कंपन (आवाज नाही)</string>
+    <string name="clock_time_format">वेळेचे स्वरूप</string>
+    <string name="clock_format_system">फोननुसार</string>
+    <string name="clock_format_12">12 तास (AM/PM)</string>
+    <string name="clock_format_24">24 तास</string>
+    <string name="clock_perm_open_settings">सेटिंग्ज उघडा</string>
+    <string name="clock_could_not_title">हे करता आले नाही</string>
+    <string name="clock_err_invalid_time">ही योग्य वेळ नाही.</string>
+    <string name="clock_err_needs_am_pm">हे AM आहे की PM ते सांगा.</string>
+    <string name="clock_err_nothing_ringing">सध्या कोणताही अलार्म वाजत नाही.</string>
+</resources>

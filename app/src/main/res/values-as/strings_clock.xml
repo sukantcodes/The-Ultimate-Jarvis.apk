@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Clock strings, as (main labels; the rest fall back to English). -->
+<resources>
+    <string name="clock_title">ঘড়ী</string>
+    <string name="clock_subtitle">এলাৰ্ম, টোন আৰু সিহঁতৰ আচৰণ</string>
+    <string name="clock_ok">ঠিক আছে</string>
+    <string name="clock_cancel">বাতিল</string>
+    <string name="clock_save">সংৰক্ষণ</string>
+    <string name="clock_edit">সলনি কৰক</string>
+    <string name="clock_delete">মচক</string>
+    <string name="clock_play">শুনক</string>
+    <string name="clock_stop">বন্ধ কৰক</string>
+    <string name="clock_snooze">স্নুজ</string>
+    <string name="clock_today">আজি</string>
+    <string name="clock_tomorrow">কালি</string>
+    <string name="clock_alarms_title">এলাৰ্ম</string>
+    <string name="clock_tones_title">এলাৰ্ম টোন</string>
+    <string name="clock_display_title">ঘড়ী প্ৰদৰ্শন ছেটিংছ</string>
+    <string name="clock_behaviour_title">এলাৰ্মৰ আচৰণ</string>
+    <string name="clock_add_alarm">এলাৰ্ম যোগ কৰক</string>
+    <string name="clock_new_alarm">নতুন এলাৰ্ম</string>
+    <string name="clock_edit_alarm">এলাৰ্ম সলনি কৰক</string>
+    <string name="clock_next_alarm">পৰৱৰ্তী এলাৰ্ম</string>
+    <string name="clock_next_alarm_none">কোনো এলাৰ্ম ছেট কৰা নাই</string>
+    <string name="clock_alarm_default_label">এলাৰ্ম</string>
+    <string name="clock_label_hint">নাম (ঐচ্ছিক)</string>
+    <string name="clock_repeat">পুনৰাবৃত্তি</string>
+    <string name="clock_repeat_once">এবাৰ</string>
+    <string name="clock_repeat_daily">প্ৰতিদিনে</string>
+    <string name="clock_repeat_weekdays">কৰ্মদিন</string>
+    <string name="clock_repeat_weekends">সপ্তাহান্ত</string>
+    <string name="clock_tone">টোন</string>
+    <string name="clock_vibrate">কম্পন</string>
+    <string name="clock_snooze_length">স্নুজৰ সময়</string>
+    <string name="clock_minutes_fmt">%1$d মিনিট</string>
+    <string name="clock_alarm_set_for">এলাৰ্ম %1$s ৰ বাবে ছেট কৰা হ\'ল</string>
+    <string name="clock_alarm_off_toast">এলাৰ্ম বন্ধ কৰা হ\'ল</string>
+    <string name="clock_deleted_toast">এলাৰ্ম মচা হ\'ল</string>
+    <string name="clock_snoozed_until">%1$s লৈকে স্নুজ কৰা হ\'ল</string>
+    <string name="clock_tone_phone_default">ফোনৰ ডিফল্ট</string>
+    <string name="clock_tone_phone_default_named">ফোনৰ ডিফল্ট (%1$s)</string>
+    <string name="clock_tone_vibration_only">কেৱল কম্পন (শব্দ নাই)</string>
+    <string name="clock_time_format">সময়ৰ ফৰ্মেট</string>
+    <string name="clock_format_system">ফোন অনুসৰি</string>
+    <string name="clock_format_12">12 ঘণ্টা (AM/PM)</string>
+    <string name="clock_format_24">24 ঘণ্টা</string>
+    <string name="clock_perm_open_settings">ছেটিংছ খোলক</string>
+    <string name="clock_could_not_title">এইটো কৰিব পৰা নগ\'ল</string>
+    <string name="clock_err_invalid_time">এইটো শুদ্ধ সময় নহয়।</string>
+    <string name="clock_err_needs_am_pm">অনুগ্ৰহ কৰি কওক এইটো AM নে PM।</string>
+    <string name="clock_err_nothing_ringing">এতিয়া কোনো এলাৰ্ম বাজি থকা নাই।</string>
+</resources>

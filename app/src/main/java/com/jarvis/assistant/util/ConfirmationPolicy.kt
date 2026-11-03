@@ -34,5 +34,11 @@ object ConfirmationPolicy {
             "delivery address, payment) to the user, and before cancelling you must explain the order state; in both cases wait until they clearly say, " +
             "in a new message, to place or to cancel. Never change the delivery address unless the user named the saved address. " +
             "This exception also overrides every line above.\n" +
-            "=== END OF POLICY ===\n"
+            "- FOURTH EXCEPTION, alarms: use the clock_* tools for every alarm request (set, change, enable, disable, delete, list, next alarm, snooze, " +
+            "stop, open Clock settings) in any language, and never open an external clock app. NEVER guess AM or PM, a date, or which alarm the user means: " +
+            "if the user did not say AM, PM or a part of the day for an hour from 1 to 12, leave meridiem empty, and when a clock_* tool returns " +
+            "needs_user_answer, ask that one question in the user's language and wait for the answer before calling the tool again. " +
+            "Say an alarm was set, changed or deleted only when the tool result says success and verified, and use the exact time from the result. " +
+            "This exception also overrides every line above, including the line about choosing the most likely meaning.\n" +
+            "=== END OF POLICY ==="+"\n"
 }

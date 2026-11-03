@@ -829,6 +829,9 @@ open class GeminiLiveWebSocket(
                         // 25. Blinkit App Mastery (search, value comparison, budget plan, cart, address, confirmed order, status)
                         com.jarvis.assistant.automation.blinkit.BlinkitTools.declarations().forEach { put(it) }
 
+                        // 26. Alarm clock (Settings > Clock): set, change, enable/disable, delete, list, next, snooze, stop, open settings
+                        com.jarvis.assistant.clock.ClockTools.declarations().forEach { put(it) }
+
                     })
                 }))
             })

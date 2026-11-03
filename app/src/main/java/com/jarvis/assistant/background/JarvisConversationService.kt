@@ -1840,6 +1840,14 @@ class JarvisConversationService : Service() {
     }
 
     private suspend fun executeOfflineLocalCommand(text: String): String? {
+        // Alarm clock first, in any supported language: it answers (or asks AM/PM, which alarm) from the shared engine.
+        if (com.jarvis.assistant.clock.ClockAssistant.hasPendingQuestion(applicationContext) ||
+            com.jarvis.assistant.clock.voice.ClockCommandParser.looksLikeClockCommand(text)) {
+            val reply = withContext(Dispatchers.IO) {
+                com.jarvis.assistant.clock.ClockAssistant.handleText(applicationContext, text)
+            }
+            if (reply != null) return reply
+        }
         // Fast path: plain pattern matching, no language model. This is what makes offline commands instant.
         com.jarvis.assistant.offline.OfflineIntentParser.parse(text)?.let { intent ->
             offlineActions.execute(intent)?.let { return it }
@@ -2312,7 +2320,7 @@ class JarvisConversationService : Service() {
                     if (!isActive) return@withLock
                     isExecutingTool = true
                     try {
-                        withTimeout(if (name in com.jarvis.assistant.automation.amazon.AmazonTools.NAMES) com.jarvis.assistant.automation.amazon.AmazonTools.TOOL_TIMEOUT_MS else if (name in com.jarvis.assistant.automation.rapido.RapidoTools.NAMES) com.jarvis.assistant.automation.rapido.RapidoTools.TOOL_TIMEOUT_MS else if (name in com.jarvis.assistant.automation.blinkit.BlinkitTools.NAMES) com.jarvis.assistant.automation.blinkit.BlinkitTools.TOOL_TIMEOUT_MS else automationToolTimeoutMs()) {
+                        withTimeout(if (name in com.jarvis.assistant.automation.amazon.AmazonTools.NAMES) com.jarvis.assistant.automation.amazon.AmazonTools.TOOL_TIMEOUT_MS else if (name in com.jarvis.assistant.automation.rapido.RapidoTools.NAMES) com.jarvis.assistant.automation.rapido.RapidoTools.TOOL_TIMEOUT_MS else if (name in com.jarvis.assistant.automation.blinkit.BlinkitTools.NAMES) com.jarvis.assistant.automation.blinkit.BlinkitTools.TOOL_TIMEOUT_MS else if (name in com.jarvis.assistant.clock.ClockTools.NAMES) com.jarvis.assistant.clock.ClockTools.TOOL_TIMEOUT_MS else automationToolTimeoutMs()) {
                             val app = application as? JarvisApp ?: return@withTimeout
 
                 hasExecutedCommandInCurrentTurn = true
@@ -3364,6 +3372,18 @@ class JarvisConversationService : Service() {
                         while (blinkitKeys.hasNext()) {
                             val key = blinkitKeys.next()
                             result.put(key, blinkit.get(key))
+                        }
+                    }
+
+                    in com.jarvis.assistant.clock.ClockTools.NAMES -> {
+                        // Alarm clock: same engine as Settings > Clock. The am/pm check reads the user's real transcript.
+                        val clock = com.jarvis.assistant.clock.ClockTools.execute(
+                            applicationContext, name, args, currentTurnUserText.toString().trim()
+                        )
+                        val clockKeys = clock.keys()
+                        while (clockKeys.hasNext()) {
+                            val key = clockKeys.next()
+                            result.put(key, clock.get(key))
                         }
                     }
 

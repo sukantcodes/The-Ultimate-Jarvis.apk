@@ -10,7 +10,7 @@ Jab user "good morning", "update do", "kya chal raha hai aaj" bole, ye routine c
 1. `device_status` — battery %, charging, time. 30% se kam ho to charge lagane ko bolo.
 2. `recall_activity` (query "message" ya "WhatsApp", hours 12) — raat se ab tak kisne message kiya.
 3. `recall_activity` (query "battery", hours 12) — koi battery/charging event ho to note karo.
-4. Alarm/reminder ke liye alag tool nahi hai; user ne bola ho to `open_app` "Clock" se dekh sakti ho, warna chhod do.
+4. Alarms: `clock_next_alarm` se agla alarm batao (koi na ho to chhod do). Reminder ke liye alag tool nahi hai.
 
 ## Summary ka style
 - 4-6 line, Hinglish: "Good morning! Raat me Amit aur 2 log ne message kiya, battery 45% hai..."

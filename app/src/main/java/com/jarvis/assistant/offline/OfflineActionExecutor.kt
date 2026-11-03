@@ -264,26 +264,17 @@ class OfflineActionExecutor(private val context: Context, private val hooks: Hoo
         return parts.joinToString(" ")
     }
 
+    /** Alarms live in JARVIS's own Clock (Settings > Clock). No external clock app is opened and an unspoken am/pm is never guessed. */
     private fun setAlarm(intent: OfflineIntent.SetAlarm): String {
-        var hour = intent.hour
+        val clock = com.jarvis.assistant.clock.ClockAssistant
         if (intent.ambiguous) {
-            // No am/pm said: take whichever of the two readings comes next.
-            val now = Calendar.getInstance()
-            val nowMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
-            val base = hour % 12
-            val am = base * 60 + intent.minute
-            val pm = (base + 12) * 60 + intent.minute
-            val candidates = listOf(am, pm).map { if (it > nowMinutes) it - nowMinutes else it + 1440 - nowMinutes }
-            hour = if (candidates[0] <= candidates[1]) base else base + 12
+            // No am/pm said: ask, and let the next sentence answer.
+            return clock.handleText(app, "set alarm for ${intent.hour}:${"%02d".format(intent.minute)}")
+                ?: "Is that AM or PM?"
         }
-        val alarm = Intent(AlarmClock.ACTION_SET_ALARM)
-            .putExtra(AlarmClock.EXTRA_HOUR, hour)
-            .putExtra(AlarmClock.EXTRA_MINUTES, intent.minute)
-            .putExtra(AlarmClock.EXTRA_SKIP_UI, true)
-            .putExtra(AlarmClock.EXTRA_MESSAGE, "JARVIS alarm")
-        if (!startActivity(alarm)) return "I couldn't set an alarm on this phone."
-        val cal = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, hour); set(Calendar.MINUTE, intent.minute) }
-        return "Alarm set for ${SimpleDateFormat("h:mm a", Locale.getDefault()).format(cal.time)}."
+        val time = com.jarvis.assistant.clock.voice.ParsedTime(intent.hour, intent.minute, null, true)
+        val outcome = clock.ops(app).execute(com.jarvis.assistant.clock.voice.ClockIntent.SetAlarm(time))
+        return com.jarvis.assistant.clock.ClockReplies.render(app, outcome, "en", com.jarvis.assistant.clock.ClockServices.engine(app).settings())
     }
 
     private fun doNotDisturb(on: Boolean): String {

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Clock strings, ml (main labels; the rest fall back to English). -->
+<resources>
+    <string name="clock_title">ക്ലോക്ക്</string>
+    <string name="clock_subtitle">അലാറങ്ങൾ, ടോണുകൾ, അവയുടെ പ്രവർത്തനം</string>
+    <string name="clock_ok">ശരി</string>
+    <string name="clock_cancel">റദ്ദാക്കുക</string>
+    <string name="clock_save">സേവ് ചെയ്യുക</string>
+    <string name="clock_edit">തിരുത്തുക</string>
+    <string name="clock_delete">ഇല്ലാതാക്കുക</string>
+    <string name="clock_play">കേൾക്കുക</string>
+    <string name="clock_stop">നിർത്തുക</string>
+    <string name="clock_snooze">സ്നൂസ്</string>
+    <string name="clock_today">ഇന്ന്</string>
+    <string name="clock_tomorrow">നാളെ</string>
+    <string name="clock_alarms_title">അലാറങ്ങൾ</string>
+    <string name="clock_tones_title">അലാറം ടോണുകൾ</string>
+    <string name="clock_display_title">ക്ലോക്ക് ഡിസ്പ്ലേ ക്രമീകരണങ്ങൾ</string>
+    <string name="clock_behaviour_title">അലാറം പ്രവർത്തനം</string>
+    <string name="clock_add_alarm">അലാറം ചേർക്കുക</string>
+    <string name="clock_new_alarm">പുതിയ അലാറം</string>
+    <string name="clock_edit_alarm">അലാറം തിരുത്തുക</string>
+    <string name="clock_next_alarm">അടുത്ത അലാറം</string>
+    <string name="clock_next_alarm_none">അലാറം സജ്ജമാക്കിയിട്ടില്ല</string>
+    <string name="clock_alarm_default_label">അലാറം</string>
+    <string name="clock_label_hint">പേര് (ഐച്ഛികം)</string>
+    <string name="clock_repeat">ആവർത്തിക്കുക</string>
+    <string name="clock_repeat_once">ഒരിക്കൽ</string>
+    <string name="clock_repeat_daily">എല്ലാ ദിവസവും</string>
+    <string name="clock_repeat_weekdays">പ്രവൃത്തി ദിനങ്ങൾ</string>
+    <string name="clock_repeat_weekends">വാരാന്ത്യം</string>
+    <string name="clock_tone">ടോൺ</string>
+    <string name="clock_vibrate">വൈബ്രേറ്റ്</string>
+    <string name="clock_snooze_length">സ്നൂസ് ദൈർഘ്യം</string>
+    <string name="clock_minutes_fmt">%1$d മിനിറ്റ്</string>
+    <string name="clock_alarm_set_for">അലാറം %1$s ലേക്ക് സജ്ജമാക്കി</string>
+    <string name="clock_alarm_off_toast">അലാറം ഓഫ് ചെയ്തു</string>
+    <string name="clock_deleted_toast">അലാറം ഇല്ലാതാക്കി</string>
+    <string name="clock_snoozed_until">%1$s വരെ സ്നൂസ് ചെയ്തു</string>
+    <string name="clock_tone_phone_default">ഫോൺ ഡിഫോൾട്ട്</string>
+    <string name="clock_tone_phone_default_named">ഫോൺ ഡിഫോൾട്ട് (%1$s)</string>
+    <string name="clock_tone_vibration_only">വൈബ്രേഷൻ മാത്രം (ശബ്ദമില്ല)</string>
+    <string name="clock_time_format">സമയ ഫോർമാറ്റ്</string>
+    <string name="clock_format_system">ഫോണിനെ പിന്തുടരുക</string>
+    <string name="clock_format_12">12 മണിക്കൂർ (AM/PM)</string>
+    <string name="clock_format_24">24 മണിക്കൂർ</string>
+    <string name="clock_perm_open_settings">ക്രമീകരണങ്ങൾ തുറക്കുക</string>
+    <string name="clock_could_not_title">ഇത് ചെയ്യാൻ കഴിഞ്ഞില്ല</string>
+    <string name="clock_err_invalid_time">ഇത് ശരിയായ സമയമല്ല.</string>
+    <string name="clock_err_needs_am_pm">ഇത് AM ആണോ PM ആണോ എന്ന് പറയൂ.</string>
+    <string name="clock_err_nothing_ringing">ഇപ്പോൾ ഒരു അലാറവും അടിക്കുന്നില്ല.</string>
+</resources>
