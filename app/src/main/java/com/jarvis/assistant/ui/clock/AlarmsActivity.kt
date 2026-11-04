@@ -4,6 +4,8 @@ import android.app.DatePickerDialog
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.InputFilter
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -33,6 +35,10 @@ import java.time.format.FormatStyle
 /** Settings > Clock > Alarms: the real alarm list, with add, edit, switch on/off and delete. Everything goes through [ClockEngine]. */
 class AlarmsActivity : ClockPageActivity() {
 
+    private var searchQuery: String = ""
+    private var alarmFilter: AlarmFilter = AlarmFilter.ALL
+    private enum class AlarmFilter { ALL, ON, OFF }
+
     override val titleRes = R.string.clock_alarms_title
     override val subtitleRes = R.string.clock_alarms_subtitle
 
@@ -40,37 +46,156 @@ class AlarmsActivity : ClockPageActivity() {
         val settings = engine.settings()
         addNotices(container)
 
+        val allAlarms = engine.alarms().sortedWith(compareBy({ it.hour }, { it.minute }, { it.id }))
+        val enabledCount = allAlarms.count { it.enabled }
+        val disabledCount = allAlarms.size - enabledCount
+
         if (settings.showNextAlarmBanner) container.addView(nextAlarmCard())
 
-        container.addView(button(getString(R.string.clock_add_alarm)) { openEditor(null) }.apply {
-            (layoutParams as LinearLayout.LayoutParams).apply { marginStart = 0; bottomMargin = dp(16) }
+        val summary = card().apply {
+            addView(text(getString(R.string.clock_alarm_overview), 13f, primary = false))
+            addView(text(getString(R.string.clock_alarm_count, allAlarms.size), 25f, primary = true, bold = true).apply {
+                setPadding(0, dp(3), 0, dp(8))
+            })
+            val stats = LinearLayout(this@AlarmsActivity).apply { orientation = LinearLayout.HORIZONTAL }
+            stats.addView(statPill(getString(R.string.clock_alarm_active_count, enabledCount), true), LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginEnd = dp(6) })
+            stats.addView(statPill(getString(R.string.clock_alarm_off_count, disabledCount), false), LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginStart = dp(6) })
+            addView(stats)
+        }
+        container.addView(summary)
+
+        container.addView(button("＋  " + getString(R.string.clock_add_alarm)) { openEditor(null) }.apply {
+            (layoutParams as LinearLayout.LayoutParams).apply { marginStart = 0; bottomMargin = dp(14); height = dp(52) }
+            setTextColor(themeColor(R.attr.themeTextPrimary, 0xFFFFFFFF.toInt()))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(18).toFloat()
+                setColor(themeColor(R.attr.themeAccent, 0xFF4F8CFF.toInt()))
+            }
         })
 
-        val alarms = engine.alarms().sortedWith(compareBy({ it.hour }, { it.minute }, { it.id }))
+        val search = EditText(this).apply {
+            hint = getString(R.string.clock_search_alarms)
+            setSingleLine(true)
+            textSize = 14f
+            setTextColor(themeColor(R.attr.themeTextPrimary, 0xFFFFFFFF.toInt()))
+            setHintTextColor(themeColor(R.attr.themeTextMuted, 0xFF9AA4B2.toInt()))
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(16).toFloat()
+                setColor(themeColor(R.attr.themeCardBg, 0x22FFFFFF))
+                setStroke(dp(1), themeColor(R.attr.themeCardBorder, 0x33FFFFFF))
+            }
+            setText(searchQuery)
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    searchQuery = s?.toString().orEmpty()
+                    render()
+                }
+                override fun afterTextChanged(s: Editable?) = Unit
+            })
+        }
+        container.addView(search, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = dp(12)
+        })
+
+        val filters = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        listOf(
+            AlarmFilter.ALL to getString(R.string.clock_filter_all),
+            AlarmFilter.ON to getString(R.string.clock_filter_on),
+            AlarmFilter.OFF to getString(R.string.clock_filter_off)
+        ).forEach { (filter, label) ->
+            val selected = alarmFilter == filter
+            filters.addView(button(label, { alarmFilter = filter; render() }).apply {
+                setTextColor(if (selected) 0xFFFFFFFF.toInt() else themeColor(R.attr.themeTextPrimary, 0xFFFFFFFF.toInt()))
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(18).toFloat()
+                    setColor(if (selected) themeColor(R.attr.themeAccent, 0xFF4F8CFF.toInt()) else themeColor(R.attr.themeChipBg, 0x22FFFFFF))
+                }
+                (layoutParams as LinearLayout.LayoutParams).apply { marginStart = 0; marginEnd = dp(8) }
+            }, LinearLayout.LayoutParams(0, dp(40), 1f))
+        }
+        container.addView(filters)
+
+        val alarms = allAlarms.filter { alarm ->
+            (when (alarmFilter) {
+                AlarmFilter.ALL -> true
+                AlarmFilter.ON -> alarm.enabled
+                AlarmFilter.OFF -> !alarm.enabled
+            }) && (searchQuery.isBlank() ||
+                ClockFormat.title(this, alarm).contains(searchQuery, ignoreCase = true) ||
+                ClockFormat.time(this, alarm.hour, alarm.minute, settings).contains(searchQuery, ignoreCase = true) ||
+                ClockFormat.repeatSummary(this, alarm, settings).contains(searchQuery, ignoreCase = true))
+        }
+        container.addView(text(getString(R.string.clock_alarm_list_heading, alarms.size), 16f, primary = true, bold = true).apply {
+            setPadding(0, dp(18), 0, dp(10))
+        })
+
+        if (allAlarms.isEmpty()) {
+            container.addView(emptyAlarmsCard())
+            return
+        }
         if (alarms.isEmpty()) {
-            container.addView(card().apply { addView(text(getString(R.string.clock_no_alarms), 14f, primary = false)) })
+            container.addView(card().apply {
+                addView(text(getString(R.string.clock_alarm_no_match), 14f, primary = false))
+            })
             return
         }
         alarms.forEach { container.addView(alarmCard(it, settings)) }
     }
 
+    private fun statPill(label: String, active: Boolean): View = TextView(this).apply {
+        text = label
+        gravity = Gravity.CENTER
+        textSize = 12f
+        typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+        setTextColor(themeColor(R.attr.themeTextPrimary, 0xFFFFFFFF.toInt()))
+        background = GradientDrawable().apply {
+            cornerRadius = dp(12).toFloat()
+            setColor(if (active) themeColor(R.attr.themeAccent, 0xFF4F8CFF.toInt()) else themeColor(R.attr.themeChipBg, 0x22FFFFFF))
+        }
+    }
+
+    private fun emptyAlarmsCard(): View = card().apply {
+        addView(text("◷", 34f, primary = true, bold = true))
+        addView(text(getString(R.string.clock_no_alarms), 15f, primary = true, bold = true).apply { setPadding(0, dp(6), 0, dp(4)) })
+        addView(text(getString(R.string.clock_empty_alarm_hint), 13f, primary = false))
+        addView(button(getString(R.string.clock_add_alarm)) { openEditor(null) }.apply {
+            (layoutParams as LinearLayout.LayoutParams).apply { marginStart = 0; topMargin = dp(12) }
+        })
+    }
+
     private fun nextAlarmCard(): View {
-        val card = card()
+        val card = card().apply {
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                intArrayOf(themeColor(R.attr.themeAccent, 0xFF4F8CFF.toInt()), themeColor(R.attr.themeCardBg, 0xFF20283A.toInt()))).apply {
+                cornerRadius = dp(24).toFloat()
+                setStroke(dp(1), themeColor(R.attr.themeCardBorder, 0x33FFFFFF))
+            }
+        }
         val next = engine.nextAlarm()
-        card.addView(text(getString(R.string.clock_next_alarm), 13f, primary = false))
+        card.addView(text("◷  " + getString(R.string.clock_next_alarm), 13f, primary = false))
         if (next == null) {
-            card.addView(text(getString(R.string.clock_next_alarm_none), 16f, primary = true, bold = true).apply { setPadding(0, dp(4), 0, 0) })
+            card.addView(text(getString(R.string.clock_next_alarm_none), 19f, primary = true, bold = true).apply { setPadding(0, dp(8), 0, dp(2)) })
+            card.addView(text(getString(R.string.clock_next_alarm_hint), 12f, primary = false))
         } else {
             val (alarm, at) = next
             val settings = engine.settings()
-            card.addView(text(ClockFormat.whenText(this, at, settings), 22f, primary = true, bold = true).apply { setPadding(0, dp(4), 0, 0) })
-            card.addView(text(ClockFormat.title(this, alarm) + " · " + ClockFormat.timeUntil(this, at), 13f, primary = false))
+            card.addView(text(ClockFormat.time(this, alarm.hour, alarm.minute, settings), 38f, primary = true, bold = true).apply { setPadding(0, dp(6), 0, 0) })
+            card.addView(text(ClockFormat.whenText(this, at, settings) + " · " + ClockFormat.timeUntil(this, at), 13f, primary = false))
+            card.addView(text(ClockFormat.title(this, alarm) + " · " + ClockFormat.repeatSummary(this, alarm, settings), 12f, primary = false).apply { setPadding(0, dp(5), 0, 0) })
         }
         return card
     }
 
     private fun alarmCard(alarm: AlarmItem, settings: ClockSettings): View {
-        val card = card()
+        val card = card().apply {
+            background = GradientDrawable().apply {
+                cornerRadius = dp(22).toFloat()
+                setColor(themeColor(R.attr.themeCardBg, 0x33FFFFFF))
+                setStroke(dp(1), if (alarm.enabled) themeColor(R.attr.themeAccent, 0x665F8FFF) else themeColor(R.attr.themeCardBorder, 0x33FFFFFF))
+            }
+        }
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val info = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -79,9 +204,9 @@ class AlarmsActivity : ClockPageActivity() {
             isFocusable = true
             setOnClickListener { openEditor(alarm) }
         }
-        val timeView = text(ClockFormat.time(this, alarm.hour, alarm.minute, settings), 30f, primary = alarm.enabled, bold = true)
+        val timeView = text(ClockFormat.time(this, alarm.hour, alarm.minute, settings), 36f, primary = alarm.enabled, bold = true)
         info.addView(timeView)
-        info.addView(text(ClockFormat.title(this, alarm) + " · " + ClockFormat.repeatSummary(this, alarm, settings), 13f, primary = false))
+        info.addView(text(ClockFormat.title(this, alarm), 14f, primary = true, bold = true).apply { setPadding(0, dp(1), 0, 0) })\n        info.addView(text(ClockFormat.repeatSummary(this, alarm, settings), 12f, primary = false))
         info.addView(text(ToneCatalog.describe(this, ToneChoice.of(alarm)) + if (alarm.vibrate) " · " + getString(R.string.clock_vibrate_short) else "", 12f, primary = false))
         if (alarm.snoozedUntilMillis > System.currentTimeMillis()) {
             val zdt = java.time.ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(alarm.snoozedUntilMillis), java.time.ZoneId.systemDefault())
