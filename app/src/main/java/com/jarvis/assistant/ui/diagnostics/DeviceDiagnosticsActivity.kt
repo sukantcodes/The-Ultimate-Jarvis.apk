@@ -47,7 +47,7 @@ class DeviceDiagnosticsActivity : AppCompatActivity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(MaterialColors.getColor(this@DeviceDiagnosticsActivity, com.google.android.material.R.attr.colorBackground, Color.WHITE))
+            setBackgroundColor(MaterialColors.getColor(this@DeviceDiagnosticsActivity, android.R.attr.colorBackground, Color.WHITE))
         }
         val toolbar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -137,12 +137,12 @@ class DeviceDiagnosticsActivity : AppCompatActivity() {
             else -> "Unknown"
         }
         val healthText = when (health) {
-            BatteryManager.BATTERY_HEALTH_GOOD -> "Good"
-            BatteryManager.BATTERY_HEALTH_OVERHEAT -> "Overheating"
-            BatteryManager.BATTERY_HEALTH_DEAD -> "Failed"
-            BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "Over voltage"
-            BatteryManager.BATTERY_HEALTH_COLD -> "Too cold"
-            BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE -> "Unspecified issue"
+            BatteryManager.BATTERY_HEALTH_GOOD -> "Android reports good"
+            BatteryManager.BATTERY_HEALTH_OVERHEAT -> "Android reports overheating"
+            BatteryManager.BATTERY_HEALTH_DEAD -> "Android reports a fault"
+            BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "Android reports over-voltage"
+            BatteryManager.BATTERY_HEALTH_COLD -> "Android reports too cold"
+            BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE -> "Android reports an unspecified issue"
             else -> "Not reported by device"
         }
         val powerSource = when (plugged) {
