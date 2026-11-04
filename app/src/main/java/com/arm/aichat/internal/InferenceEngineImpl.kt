@@ -111,13 +111,13 @@ internal class InferenceEngineImpl private constructor(context: Context) {
             loadedPath = null
         }
 
-        // Fail fast on low-memory devices instead of leaving the voice assistant apparently
-        // stuck while the native loader struggles to map a 1.28 GB model.
+        // Fail fast rather than leaving the app apparently stuck during native initialization.
+        // Qwen3 0.6B Q4_K_M is roughly 484 MB on disk, but the runtime/context needs additional RAM.
         val memoryInfo = android.app.ActivityManager.MemoryInfo()
         (app.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(memoryInfo)
-        val minimumAvailableBytes = 900L * 1024L * 1024L
+        val minimumAvailableBytes = 700L * 1024L * 1024L
         check(memoryInfo.availMem >= minimumAvailableBytes) {
-            "Not enough free RAM to load the offline model (${memoryInfo.availMem / (1024L * 1024L)} MB available). Close other apps and retry; the 1.28 GB model needs additional working memory."
+            "Not enough free RAM to load Qwen3 0.6B (${memoryInfo.availMem / (1024L * 1024L)} MB available). Close other apps and retry; model loading needs extra working memory."
         }
 
         val loadResult = load(path)
