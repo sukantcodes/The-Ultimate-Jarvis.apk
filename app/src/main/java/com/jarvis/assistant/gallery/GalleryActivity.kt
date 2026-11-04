@@ -33,6 +33,8 @@ class GalleryActivity : AppCompatActivity() {
     private var favoritesOnly = false
     private var selectionMode = false
     private val selectedItems = linkedMapOf<String, GalleryMediaItem>()
+    private var displayedItems: List<GalleryMediaItem> = emptyList()
+    private var selectAllButton: MaterialButton? = null
     private var selectionButton: MaterialButton? = null
     private var shareButton: MaterialButton? = null
     private lateinit var thumbnailLoader: GalleryThumbnailLoader
@@ -236,6 +238,16 @@ class GalleryActivity : AppCompatActivity() {
             }
         }
         content.addView(shareButton)
+        selectAllButton = MaterialButton(this).apply {
+            text = "Select all visible (0)"
+            setOnClickListener {
+                selectionMode = true
+                displayedItems.forEach { selectedItems[it.uri.toString()] = it }
+                showItems(activeSearch)
+                renderFilterLabels()
+            }
+        }
+        content.addView(selectAllButton)
         resultsStartIndex = content.childCount
         showItems("")
     }
@@ -258,6 +270,8 @@ class GalleryActivity : AppCompatActivity() {
         selectionButton?.text = if (selectionMode) "Selection mode: ON (${selectedItems.size})" else "Select multiple"
         shareButton?.text = "Share selected (${selectedItems.size})"
         shareButton?.isEnabled = selectedItems.isNotEmpty()
+        selectAllButton?.text = "Select all visible (${displayedItems.size})"
+        selectAllButton?.isEnabled = displayedItems.isNotEmpty()
     }
 
     private fun updateSelectedItem(item: GalleryMediaItem, selected: Boolean) {
@@ -333,6 +347,7 @@ class GalleryActivity : AppCompatActivity() {
                 GallerySortOrder.LARGEST -> list.sortedByDescending { it.sizeBytes }
             }
         }
+        displayedItems = filtered
         if (filtered.isEmpty()) {
             content.addView(TextView(this).apply { text = "No media found for these filters."; setPadding(0, dp(14), 0, 0) })
             return
