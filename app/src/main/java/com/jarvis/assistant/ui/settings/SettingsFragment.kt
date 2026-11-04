@@ -594,8 +594,40 @@ class SettingsFragment : Fragment() {
             ThemeSelectionBottomSheet.newInstance().show(childFragmentManager, ThemeSelectionBottomSheet.TAG)
         }
         binding.rowOverlayAvatars.setOnClickListener { open(OverlayAvatarActivity::class.java) }
+        binding.rowRefreshRate.setOnClickListener { showRefreshRateDialog() }
+    }
 
+    private fun showRefreshRateDialog() {
+        val rates = ThemeManager.supportedRefreshRates(requireActivity())
+        val labels = mutableListOf("System default (recommended)")
+        val values = mutableListOf("system")
+        rates.forEach { rate ->
+            labels += "$rate Hz"
+            values += rate.toString()
+        }
+        val selected = values.indexOf(preferences.uiRefreshRate).coerceAtLeast(0)
 
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Refresh rate")
+            .setMessage("Choose a preferred rate for Jarvis windows. Android and ColorOS may override it to manage battery, heat or display behaviour.")
+            .setSingleChoiceItems(labels.toTypedArray(), selected) { dialog, which ->
+                preferences.uiRefreshRate = values[which]
+                ThemeManager.applyPreferredRefreshRate(requireActivity())
+                updateRefreshRateSubtitle()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun updateRefreshRateSubtitle() {
+        val requested = preferences.uiRefreshRate.toIntOrNull()
+        binding.tvRefreshRateSubtitle.text = when {
+            requested == null -> "System default • ColorOS manages the rate"
+            requested in ThemeManager.supportedRefreshRates(requireActivity()) ->
+                "$requested Hz preferred • system may adapt"
+            else -> "$requested Hz is not supported by this display"
+        }
     }
 
     // ------------------------------------------------------------------------------------------
@@ -640,6 +672,7 @@ class SettingsFragment : Fragment() {
         updateNoiseCancelSubtitle()
         updateAutoSleepSubtitle()
         updateNotificationAccessSubtitle()
+        updateRefreshRateSubtitle()
     }
 
     private fun loadUserData() {
