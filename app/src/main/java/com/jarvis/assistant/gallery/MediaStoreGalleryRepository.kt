@@ -16,7 +16,8 @@ data class GalleryMediaItem(
     val dateAddedSeconds: Long,
     val durationMs: Long?,
     val sizeBytes: Long,
-    val type: GalleryMediaType
+    val type: GalleryMediaType,
+    val albumName: String?
 )
 
 /** Scoped-storage MediaStore reader. It never writes or deletes user media. */
@@ -69,6 +70,7 @@ class MediaStoreGalleryRepository(private val resolver: ContentResolver) {
             add(MediaStore.MediaColumns.DATE_ADDED)
             add(MediaStore.MediaColumns.SIZE)
             if (durationColumn != null) add(durationColumn)
+            add("bucket_display_name")
         }.toTypedArray()
         val selection = if (nameQuery.isNullOrBlank()) null else
             "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?"
@@ -83,6 +85,7 @@ class MediaStoreGalleryRepository(private val resolver: ContentResolver) {
             val dateIndex = it.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_ADDED)
             val sizeIndex = it.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
             val durationIndex = durationColumn?.let(it::getColumnIndex)
+            val albumIndex = it.getColumnIndex("bucket_display_name")
             while (it.moveToNext()) {
                 val id = it.getLong(idIndex)
                 result += GalleryMediaItem(
@@ -93,7 +96,8 @@ class MediaStoreGalleryRepository(private val resolver: ContentResolver) {
                     dateAddedSeconds = it.getLong(dateIndex),
                     durationMs = if (durationIndex != null && durationIndex >= 0) it.getLong(durationIndex) else null,
                     sizeBytes = it.getLong(sizeIndex),
-                    type = type
+                    type = type,
+                    albumName = if (albumIndex >= 0) it.getString(albumIndex) else null
                 )
             }
         }
