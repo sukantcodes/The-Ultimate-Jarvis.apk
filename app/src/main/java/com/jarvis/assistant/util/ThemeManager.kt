@@ -141,6 +141,44 @@ object ThemeManager {
                 } catch (_: Exception) {}
             }
         }
+        applyPreferredRefreshRate(activity)
+    }
+
+    /**
+     * Refresh rates reported by the active physical display. The app can request only a rate the
+     * display advertises; Android/ColorOS remains free to choose another rate for power or thermal
+     * reasons.
+     */
+    @Suppress("DEPRECATION")
+    fun supportedRefreshRates(activity: Activity): List<Int> = try {
+        activity.windowManager.defaultDisplay.supportedModes
+            .map { mode -> kotlin.math.round(mode.refreshRate).toInt() }
+            .filter { it in 60..144 }
+            .distinct()
+            .sorted()
+    } catch (_: Exception) {
+        emptyList()
+    }
+
+    /** Apply the saved preference as a window hint; "system" clears the hint. */
+    @Suppress("DEPRECATION")
+    fun applyPreferredRefreshRate(activity: Activity) {
+        val requested = try {
+            JarvisApp.instance.preferences.uiRefreshRate.toIntOrNull()
+        } catch (_: Exception) {
+            null
+        }
+        val supported = if (requested == null) emptyList() else supportedRefreshRates(activity)
+        val preferred = requested?.takeIf { it in supported }?.toFloat() ?: 0f
+        try {
+            val params = activity.window.attributes
+            if (params.preferredRefreshRate != preferred) {
+                params.preferredRefreshRate = preferred
+                activity.window.attributes = params
+            }
+        } catch (_: Exception) {
+            // Some OEM window managers ignore the optional hint; normal system refresh remains active.
+        }
     }
 
     /** Alpha derived from the user's persisted Liquid Glass strength (0..100%). */
