@@ -1,21 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+<!-- Theme-aware glass pill with an even, fully rounded outline and restrained sheen. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?attr/themeAccentLight">
     <item>
+        <layer-list>
+            <item>
+                <shape android:shape="rectangle">
+                    <solid android:color="?attr/themeChipBg" />
+                    <corners android:radius="40dp" />
+                    <stroke
+                        android:width="1dp"
+                        android:color="?attr/themeCardBorder" />
+                </shape>
+            </item>
+            <item android:top="1dp" android:bottom="1dp">
+                <shape android:shape="rectangle">
+                    <gradient
+                        android:angle="270"
+                        android:startColor="?attr/themeGlassSpecular"
+                        android:centerColor="#10FFFFFF"
+                        android:endColor="#00FFFFFF" />
+                    <corners android:radius="40dp" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+    <item android:id="@android:id/mask">
         <shape android:shape="rectangle">
-            <solid android:color="@color/lg_fill_strong" />
+            <solid android:color="#FFFFFFFF" />
             <corners android:radius="40dp" />
         </shape>
     </item>
-    <item android:gravity="top" android:height="18dp">
-        <shape android:shape="rectangle">
-            <gradient android:angle="270" android:endColor="#00FFFFFF" android:startColor="#30FFFFFF" />
-            <corners android:topLeftRadius="40dp" android:topRightRadius="40dp" />
-        </shape>
-    </item>
-    <item>
-        <shape android:shape="rectangle">
-            <stroke android:width="1dp" android:color="@color/lg_stroke" />
-            <corners android:radius="40dp" />
-        </shape>
-    </item>
-</layer-list>
+</ripple>
