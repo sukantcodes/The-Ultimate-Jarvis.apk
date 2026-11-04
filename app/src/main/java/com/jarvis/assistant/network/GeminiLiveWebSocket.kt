@@ -216,6 +216,9 @@ open class GeminiLiveWebSocket(
                 })
                 put("generation_config", JSONObject().apply {
                     put("response_modalities", JSONArray().put("AUDIO"))
+                    // Text transcription is required by Chatbox: it displays the answer while
+                    // the service independently suppresses audio playback for typed prompts.
+                    put("output_audio_transcription", JSONObject())
                     put("speech_config", JSONObject().apply {
                         put("voice_config", JSONObject().apply {
                             put("prebuilt_voice_config", JSONObject().apply {
