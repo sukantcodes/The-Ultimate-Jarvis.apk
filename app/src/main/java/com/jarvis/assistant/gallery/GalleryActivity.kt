@@ -140,8 +140,7 @@ class GalleryActivity : AppCompatActivity() {
     }
 
     private fun showItems(query: String) {
-        val start = content.indexOfChild(content.getChildAt(3))
-        while (content.childCount > 3) content.removeViewAt(3)
+        while (content.childCount > 5) content.removeViewAt(5)
         val items = runCatching {
             val repository = MediaStoreGalleryRepository(contentResolver)
             if (query.isBlank()) repository.loadRecent() else repository.searchByName(query)
