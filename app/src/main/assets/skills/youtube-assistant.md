@@ -1,6 +1,6 @@
 ---
 name: youtube-assistant
-description: YouTube ko voice se control karna — search, playback, Shorts, channels, playlists, history, comments aur settings; account changes se pehle confirmation
+description: YouTube voice control — search, playback, Shorts, channels, playlists, history, comments aur settings; account changes se pehle confirmation
 ---
 # YouTube Assistant — full app playbook
 
