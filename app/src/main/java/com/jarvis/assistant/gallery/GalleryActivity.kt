@@ -348,6 +348,7 @@ class GalleryActivity : AppCompatActivity() {
             }
         }
         displayedItems = filtered
+        updateSelectionControls()
         if (filtered.isEmpty()) {
             content.addView(TextView(this).apply { text = "No media found for these filters."; setPadding(0, dp(14), 0, 0) })
             return
