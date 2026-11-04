@@ -559,6 +559,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_lg_card"
+                android:elevation="2dp"
+                android:clipToOutline="true"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -842,6 +844,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_lg_card"
+                android:elevation="2dp"
+                android:clipToOutline="true"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -1078,6 +1082,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_lg_card"
+                android:elevation="2dp"
+                android:clipToOutline="true"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -1354,6 +1360,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_lg_card"
+                android:elevation="2dp"
+                android:clipToOutline="true"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -1525,6 +1533,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_lg_card"
+                android:elevation="2dp"
+                android:clipToOutline="true"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -1905,6 +1915,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_lg_card"
+                android:elevation="2dp"
+                android:clipToOutline="true"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -2027,6 +2039,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
                 android:background="@drawable/bg_lg_card"
+                android:elevation="2dp"
+                android:clipToOutline="true"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
