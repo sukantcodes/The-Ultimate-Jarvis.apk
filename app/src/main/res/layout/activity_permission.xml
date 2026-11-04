@@ -17,8 +17,8 @@
             android:orientation="vertical"
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
-            android:paddingTop="36dp"
-            android:paddingBottom="40dp">
+            android:paddingTop="28dp"
+            android:paddingBottom="32dp">
 
             <!-- Top Header Bar -->
             <LinearLayout
@@ -26,7 +26,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="24dp">
+                android:layout_marginBottom="20dp">
 
                 <ImageButton
                     android:id="@+id/btnBack"
