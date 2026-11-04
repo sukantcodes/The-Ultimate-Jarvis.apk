@@ -7,6 +7,8 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.View
 import android.widget.EditText
+import android.widget.CheckBox
+import android.widget.ScrollView
 import android.widget.LinearLayout
 import android.widget.ImageView
 import android.widget.TextView
@@ -29,6 +31,10 @@ class GalleryActivity : AppCompatActivity() {
     private var dateWindowDays: Int? = null
     private var sortOrder = GallerySortOrder.NEWEST
     private var favoritesOnly = false
+    private var selectionMode = false
+    private val selectedItems = linkedMapOf<String, GalleryMediaItem>()
+    private var selectionButton: MaterialButton? = null
+    private var shareButton: MaterialButton? = null
     private lateinit var thumbnailLoader: GalleryThumbnailLoader
     private var mediaObserver: GalleryMediaObserver? = null
     private val backgroundRefreshEnabled: Boolean
@@ -57,7 +63,11 @@ class GalleryActivity : AppCompatActivity() {
             setTextColor(resolveColor(android.R.attr.textColorSecondary))
         })
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
+        val scrollView = ScrollView(this).apply {
+            isFillViewport = true
+            addView(content, ScrollView.LayoutParams(-1, -2))
+        }
+        root.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
         thumbnailLoader = GalleryThumbnailLoader(contentResolver)
         render()
@@ -202,6 +212,30 @@ class GalleryActivity : AppCompatActivity() {
                 renderFilterLabels()
             }
         })
+        selectionButton = MaterialButton(this).apply {
+            text = if (selectionMode) "Selection mode: ON (${selectedItems.size})" else "Select multiple"
+            setOnClickListener {
+                selectionMode = !selectionMode
+                if (!selectionMode) selectedItems.clear()
+                showItems(activeSearch)
+                renderFilterLabels()
+                updateSelectionControls()
+            }
+        }
+        content.addView(selectionButton)
+        shareButton = MaterialButton(this).apply {
+            text = "Share selected (${selectedItems.size})"
+            isEnabled = selectedItems.isNotEmpty()
+            setOnClickListener {
+                runCatching { GalleryShareHelper.share(this@GalleryActivity, selectedItems.values.toList()) }
+                    .onFailure {
+                        MaterialAlertDialogBuilder(this@GalleryActivity)
+                            .setMessage("Unable to open the Android share sheet.")
+                            .setPositiveButton("OK", null).show()
+                    }
+            }
+        }
+        content.addView(shareButton)
         resultsStartIndex = content.childCount
         showItems("")
     }
@@ -217,6 +251,19 @@ class GalleryActivity : AppCompatActivity() {
                 controls[4].text = if (favoritesOnly) "Showing favorites (tap to show all)" else "Show favorites"
             }
         }
+        updateSelectionControls()
+    }
+
+    private fun updateSelectionControls() {
+        selectionButton?.text = if (selectionMode) "Selection mode: ON (${selectedItems.size})" else "Select multiple"
+        shareButton?.text = "Share selected (${selectedItems.size})"
+        shareButton?.isEnabled = selectedItems.isNotEmpty()
+    }
+
+    private fun updateSelectedItem(item: GalleryMediaItem, selected: Boolean) {
+        if (selected) selectedItems[item.uri.toString()] = item
+        else selectedItems.remove(item.uri.toString())
+        updateSelectionControls()
     }
 
     private fun chooseSortOrder() {
@@ -308,7 +355,17 @@ class GalleryActivity : AppCompatActivity() {
                 textSize = 13f
                 setPadding(dp(10), dp(8), dp(8), dp(8))
                 setTextColor(resolveColor(android.R.attr.textColorPrimary))
-                setOnClickListener { showMediaDetails(item) }
+            }
+            if (selectionMode) {
+                val checkBox = CheckBox(this).apply {
+                    isChecked = selectedItems.containsKey(item.uri.toString())
+                    contentDescription = "Select ${item.displayName}"
+                    setOnCheckedChangeListener { _, checked -> updateSelectedItem(item, checked) }
+                }
+                row.setOnClickListener { checkBox.isChecked = !checkBox.isChecked }
+                rowLayout.addView(checkBox)
+            } else {
+                row.setOnClickListener { showMediaDetails(item) }
             }
             rowLayout.addView(preview)
             rowLayout.addView(row, LinearLayout.LayoutParams(0, -2, 1f))
