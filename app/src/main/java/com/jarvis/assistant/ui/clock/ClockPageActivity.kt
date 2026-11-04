@@ -88,18 +88,29 @@ abstract class ClockPageActivity : AppCompatActivity() {
     protected fun render() {
         content.removeAllViews()
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        top.addView(text("‹", 30f, primary = true, bold = true).apply {
-            setPadding(0, 0, dp(14), dp(2))
+        val back = TextView(this).apply {
+            text = "‹"
+            gravity = Gravity.CENTER
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 30f)
+            setTextColor(themeColor(R.attr.themeTextPrimary, 0xFFFFFFFF.toInt()))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(themeColor(R.attr.themeChipBg, 0x22FFFFFF))
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginEnd = dp(12) }
             contentDescription = getString(R.string.clock_back)
+            isClickable = true
+            isFocusable = true
             setOnClickListener { finish() }
-        })
-        top.addView(text(getString(titleRes), 24f, primary = true, bold = true))
-        content.addView(top)
-        if (subtitleRes != 0) {
-            content.addView(text(getString(subtitleRes), 13f, primary = false).apply { setPadding(0, dp(4), 0, dp(16)) })
-        } else {
-            content.addView(View(this), LinearLayout.LayoutParams(1, dp(12)))
         }
+        top.addView(back)
+        top.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(text(getString(titleRes), 25f, primary = true, bold = true))
+            if (subtitleRes != 0) addView(text(getString(subtitleRes), 12f, primary = false).apply { setPadding(0, dp(2), 0, 0) })
+        })
+        content.addView(top)
+        content.addView(View(this), LinearLayout.LayoutParams(1, dp(16)))
         buildContent(content)
     }
 
@@ -215,6 +226,7 @@ abstract class ClockPageActivity : AppCompatActivity() {
             setColor(themeColor(R.attr.themeCardBg, 0x33FFFFFF))
             setStroke(dp(1), themeColor(R.attr.themeCardBorder, 0x33FFFFFF))
         }
+        elevation = dp(3).toFloat()
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(16) }
     }
 
