@@ -21,6 +21,11 @@ import java.util.Date
 /** A read-only MediaStore gallery starter. Permission is requested only after the user opts in. */
 class GalleryActivity : AppCompatActivity() {
     private lateinit var content: LinearLayout
+    private var resultsStartIndex = 5
+    private var activeSearch = ""
+    private var selectedType: GalleryMediaType? = null
+    private var selectedAlbum: String? = null
+    private var dateWindowDays: Int? = null
     private var mediaObserver: GalleryMediaObserver? = null
     private val backgroundRefreshEnabled: Boolean
         get() = prefs.getBoolean(GalleryRefreshScheduler.KEY_BACKGROUND_REFRESH, false)
@@ -136,40 +141,133 @@ class GalleryActivity : AppCompatActivity() {
             setPadding(0, dp(8), 0, dp(8))
             setTextColor(resolveColor(android.R.attr.textColorSecondary))
         })
+        content.addView(MaterialButton(this).apply {
+            text = "Media type: " + (selectedType?.name ?: "All")
+            setOnClickListener {
+                val options = arrayOf("All media", "Photos", "Videos")
+                MaterialAlertDialogBuilder(this@GalleryActivity)
+                    .setTitle("Filter media type")
+                    .setItems(options) { _, which ->
+                        selectedType = when (which) {
+                            1 -> GalleryMediaType.IMAGE
+                            2 -> GalleryMediaType.VIDEO
+                            else -> null
+                        }
+                        showItems(activeSearch)
+                        renderFilterLabels()
+                    }.show()
+            }
+        })
+        content.addView(MaterialButton(this).apply {
+            text = "Date: " + (dateWindowDays?.let { "Last $it days" } ?: "Any time")
+            setOnClickListener {
+                val options = arrayOf("Any time", "Last 7 days", "Last 30 days", "Last 90 days")
+                MaterialAlertDialogBuilder(this@GalleryActivity)
+                    .setTitle("Filter by date")
+                    .setItems(options) { _, which ->
+                        dateWindowDays = when (which) {
+                            1 -> 7
+                            2 -> 30
+                            3 -> 90
+                            else -> null
+                        }
+                        showItems(activeSearch)
+                        renderFilterLabels()
+                    }.show()
+            }
+        })
+        content.addView(MaterialButton(this).apply {
+            text = "Album: " + (selectedAlbum ?: "All albums")
+            setOnClickListener { chooseAlbum() }
+        })
+        resultsStartIndex = content.childCount
         showItems("")
     }
 
+    private fun renderFilterLabels() {
+        val controls = (5 until resultsStartIndex).mapNotNull { content.getChildAt(it) as? MaterialButton }
+        if (controls.size >= 3) {
+            controls[0].text = "Media type: " + (selectedType?.name ?: "All")
+            controls[1].text = "Date: " + (dateWindowDays?.let { "Last $it days" } ?: "Any time")
+            controls[2].text = "Album: " + (selectedAlbum ?: "All albums")
+        }
+    }
+
+    private fun chooseAlbum() {
+        val names = runCatching {
+            val repo = MediaStoreGalleryRepository(contentResolver)
+            (repo.loadRecent(500).mapNotNull { it.albumName }.distinct().sorted())
+        }.getOrDefault(emptyList())
+        val options = listOf("All albums") + names
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Browse albums")
+            .setItems(options.toTypedArray()) { _, which ->
+                selectedAlbum = if (which == 0) null else names[which - 1]
+                showItems(activeSearch)
+                renderFilterLabels()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     private fun showItems(query: String) {
-        while (content.childCount > 5) content.removeViewAt(5)
+        activeSearch = query
+        while (content.childCount > resultsStartIndex) content.removeViewAt(resultsStartIndex)
         val items = runCatching {
             val repository = MediaStoreGalleryRepository(contentResolver)
-            if (query.isBlank()) repository.loadRecent() else repository.searchByName(query)
+            if (query.isBlank()) repository.loadRecent(500) else repository.searchByName(query, 500)
         }.getOrElse { error ->
             content.addView(TextView(this).apply { text = "Unable to read media: ${error.message}" })
             return
         }
-        if (items.isEmpty()) {
-            content.addView(TextView(this).apply { text = "No media found."; setPadding(0, dp(14), 0, 0) })
+        val cutoff = dateWindowDays?.let { System.currentTimeMillis() / 1000L - it * 24L * 60L * 60L }
+        val filtered = items.filter { item ->
+            (selectedType == null || item.type == selectedType) &&
+                (selectedAlbum == null || item.albumName == selectedAlbum) &&
+                (cutoff == null || item.dateAddedSeconds >= cutoff)
+        }
+        if (filtered.isEmpty()) {
+            content.addView(TextView(this).apply { text = "No media found for these filters."; setPadding(0, dp(14), 0, 0) })
             return
         }
-        items.forEach { item ->
+        filtered.forEach { item ->
             val row = TextView(this).apply {
                 text = "${if (item.type == GalleryMediaType.VIDEO) "▶" else "▣"}  ${item.displayName}\n${DateFormat.getDateTimeInstance().format(Date(item.dateAddedSeconds * 1000))} · ${formatBytes(item.sizeBytes)}"
                 textSize = 13f; setPadding(dp(8), dp(12), dp(8), dp(12))
                 setTextColor(resolveColor(android.R.attr.textColorPrimary))
-                setOnClickListener {
-                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                        setDataAndType(item.uri, item.mimeType ?: if (item.type == GalleryMediaType.VIDEO) "video/*" else "image/*")
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    runCatching { startActivity(intent) }.onFailure {
-                        MaterialAlertDialogBuilder(this@GalleryActivity).setMessage("No app can open this media item.")
-                            .setPositiveButton("OK", null).show()
-                    }
-                }
+                setOnClickListener { showMediaDetails(item) }
             }
             content.addView(row)
         }
+    }
+
+    private fun showMediaDetails(item: GalleryMediaItem) {
+        val date = DateFormat.getDateTimeInstance().format(Date(item.dateAddedSeconds * 1000))
+        val details = buildString {
+            append("Name: ").append(item.displayName)
+            append("\\nType: ").append(item.type.name.lowercase().replaceFirstChar { it.uppercase() })
+            append("\\nAlbum: ").append(item.albumName ?: "Unknown")
+            append("\\nDate: ").append(date)
+            append("\\nSize: ").append(formatBytes(item.sizeBytes))
+            item.durationMs?.let { append("\\nDuration: ").append(it / 1000).append(" seconds") }
+            item.mimeType?.let { append("\\nFormat: ").append(it) }
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Media details")
+            .setMessage(details)
+            .setPositiveButton("Open") { _, _ ->
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(item.uri, item.mimeType ?: if (item.type == GalleryMediaType.VIDEO) "video/*" else "image/*")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                runCatching { startActivity(intent) }.onFailure {
+                    MaterialAlertDialogBuilder(this@GalleryActivity)
+                        .setMessage("No app can open this media item.")
+                        .setPositiveButton("OK", null).show()
+                }
+            }
+            .setNegativeButton("Close", null)
+            .show()
     }
 
     private fun formatBytes(bytes: Long): String = when {
