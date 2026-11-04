@@ -257,6 +257,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+
+        if (!prefs.hasSeenWelcomeIntro) {
+            WelcomeIntroOverlay.show(this, binding.rootMainLayout) {
+                prefs.hasSeenWelcomeIntro = true
+            }
+        }
     }
 
     /**
