@@ -104,6 +104,19 @@ class HomeFragment : Fragment() {
             showLanguageDialog()
         }
 
+        // Home launchpad shortcuts for frequently used JARVIS modules.
+        binding.btnHomeAutomation.setOnClickListener {
+            startActivity(Intent(requireContext(), com.jarvis.assistant.Studio.UI.AutomationStudioActivity::class.java))
+        }
+
+        binding.btnHomeOffline.setOnClickListener {
+            startActivity(Intent(requireContext(), com.jarvis.assistant.ui.offline.OfflineModelActivity::class.java))
+        }
+
+        binding.btnHomeMaya.setOnClickListener {
+            startActivity(Intent(requireContext(), com.jarvis.assistant.ui.settings.MayaModeActivity::class.java))
+        }
+
         // Weather Card Click -> Refresh or Request Permission
         binding.cardWeather.setOnClickListener {
             if (!PermissionHelper.hasLocationPermission(requireContext())) {
