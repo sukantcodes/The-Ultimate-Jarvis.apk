@@ -103,7 +103,7 @@ class GalleryActivity : AppCompatActivity() {
 
         val search = EditText(this).apply {
             hint = "Search file names"
-            singleLine = true
+            isSingleLine = true
         }
         content.addView(search)
         content.addView(MaterialButton(this).apply {
