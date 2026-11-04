@@ -107,7 +107,7 @@
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_chip_selected"
                     android:paddingHorizontal="14dp"
-                    android:paddingVertical="6dp"
+                    android:paddingVertical="9dp"
                     android:text="@string/category_all"
                     android:textColor="?attr/themeAccent"
                     android:textSize="12sp"
