@@ -1,30 +1,43 @@
 ---
 name: google-photos-organizer
-description: Google Photos me albums, photo search, visual selection aur share preparation ko safely manage karna
+description: Google Photos search, photo details, albums, favorites, archive, sharing and backup controls with privacy checks
 ---
-# Google Photos Organizer — find and prepare media
+# Google Photos Organizer — full photo workflow
 
-Tools: `open_app`, `inspect_screen`, `click_ui_element`, `type_text`, `scroll_screen`, `press_key`.
+Real tools: `open_app(app_name)`, `inspect_screen`, `click_ui_element(target_name, element_id)`, `type_text(text, target_input_name)`, `scroll_screen`, `press_key`, `task_completed(summary)`. There is no dedicated Google Photos API tool; use visible UI.
 
-## Find a photo
-1. Open Google Photos and inspect the current view.
-2. Search only the description, date or place supplied by the user.
-3. Verify the selected image visually and by its visible date/details. If several results match, ask which one.
-4. Never infer a person's identity from a photo or expose private album contents.
+## 1. Find and verify media
+1. Open Google Photos and inspect current tab/account.
+2. Search only the date, description, place or filename the user supplied.
+3. Inspect matching thumbnails and details. Ask if multiple items fit.
+4. Do not infer a person's identity or sensitive traits from a photo.
+5. Do not open unrelated albums or private media.
 
-## Albums
-- Create an album only when requested and use the exact title.
-- Add only the items the user selected.
-- Verify the album and item count after saving.
-- Do not move, archive or delete originals as part of album organization.
+## 2. Album management
+1. Create an album only when requested; use the exact title.
+2. Select only the items the user identifies.
+3. Verify selected count and album title before saving.
+4. Inspect album after save and verify items appear.
+5. Adding media to an album should not delete or move originals.
 
-## Sharing
-1. Select the exact requested items.
-2. Open the share sheet and verify recipient/app and selected item count.
-3. Stop before final share and ask for confirmation.
-4. After confirmation, share once and verify the visible result.
+## 3. Favorites, archive and details
+- Favorite/unfavorite only the selected item and verify state.
+- Archive only when requested; explain it hides the item from main views but does not delete it.
+- Read date, size or location only when visible and relevant.
+- Never alter location metadata or date/time without explicit instruction.
 
-## Backup and privacy
-- Do not enable cloud backup, partner sharing, face grouping or location sharing without explicit instruction.
-- Explain that cloud backup may upload personal media.
-- Never empty Trash or permanently delete photos through this skill.
+## 4. Share media
+1. Select exact photos/videos and verify selection count.
+2. Open share sheet; verify destination/app and recipient.
+3. Stop before final Share/Send and ask for confirmation.
+4. Share once; verify result. Never send duplicates after a delay.
+5. Do not create public links or change link access unless explicitly requested.
+
+## 5. Backup and privacy
+- Cloud backup may upload personal media and use account storage. Never enable/disable backup without explaining and obtaining approval.
+- Do not enable face grouping, partner sharing or location sharing on your own.
+- Do not empty Trash or permanently delete media.
+- If app requires sign-in or account verification, user completes it personally.
+
+## Voice examples
+"Find yesterday's photos"; "Create an album named [title]"; "Favorite this photo"; "Prepare these photos to share with [recipient]".
