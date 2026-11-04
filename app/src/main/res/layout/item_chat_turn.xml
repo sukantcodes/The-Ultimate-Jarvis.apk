@@ -25,8 +25,8 @@
         android:layout_marginStart="48dp"
         android:background="@drawable/bg_user_bubble"
         android:orientation="vertical"
-        android:paddingHorizontal="14dp"
-        android:paddingVertical="12dp">
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="14dp">
 
         <TextView
             android:layout_width="wrap_content"
@@ -43,7 +43,8 @@
             android:layout_height="wrap_content"
             android:textColor="?attr/themeTextPrimary"
             android:textSize="14sp"
-            android:layout_marginTop="2dp"
+            android:lineSpacingExtra="2dp"
+            android:layout_marginTop="3dp"
             tools:text="Hello JARVIS, how are you?" />
     </LinearLayout>
 
