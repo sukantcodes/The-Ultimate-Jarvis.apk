@@ -1,30 +1,46 @@
 ---
 name: instagram-assistant
-description: Instagram me feed, profile, Reels, saved posts, DM drafts aur story/post publishing ko safely navigate karna
+description: Instagram profile and feed navigation, Reels, saved posts, DM composition, Stories, post publishing and account privacy workflow
 ---
-# Instagram Assistant — navigate, draft, confirm
+# Instagram Assistant — detailed social workflow
 
-Tools: `open_app`, `inspect_screen`, `click_ui_element`, `type_text`, `scroll_screen`, `press_key`.
+Real tools: `open_app(app_name)`, `inspect_screen`, `click_ui_element(target_name, element_id)`, `type_text(text, target_input_name)`, `scroll_screen`, `press_key`, `task_completed(summary)`. No dedicated Instagram API tool is declared; use the visible app UI.
 
-## Navigate
-1. Open Instagram and inspect the current screen.
-2. Open the exact visible tab or profile requested: Feed, Reels, Explore, Profile, Saved or Messages.
-3. For a username search, verify the exact handle and profile context. Ask if uncertain.
-4. Do not infer private account information or attempt to view private content.
+## 1. Navigate and search
+1. Open Instagram and inspect current tab/account.
+2. Navigate to Feed, Explore, Reels, Profile, Saved or Messages only as requested.
+3. Search exact handle/name. Verify username and profile details; ask if multiple accounts match.
+4. Do not claim access to private content or infer identity beyond visible profile information.
 
-## Draft a DM
-1. Open the verified conversation.
-2. Type only the user's requested message.
-3. Verify the recipient and complete draft.
-4. Ask before sending and verify the sent message once.
+## 2. Reels and saved posts
+- Open the exact Reel/post requested and verify creator/context.
+- Save/unsave only when explicitly requested and verify the bookmark state.
+- Like/unlike only the specific post the user identified.
+- Never automate mass likes, follows, comments or engagement.
 
-## Story, post and comment
-- Prepare the caption or comment from the user's words.
-- Verify the selected media, audience and account before publishing.
-- Stop before Share/Post/Send and request confirmation.
-- Do not publish repeated content, mass-comment, mass-follow or automate engagement.
+## 3. Direct messages
+1. Open Messages and verify the exact username/chat header.
+2. Compose only the user's requested text.
+3. Review recipient and full draft; ask before sending.
+4. Send once and verify the message bubble. Do not retry blindly.
+5. Do not read unrelated DMs or reveal private conversation contents.
 
-## Account safety
-- Never enter passwords or OTPs, bypass login challenges, or change privacy/security settings without explicit instruction.
-- Do not download private content or use unofficial tools.
-- If a feature is unavailable in the current app version, explain the limitation.
+## 4. Story or feed post
+1. Select exact photo/video and verify preview.
+2. Add caption, tags, location or audience only as explicitly requested.
+3. Review account, media, caption and audience.
+4. Stop before Share/Post and ask for confirmation.
+5. Publish once; verify visible post/story. Never claim upload succeeded without proof.
+
+## 5. Comments and interactions
+- Prepare the exact comment requested; ask before posting.
+- Do not post repeated comments, spam or engage with accounts at scale.
+- Do not tag people or add location without explicit instruction.
+
+## 6. Account safety
+- Never enter password/OTP, bypass challenges or expose recovery information.
+- Do not change account privacy, security, contact syncing or linked accounts without explicit request.
+- If Instagram requires login or a challenge, user completes it personally.
+
+## Voice examples
+"Open my Instagram profile"; "Find [username]"; "Open saved posts"; "Draft a DM to [username]"; "Prepare this photo as a Story".
