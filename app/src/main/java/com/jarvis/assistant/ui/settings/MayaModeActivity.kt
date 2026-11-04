@@ -13,6 +13,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.jarvis.assistant.JarvisApp
+import com.jarvis.assistant.skills.SkillStore
 import com.jarvis.assistant.util.ThemeManager
 import com.jarvis.assistant.voice.VoiceGender
 import com.jarvis.assistant.voice.VoiceGenderStore
@@ -25,6 +26,7 @@ import com.jarvis.assistant.voice.VoiceCatalog
 class MayaModeActivity : AppCompatActivity() {
     private val preferences by lazy { JarvisApp.instance.preferences }
     private val voiceGenderStore by lazy { VoiceGenderStore(this) }
+    private val skillStore by lazy { SkillStore.get(this) }
     private val mayaState by lazy { getSharedPreferences("jarvis_maya_mode", MODE_PRIVATE) }
     private var mayaActive = false
     private var selectedMode = "maya_friendly"
@@ -41,6 +43,7 @@ class MayaModeActivity : AppCompatActivity() {
         ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         mayaActive = mayaState.getBoolean("active", false)
+        skillStore.setEnabled("maya-companion", mayaActive)
         selectedMode = preferences.personality.takeIf { it in setOf("maya_friendly", "maya_expressive") }
             ?: "maya_friendly"
         buildScreen()
@@ -150,6 +153,7 @@ class MayaModeActivity : AppCompatActivity() {
                     voiceGenderStore.gender = VoiceGender.fromKey(mayaState.getString("previous_gender", "unspecified"))
                     voiceGenderStore.femaleVoice = mayaState.getString("previous_female_voice", "Kore") ?: "Kore"
                     mayaState.edit().putBoolean("active", false).apply()
+                    skillStore.setEnabled("maya-companion", false)
                     mayaActive = false
                     Toast.makeText(this@MayaModeActivity, "Maya deactivated • previous JARVIS voice restored", Toast.LENGTH_LONG).show()
                 } else {
@@ -167,7 +171,8 @@ class MayaModeActivity : AppCompatActivity() {
                     voiceGenderStore.gender = VoiceGender.FEMALE
                     voiceGenderStore.femaleVoice = validatedVoice
                     mayaActive = true
-                    Toast.makeText(this@MayaModeActivity, "Maya companion activated • voice profile checked: ${preferences.voice}", Toast.LENGTH_LONG).show()
+                    skillStore.setEnabled("maya-companion", true)
+                    Toast.makeText(this@MayaModeActivity, "Maya companion enabled for your next voice session • voice profile checked: ${preferences.voice}", Toast.LENGTH_LONG).show()
                 }
                 refreshSelection()
             }
