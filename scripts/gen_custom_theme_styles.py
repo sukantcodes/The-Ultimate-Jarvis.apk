@@ -70,6 +70,7 @@ def style(mode, idx):
         }
     out = ['    <style name="%s" parent="%s">' % (name, parent)]
     out.append('        <item name="android:fontFamily">sans-serif</item>')
+    out.append('        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>')
     out.append('        <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>')
     out.append('        <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>')
     out.append('        <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>')
