@@ -55,6 +55,7 @@ import com.jarvis.assistant.ui.memory.MemoryActivity
 import com.jarvis.assistant.ui.permission.PermissionActivity
 import com.jarvis.assistant.ui.voice.VoiceEnrollmentActivity
 import com.jarvis.assistant.util.ThemeManager
+import com.jarvis.assistant.util.TouchGlowController
 import com.jarvis.assistant.voice.VoiceCatalog
 import com.jarvis.assistant.voice.VoiceGender
 import com.jarvis.assistant.voice.VoiceGenderStore
@@ -595,6 +596,11 @@ class SettingsFragment : Fragment() {
         }
         binding.rowOverlayAvatars.setOnClickListener { open(OverlayAvatarActivity::class.java) }
         binding.rowRefreshRate.setOnClickListener { showRefreshRateDialog() }
+        binding.switchTouchGlow.isChecked = preferences.touchGlowEnabled
+        binding.switchTouchGlow.setOnCheckedChangeListener { _, enabled ->
+            preferences.touchGlowEnabled = enabled
+            TouchGlowController.setEnabled(requireActivity(), enabled)
+        }
     }
 
     private fun showRefreshRateDialog() {
