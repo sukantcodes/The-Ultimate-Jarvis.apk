@@ -212,7 +212,7 @@ object WelcomeIntroOverlay {
                 isFillViewport = true
                 overScrollMode = View.OVER_SCROLL_NEVER
                 clipToPadding = false
-                addView(panel, ScrollView.LayoutParams(
+                addView(panel, FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ))
