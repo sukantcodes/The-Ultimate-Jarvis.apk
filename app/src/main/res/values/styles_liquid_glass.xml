@@ -123,4 +123,13 @@
         <item name="android:paddingBottom">4dp</item>
     </style>
     <style name="Widget.LiquidGlass.Technical" parent="TextAppearance.Jarvis.Technical" />
+
+    <style name="Widget.LiquidGlass.StatusActive" parent="TextAppearance.Jarvis.Status">
+        <item name="android:textColor">?attr/themeAccent</item>
+        <item name="android:background">@drawable/bg_lg_badge</item>
+    </style>
+    <style name="Widget.LiquidGlass.StatusDisabled" parent="TextAppearance.Jarvis.Status">
+        <item name="android:textColor">?attr/themeTextMuted</item>
+        <item name="android:background">@drawable/bg_lg_badge</item>
+    </style>
 </resources>
