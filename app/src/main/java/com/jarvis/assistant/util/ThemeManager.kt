@@ -198,10 +198,15 @@ object ThemeManager {
                 val (first, second) = customColors()
                 val light = customIsLight(first, second)
                 val chosen = accentSource(first, second, light)
-                // Keep the accent readable on the canvas: darker on pale canvases, lighter on dark ones.
+                // Neutral custom swatches use the same readable fallback accent as their static theme
+                // style, rather than tinting icons white-on-white or black-on-black.
                 val h = hsl(chosen)
-                h[2] = if (light) h[2].coerceAtMost(0.46f) else h[2].coerceAtLeast(0.58f)
-                if (h[1] < 0.10f) chosen else ColorUtils.HSLToColor(h)
+                if (h[1] < 0.10f) {
+                    if (light) Color.parseColor("#2F6BFF") else Color.parseColor("#5B8CFF")
+                } else {
+                    h[2] = if (light) h[2].coerceAtMost(0.46f) else h[2].coerceAtLeast(0.58f)
+                    ColorUtils.HSLToColor(h)
+                }
             }
             else -> Color.parseColor("#2F6BFF")
         }
