@@ -29,7 +29,7 @@ object WelcomeIntroOverlay {
             Slide("TO HANDLE ALL YOUR NECESSARY WORKS", accents[2], 22f),
             Slide("WELCOME TO JARVIS", accents[3], 32f)
         )
-        val background = themeColor(activity, R.attr.themeBg, Color.rgb(7, 12, 25))
+        val backgroundColor = themeColor(activity, R.attr.themeBg, Color.rgb(7, 12, 25))
         val overlay = FrameLayout(activity).apply {
             isClickable = true
             isFocusable = true
@@ -37,15 +37,15 @@ object WelcomeIntroOverlay {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
                 intArrayOf(
-                    background,
-                    blend(background, accents[0], 0.16f),
-                    blend(background, accents[1], 0.12f),
-                    background
+                    backgroundColor,
+                    blend(backgroundColor, accents[0], 0.16f),
+                    blend(backgroundColor, accents[1], 0.12f),
+                    backgroundColor
                 )
             )
             alpha = 0f
         }
-        val text = TextView(activity).apply {
+        val messageView = TextView(activity).apply {
             gravity = Gravity.CENTER
             textAlignment = View.TEXT_ALIGNMENT_CENTER
             includeFontPadding = false
@@ -67,7 +67,7 @@ object WelcomeIntroOverlay {
             gravity = Gravity.CENTER
         }
         overlay.addView(
-            text,
+            messageView,
             FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -95,7 +95,7 @@ object WelcomeIntroOverlay {
         fun finish() {
             if (finished) return
             finished = true
-            text.animate().cancel()
+            messageView.animate().cancel()
             overlay.animate().cancel()
             overlay.animate()
                 .alpha(0f)
@@ -115,24 +115,24 @@ object WelcomeIntroOverlay {
                 return
             }
             val slide = slides[index]
-            text.text = slide.text
-            text.textSize = slide.sizeSp
-            text.setTextColor(slide.color)
-            text.setShadowLayer(dp(activity, 22).toFloat(), 0f, 0f, slide.color)
-            text.alpha = 0f
-            text.translationY = dp(activity, 18).toFloat()
-            text.scaleX = 0.92f
-            text.scaleY = 0.92f
-            text.animate()
+            messageView.text = slide.text
+            messageView.textSize = slide.sizeSp
+            messageView.setTextColor(slide.color)
+            messageView.setShadowLayer(dp(activity, 22).toFloat(), 0f, 0f, slide.color)
+            messageView.alpha = 0f
+            messageView.translationY = dp(activity, 18).toFloat()
+            messageView.scaleX = 0.92f
+            messageView.scaleY = 0.92f
+            messageView.animate()
                 .alpha(1f)
                 .translationY(0f)
                 .scaleX(1f)
                 .scaleY(1f)
                 .setDuration(430L)
                 .withEndAction {
-                    text.postDelayed({
+                    messageView.postDelayed({
                         if (finished) return@postDelayed
-                        text.animate()
+                        messageView.animate()
                             .alpha(0f)
                             .translationY(-dp(activity, 12).toFloat())
                             .scaleX(0.97f)
