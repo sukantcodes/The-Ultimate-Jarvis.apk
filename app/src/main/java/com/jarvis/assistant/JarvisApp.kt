@@ -4,6 +4,7 @@ import android.app.Application
 import com.jarvis.assistant.security.SecurityManager
 import com.jarvis.assistant.audio.VoskModelManager
 import com.jarvis.assistant.automation.command.CommandExecutor
+import com.jarvis.assistant.automation.action.ActionRouter
 import com.jarvis.assistant.automation.contacts.ContactResolver
 import com.jarvis.assistant.automation.phone.PhoneControlManager
 import com.jarvis.assistant.automation.whatsapp.WhatsAppAssistant
@@ -58,6 +59,9 @@ class JarvisApp : Application() {
     lateinit var commandExecutor: CommandExecutor
         private set
 
+    lateinit var actionRouter: ActionRouter
+        private set
+
     override fun onCreate() {
         super.onCreate()
         SecurityManager.verify(this)
@@ -78,12 +82,17 @@ class JarvisApp : Application() {
         phoneControlManager = PhoneControlManager(this, contactResolver)
         whatsAppAssistant = WhatsAppAssistant(this, contactResolver)
 
+        // Native-first routing is opt-in; legacy execution remains the default.
+        actionRouter = ActionRouter(this)
+        com.jarvis.assistant.automation.command.CommandParser.prewarm()
+
         // Command Engine
         commandExecutor = CommandExecutor(
             phoneManager = phoneControlManager,
             youtubeManager = youTubeAutomationManager,
             whatsappAssistant = whatsAppAssistant,
-            memoryManager = memoryManager
+            memoryManager = memoryManager,
+            actionRouter = actionRouter
         )
 
         VoskModelManager.init(this, CoroutineScope(Dispatchers.Default))
