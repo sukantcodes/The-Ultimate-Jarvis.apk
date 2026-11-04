@@ -48,6 +48,8 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
         app:layout_constraintTop_toTopOf="parent">
 
         <LinearLayout
@@ -62,8 +64,8 @@
                 android:layout_height="wrap_content"
                 android:text="@string/set_screen_title"
                 android:textColor="?attr/themeTextPrimary"
-                android:textSize="24sp"
-                android:letterSpacing="-0.02"
+                android:textSize="25sp"
+                android:letterSpacing="-0.025"
                 android:fontFamily="sans-serif-medium"
                 android:textStyle="bold" />
 
