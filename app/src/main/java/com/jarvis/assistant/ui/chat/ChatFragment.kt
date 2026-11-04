@@ -138,6 +138,12 @@ class ChatFragment : Fragment() {
         binding.btnAttach.setOnClickListener {
             documentPicker.launch(arrayOf("*/*"))
         }
+        binding.btnChatTools.setOnClickListener {
+            ChatboxTools.show(requireContext(), binding.etMessageInput, chatAdapter.currentList) { text ->
+                pendingExportText = text
+                exportLauncher.launch("Jarvis-Conversation.txt")
+            }
+        }
 
         observeChatTurns()
     }
