@@ -1,12 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Clear, border-only liquid-glass frame for the Settings profile card. -->
+<!-- Shared theme-aware glass card surface. Keep the ripple as the outermost layer
+     so clickable cards retain native pressed-state feedback. -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
     android:color="?attr/themeAccentLight">
     <item>
         <shape android:shape="rectangle">
-            <corners android:radius="26dp" />
-            <solid android:color="@android:color/transparent" />
-            <stroke android:width="1dp" android:color="?attr/themeAccentLight" />
+            <solid android:color="?attr/themeCardBg" />
+            <corners android:radius="24dp" />
+            <stroke
+                android:width="1dp"
+                android:color="?attr/themeCardBorder" />
+        </shape>
+    </item>
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFFFF" />
+            <corners android:radius="24dp" />
         </shape>
     </item>
 </ripple>
