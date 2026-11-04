@@ -57,4 +57,18 @@
     <color name="naira_avatar_bg">#EFF6FF</color>
     <color name="naira_input_bg">#FFFFFF</color>
     <color name="naira_chip_bg">#F1F5F9</color>
+
+    <!-- Semantic scenario colours: pair with text/icons, never colour alone. -->
+    <color name="scenario_success">#16A36A</color>
+    <color name="scenario_success_container">#DDF7EA</color>
+    <color name="scenario_warning">#B7791F</color>
+    <color name="scenario_warning_container">#FFF2CC</color>
+    <color name="scenario_error">#D64545</color>
+    <color name="scenario_error_container">#FDE2E2</color>
+    <color name="scenario_info">#2878C8</color>
+    <color name="scenario_info_container">#DCEEFF</color>
+    <color name="scenario_neutral">#64748B</color>
+    <color name="scenario_neutral_container">#E9EEF5</color>
+    <color name="scenario_premium">#8B5CF6</color>
+    <color name="scenario_live">#0D9488</color>
 </resources>
