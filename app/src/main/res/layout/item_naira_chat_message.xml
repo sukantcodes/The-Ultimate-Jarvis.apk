@@ -42,16 +42,16 @@
 
             <ImageView
                 android:id="@+id/btnUserEdit"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:src="@drawable/ic_edit"
                 app:tint="?attr/themeTextMuted"
                 android:layout_marginEnd="10dp" />
 
             <ImageView
                 android:id="@+id/btnUserCopy"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:src="@drawable/ic_copy"
                 app:tint="?attr/themeTextMuted" />
         </LinearLayout>
@@ -93,16 +93,16 @@
 
             <ImageView
                 android:id="@+id/btnAssistantCopy"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:src="@drawable/ic_copy"
                 app:tint="?attr/themeTextMuted"
                 android:layout_marginEnd="12dp" />
 
             <ImageView
                 android:id="@+id/btnAssistantPlay"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:src="@drawable/ic_tts_play"
                 app:tint="?attr/themeTextMuted"
                 android:layout_marginEnd="12dp" />
