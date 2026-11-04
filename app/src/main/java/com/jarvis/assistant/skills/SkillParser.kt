@@ -17,7 +17,7 @@ data class ParsedSkill(val name: String, val description: String, val body: Stri
  */
 object SkillParser {
     const val MAX_DESCRIPTION = 140
-    const val MAX_BODY = 9000
+    const val MAX_BODY = 12000
     private val NAME_RULE = Regex("^[a-z0-9][a-z0-9-]{1,39}$")
 
     fun isValidName(name: String): Boolean = NAME_RULE.matches(name)
