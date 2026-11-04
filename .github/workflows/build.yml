@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - Google
+      - Chatbox
     paths-ignore:
       - "*.md"
       - "docs/**"
@@ -17,7 +18,7 @@ jobs:
     - name: Checkout Google branch
       uses: actions/checkout@v4
       with:
-        ref: Google
+        ref: ${{ github.ref }}
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
