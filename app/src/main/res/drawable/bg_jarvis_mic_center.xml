@@ -1,23 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Central voice action: orb-like accent gradient that follows the selected app theme. -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="#40FFFFFF">
+    android:color="#55FFFFFF">
     <item>
         <layer-list>
-            <!-- 1. Ambient Glow & Liquid Base Sphere -->
             <item>
                 <shape android:shape="oval">
                     <gradient
                         android:type="radial"
-                        android:gradientRadius="36dp"
-                        android:startColor="#60A5FA"
-                        android:centerColor="#2563EB"
-                        android:endColor="#1E40AF" />
+                        android:gradientRadius="44dp"
+                        android:startColor="?attr/themeAccentLight"
+                        android:centerColor="?attr/themeAccent1"
+                        android:endColor="?attr/themeAccent2" />
                     <stroke
                         android:width="2dp"
-                        android:color="#E6FFFFFF" />
+                        android:color="?attr/themeGlassSpecular" />
                 </shape>
             </item>
-            <!-- 2. Top Specular Glass Crescent / Lens Reflection -->
             <item
                 android:top="3dp"
                 android:left="12dp"
@@ -32,5 +31,10 @@
                 </shape>
             </item>
         </layer-list>
+    </item>
+    <item android:id="@android:id/mask">
+        <shape android:shape="oval">
+            <solid android:color="#FFFFFFFF" />
+        </shape>
     </item>
 </ripple>
