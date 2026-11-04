@@ -24,12 +24,12 @@
         android:paddingEnd="18dp"
         android:paddingTop="24dp"
         android:paddingBottom="16dp"
-        android:background="#CC070B18">
+        android:background="#D90A1020">
 
         <TextView
             android:id="@+id/btnScanClose"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:gravity="center"
             android:text="‹"
             android:textSize="34sp"
@@ -57,7 +57,7 @@
                 android:layout_marginTop="4dp"
                 android:text="INITIALIZING LIVE CAMERA..."
                 android:textColor="#55DDF7"
-                android:textSize="10sp"
+                android:textSize="11sp"
                 android:letterSpacing="0.04" />
         </LinearLayout>
         <View
@@ -104,7 +104,7 @@
         android:layout_marginEnd="18dp"
         android:layout_marginBottom="126dp"
         android:padding="16dp"
-        android:background="#E6101A2A"
+        android:background="#E61A2638"
         android:elevation="8dp"
         android:text="JARVIS live visual understanding will appear here automatically."
         android:textColor="#F2FAFF"
