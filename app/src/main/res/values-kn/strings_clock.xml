@@ -148,4 +148,16 @@
     <string name="clock_ask_time">ಅಲಾರಂ ಯಾವ ಸಮಯಕ್ಕೆ ಹೊಂದಿಸಲಿ?</string>
     <string name="clock_ask_ampm">%1$s AM ಅಥವಾ PM?</string>
     <string name="clock_ask_which">ನೀವು ಯಾವ ಅಲಾರಂ ಎಂದು ಹೇಳುತ್ತಿದ್ದೀರಿ? %1$s</string>
+    <string name="clock_alarm_overview">ಅಲಾರಂ ಅವಲೋಕನ</string>
+    <string name="clock_alarm_count">%1$d ಅಲಾರಂಗಳನ್ನು ಉಳಿಸಲಾಗಿದೆ</string>
+    <string name="clock_alarm_active_count">%1$d ಸಕ್ರಿಯ</string>
+    <string name="clock_alarm_off_count">%1$d ಆಫ್</string>
+    <string name="clock_search_alarms">ಹೆಸರು, ಸಮಯ ಅಥವಾ ಪುನರಾವರ್ತನೆಯ ಮೂಲಕ ಹುಡುಕಿ</string>
+    <string name="clock_filter_all">ಎಲ್ಲಾ</string>
+    <string name="clock_filter_on">ಸಕ್ರಿಯ</string>
+    <string name="clock_filter_off">ಆಫ್</string>
+    <string name="clock_alarm_list_heading">ನಿಮ್ಮ ಅಲಾರಂಗಳು · %1$d</string>
+    <string name="clock_alarm_no_match">ಈ ಹುಡುಕಾಟ ಅಥವಾ ಫಿಲ್ಟರ್‌ಗೆ ಹೊಂದುವ ಅಲಾರಂಗಳು ಇಲ್ಲ.</string>
+    <string name="clock_next_alarm_hint">ಇಲ್ಲಿ ನೋಡಲು ಅಲಾರಂ ಸೇರಿಸಿ.</string>
+    <string name="clock_empty_alarm_hint">ನಿಮ್ಮ ಮೊದಲ ಅಲಾರಂ ರಚಿಸಿ ಮತ್ತು ಅದು ಯಾವಾಗ ಪುನರಾವರ್ತಿಸಬೇಕು ಎಂಬುದನ್ನು ಆಯ್ಕೆಮಾಡಿ.</string>
 </resources>
