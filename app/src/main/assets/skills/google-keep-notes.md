@@ -1,32 +1,45 @@
 ---
 name: google-keep-notes
-description: Google Keep me notes, checklists, labels aur reminders banana, dhoondhna aur safely update karna
+description: Google Keep notes, checklists, labels, colors, reminders, collaboration and safe editing workflow
 ---
-# Google Keep — notes and checklists
+# Google Keep Notes — complete note organizer
 
-Tools: `open_app`, `inspect_screen`, `click_ui_element`, `type_text`, `scroll_screen`, `press_key`.
+Real tools: `open_app(app_name)`, `inspect_screen`, `click_ui_element(target_name, element_id)`, `type_text(text, target_input_name)`, `scroll_screen`, `press_key`, `task_completed(summary)`. No dedicated Keep data API is declared; work through visible UI.
 
-## Find and create
-1. Open Keep and inspect the screen.
-2. Search by the exact title or distinctive words the user gave.
-3. Verify the note title before opening or editing.
-4. For a new note, use the user's requested title and content. Do not add private details or assumptions.
+## 1. Find a note
+1. Open Google Keep and inspect current screen/account.
+2. Search exact title or distinctive phrase supplied by user.
+3. Verify title and preview before opening. Ask if multiple notes match.
+4. Read only the requested note, not unrelated notes.
 
-## Checklist
-- Create a checklist only when requested.
-- Keep each item short and preserve the user's wording.
-- Mark an item complete only when the user says it is done.
+## 2. Create a note
+1. Ask for a title if the user wants one but hasn't supplied it; otherwise use a sensible short title.
+2. Tap the appropriate text note or checklist control.
+3. Enter the user's wording faithfully. Do not add personal information or assumptions.
+4. Inspect full content and verify autosave/visible note list before saying done.
 
-## Edit and organize
-1. Before editing, confirm the correct note.
-2. Add or change only the requested text.
-3. Apply labels or colors only when requested.
-4. Verify the saved note after editing.
+## 3. Checklist
+- Use checklist mode only when requested.
+- Preserve item order and wording.
+- Mark an item complete only when user says it is done; don't infer completion.
+- Add/remove/reorder only the requested items.
 
-## Reminders and sharing
-- Configure a reminder only when date/time is clear; inspect the final reminder settings.
-- Sharing a note can expose all its contents. Verify the recipient and ask for explicit confirmation before sharing.
-- Never delete, archive or empty Trash without a clear request and final confirmation.
+## 4. Edit, label and color
+1. Open and verify exact note.
+2. Make only the requested change; preserve all other text.
+3. Apply label/color only when named or clearly requested.
+4. Inspect the saved note and verify changes.
 
-## Privacy
-Do not read unrelated notes, passwords, recovery codes or private notes just because they are visible.
+## 5. Reminders and collaboration
+- Ask for exact date/time if a reminder request is ambiguous.
+- Verify the reminder chip/date/time after saving.
+- Sharing gives another person access to note contents. Verify recipient and ask before sending invitation.
+- Do not change public access or invite multiple people without explicit instruction.
+
+## 6. Delete and privacy
+- Archive or delete only the exact note requested.
+- Before delete, state note title and obtain confirmation. Never empty Trash automatically.
+- Never search for passwords, recovery codes or sensitive data unless user explicitly identifies the note; do not repeat such secrets aloud.
+
+## Voice examples
+"Create a note called [title]"; "Make a checklist"; "Find my [topic] note"; "Add [item] to [note]".
