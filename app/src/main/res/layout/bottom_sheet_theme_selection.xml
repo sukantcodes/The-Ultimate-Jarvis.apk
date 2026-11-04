@@ -78,7 +78,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:text="🔵  Default Orb"
-                    android:textAllCaps="false"\n                    android:layout_marginBottom="6dp" />
+                    android:textAllCaps="false"
+                    android:layout_marginBottom="6dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnOrbAurora"
@@ -86,7 +87,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:text="🌌  Aurora Orb • Concentric Light Glow"
-                    android:textAllCaps="false"\n                    android:layout_marginBottom="6dp" />
+                    android:textAllCaps="false"
+                    android:layout_marginBottom="6dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnOrbIronMan"
@@ -94,14 +96,16 @@
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:text="🦾  Iron Man • 3D Helmet"
-                    android:textAllCaps="false"\n                    android:layout_marginBottom="6dp" />
+                    android:textAllCaps="false"
+                    android:layout_marginBottom="6dp" />
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnOrbFullCharacter"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:text="🧍  Full Human • 3D Assistant"
-                    android:textAllCaps="false"\n                    android:layout_marginBottom="6dp" />
+                    android:textAllCaps="false"
+                    android:layout_marginBottom="6dp" />
             </LinearLayout>
 
             <!-- Orb and icon look controls -->
