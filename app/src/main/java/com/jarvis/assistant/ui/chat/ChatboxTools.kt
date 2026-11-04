@@ -78,7 +78,6 @@ object ChatboxTools {
             Action("Simplify without losing meaning"){prompt("Simplify this while preserving all important meaning:")},
             Action("Constructive critique"){prompt("Give constructive feedback: strengths, unclear parts, and improvements:")},
             Action("Add headings and structure"){prompt("Organize this with useful headings and a logical order:")},
-            Action("Extract definitions"){prompt("Extract important terms and define each clearly:")}
         )
         val formatting=listOf(
             Action("UPPERCASE"){set(text().uppercase(Locale.getDefault()))},
