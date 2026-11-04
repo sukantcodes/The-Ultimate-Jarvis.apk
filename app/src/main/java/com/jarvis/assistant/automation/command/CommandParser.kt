@@ -27,6 +27,11 @@ object CommandParser {
      * (likely a mis-heard or dropped title), meaning Jarvis should confirm with the user
      * before actually launching a video instead of guessing.
      */
+    /** Warm common deterministic local patterns before the first voice turn. */
+    fun prewarm() {
+        listOf("turn on flashlight", "set volume to 40 percent", "set brightness to 50 percent", "open settings").forEach(::parse)
+    }
+
     fun isAmbiguousPlayQuery(query: String): Boolean {
         val q = query.trim().lowercase(Locale.ROOT)
         if (q.isBlank()) return true
