@@ -200,7 +200,7 @@
         android:focusable="true"
         android:minHeight="76dp"
         android:layout_marginBottom="16dp"
-        app:layout_constraintBottom_toTopOf="@id/layoutActionGrid"
+        app:layout_constraintBottom_toTopOf="@id/homeLaunchpad"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
@@ -254,6 +254,164 @@
             android:contentDescription="Weather"
             android:layout_marginStart="8dp" />
     </LinearLayout>
+
+    <!-- Home Launchpad: fast access to major JARVIS experiences -->
+    <HorizontalScrollView
+        android:id="@+id/homeLaunchpad"
+        android:layout_width="0dp"
+        android:layout_height="78dp"
+        android:layout_marginBottom="10dp"
+        android:clipToPadding="false"
+        android:fillViewport="false"
+        android:overScrollMode="never"
+        android:scrollbars="none"
+        app:layout_constraintBottom_toTopOf="@id/layoutActionGrid"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:id="@+id/btnHomeAutomation"
+                android:layout_width="126dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/bg_jarvis_action_card"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="12dp"
+                android:contentDescription="Open Automation Studio">
+
+                <ImageView
+                    android:layout_width="25dp"
+                    android:layout_height="25dp"
+                    android:src="@drawable/ic_settings_automation"
+                    app:tint="?attr/themeAccent"
+                    android:contentDescription="@null" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Automation"
+                        android:textColor="?attr/themeTextPrimary"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:maxLines="1" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Build tasks"
+                        android:textColor="?attr/themeTextMuted"
+                        android:textSize="9sp"
+                        android:maxLines="1" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/btnHomeOffline"
+                android:layout_width="126dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/bg_jarvis_action_card"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="12dp"
+                android:contentDescription="Open Offline JARVIS">
+
+                <ImageView
+                    android:layout_width="25dp"
+                    android:layout_height="25dp"
+                    android:src="@drawable/ic_sparkle"
+                    app:tint="?attr/themeAccent"
+                    android:contentDescription="@null" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Offline AI"
+                        android:textColor="?attr/themeTextPrimary"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:maxLines="1" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Local assistant"
+                        android:textColor="?attr/themeTextMuted"
+                        android:textSize="9sp"
+                        android:maxLines="1" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/btnHomeMaya"
+                android:layout_width="126dp"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_jarvis_action_card"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="12dp"
+                android:contentDescription="Open Maya companion settings">
+
+                <ImageView
+                    android:layout_width="25dp"
+                    android:layout_height="25dp"
+                    android:src="@drawable/ic_sparkle"
+                    app:tint="?attr/themeAccent"
+                    android:contentDescription="@null" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Maya Mode"
+                        android:textColor="?attr/themeTextPrimary"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:maxLines="1" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Companion"
+                        android:textColor="?attr/themeTextMuted"
+                        android:textSize="9sp"
+                        android:maxLines="1" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </HorizontalScrollView>
 
     <!-- Quick Action Grid (3 Modern High-Tech Cards) -->
     <LinearLayout
