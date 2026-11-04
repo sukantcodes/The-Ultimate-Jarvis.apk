@@ -214,7 +214,8 @@ class AlarmsActivity : ClockPageActivity() {
         }
         val timeView = text(ClockFormat.time(this, alarm.hour, alarm.minute, settings), 36f, primary = alarm.enabled, bold = true)
         info.addView(timeView)
-        info.addView(text(ClockFormat.title(this, alarm), 14f, primary = true, bold = true).apply { setPadding(0, dp(1), 0, 0) })\n        info.addView(text(ClockFormat.repeatSummary(this, alarm, settings), 12f, primary = false))
+        info.addView(text(ClockFormat.title(this, alarm), 14f, primary = true, bold = true).apply { setPadding(0, dp(1), 0, 0) })
+        info.addView(text(ClockFormat.repeatSummary(this, alarm, settings), 12f, primary = false))
         info.addView(text(ToneCatalog.describe(this, ToneChoice.of(alarm)) + if (alarm.vibrate) " · " + getString(R.string.clock_vibrate_short) else "", 12f, primary = false))
         if (alarm.snoozedUntilMillis > System.currentTimeMillis()) {
             val zdt = java.time.ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(alarm.snoozedUntilMillis), java.time.ZoneId.systemDefault())
