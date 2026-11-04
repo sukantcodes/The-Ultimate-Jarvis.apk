@@ -236,7 +236,7 @@ class DeviceDiagnosticsActivity : AppCompatActivity() {
             row.addView(TextView(this).apply {
                 text = value
                 textSize = 14f
-                setTypeface(typeface, Typeface.MEDIUM)
+                setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL))
                 setTextColor(primaryTextColor)
                 gravity = Gravity.END
                 maxWidth = dp(190)
