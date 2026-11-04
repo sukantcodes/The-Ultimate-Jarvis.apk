@@ -68,6 +68,44 @@ def style(mode, idx):
             "themeAccent1": accent, "themeAccent2": a2, "themeAccent3": a3, "themeAccent": accent,
             "themeAccentLight": hexa(h, .80, .93),
         }
+    # Complete Material 3 roles and semantic state colours. Select foreground text by contrast.
+    def luminance(hex_colour):
+        value = hex_colour.lstrip("#")[-6:]
+        channels = [int(value[i:i + 2], 16) / 255.0 for i in (0, 2, 4)]
+        linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+    def on_colour(background):
+        l = luminance(background)
+        return "#000000" if (l + 0.05) / 0.05 >= 1.05 / (l + 0.05) else "#FFFFFF"
+
+    success = "#4ADE80" if dark else "#087443"
+    warning = "#FBBF24" if dark else "#854D0E"
+    error = "#FF6B6B" if dark else "#B42318"
+    info = "#60A5FA" if dark else "#175CD3"
+    v.update({
+        "colorOnPrimary": on_colour(accent),
+        "colorPrimaryContainer": v["themeAccentLight"], "colorOnPrimaryContainer": v["themeTextPrimary"],
+        "colorSecondary": a2, "colorOnSecondary": on_colour(a2),
+        "colorSecondaryContainer": v["themeAccentLight"], "colorOnSecondaryContainer": v["themeTextPrimary"],
+        "colorTertiary": a3, "colorOnTertiary": on_colour(a3),
+        "colorTertiaryContainer": v["themeAccentLight"], "colorOnTertiaryContainer": v["themeTextPrimary"],
+        "colorSurfaceVariant": hexa(h, .16, .18 if dark else .94),
+        "colorOnSurfaceVariant": v["themeTextSecondary"],
+        "colorOutline": v["themeCardBorder"], "colorOutlineVariant": v["themeCardBorder"],
+        "colorError": error, "colorOnError": "#FFFFFF",
+        "colorErrorContainer": "#4A2026" if dark else "#FEE4E2",
+        "colorOnErrorContainer": "#FFDAD6" if dark else "#7A271A",
+        "colorControlActivated": accent, "android:colorControlActivated": accent,
+        "android:colorControlHighlight": hexa(h, .70, .55, 0x33),
+        "themeSuccess": success, "themeSuccessContainer": "#163D2A" if dark else "#DCFCE7",
+        "themeWarning": warning, "themeWarningContainer": "#493411" if dark else "#FEF3C7",
+        "themeError": error, "themeErrorContainer": "#4A2026" if dark else "#FEE4E2",
+        "themeInfo": info, "themeInfoContainer": "#1B3552" if dark else "#DBEAFE",
+        "themeNeutral": "#CBD5E1" if dark else "#475569",
+        "themeNeutralContainer": "#273449" if dark else "#E2E8F0",
+    })
+
     out = ['    <style name="%s" parent="%s">' % (name, parent)]
     out.append('        <item name="android:fontFamily">sans-serif</item>')
     out.append('        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>')
