@@ -173,6 +173,8 @@ class JarvisConversationService : Service() {
                 service.cancelAllActiveTools()
                 service.pendingToolCalls.clear()
                 service.suppressAudioUntilTurnComplete = true
+                service.textChatTurnActive = false
+                service.currentTextChatPrompt = ""
                 synchronized(service.currentTurnAssistantText) { service.currentTurnAssistantText.clear() }
                 _liveAssistantResponse.value = ""
                 _conversationState.value = ConversationState.LISTENING
