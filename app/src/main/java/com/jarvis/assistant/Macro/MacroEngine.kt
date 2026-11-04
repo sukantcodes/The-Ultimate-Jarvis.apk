@@ -39,6 +39,15 @@ interface MacroActions {
     suspend fun goBack(): StepResult
     suspend fun readScreenText(): StepResult
     fun screenText(): String
+
+    /** Monotonic revision of visible UI changes; default keeps older action adapters compatible. */
+    fun screenRevision(): Long = 0L
+
+    /** Wait for an actual UI event, falling back to a bounded delay for older adapters. */
+    suspend fun awaitScreenChange(afterRevision: Long, timeoutMs: Long): Boolean {
+        delay(timeoutMs.coerceAtLeast(1L))
+        return false
+    }
 }
 
 /**
@@ -127,12 +136,13 @@ class MacroEngine(private val actions: MacroActions) {
         val attempts = retries.coerceIn(1, 5)
         var last = ""
         for (attempt in 1..attempts) {
+            val revision = actions.screenRevision()
             for (label in options) {
                 val result = actions.tapText(label)
                 if (result.ok) return StepResult(true, "Tapped '$label'.")
                 last = result.message
             }
-            if (attempt < attempts) delay(1_500L)
+            if (attempt < attempts) actions.awaitScreenChange(revision, 500L)
         }
         return StepResult(false, "Could not find or tap " + options.joinToString(" / ") { "'$it'" } + ". " + last)
     }
@@ -140,6 +150,7 @@ class MacroEngine(private val actions: MacroActions) {
     private suspend fun type(text: String, focusLabels: List<String>): StepResult {
         var last = ""
         for (attempt in 1..3) {
+            val revision = actions.screenRevision()
             val result = actions.typeText(text)
             if (result.ok) return result
             last = result.message
@@ -147,7 +158,7 @@ class MacroEngine(private val actions: MacroActions) {
             for (label in focusLabels) {
                 if (actions.tapText(label).ok) break
             }
-            delay(1_200L)
+            actions.awaitScreenChange(revision, 500L)
         }
         return StepResult(false, "Could not type the text. $last")
     }
@@ -159,6 +170,7 @@ class MacroEngine(private val actions: MacroActions) {
         val deadline = start + timeoutSec * 1000L
         var seen = false
         while (System.currentTimeMillis() < deadline) {
+            val revision = actions.screenRevision()
             val screen = actions.screenText().lowercase(Locale.ROOT)
             val present = options.any { screen.contains(it.lowercase(Locale.ROOT)) }
             if (present) seen = true
@@ -170,11 +182,12 @@ class MacroEngine(private val actions: MacroActions) {
                     return StepResult(true, "The progress text never appeared, so assuming it is already done.")
                 }
             }
-            delay(1_500L)
+            val remaining = (deadline - System.currentTimeMillis()).coerceAtLeast(1L)
+            actions.awaitScreenChange(revision, minOf(500L, remaining))
         }
         return StepResult(
             false,
-            "Timed out after " + timeoutSec + " seconds waiting for " +
+            "Timed out after " + timeoutSec + " seconds waiting for "
                 options.joinToString(" / ") { "'$it'" } + (if (appear) " to appear." else " to disappear.")
         )
     }
@@ -182,10 +195,12 @@ class MacroEngine(private val actions: MacroActions) {
     /** Waits until the screen stops changing, which means a streaming answer has finished. */
     private suspend fun waitForStable(minSec: Int, stableSec: Int, timeoutSec: Int): StepResult {
         val start = System.currentTimeMillis()
-        var last = ""
+        var last = actions.screenText()
         var stableSince = start
         while (System.currentTimeMillis() - start < timeoutSec * 1000L) {
-            delay(2_000L)
+            val revision = actions.screenRevision()
+            val remaining = (timeoutSec * 1000L - (System.currentTimeMillis() - start)).coerceAtLeast(1L)
+            actions.awaitScreenChange(revision, minOf(500L, remaining))
             val current = actions.screenText()
             val now = System.currentTimeMillis()
             if (current != last) {
