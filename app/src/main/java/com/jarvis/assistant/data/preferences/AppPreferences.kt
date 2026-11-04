@@ -80,6 +80,8 @@ class AppPreferences(context: Context) {
         private const val KEY_ORB_HUE = "key_orb_hue"
         private const val KEY_SETTINGS_ICON_SHAPE = "key_settings_icon_shape"
         private const val KEY_UI_REFRESH_RATE = "key_ui_refresh_rate"
+        private const val KEY_TOUCH_GLOW_ENABLED = "key_touch_glow_enabled"
+        private const val KEY_WELCOME_INTRO_SHOWN = "key_welcome_intro_shown"
         const val ORB_GLOW_MIN = 0f
         const val ORB_GLOW_MAX = 2f
         const val ORB_SIZE_MIN = 0.6f
@@ -333,6 +335,16 @@ class AppPreferences(context: Context) {
         set(value) = prefs.edit().putInt(KEY_SETTINGS_ICON_SHAPE, value.coerceIn(0, 3)).apply()
 
     /** Preferred window refresh rate in Hz, or "system" to let Android/ColorOS decide. */
+    /** Origin-inspired touch halo; enabled by default because the user requested the visual effect. */
+    var touchGlowEnabled: Boolean
+        get() = prefs.getBoolean(KEY_TOUCH_GLOW_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_TOUCH_GLOW_ENABLED, value).apply()
+
+    /** The cinematic welcome sequence is shown once after the first successful app entry. */
+    var hasSeenWelcomeIntro: Boolean
+        get() = prefs.getBoolean(KEY_WELCOME_INTRO_SHOWN, false)
+        set(value) = prefs.edit().putBoolean(KEY_WELCOME_INTRO_SHOWN, value).apply()
+
     var uiRefreshRate: String
         get() {
             val stored = prefs.getString(KEY_UI_REFRESH_RATE, "system") ?: "system"
