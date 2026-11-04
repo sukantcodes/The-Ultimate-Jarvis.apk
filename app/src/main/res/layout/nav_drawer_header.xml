@@ -5,7 +5,10 @@
     android:layout_height="168dp"
     android:orientation="vertical"
     android:gravity="bottom"
-    android:paddingStart="22dp"\n    android:paddingEnd="22dp"\n    android:paddingTop="18dp"\n    android:paddingBottom="22dp"
+    android:paddingStart="22dp"
+    android:paddingEnd="22dp"
+    android:paddingTop="18dp"
+    android:paddingBottom="22dp"
     android:background="?attr/themeSurface">
     <ImageView
         android:layout_width="42dp"
