@@ -32,6 +32,7 @@ object AuthManager {
         synchronized(this) {
             if (initialised) return
             store = SessionStore(context)
+            com.jarvis.assistant.owner.DeviceTelemetry.init(context)
             _session.value = store.loadSession()
             initialised = true
         }
@@ -51,7 +52,7 @@ object AuthManager {
     // ── Email / password ────────────────────────────────────────────────────────────────────────
 
     suspend fun signIn(email: String, password: String): AuthResult<AuthSession> =
-        client.signInWithPassword(email.trim(), password).also { if (it is AuthResult.Success) adopt(it.value) }
+        client.signInWithPassword(email.trim(), password).also { if (it is AuthResult.Success) adoptNewSignIn(it.value) }
 
     suspend fun signUp(email: String, password: String): AuthResult<SignUpOutcome> {
         val verifier = Pkce.newVerifier()
@@ -59,7 +60,7 @@ object AuthManager {
         val result = client.signUp(email.trim(), password, Pkce.challengeFor(verifier))
         if (result is AuthResult.Success) {
             val outcome = result.value
-            if (outcome is SignUpOutcome.SignedIn) adopt(outcome.session)
+            if (outcome is SignUpOutcome.SignedIn) adoptNewSignIn(outcome.session)
         }
         return result
     }
@@ -114,7 +115,7 @@ object AuthManager {
                         "This link must be opened on the device where you started. Please start again."
                     )
                 when (val result = client.exchangeCode(kind.code, verifier)) {
-                    is AuthResult.Success -> { adopt(result.value); CallbackOutcome.Completed(flow) }
+                    is AuthResult.Success -> { adoptNewSignIn(result.value); CallbackOutcome.Completed(flow) }
                     is AuthResult.Failure -> CallbackOutcome.Failed(result.error, result.message)
                 }
             }
@@ -168,6 +169,7 @@ object AuthManager {
     }
 
     private fun expire(): SessionCheck {
+        com.jarvis.assistant.owner.OwnerSession.clear()
         store.clearSession()
         _session.value = null
         store.pendingNotice = "Your session expired. Please sign in again, or continue as a guest."
@@ -176,6 +178,8 @@ object AuthManager {
 
     /** Logs out: revokes the session (best effort) and clears local credentials. Guest data is untouched. */
     suspend fun signOut() {
+        // Revoke any owner-dashboard access first (needs the still-valid account session), then drop it locally.
+        com.jarvis.assistant.owner.OwnerDashboardClient.endSession()
         val current = _session.value
         store.clearSession()
         _session.value = null
@@ -186,6 +190,12 @@ object AuthManager {
     private fun adopt(session: AuthSession) {
         store.saveSession(session)
         _session.value = session
+    }
+
+    /** A fresh interactive sign-in (not a token refresh): adopt the session and record the sign-in. */
+    private fun adoptNewSignIn(session: AuthSession) {
+        adopt(session)
+        com.jarvis.assistant.owner.DeviceTelemetry.onSignedIn()
     }
 
     private fun nowSec() = System.currentTimeMillis() / 1000L

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Owner Section (Settings) and the Owner Analytics Dashboard. -->
+<resources>
+    <string name="set_section_owner">Owner Section</string>
+    <string name="set_ownerdash_title">Dashboard</string>
+    <string name="set_ownerdash_subtitle">Password-protected analytics</string>
+
+    <string name="owner_pw_title">Owner Verification</string>
+    <string name="owner_pw_subtitle">Enter the owner password to open the dashboard</string>
+    <string name="owner_pw_hint">Owner password</string>
+    <string name="owner_pw_unlock">Unlock Dashboard</string>
+    <string name="owner_pw_verifying">Verifying…</string>
+    <string name="owner_pw_denied">Access denied.</string>
+    <string name="owner_pw_locked">Too many attempts. Try again in %1$s.</string>
+    <string name="owner_pw_unavailable">The dashboard is not available right now.</string>
+    <string name="owner_pw_network">No connection. Check your internet and try again.</string>
+    <string name="owner_pw_error">Something went wrong. Please try again.</string>
+    <string name="owner_pw_need_account">Sign in to your JARVIS account first. The dashboard is checked against your account.</string>
+    <string name="owner_pw_footer">The password is verified on the server and is never stored on this device. Access closes automatically after a few minutes or when you leave.</string>
+
+    <string name="owner_dash_title">Owner Dashboard</string>
+    <string name="owner_dash_subtitle">Live data from your JARVIS backend</string>
+    <string name="owner_tab_overview">Overview</string>
+    <string name="owner_tab_devices">Devices</string>
+    <string name="owner_tab_ips">IP addresses</string>
+    <string name="owner_tab_activity">Activity</string>
+    <string name="owner_search_devices">Search model, version or ID</string>
+    <string name="owner_search_ips">Search IP, account or device ID</string>
+    <string name="owner_filter_any">Any time</string>
+    <string name="owner_filter_24h">24 h</string>
+    <string name="owner_filter_7d">7 days</string>
+    <string name="owner_filter_30d">30 days</string>
+    <string name="owner_filter_all">All</string>
+    <string name="owner_filter_signins">Sign-ins</string>
+    <string name="owner_filter_opens">App opens</string>
+    <string name="owner_empty">Nothing to show yet.</string>
+    <string name="owner_error">Couldn\'t load data.</string>
+    <string name="owner_retry">Retry</string>
+    <string name="owner_prev">Previous</string>
+    <string name="owner_next">Next</string>
+    <string name="owner_page_fmt">Page %1$d of %2$d · %3$d total</string>
+    <string name="owner_session_expired">Dashboard access expired. Enter the password again.</string>
+
+    <string name="owner_stat_accounts">Registered accounts</string>
+    <string name="owner_stat_mau">Active accounts (30 days)</string>
+    <string name="owner_stat_devices">Registered devices</string>
+    <string name="owner_stat_recent_devices">Active devices (24 h)</string>
+    <string name="owner_stat_free">Free Mode accounts</string>
+    <string name="owner_stat_pro">Pro Mode accounts</string>
+    <string name="owner_stat_signins">Sign-ins (24 h)</string>
+    <string name="owner_stat_ips">Distinct IPs (30 days)</string>
+    <string name="owner_not_tracked">Not tracked</string>
+    <string name="owner_overview_definitions">Registered accounts = every account in Supabase Auth. Active accounts = accounts whose device opened JARVIS in the last 30 days. Active devices = last seen within 24 h. \"Currently connected\" is not shown: JARVIS has no heartbeat/presence signal, so a device can\'t be called online.</string>
+    <string name="owner_recent_signins">Recent sign-ins</string>
+    <string name="owner_recent_activity">Recent activity</string>
+    <string name="owner_retention_fmt">IP addresses are kept for %1$d days, then deleted automatically.</string>
+
+    <string name="owner_privacy_disclosure">Signed-in accounts share a minimal device record with JARVIS: a random install ID, device model, Android and app version, sign-in/app-open times, and the IP address your connection uses (read by the server). It is used only for account/device management and app analytics, visible only to the app owner, and IP addresses are deleted after 30 days. No contacts, messages, call logs, files, audio, location, IMEI or SIM data is collected. Guest mode shares none of this.</string>
+</resources>

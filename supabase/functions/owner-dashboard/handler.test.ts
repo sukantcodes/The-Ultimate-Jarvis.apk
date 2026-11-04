@@ -1,0 +1,139 @@
+// Run with: node --experimental-strip-types --test handler.test.ts   (Node 22+)
+// Exercises the authorization logic against an in-memory fake of the database.
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createHash, randomBytes } from "node:crypto";
+import { createHandler } from "./handler.ts";
+
+const USER = "11111111-1111-4111-8111-111111111111";
+const OTHER = "22222222-2222-4222-8222-222222222222";
+const TEST_PASSWORD = "unit-test-only-password"; // throwaway value, unrelated to the real owner password
+
+function fakeDb(clock: { t: number }) {
+  const sessions: Record<string, any>[] = [];
+  const attempts = new Map<string, { n: number; lockedUntil: number }>();
+  const settings = { session_ttl_seconds: 900, max_failed_attempts: 3, lockout_seconds: 600 };
+  const chain = (table: string) => {
+    const f: Record<string, unknown> = {};
+    let op = "select"; let patch: any = null; let hashEq: string | null = null; let idEq: string | null = null;
+    const self: any = {
+      select: () => self, order: () => self, limit: () => self, range: () => self, or: () => self, gte: () => self,
+      insert: (row: any) => { op = "insert"; if (table === "dashboard_sessions") sessions.push({ id: String(sessions.length + 1), revoked_at: null, ...row }); return Promise.resolve({ error: null }); },
+      update: (p: any) => { op = "update"; patch = p; return self; },
+      eq: (col: string, v: any) => { if (col === "token_hash") hashEq = v; if (col === "id") idEq = v; return self; },
+      single: () => Promise.resolve({ data: table === "owner_settings" ? settings : null }),
+      maybeSingle: () => Promise.resolve({ data: sessions.find((s) => s.token_hash === hashEq) ?? null }),
+      then: (res: any) => {
+        if (op === "update" && table === "dashboard_sessions") { const s = sessions.find((x) => x.id === idEq); if (s) Object.assign(s, patch); }
+        return Promise.resolve({ data: [], count: 0, error: null }).then(res);
+      },
+    };
+    void f; return self;
+  };
+  const rpc = (name: string, a: any) => {
+    if (name === "owner_locked_until") {
+      const until = Math.max(0, ...a.p_keys.map((k: string) => attempts.get(k)?.lockedUntil ?? 0));
+      return Promise.resolve({ data: until > clock.t ? new Date(until).toISOString() : null });
+    }
+    if (name === "register_owner_failure") {
+      for (const k of a.p_keys) {
+        const cur = attempts.get(k) ?? { n: 0, lockedUntil: 0 }; cur.n++;
+        if (cur.n >= a.p_max) cur.lockedUntil = clock.t + a.p_lockout_seconds * 1000;
+        attempts.set(k, cur);
+      }
+      return Promise.resolve({ data: null });
+    }
+    if (name === "clear_owner_failures") { attempts.delete(a.p_key); return Promise.resolve({ data: null }); }
+    if (name === "owner_summary") return Promise.resolve({ data: { total_accounts: 4 } });
+    return Promise.resolve({ data: null });
+  };
+  return { from: chain, rpc, sessions };
+}
+
+function setup(env: Record<string, string | undefined> = { OWNER_PASSWORD_HASH: "hash-of-test" }) {
+  const clock = { t: Date.parse("2026-11-04T10:00:00Z") };
+  const db = fakeDb(clock);
+  let authedUser: string | null = USER;
+  const handler = createHandler({
+    env: (n) => env[n], admin: db,
+    authenticate: async () => (authedUser ? { id: authedUser } : null),
+    clientIp: () => "203.0.113.9",
+    verifyPassword: async (p) => p === TEST_PASSWORD,
+    randomToken: () => randomBytes(32).toString("base64url"),
+    sha256Hex: async (v) => createHash("sha256").update(v).digest("hex"),
+    now: () => new Date(clock.t),
+  });
+  const call = (body: unknown, headers: Record<string, string> = {}) =>
+    handler(new Request("https://x/f", { method: "POST", headers, body: JSON.stringify(body) }));
+  return { call, clock, db, setUser: (u: string | null) => { authedUser = u; } };
+}
+
+test("no signed-in user -> 401 for every action", async () => {
+  const t = setup(); t.setUser(null);
+  for (const action of ["verify", "summary", "devices", "ips", "events", "logout"]) {
+    assert.equal((await t.call({ action, password: TEST_PASSWORD })).status, 401);
+  }
+});
+
+test("analytics without a dashboard session are refused", async () => {
+  const t = setup();
+  for (const action of ["summary", "devices", "ips", "events"]) {
+    const r = await t.call({ action });
+    assert.equal(r.status, 401); assert.equal((await r.json()).error, "session_invalid");
+  }
+  assert.equal((await t.call({ action: "summary" }, { "x-dashboard-session": "x".repeat(43) })).status, 401);
+});
+
+test("wrong password -> generic 401 with no hint, never leaks the secret", async () => {
+  const t = setup();
+  const r = await t.call({ action: "verify", password: "nope" });
+  const text = await r.text();
+  assert.equal(r.status, 401);
+  assert.ok(!text.includes("hash-of-test") && !text.includes(TEST_PASSWORD));
+});
+
+test("unconfigured backend fails closed", async () => {
+  const t = setup({});
+  assert.equal((await t.call({ action: "verify", password: TEST_PASSWORD })).status, 503);
+});
+
+test("lockout after repeated failures, even for the correct password", async () => {
+  const t = setup();
+  for (let i = 0; i < 3; i++) assert.equal((await t.call({ action: "verify", password: "bad" })).status, 401);
+  const locked = await t.call({ action: "verify", password: TEST_PASSWORD });
+  assert.equal(locked.status, 429);
+  t.clock.t += 601_000;
+  assert.equal((await t.call({ action: "verify", password: TEST_PASSWORD })).status, 200);
+});
+
+test("correct password issues a session that opens the dashboard, then expires and can be revoked", async () => {
+  const t = setup();
+  const v = await t.call({ action: "verify", password: TEST_PASSWORD });
+  assert.equal(v.status, 200);
+  const { token } = await v.json();
+  const h = { "x-dashboard-session": token };
+  const s = await t.call({ action: "summary" }, h);
+  assert.equal(s.status, 200);
+  assert.equal((await s.json()).counts.total_accounts, 4);
+
+  t.clock.t += 899_000; assert.equal((await t.call({ action: "devices" }, h)).status, 200);
+  t.clock.t += 2_000;   assert.equal((await t.call({ action: "devices" }, h)).status, 401); // expired
+
+  const t2 = setup(); const tok = (await (await t2.call({ action: "verify", password: TEST_PASSWORD })).json()).token;
+  assert.equal((await t2.call({ action: "logout" }, { "x-dashboard-session": tok })).status, 200);
+  assert.equal((await t2.call({ action: "summary" }, { "x-dashboard-session": tok })).status, 401); // revoked
+});
+
+test("a session token is bound to the user who verified", async () => {
+  const t = setup();
+  const { token } = await (await t.call({ action: "verify", password: TEST_PASSWORD })).json();
+  t.setUser(OTHER);
+  assert.equal((await t.call({ action: "summary" }, { "x-dashboard-session": token })).status, 401);
+});
+
+test("OWNER_USER_IDS restricts who may verify", async () => {
+  const t = setup({ OWNER_PASSWORD_HASH: "h", OWNER_USER_IDS: OTHER });
+  assert.equal((await t.call({ action: "verify", password: TEST_PASSWORD })).status, 401);
+  t.setUser(OTHER);
+  assert.equal((await t.call({ action: "verify", password: TEST_PASSWORD })).status, 200);
+});
