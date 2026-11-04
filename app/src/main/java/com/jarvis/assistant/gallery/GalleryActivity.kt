@@ -1,0 +1,143 @@
+package com.jarvis.assistant.gallery
+
+import android.Manifest
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import android.provider.Settings
+import android.view.View
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.jarvis.assistant.R
+import java.text.DateFormat
+import java.util.Date
+
+/** A read-only MediaStore gallery starter. Permission is requested only after the user opts in. */
+class GalleryActivity : AppCompatActivity() {
+    private lateinit var content: LinearLayout
+    private val prefs by lazy { getSharedPreferences("jarvis_gallery", MODE_PRIVATE) }
+    private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        val enabled = GalleryPermissionManager.hasAnyMediaAccess(this)
+        prefs.edit().putBoolean(KEY_ENABLED, enabled).apply()
+        render()
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(18), dp(18), dp(18))
+            setBackgroundColor(resolveColor(android.R.attr.colorBackground))
+        }
+        root.addView(TextView(this).apply {
+            text = "JARVIS Gallery"; textSize = 24f
+            setTextColor(resolveColor(android.R.attr.textColorPrimary))
+        })
+        root.addView(TextView(this).apply {
+            text = "Read-only media browser using Android MediaStore and scoped storage."
+            textSize = 13f; setPadding(0, dp(6), 0, dp(14))
+            setTextColor(resolveColor(android.R.attr.textColorSecondary))
+        })
+        content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
+        setContentView(root)
+        render()
+    }
+
+    private fun render() {
+        content.removeAllViews()
+        val enabled = prefs.getBoolean(KEY_ENABLED, false)
+        val hasAccess = GalleryPermissionManager.hasAnyMediaAccess(this)
+        if (!enabled || !hasAccess) {
+            content.addView(TextView(this).apply {
+                text = "Gallery access is off. Turn it on only if you want JARVIS to browse photos and videos on this device. Android will show its own permission prompt."
+                textSize = 14f; setPadding(0, dp(12), 0, dp(12))
+                setTextColor(resolveColor(android.R.attr.textColorPrimary))
+            })
+            content.addView(MaterialButton(this).apply {
+                text = if (enabled && !hasAccess) "Grant gallery access" else "Enable gallery access"
+                setOnClickListener {
+                    if (enabled && !hasAccess) {
+                        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                    } else {
+                        permissionRequest.launch(GalleryPermissionManager.requiredPermissions())
+                    }
+                }
+            })
+            content.addView(TextView(this).apply {
+                text = "You can choose limited photo/video access on supported Android versions. No files are uploaded. This starter does not delete, move or edit media."
+                textSize = 12f; setPadding(0, dp(12), 0, 0)
+                setTextColor(resolveColor(android.R.attr.textColorSecondary))
+            })
+            return
+        }
+
+        val search = EditText(this).apply {
+            hint = "Search file names"
+            singleLine = true
+        }
+        content.addView(search)
+        content.addView(MaterialButton(this).apply {
+            text = "Search"
+            setOnClickListener { showItems(search.text.toString()) }
+        })
+        content.addView(MaterialButton(this).apply {
+            text = "Refresh"
+            setOnClickListener { showItems("") }
+        })
+        showItems("")
+    }
+
+    private fun showItems(query: String) {
+        val start = content.indexOfChild(content.getChildAt(3))
+        while (content.childCount > 3) content.removeViewAt(3)
+        val items = runCatching {
+            val repository = MediaStoreGalleryRepository(contentResolver)
+            if (query.isBlank()) repository.loadRecent() else repository.searchByName(query)
+        }.getOrElse { error ->
+            content.addView(TextView(this).apply { text = "Unable to read media: ${error.message}" })
+            return
+        }
+        if (items.isEmpty()) {
+            content.addView(TextView(this).apply { text = "No media found."; setPadding(0, dp(14), 0, 0) })
+            return
+        }
+        items.forEach { item ->
+            val row = TextView(this).apply {
+                text = "${if (item.type == GalleryMediaType.VIDEO) "▶" else "▣"}  ${item.displayName}\n${DateFormat.getDateTimeInstance().format(Date(item.dateAddedSeconds * 1000))} · ${formatBytes(item.sizeBytes)}"
+                textSize = 13f; setPadding(dp(8), dp(12), dp(8), dp(12))
+                setTextColor(resolveColor(android.R.attr.textColorPrimary))
+                setOnClickListener {
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(item.uri, item.mimeType ?: if (item.type == GalleryMediaType.VIDEO) "video/*" else "image/*")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    runCatching { startActivity(intent) }.onFailure {
+                        MaterialAlertDialogBuilder(this@GalleryActivity).setMessage("No app can open this media item.")
+                            .setPositiveButton("OK", null).show()
+                    }
+                }
+            }
+            content.addView(row)
+        }
+    }
+
+    private fun formatBytes(bytes: Long): String = when {
+        bytes >= 1024L * 1024L -> "${bytes / (1024L * 1024L)} MB"
+        bytes >= 1024L -> "${bytes / 1024L} KB"
+        else -> "$bytes B"
+    }
+    private fun resolveColor(attr: Int): Int {
+        val value = android.util.TypedValue()
+        theme.resolveAttribute(attr, value, true)
+        return if (value.resourceId != 0) getColor(value.resourceId) else value.data
+    }
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+    companion object { private const val KEY_ENABLED = "gallery_access_enabled" }
+}
