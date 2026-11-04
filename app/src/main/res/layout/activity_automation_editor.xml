@@ -17,9 +17,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingStart="16dp"
-            android:paddingTop="20dp"
-            android:paddingEnd="16dp">
+            android:paddingStart="18dp"
+            android:paddingTop="24dp"
+            android:paddingEnd="18dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -31,8 +31,8 @@
 
                 <FrameLayout
                     android:id="@+id/btnEditorBack"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:background="@drawable/bg_lg_icon"
                     android:clickable="true"
                     android:focusable="true">
@@ -52,7 +52,7 @@
                     style="@style/Widget.LiquidGlass.Title"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="14dp"
+                    android:layout_marginStart="16dp"
                     android:layout_weight="1"
                     android:text="Edit automation" />
             </LinearLayout>
