@@ -24,16 +24,16 @@ class ActionRouterActivity : AppCompatActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(20), dp(20), dp(20))
-            setBackgroundColor(color(com.google.android.material.R.attr.colorSurface))
+            setBackgroundColor(color(android.R.attr.colorBackground))
         }
         root.addView(TextView(this).apply {
             text = "Native-first Action Router"; textSize = 23f
-            setTextColor(color(com.google.android.material.R.attr.colorOnSurface))
+            setTextColor(color(android.R.attr.textColorPrimary))
         })
         root.addView(TextView(this).apply {
             text = "Try native Android APIs, explicit intents and deep links before accessibility, screen vision and existing automation."
             textSize = 13f; setPadding(0, dp(8), 0, dp(14))
-            setTextColor(color(com.google.android.material.R.attr.colorOnSurfaceVariant))
+            setTextColor(color(android.R.attr.textColorSecondary))
         })
         val toggle = MaterialSwitch(this).apply {
             text = "Enable native-first routing"
