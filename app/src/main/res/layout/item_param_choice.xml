@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical">
+    android:orientation="vertical"\n    android:paddingTop="6dp"\n    android:paddingBottom="6dp">
 
     <TextView
         android:id="@+id/tvParamLabel"
@@ -15,5 +15,5 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_lg_input"
-        android:minHeight="44dp" />
+        android:minHeight="48dp"\n        android:paddingStart="12dp"\n        android:paddingEnd="12dp" />
 </LinearLayout>
