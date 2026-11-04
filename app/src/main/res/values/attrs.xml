@@ -13,6 +13,16 @@
     <attr name="themeAccent3" format="color|reference" />
     <attr name="themeAccent" format="color|reference" />
     <attr name="themeAccentLight" format="color|reference" />
+    <attr name="themeSuccess" format="color|reference" />
+    <attr name="themeSuccessContainer" format="color|reference" />
+    <attr name="themeWarning" format="color|reference" />
+    <attr name="themeWarningContainer" format="color|reference" />
+    <attr name="themeError" format="color|reference" />
+    <attr name="themeErrorContainer" format="color|reference" />
+    <attr name="themeInfo" format="color|reference" />
+    <attr name="themeInfoContainer" format="color|reference" />
+    <attr name="themeNeutral" format="color|reference" />
+    <attr name="themeNeutralContainer" format="color|reference" />
     <attr name="themeDockBg" format="color|reference" />
     <attr name="themeDockBorder" format="color|reference" />
     <attr name="themeChipBg" format="color|reference" />
