@@ -184,7 +184,7 @@ class MainActivity : AppCompatActivity() {
                         .translationY(0f)
                         .scaleX(1f)
                         .scaleY(1f)
-                        .setDuration(520L)
+                        .setDuration(360L)
                         .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
                         .start()
                 }
