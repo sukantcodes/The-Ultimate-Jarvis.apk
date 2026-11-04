@@ -88,18 +88,40 @@
             android:contentDescription="AI" />
     </LinearLayout>
 
+    <EditText
+        android:id="@+id/etSettingsSearch"
+        android:layout_width="match_parent"
+        android:layout_height="54dp"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_lg_card"
+        android:drawableStart="@drawable/ic_settings_chip"
+        android:drawablePadding="12dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:hint="@string/set_search_hint"
+        android:textColor="?attr/themeTextPrimary"
+        android:textColorHint="?attr/themeTextMuted"
+        android:textSize="14sp"
+        android:singleLine="true"
+        android:inputType="text"
+        android:imeOptions="actionSearch"
+        android:importantForAutofill="no"
+        android:contentDescription="@string/set_search_hint"
+        app:layout_constraintTop_toBottomOf="@id/layoutHeader" />
+
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="12dp"
         android:scrollbars="none"
         android:fillViewport="true"
         android:overScrollMode="never"
         android:clipToPadding="false"
-        app:layout_constraintTop_toBottomOf="@id/layoutHeader"
+        app:layout_constraintTop_toBottomOf="@id/etSettingsSearch"
         app:layout_constraintBottom_toBottomOf="parent">
 
         <LinearLayout
+            android:id="@+id/settingsContent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -2199,6 +2221,18 @@
                 android:gravity="center"
                 android:clickable="true"
                 android:focusable="true" />
+
+            <TextView
+                android:id="@+id/tvSettingsNoResults"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:padding="20dp"
+                android:gravity="center"
+                android:text="@string/set_search_empty"
+                android:textColor="?attr/themeTextMuted"
+                android:textSize="14sp"
+                android:visibility="gone" />
 
         </LinearLayout>
     </ScrollView>
