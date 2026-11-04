@@ -1,31 +1,49 @@
 ---
 name: google-drive-manager
-description: Google Drive me files dhoondhna, preview, folders, upload preparation aur share permissions ko carefully manage karna
+description: Google Drive file search, preview, upload, folder organization, rename, move, download and granular sharing permissions
 ---
-# Google Drive Manager — files and access
+# Google Drive Manager — complete file operations
 
-Tools: `open_app`, `inspect_screen`, `click_ui_element`, `type_text`, `scroll_screen`, `press_key`.
+Real tools: `open_app(app_name)`, `inspect_screen`, `click_ui_element(target_name, element_id)`, `type_text(text, target_input_name)`, `scroll_screen`, `press_key`, `task_completed(summary)`. No dedicated Drive API tool is declared; all operations use visible Drive UI.
 
-## Find and preview
-1. Open Drive and inspect the screen.
-2. Search by exact filename or user-provided phrase.
-3. Verify filename, owner/location and file type before opening.
-4. Preview only the requested file. Do not open unrelated private documents.
+## 1. Search and preview
+1. Open Drive and inspect account and current location.
+2. Search exact filename or user-provided phrase.
+3. Verify filename, file type, owner/location and modified date before opening.
+4. Preview only the requested file. Do not inspect unrelated private documents.
 
-## Folders and uploads
-- Create a folder only with the requested name.
-- Upload only the exact file selected by the user.
-- Before moving a file, show its current and target folder and ask for confirmation.
-- Do not replace an existing file unless the user explicitly approves.
+## 2. Create and organize folders
+- Create folder with the exact user-provided name.
+- Before moving, verify source file and destination folder.
+- Prefer copy when user asks for a duplicate; move only when explicitly requested.
+- Never overwrite an existing file silently. Ask how to handle name conflicts.
+- Verify final location after the operation.
 
-## Sharing and permissions
+## 3. Upload and download
+1. Upload only the exact file selected by the user.
+2. Verify filename and destination folder before upload.
+3. Wait for visible upload completion and verify the file appears.
+4. For downloads, verify the selected file and download destination.
+5. Never execute downloaded files or install APKs.
+
+## 4. Rename and delete
+- Rename only the selected file/folder and preserve extension unless asked otherwise.
+- Before deleting, state exact filename and location; ask for confirmation.
+- Prefer Trash over permanent deletion. Never empty Trash automatically.
+
+## 5. Share and permissions
 1. Open Share for the exact file.
-2. Verify recipient address and current access level.
-3. Explain whether access is Viewer, Commenter or Editor.
-4. Ask for explicit confirmation before sending an invitation or changing link access.
-5. Prefer restricted access; never switch to "anyone with the link" unless specifically requested.
+2. Verify recipient email and current role.
+3. Explain Viewer, Commenter and Editor access in plain language.
+4. Prefer restricted access. Never enable "Anyone with the link" unless specifically requested.
+5. Ask for confirmation before sending invitations or changing access.
+6. Verify the resulting access list.
 
-## Destructive actions
-- Deleting, removing access or emptying Trash requires a clear request and final confirmation.
-- Never claim an upload or permission change succeeded until the resulting screen verifies it.
-- Do not expose confidential document contents in unrelated conversations.
+## 6. Privacy and account
+- Do not disclose confidential document contents in unrelated tasks.
+- Never enter passwords, OTPs or recovery codes.
+- User handles account verification and CAPTCHA.
+- If a screen or permission is unavailable, explain exactly where the task stopped.
+
+## Voice examples
+"Find [filename] in Drive"; "Create a folder [name]"; "Move [file] into [folder]"; "Share [file] with [email] as Viewer".
