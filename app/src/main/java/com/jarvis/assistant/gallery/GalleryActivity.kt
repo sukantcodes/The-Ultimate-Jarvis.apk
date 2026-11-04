@@ -21,6 +21,9 @@ import java.util.Date
 /** A read-only MediaStore gallery starter. Permission is requested only after the user opts in. */
 class GalleryActivity : AppCompatActivity() {
     private lateinit var content: LinearLayout
+    private var mediaObserver: GalleryMediaObserver? = null
+    private val backgroundRefreshEnabled: Boolean
+        get() = prefs.getBoolean(GalleryRefreshScheduler.KEY_BACKGROUND_REFRESH, false)
     private val prefs by lazy { getSharedPreferences("jarvis_gallery", MODE_PRIVATE) }
     private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         val enabled = GalleryPermissionManager.hasAnyMediaAccess(this)
@@ -48,6 +51,26 @@ class GalleryActivity : AppCompatActivity() {
         root.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
         render()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (backgroundRefreshEnabled && GalleryPermissionManager.hasAnyMediaAccess(this)) {
+            startMediaObserver()
+        }
+    }
+
+    override fun onPause() {
+        mediaObserver?.unregister()
+        mediaObserver = null
+        super.onPause()
+    }
+
+    private fun startMediaObserver() {
+        if (mediaObserver != null) return
+        mediaObserver = GalleryMediaObserver(contentResolver) {
+            GalleryRefreshScheduler.enqueueChangeRefresh(this)
+        }.also { it.register() }
     }
 
     private fun render() {
@@ -90,6 +113,28 @@ class GalleryActivity : AppCompatActivity() {
         content.addView(MaterialButton(this).apply {
             text = "Refresh"
             setOnClickListener { showItems("") }
+        })
+        content.addView(MaterialButton(this).apply {
+            text = if (backgroundRefreshEnabled) "Disable background index refresh" else "Enable background index refresh"
+            setOnClickListener {
+                GalleryRefreshScheduler.setEnabled(this@GalleryActivity, !backgroundRefreshEnabled)
+                if (backgroundRefreshEnabled) startMediaObserver()
+                else {
+                    mediaObserver?.unregister()
+                    mediaObserver = null
+                }
+                render()
+            }
+        })
+        content.addView(TextView(this).apply {
+            text = if (backgroundRefreshEnabled) {
+                "Local metadata refresh is enabled. WorkManager runs periodically when battery and storage conditions allow. Change detection runs only while this screen is open."
+            } else {
+                "Background indexing is off. Enable it only if you want JARVIS to keep a local metadata index refreshed."
+            }
+            textSize = 12f
+            setPadding(0, dp(8), 0, dp(8))
+            setTextColor(resolveColor(android.R.attr.textColorSecondary))
         })
         showItems("")
     }
