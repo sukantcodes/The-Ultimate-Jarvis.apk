@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- App-wide semantic typography roles. Keep sizes in sp for accessibility scaling. -->
 <resources>
+    <style name="Widget.Jarvis.TextView" parent="">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">?attr/themeTextPrimary</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:lineSpacingExtra">1dp</item>
+    </style>
     <style name="TextAppearance.Jarvis.Display" parent="">
         <item name="android:fontFamily">sans-serif-black</item>
         <item name="android:textSize">32sp</item>
