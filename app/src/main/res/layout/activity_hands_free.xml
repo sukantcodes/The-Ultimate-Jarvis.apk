@@ -134,7 +134,7 @@
                     android:id="@+id/btnToggleAccessibility"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:minHeight="48dp"
+                    android:minHeight="56dp"
                     android:layout_marginTop="16dp"
                     android:text="Configure Accessibility Service"
                     android:textColor="#FFFFFF"
