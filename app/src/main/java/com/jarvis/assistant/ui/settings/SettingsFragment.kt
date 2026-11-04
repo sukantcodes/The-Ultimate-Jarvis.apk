@@ -452,6 +452,7 @@ class SettingsFragment : Fragment() {
         binding.rowGallery.setOnClickListener { open(com.jarvis.assistant.gallery.GalleryActivity::class.java) }
         binding.rowSkillStore.setOnClickListener { open(com.jarvis.assistant.ui.skills.SkillStoreActivity::class.java) }
         binding.rowClock.setOnClickListener { open(com.jarvis.assistant.ui.clock.ClockSettingsActivity::class.java) }
+        binding.rowDeviceDiagnostics.setOnClickListener { open(com.jarvis.assistant.ui.diagnostics.DeviceDiagnosticsActivity::class.java) }
     }
 
     private fun missingCallPermissions(): Array<String> {
