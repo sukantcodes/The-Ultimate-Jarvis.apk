@@ -16,6 +16,7 @@ import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.util.ThemeManager
 import com.jarvis.assistant.voice.VoiceGender
 import com.jarvis.assistant.voice.VoiceGenderStore
+import com.jarvis.assistant.voice.VoiceCatalog
 
 /**
  * Hidden Maya companion settings. The selected mode is stored in the same persistent personality
@@ -26,23 +27,22 @@ class MayaModeActivity : AppCompatActivity() {
     private val voiceGenderStore by lazy { VoiceGenderStore(this) }
     private val mayaState by lazy { getSharedPreferences("jarvis_maya_mode", MODE_PRIVATE) }
     private var mayaActive = false
-    private var selectedMode = "maya_romantic"
+    private var selectedMode = "maya_friendly"
     private lateinit var activationButton: Button
     private val ink = Color.rgb(245, 242, 250)
     private val muted = Color.rgb(190, 183, 204)
     private val accent = Color.rgb(255, 113, 177)
     private val panel = Color.rgb(35, 26, 47)
     private lateinit var friendlyCard: LinearLayout
-    private lateinit var romanticCard: LinearLayout
-    private lateinit var intenseCard: LinearLayout
+    private lateinit var expressiveCard: LinearLayout
     private lateinit var status: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         mayaActive = mayaState.getBoolean("active", false)
-        selectedMode = preferences.personality.takeIf { it in setOf("maya_friendly", "maya_romantic", "maya_intense") }
-            ?: "maya_romantic"
+        selectedMode = preferences.personality.takeIf { it in setOf("maya_friendly", "maya_expressive") }
+            ?: "maya_friendly"
         buildScreen()
         refreshSelection()
     }
@@ -95,10 +95,10 @@ class MayaModeActivity : AppCompatActivity() {
             setPadding(dp(14), 0, 0, 0)
         }
         titleBox.addView(label("MAYA", 26f, ink, true))
-        titleBox.addView(label("SECRET COMPANION SETTINGS", 10f, accent, true))
+        titleBox.addView(label("PRIVATE COMPANION SETTINGS", 10f, accent, true))
         top.addView(titleBox, LinearLayout.LayoutParams(0, -2, 1f))
         content.addView(top)
-        content.addView(label("A voice with warmth, personality, and a style you choose.", 14f, muted).apply {
+        content.addView(label("A warm, expressive AI companion with a dedicated voice style.", 14f, muted).apply {
             setPadding(0, dp(18), 0, dp(18))
         })
 
@@ -125,15 +125,13 @@ class MayaModeActivity : AppCompatActivity() {
         premiumVoice.addView(label("Sulafat · Warm feminine voice", 14f, ink, true).apply {
             setPadding(0, dp(7), 0, dp(5))
         })
-        premiumVoice.addView(label("A dedicated girlfriend-style voice profile using Gemini's supported warm voice. Selected automatically when Maya is activated.", 12f, muted))
+        premiumVoice.addView(label("Uses the supported Gemini Live voice Sulafat when available. Voice choice is checked against the app voice catalogue; no separate voice-pack download is required for this cloud voice.", 12f, muted))
         content.addView(premiumVoice, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(20) })
 
-        friendlyCard = modeCard("FRIENDLY", "Warm, close best-friend energy. Supportive, honest, and non-romantic.", "maya_friendly")
-        romanticCard = modeCard("ROMANTIC", "Affectionate pet names, gentle flirting, playful nakhre, and harmless teasing.", "maya_romantic")
-        intenseCard = modeCard("INTENSE", "More expressive romance, bold wholesome flirting, dramatic sweetness, and playful jealousy — always non-explicit.", "maya_intense")
+        friendlyCard = modeCard("FRIENDLY", "Warm, supportive, honest, and easy-going conversation.", "maya_friendly")
+        expressiveCard = modeCard("EXPRESSIVE", "More lively, playful, emotionally attentive conversation with thoughtful follow-ups.", "maya_expressive")
         content.addView(friendlyCard, cardParams())
-        content.addView(romanticCard, cardParams())
-        content.addView(intenseCard, cardParams())
+        content.addView(expressiveCard, cardParams())
 
         status = label("", 12f, muted)
         status.setPadding(dp(4), dp(8), dp(4), dp(8))
@@ -163,11 +161,13 @@ class MayaModeActivity : AppCompatActivity() {
                         .putBoolean("active", true)
                         .apply()
                     preferences.personality = selectedMode
-                    preferences.voice = "Sulafat"
+                    val validatedVoice = VoiceCatalog.female.firstOrNull { it.name == "Sulafat" }?.name
+                        ?: VoiceCatalog.DEFAULT_FEMALE
+                    preferences.voice = validatedVoice
                     voiceGenderStore.gender = VoiceGender.FEMALE
-                    voiceGenderStore.femaleVoice = "Sulafat"
+                    voiceGenderStore.femaleVoice = validatedVoice
                     mayaActive = true
-                    Toast.makeText(this@MayaModeActivity, "Maya activated • feminine voice: Sulafat", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@MayaModeActivity, "Maya companion activated • voice profile checked: ${preferences.voice}", Toast.LENGTH_LONG).show()
                 }
                 refreshSelection()
             }
@@ -199,7 +199,7 @@ class MayaModeActivity : AppCompatActivity() {
 
     private fun refreshSelection() {
         if (!::friendlyCard.isInitialized) return
-        listOf(friendlyCard, romanticCard, intenseCard).forEach { card ->
+        listOf(friendlyCard, expressiveCard).forEach { card ->
             val chosen = card.tag == selectedMode
             card.background = rounded(if (chosen) Color.rgb(63, 35, 62) else panel, if (chosen) accent else Color.rgb(73, 61, 84))
             card.alpha = if (chosen) 1f else 0.88f
@@ -209,9 +209,8 @@ class MayaModeActivity : AppCompatActivity() {
         }
         if (::status.isInitialized) {
             status.text = (if (mayaActive) "MAYA ACTIVE • FEMININE VOICE • " else "MAYA INACTIVE • ") + when (selectedMode) {
-                "maya_romantic" -> "Selected: Romantic • affectionate, playful, non-explicit"
-                "maya_intense" -> "Selected: Intense • expressive, wholesome, non-explicit"
-                else -> "Selected: Friendly • close friend, no romance"
+                "maya_expressive" -> "Selected: Expressive • lively, playful, supportive"
+                else -> "Selected: Friendly • warm, honest, supportive"
             }
         }
     }
