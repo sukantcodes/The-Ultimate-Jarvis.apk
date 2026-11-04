@@ -1,6 +1,7 @@
 package com.jarvis.assistant.gallery
 
 import android.content.Context
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
@@ -34,7 +35,7 @@ object GalleryRefreshScheduler {
         }
         val periodic = PeriodicWorkRequestBuilder<GalleryRefreshWorker>(12, TimeUnit.HOURS)
             .setConstraints(constraints())
-            .setBackoffCriteria(WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
             .build()
         manager.enqueueUniquePeriodicWork(
             PERIODIC_NAME,
@@ -50,7 +51,7 @@ object GalleryRefreshScheduler {
         if (!enabled) return
         val request = OneTimeWorkRequestBuilder<GalleryRefreshWorker>()
             .setConstraints(constraints())
-            .setBackoffCriteria(WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
             .build()
         WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
             CHANGE_NAME,
