@@ -4,7 +4,7 @@
     android:layout_height="wrap_content"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:paddingTop="8dp">
+    android:paddingTop="10dp"\n    android:paddingBottom="10dp"\n    android:minHeight="52dp">
 
     <TextView
         android:id="@+id/tvParamLabel"
