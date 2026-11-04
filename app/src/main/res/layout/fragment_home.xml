@@ -16,11 +16,15 @@
     <FrameLayout
         android:id="@+id/orbContainer"
         android:layout_width="0dp"
-        android:layout_height="350dp"
-        android:layout_marginTop="32dp"
+        android:layout_height="0dp"
+        android:minHeight="220dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="8dp"
         android:clipChildren="false"
         android:clipToPadding="false"
         app:layout_constraintTop_toBottomOf="@id/layoutTitle"
+        app:layout_constraintBottom_toTopOf="@id/layoutStatusIndicator"
+        app:layout_constraintHeight_default="spread"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
@@ -135,7 +139,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center"
-        android:layout_marginBottom="22dp"
+        android:layout_marginBottom="14dp"
         app:layout_constraintBottom_toTopOf="@id/cardWeather"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -194,7 +198,9 @@
         android:paddingBottom="16dp"
         android:clickable="true"
         android:focusable="true"
-        android:layout_marginBottom="24dp"
+        android:minHeight="76dp"
+        android:layout_marginBottom="16dp"
+        android:contentDescription="Live weather. Tap to refresh or grant location permission."
         app:layout_constraintBottom_toTopOf="@id/layoutActionGrid"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -256,7 +262,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="12dp"
+        android:layout_marginBottom="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -265,36 +271,37 @@
         <LinearLayout
             android:id="@+id/btnScreenShareQuick"
             android:layout_width="0dp"
-            android:layout_height="66dp"
+            android:layout_height="76dp"
             android:layout_weight="1"
-            android:layout_marginEnd="6dp"
+            android:layout_marginEnd="5dp"
             android:background="@drawable/bg_jarvis_action_card"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="10dp"
-            android:paddingEnd="6dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="6dp"
             android:clickable="true"
             android:focusable="true"
             android:contentDescription="Start or stop screen sharing">
 
             <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
                 android:src="@drawable/ic_screen_share"
                 app:tint="?attr/themeAccent"
-                android:layout_marginEnd="8dp" />
+                android:layout_marginBottom="4dp" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:gravity="center">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:gravity="center"
                     android:text="Screen"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-medium"
                     android:includeFontPadding="false" />
@@ -316,33 +323,34 @@
         <LinearLayout
             android:id="@+id/btnSavedMemories"
             android:layout_width="0dp"
-            android:layout_height="66dp"
+            android:layout_height="76dp"
             android:layout_weight="1"
-            android:layout_marginStart="6dp"
-            android:layout_marginEnd="6dp"
+            android:layout_marginStart="5dp"
+            android:layout_marginEnd="5dp"
             android:background="@drawable/bg_jarvis_action_card"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="10dp"
-            android:paddingEnd="6dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="6dp"
             android:clickable="true"
             android:focusable="true">
 
             <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
                 android:src="@drawable/ic_stack_memory"
                 app:tint="?attr/themeAccent"
-                android:layout_marginEnd="6dp" />
+                android:layout_marginBottom="4dp" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:gravity="center">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:gravity="center"
                     android:text="Memories"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="12sp"
@@ -366,14 +374,13 @@
         <LinearLayout
             android:id="@+id/btnConversationLanguageQuick"
             android:layout_width="0dp"
-            android:layout_height="66dp"
+            android:layout_height="76dp"
             android:layout_weight="1"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="5dp"
             android:background="@drawable/bg_jarvis_action_card"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="10dp"
-            android:paddingEnd="6dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="6dp"
             android:clickable="true"
             android:focusable="true">
 
@@ -382,16 +389,18 @@
                 android:layout_height="22dp"
                 android:src="@drawable/ic_settings_language"
                 app:tint="?attr/themeAccent"
-                android:layout_marginEnd="6dp" />
+                android:layout_marginBottom="4dp" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:gravity="center">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:gravity="center"
                     android:text="Language"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="12sp"
