@@ -11,15 +11,15 @@
         android:layout_height="match_parent"
         android:clipToPadding="false"
         android:fillViewport="true"
-        android:paddingBottom="32dp">
+        android:paddingBottom="40dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingStart="18dp"
+            android:paddingStart="20dp"
             android:paddingTop="24dp"
-            android:paddingEnd="18dp">
+            android:paddingEnd="20dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -228,6 +228,7 @@
                     style="@style/Widget.LiquidGlass.Pill"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:minHeight="48dp"
                     android:layout_marginTop="10dp"
                     android:text="+  Add an action" />
 
@@ -244,6 +245,7 @@
                 style="@style/Widget.LiquidGlass.Button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:minHeight="52dp"
                 android:layout_marginTop="20dp"
                 android:text="Save automation" />
 
@@ -252,6 +254,7 @@
                 style="@style/Widget.LiquidGlass.Pill"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:layout_marginTop="12dp"
                 android:gravity="center"
                 android:text="Reset to the original version" />
@@ -261,6 +264,7 @@
                 style="@style/Widget.LiquidGlass.Pill"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:layout_marginTop="12dp"
                 android:gravity="center"
                 android:text="Delete this automation"
