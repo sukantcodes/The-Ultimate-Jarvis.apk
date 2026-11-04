@@ -3,6 +3,7 @@
 <resources>
     <style name="Theme.JarvisAssistant.CustomDark_H00" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -45,6 +46,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H01" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -87,6 +89,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H02" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -129,6 +132,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H03" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -171,6 +175,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H04" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -213,6 +218,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H05" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -255,6 +261,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H06" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -297,6 +304,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H07" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -339,6 +347,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H08" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -381,6 +390,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H09" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -423,6 +433,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H10" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -465,6 +476,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H11" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -507,6 +519,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H12" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -549,6 +562,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H13" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -591,6 +605,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H14" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -633,6 +648,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H15" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -675,6 +691,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H16" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -717,6 +734,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H17" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -759,6 +777,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H18" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -801,6 +820,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H19" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -843,6 +863,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H20" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -885,6 +906,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H21" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -927,6 +949,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H22" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -969,6 +992,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H23" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1011,6 +1035,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H00" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1053,6 +1078,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H01" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1095,6 +1121,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H02" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1137,6 +1164,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H03" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1179,6 +1207,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H04" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1221,6 +1250,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H05" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1263,6 +1293,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H06" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1305,6 +1336,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H07" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1347,6 +1379,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H08" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1389,6 +1422,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H09" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1431,6 +1465,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H10" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1473,6 +1508,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H11" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1515,6 +1551,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H12" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1557,6 +1594,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H13" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1599,6 +1637,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H14" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1641,6 +1680,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H15" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1683,6 +1723,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H16" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1725,6 +1766,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H17" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1767,6 +1809,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H18" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1809,6 +1852,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H19" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1851,6 +1895,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H20" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1893,6 +1938,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H21" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1935,6 +1981,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H22" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
@@ -1977,6 +2024,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H23" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
