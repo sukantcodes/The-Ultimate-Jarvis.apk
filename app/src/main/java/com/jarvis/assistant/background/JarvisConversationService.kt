@@ -1249,8 +1249,11 @@ class JarvisConversationService : Service() {
                             audioChunksReceivedInTurn = 0
                             if (textChatTurnActive) {
                                 val prompt = currentTextChatPrompt
-                                if (prompt.isNotBlank() && assistantTurnText.isNotBlank()) {
-                                    (application as? JarvisApp)?.chatRepository?.completeLatestTextTurn(prompt, assistantTurnText)
+                                if (prompt.isNotBlank()) {
+                                    val writtenReply = assistantTurnText.ifBlank {
+                                        "I couldn't receive a written response from the AI service. Please try sending your message again."
+                                    }
+                                    (application as? JarvisApp)?.chatRepository?.completeLatestTextTurn(prompt, writtenReply)
                                 }
                                 textChatTurnActive = false
                                 currentTextChatPrompt = ""
