@@ -242,6 +242,8 @@ class JarvisConversationService : Service() {
 
         fun sendTextMessage(text: String) {
             val instance = activeInstance ?: return
+            instance.textChatTurnActive = true
+            instance.currentTextChatPrompt = text.trim()
             instance.liveWebSocket?.sendClientContent(text)
             JarvisApp.instance.chatRepository.addTurn(text, "")
         }
@@ -282,6 +284,9 @@ class JarvisConversationService : Service() {
     private var isPendingBackgroundTransition = false
     @Volatile
     private var suppressAudioUntilTurnComplete = false
+    /** Chatbox messages are rendered as text and must never be played through the speaker. */
+    @Volatile private var textChatTurnActive = false
+    @Volatile private var currentTextChatPrompt: String = ""
     @Volatile
     private var isExecutingTool = false
     private val currentUtteranceAudioStream = java.io.ByteArrayOutputStream()
@@ -1028,6 +1033,10 @@ class JarvisConversationService : Service() {
                             thinkingTimeoutJob?.cancel()
                             thinkingTimeoutJob = null
                             lastResponseTimedOut = false
+                            if (textChatTurnActive) {
+                                Log.d("JarvisService", "Suppressing generated audio for text-only Chatbox turn")
+                                return
+                            }
                             if (suppressAudioUntilTurnComplete) {
                                 Log.w("JarvisService", "onAudioDataReceived: Audio suppressed (suppressAudioUntilTurnComplete=true)")
                                 return
@@ -1236,6 +1245,14 @@ class JarvisConversationService : Service() {
                             }
                             audioPlayer?.notifyTurnComplete()
                             audioChunksReceivedInTurn = 0
+                            if (textChatTurnActive) {
+                                val prompt = currentTextChatPrompt
+                                if (prompt.isNotBlank() && assistantTurnText.isNotBlank()) {
+                                    (application as? JarvisApp)?.chatRepository?.completeLatestTextTurn(prompt, assistantTurnText)
+                                }
+                                textChatTurnActive = false
+                                currentTextChatPrompt = ""
+                            }
                             suppressAudioUntilTurnComplete = false
                             automationHandledTurn = false
                             hasSpeechInCurrentUtterance = false
