@@ -33,6 +33,8 @@ class ChatFragment : Fragment() {
     private val viewModel: MainViewModel get() = (requireActivity() as MainActivity).viewModel
     private var selectedDocument: DocumentAnalysisClient.SelectedDocument? = null
     private var pendingExportText: String = ""
+    private val chatModePrefs by lazy { requireContext().getSharedPreferences("jarvis_chatbox_preferences", android.content.Context.MODE_PRIVATE) }
+    private var selectedChatMode: String = "auto"
 
     private val documentPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri == null || _binding == null) return@registerForActivityResult
@@ -99,6 +101,8 @@ class ChatFragment : Fragment() {
         }
         binding.rvChatMessages.adapter = chatAdapter
 
+        selectedChatMode = chatModePrefs.getString("chat_mode", "auto") ?: "auto"
+        refreshChatModeLabel()
         binding.btnSendMessage.setOnClickListener { sendMessage() }
 
         binding.btnChatNew.setOnClickListener {
@@ -121,14 +125,47 @@ class ChatFragment : Fragment() {
         binding.chipPersona.setOnClickListener {
             Toast.makeText(requireContext(), "Persona: Jarvis Active", Toast.LENGTH_SHORT).show()
         }
-        binding.chipMode.setOnClickListener {
-            Toast.makeText(requireContext(), "Mode: Code & Assistant", Toast.LENGTH_SHORT).show()
-        }
+        binding.chipMode.setOnClickListener { showChatModePicker() }
         binding.btnAttach.setOnClickListener {
             documentPicker.launch(arrayOf("*/*"))
         }
 
         observeChatTurns()
+    }
+
+    private fun showChatModePicker() {
+        val labels = arrayOf("Auto · choose available brain", "Gemini Live · online", "Offline Brain · on-device")
+        val values = arrayOf("auto", "gemini", "offline")
+        val selected = values.indexOf(selectedChatMode).coerceAtLeast(0)
+        AlertDialog.Builder(requireContext())
+            .setTitle("Choose chat engine")
+            .setSingleChoiceItems(labels, selected) { dialog, which ->
+                selectedChatMode = values[which]
+                chatModePrefs.edit().putString("chat_mode", selectedChatMode).apply()
+                refreshChatModeLabel()
+                dialog.dismiss()
+                if (selectedChatMode == "offline" &&
+                    !OfflineModelDownloader.isModelValid(OfflineModelDownloader.modelFile(requireContext()))
+                ) {
+                    Toast.makeText(requireContext(), "Download the Offline Brain model once to use this mode.", Toast.LENGTH_LONG).show()
+                    startActivity(Intent(requireContext(), OfflineModelActivity::class.java))
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun refreshChatModeLabel() {
+        val label = when (selectedChatMode) {
+            "gemini" -> "Gemini"
+            "offline" -> "Offline"
+            else -> "Auto"
+        }
+        val chip = binding.chipMode
+        if (chip.childCount > 1 && chip.getChildAt(1) is android.widget.TextView) {
+            (chip.getChildAt(1) as android.widget.TextView).text = label
+        }
+        chip.contentDescription = "Chat engine: $label. Tap to change."
     }
 
     private fun sendMessage() {
@@ -168,7 +205,13 @@ class ChatFragment : Fragment() {
         // or the device has no internet. The offline model never needs a cloud API key.
         val engineStore = com.jarvis.assistant.security.AiEngineStore(appContext)
         val selectedProviderHasKey = if (engineStore.useGroq) engineStore.hasGroqKey() else JarvisApp.instance.preferences.apiKey.isNotBlank()
-        if (!selectedProviderHasKey || !OfflineModelDownloader.isInternetAvailable(appContext)) {
+        val forceOffline = selectedChatMode == "offline"
+        val forceGemini = selectedChatMode == "gemini"
+        if (forceGemini && !JarvisApp.instance.preferences.apiKey.isNotBlank()) {
+            Toast.makeText(requireContext(), "Add your Gemini API key in Settings before choosing Gemini mode.", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (forceOffline || (!forceGemini && (!selectedProviderHasKey || !OfflineModelDownloader.isInternetAvailable(appContext)))) {
             val modelFile = OfflineModelDownloader.modelFile(appContext)
             if (!OfflineModelDownloader.isModelValid(modelFile)) {
                 Toast.makeText(requireContext(), "Offline Brain needs its model downloaded once. Open Offline JARVIS to download it; no API key is required.", Toast.LENGTH_LONG).show()
