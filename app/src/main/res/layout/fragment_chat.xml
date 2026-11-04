@@ -182,7 +182,7 @@
             <TextView
                 android:id="@+id/btnStopChat"
                 android:layout_width="wrap_content"
-                android:layout_height="34dp"
+                android:layout_height="48dp"
                 android:gravity="center"
                 android:text="Stop"
                 android:textColor="?attr/themeTextSecondary"
@@ -196,8 +196,8 @@
 
             <ImageButton
                 android:id="@+id/btnAttach"
-                android:layout_width="38dp"
-                android:layout_height="38dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:background="@null"
                 android:src="@drawable/ic_plus"
                 app:tint="?attr/themeTextSecondary"
@@ -206,8 +206,8 @@
 
             <ImageButton
                 android:id="@+id/btnSendMessage"
-                android:layout_width="42dp"
-                android:layout_height="42dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:background="@drawable/bg_jarvis_pill_button"
                 android:src="@drawable/ic_send_up"
                 app:tint="#FFFFFF"
