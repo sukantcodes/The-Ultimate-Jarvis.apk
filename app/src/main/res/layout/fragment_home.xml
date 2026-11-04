@@ -200,7 +200,6 @@
         android:focusable="true"
         android:minHeight="76dp"
         android:layout_marginBottom="16dp"
-        android:contentDescription="Live weather. Tap to refresh or grant location permission."
         app:layout_constraintBottom_toTopOf="@id/layoutActionGrid"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -354,7 +353,7 @@
                     android:gravity="center"
                     android:text="Memories"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-medium"
                     android:includeFontPadding="false" />
@@ -405,7 +404,7 @@
                     android:gravity="center"
                     android:text="Language"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="12sp"
+                    android:textSize="11sp"
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-medium"
                     android:includeFontPadding="false" />
