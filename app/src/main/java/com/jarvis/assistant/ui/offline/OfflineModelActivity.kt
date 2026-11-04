@@ -34,13 +34,13 @@ class OfflineModelActivity:AppCompatActivity(){
   val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(20),dp(20),dp(24))}
   setContentView(ScrollView(this).apply{addView(root)});ThemeManager.applyDynamicBackground(root)
   root.addView(makeText("OFFLINE JARVIS",26f,true))
-  root.addView(makeText("Qwen3-1.7B · Q4_K_M",18f,true),params(12))
+  root.addView(makeText("Qwen3-0.6B · Q4_K_M",18f,true),params(12))
   root.addView(makeText("Download the model once inside JARVIS. It is stored privately in this app and is not bundled into the APK.",14f),params(8))
-  root.addView(makeText("Download: about 1.28 GB · Keep at least 1.5 GB free. Inference needs extra RAM; 4 GB RAM devices may struggle.",13f),params(8))
+  root.addView(makeText("Download: about 484 MB · Keep at least 700 MB free for the model. Available RAM still affects generation speed.",13f),params(8))
   status=makeText("Checking model…",14f,true);root.addView(status,params(18))
   progress=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply{max=1000;progress=0}
   root.addView(progress,LinearLayout.LayoutParams(-1,dp(8)).apply{topMargin=dp(10)})
-  downloadButton=Button(this).apply{text="Download Qwen3 (1.28 GB)"}
+  downloadButton=Button(this).apply{text="Download Qwen3 0.6B (≈484 MB)"}
   root.addView(downloadButton,params(12));downloadButton.setOnClickListener{startDownload()}
   root.addView(makeText("Test offline conversation",18f,true),params(26))
   prompt=EditText(this).apply{hint="Ask in English or Hinglish…";minLines=2;maxLines=4;gravity=Gravity.TOP}
@@ -60,7 +60,7 @@ class OfflineModelActivity:AppCompatActivity(){
      status.text="Downloading ${formatBytes(done)} / ${formatBytes(total)}"
     }}
     status.text="Model downloaded and validated. First load may take a little while.";progress.progress=1000
-    Toast.makeText(this@OfflineModelActivity,"Qwen3 model downloaded and validated.",Toast.LENGTH_LONG).show()
+    Toast.makeText(this@OfflineModelActivity,"Qwen3 0.6B model downloaded and validated.",Toast.LENGTH_LONG).show()
     answer.text="The model file is ready. Tap Generate offline response to initialize and test the native engine."
    }catch(error:Exception){status.text=error.message?:"Download failed. Try again when the connection is stable."}
    finally{downloadButton.isEnabled=true;refreshModelState()}
