@@ -3,6 +3,8 @@
 <resources>
     <string name="set_screen_title">Settings</string>
     <string name="set_screen_subtitle">Customize how Jarvis listens, speaks and works</string>
+    <string name="set_search_hint">Search settings</string>
+    <string name="set_search_empty">No settings found. Try another keyword.</string>
     <string name="set_section_ai">AI &amp; Intelligence</string>
     <string name="set_aiengine_title">AI Engine</string>
     <string name="set_aiengine_subtitle">Choose Gemini Live or Groq</string>
