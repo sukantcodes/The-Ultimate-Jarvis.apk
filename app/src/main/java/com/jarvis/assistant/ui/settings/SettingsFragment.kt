@@ -7,6 +7,8 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.text.Editable
+import android.text.TextWatcher
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -26,6 +28,7 @@ import android.widget.RadioGroup
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import java.util.Locale
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -126,6 +129,7 @@ class SettingsFragment : Fragment() {
         }
 
         markSectionHeadings()
+        setupSettingsSearch()
         setupProfileCard()
         setupAiSection()
         setupVoiceSection()
@@ -240,6 +244,115 @@ class SettingsFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    /**
+     * Filters the existing Settings rows in place. This deliberately reuses the current views and
+     * click listeners: search never creates duplicate settings controls or changes stored values.
+     */
+    private fun setupSettingsSearch() {
+        binding.etSettingsSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                filterSettings(s?.toString().orEmpty())
+            }
+            override fun afterTextChanged(s: Editable?) = Unit
+        })
+        filterSettings("")
+    }
+
+    private fun filterSettings(rawQuery: String) {
+        val query = rawQuery.trim().lowercase(Locale.ROOT)
+        val content = binding.settingsContent
+        val sectionHeaders = setOf(
+            R.id.headerAiIntelligence,
+            R.id.headerVoiceListening,
+            R.id.headerVoiceSecurity,
+            R.id.headerAlerts,
+            R.id.headerMemoryData,
+            R.id.headerPermissionsAutomation,
+            R.id.headerAppearance,
+            R.id.headerPrivacyAbout
+        )
+        var visibleMatches = 0
+        var index = 0
+
+        while (index < content.childCount) {
+            val child = content.getChildAt(index)
+            when {
+                child.id == R.id.cardProfile -> {
+                    val matches = query.isEmpty() || viewMatchesQuery(child, query)
+                    child.visibility = if (matches) View.VISIBLE else View.GONE
+                    if (matches && query.isNotEmpty()) visibleMatches++
+                }
+
+                child.id in sectionHeaders -> {
+                    val headerMatches = query.isNotEmpty() && viewMatchesQuery(child, query)
+                    val card = content.getChildAt(index + 1) as? ViewGroup
+                    if (card == null) {
+                        child.visibility = if (query.isEmpty() || headerMatches) View.VISIBLE else View.GONE
+                    } else {
+                        val rowIndexes = (0 until card.childCount)
+                            .filter { card.getChildAt(it).isClickable }
+                        var sectionMatches = 0
+
+                        rowIndexes.forEach { rowIndex ->
+                            val row = card.getChildAt(rowIndex)
+                            val matches = query.isEmpty() || headerMatches ||
+                                viewMatchesQuery(row, query)
+                            row.visibility = if (matches) View.VISIBLE else View.GONE
+                            if (matches && query.isNotEmpty()) sectionMatches++
+                        }
+
+                        // Keep separators only between two rows that remain visible.
+                        for (cardIndex in 0 until card.childCount) {
+                            val item = card.getChildAt(cardIndex)
+                            if (item.isClickable || item is ViewGroup) continue
+                            val previousRow = rowIndexes.lastOrNull { it < cardIndex }
+                            val nextRow = rowIndexes.firstOrNull { it > cardIndex }
+                            val showDivider = query.isEmpty() ||
+                                (previousRow != null && nextRow != null &&
+                                    card.getChildAt(previousRow).visibility == View.VISIBLE &&
+                                    card.getChildAt(nextRow).visibility == View.VISIBLE)
+                            item.visibility = if (showDivider) View.VISIBLE else View.GONE
+                        }
+
+                        val hasMatches = query.isEmpty() || headerMatches || sectionMatches > 0
+                        child.visibility = if (hasMatches) View.VISIBLE else View.GONE
+                        card.visibility = if (hasMatches) View.VISIBLE else View.GONE
+                        if (query.isNotEmpty()) {
+                            visibleMatches += if (headerMatches) rowIndexes.size else sectionMatches
+                        }
+                    }
+                    index++ // The section card is the next direct child.
+                }
+
+                else -> {
+                    // Social links and the footer stay out of a filtered result list.
+                    child.visibility = if (query.isEmpty()) View.VISIBLE else View.GONE
+                }
+            }
+            index++
+        }
+
+        binding.tvSettingsNoResults.visibility =
+            if (query.isNotEmpty() && visibleMatches == 0) View.VISIBLE else View.GONE
+    }
+
+    private fun viewMatchesQuery(view: View, query: String): Boolean {
+        if (query.isEmpty()) return true
+        if (view is TextView && view.text?.toString()?.lowercase(Locale.ROOT)?.contains(query) == true) {
+            return true
+        }
+        if (view.contentDescription?.toString()?.lowercase(Locale.ROOT)?.contains(query) == true) {
+            return true
+        }
+        if (view is ViewGroup) {
+            for (childIndex in 0 until view.childCount) {
+                if (viewMatchesQuery(view.getChildAt(childIndex), query)) return true
+            }
+        }
+        return false
     }
 
     /** Lets screen readers jump between sections by heading. */
