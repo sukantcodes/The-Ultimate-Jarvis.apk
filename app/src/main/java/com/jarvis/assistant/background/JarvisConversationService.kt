@@ -28,6 +28,7 @@ import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.jarvis.assistant.JarvisApp
+import com.jarvis.assistant.automation.context.AutomationContextSnapshot
 import com.jarvis.assistant.audio.VoskModelManager
 import org.json.JSONObject
 import org.vosk.Recognizer
@@ -54,6 +55,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -63,6 +65,7 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.Locale
 
@@ -4896,16 +4899,25 @@ class JarvisConversationService : Service() {
         private val orchestrator get() = com.jarvis.assistant.vision.VisualTaskOrchestrator.getInstance()
 
         override suspend fun openApp(name: String, packageHints: List<String>): com.jarvis.assistant.macro.StepResult {
+            // Reuse the already foreground app instead of relaunching it and resetting its current screen.
+            val foreground = AutomationContextSnapshot.current()
+            if (foreground?.isFresh == true && packageHints.isNotEmpty() &&
+                packageHints.any { foreground.packageName.contains(it, ignoreCase = true) }) {
+                return com.jarvis.assistant.macro.StepResult(true, "$name is already in the foreground.")
+            }
+
             val launched = com.jarvis.assistant.util.AppLauncher.launchApp(this@JarvisConversationService, name, null)
             if (!launched) return com.jarvis.assistant.macro.StepResult(false, "Could not find or open $name.")
             val deadline = System.currentTimeMillis() + 10_000L
             while (System.currentTimeMillis() < deadline) {
-                val pkg = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance
-                    ?.getActiveRootNode()?.packageName?.toString().orEmpty()
-                if (pkg.isNotBlank() && (packageHints.isEmpty() || packageHints.any { pkg.contains(it, ignoreCase = true) })) {
-                    return com.jarvis.assistant.macro.StepResult(true, "Opened $name.")
-                }
-                kotlinx.coroutines.delay(500L)
+                val current = AutomationContextSnapshot.current()
+                val matches = current?.isFresh == true && current.packageName.isNotBlank() &&
+                    (packageHints.isEmpty() || packageHints.any { current.packageName.contains(it, ignoreCase = true) })
+                if (matches) return com.jarvis.assistant.macro.StepResult(true, "Opened $name.")
+
+                val revision = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.uiChanges.value.revision
+                val remaining = (deadline - System.currentTimeMillis()).coerceAtLeast(1L)
+                awaitScreenChange(revision, minOf(500L, remaining))
             }
             return com.jarvis.assistant.macro.StepResult(false, "$name did not come to the front.")
         }
@@ -4937,6 +4949,22 @@ class JarvisConversationService : Service() {
             } else {
                 com.jarvis.assistant.macro.StepResult(true, text)
             }
+        }
+
+        override fun screenRevision(): Long =
+            com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.uiChanges.value.revision
+
+        override suspend fun awaitScreenChange(afterRevision: Long, timeoutMs: Long): Boolean {
+            val accessibility = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService
+            if (accessibility.instance == null) {
+                delay(timeoutMs.coerceAtLeast(1L))
+                return false
+            }
+            if (accessibility.uiChanges.value.revision > afterRevision) return true
+            return withTimeoutOrNull(timeoutMs.coerceAtLeast(1L)) {
+                accessibility.uiChanges.first { it.revision > afterRevision }
+                true
+            } ?: false
         }
 
         override fun screenText(): String = com.jarvis.assistant.macro.ScreenTextReader.read(
