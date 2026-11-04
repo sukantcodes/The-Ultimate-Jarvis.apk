@@ -49,6 +49,25 @@ class ChatRepository(private val preferences: AppPreferences) {
         preferences.saveChatHistory(currentList)
     }
 
+    /** Completes the most recent pending text-chat turn with its written assistant response. */
+    @Synchronized
+    fun completeLatestTextTurn(userText: String, jarvisText: String) {
+        val cleanUser = userText.trim()
+        val cleanResponse = jarvisText.trim()
+        if (cleanUser.isEmpty() || cleanResponse.isEmpty()) return
+
+        val currentList = _turns.value.toMutableList()
+        val index = currentList.indexOfLast {
+            it.userTranscript == cleanUser &&
+                (it.jarvisResponse == "(Audio response)" || it.jarvisResponse.isBlank())
+        }
+        if (index < 0) return
+
+        currentList[index] = currentList[index].copy(jarvisResponse = cleanResponse)
+        _turns.value = currentList
+        preferences.saveChatHistory(currentList)
+    }
+
     @Synchronized
     fun clearHistory() {
         _turns.value.forEach { turn ->
