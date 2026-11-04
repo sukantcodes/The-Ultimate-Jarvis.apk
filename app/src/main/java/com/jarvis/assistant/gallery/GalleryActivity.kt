@@ -9,6 +9,7 @@ import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ImageView
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -212,6 +213,10 @@ class GalleryActivity : AppCompatActivity() {
             controls[0].text = "Media type: " + (selectedType?.name ?: "All")
             controls[1].text = "Date: " + (dateWindowDays?.let { "Last $it days" } ?: "Any time")
             controls[2].text = "Album: " + (selectedAlbum ?: "All albums")
+            if (controls.size >= 5) {
+                controls[3].text = "Sort: " + sortOrder.name.lowercase().replaceFirstChar { it.uppercase() }
+                controls[4].text = if (favoritesOnly) "Showing favorites (tap to show all)" else "Show favorites"
+            }
         }
     }
 
@@ -287,13 +292,28 @@ class GalleryActivity : AppCompatActivity() {
             return
         }
         filtered.forEach { item ->
+            val rowLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(dp(4), dp(8), dp(4), dp(8))
+            }
+            val preview = ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(76), dp(76))
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                contentDescription = "Preview of ${item.displayName}"
+            }
+            thumbnailLoader.load(item, preview)
             val row = TextView(this).apply {
-                text = "${if (item.type == GalleryMediaType.VIDEO) "▶" else "▣"}  ${item.displayName}\n${DateFormat.getDateTimeInstance().format(Date(item.dateAddedSeconds * 1000))} · ${formatBytes(item.sizeBytes)}"
-                textSize = 13f; setPadding(dp(8), dp(12), dp(8), dp(12))
+                val star = if (favoriteSet.contains(item.uri.toString())) "★ " else ""
+                text = "${star}${if (item.type == GalleryMediaType.VIDEO) "▶" else "▣"}  ${item.displayName}\\n${DateFormat.getDateTimeInstance().format(Date(item.dateAddedSeconds * 1000))} · ${formatBytes(item.sizeBytes)}"
+                textSize = 13f
+                setPadding(dp(10), dp(8), dp(8), dp(8))
                 setTextColor(resolveColor(android.R.attr.textColorPrimary))
                 setOnClickListener { showMediaDetails(item) }
             }
-            content.addView(row)
+            rowLayout.addView(preview)
+            rowLayout.addView(row, LinearLayout.LayoutParams(0, -2, 1f))
+            content.addView(rowLayout)
         }
     }
 
