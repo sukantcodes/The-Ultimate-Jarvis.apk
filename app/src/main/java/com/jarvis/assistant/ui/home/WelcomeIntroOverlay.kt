@@ -86,18 +86,7 @@ object WelcomeIntroOverlay {
         var finished = false
         var countdown = 10
         lateinit var countdownView: TextView
-        val countdownTick = object : Runnable {
-            override fun run() {
-                if (finished) return
-                countdownView.text = "CONTINUE  ·  $countdown"
-                if (countdown <= 0) {
-                    finish()
-                } else {
-                    countdown--
-                    handler.postDelayed(this, 1000L)
-                }
-            }
-        }
+        lateinit var countdownTick: Runnable
 
         fun finishIntro() {
             if (finished) return
@@ -113,6 +102,19 @@ object WelcomeIntroOverlay {
                     onFinished()
                 }
                 .start()
+        }
+
+        countdownTick = object : Runnable {
+            override fun run() {
+                if (finished) return
+                countdownView.text = "CONTINUE  ·  $countdown"
+                if (countdown <= 0) {
+                    finishIntro()
+                } else {
+                    countdown--
+                    handler.postDelayed(this, 1000L)
+                }
+            }
         }
 
         fun openSocial(url: String) {
@@ -309,7 +311,7 @@ object WelcomeIntroOverlay {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM
             ))
-            scroll.setPadding(0, 0, 0, bottom.minimumHeight + dp(activity, 12))
+            scroll.setPadding(0, 0, 0, dp(activity, 112))
             panel.animate().alpha(1f).translationY(0f).setDuration(420L)
                 .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
             bottom.alpha = 0f
