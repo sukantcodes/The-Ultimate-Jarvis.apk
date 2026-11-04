@@ -30,6 +30,9 @@ jobs:
         run: sdkmanager "ndk;27.2.12479018" "cmake;3.31.6"
 
       - name: Build with Gradle
+        env:
+          # Public client key for Supabase Auth. Read by app/build.gradle.kts; GitHub masks it in logs.
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: ./gradlew assembleDebug
         
       - name: Print SHA1

@@ -33,8 +33,13 @@ jobs:
     - name: Install native build tools
       run: sdkmanager "ndk;27.2.12479018" "cmake;3.31.6"
     - name: Run unit tests
+      env:
+        SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
       run: ./gradlew testDebugUnitTest --stacktrace --info
     - name: Build debug APK
+      env:
+        # Public client key for Supabase Auth. Read by app/build.gradle.kts; GitHub masks it in logs.
+        SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
       run: ./gradlew assembleDebug
     - name: Print SHA1      
       run: ./gradlew signingReport

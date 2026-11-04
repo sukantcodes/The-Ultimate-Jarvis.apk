@@ -6,6 +6,11 @@
         <item android:id="@+id/drawerSettings" android:icon="@drawable/ic_nav_settings" android:title="Settings" />
         <item android:id="@+id/drawerUpdates" android:icon="@drawable/ic_nav_bell" android:title="Updates" />
     </group>
+    <item android:title="ACCOUNT">
+        <menu>
+            <item android:id="@+id/drawerAccount" android:icon="@drawable/ic_nav_settings" android:title="@string/drawer_account_sign_in" />
+        </menu>
+    </item>
     <item android:title="JARVIS TOOLS">
         <menu>
             <item android:id="@+id/drawerAutomation" android:icon="@drawable/ic_settings_automation" android:title="Automation Studio" />

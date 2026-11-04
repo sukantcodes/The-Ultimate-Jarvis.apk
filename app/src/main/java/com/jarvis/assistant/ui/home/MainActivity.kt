@@ -21,6 +21,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.jarvis.assistant.R
+import com.jarvis.assistant.auth.AuthManager
+import com.jarvis.assistant.auth.SessionCheck
+import com.jarvis.assistant.ui.auth.AuthActivity
 import com.jarvis.assistant.background.JarvisConversationService
 import com.jarvis.assistant.data.model.ConversationState
 import com.jarvis.assistant.databinding.ActivityMainBinding
@@ -154,6 +157,16 @@ class MainActivity : AppCompatActivity() {
         appliedThemeKey = prefs.appTheme
         appliedCustomHex = prefs.customThemeSignature
         super.onCreate(savedInstanceState)
+
+        // Auth gate: only a user with neither a session nor a guest choice is sent to Login / Register /
+        // Guest. Guests and signed-in users go straight to JARVIS; the app itself is never locked.
+        AuthManager.init(applicationContext)
+        if (AuthManager.needsAuthScreen()) {
+            startActivity(Intent(this, AuthActivity::class.java))
+            finish()
+            return
+        }
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -252,6 +265,7 @@ class MainActivity : AppCompatActivity() {
      * so scrolling, buttons, and the orb remain interactive.
      */
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (!::binding.isInitialized) return super.dispatchTouchEvent(event)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 swipeStartX = event.rawX
@@ -280,7 +294,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (!::binding.isInitialized) return // redirected to the auth screen
         viewModel.refreshSettings()
+        updateAccountMenuItem()
+        lifecycleScope.launch {
+            // Refresh an expired access token when returning to the app. A rejected refresh token ends the
+            // session; being offline does not.
+            if (AuthManager.checkSession() == SessionCheck.EXPIRED) {
+                AuthManager.consumeNotice()
+                AuthManager.continueAsGuest() // keep using JARVIS as a guest rather than locking the app
+                Toast.makeText(this@MainActivity, R.string.auth_session_expired_toast, Toast.LENGTH_LONG).show()
+                updateAccountMenuItem()
+            }
+        }
         val prefs = com.jarvis.assistant.JarvisApp.instance.preferences
         if (appliedThemeKey != prefs.appTheme || appliedCustomHex != prefs.customThemeSignature) {
             appliedThemeKey = prefs.appTheme
@@ -325,10 +351,45 @@ class MainActivity : AppCompatActivity() {
                 R.id.drawerMemories -> startActivity(Intent(this, com.jarvis.assistant.ui.memory.MemoryActivity::class.java))
                 R.id.drawerScreenShare -> toggleScreenShare()
                 R.id.drawerOfflineJarvis -> startActivity(Intent(this, com.jarvis.assistant.ui.offline.OfflineModelActivity::class.java))
+                R.id.drawerAccount -> onAccountClicked()
                 else -> return@setNavigationItemSelectedListener false
             }
             true
         }
+    }
+
+    /** "Sign in / Create account" for guests; "Log out · email" when signed in. */
+    private fun updateAccountMenuItem() {
+        val item = binding.navDrawer.menu.findItem(R.id.drawerAccount) ?: return
+        val email = AuthManager.email
+        item.title = when {
+            !AuthManager.isSignedIn -> getString(R.string.drawer_account_sign_in)
+            email != null -> getString(R.string.drawer_account_logout) + " · " + email
+            else -> getString(R.string.drawer_account_logout)
+        }
+    }
+
+    private fun onAccountClicked() {
+        if (!AuthManager.isSignedIn) {
+            startActivity(AuthActivity.returnIntent(this))
+            return
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.drawer_account_logout_title)
+            .setMessage(getString(R.string.drawer_account_logout_message, AuthManager.email ?: "your account"))
+            .setPositiveButton(R.string.drawer_account_logout) { _, _ ->
+                lifecycleScope.launch {
+                    AuthManager.signOut()
+                    // Back to the auth screen with a clean back stack. Guest data on the device is untouched.
+                    startActivity(
+                        Intent(this@MainActivity, AuthActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    )
+                    finish()
+                }
+            }
+            .setNegativeButton(R.string.drawer_account_cancel, null)
+            .show()
     }
 
     fun selectTab(tab: Int) {

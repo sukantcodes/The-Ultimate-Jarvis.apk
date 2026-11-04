@@ -95,6 +95,26 @@
             
         </activity>
 
+        <!-- Login / Register / Guest. singleTask so the OAuth callback returns to the existing instance.
+             The deep link com.jarvis.assistant://auth-callback/{google|signup|recovery} must also be
+             listed in Supabase > Authentication > URL Configuration > Redirect URLs. -->
+        <activity
+            android:name=".ui.auth.AuthActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="com.jarvis.assistant"
+                    android:host="auth-callback" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".ui.scan.CameraScanActivity"
             android:exported="false"

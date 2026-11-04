@@ -17,6 +17,11 @@ val releaseCertSha256 = configuredValue("JARVIS_RELEASE_CERT_SHA256")?.replace("
 val developerName = configuredValue("JARVIS_DEVELOPER_NAME")?.ifBlank { null } ?: "♪Sukant♪Codes♪"
 val copyrightOwner = configuredValue("JARVIS_COPYRIGHT_OWNER")?.ifBlank { null } ?: "Sukant Sir"
 val verificationEndpoint = configuredValue("JARVIS_VERIFICATION_ENDPOINT").orEmpty()
+// Supabase project "JARVIS-CLOUD_CLI". The URL is public; the publishable (client) key comes from the
+// SUPABASE_PUBLISHABLE_KEY Gradle property or environment variable (GitHub Actions secret in CI).
+// Never use a service_role / secret key here. If unset, the build still works and auth reports "not configured".
+val supabaseUrl = configuredValue("SUPABASE_URL")?.ifBlank { null } ?: "https://yeggjbjcoaaoqntqyjdv.supabase.co"
+val supabasePublishableKey = configuredValue("SUPABASE_PUBLISHABLE_KEY")?.trim().orEmpty()
 val releaseSigningReady = listOf(releaseStorePath, releaseStorePassword, releaseKeyAlias, releaseKeyPassword).all { !it.isNullOrBlank() }
 
 android {
@@ -37,6 +42,8 @@ android {
         buildConfigField("String", "COPYRIGHT_OWNER", buildConfigString(copyrightOwner.ifBlank { "Unconfigured" }))
         buildConfigField("String", "PINNED_RELEASE_CERT_SHA256", buildConfigString(releaseCertSha256))
         buildConfigField("String", "VERIFICATION_ENDPOINT", buildConfigString(verificationEndpoint))
+        buildConfigField("String", "SUPABASE_URL", buildConfigString(supabaseUrl))
+        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", buildConfigString(supabasePublishableKey))
     }
 
     signingConfigs {
