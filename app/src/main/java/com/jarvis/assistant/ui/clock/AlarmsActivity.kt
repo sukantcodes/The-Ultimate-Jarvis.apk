@@ -37,6 +37,8 @@ class AlarmsActivity : ClockPageActivity() {
 
     private var searchQuery: String = ""
     private var alarmFilter: AlarmFilter = AlarmFilter.ALL
+    private var alarmListContainer: LinearLayout? = null
+    private var alarmListHeader: TextView? = null
     private enum class AlarmFilter { ALL, ON, OFF }
 
     override val titleRes = R.string.clock_alarms_title
@@ -90,7 +92,7 @@ class AlarmsActivity : ClockPageActivity() {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                     searchQuery = s?.toString().orEmpty()
-                    render()
+                    renderAlarmList(engine.settings())
                 }
                 override fun afterTextChanged(s: Editable?) = Unit
             })
@@ -117,7 +119,19 @@ class AlarmsActivity : ClockPageActivity() {
         }
         container.addView(filters)
 
-        val alarms = allAlarms.filter { alarm ->
+        alarmListHeader = text("", 16f, primary = true, bold = true).apply {
+            setPadding(0, dp(18), 0, dp(10))
+        }
+        container.addView(alarmListHeader)
+        alarmListContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        container.addView(alarmListContainer)
+        renderAlarmList(settings)
+    }
+
+    private fun renderAlarmList(settings: ClockSettings) {
+        val target = alarmListContainer ?: return
+        val allAlarms = engine.alarms()
+        val alarms = allAlarms.sortedWith(compareBy({ it.hour }, { it.minute }, { it.id })).filter { alarm ->
             (when (alarmFilter) {
                 AlarmFilter.ALL -> true
                 AlarmFilter.ON -> alarm.enabled
@@ -127,21 +141,15 @@ class AlarmsActivity : ClockPageActivity() {
                 ClockFormat.time(this, alarm.hour, alarm.minute, settings).contains(searchQuery, ignoreCase = true) ||
                 ClockFormat.repeatSummary(this, alarm, settings).contains(searchQuery, ignoreCase = true))
         }
-        container.addView(text(getString(R.string.clock_alarm_list_heading, alarms.size), 16f, primary = true, bold = true).apply {
-            setPadding(0, dp(18), 0, dp(10))
-        })
-
-        if (allAlarms.isEmpty()) {
-            container.addView(emptyAlarmsCard())
-            return
-        }
-        if (alarms.isEmpty()) {
-            container.addView(card().apply {
+        alarmListHeader?.text = getString(R.string.clock_alarm_list_heading, alarms.size)
+        target.removeAllViews()
+        when {
+            allAlarms.isEmpty() -> target.addView(emptyAlarmsCard())
+            alarms.isEmpty() -> target.addView(card().apply {
                 addView(text(getString(R.string.clock_alarm_no_match), 14f, primary = false))
             })
-            return
+            else -> alarms.forEach { target.addView(alarmCard(it, settings)) }
         }
-        alarms.forEach { container.addView(alarmCard(it, settings)) }
     }
 
     private fun statPill(label: String, active: Boolean): View = TextView(this).apply {
