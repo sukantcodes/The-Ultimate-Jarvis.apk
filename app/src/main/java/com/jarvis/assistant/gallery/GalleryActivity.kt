@@ -304,7 +304,7 @@ class GalleryActivity : AppCompatActivity() {
             thumbnailLoader.load(item, preview)
             val row = TextView(this).apply {
                 val star = if (favoriteSet.contains(item.uri.toString())) "★ " else ""
-                text = "${star}${if (item.type == GalleryMediaType.VIDEO) "▶" else "▣"}  ${item.displayName}\\n${DateFormat.getDateTimeInstance().format(Date(item.dateAddedSeconds * 1000))} · ${formatBytes(item.sizeBytes)}"
+                text = "${star}${if (item.type == GalleryMediaType.VIDEO) "▶" else "▣"}  ${item.displayName}\n${DateFormat.getDateTimeInstance().format(Date(item.dateAddedSeconds * 1000))} · ${formatBytes(item.sizeBytes)}"
                 textSize = 13f
                 setPadding(dp(10), dp(8), dp(8), dp(8))
                 setTextColor(resolveColor(android.R.attr.textColorPrimary))
