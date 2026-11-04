@@ -31,6 +31,11 @@ class GalleryActivity : AppCompatActivity() {
     private var dateWindowDays: Int? = null
     private var sortOrder = GallerySortOrder.NEWEST
     private var favoritesOnly = false
+    private var sizeFilter = GallerySizeFilter.ALL
+    private var formatFilter = GalleryFormatFilter.ALL
+    private var sizeFilterButton: MaterialButton? = null
+    private var formatFilterButton: MaterialButton? = null
+    private var summaryView: TextView? = null
     private var selectionMode = false
     private val selectedItems = linkedMapOf<String, GalleryMediaItem>()
     private var displayedItems: List<GalleryMediaItem> = emptyList()
@@ -214,6 +219,22 @@ class GalleryActivity : AppCompatActivity() {
                 renderFilterLabels()
             }
         })
+        sizeFilterButton = MaterialButton(this).apply {
+            text = "File size: ${sizeFilter.label}"
+            setOnClickListener { chooseSizeFilter() }
+        }
+        content.addView(sizeFilterButton)
+        formatFilterButton = MaterialButton(this).apply {
+            text = "Format: ${formatFilter.label}"
+            setOnClickListener { chooseFormatFilter() }
+        }
+        content.addView(formatFilterButton)
+        summaryView = TextView(this).apply {
+            textSize = 12f
+            setPadding(dp(4), dp(8), dp(4), dp(8))
+            setTextColor(resolveColor(android.R.attr.textColorSecondary))
+        }
+        content.addView(summaryView)
         selectionButton = MaterialButton(this).apply {
             text = if (selectionMode) "Selection mode: ON (${selectedItems.size})" else "Select multiple"
             setOnClickListener {
@@ -263,7 +284,35 @@ class GalleryActivity : AppCompatActivity() {
                 controls[4].text = if (favoritesOnly) "Showing favorites (tap to show all)" else "Show favorites"
             }
         }
+        sizeFilterButton?.text = "File size: ${sizeFilter.label}"
+        formatFilterButton?.text = "Format: ${formatFilter.label}"
         updateSelectionControls()
+    }
+
+    private fun chooseSizeFilter() {
+        val options = GallerySizeFilter.values()
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Filter by file size")
+            .setItems(options.map { it.label }.toTypedArray()) { _, which ->
+                sizeFilter = options[which]
+                showItems(activeSearch)
+                renderFilterLabels()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun chooseFormatFilter() {
+        val options = GalleryFormatFilter.values()
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Filter by format")
+            .setItems(options.map { it.label }.toTypedArray()) { _, which ->
+                formatFilter = options[which]
+                showItems(activeSearch)
+                renderFilterLabels()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun updateSelectionControls() {
@@ -338,7 +387,9 @@ class GalleryActivity : AppCompatActivity() {
             (selectedType == null || item.type == selectedType) &&
                 (selectedAlbum == null || item.albumName == selectedAlbum) &&
                 (cutoff == null || item.dateAddedSeconds >= cutoff) &&
-                (!favoritesOnly || favoriteSet.contains(item.uri.toString()))
+                (!favoritesOnly || favoriteSet.contains(item.uri.toString())) &&
+                sizeFilter.matches(item.sizeBytes) &&
+                formatFilter.matches(item.displayName, item.mimeType)
         }.let { list ->
             when (sortOrder) {
                 GallerySortOrder.NEWEST -> list.sortedByDescending { it.dateAddedSeconds }
@@ -348,6 +399,8 @@ class GalleryActivity : AppCompatActivity() {
             }
         }
         displayedItems = filtered
+        val visibleBytes = filtered.sumOf { it.sizeBytes.coerceAtLeast(0L) }
+        summaryView?.text = "${filtered.size} items · ${formatBytes(visibleBytes)} total in current view"
         updateSelectionControls()
         if (filtered.isEmpty()) {
             content.addView(TextView(this).apply { text = "No media found for these filters."; setPadding(0, dp(14), 0, 0) })
