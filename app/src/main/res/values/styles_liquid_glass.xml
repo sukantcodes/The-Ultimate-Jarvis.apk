@@ -1,9 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Liquid glass building blocks. Every colour comes from the active theme, so they suit every theme and accent. -->
+<!-- Shared native liquid-glass typography and surface primitives. Keep theme-driven colors. -->
 <resources>
     <style name="Widget.LiquidGlass.Card" parent="">
         <item name="android:background">@drawable/bg_lg_card</item>
         <item name="android:padding">16dp</item>
+        <item name="android:minHeight">56dp</item>
+    </style>
+
+    <style name="Widget.LiquidGlass.Row" parent="Widget.LiquidGlass.Card">
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:paddingTop">12dp</item>
+        <item name="android:paddingBottom">12dp</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:foreground">?attr/selectableItemBackground</item>
     </style>
 
     <style name="Widget.LiquidGlass.Input" parent="">
@@ -54,15 +66,17 @@
 
     <style name="Widget.LiquidGlass.Title" parent="">
         <item name="android:textColor">?attr/themeTextPrimary</item>
-        <item name="android:textSize">20sp</item>
+        <item name="android:textSize">22sp</item>
         <item name="android:textStyle">bold</item>
         <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">0.015</item>
     </style>
 
     <style name="Widget.LiquidGlass.Subtitle" parent="">
         <item name="android:textColor">?attr/themeTextMuted</item>
-        <item name="android:textSize">12sp</item>
+        <item name="android:textSize">13sp</item>
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:lineSpacingExtra">2dp</item>
     </style>
 
     <style name="Widget.LiquidGlass.Label" parent="">
@@ -72,5 +86,6 @@
         <item name="android:fontFamily">sans-serif-medium</item>
         <item name="android:layout_marginTop">10dp</item>
         <item name="android:layout_marginBottom">4dp</item>
+        <item name="android:letterSpacing">0.04</item>
     </style>
 </resources>
