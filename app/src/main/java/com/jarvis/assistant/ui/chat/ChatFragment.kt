@@ -23,6 +23,7 @@ import com.jarvis.assistant.offline.OfflineLlm
 import com.jarvis.assistant.offline.OfflineModelDownloader
 import com.jarvis.assistant.ui.offline.OfflineModelActivity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -33,6 +34,7 @@ class ChatFragment : Fragment() {
     private val viewModel: MainViewModel get() = (requireActivity() as MainActivity).viewModel
     private var selectedDocument: DocumentAnalysisClient.SelectedDocument? = null
     private var pendingExportText: String = ""
+    private var offlineGenerationJob: Job? = null
     private val chatModePrefs by lazy { requireContext().getSharedPreferences("jarvis_chatbox_preferences", android.content.Context.MODE_PRIVATE) }
     private var selectedChatMode: String = "auto"
 
@@ -104,6 +106,13 @@ class ChatFragment : Fragment() {
         selectedChatMode = chatModePrefs.getString("chat_mode", "auto") ?: "auto"
         refreshChatModeLabel()
         binding.btnSendMessage.setOnClickListener { sendMessage() }
+        binding.btnStopChat.setOnClickListener {
+            offlineGenerationJob?.cancel()
+            offlineGenerationJob = null
+            binding.btnSendMessage.isEnabled = true
+            com.jarvis.assistant.background.JarvisConversationService.stopCurrentResponseImmediately()
+            Toast.makeText(requireContext(), "JARVIS response stopped.", Toast.LENGTH_SHORT).show()
+        }
 
         binding.btnChatNew.setOnClickListener {
             AlertDialog.Builder(requireContext())
@@ -220,13 +229,17 @@ class ChatFragment : Fragment() {
             }
             binding.etMessageInput.text?.clear()
             binding.btnSendMessage.isEnabled = false
-            viewLifecycleOwner.lifecycleScope.launch {
+            offlineGenerationJob = viewLifecycleOwner.lifecycleScope.launch {
                 try {
                     val answer = OfflineLlm.generate(appContext, text)
                     JarvisApp.instance.chatRepository.addTurn(text, answer)
+                } catch (error: kotlinx.coroutines.CancellationException) {
+                    // The Stop control cancels this generation; do not add a misleading error turn.
+                    throw error
                 } catch (error: Exception) {
                     JarvisApp.instance.chatRepository.addTurn(text, "Offline JARVIS could not start the local model. Open Offline JARVIS in the navigation menu and check model status. (" + (error.message ?: "unknown error") + ")")
                 } finally {
+                    offlineGenerationJob = null
                     if (_binding != null) binding.btnSendMessage.isEnabled = true
                 }
             }
