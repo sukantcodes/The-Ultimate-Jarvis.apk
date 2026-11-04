@@ -4955,14 +4955,14 @@ class JarvisConversationService : Service() {
             com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.uiChanges.value.revision
 
         override suspend fun awaitScreenChange(afterRevision: Long, timeoutMs: Long): Boolean {
-            val accessibility = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService
-            if (accessibility.instance == null) {
+            if (com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance == null) {
                 delay(timeoutMs.coerceAtLeast(1L))
                 return false
             }
-            if (accessibility.uiChanges.value.revision > afterRevision) return true
+            val changes = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.uiChanges
+            if (changes.value.revision > afterRevision) return true
             return withTimeoutOrNull(timeoutMs.coerceAtLeast(1L)) {
-                accessibility.uiChanges.first { it.revision > afterRevision }
+                changes.first { it.revision > afterRevision }
                 true
             } ?: false
         }
