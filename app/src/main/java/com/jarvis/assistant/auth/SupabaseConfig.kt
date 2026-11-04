@@ -21,8 +21,10 @@ object SupabaseConfig {
 
     /**
      * Deep link Supabase redirects to after Google sign-in, email confirmation and password reset,
-     * e.g. com.jarvis.assistant://auth-callback/google. The allow-list entry
-     * "com.jarvis.assistant://auth-callback/**" must exist under Authentication > URL Configuration.
+     * e.g. com.jarvis.assistant://auth-callback/google. A wildcard allow-list entry for the path under
+     * auth-callback (see docs/architecture/authentication.md) must exist in Supabase under
+     * Authentication > URL Configuration. The wildcard is written out in the docs, not here, because a
+     * slash-star-star sequence would open a nested comment in Kotlin.
      */
     fun redirectUri(flow: AuthFlow): String = "$REDIRECT_SCHEME://$REDIRECT_HOST/${flow.key}"
 }
