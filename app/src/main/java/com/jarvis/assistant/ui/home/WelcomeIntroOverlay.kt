@@ -206,7 +206,7 @@ object WelcomeIntroOverlay {
 
             val panel = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_HORIZONTAL
+                gravity = Gravity.CENTER
                 setPadding(dp(activity, 24), dp(activity, 18), dp(activity, 24), dp(activity, 18))
                 alpha = 0f
                 translationY = dp(activity, 16).toFloat()
