@@ -29,7 +29,7 @@ object CommandParser {
      */
     /** Warm common deterministic local patterns before the first voice turn. */
     fun prewarm() {
-        listOf("turn on flashlight", "set volume to 40 percent", "set brightness to 50 percent", "open settings").forEach(::parse)
+        listOf("turn on flashlight", "set volume to 40 percent", "set brightness to 50 percent", "open settings").forEach { parse(it) }
     }
 
     fun isAmbiguousPlayQuery(query: String): Boolean {
