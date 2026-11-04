@@ -106,7 +106,7 @@ class HomeFragment : Fragment() {
 
         // Home launchpad shortcuts for frequently used JARVIS modules.
         binding.btnHomeAutomation.setOnClickListener {
-            startActivity(Intent(requireContext(), com.jarvis.assistant.Studio.UI.AutomationStudioActivity::class.java))
+            startActivity(Intent(requireContext(), com.jarvis.assistant.studio.ui.AutomationStudioActivity::class.java))
         }
 
         binding.btnHomeOffline.setOnClickListener {
