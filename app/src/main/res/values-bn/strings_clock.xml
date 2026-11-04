@@ -148,4 +148,16 @@
     <string name="clock_ask_time">অ্যালার্ম কখনকার জন্য সেট করব?</string>
     <string name="clock_ask_ampm">%1$s কি AM নাকি PM?</string>
     <string name="clock_ask_which">আপনি কোন অ্যালার্মের কথা বলছেন? %1$s</string>
+    <string name="clock_alarm_overview">অ্যালার্মের সারসংক্ষেপ</string>
+    <string name="clock_alarm_count">%1$dটি অ্যালার্ম সংরক্ষিত</string>
+    <string name="clock_alarm_active_count">%1$dটি চালু</string>
+    <string name="clock_alarm_off_count">%1$dটি বন্ধ</string>
+    <string name="clock_search_alarms">নাম, সময় বা পুনরাবৃত্তি দিয়ে খুঁজুন</string>
+    <string name="clock_filter_all">সব</string>
+    <string name="clock_filter_on">চালু</string>
+    <string name="clock_filter_off">বন্ধ</string>
+    <string name="clock_alarm_list_heading">আপনার অ্যালার্ম · %1$d</string>
+    <string name="clock_alarm_no_match">এই অনুসন্ধান বা ফিল্টারের সঙ্গে কোনো অ্যালার্ম মেলেনি।</string>
+    <string name="clock_next_alarm_hint">এখানে দেখতে একটি অ্যালার্ম যোগ করুন।</string>
+    <string name="clock_empty_alarm_hint">আপনার প্রথম অ্যালার্ম তৈরি করুন এবং কখন এটি পুনরাবৃত্তি হবে তা বেছে নিন।</string>
 </resources>
