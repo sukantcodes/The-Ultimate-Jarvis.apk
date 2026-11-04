@@ -47,7 +47,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="13sp" />
+            android:textSize="13sp"\n            android:maxLines="2"\n            android:ellipsize="end" />
 
         <TextView
             android:id="@+id/tvRuleActions"
@@ -55,7 +55,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
             android:textColor="?attr/themeTextMuted"
-            android:textSize="12sp" />
+            android:textSize="12sp"\n            android:maxLines="2"\n            android:ellipsize="end" />
     </LinearLayout>
 
     <ImageView
