@@ -245,12 +245,12 @@ class GalleryActivity : AppCompatActivity() {
         val date = DateFormat.getDateTimeInstance().format(Date(item.dateAddedSeconds * 1000))
         val details = buildString {
             append("Name: ").append(item.displayName)
-            append("\\nType: ").append(item.type.name.lowercase().replaceFirstChar { it.uppercase() })
-            append("\\nAlbum: ").append(item.albumName ?: "Unknown")
-            append("\\nDate: ").append(date)
-            append("\\nSize: ").append(formatBytes(item.sizeBytes))
-            item.durationMs?.let { append("\\nDuration: ").append(it / 1000).append(" seconds") }
-            item.mimeType?.let { append("\\nFormat: ").append(it) }
+            append("\nType: ").append(item.type.name.lowercase().replaceFirstChar { it.uppercase() })
+            append("\nAlbum: ").append(item.albumName ?: "Unknown")
+            append("\nDate: ").append(date)
+            append("\nSize: ").append(formatBytes(item.sizeBytes))
+            item.durationMs?.let { append("\nDuration: ").append(it / 1000).append(" seconds") }
+            item.mimeType?.let { append("\nFormat: ").append(it) }
         }
         MaterialAlertDialogBuilder(this)
             .setTitle("Media details")
