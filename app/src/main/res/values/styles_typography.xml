@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App-wide semantic typography roles. Keep sizes in sp for accessibility scaling. -->
+<resources>
+    <style name="TextAppearance.Jarvis.Display" parent="">
+        <item name="android:fontFamily">sans-serif-black</item>
+        <item name="android:textSize">32sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:letterSpacing">-0.025</item>
+        <item name="android:textColor">?attr/themeTextPrimary</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+    <style name="TextAppearance.Jarvis.Headline" parent="">
+        <item name="android:fontFamily">sans-serif-bold</item>
+        <item name="android:textSize">24sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:letterSpacing">-0.01</item>
+        <item name="android:textColor">?attr/themeTextPrimary</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+    <style name="TextAppearance.Jarvis.Title" parent="">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:textColor">?attr/themeTextPrimary</item>
+    </style>
+    <style name="TextAppearance.Jarvis.Body" parent="">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">?attr/themeTextSecondary</item>
+        <item name="android:lineSpacingExtra">2dp</item>
+    </style>
+    <style name="TextAppearance.Jarvis.BodyEmphasis" parent="">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">?attr/themeTextPrimary</item>
+    </style>
+    <style name="TextAppearance.Jarvis.Caption" parent="">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">?attr/themeTextMuted</item>
+    </style>
+    <style name="TextAppearance.Jarvis.Overline" parent="">
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.12</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textColor">?attr/themeTextMuted</item>
+    </style>
+    <style name="TextAppearance.Jarvis.Button" parent="">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:letterSpacing">0.01</item>
+    </style>
+    <style name="TextAppearance.Jarvis.Numeric" parent="">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">24sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+        <item name="android:textColor">?attr/themeTextPrimary</item>
+    </style>
+    <style name="TextAppearance.Jarvis.Technical" parent="">
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">?attr/themeTextSecondary</item>
+    </style>
+    <style name="TextAppearance.Jarvis.Status" parent="">
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.06</item>
+    </style>
+</resources>
