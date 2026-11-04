@@ -18,9 +18,9 @@
     <style name="Widget.JarvisSettings.Row" parent="">
         <item name="android:orientation">horizontal</item>
         <item name="android:gravity">center_vertical</item>
-        <item name="android:minHeight">64dp</item>
-        <item name="android:paddingTop">12dp</item>
-        <item name="android:paddingBottom">12dp</item>
+        <item name="android:minHeight">68dp</item>
+        <item name="android:paddingTop">14dp</item>
+        <item name="android:paddingBottom">14dp</item>
         <item name="android:background">@drawable/bg_settings_glass_row</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
@@ -28,13 +28,13 @@
 
     <style name="Widget.JarvisSettings.IconBox" parent="">
         <item name="android:background">@drawable/bg_jarvis_icon_square</item>
-        <item name="android:elevation">5dp</item>
+        <item name="android:elevation">3dp</item>
         <item name="android:translationZ">1dp</item>
     </style>
 
     <style name="Widget.JarvisSettings.RowTitle" parent="">
         <item name="android:textColor">?attr/themeTextPrimary</item>
-        <item name="android:textSize">15sp</item>
+        <item name="android:textSize">14sp</item>
         <item name="android:textStyle">bold</item>
         <item name="android:fontFamily">sans-serif-medium</item>
     </style>
