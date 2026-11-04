@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="auth_brand">J.A.R.V.I.S.</string>
+    <string name="auth_tagline">PERSONAL AI ASSISTANT</string>
+
+    <string name="auth_login_title">Welcome back</string>
+    <string name="auth_login_subtitle">Sign in to sync your account, or just continue as a guest.</string>
+    <string name="auth_register_title">Create your account</string>
+    <string name="auth_register_subtitle">Use your email, or continue with Google.</string>
+    <string name="auth_forgot_title">Reset your password</string>
+    <string name="auth_forgot_subtitle">We\'ll email you a link to choose a new password.</string>
+    <string name="auth_newpass_title">Choose a new password</string>
+    <string name="auth_newpass_subtitle">You\'re verified. Set a new password for your account.</string>
+
+    <string name="auth_email_hint">Email address</string>
+    <string name="auth_password_hint">Password</string>
+    <string name="auth_new_password_hint">New password</string>
+    <string name="auth_confirm_hint">Confirm password</string>
+
+    <string name="auth_action_login">Log in</string>
+    <string name="auth_action_register">Create account</string>
+    <string name="auth_action_send_reset">Send reset link</string>
+    <string name="auth_action_save_password">Save new password</string>
+    <string name="auth_action_google">Continue with Google</string>
+    <string name="auth_action_guest">Continue as guest</string>
+    <string name="auth_action_not_now">Not now</string>
+    <string name="auth_forgot_link">Forgot password?</string>
+    <string name="auth_or">or</string>
+
+    <string name="auth_switch_to_register">New here? Create an account</string>
+    <string name="auth_switch_to_login">Already have an account? Log in</string>
+    <string name="auth_back_to_login">Back to log in</string>
+
+    <string name="auth_err_email_required">Enter your email address</string>
+    <string name="auth_err_email_invalid">Enter a valid email address</string>
+    <string name="auth_err_password_required">Enter your password</string>
+    <string name="auth_err_password_short">Use at least %1$d characters</string>
+    <string name="auth_err_confirm_required">Re-enter your password</string>
+    <string name="auth_err_confirm_mismatch">Passwords don\'t match</string>
+
+    <string name="auth_status_signing_in">Signing in…</string>
+    <string name="auth_status_creating">Creating your account…</string>
+    <string name="auth_status_sending">Sending reset link…</string>
+    <string name="auth_status_saving">Saving password…</string>
+    <string name="auth_status_finishing">Finishing sign-in…</string>
+    <string name="auth_status_google_browser">Continue in your browser. Return here when you\'re done.</string>
+    <string name="auth_info_confirm_email">Almost there! Open the confirmation link we emailed you, then log in.</string>
+    <string name="auth_info_reset_sent">If an account exists for that email, a reset link is on its way.</string>
+    <string name="auth_info_password_saved">Password updated.</string>
+    <string name="auth_err_no_browser">No web browser is available to continue with Google.</string>
+
+    <string name="drawer_account_sign_in">Sign in / Create account</string>
+    <string name="drawer_account_logout">Log out</string>
+    <string name="drawer_account_logout_title">Log out of JARVIS?</string>
+    <string name="drawer_account_logout_message">You\'ll be signed out of %1$s. Your data on this device stays put.</string>
+    <string name="drawer_account_cancel">Cancel</string>
+    <string name="auth_session_expired_toast">Your session expired. Please sign in again.</string>
+</resources>

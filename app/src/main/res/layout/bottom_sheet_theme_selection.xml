@@ -48,6 +48,142 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <!-- Orb selector: displayed before theme colour choices -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Choose Your Orb"
+                android:textColor="?attr/themeTextPrimary"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Transparent animated visuals • microphone noise suppression supported"
+                android:textColor="?attr/themeTextMuted"
+                android:textSize="12sp"
+                android:layout_marginBottom="10dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="18dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOrbDefault"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🔵  Default Orb"
+                    android:textAllCaps="false" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOrbAurora"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🌌  Aurora Orb • Concentric Light Glow"
+                    android:textAllCaps="false" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOrbIronMan"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🦾  Iron Man • 3D Helmet"
+                    android:textAllCaps="false" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOrbFullCharacter"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🧍  Full Human • 3D Assistant"
+                    android:textAllCaps="false" />
+            </LinearLayout>
+
+            <!-- Orb and icon look controls -->
+            <TextView
+                android:id="@+id/tvOrbControlsTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Orb look"
+                android:textColor="?attr/themeTextPrimary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvOrbControlsHint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:text="Applies to the selected orb"
+                android:textColor="?attr/themeTextMuted"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tvOrbGlowValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Glow"
+                android:textColor="?attr/themeTextSecondary"
+                android:textSize="13sp" />
+
+            <SeekBar
+                android:id="@+id/seekOrbGlow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="200"
+                android:progressTint="?attr/themeAccent"
+                android:thumbTint="?attr/themeAccent" />
+
+            <TextView
+                android:id="@+id/tvOrbSizeValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Size"
+                android:textColor="?attr/themeTextSecondary"
+                android:textSize="13sp" />
+
+            <SeekBar
+                android:id="@+id/seekOrbSize"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="80"
+                android:progressTint="?attr/themeAccent"
+                android:thumbTint="?attr/themeAccent" />
+
+            <TextView
+                android:id="@+id/tvIconShapeValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Settings icon shape"
+                android:textColor="?attr/themeTextSecondary"
+                android:textSize="13sp" />
+
+            <SeekBar
+                android:id="@+id/seekIconShape"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="3"
+                android:progressTint="?attr/themeAccent"
+                android:thumbTint="?attr/themeAccent" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="18dp"
+                android:orientation="horizontal">
+
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Plain" android:textColor="?attr/themeTextMuted" android:textSize="11sp" />
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Rectangular" android:textColor="?attr/themeTextMuted" android:textSize="11sp" />
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Pillowy" android:textColor="?attr/themeTextMuted" android:textSize="11sp" />
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="end" android:text="Circular" android:textColor="?attr/themeTextMuted" android:textSize="11sp" />
+            </LinearLayout>
+
             <!-- Theme 1: Light -->
             <LinearLayout
                 android:id="@+id/cardThemeLight"
@@ -338,6 +474,19 @@
                         app:cornerRadius="10dp"
                         android:layout_marginStart="10dp" />
                 </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSelectMoreColours"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:text="Select More Colours · 50 blends"
+                    android:textAllCaps="false"
+                    android:textColor="?attr/themeTextPrimary"
+                    app:backgroundTint="?attr/themeCardGlassEnd"
+                    app:strokeColor="?attr/themeCardBorder"
+                    app:strokeWidth="1dp"
+                    app:cornerRadius="14dp" />
 
                 <!-- Quick Preset Swatches -->
                 <LinearLayout

@@ -415,6 +415,32 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // Social app instant actions (Instagram + Instazen)
+                        put(JSONObject().apply {
+                            put("name", "social_app_action")
+                            put("description", "Directly opens Instagram or Instazen, opens Instagram search for a requested keyword, or opens Reels/profile without a general AI planning loop. Use for explicit Instagram/Instazen app commands. Supported apps: instagram, instazen. Supported actions: open, search, reels, profile.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("app", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("enum", JSONArray().put("instagram").put("instazen"))
+                                        put("description", "Which app to control: instagram or instazen.")
+                                    })
+                                    put("action", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("enum", JSONArray().put("open").put("search").put("reels").put("profile"))
+                                        put("description", "Action: open the app, search a keyword, open Reels, or open the profile tab.")
+                                    })
+                                    put("query", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Search phrase when action is search.")
+                                    })
+                                })
+                                put("required", JSONArray().put("app").put("action"))
+                            })
+                        })
+
                         // 10. call_contact
                         put(JSONObject().apply {
                             put("name", "call_contact")
@@ -616,6 +642,36 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 15b. device_status
+                        put(JSONObject().apply {
+                            put("name", "device_status")
+                            put("description", "Returns live, on-device non-sensitive status such as current time, battery percentage, charging state, Android version, and available memory. Use for questions about current phone status; do not infer or expose private content.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject())
+                            })
+                        })
+
+                        // 15c. clean_jarvis_cache
+                        put(JSONObject().apply {
+                            put("name", "clean_jarvis_cache")
+                            put("description", "Clears only JARVIS's own temporary cache files. It must never claim to clean other apps or personal files. Use only when the user explicitly asks to clean JARVIS cache or temporary files.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject())
+                            })
+                        })
+
+                        // 15d. show_power_menu
+                        put(JSONObject().apply {
+                            put("name", "show_power_menu")
+                            put("description", "Opens Android's system power menu so the user can choose Restart or Power off themselves. This does not reboot automatically and must only be used when the user explicitly asks to restart or power off.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject())
+                            })
+                        })
+
                         // 16. click_ui_element
                         put(JSONObject().apply {
                             put("name", "click_ui_element")
@@ -736,6 +792,22 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 22. use_skill (loads the step-by-step playbook of an installed skill)
+                        put(JSONObject().apply {
+                            put("name", "use_skill")
+                            put("description", "Loads the full step-by-step playbook of an installed skill. When the user's request matches a skill listed under INSTALLED SKILLS in your instructions, call this FIRST with that skill's name, then follow the steps using only your real tools. Do not call it for ordinary conversation.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("name", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "The skill's exact name, for example whatsapp-pro.")
+                                    })
+                                })
+                                put("required", JSONArray().put("name"))
+                            })
+                        })
+
                         // 21. inspect_screen
                         put(JSONObject().apply {
                             put("name", "inspect_screen")
@@ -746,6 +818,19 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+
+
+                        // 23. Amazon App Mastery (search, compare, cart, checkout preparation, confirmed order)
+                        com.jarvis.assistant.automation.amazon.AmazonTools.declarations().forEach { put(it) }
+
+                        // 24. Rapido App Mastery (fares, comparison, confirmed booking, status, confirmed cancel)
+                        com.jarvis.assistant.automation.rapido.RapidoTools.declarations().forEach { put(it) }
+
+                        // 25. Blinkit App Mastery (search, value comparison, budget plan, cart, address, confirmed order, status)
+                        com.jarvis.assistant.automation.blinkit.BlinkitTools.declarations().forEach { put(it) }
+
+                        // 26. Alarm clock (Settings > Clock): set, change, enable/disable, delete, list, next, snooze, stop, open settings
+                        com.jarvis.assistant.clock.ClockTools.declarations().forEach { put(it) }
 
                     })
                 }))

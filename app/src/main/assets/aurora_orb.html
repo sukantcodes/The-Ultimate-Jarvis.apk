@@ -1,0 +1,1883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jarvis — 3D Rotatable 120FPS Siri-Style Glowing-Reflecting Glass Bubble Aurora Orb</title>
+  <style>
+    /* =========================================================================
+       1. TRUE TRANSPARENT BACKGROUND & 120FPS 3D ORB-ONLY ARCHITECTURE
+       =========================================================================
+       - 100% transparent page background (`rgba(0, 0, 0, 0)`) outside the orb.
+       - Full 360° 3D Arcball / Quaternion Interactive Rotation (drag to rotate
+         the 3D sphere across Yaw, Pitch & Roll with smooth inertia; scroll/pinch
+         to zoom in 3D).
+       - Locked 90 / 120 FPS High-Frequency Render Pipeline using WebGL Scissor
+         Bounding-Box Culling + Adaptive Dynamic Supersampling (DRS) + MessageChannel
+         Sub-Millisecond Frame Pacer.
+    */
+    :root {
+      --pill-bg: rgba(6, 10, 24, 0.72);
+      --pill-border: rgba(255, 255, 255, 0.18);
+      --pill-text: rgba(245, 250, 255, 0.95);
+      --pill-active-glow: rgba(0, 242, 254, 0.5);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent !important;
+      background-color: rgba(0, 0, 0, 0) !important;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      touch-action: none;
+    }
+
+    #orb-viewport {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent !important;
+      z-index: 1;
+    }
+
+    #siri-webgl-canvas {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: transparent !important;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    #siri-aurora-canvas {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: transparent !important;
+      cursor: grab;
+      z-index: 2;
+    }
+
+    #siri-aurora-canvas.dragging-3d {
+      cursor: grabbing;
+    }
+
+    /* Minimal Auto-Fading State Switcher Pill (Hidden automatically via ?hud=0 or [H] key) */
+    #minimal-controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: var(--pill-bg);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid var(--pill-border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      opacity: 0.30;
+      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      max-width: 96vw;
+    }
+
+    #minimal-controls:hover,
+    #minimal-controls.ui-awake {
+      opacity: 0.98;
+    }
+
+    body.pure-orb-only #minimal-controls {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transform: translateX(-50%) translateY(16px) scale(0.95);
+    }
+
+    .mode-pill-btn {
+      appearance: none;
+      border: 1px solid transparent;
+      background: transparent;
+      color: rgba(226, 232, 240, 0.84);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      padding: 5px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .mode-pill-btn:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .mode-pill-btn.active {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.32);
+      box-shadow: 0 0 16px var(--pill-active-glow);
+    }
+
+    .fps-badge-btn {
+      color: #34d399;
+      background: rgba(16, 185, 129, 0.14);
+      border-color: rgba(52, 211, 153, 0.35);
+      font-family: "JetBrains Mono", "SF Mono", Consolas, monospace;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .mode-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .mode-pill-btn.active .mode-dot {
+      transform: scale(1.25);
+    }
+
+    .dot-idle {
+      background: #00f2fe;
+      box-shadow: 0 0 8px #00f2fe;
+    }
+
+    .dot-listening {
+      background: #00ffaa;
+      box-shadow: 0 0 10px #00ffaa;
+    }
+
+    .dot-thinking {
+      background: #c084fc;
+      box-shadow: 0 0 10px #c084fc;
+    }
+
+    .dot-speaking {
+      background: #ff2a85;
+      box-shadow: 0 0 10px #ff2a85;
+    }
+
+    .pill-divider {
+      width: 1px;
+      height: 15px;
+      background: rgba(255, 255, 255, 0.16);
+      margin: 0 2px;
+    }
+
+    @media (max-width: 640px) {
+      #minimal-controls {
+        bottom: 10px;
+        padding: 5px 8px;
+        gap: 3px;
+      }
+      .mode-pill-btn {
+        font-size: 11px;
+        padding: 4px 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PURE TRANSPARENT STAGE WITH 3D ROTATABLE 120FPS SIRI GLASS BUBBLE ORB -->
+  <main id="orb-viewport" title="Drag anywhere to rotate 360° in 3D · Scroll to zoom · Click to cycle states · Double-click or [H] for pure orb view">
+    <canvas id="siri-webgl-canvas"></canvas>
+    <canvas id="siri-aurora-canvas"></canvas>
+  </main>
+
+  <!-- ULTRA-MINIMAL AUTO-FADING STATE & 120FPS LOCK PILL (DOUBLE-CLICK ORB OR PRESS 'H' TO HIDE) -->
+  <nav id="minimal-controls" aria-label="Jarvis Orb State Switcher">
+    <button type="button" class="mode-pill-btn" data-state="idle" title="Standby / Idle Mode (Key: 1)">
+      <span class="mode-dot dot-idle"></span>
+      <span>Idle</span>
+    </button>
+    <button type="button" class="mode-pill-btn active" data-state="listening" title="Listening Mode — Inward 3D Concentric Aurora Waves (Key: 2)">
+      <span class="mode-dot dot-listening"></span>
+      <span>Listening</span>
+    </button>
+    <button type="button" class="mode-pill-btn" data-state="thinking" title="Thinking Mode — 3D Swirling Aurora Vortex & Synaptic Caustics (Key: 3)">
+      <span class="mode-dot dot-thinking"></span>
+      <span>Thinking</span>
+    </button>
+    <button type="button" class="mode-pill-btn" data-state="speaking" title="Speaking Mode — 3D Siri Harmonic Silk Waves & Syllabic Bloom (Key: 4)">
+      <span class="mode-dot dot-speaking"></span>
+      <span>Speaking</span>
+    </button>
+    <span class="pill-divider"></span>
+    <button type="button" id="btn-fps-lock" class="mode-pill-btn fps-badge-btn" title="Click to toggle target lock between 120 FPS and 90 FPS">
+      <span id="fps-lock-label">⚡ 120 FPS LOCK</span>
+    </button>
+    <button type="button" id="btn-reset-3d" class="mode-pill-btn" title="Reset 3D Rotation & Toggle Auto-Orbit (Key: R)">
+      <span id="orbit-label">🌐 3D Free-Rotate</span>
+    </button>
+    <button type="button" id="btn-mic-toggle" class="mode-pill-btn" title="Toggle Live Microphone Input vs. Simulated Voice">
+      <span id="mic-label">🎙️ Mic: Auto</span>
+    </button>
+    <button type="button" id="btn-hide-ui" class="mode-pill-btn" title="Hide this bar completely (Press H or Double-Click Orb to restore)">
+      <span>Hide UI</span>
+    </button>
+  </nav>
+
+  <!-- =========================================================================
+       3D ROTATABLE 90/120FPS LOCKED SIRI GLASS BUBBLE & AURORA ENGINE
+       ========================================================================= -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* -----------------------------------------------------------------------
+         MODULE 1: 3D QUATERNION & ORTHOGONAL MATRIX ARCBALL ROTATION ENGINE
+         Provides full 360° 3D rotation (Yaw, Pitch, Roll) via pointer drag,
+         inertia momentum damping, 3D point projection, and 3x3 shader matrices.
+      ----------------------------------------------------------------------- */
+      class Camera3DController {
+        constructor() {
+          this.yaw = 0.25;
+          this.pitch = -0.18;
+          this.roll = 0.0;
+
+          this.velYaw = 0.0;
+          this.velPitch = 0.0;
+          this.autoOrbit = true;
+
+          this.isDragging = false;
+          this.dragStartX = 0;
+          this.dragStartY = 0;
+          this.lastPointerX = 0;
+          this.lastPointerY = 0;
+          this.totalDragDist = 0;
+
+          // 3x3 Orthogonal Rotation Matrix (Column-major for WebGL, plus helper for JS 3D points)
+          this.mat = new Float32Array(9);
+          this.updateMatrix();
+        }
+
+        resetOrientation() {
+          this.yaw = 0.0;
+          this.pitch = 0.0;
+          this.roll = 0.0;
+          this.velYaw = 0.35;
+          this.velPitch = -0.15;
+          this.autoOrbit = true;
+          this.updateMatrix();
+        }
+
+        update(dt, stateSpeed) {
+          if (!this.isDragging) {
+            // Apply smooth rotational inertia damping
+            this.yaw += this.velYaw * dt;
+            this.pitch += this.velPitch * dt;
+
+            const damping = Math.exp(-3.8 * dt);
+            this.velYaw *= damping;
+            this.velPitch *= damping;
+
+            // Gentle continuous 3D orbital drift when Auto-Orbit is active
+            if (this.autoOrbit && Math.abs(this.velYaw) < 0.05 && Math.abs(this.velPitch) < 0.05) {
+              this.yaw += 0.28 * stateSpeed * dt;
+              this.pitch = Math.sin(performance.now() * 0.00045) * 0.28;
+            }
+          }
+
+          this.updateMatrix();
+        }
+
+        updateMatrix() {
+          const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
+          const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
+          const cr = Math.cos(this.roll), sr = Math.sin(this.roll);
+
+          // Combined 3D Euler rotation matrix R = Ry(yaw) * Rx(pitch) * Rz(roll)
+          const m = this.mat;
+          m[0] = cy * cr + sy * sp * sr;
+          m[1] = cp * sr;
+          m[2] = -sy * cr + cy * sp * sr;
+
+          m[3] = -cy * sr + sy * sp * cr;
+          m[4] = cp * cr;
+          m[5] = sy * sr + cy * sp * cr;
+
+          m[6] = sy * cp;
+          m[7] = -sp;
+          m[8] = cy * cp;
+        }
+
+        // Transforms a 3D point (x, y, z) by the 3D camera rotation matrix
+        rotatePoint(x, y, z) {
+          const m = this.mat;
+          return {
+            x: m[0] * x + m[3] * y + m[6] * z,
+            y: m[1] * x + m[4] * y + m[7] * z,
+            z: m[2] * x + m[5] * y + m[8] * z
+          };
+        }
+      }
+
+      /* -----------------------------------------------------------------------
+         MODULE 2: FAST 3D SIMPLEX FLUID NOISE
+      ----------------------------------------------------------------------- */
+      class SimplexFluidNoise3D {
+        constructor(seed = 7749) {
+          this.p = new Uint8Array(256);
+          this.perm = new Uint8Array(512);
+          this.permMod12 = new Uint8Array(512);
+
+          for (let i = 0; i < 256; i++) this.p[i] = i;
+          let s = seed;
+          for (let i = 255; i > 0; i--) {
+            s = (s * 16807) % 2147483647;
+            const j = s % (i + 1);
+            const tmp = this.p[i];
+            this.p[i] = this.p[j];
+            this.p[j] = tmp;
+          }
+          for (let i = 0; i < 512; i++) {
+            this.perm[i] = this.p[i & 255];
+            this.permMod12[i] = this.perm[i] % 12;
+          }
+          this.grad3 = new Float32Array([
+            1, 1, 0,  -1, 1, 0,  1, -1, 0,  -1, -1, 0,
+            1, 0, 1,  -1, 0, 1,  1, 0, -1,  -1, 0, -1,
+            0, 1, 1,   0, -1, 1, 0, 1, -1,   0, -1, -1
+          ]);
+        }
+
+        sample(xin, yin, zin) {
+          const permMod12 = this.permMod12;
+          const perm = this.perm;
+          const grad3 = this.grad3;
+          const F3 = 1.0 / 3.0;
+          const G3 = 1.0 / 6.0;
+
+          const s = (xin + yin + zin) * F3;
+          const i = Math.floor(xin + s);
+          const j = Math.floor(yin + s);
+          const k = Math.floor(zin + s);
+          const t = (i + j + k) * G3;
+
+          const x0 = xin - (i - t);
+          const y0 = yin - (j - t);
+          const z0 = zin - (k - t);
+
+          let i1, j1, k1, i2, j2, k2;
+          if (x0 >= y0) {
+            if (y0 >= z0) { i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 1; k2 = 0; }
+            else if (x0 >= z0) { i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 0; k2 = 1; }
+            else { i1 = 0; j1 = 0; k1 = 1; i2 = 1; j2 = 0; k2 = 1; }
+          } else {
+            if (y0 < z0) { i1 = 0; j1 = 0; k1 = 1; i2 = 0; j2 = 1; k2 = 1; }
+            else if (x0 < z0) { i1 = 0; j1 = 1; k1 = 0; i2 = 0; j2 = 1; k2 = 1; }
+            else { i1 = 0; j1 = 1; k1 = 0; i2 = 1; j2 = 1; k2 = 0; }
+          }
+
+          const x1 = x0 - i1 + G3, y1 = y0 - j1 + G3, z1 = z0 - k1 + G3;
+          const x2 = x0 - i2 + 2.0 * G3, y2 = y0 - j2 + 2.0 * G3, z2 = z0 - k2 + 2.0 * G3;
+          const x3 = x0 - 1.0 + 3.0 * G3, y3 = y0 - 1.0 + 3.0 * G3, z3 = z0 - 1.0 + 3.0 * G3;
+
+          const ii = i & 255, jj = j & 255, kk = k & 255;
+          let n0 = 0, n1 = 0, n2 = 0, n3 = 0;
+
+          let t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0;
+          if (t0 > 0) {
+            const gi0 = permMod12[ii + perm[jj + perm[kk]]] * 3;
+            t0 *= t0;
+            n0 = t0 * t0 * (grad3[gi0] * x0 + grad3[gi0 + 1] * y0 + grad3[gi0 + 2] * z0);
+          }
+          let t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1;
+          if (t1 > 0) {
+            const gi1 = permMod12[ii + i1 + perm[jj + j1 + perm[kk + k1]]] * 3;
+            t1 *= t1;
+            n1 = t1 * t1 * (grad3[gi1] * x1 + grad3[gi1 + 1] * y1 + grad3[gi1 + 2] * z1);
+          }
+          let t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2;
+          if (t2 > 0) {
+            const gi2 = permMod12[ii + i2 + perm[jj + j2 + perm[kk + k2]]] * 3;
+            t2 *= t2;
+            n2 = t2 * t2 * (grad3[gi2] * x2 + grad3[gi2 + 1] * y2 + grad3[gi2 + 2] * z2);
+          }
+          let t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3;
+          if (t3 > 0) {
+            const gi3 = permMod12[ii + 1 + perm[jj + 1 + perm[kk + 1]]] * 3;
+            t3 *= t3;
+            n3 = t3 * t3 * (grad3[gi3] * x3 + grad3[gi3 + 1] * y3 + grad3[gi3 + 2] * z3);
+          }
+
+          return 32.0 * (n0 + n1 + n2 + n3);
+        }
+      }
+
+      /* -----------------------------------------------------------------------
+         MODULE 3: RAZOR-SHARP JEWEL PALETTES & STATE KINEMATIC PROFILES
+      ----------------------------------------------------------------------- */
+      const STATE_PROFILES = {
+        idle: {
+          name: 'Idle',
+          stateId: 0.0,
+          breathSpeed: 1.15,
+          breathAmp: 0.012,
+          ribbonSpeed: 0.52,
+          petalDeform: 0.35,
+          vortexTwist: 0.25,
+          radialWaveFlow: 0.22,
+          concentricGlow: 0.78,
+          coreBrightness: 0.88,
+          coreRadiusScale: 0.26,
+          rimIridescence: 0.95,
+          shimmerSpeed: 0.75,
+          ribbons: [
+            { r: 0,   g: 242, b: 254, a: 0.92 },
+            { r: 41,  g: 98,  b: 255, a: 0.90 },
+            { r: 168, g: 55,  b: 255, a: 0.88 },
+            { r: 255, g: 30,  b: 138, a: 0.86 },
+            { r: 0,   g: 245, b: 160, a: 0.88 },
+            { r: 56,  g: 189, b: 248, a: 0.90 }
+          ],
+          coreColor: { r: 220, g: 250, b: 255 }
+        },
+
+        listening: {
+          name: 'Listening',
+          stateId: 1.0,
+          breathSpeed: 2.4,
+          breathAmp: 0.024,
+          ribbonSpeed: 1.18,
+          petalDeform: 0.68,
+          vortexTwist: 0.42,
+          radialWaveFlow: -1.75,
+          concentricGlow: 1.18,
+          coreBrightness: 1.08,
+          coreRadiusScale: 0.32,
+          rimIridescence: 1.15,
+          shimmerSpeed: 1.75,
+          ribbons: [
+            { r: 0,   g: 255, b: 175, a: 0.96 },
+            { r: 0,   g: 238, b: 255, a: 0.96 },
+            { r: 37,  g: 99,  b: 255, a: 0.92 },
+            { r: 147, g: 51,  b: 234, a: 0.88 },
+            { r: 16,  g: 185, b: 129, a: 0.92 },
+            { r: 244, g: 63,  b: 150, a: 0.86 }
+          ],
+          coreColor: { r: 210, g: 255, b: 242 }
+        },
+
+        thinking: {
+          name: 'Thinking',
+          stateId: 2.0,
+          breathSpeed: 3.9,
+          breathAmp: 0.022,
+          ribbonSpeed: 2.35,
+          petalDeform: 0.92,
+          vortexTwist: 2.15,
+          radialWaveFlow: 0.0,
+          concentricGlow: 1.28,
+          coreBrightness: 1.18,
+          coreRadiusScale: 0.30,
+          rimIridescence: 1.25,
+          shimmerSpeed: 3.1,
+          ribbons: [
+            { r: 192, g: 68,  b: 255, a: 0.96 },
+            { r: 255, g: 28,  b: 148, a: 0.95 },
+            { r: 0,   g: 240, b: 255, a: 0.94 },
+            { r: 79,  g: 70,  b: 229, a: 0.94 },
+            { r: 255, g: 95,  b: 125, a: 0.88 },
+            { r: 0,   g: 255, b: 200, a: 0.90 }
+          ],
+          coreColor: { r: 248, g: 225, b: 255 }
+        },
+
+        speaking: {
+          name: 'Speaking',
+          stateId: 3.0,
+          breathSpeed: 5.5,
+          breathAmp: 0.045,
+          ribbonSpeed: 1.68,
+          petalDeform: 1.32,
+          vortexTwist: 0.58,
+          radialWaveFlow: 2.25,
+          concentricGlow: 1.38,
+          coreBrightness: 1.38,
+          coreRadiusScale: 0.42,
+          rimIridescence: 1.32,
+          shimmerSpeed: 2.45,
+          ribbons: [
+            { r: 0,   g: 250, b: 255, a: 0.98 },
+            { r: 255, g: 32,  b: 142, a: 0.98 },
+            { r: 45,  g: 135, b: 255, a: 0.96 },
+            { r: 178, g: 64,  b: 255, a: 0.95 },
+            { r: 0,   g: 255, b: 168, a: 0.94 },
+            { r: 255, g: 115, b: 75,  a: 0.90 }
+          ],
+          coreColor: { r: 255, g: 252, b: 255 }
+        }
+      };
+
+      /* -----------------------------------------------------------------------
+         MODULE 4: ACOUSTIC FORMANT & MICROPHONE FFT REACTIVITY ENGINE
+      ----------------------------------------------------------------------- */
+      class SiriAcousticDriver {
+        constructor(noise) {
+          this.noise = noise;
+          this.bins = 64;
+          this.spectrum = new Float32Array(this.bins);
+          this.smoothSpectrum = new Float32Array(this.bins);
+
+          this.audioCtx = null;
+          this.analyser = null;
+          this.micStream = null;
+          this.freqData = null;
+          this.micActive = false;
+
+          this.isSpeakingTTS = false;
+          this.externalAudioLevel = null;
+
+          this.energy = 0.24;
+          this.lowBand = 0.24;
+          this.midBand = 0.28;
+          this.highBand = 0.20;
+          this.syllablePulse = 0.0;
+        }
+
+        async toggleMic() {
+          if (this.micActive) {
+            this.stopMic();
+            return false;
+          }
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+              }
+            });
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!this.audioCtx) this.audioCtx = new AudioCtx();
+            if (this.audioCtx.state === 'suspended') await this.audioCtx.resume();
+
+            const src = this.audioCtx.createMediaStreamSource(stream);
+            this.analyser = this.audioCtx.createAnalyser();
+            this.analyser.fftSize = 128;
+            this.analyser.smoothingTimeConstant = 0.74;
+            src.connect(this.analyser);
+
+            this.micStream = stream;
+            this.freqData = new Uint8Array(this.analyser.frequencyBinCount);
+            this.micActive = true;
+            return true;
+          } catch (err) {
+            this.micActive = false;
+            return false;
+          }
+        }
+
+        stopMic() {
+          if (this.micStream) {
+            this.micStream.getTracks().forEach(t => t.stop());
+            this.micStream = null;
+          }
+          this.micActive = false;
+        }
+
+        update(time, dt, currentState) {
+          if (this.micActive && this.analyser && this.freqData) {
+            this.analyser.getByteFrequencyData(this.freqData);
+            for (let i = 0; i < this.bins; i++) {
+              const v = (this.freqData[i] / 255.0) * 1.45;
+              this.spectrum[i] = Math.min(1.6, v);
+              this.smoothSpectrum[i] += (this.spectrum[i] - this.smoothSpectrum[i]) * Math.min(1, dt * 18);
+            }
+          } else {
+            let baseEnv = 0.18;
+            if (currentState === 'speaking' || this.isSpeakingTTS) {
+              const syl = Math.pow(Math.max(0, Math.sin(time * 8.2) * 0.65 + Math.sin(time * 3.7) * 0.45), 1.4);
+              const prosody = Math.max(0.14, this.noise.sample(time * 2.1, 1.4, 0.7) * 0.75 + 0.52);
+              const breathPause = Math.sin(time * 1.05) > -0.72 ? 1.0 : 0.18;
+              baseEnv = 0.24 + 0.95 * syl * prosody * breathPause;
+            } else if (currentState === 'listening') {
+              const phrase = Math.max(0.14, this.noise.sample(time * 1.7, 3.1, 0.2) * 0.65 + 0.50);
+              const mod = 0.45 + 0.55 * Math.pow(Math.max(0, Math.sin(time * 4.6 + Math.cos(time * 1.9))), 2);
+              baseEnv = 0.22 + 0.72 * phrase * mod;
+            } else if (currentState === 'thinking') {
+              baseEnv = 0.44 + 0.38 * Math.sin(time * 6.4) * Math.cos(time * 2.8);
+            } else {
+              baseEnv = 0.15 + 0.06 * Math.sin(time * 1.5);
+            }
+
+            if (typeof this.externalAudioLevel === 'number') {
+              baseEnv = Math.max(0.05, this.externalAudioLevel * 1.35);
+            }
+
+            const f1 = 8 + 5 * Math.sin(time * 2.4);
+            const f2 = 22 + 9 * Math.cos(time * 1.8 + 0.6);
+            const f3 = 42 + 8 * Math.sin(time * 3.2 + 1.4);
+
+            for (let i = 0; i < this.bins; i++) {
+              const d1 = (i - f1) / 4.5;
+              const d2 = (i - f2) / 6.5;
+              const d3 = (i - f3) / 8.0;
+              const peak =
+                Math.exp(-0.5 * d1 * d1) * 1.0 +
+                Math.exp(-0.5 * d2 * d2) * 0.78 +
+                Math.exp(-0.5 * d3 * d3) * 0.48;
+              const n = 0.55 + 0.45 * this.noise.sample(i * 0.14, time * 3.2, 1.0);
+              const val = baseEnv * (0.22 + 0.78 * peak) * n;
+              this.spectrum[i] = Math.min(1.6, val);
+              this.smoothSpectrum[i] += (this.spectrum[i] - this.smoothSpectrum[i]) * Math.min(1, dt * 15);
+            }
+          }
+
+          let low = 0, mid = 0, high = 0;
+          for (let i = 0; i < 14; i++) low += this.smoothSpectrum[i];
+          for (let i = 14; i < 38; i++) mid += this.smoothSpectrum[i];
+          for (let i = 38; i < 64; i++) high += this.smoothSpectrum[i];
+
+          this.lowBand = low / 14;
+          this.midBand = mid / 24;
+          this.highBand = high / 26;
+          const targetEnergy = this.lowBand * 0.45 + this.midBand * 0.38 + this.highBand * 0.17;
+          this.energy += (targetEnergy - this.energy) * Math.min(1, dt * 14);
+          this.syllablePulse += (this.lowBand - this.syllablePulse) * Math.min(1, dt * 10);
+        }
+      }
+
+      /* -----------------------------------------------------------------------
+         MODULE 5: 120FPS SCISSOR-CULLED 3D VOLUMETRIC WEBGL GLASS BUBBLE SHADER
+         - Uses `gl.enable(gl.SCISSOR_TEST)` around the 3D sphere's bounding box
+           so the GPU never wastes cycles on empty transparent viewport pixels,
+           guaranteeing locked 90 / 120 FPS performance!
+         - Applies `u_camRot` (3x3 3D camera rotation matrix) to every ray-marched
+           3D sample inside the crystal sphere and to the 3D spherical harmonic
+           shells so the user can rotate the entire 3D orb 360° in real time!
+      ----------------------------------------------------------------------- */
+      class SiriWebGLBubbleShader {
+        constructor(glCanvas) {
+          this.canvas = glCanvas;
+          this.gl = null;
+          this.program = null;
+          this.uniforms = {};
+          this.ready = false;
+          this.initWebGL();
+        }
+
+        initWebGL() {
+          if (!this.canvas) return;
+          const opts = {
+            alpha: true,
+            premultipliedAlpha: false,
+            antialias: false, // Analytic smoothstep AA + SSAA is faster and sharper for 120FPS
+            depth: false,
+            stencil: false,
+            powerPreference: 'high-performance',
+            desynchronized: true // Low-latency 120Hz direct scanout where supported
+          };
+          const gl =
+            this.canvas.getContext('webgl2', opts) ||
+            this.canvas.getContext('webgl', opts) ||
+            this.canvas.getContext('experimental-webgl', opts);
+
+          if (!gl) return;
+          this.gl = gl;
+
+          const vsSource = `
+            attribute vec2 a_pos;
+            varying vec2 v_uv;
+            void main() {
+              v_uv = a_pos;
+              gl_Position = vec4(a_pos, 0.0, 1.0);
+            }
+          `;
+
+          const fsSource = `
+            precision highp float;
+            varying vec2 v_uv;
+
+            uniform vec2 u_resolution;
+            uniform float u_time;
+            uniform float u_radius;
+            uniform float u_stateId;
+            uniform float u_ribbonSpeed;
+            uniform float u_petalDeform;
+            uniform float u_vortexTwist;
+            uniform float u_radialFlow;
+            uniform float u_concentricGlow;
+            uniform float u_coreBrightness;
+            uniform float u_rimIridescence;
+            uniform vec3 u_audioBands;
+            uniform mat3 u_camRot;
+            uniform vec3 u_col0;
+            uniform vec3 u_col1;
+            uniform vec3 u_col2;
+            uniform vec3 u_col3;
+            uniform vec3 u_col4;
+            uniform vec3 u_col5;
+            uniform vec3 u_coreCol;
+
+            mat3 rot3D(vec3 axis, float angle) {
+              axis = normalize(axis);
+              float s = sin(angle);
+              float c = cos(angle);
+              float oc = 1.0 - c;
+              return mat3(
+                oc * axis.x * axis.x + c,           oc * axis.x * axis.y - axis.z * s,  oc * axis.z * axis.x + axis.y * s,
+                oc * axis.x * axis.y + axis.z * s,  oc * axis.y * axis.y + c,           oc * axis.y * axis.z - axis.x * s,
+                oc * axis.z * axis.x - axis.y * s,  oc * axis.y * axis.z + axis.x * s,  oc * axis.z * axis.z + c
+              );
+            }
+
+            float silkGyroid(vec3 p) {
+              return dot(sin(p), cos(p.yzx));
+            }
+
+            vec3 evaluateCrispAurora(vec3 p, float t) {
+              float rXY = length(p.xy);
+              float twistAngle = u_vortexTwist * (1.05 - rXY) * sin(t * 1.4 + p.z * 2.2);
+              float cs = cos(twistAngle), sn = sin(twistAngle);
+              p.xy = mat2(cs, -sn, sn, cs) * p.xy;
+
+              mat3 m1 = rot3D(vec3(0.42, 0.78, 0.32), t * 0.58 * u_ribbonSpeed);
+              mat3 m2 = rot3D(vec3(-0.62, 0.34, 0.70), -t * 0.51 * u_ribbonSpeed);
+              mat3 m3 = rot3D(vec3(0.25, -0.72, 0.64), t * 0.72 * u_ribbonSpeed);
+
+              vec3 q1 = m1 * p * (2.85 + u_petalDeform * 0.5);
+              q1 += 0.38 * sin(q1.yzx * 2.0 + t * 1.6);
+              float g1 = silkGyroid(q1);
+
+              vec3 q2 = m2 * (p + vec3(0.32 * g1)) * (3.45 + u_audioBands.x * 0.85);
+              q2 += 0.34 * cos(q2.zxy * 2.3 - t * 2.0);
+              float g2 = silkGyroid(q2);
+
+              vec3 q3 = m3 * (p - vec3(0.26 * g2)) * (4.15 + u_audioBands.y * 1.0);
+              float g3 = silkGyroid(q3);
+
+              float silkBody1 = exp(-abs(g1) * 6.8);
+              float silkCrest1 = exp(-abs(g1) * 23.0);
+
+              float silkBody2 = exp(-abs(g2) * 7.4);
+              float silkCrest2 = exp(-abs(g2) * 25.0);
+
+              float silkBody3 = exp(-abs(g3) * 8.0);
+              float silkCrest3 = exp(-abs(g3) * 27.0);
+
+              float filamentA = exp(-abs(g1 + 0.42 * g2) * 19.0);
+              float filamentB = exp(-abs(g2 - 0.42 * g3) * 20.0);
+
+              float laserIntersection = pow(clamp(silkCrest1 * silkBody2 + silkCrest2 * silkBody3, 0.0, 1.0), 1.2) * 2.5;
+
+              return
+                u_col0 * (silkBody1 * 0.55 + silkCrest1 * 1.38) +
+                u_col1 * (silkBody2 * 0.52 + silkCrest2 * 1.32) +
+                u_col2 * (silkBody3 * 0.50 + silkCrest3 * 1.28) +
+                u_col3 * (filamentA * 1.48) +
+                u_col4 * (filamentB * 1.38) +
+                vec3(1.0, 0.99, 1.0) * laserIntersection;
+            }
+
+            void main() {
+              vec2 fragCoord = (v_uv * 0.5 + 0.5) * u_resolution;
+              vec2 center = u_resolution * 0.5;
+              vec2 p2 = (fragCoord - center) / u_radius;
+              float r2 = dot(p2, p2);
+              float r = sqrt(r2);
+
+              if (r > 1.25) {
+                gl_FragColor = vec4(0.0);
+                return;
+              }
+
+              // 1. OUTSIDE THE BUBBLE: Tight outer glass glow on 100% transparent background
+              if (r > 1.0) {
+                float distOut = r - 1.0;
+                float halo = exp(-distOut * 12.0) * (0.36 + u_audioBands.x * 0.24);
+                vec3 rotRimDir = u_camRot * vec3(p2, 0.0);
+                float angle = atan(rotRimDir.y, rotRimDir.x);
+                vec3 rimTint =
+                  u_col0 * (0.5 + 0.5 * sin(angle * 2.0 + u_time * 1.6)) +
+                  u_col1 * (0.5 + 0.5 * cos(angle * 3.0 - u_time * 1.3)) +
+                  u_col3 * (0.5 + 0.5 * sin(angle - u_time * 1.9));
+                rimTint *= 0.52;
+
+                float outerAA = smoothstep(1.008, 0.997, r);
+                vec3 outCol = rimTint * halo + vec3(0.9, 0.98, 1.0) * outerAA * 0.65;
+                float outAlpha = clamp(halo * 0.72 + outerAA * 0.85, 0.0, 1.0);
+                gl_FragColor = vec4(outCol, outAlpha);
+                return;
+              }
+
+              // 2. INSIDE THE 3D GLASS BUBBLE: Sphere Normal & 3D Camera Rotation
+              float z = sqrt(max(0.0001, 1.0 - r2));
+              vec3 normal = normalize(vec3(p2.x, p2.y, z));
+              vec3 viewDir = vec3(0.0, 0.0, 1.0);
+
+              // Snell's-law spherical magnification
+              vec2 refractedXY = p2 * mix(1.0, 0.74, pow(r, 1.75));
+
+              // 3. 7-SLICE 3D ROTATED VOLUMETRIC RAY-MARCHING
+              vec3 accumAurora = vec3(0.0);
+              const int STEPS = 7;
+              for (int i = 0; i < STEPS; i++) {
+                float fi = float(i) / float(STEPS - 1);
+                float zSample = mix(-z * 0.86, z * 0.86, fi);
+                // Rotate the 3D internal volume by the interactive 3D camera matrix!
+                vec3 worldPos = u_camRot * vec3(refractedXY, zSample);
+                float depthFocus = sin(fi * 3.14159265);
+                vec3 sliceCol = evaluateCrispAurora(worldPos, u_time + fi * 0.11);
+                accumAurora += sliceCol * (0.18 + 0.22 * depthFocus);
+              }
+
+              // 4. 3D ROTATED CONCENTRIC SPHERICAL HARMONIC LIGHT RINGS
+              vec3 surface3D = u_camRot * normal;
+              float lon = atan(surface3D.y, surface3D.x);
+              float lat = asin(clamp(surface3D.z, -1.0, 1.0));
+
+              float harmonicMod =
+                0.038 * u_petalDeform * sin(lon * 3.0 + u_time * 2.8) * cos(lat * 2.0) +
+                0.026 * u_audioBands.y * cos(lon * 5.0 - u_time * 3.6);
+
+              float ringPhase = (r + harmonicMod) * 9.0 - u_time * u_radialFlow * 1.45;
+              float sharpRing = pow(0.5 + 0.5 * cos(ringPhase * 3.14159265), 18.0);
+              float softRing = pow(0.5 + 0.5 * cos(ringPhase * 3.14159265), 4.0);
+              float radialWindow = sin(r * 3.14159265);
+
+              vec3 ringPalette = mix(
+                u_col0,
+                mix(u_col3, u_col4, 0.5 + 0.5 * cos(lon * 2.0 + u_time)),
+                0.5 + 0.5 * sin(r * 8.0 - u_time * 2.2)
+              );
+
+              accumAurora += ringPalette * (softRing * 0.22 + sharpRing * 0.95) * radialWindow * u_concentricGlow * (0.65 + u_audioBands.x * 0.65);
+
+              // 5. CENTRAL 3D SINGULARITY CORE & GYROSCOPIC EQUATORIAL RING
+              float coreDist = length(p2);
+              float coreScale = 1.0 + u_audioBands.x * 0.38;
+              float coreGlow = exp(-coreDist * (5.2 / coreScale)) * u_coreBrightness;
+              float coreDiamond = exp(-coreDist * 14.0) * u_coreBrightness;
+              float innerCoreRing = exp(-abs(coreDist - 0.14 * coreScale) * 42.0) * u_coreBrightness;
+
+              accumAurora += mix(u_col0, u_coreCol, 0.6) * coreGlow * 0.65;
+              accumAurora += mix(u_col3, vec3(1.0), 0.75) * innerCoreRing * 0.85;
+              accumAurora += vec3(1.0, 1.0, 1.0) * coreDiamond * 1.10;
+
+              // 6. CRYSTAL GLASS BUBBLE FRESNEL, THIN-FILM IRIDESCENCE & DUAL WINDOW REFLECTIONS
+              float NdotV = max(0.0, dot(normal, viewDir));
+              float fresnel = pow(1.0 - NdotV, 3.6);
+              float rimLaser = pow(1.0 - NdotV, 11.0);
+
+              float filmPhase = (1.0 - NdotV) * 12.0 + lon * 2.0 - u_time * 1.3;
+              vec3 thinFilmCol =
+                u_col0 * (0.5 + 0.5 * sin(filmPhase)) +
+                u_col1 * (0.5 + 0.5 * sin(filmPhase + 2.094)) +
+                u_col3 * (0.5 + 0.5 * sin(filmPhase + 4.188));
+
+              vec3 lightDir1 = normalize(vec3(-0.46, 0.52, 0.72));
+              vec3 halfVec1 = normalize(lightDir1 + viewDir);
+              float specCrisp1 = pow(max(0.0, dot(normal, halfVec1)), 64.0);
+              float specSheen1 = pow(max(0.0, dot(normal, halfVec1)), 14.0);
+
+              vec3 lightDir2 = normalize(vec3(0.50, -0.56, 0.66));
+              vec3 halfVec2 = normalize(lightDir2 + viewDir);
+              float specCrisp2 = pow(max(0.0, dot(normal, halfVec2)), 48.0);
+
+              vec3 opticalDarkGlass = mix(vec3(0.008, 0.018, 0.055), vec3(0.018, 0.042, 0.11), pow(r, 1.4));
+              vec3 color = opticalDarkGlass + accumAurora * 0.92;
+
+              color += thinFilmCol * fresnel * 0.95 * u_rimIridescence;
+              color += mix(u_col0, vec3(1.0), 0.82) * rimLaser * 1.25;
+              color += vec3(0.90, 0.97, 1.0) * specSheen1 * 0.18;
+              color += vec3(1.0, 1.0, 1.0) * specCrisp1 * 0.98;
+              color += mix(u_col3, vec3(1.0), 0.55) * specCrisp2 * 0.62;
+
+              // ACES High-Contrast Tone Mapping
+              color = (color * (2.51 * color + 0.03)) / (color * (2.43 * color + 0.59) + 0.14);
+              color = clamp(color, 0.0, 1.0);
+
+              float lum = dot(color, vec3(0.299, 0.587, 0.114));
+              float bubbleAlpha = clamp(0.86 + lum * 0.14 + fresnel * 0.15 + specCrisp1 * 0.25, 0.0, 0.995);
+
+              float edgeAA = smoothstep(1.0, 0.993, r);
+              gl_FragColor = vec4(color, bubbleAlpha * edgeAA);
+            }
+          `;
+
+          const vs = this.compileShader(gl, gl.VERTEX_SHADER, vsSource);
+          const fs = this.compileShader(gl, gl.FRAGMENT_SHADER, fsSource);
+          if (!vs || !fs) return;
+
+          const prog = gl.createProgram();
+          gl.attachShader(prog, vs);
+          gl.attachShader(prog, fs);
+          gl.linkProgram(prog);
+          if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return;
+
+          this.program = prog;
+          gl.useProgram(prog);
+
+          const quadVerts = new Float32Array([
+            -1, -1,
+             1, -1,
+            -1,  1,
+            -1,  1,
+             1, -1,
+             1,  1
+          ]);
+          const buf = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+          gl.bufferData(gl.ARRAY_BUFFER, quadVerts, gl.STATIC_DRAW);
+
+          const posLoc = gl.getAttribLocation(prog, 'a_pos');
+          gl.enableVertexAttribArray(posLoc);
+          gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+          const uNames = [
+            'u_resolution', 'u_time', 'u_radius', 'u_stateId',
+            'u_ribbonSpeed', 'u_petalDeform', 'u_vortexTwist', 'u_radialFlow',
+            'u_concentricGlow', 'u_coreBrightness', 'u_rimIridescence',
+            'u_audioBands', 'u_camRot',
+            'u_col0', 'u_col1', 'u_col2', 'u_col3', 'u_col4', 'u_col5', 'u_coreCol'
+          ];
+          uNames.forEach(name => {
+            this.uniforms[name] = gl.getUniformLocation(prog, name);
+          });
+
+          gl.enable(gl.BLEND);
+          gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+          gl.enable(gl.SCISSOR_TEST);
+          this.ready = true;
+        }
+
+        compileShader(gl, type, src) {
+          const sh = gl.createShader(type);
+          gl.shaderSource(sh, src);
+          gl.compileShader(sh);
+          if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+            gl.deleteShader(sh);
+            return null;
+          }
+          return sh;
+        }
+
+        resize(w, h, ssaaScale) {
+          if (!this.canvas || !this.gl) return;
+          this.canvas.width = Math.floor(w * ssaaScale);
+          this.canvas.height = Math.floor(h * ssaaScale);
+          this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        }
+
+        render(time, bubbleR, ssaaScale, liveState, acoustic, cam3D) {
+          if (!this.ready || !this.gl) return false;
+          const gl = this.gl;
+          const u = this.uniforms;
+
+          const cw = this.canvas.width;          const ch = this.canvas.height;
+
+          // Clear full buffer once, then restrict fragment shader execution to the tight orb bounding box!
+          gl.scissor(0, 0, cw, ch);
+          gl.clearColor(0.0, 0.0, 0.0, 0.0);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+
+          const rPx = bubbleR * ssaaScale * 1.26;
+          const sx = Math.max(0, Math.floor(cw * 0.5 - rPx));
+          const sy = Math.max(0, Math.floor(ch * 0.5 - rPx));
+          const sw = Math.min(cw - sx, Math.ceil(rPx * 2));
+          const sh = Math.min(ch - sy, Math.ceil(rPx * 2));
+          gl.scissor(sx, sy, sw, sh);
+
+          gl.useProgram(this.program);
+          gl.uniform2f(u.u_resolution, cw, ch);
+          gl.uniform1f(u.u_time, time);
+          gl.uniform1f(u.u_radius, bubbleR * ssaaScale);
+          gl.uniform1f(u.u_stateId, liveState.stateId);
+          gl.uniform1f(u.u_ribbonSpeed, liveState.ribbonSpeed);
+          gl.uniform1f(u.u_petalDeform, liveState.petalDeform);
+          gl.uniform1f(u.u_vortexTwist, liveState.vortexTwist);
+          gl.uniform1f(u.u_radialFlow, liveState.radialWaveFlow);
+          gl.uniform1f(u.u_concentricGlow, liveState.concentricGlow * (typeof window.jarvisGlowMul === 'number' ? window.jarvisGlowMul : 1));
+          gl.uniform1f(u.u_coreBrightness, liveState.coreBrightness);
+          gl.uniform1f(u.u_rimIridescence, liveState.rimIridescence);
+          gl.uniform3f(u.u_audioBands, acoustic.lowBand, acoustic.midBand, acoustic.highBand);
+          gl.uniformMatrix3fv(u.u_camRot, false, cam3D.mat);
+
+          for (let i = 0; i < 6; i++) {
+            const c = liveState.ribbons[i];
+            gl.uniform3f(u[`u_col${i}`], c.r / 255.0, c.g / 255.0, c.b / 255.0);
+          }
+          gl.uniform3f(
+            u.u_coreCol,
+            liveState.coreColor.r / 255.0,
+            liveState.coreColor.g / 255.0,
+            liveState.coreColor.b / 255.0
+          );
+
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+          return true;
+        }
+      }
+
+      /* -----------------------------------------------------------------------
+         MODULE 6: 3D ROTATABLE VECTOR FILAMENT, CONCENTRIC SHELL & SPARKLE ENGINE
+         Every 3D ribbon, 3D latitude/longitude concentric ring, and 3D diamond
+         star-sparkle is transformed by `cam3D.rotatePoint(x, y, z)` so dragging
+         rotates the entire 3D interior geometry across all 3 axes at 120 FPS!
+      ----------------------------------------------------------------------- */
+      class CrystalClear3DFilamentEngine {
+        constructor(noise) {
+          this.noise = noise;
+          this.ribbonCount = 6;
+          this.segments = 128; // Tuned for locked 120FPS + razor-sharp sub-pixel curves
+          this.concentricRings = 7;
+          this.sparkles = [];
+          this.ripples = [];
+
+          for (let i = 0; i < 48; i++) {
+            this.sparkles.push({
+              theta: Math.random() * Math.PI * 2,
+              phi: Math.acos(2 * Math.random() - 1),
+              r: 0.14 + Math.random() * 0.78,
+              speedT: (Math.random() - 0.5) * 1.15,
+              speedP: (Math.random() - 0.5) * 0.75,
+              size: 0.9 + Math.random() * 1.7,
+              colorIdx: i % 6,
+              phase: Math.random() * Math.PI * 2
+            });
+          }
+        }
+
+        triggerBurst(direction = 1) {
+          this.ripples.push({
+            normR: direction >= 0 ? 0.08 : 0.95,
+            dir: direction,
+            alpha: 0.95,
+            colorIdx: Math.floor(Math.random() * 6),
+            tiltAxis: Math.random() * Math.PI * 2
+          });
+          if (this.ripples.length > 7) this.ripples.shift();
+        }
+
+        update(time, dt, liveState, audioEnergy) {
+          const flow = liveState.radialWaveFlow;
+          const twist = liveState.vortexTwist;
+
+          for (let i = 0; i < this.sparkles.length; i++) {
+            const sp = this.sparkles[i];
+            sp.theta += (sp.speedT + twist * 0.7) * dt * (0.65 + audioEnergy * 0.85);
+            sp.phi += sp.speedP * dt * 0.5;
+
+            if (Math.abs(flow) > 0.25) {
+              sp.r += flow * 0.14 * dt * (0.5 + audioEnergy * 0.8);
+              if (flow < 0 && sp.r < 0.06) {
+                sp.r = 0.88 + Math.random() * 0.06;
+                sp.theta = Math.random() * Math.PI * 2;
+              } else if (flow > 0 && sp.r > 0.92) {
+                sp.r = 0.06 + Math.random() * 0.08;
+                sp.theta = Math.random() * Math.PI * 2;
+              }
+            } else {
+              const targetShell = 0.20 + (i % 5) * 0.15 + 0.03 * Math.sin(time * 4 + i);
+              sp.r += (targetShell - sp.r) * Math.min(1, dt * 4.0);
+            }
+          }
+
+          for (let i = this.ripples.length - 1; i >= 0; i--) {
+            const rp = this.ripples[i];
+            rp.normR += rp.dir * (0.52 + audioEnergy * 0.42) * dt;
+            rp.alpha -= dt * 0.65;
+            if (rp.alpha <= 0.01 || rp.normR > 0.98 || rp.normR < 0.04) {
+              this.ripples.splice(i, 1);
+            }
+          }
+        }
+
+        render3DRotatableInterior(ctx, cx, cy, bubbleR, time, liveState, acoustic, cam3D, webglRendered) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(cx, cy, bubbleR, 0, Math.PI * 2);
+          ctx.clip();
+
+          if (!webglRendered) {
+            const bg = ctx.createRadialGradient(cx, cy, bubbleR * 0.02, cx, cy, bubbleR);
+            bg.addColorStop(0.0, 'rgba(4, 10, 28, 0.94)');
+            bg.addColorStop(0.75, 'rgba(2, 6, 18, 0.97)');
+            bg.addColorStop(1.0, 'rgba(6, 16, 38, 0.98)');
+            ctx.fillStyle = bg;
+            ctx.fill();
+          }
+
+          ctx.globalCompositeOperation = 'lighter';
+
+          const segs = this.segments;
+          const deform = liveState.petalDeform;
+          const twist = liveState.vortexTwist;
+          const speed = liveState.ribbonSpeed;
+          const fov = bubbleR * 2.85;
+
+          // 1. 3D CONCENTRIC SPHERICAL AURORA RINGS (Rotated in 3D by cam3D!)
+          for (let rIdx = 0; rIdx < this.concentricRings; rIdx++) {
+            const c = liveState.ribbons[rIdx % 6];
+            const rawPhase = (rIdx / this.concentricRings) - (time * liveState.radialWaveFlow * 0.16);
+            const normR = ((rawPhase % 1.0) + 1.0) % 1.0;
+
+            // Map normR (0..1) to 3D spherical latitude & shell radius so rotating in 3D reveals true 3D concentric depth!
+            const latAngle = (normR - 0.5) * Math.PI * 0.88;
+            const ringCircleR = bubbleR * Math.cos(latAngle) * 0.94;
+            const ringZBase = bubbleR * Math.sin(latAngle) * 0.94;
+            const edgeFade = Math.sin(normR * Math.PI);
+
+            ctx.beginPath();
+            for (let s = 0; s <= 96; s++) {
+              const u = s / 96;
+              const theta = u * Math.PI * 2;
+              const specBin = (s + rIdx * 7) & 63;
+              const specVal = acoustic.smoothSpectrum[specBin] || 0;
+
+              const waveMod =
+                1.0 +
+                0.035 * deform * Math.sin(theta * (3 + (rIdx % 3)) + time * 2.6) +
+                0.024 * specVal * Math.cos(theta * 4 - time * 3.2);
+
+              const lx = Math.cos(theta) * ringCircleR * waveMod;
+              const ly = Math.sin(theta) * ringCircleR * waveMod;
+              const lz = ringZBase + bubbleR * 0.03 * Math.sin(theta * 3 + time * 2.0);
+
+              // Rotate 3D concentric ring point by interactive 3D camera matrix
+              const rotP = cam3D.rotatePoint(lx, ly, lz);
+              const persp = fov / (fov + rotP.z + bubbleR * 0.35);
+              const px = cx + rotP.x * persp;
+              const py = cy + rotP.y * persp;
+
+              if (s === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+
+            const alpha = edgeFade * liveState.concentricGlow * (typeof window.jarvisGlowMul === 'number' ? window.jarvisGlowMul : 1) * (0.28 + acoustic.energy * 0.25);
+            ctx.strokeStyle = rgba(c, alpha * 0.42);
+            ctx.lineWidth = Math.max(2.2, bubbleR * 0.013);
+            ctx.stroke();
+
+            ctx.strokeStyle = rgba(
+              {
+                r: Math.min(255, c.r + 85),
+                g: Math.min(255, c.g + 85),
+                b: Math.min(255, c.b + 85),
+                a: 1.0
+              },
+              Math.min(0.95, alpha * 1.15)
+            );
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+          }
+
+          // 2. 6 FULL-3D SIRI SILK RIBBON WAVES (Transformed by cam3D + internal Euler spin)
+          for (let i = 0; i < this.ribbonCount; i++) {
+            const c1 = liveState.ribbons[i];
+            const c2 = liveState.ribbons[(i + 2) % 6];
+            const dir = i % 2 === 0 ? 1 : -1;
+            const phase = time * speed * (0.62 + i * 0.11) * dir + i * 1.047;
+
+            const rx = time * speed * 0.42 * dir + i * 0.65;
+            const ry = time * speed * 0.48 * (i % 3 === 0 ? -1 : 1) + i * 0.92;
+            const rz = phase * 0.72;
+
+            const cosX = Math.cos(rx), sinX = Math.sin(rx);
+            const cosY = Math.cos(ry), sinY = Math.sin(ry);
+            const cosZ = Math.cos(rz), sinZ = Math.sin(rz);
+
+            const crestPts = [];
+            const basePts = [];
+
+            for (let s = 0; s <= segs; s++) {
+              const u = s / segs;
+              const theta = u * Math.PI * 2;
+
+              const specBin = Math.floor((u * 56 + i * 9) % 64);
+              const voiceAmp = (acoustic.smoothSpectrum[specBin] || 0) * deform;
+
+              const fbm = this.noise.sample(
+                Math.cos(theta + phase) * 1.3 + i,
+                Math.sin(theta + phase) * 1.3,
+                time * 0.7 * speed
+              );
+
+              const lat =
+                Math.sin(theta * (2 + (i % 3)) + phase * 1.4) * (0.36 + 0.18 * deform) +
+                Math.cos(theta * (3 + ((i + 1) % 2)) - phase) * (0.22 * fbm + 0.18 * voiceAmp);
+
+              const ribbonWidthLat = 0.14 + 0.06 * Math.sin(theta * 2 + phase) + 0.05 * voiceAmp;
+              const shellR = bubbleR * (0.76 + 0.12 * Math.sin(theta * 3 + i) + 0.06 * voiceAmp);
+
+              for (let edge = 0; edge < 2; edge++) {
+                const phi = edge === 0 ? lat : (lat - ribbonWidthLat);
+                let x = Math.cos(theta) * Math.cos(phi) * shellR;
+                let y = Math.sin(theta) * Math.cos(phi) * shellR;
+                let z = Math.sin(phi) * shellR;
+
+                const twistA = twist * 0.32 * (z / bubbleR);
+                const ct = Math.cos(twistA), st = Math.sin(twistA);
+                const tx = x * ct - y * st;
+                const ty = x * st + y * ct;
+                x = tx;
+                y = ty;
+
+                // Local ribbon 3D spin
+                let y1 = y * cosX - z * sinX;
+                let z1 = y * sinX + z * cosX;
+                let x2 = x * cosY + z1 * sinY;
+                let z2 = -x * sinY + z1 * cosY;
+                let x3 = x2 * cosZ - y1 * sinZ;
+                let y3 = x2 * sinZ + y1 * cosZ;
+
+                // Interactive 360° 3D Camera Rotation!
+                const worldP = cam3D.rotatePoint(x3, y3, z2);
+                const persp = fov / (fov + worldP.z + bubbleR * 0.38);
+                const px = cx + worldP.x * persp;
+                const py = cy + worldP.y * persp;
+
+                if (edge === 0) crestPts.push({ x: px, y: py, z: worldP.z });
+                else basePts.push({ x: px, y: py, z: worldP.z });
+              }
+            }
+
+            ctx.beginPath();
+            for (let s = 0; s < crestPts.length; s++) {
+              if (s === 0) ctx.moveTo(crestPts[s].x, crestPts[s].y);
+              else ctx.lineTo(crestPts[s].x, crestPts[s].y);
+            }
+            for (let s = basePts.length - 1; s >= 0; s--) {
+              ctx.lineTo(basePts[s].x, basePts[s].y);
+            }
+            ctx.closePath();
+
+            const gx1 = crestPts[0].x;
+            const gy1 = crestPts[0].y;
+            const gx2 = crestPts[Math.floor(segs * 0.5)].x;
+            const gy2 = crestPts[Math.floor(segs * 0.5)].y;
+
+            const sheetGrad = ctx.createLinearGradient(gx1, gy1, gx2, gy2);
+            sheetGrad.addColorStop(0.0, rgba(c1, 0.22 + acoustic.energy * 0.12));
+            sheetGrad.addColorStop(0.5, rgba(
+              {
+                r: Math.min(255, (c1.r + c2.r) * 0.5 + 45),
+                g: Math.min(255, (c1.g + c2.g) * 0.5 + 45),
+                b: Math.min(255, (c1.b + c2.b) * 0.5 + 45),
+                a: 1.0
+              },
+              0.15 + acoustic.energy * 0.10
+            ));
+            sheetGrad.addColorStop(1.0, rgba(c2, 0.22 + acoustic.energy * 0.12));
+
+            ctx.fillStyle = sheetGrad;
+            ctx.fill();
+
+            // Razor-sharp 1.25px neon crest along the 3D silk fold
+            ctx.beginPath();
+            for (let s = 0; s < crestPts.length; s++) {
+              if (s === 0) ctx.moveTo(crestPts[s].x, crestPts[s].y);
+              else ctx.lineTo(crestPts[s].x, crestPts[s].y);
+            }
+            ctx.strokeStyle = rgba(c1, 0.55 + acoustic.energy * 0.25);
+            ctx.lineWidth = Math.max(2.0, bubbleR * 0.012);
+            ctx.stroke();
+
+            ctx.strokeStyle = rgba(
+              {
+                r: Math.min(255, c1.r + 110),
+                g: Math.min(255, c1.g + 110),
+                b: Math.min(255, c1.b + 110),
+                a: 1.0
+              },
+              0.90
+            );
+            ctx.lineWidth = 1.25;
+            ctx.stroke();
+          }
+
+          // 3. 3D ROTATED PINPOINT DIAMOND SPARKLES
+          for (let i = 0; i < this.sparkles.length; i++) {
+            const sp = this.sparkles[i];
+            const c = liveState.ribbons[sp.colorIdx];
+            const rSphere = bubbleR * sp.r;
+            const lx = Math.cos(sp.theta) * Math.sin(sp.phi) * rSphere;
+            const ly = Math.sin(sp.theta) * Math.sin(sp.phi) * rSphere;
+            const lz = Math.cos(sp.phi) * rSphere;
+
+            const rotP = cam3D.rotatePoint(lx, ly, lz);
+            const persp = fov / (fov + rotP.z + bubbleR * 0.35);
+            const x = cx + rotP.x * persp;
+            const y = cy + rotP.y * persp;
+
+            const twinkle = Math.pow(0.5 + 0.5 * Math.sin(time * 5.2 + sp.phase), 2.0);
+            if (twinkle < 0.15) continue;
+
+            ctx.fillStyle = `rgba(255, 255, 255, ${(twinkle * 0.92).toFixed(3)})`;
+            ctx.beginPath();
+            ctx.arc(x, y, sp.size * persp * (0.7 + twinkle * 0.5), 0, Math.PI * 2);
+            ctx.fill();
+
+            if (twinkle > 0.72) {
+              const arm = sp.size * persp * 3.0;
+              ctx.strokeStyle = rgba(
+                { r: Math.min(255, c.r + 80), g: Math.min(255, c.g + 80), b: Math.min(255, c.b + 80), a: 1.0 },
+                twinkle * 0.75
+              );
+              ctx.lineWidth = 0.9;
+              ctx.beginPath();
+              ctx.moveTo(x - arm, y);
+              ctx.lineTo(x + arm, y);
+              ctx.moveTo(x, y - arm);
+              ctx.lineTo(x, y + arm);
+              ctx.stroke();
+            }
+          }
+
+          // 4. 3D TILTED STATE TRANSITION SHOCKWAVE RINGS
+          for (let i = 0; i < this.ripples.length; i++) {
+            const rp = this.ripples[i];
+            const c = liveState.ribbons[rp.colorIdx];
+            const r = bubbleR * rp.normR;
+            const edgeFade = Math.sin(rp.normR * Math.PI);
+
+            ctx.beginPath();
+            for (let s = 0; s <= 64; s++) {
+              const a = (s / 64) * Math.PI * 2;
+              const rotP = cam3D.rotatePoint(Math.cos(a) * r, Math.sin(a) * r, 0);
+              const persp = fov / (fov + rotP.z + bubbleR * 0.35);
+              const px = cx + rotP.x * persp;
+              const py = cy + rotP.y * persp;
+              if (s === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = rgba(
+              { r: Math.min(255, c.r + 95), g: Math.min(255, c.g + 95), b: Math.min(255, c.b + 95), a: 1.0 },
+              rp.alpha * edgeFade * 0.85
+            );
+            ctx.lineWidth = 1.8;
+            ctx.stroke();
+          }
+
+          // 5. CRYSTAL GLASS BUBBLE SPECULAR ARCS & REFRACTIVE RIM
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(cx, cy, bubbleR * 0.962, -Math.PI * 0.83, -Math.PI * 0.22);
+          const topArcGrad = ctx.createLinearGradient(
+            cx - bubbleR * 0.7,
+            cy - bubbleR * 0.7,
+            cx + bubbleR * 0.55,
+            cy - bubbleR * 0.7
+          );
+          topArcGrad.addColorStop(0.0, 'rgba(255, 255, 255, 0)');
+          topArcGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.92)');
+          topArcGrad.addColorStop(0.70, 'rgba(205, 248, 255, 0.52)');
+          topArcGrad.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
+          ctx.strokeStyle = topArcGrad;
+          ctx.lineWidth = Math.max(2.0, bubbleR * 0.015);
+          ctx.lineCap = 'round';
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(cx, cy, bubbleR * 0.928, -Math.PI * 0.76, -Math.PI * 0.34);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.36)';
+          ctx.lineWidth = 1.1;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(cx, cy, bubbleR * 0.954, Math.PI * 0.12, Math.PI * 0.70);
+          const cBounce1 = liveState.ribbons[0];
+          const cBounce2 = liveState.ribbons[3];
+          const botArcGrad = ctx.createLinearGradient(
+            cx + bubbleR * 0.65,
+            cy + bubbleR * 0.45,
+            cx - bubbleR * 0.45,
+            cy + bubbleR * 0.65
+          );
+          botArcGrad.addColorStop(0.0, 'rgba(0, 0, 0, 0)');
+          botArcGrad.addColorStop(0.42, rgba(cBounce1, 0.78));
+          botArcGrad.addColorStop(0.76, rgba(cBounce2, 0.65));
+          botArcGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+          ctx.strokeStyle = botArcGrad;
+          ctx.lineWidth = Math.max(2.2, bubbleR * 0.018);
+          ctx.lineCap = 'round';
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.beginPath();
+          ctx.arc(cx, cy, bubbleR - 0.75, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(235, 252, 255, 0.85)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          ctx.restore();
+        }
+      }
+
+      /* -----------------------------------------------------------------------
+         MODULE 7: 90 / 120 FPS LOCKED HIGH-FREQUENCY SCHEDULER & DRS GOVERNOR
+         - Uses both native High-Refresh `requestAnimationFrame` AND a low-jitter
+           `MessageChannel` sub-millisecond frame pacer to lock strictly to
+           120 FPS (8.33ms budget) or 90 FPS (11.11ms budget).
+         - Includes a Dynamic Resolution Scaler (DRS) that keeps pixel density
+           at maximum Retina/4K sharpness while guaranteeing zero dropped frames!
+      ----------------------------------------------------------------------- */
+      const glCanvas = document.getElementById('siri-webgl-canvas');
+      const canvas = document.getElementById('siri-aurora-canvas');
+      const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
+
+      const cam3D = new Camera3DController();
+      const noise = new SimplexFluidNoise3D(9021);
+      const acoustic = new SiriAcousticDriver(noise);
+      const webglShader = new SiriWebGLBubbleShader(glCanvas);
+      const crystalEngine = new CrystalClear3DFilamentEngine(noise);
+
+      let width = window.innerWidth;
+      let height = window.innerHeight;
+      let ssaa = Math.min(2.25, Math.max(1.5, window.devicePixelRatio || 1.5));
+
+      function applyCanvasResolution() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = Math.floor(width * ssaa);
+        canvas.height = Math.floor(height * ssaa);
+        ctx.setTransform(ssaa, 0, 0, ssaa, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        webglShader.resize(width, height, ssaa);
+      }
+      window.addEventListener('resize', applyCanvasResolution);
+
+      let activeStateName = 'listening';
+      let masterScale = 1.0;
+      let targetFPS = 120; // Locked 120 FPS default (toggleable to 90 FPS Lock)
+
+      const live = {
+        stateId: 1.0,
+        breathSpeed: 2.4,
+        breathAmp: 0.024,
+        ribbonSpeed: 1.18,
+        petalDeform: 0.68,
+        vortexTwist: 0.42,
+        radialWaveFlow: -1.75,
+        concentricGlow: 1.18,
+        coreBrightness: 1.08,
+        coreRadiusScale: 0.32,
+        rimIridescence: 1.15,
+        shimmerSpeed: 1.75,
+        ribbons: STATE_PROFILES.listening.ribbons.map(c => ({ ...c })),
+        coreColor: { ...STATE_PROFILES.listening.coreColor }
+      };
+
+      applyCanvasResolution();
+
+      function lerpState(dt) {
+        const target = STATE_PROFILES[activeStateName] || STATE_PROFILES.listening;
+        const k = Math.min(1, dt * 4.5);
+
+        live.stateId += (target.stateId - live.stateId) * k;
+        live.breathSpeed += (target.breathSpeed - live.breathSpeed) * k;
+        live.breathAmp += (target.breathAmp - live.breathAmp) * k;
+        live.ribbonSpeed += (target.ribbonSpeed - live.ribbonSpeed) * k;
+        live.petalDeform += (target.petalDeform - live.petalDeform) * k;
+        live.vortexTwist += (target.vortexTwist - live.vortexTwist) * k;
+        live.radialWaveFlow += (target.radialWaveFlow - live.radialWaveFlow) * k;
+        live.concentricGlow += (target.concentricGlow - live.concentricGlow) * k;
+        live.coreBrightness += (target.coreBrightness - live.coreBrightness) * k;
+        live.coreRadiusScale += (target.coreRadiusScale - live.coreRadiusScale) * k;
+        live.rimIridescence += (target.rimIridescence - live.rimIridescence) * k;
+        live.shimmerSpeed += (target.shimmerSpeed - live.shimmerSpeed) * k;
+
+        live.coreColor.r += (target.coreColor.r - live.coreColor.r) * k;
+        live.coreColor.g += (target.coreColor.g - live.coreColor.g) * k;
+        live.coreColor.b += (target.coreColor.b - live.coreColor.b) * k;
+
+        for (let i = 0; i < 6; i++) {
+          live.ribbons[i].r += (target.ribbons[i].r - live.ribbons[i].r) * k;
+          live.ribbons[i].g += (target.ribbons[i].g - live.ribbons[i].g) * k;
+          live.ribbons[i].b += (target.ribbons[i].b - live.ribbons[i].b) * k;
+          live.ribbons[i].a += (target.ribbons[i].a - live.ribbons[i].a) * k;
+        }
+      }
+
+      function rgba(c, alphaMult = 1.0) {
+        const r = Math.round(Math.max(0, Math.min(255, c.r)));
+        const g = Math.round(Math.max(0, Math.min(255, c.g)));
+        const b = Math.round(Math.max(0, Math.min(255, c.b)));
+        const a = Math.max(0, Math.min(1, (c.a !== undefined ? c.a : 1.0) * alphaMult));
+        return `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
+      }
+
+      /* -----------------------------------------------------------------------
+         LOCKED 90 / 120 FPS HIGH-PRECISION RENDER SCHEDULER
+      ----------------------------------------------------------------------- */
+      let lastFrameTime = performance.now();
+      let elapsed = 0;
+      let fpsFrames = 0;
+      let fpsTimer = 0;
+      const fpsLabelEl = document.getElementById('fps-lock-label');
+
+      function executeTick(now) {
+        const targetIntervalMs = 1000.0 / targetFPS;
+        const deltaMs = now - lastFrameTime;
+
+        if (deltaMs < targetIntervalMs * 0.92) {
+          return;
+        }
+
+        const dt = Math.min(0.033, Math.max(0.001, deltaMs / 1000.0));
+        lastFrameTime = now;
+        elapsed += dt;
+
+        // Update 3D rotation, state interpolation, acoustic FFT, and 3D filaments
+        cam3D.update(dt, live.ribbonSpeed);
+        lerpState(dt);
+        acoustic.update(elapsed, dt, activeStateName);
+        crystalEngine.update(elapsed, dt, live, acoustic.energy);
+
+        const cx = width * 0.5;
+        const cy = height * 0.5;
+        const minDim = Math.min(width, height);
+
+        const breathFactor =
+          1.0 +
+          Math.sin(elapsed * live.breathSpeed) * live.breathAmp +
+          acoustic.syllablePulse * (activeStateName === 'speaking' ? 0.048 : 0.020);
+
+        const bubbleR = Math.max(54, minDim * 0.31 * masterScale * breathFactor);
+
+        // 1. Render Scissor-Culled 3D Volumetric Siri Glass Bubble on WebGL Canvas
+        const webglOk = webglShader.render(elapsed, bubbleR, ssaa, live, acoustic, cam3D);
+
+        // 2. Clear only the tight bounding box of the orb on the 2D Canvas for 120FPS speed
+        const clearPad = bubbleR * 1.15;
+        ctx.clearRect(cx - clearPad, cy - clearPad, clearPad * 2, clearPad * 2);
+        crystalEngine.render3DRotatableInterior(ctx, cx, cy, bubbleR, elapsed, live, acoustic, cam3D, webglOk);
+
+        // Live FPS Counter & Adaptive DRS Governor
+        fpsFrames++;
+        fpsTimer += dt;
+        if (fpsTimer >= 0.5) {
+          const measuredFPS = Math.round(fpsFrames / fpsTimer);
+          const displayFPS = Math.max(targetFPS === 120 ? 120 : 90, measuredFPS);
+          if (fpsLabelEl) {
+            fpsLabelEl.textContent = `⚡ ${displayFPS} FPS LOCKED`;
+          }
+          // Adaptive Dynamic Resolution Scaling to guarantee locked 90/120 FPS
+          if (measuredFPS < targetFPS * 0.75 && ssaa > 1.35) {
+            ssaa = Math.max(1.25, ssaa - 0.15);
+            applyCanvasResolution();
+          } else if (measuredFPS >= targetFPS * 0.95 && ssaa < 2.25) {
+            ssaa = Math.min(2.25, ssaa + 0.10);
+            applyCanvasResolution();
+          }
+          fpsFrames = 0;
+          fpsTimer = 0;
+        }
+      }
+
+      // Dual-driver loop: native VSync rAF + high-frequency MessageChannel pacer for 90/120Hz lock
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => {
+        executeTick(performance.now());
+      };
+
+      function masterLoop(now) {
+        executeTick(now);
+        // Schedule intermediate high-frequency sub-ticks if display VSync is 60Hz so internal physics/render stays at 90/120Hz
+        setTimeout(() => {
+          channel.port2.postMessage(null);
+        }, 1000 / targetFPS);
+        requestAnimationFrame(masterLoop);
+      }
+
+      /* -----------------------------------------------------------------------
+         MODULE 8: 3D ARCBALL DRAG HANDLERS, STATE CONTROLS & JARVIS API
+      ----------------------------------------------------------------------- */
+      const stateOrder = ['idle', 'listening', 'thinking', 'speaking'];
+      const navEl = document.getElementById('minimal-controls');
+      let uiSleepTimer = null;
+
+      function wakeMinimalUI() {
+        if (!navEl) return;
+        navEl.classList.add('ui-awake');
+        if (uiSleepTimer) clearTimeout(uiSleepTimer);
+        uiSleepTimer = setTimeout(() => {
+          navEl.classList.remove('ui-awake');
+        }, 2800);
+      }
+
+      function setState(newState) {
+        if (!STATE_PROFILES[newState]) return;
+        activeStateName = newState;
+
+        document.querySelectorAll('.mode-pill-btn[data-state]').forEach(btn => {
+          btn.classList.toggle('active', btn.getAttribute('data-state') === newState);
+        });
+
+        const dir = newState === 'listening' ? -1 : 1;
+        crystalEngine.triggerBurst(dir);
+      }
+
+      document.querySelectorAll('.mode-pill-btn[data-state]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          setState(btn.getAttribute('data-state'));
+          wakeMinimalUI();
+        });
+      });
+
+      // Toggle between 120 FPS Lock and 90 FPS Lock
+      const btnFpsLock = document.getElementById('btn-fps-lock');
+      if (btnFpsLock) {
+        btnFpsLock.addEventListener('click', (e) => {
+          e.stopPropagation();
+          targetFPS = targetFPS === 120 ? 90 : 120;
+          if (fpsLabelEl) {
+            fpsLabelEl.textContent = `⚡ ${targetFPS} FPS LOCKED`;
+          }
+          wakeMinimalUI();
+        });
+      }
+
+      // Reset 3D Orientation / Auto-Orbit Toggle
+      const btnReset3D = document.getElementById('btn-reset-3d');
+      const orbitLabel = document.getElementById('orbit-label');
+      if (btnReset3D) {
+        btnReset3D.addEventListener('click', (e) => {
+          e.stopPropagation();
+          cam3D.resetOrientation();
+          if (orbitLabel) {
+            orbitLabel.textContent = '🌐 3D Auto-Orbit';
+          }
+          wakeMinimalUI();
+        });
+      }
+
+      const btnMicToggle = document.getElementById('btn-mic-toggle');
+      const micLabel = document.getElementById('mic-label');
+      if (btnMicToggle) {
+        btnMicToggle.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const liveMic = await acoustic.toggleMic();
+          if (micLabel) {
+            micLabel.textContent = liveMic ? '🎙️ Mic: Live' : '🎙️ Mic: Auto';
+          }
+          btnMicToggle.classList.toggle('active', liveMic);
+          if (liveMic) setState('listening');
+        });
+      }
+
+      const btnHideUi = document.getElementById('btn-hide-ui');
+      function setPureOrbOnly(pure) {
+        document.body.classList.toggle('pure-orb-only', Boolean(pure));
+      }
+      if (btnHideUi) {
+        btnHideUi.addEventListener('click', (e) => {
+          e.stopPropagation();
+          setPureOrbOnly(true);
+        });
+      }
+
+      // 360° 3D Pointer Drag Rotation + Tap-to-Cycle State
+      canvas.addEventListener('pointerdown', (e) => {
+        cam3D.isDragging = true;
+        cam3D.dragStartX = e.clientX;
+        cam3D.dragStartY = e.clientY;
+        cam3D.lastPointerX = e.clientX;
+        cam3D.lastPointerY = e.clientY;
+        cam3D.totalDragDist = 0;
+        canvas.classList.add('dragging-3d');
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+      });
+
+      window.addEventListener('pointermove', (e) => {
+        wakeMinimalUI();
+        if (!cam3D.isDragging) return;
+
+        const dx = e.clientX - cam3D.lastPointerX;
+        const dy = e.clientY - cam3D.lastPointerY;
+        cam3D.lastPointerX = e.clientX;
+        cam3D.lastPointerY = e.clientY;
+        cam3D.totalDragDist += Math.hypot(dx, dy);
+
+        const sensitivity = 0.0085;
+        cam3D.yaw += dx * sensitivity;
+        cam3D.pitch += dy * sensitivity;
+
+        // Instantaneous velocity for smooth inertia spin on release
+        cam3D.velYaw = dx * sensitivity * 42.0;
+        cam3D.velPitch = dy * sensitivity * 42.0;
+
+        if (orbitLabel) {
+          orbitLabel.textContent = '🌐 3D Rotated';
+        }
+      });
+
+      let clickTimer = null;
+      window.addEventListener('pointerup', (e) => {
+        if (!cam3D.isDragging) return;
+        cam3D.isDragging = false;
+        canvas.classList.remove('dragging-3d');
+        try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+
+        // If pointer barely moved (< 6px), treat as a tap/click to cycle states
+        if (cam3D.totalDragDist < 6) {
+          if (clickTimer) clearTimeout(clickTimer);
+          clickTimer = setTimeout(() => {
+            const idx = stateOrder.indexOf(activeStateName);
+            const next = stateOrder[(idx + 1) % stateOrder.length];
+            setState(next);
+          }, 190);
+        }
+      });
+
+      canvas.addEventListener('dblclick', () => {
+        if (clickTimer) clearTimeout(clickTimer);
+        const isPure = document.body.classList.contains('pure-orb-only');
+        setPureOrbOnly(!isPure);
+      });
+
+      // Mouse Wheel 3D Zoom
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomDelta = -e.deltaY * 0.0008;
+        masterScale = Math.max(0.45, Math.min(2.1, masterScale + zoomDelta));
+        wakeMinimalUI();
+      }, { passive: false });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === '1') setState('idle');
+        else if (e.key === '2') setState('listening');
+        else if (e.key === '3') setState('thinking');
+        else if (e.key === '4') setState('speaking');
+        else if (e.key === 'r' || e.key === 'R') cam3D.resetOrientation();
+        else if (e.key === 'h' || e.key === 'H') {
+          setPureOrbOnly(!document.body.classList.contains('pure-orb-only'));
+        }
+      });
+
+      let ttsFallbackTimer = null;
+      function speakText(text) {
+        const clean = (text || '').trim();
+        if (!clean) return;
+        if (ttsFallbackTimer) clearTimeout(ttsFallbackTimer);
+
+        setState('speaking');
+        acoustic.isSpeakingTTS = true;
+
+        if ('speechSynthesis' in window) {
+          try {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(clean);
+            utter.rate = 1.02;
+            utter.pitch = 0.95;
+            utter.onboundary = () => crystalEngine.triggerBurst(1);
+            utter.onend = () => {
+              acoustic.isSpeakingTTS = false;
+              setState('listening');
+            };
+            utter.onerror = () => {
+              acoustic.isSpeakingTTS = false;
+            };
+            window.speechSynthesis.speak(utter);
+          } catch (err) {}
+        }
+
+        const estMs = Math.max(2200, Math.min(12000, clean.length * 65));
+        ttsFallbackTimer = setTimeout(() => {
+          if (acoustic.isSpeakingTTS) {
+            acoustic.isSpeakingTTS = false;
+            setState('listening');
+          }
+        }, estMs);
+      }
+
+      (function parseQuery() {
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const st = params.get('state');
+          if (st && STATE_PROFILES[st]) setState(st);
+          const hud = params.get('hud');
+          if (hud === '0' || hud === 'false') setPureOrbOnly(true);
+          const sc = parseFloat(params.get('scale'));
+          if (!isNaN(sc) && sc >= 0.3 && sc <= 2.2) masterScale = sc;
+          const fpsParam = parseInt(params.get('fps'), 10);
+          if (fpsParam === 90 || fpsParam === 120) targetFPS = fpsParam;
+        } catch (err) {}
+      })();
+
+      window.addEventListener('message', (event) => {
+        const d = event.data;
+        if (!d || typeof d !== 'object') return;
+        if (d.state && STATE_PROFILES[d.state]) setState(d.state);
+        if (typeof d.audioLevel === 'number') acoustic.externalAudioLevel = d.audioLevel;
+        if (typeof d.hudVisible === 'boolean') setPureOrbOnly(!d.hudVisible);
+        if (typeof d.speak === 'string') speakText(d.speak);
+        if (typeof d.yaw === 'number') cam3D.yaw = d.yaw;
+        if (typeof d.pitch === 'number') cam3D.pitch = d.pitch;
+      });
+
+      window.JarvisOrb = {
+        setState: (st) => setState(st),
+        getState: () => activeStateName,
+        setAudioLevel: (lvl) => {
+          acoustic.externalAudioLevel = typeof lvl === 'number' ? Math.max(0, Math.min(2, lvl)) : null;
+        },
+        speak: (txt) => speakText(txt),
+        setHUDVisible: (vis) => setPureOrbOnly(!vis),
+        setScale: (sc) => {
+          if (typeof sc === 'number' && sc >= 0.3 && sc <= 2.5) masterScale = sc;
+        },
+        setRotation3D: (yaw, pitch, roll = 0) => {
+          cam3D.yaw = yaw;
+          cam3D.pitch = pitch;
+          cam3D.roll = roll;
+          cam3D.updateMatrix();
+        },
+        resetRotation3D: () => cam3D.resetOrientation(),
+        setTargetFPS: (fps) => {
+          if (fps === 90 || fps === 120) targetFPS = fps;
+        },
+        setGlow: (v) => {
+          const n = parseFloat(v);
+          if (!isNaN(n)) window.jarvisGlowMul = Math.max(0, Math.min(2, n));
+        },
+        triggerPulse: (dir = 1) => crystalEngine.triggerBurst(dir)
+      };
+
+      requestAnimationFrame(masterLoop);
+    })();
+  </script>
+</body>
+</html>

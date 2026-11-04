@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#050812">
+
+    <TextureView
+        android:id="@+id/cameraPreview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#44050A18" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="18dp"
+        android:paddingEnd="18dp"
+        android:paddingTop="24dp"
+        android:paddingBottom="16dp"
+        android:background="#CC070B18">
+
+        <TextView
+            android:id="@+id/btnScanClose"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:gravity="center"
+            android:text="‹"
+            android:textSize="34sp"
+            android:textColor="#FFFFFF"
+            android:contentDescription="Close camera scan" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="JARVIS LIVE VISION"
+                android:textColor="#F5FAFF"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.06" />
+            <TextView
+                android:id="@+id/tvScanStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="INITIALIZING LIVE CAMERA..."
+                android:textColor="#55DDF7"
+                android:textSize="10sp"
+                android:letterSpacing="0.04" />
+        </LinearLayout>
+        <View
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:background="@drawable/bg_jarvis_mic_center"
+            android:backgroundTint="#32E6A1" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="36dp">
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="100dp"
+            android:layout_marginBottom="200dp"
+            android:background="@drawable/bg_scan_target" />
+        <View
+            android:id="@+id/scanLaserLine"
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:layout_gravity="center"
+            android:background="#AA42E8FF"
+            android:elevation="4dp" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:layout_marginTop="116dp"
+            android:text="JARVIS IS ANALYSING THE LIVE VIEW"
+            android:textColor="#99DFF7"
+            android:textSize="10sp"
+            android:letterSpacing="0.08" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/tvScanInsight"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="18dp"
+        android:layout_marginEnd="18dp"
+        android:layout_marginBottom="126dp"
+        android:padding="16dp"
+        android:background="#E6101A2A"
+        android:elevation="8dp"
+        android:text="JARVIS live visual understanding will appear here automatically."
+        android:textColor="#F2FAFF"
+        android:textSize="14sp"
+        android:lineSpacingExtra="3dp"
+        android:maxLines="5"
+        android:ellipsize="end" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:padding="24dp"
+        android:background="#CC070B18">
+
+        <TextView
+            android:id="@+id/btnScanTorch"
+            android:layout_width="104dp"
+            android:layout_height="48dp"
+            android:gravity="center"
+            android:background="@drawable/bg_scan_control"
+            android:text="FLASH OFF"
+            android:textColor="#D9F8FF"
+            android:textStyle="bold"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/btnScanSwitch"
+            android:layout_width="132dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="16dp"
+            android:gravity="center"
+            android:background="@drawable/bg_scan_control"
+            android:text="REAR CAMERA"
+            android:textColor="#D9F8FF"
+            android:textStyle="bold"
+            android:textSize="11sp"
+            android:contentDescription="Switch between the rear and front camera" />
+    </LinearLayout>
+</FrameLayout>

@@ -46,6 +46,7 @@ class AppPreferences(context: Context) {
         private const val KEY_VOICE = "key_voice"
         private const val KEY_PERSONALITY = "key_personality"
         private const val KEY_USER_NAME = "key_user_name"
+        private const val KEY_PROFILE_PHOTO_URI = "key_profile_photo_uri"
         private const val KEY_MIC_MUTED = "key_mic_muted"
         private const val KEY_CHAT_HISTORY = "key_chat_history"
         private const val KEY_FAVORITE_SONG = "key_favorite_song"
@@ -71,11 +72,17 @@ class AppPreferences(context: Context) {
         private const val KEY_TASK_OVERLAY_Y = "key_task_overlay_y"
         private const val KEY_APP_THEME = "key_app_theme"
         private const val KEY_CUSTOM_THEME_COLOR = "key_custom_theme_color"
+        private const val KEY_CUSTOM_THEME_COLOR_2 = "key_custom_theme_color_2"
         private const val KEY_ORB_ANIMATION = "key_orb_animation"
         private const val KEY_ORB_SPEED = "key_orb_speed"
         private const val KEY_ORB_GLOW = "key_orb_glow"
         private const val KEY_ORB_SCALE = "key_orb_scale"
         private const val KEY_ORB_HUE = "key_orb_hue"
+        private const val KEY_SETTINGS_ICON_SHAPE = "key_settings_icon_shape"
+        const val ORB_GLOW_MIN = 0f
+        const val ORB_GLOW_MAX = 2f
+        const val ORB_SIZE_MIN = 0.6f
+        const val ORB_SIZE_MAX = 1.4f
         private const val KEY_CUSTOM_ENDPOINT = "key_custom_endpoint"
     }
 
@@ -241,6 +248,10 @@ class AppPreferences(context: Context) {
             prefs.edit().putString(KEY_USER_NAME, value.trim()).commit()
         }
 
+    var profilePhotoUri: String
+        get() = prefs.getString(KEY_PROFILE_PHOTO_URI, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_PROFILE_PHOTO_URI, value).apply()
+
     var appTheme: String
         get() {
             val stored = prefs.getString(KEY_APP_THEME, "sunset") ?: "sunset"
@@ -259,13 +270,26 @@ class AppPreferences(context: Context) {
         get() = prefs.getString(KEY_CUSTOM_THEME_COLOR, "#FFFFFF") ?: "#FFFFFF"
         set(value) = prefs.edit().putString(KEY_CUSTOM_THEME_COLOR, value.trim()).apply()
 
+    /** Second colour of a two-colour blend; empty for a plain single-colour theme. */
+    var customThemeColor2: String
+        get() = prefs.getString(KEY_CUSTOM_THEME_COLOR_2, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_CUSTOM_THEME_COLOR_2, value.trim()).apply()
+
+    /** Changes whenever either custom colour changes, so screens know when to repaint. */
+    val customThemeSignature: String get() = customThemeColor + "|" + customThemeColor2
+
+    var liquidGlassStrength: Int
+        get() = prefs.getInt("liquid_glass_strength", 60).coerceIn(0, 100)
+        set(value) = prefs.edit().putInt("liquid_glass_strength", value.coerceIn(0, 100)).apply()
+
     var orbAnimation: String
         get() {
-            val valid = listOf("holographic_plasma", "cosmic_pulsar", "quantum_core", "cyber_ring", "siri_glow")
-            val stored = prefs.getString(KEY_ORB_ANIMATION, "holographic_plasma") ?: "holographic_plasma"
-            return if (stored in valid) stored else "holographic_plasma"
+            // Removed orbs (plasma_core, holographic_pulse and their old aliases) fall back to the default orb.
+            val valid = listOf("default", "aurora_orb", "iron_man_head", "full_human", "quantum_core", "siri_glow")
+            val stored = prefs.getString(KEY_ORB_ANIMATION, "default") ?: "default"
+            return if (stored in valid) stored else "default"
         }
-        set(value) = prefs.edit().putString(KEY_ORB_ANIMATION, value).apply()
+        set(value) { prefs.edit().putString(KEY_ORB_ANIMATION, value).commit() }
 
     var orbSpeed: Float
         get() = prefs.getFloat(KEY_ORB_SPEED, 1.0f)
@@ -282,6 +306,30 @@ class AppPreferences(context: Context) {
     var orbHue: Float
         get() = prefs.getFloat(KEY_ORB_HUE, -1f)
         set(value) = prefs.edit().putFloat(KEY_ORB_HUE, value).apply()
+
+    /** Glow strength of one orb style, 0.0 (off) to 2.0 (intense). Each orb remembers its own value. */
+    fun getOrbGlow(style: String): Float =
+        prefs.getFloat(KEY_ORB_GLOW + "_" + style, 1.0f).coerceIn(ORB_GLOW_MIN, ORB_GLOW_MAX)
+
+    fun setOrbGlow(style: String, value: Float) {
+        prefs.edit().putFloat(KEY_ORB_GLOW + "_" + style, value.coerceIn(ORB_GLOW_MIN, ORB_GLOW_MAX)).apply()
+    }
+
+    /** Size of one orb style as a multiplier, 0.6 (small) to 1.4 (large). Each orb remembers its own value. */
+    fun getOrbSize(style: String): Float =
+        prefs.getFloat(KEY_ORB_SCALE + "_" + style, 1.0f).coerceIn(ORB_SIZE_MIN, ORB_SIZE_MAX)
+
+    fun setOrbSize(style: String, value: Float) {
+        prefs.edit().putFloat(KEY_ORB_SCALE + "_" + style, value.coerceIn(ORB_SIZE_MIN, ORB_SIZE_MAX)).apply()
+    }
+
+    /**
+     * Shape of the tile behind each Settings icon: 0 = plain (no tile, the original look), 1 = rectangular,
+     * 2 = pillowy (soft squircle), 3 = circular.
+     */
+    var settingsIconShape: Int
+        get() = prefs.getInt(KEY_SETTINGS_ICON_SHAPE, 0).coerceIn(0, 3)
+        set(value) = prefs.edit().putInt(KEY_SETTINGS_ICON_SHAPE, value.coerceIn(0, 3)).apply()
 
     var customEndpoint: String
         get() = prefs.getString(KEY_CUSTOM_ENDPOINT, "") ?: ""

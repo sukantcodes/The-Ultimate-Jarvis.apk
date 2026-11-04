@@ -63,6 +63,7 @@ class JarvisApp : Application() {
         SecurityManager.verify(this)
         instance = this
         preferences = AppPreferences(this)
+        com.jarvis.assistant.auth.AuthManager.init(this)
         chatRepository = ChatRepository(preferences)
 
         // Memory System

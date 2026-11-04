@@ -75,6 +75,18 @@ object ActionVerifier {
 
         }
 
+        // The typing engine may have found the real field somewhere other than the exact target rect (custom or
+        // nested inputs, WebViews). Accept only if it read the text back AND a live re-scan still shows an editable
+        // field holding exactly that text; a stale flag alone never counts.
+        if (service.lastTypeVerified && service.verifyTextInAnyEditable(cleanExpected)) {
+            return VerificationResult(
+                isVerified = true,
+                reason = "Text verified in an editable field located by the tree scan",
+                stateChanged = true,
+                actualValue = null
+            )
+        }
+
         return VerificationResult(
             isVerified = false,
             reason = "Text mismatch: the target input value did not match the requested text",

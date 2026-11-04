@@ -1452,16 +1452,22 @@ private fun findAndInjectEditText(
         return clickFirstMatchingText(root, text)
     }
 
+    /**
+     * Types into the focused (or best available) field using the multi-strategy engine and returns true only
+     * when the text was read back. The engine waits for focus/readback, so on the main thread it runs on a
+     * worker with a hard cap instead of blocking the UI for long.
+     */
     fun typeText(textToType: String): Boolean {
-        val root = rootInActiveWindow ?: return false
-        val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-        if (focused != null && focused.isEditable) {
-            val args = Bundle().apply {
-                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, textToType)
-            }
-            return focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        if (Looper.myLooper() != Looper.getMainLooper()) return smartTypeText(textToType, null, false)
+        val job = typeWorker.submit<Boolean> { smartTypeText(textToType, null, false) }
+        return try {
+            job.get(4_500, java.util.concurrent.TimeUnit.MILLISECONDS)
+        } catch (e: Exception) {
+            job.cancel(true)
+            lastTypeVerified = false
+            Log.w(TAG, "typeText did not finish in time; reporting failure: ${e.javaClass.simpleName}")
+            false
         }
-        return false
     }
 
     /** Finds a button on the current screen whose text or description matches one of [labels]. */
@@ -1729,147 +1735,471 @@ private fun findAndInjectEditText(
                (current.isNotEmpty() && exp.contains(current, ignoreCase = true) && current.length >= 3)
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // Universal typing engine
+    //
+    // Flow: click the requested spot (if any) -> locate the real editable field (target rect first, then
+    // input focus, then a scan of EVERY application window) -> try several insertion strategies in order,
+    // reading the field back after each one. Success is reported only when the text was read back from the
+    // field. A strategy that leaves the field in an unknown state is never stacked with an append-style retry.
+    // ---------------------------------------------------------------------------------------------
+
+    /** Strategy that produced the last verified text, or the reason the last attempt failed. For logs/diagnostics only. */
+    @Volatile
+    var lastTypeDetail: String = ""
+
+    private val typeWorker = Executors.newSingleThreadExecutor()
+
+    private class FieldRef(val viewId: String?, val className: String?, val bounds: Rect)
+    private class EditableRef(val node: AccessibilityNodeInfo, val candidate: TypingText.Candidate)
+    private class ResolvedTarget(val node: AccessibilityNodeInfo, val source: String, val isUrlBar: Boolean = false)
+
+    private fun pause(ms: Long) {
+        try { Thread.sleep(ms) } catch (_: InterruptedException) { Thread.currentThread().interrupt() }
+    }
+
+    private fun supportsSetText(n: AccessibilityNodeInfo): Boolean =
+        try { n.actionList.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT } } catch (_: Exception) { false }
+
+    /** Native editable flag, EditText-family classes, and custom/Compose inputs that only advertise ACTION_SET_TEXT. */
+    private fun isEditableLike(n: AccessibilityNodeInfo): Boolean {
+        if (n.isEditable) return true
+        val cls = n.className?.toString().orEmpty()
+        if (cls.contains("EditText", true) || cls.contains("AutoCompleteTextView", true) ||
+            cls.contains("SearchAutoComplete", true)
+        ) return true
+        return n.isEnabled && n.isFocusable && supportsSetText(n)
+    }
+
+    private fun toBox(r: Rect?): TypingText.Box? =
+        if (r != null && r.width() > 0 && r.height() > 0) TypingText.Box(r.left, r.top, r.right, r.bottom) else null
+
+    /** Active window first, then every other application/dialog window; never the keyboard or accessibility overlays. */
+    private fun typingRoots(): List<AccessibilityNodeInfo> {
+        val roots = ArrayList<AccessibilityNodeInfo>()
+        val active = getActiveRootNode()
+        if (active != null) roots.add(active)
+        try {
+            val own = packageName
+            val activeIsOwn = active?.packageName?.toString() == own
+            val wins = windows
+                .filter {
+                    it.type != AccessibilityWindowInfo.TYPE_INPUT_METHOD &&
+                        it.type != AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY
+                }
+                .sortedByDescending { it.layer }
+            for (w in wins) {
+                val r = w.root ?: continue
+                if (!activeIsOwn && r.packageName?.toString() == own) continue
+                if (roots.none { it == r }) roots.add(r)
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "typingRoots: window enumeration failed: ${e.message}")
+        }
+        return roots
+    }
+
+    /** Full accessibility-tree scan (bounded) for editable-looking nodes, including nested and WebView ones. */
+    private fun collectEditables(roots: List<AccessibilityNodeInfo>, relaxed: Boolean): List<EditableRef> {
+        val out = ArrayList<EditableRef>()
+        var seq = 0
+        var visited = 0
+        for (root in roots) {
+            val inputFocus = try { root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) } catch (_: Exception) { null }
+            val box = Rect()
+            fun walk(n: AccessibilityNodeInfo, depth: Int): Boolean {
+                if (visited++ > 4000 || depth > 90) return false
+                val order = seq++
+                n.getBoundsInScreen(box)
+                val l = box.left; val t = box.top; val r = box.right; val b = box.bottom
+                val selfEditable = isEditableLike(n) && !isUrlBarNode(n) && n.isEnabled &&
+                    (relaxed || (n.isVisibleToUser && r > l && b > t))
+                var editableBelow = false
+                for (i in 0 until n.childCount) {
+                    val c = n.getChild(i) ?: continue
+                    if (walk(c, depth + 1)) editableBelow = true
+                }
+                if (selfEditable) {
+                    out.add(
+                        EditableRef(
+                            n,
+                            TypingText.Candidate(
+                                index = order,
+                                inputFocused = inputFocus != null && inputFocus == n,
+                                focused = n.isFocused,
+                                supportsSetText = supportsSetText(n),
+                                isLeaf = !editableBelow,
+                                left = l, top = t, right = r, bottom = b
+                            )
+                        )
+                    )
+                }
+                return selfEditable || editableBelow
+            }
+            walk(root, 0)
+            // The focused field may sit beyond the scan caps; never lose it.
+            if (inputFocus != null && isEditableLike(inputFocus) && !isUrlBarNode(inputFocus) &&
+                out.none { it.node == inputFocus }
+            ) {
+                inputFocus.getBoundsInScreen(box)
+                out.add(
+                    EditableRef(
+                        inputFocus,
+                        TypingText.Candidate(
+                            index = seq++, inputFocused = true, focused = true,
+                            supportsSetText = supportsSetText(inputFocus), isLeaf = true,
+                            left = box.left, top = box.top, right = box.right, bottom = box.bottom
+                        )
+                    )
+                )
+            }
+        }
+        return out
+    }
+
+    private fun firstEditableDescendant(node: AccessibilityNodeInfo, depth: Int = 0): AccessibilityNodeInfo? {
+        if (depth > 12) return null
+        for (i in 0 until node.childCount) {
+            val c = node.getChild(i) ?: continue
+            if (isEditableLike(c) && !isUrlBarNode(c)) return firstEditableDescendant(c, depth + 1) ?: c
+            val deeper = firstEditableDescendant(c, depth + 1)
+            if (deeper != null) return deeper
+        }
+        return null
+    }
+
+    /**
+     * 1) editable node at the target rect (or an ancestor of the node there), 2) otherwise, and also when there is
+     * no rect, the best editable node found by scanning the whole tree of every window.
+     */
+    private fun resolveTypingTarget(targetRect: Rect?, relaxed: Boolean): ResolvedTarget? {
+        val box = toBox(targetRect)
+        val roots = typingRoots()
+        val active = roots.firstOrNull() ?: return null
+        if (box != null) {
+            var node: AccessibilityNodeInfo? = findNodeCoveringRect(active, targetRect!!)
+            var hops = 0
+            while (node != null && hops < 10) {
+                if (isEditableLike(node)) {
+                    if (isUrlBarNode(node)) return ResolvedTarget(node, "target-rect", isUrlBar = true)
+                    // A custom wrapper marked editable may host the real (nested) field: prefer the inner one.
+                    return ResolvedTarget(firstEditableDescendant(node) ?: node, "target-rect")
+                }
+                node = node.parent
+                hops++
+            }
+        }
+        val refs = collectEditables(roots, relaxed)
+        val best = TypingText.pick(refs.map { it.candidate }, box) ?: return null
+        val chosen = refs.first { it.candidate.index == best.index && it.candidate === best }
+        return ResolvedTarget(
+            chosen.node,
+            if (box != null) "tree-scan(after target miss)" else if (best.inputFocused) "input-focus" else "tree-scan"
+        )
+    }
+
+    private fun isWebContext(node: AccessibilityNodeInfo): Boolean {
+        val pkg = node.packageName?.toString().orEmpty().lowercase(Locale.ROOT)
+        if (listOf("chrome", "browser", "firefox", "brave", "opera", "edge", "duckduckgo", "vivaldi").any { pkg.contains(it) }) return true
+        var p: AccessibilityNodeInfo? = node
+        var hops = 0
+        while (p != null && hops < 40) {
+            if (p.className?.toString()?.contains("WebView", true) == true) return true
+            p = p.parent
+            hops++
+        }
+        return false
+    }
+
+    /** Handle to one input field that survives stale nodes: re-reads via refresh() or re-locates by id/bounds. */
+    private inner class Field(initial: AccessibilityNodeInfo) {
+        var node: AccessibilityNodeInfo = initial
+        private val ref: FieldRef = Rect().let { b ->
+            initial.getBoundsInScreen(b)
+            FieldRef(initial.viewIdResourceName, initial.className?.toString(), b)
+        }
+
+        private fun locate(): AccessibilityNodeInfo? {
+            val roots = typingRoots()
+            for (relaxed in listOf(false, true)) {
+                val b = Rect()
+                for (r in collectEditables(roots, relaxed)) {
+                    r.node.getBoundsInScreen(b)
+                    val sameId = ref.viewId != null && r.node.viewIdResourceName == ref.viewId
+                    val overlap = Rect.intersects(b, ref.bounds)
+                    if ((sameId && overlap) || (b == ref.bounds && r.node.className?.toString() == ref.className)) return r.node
+                }
+            }
+            return null
+        }
+
+        fun fresh(): AccessibilityNodeInfo? {
+            val ok = try { node.refresh() } catch (_: Exception) { false }
+            if (ok) return node
+            val found = locate()
+            if (found != null) node = found
+            return found
+        }
+
+        /** Current field text; "" while the field only shows its hint; null when the field cannot be read. */
+        fun text(): String? {
+            val n = fresh() ?: return null
+            if (n.isShowingHintText) return ""
+            return n.text?.toString().orEmpty()
+        }
+
+        fun holds(expected: String): Boolean {
+            val n = fresh() ?: return false
+            if (n.isShowingHintText) return false
+            return if (n.isPassword) TypingText.isMaskOf(n.text, expected) else TypingText.isVerified(n.text, expected)
+        }
+    }
+
+    private fun interrupted() = Thread.currentThread().isInterrupted
+
+    /** Polls the field until [expected] is read back or [timeoutMs] passes (web views sync their tree late). */
+    private fun settle(field: Field, expected: String, timeoutMs: Long): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (true) {
+            if (field.holds(expected)) return true
+            if (interrupted() || System.currentTimeMillis() >= deadline) return false
+            pause(70)
+        }
+    }
+
+    private fun setValue(node: AccessibilityNodeInfo, value: String): Boolean {
+        return try {
+            val args = Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
+            }
+            node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        } catch (e: Exception) {
+            Log.w(TAG, "ACTION_SET_TEXT threw: ${e.message}")
+            false
+        }
+    }
+
+    /** Gives the field input focus: ACTION_FOCUS, then a click on the node itself or a tap at its centre. */
+    private fun ensureFocused(field: Field) {
+        val n = field.fresh() ?: return
+        if (n.isFocused) return
+        n.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        pause(80)
+        if (field.fresh()?.isFocused == true) return
+        val node = field.node
+        if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+            pause(120)
+        } else {
+            val b = Rect()
+            node.getBoundsInScreen(b)
+            if (b.width() > 0 && b.height() > 0) clickAt(b.exactCenterX(), b.exactCenterY())
+            pause(150)
+        }
+        field.fresh()
+    }
+
+    /**
+     * Gets the field ready to receive pasted text without ever appending to unknown content: empty already,
+     * cleared with ACTION_SET_TEXT (never by tapping a clear icon), or fully selected so a paste replaces it.
+     */
+    private fun prepareForPaste(field: Field): Boolean {
+        val current = field.text() ?: return false
+        if (current.isBlank()) return true
+        if (setValue(field.node, "")) {
+            val deadline = System.currentTimeMillis() + 400
+            while (System.currentTimeMillis() < deadline && !interrupted()) {
+                if (field.text()?.isBlank() == true) return true
+                pause(60)
+            }
+        }
+        return try {
+            val args = Bundle().apply {
+                putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, 0)
+                putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, current.length)
+            }
+            field.node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, args)
+        } catch (_: Exception) { false }
+    }
+
+    /** True when the field is back to what it held before typing began (or is empty), so another strategy cannot duplicate text. */
+    private fun safeToRetry(field: Field, baseline: String): Boolean {
+        val current = field.text() ?: return false
+        if (current.isBlank() || TypingText.normalize(current) == TypingText.normalize(baseline)) return true
+        return prepareForPaste(field) && field.text()?.isBlank() == true
+    }
+
+    private fun putOnClipboard(text: String): Boolean = try {
+        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        if (cm == null) false else { cm.setPrimaryClip(ClipData.newPlainText("JarvisInput", text)); true }
+    } catch (e: Exception) {
+        Log.w(TAG, "Clipboard write failed: ${e.message}")
+        false
+    }
+
+    private fun pasteInto(field: Field): Boolean {
+        val n = field.fresh() ?: return false
+        return try {
+            n.performAction(AccessibilityNodeInfo.ACTION_PASTE) ||
+                n.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_PASTE.id)
+        } catch (_: Exception) { false }
+    }
+
+    /**
+     * Runs the strategies in order against one field and returns the name of the one whose result was read back,
+     * or null. Never returns success without a readback.
+     */
+    private fun typeIntoField(field: Field, text: String, web: Boolean, log: StringBuilder): String? {
+        val timeout = if (web) 1100L else 450L
+        val baseline = field.text() ?: ""
+
+        if (field.holds(text)) {
+            Log.i(TAG, "smartTypeText skipped duplicate request: the exact text is already present")
+            return "ALREADY_PRESENT"
+        }
+
+        fun note(s: String) { if (log.isNotEmpty()) log.append("; "); log.append(s) }
+
+        // 1) ACTION_SET_TEXT (replaces content, works for most native and many custom fields).
+        if (setValue(field.node, text)) {
+            if (settle(field, text, timeout)) return "SET_TEXT"
+            note("SET_TEXT accepted but not read back")
+        } else note("SET_TEXT rejected")
+        if (interrupted() || !safeToRetry(field, baseline)) { note("field state unknown, stopped"); return null }
+
+        // 2) Give the field input focus first (delayed-focus fields, WebViews), then SET_TEXT again.
+        ensureFocused(field)
+        if (setValue(field.node, text)) {
+            if (settle(field, text, timeout)) return "FOCUS_THEN_SET_TEXT"
+            note("focused SET_TEXT not read back")
+        } else note("focused SET_TEXT rejected")
+        if (interrupted() || !safeToRetry(field, baseline)) { note("field state unknown, stopped"); return null }
+
+        // 3) Clipboard + ACTION_PASTE.
+        if (putOnClipboard(text)) {
+            if (prepareForPaste(field)) {
+                ensureFocused(field)
+                if (pasteInto(field)) {
+                    if (settle(field, text, timeout)) return "CLIPBOARD_PASTE"
+                    note("paste not read back")
+                } else note("ACTION_PASTE rejected")
+            } else note("field could not be cleared for paste")
+            if (interrupted() || !safeToRetry(field, baseline)) { note("field state unknown, stopped"); return null }
+
+            // 4) Keyboard clipboard suggestion (Gboard chip), only inside the input-method window.
+            if (isKeyboardVisible()) {
+                pause(250)
+                val chip = findClipboardChipAcrossAllWindows(text)
+                if (chip != null && prepareForPaste(field)) {
+                    clickNodeAndTap(chip)
+                    if (settle(field, text, timeout)) return "KEYBOARD_CLIPBOARD_CHIP"
+                    note("clipboard chip not read back")
+                    if (interrupted() || !safeToRetry(field, baseline)) { note("field state unknown, stopped"); return null }
+                } else note("no clipboard chip")
+            }
+
+            // 5) Long-press the field and tap the system Paste popup.
+            val b = Rect()
+            (field.fresh() ?: field.node).getBoundsInScreen(b)
+            if (b.width() > 0 && b.height() > 0 && prepareForPaste(field)) {
+                if (performLongPressAndPaste(b) && settle(field, text, timeout)) return "LONG_PRESS_PASTE"
+                note("long-press paste not read back")
+            }
+        } else note("clipboard unavailable")
+        return null
+    }
+
+    /** Best-effort: puts the field back to what it held before typing started. */
+    private fun restoreBaseline(field: Field, baseline: String) {
+        val current = field.text() ?: return
+        if (TypingText.normalize(current) != TypingText.normalize(baseline)) setValue(field.node, baseline)
+    }
+
+    /**
+     * Types [textToType] into the right input field of whatever app is on screen and returns true ONLY if the
+     * text was then read back from that field. Never auto-submits. Handles Unicode (Hindi, Hinglish, English).
+     */
     fun smartTypeText(textToType: String, targetRect: Rect? = null, submit: Boolean = false): Boolean {
         lastTypeVerified = false
+        lastTypeDetail = ""
         if (textToType.isBlank()) {
             Log.w(TAG, "smartTypeText refused blank input")
+            lastTypeDetail = "blank input"
             return false
         }
         Log.i(TAG, "smartTypeText starting (length=${textToType.length}, targeted=${targetRect != null}, submit=$submit)")
 
-        if (targetRect != null && targetRect.width() > 0 && targetRect.height() > 0) {
-            if (!performClickAtRect(targetRect)) return false
-            Thread.sleep(100)
+        val hasRect = toBox(targetRect) != null
+        if (hasRect) {
+            // A failed tap no longer aborts: the field may already be focused, and the tree scan can still find it.
+            if (!performClickAtRect(targetRect!!)) Log.w(TAG, "smartTypeText: tap at target failed, continuing with tree search")
+            pause(100)
         }
 
-        val appRoot = getAppRootNode() ?: getActiveRootNode() ?: return false
-        val inBrowser = (appRoot.packageName?.toString() ?: "").let {
-            it.contains("chrome", ignoreCase = true) || it.contains("browser", ignoreCase = true)
+        // Fields can appear/focus late (expanding search bars, WebViews): keep looking for up to ~1.5s.
+        var resolved = resolveTypingTarget(targetRect, relaxed = false)
+        val deadline = System.currentTimeMillis() + 1500
+        while (resolved == null && !interrupted() && System.currentTimeMillis() < deadline) {
+            pause(120)
+            resolved = resolveTypingTarget(targetRect, relaxed = false)
         }
-
-        fun editableAt(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-            if (targetRect != null && targetRect.width() > 0) {
-                var node = findNodeCoveringRect(root, targetRect)
-                while (node != null) {
-                    if (node.isEditable || node.className?.toString()?.contains("EditText", true) == true) return node
-                    node = node.parent
-                }
-                val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-    ?: findNodeWithInputFocus(root)
-
-if (focused != null &&
-    (focused.isEditable ||
-        focused.className?.toString()?.contains("EditText", true) == true) &&
-    !isUrlBarNode(focused)
-) {
-    return focused
-}
-
-return null
-            }
-            return root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-                ?: findNodeWithInputFocus(root)
-                ?: findFirstEditableNode(root)
+        if (resolved == null) resolved = resolveTypingTarget(targetRect, relaxed = true)
+        if (resolved == null) {
+            Log.w(TAG, "smartTypeText found no editable field in any window; no text was entered")
+            lastTypeDetail = "no editable field found in any window"
+            return false
         }
-
-        var target = editableAt(appRoot)
-        if (target != null && isUrlBarNode(target)) {
+        if (resolved.isUrlBar) {
             Log.w(TAG, "smartTypeText refused browser URL/address bar")
-            return false
-        }
-        if (target == null) {
-            Log.w(TAG, "smartTypeText found no verified editable target; no text was entered")
+            lastTypeDetail = "target is the browser address bar"
             return false
         }
 
-        fun currentTarget(): AccessibilityNodeInfo? {
-            val freshRoot = getActiveRootNode() ?: getAppRootNode() ?: return null
-            return editableAt(freshRoot)
-        }
-        fun textEqualsExpected(node: AccessibilityNodeInfo?): Boolean {
-            val current = node?.text?.toString()?.replace("\r\n", "\n")?.trim().orEmpty()
-            val expected = textToType.replace("\r\n", "\n").trim()
-            if (current == expected) return true
-            // Some apps (shopping, social, chat) add spacing or hint text; accept the same words once.
-            fun norm(v: String) = v.lowercase(java.util.Locale.ROOT).replace(Regex("\\s+"), " ").trim()
-            val c = norm(current)
-            val e = norm(expected)
-            return e.isNotEmpty() && (c == e || c.contains(e))
-        }
-        fun setValue(node: AccessibilityNodeInfo, value: String): Boolean {
-            val args = Bundle().apply {
-                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
-            }
-            return node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-        }
-
-        // Repeated model tool calls become idempotent: matching text is success, never paste it again.
-        if (textEqualsExpected(target)) {
-            lastTypeVerified = true
-            Log.i(TAG, "smartTypeText skipped duplicate request: the exact text is already present")
-        } else {
-            var setAccepted = false
-            try {
-                setAccepted = setValue(target, textToType)
-            } catch (e: Exception) {
-                Log.w(TAG, "ACTION_SET_TEXT failed: ${e.message}")
-            }
-
-            if (setAccepted) {
-                Thread.sleep(180)
-                target = currentTarget()
-                lastTypeVerified = textEqualsExpected(target)
-                if (!lastTypeVerified) {
-                    // A successful SET_TEXT with no readable confirmation may already have changed
-                    // the UI. Do not paste on top of it; that was the source of repeated text.
-                    Log.w(TAG, "Text set was not read back exactly; refusing append-style fallback")
-                    return false
-                }
-            } else {
-                // Paste fallback is safe only after the current field has been verified empty.
-                // Clearing is done with ACTION_SET_TEXT, never by tapping an ambiguous clear icon.
-                val fresh = currentTarget() ?: target
-                val currentText = fresh.text?.toString().orEmpty()
-                if (currentText.isNotBlank()) {
-                    val cleared = try { setValue(fresh, "") } catch (_: Exception) { false }
-                    Thread.sleep(120)
-                    target = currentTarget()
-                    if (!cleared || !target?.text?.toString().isNullOrBlank()) {
-                        Log.w(TAG, "Existing input could not be safely cleared; refusing to append text")
-                        return false
-                    }
-                } else {
-                    target = fresh
-                }
-
-                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                try {
-                    clipboard?.setPrimaryClip(ClipData.newPlainText("JarvisInput", textToType))
-                    val pasteTarget = currentTarget() ?: target ?: return false
-                    if (isUrlBarNode(pasteTarget)) return false
-                    val pasted = pasteTarget.performAction(AccessibilityNodeInfo.ACTION_PASTE) ||
-                        pasteTarget.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_PASTE.id)
-                    if (!pasted) {
-                        Log.w(TAG, "Safe paste unavailable; no second typing strategy was attempted")
-                        return false
-                    }
-                    Thread.sleep(180)
-                    lastTypeVerified = textEqualsExpected(currentTarget())
-                    if (!lastTypeVerified) {
-                        Log.w(TAG, "Pasted text could not be verified exactly; refusing to retry and duplicate it")
-                        return false
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Safe paste failed: ${e.message}")
-                    return false
-                }
+        // Other fields are only tried when nothing pointed at one: not for an explicit rect or an input-focused field.
+        val queue = ArrayList<AccessibilityNodeInfo>()
+        queue.add(resolved.node)
+        val pinned = resolved.source == "target-rect" || resolved.source == "input-focus"
+        if (!pinned) {
+            val refs = collectEditables(typingRoots(), false)
+            TypingText.rank(refs.map { it.candidate }, toBox(targetRect)).forEach { c ->
+                val n = refs.first { it.candidate === c }.node
+                if (queue.size < 3 && queue.none { it == n }) queue.add(n)
             }
         }
 
-        // Never auto-tap Send/Submit as a side effect of typing. Search/submit actions
-        // must be a separate, freshly inspected click; the service enforces send intent.
-        if (submit) Log.i(TAG, "Submit requested after typing; waiting for an explicit grounded submit action")
-        return lastTypeVerified
+        val log = StringBuilder()
+        for ((i, node) in queue.withIndex()) {
+            if (interrupted()) break
+            val field = Field(node)
+            val baseline = field.text() ?: ""
+            val web = isWebContext(node)
+            log.setLength(0)
+            val strategy = typeIntoField(field, textToType, web, log)
+            if (strategy != null) {
+                lastTypeVerified = true
+                lastTypeDetail = "$strategy via ${if (i == 0) resolved.source else "fallback-field"}"
+                Log.i(TAG, "smartTypeText verified: $lastTypeDetail (web=$web)")
+                if (submit) Log.i(TAG, "Submit requested after typing; waiting for an explicit grounded submit action")
+                return true
+            }
+            Log.w(TAG, "smartTypeText field #${i + 1} (${resolved.source}) failed: $log")
+            lastTypeDetail = "field #${i + 1} failed: $log"
+            restoreBaseline(field, baseline)
+        }
+        // Everything failed: report failure; never claim success.
+        return false
+    }
+
+    /** True when some editable field on screen currently holds [expected] (re-read from the live tree). */
+    fun verifyTextInAnyEditable(expected: String): Boolean {
+        return try {
+            collectEditables(typingRoots(), false).any { r ->
+                val n = r.node
+                !n.isShowingHintText &&
+                    (if (n.isPassword) TypingText.isMaskOf(n.text, expected) else TypingText.isVerified(n.text, expected))
+            }
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun performLongPressAndPaste(targetRect: Rect): Boolean {

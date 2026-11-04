@@ -136,6 +136,8 @@ class PhoneControlManager(
             "amazon" to "in.amazon.mShop.android.shopping",
             "amazon shopping" to "in.amazon.mShop.android.shopping",
             "flipkart" to "com.flipkart.android",
+            "rapido" to "com.rapido.passenger",
+            "blinkit" to "com.grofers.customerapp",
             "cred" to "com.dreamplug.androidapp",
             "myntra" to "com.myntra.android",
 
@@ -626,6 +628,160 @@ class PhoneControlManager(
     // -------------------------------------------------------------
     // App Launching (Smart resolution with 100+ aliases)
     // -------------------------------------------------------------
+
+    /**
+     * Fast-path social search. Prefer opening the requested app directly with its search URL;
+     * if the app cannot handle it, open the app itself rather than sending the command to an AI.
+     */
+    fun searchSocialApp(appName: String, query: String): String {
+        val cleanQuery = query.trim()
+        if (cleanQuery.isBlank()) return "What should I search for in $appName?"
+        val encoded = Uri.encode(cleanQuery)
+        val normalized = appName.trim().lowercase(Locale.ROOT)
+        val packageName = when (normalized) {
+            "instagram", "insta" -> "com.instagram.android"
+            "instazen" -> resolveInstalledPackageByName("instazen")
+            else -> null
+        }
+        if (packageName == null) {
+            return openApp(appName)
+        }
+        val uri = when (normalized) {
+            "instagram", "insta" -> Uri.parse("https://www.instagram.com/explore/search/keyword/?q=$encoded")
+            else -> Uri.parse("https://www.instagram.com/explore/search/keyword/?q=$encoded")
+        }
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                setPackage(packageName)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            val launched = ActivityLauncherHelper.startActivitySafely(context, intent)
+            if (launched) {
+                "Opening $appName search for $cleanQuery."
+            } else {
+                Log.w(TAG, "Direct $appName search URL was not handled; opening app instead.")
+                openApp(appName)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Direct $appName search failed; opening app: ${e.message}")
+            openApp(appName)
+        }
+    }
+
+    /**
+     * Opens a targeted Instagram destination immediately without an AI round-trip.
+     * Instagram does not expose public deep links for silently liking/following or sending DMs;
+     * those requests navigate to the relevant screen and leave the final interaction to the user.
+     * Instazen's URI scheme is not assumed; it is launched directly where app-specific routes are unknown.
+     */
+    /**
+     * Local fast path for Instagram/Instazen voice actions. Instagram profile/post actions
+     * use accessibility only after the requested destination has been opened and observed.
+     */
+    suspend fun socialAppAction(appName: String, action: String, target: String, message: String = ""): String {
+        val normalized = appName.trim().lowercase(Locale.ROOT)
+        val cleanTarget = target.trim().trimStart('@')
+        val actionName = action.lowercase(Locale.ROOT)
+        if (normalized == "instazen") {
+            openApp("Instazen")
+            return when (actionName) {
+                "search" -> "Opening Instazen. Search for $cleanTarget there."
+                "message" -> "Opening Instazen. Its chat route isn't exposed to JARVIS yet; open the chat with $cleanTarget there."
+                "follow" -> "Opening Instazen. App-specific Follow interaction isn't available yet."
+                "like" -> "Opening Instazen. App-specific Like interaction isn't available yet."
+                "share" -> "Opening Instazen. Use Share on the intended post."
+                "inbox" -> "Opening Instazen messages; if the app doesn't open its inbox directly, select Messages."
+                else -> "Opening Instazen."
+            }
+        }
+        if (normalized != "instagram" && normalized != "insta") return "Unsupported social app: $appName."
+        if (actionName != "inbox" && cleanTarget.isBlank()) return "Please tell me the Instagram username or exact post link."
+
+        val safeTarget = cleanTarget
+            .removePrefix("https://www.instagram.com/")
+            .removePrefix("https://instagram.com/")
+            .trim('/').substringBefore('?')
+        val url = when (actionName) {
+            "search" -> "https://www.instagram.com/explore/search/keyword/?q=" + Uri.encode(cleanTarget)
+            "inbox" -> "https://www.instagram.com/direct/inbox/"
+            "message" -> {
+                if (!safeTarget.matches(Regex("[A-Za-z0-9._]{1,30}"))) return "Please provide a valid Instagram username."
+                "https://ig.me/m/" + Uri.encode(safeTarget)
+            }
+            "follow" -> {
+                if (!safeTarget.matches(Regex("[A-Za-z0-9._]{1,30}"))) return "For Follow, say a valid Instagram username."
+                "https://www.instagram.com/$safeTarget/"
+            }
+            "like", "share" -> {
+                val uri = try { Uri.parse(cleanTarget) } catch (_: Exception) { null }
+                if (uri?.host?.lowercase(Locale.ROOT)?.let { it == "instagram.com" || it == "www.instagram.com" } != true) {
+                    return "For $action, provide the exact Instagram post URL so I don't act on the wrong post."
+                }
+                cleanTarget
+            }
+            else -> return "That Instagram action isn't supported yet."
+        }
+
+        if (actionName == "share") {
+            return try {
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, url)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(Intent.createChooser(shareIntent, "Share Instagram post").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                "Opened the share sheet for the Instagram post. Choose the intended destination to finish sharing."
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not open Instagram share sheet: ${e.message}")
+                "Couldn't open the share sheet."
+            }
+        }
+
+        val launched = try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                setPackage("com.instagram.android")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            ActivityLauncherHelper.startActivitySafely(context, intent)
+        } catch (e: Exception) {
+            Log.w(TAG, "Instagram direct route failed: ${e.message}")
+            false
+        }
+        if (!launched) return openApp("Instagram")
+        if (actionName == "search") return "Opening Instagram search for $cleanTarget."
+        if (actionName == "inbox") return "Opening Instagram messages."
+
+        val orchestrator = com.jarvis.assistant.vision.VisualTaskOrchestrator.getInstance()
+        val expected = orchestrator.waitForUiState(expectedPackage = "com.instagram.android", timeoutMs = 12_000L)
+        if (!expected.ready) return "Opened Instagram, but its screen isn't accessible. Enable JARVIS Accessibility and try again."
+        val screen = orchestrator.inspectScreen(waitForContent = true).lowercase(Locale.ROOT)
+
+        when (actionName) {
+            "follow" -> {
+                if (screen.contains("following") || screen.contains("requested")) {
+                    return "That account already appears to be followed or has a pending follow request."
+                }
+                val result = orchestrator.handleClick("Follow", taskGoal = "User explicitly requested to follow Instagram account @$safeTarget")
+                return if (result.success) "Follow action performed or attempted for @$safeTarget. ${result.message}"
+                    else "Opened @$safeTarget, but couldn't verify Follow: ${result.message}"
+            }
+            "like" -> {
+                if (screen.contains("unlike")) return "This post already appears to be liked."
+                val result = orchestrator.handleClick("Like", taskGoal = "User explicitly requested to like this Instagram post: $url")
+                return if (result.success) "Like action performed or attempted. ${result.message}"
+                    else "Post opened, but couldn't verify Like: ${result.message}"
+            }
+            "message" -> {
+                if (message.isBlank()) return "Opened the Instagram chat with @$safeTarget. Tell me what message to send."
+                val typed = orchestrator.handleType(message, targetInputName = "message")
+                if (!typed.success) return "Chat opened, but I couldn't enter the message: ${typed.message}"
+                val sent = orchestrator.handleClick("Send", taskGoal = "User explicitly requested to send this Instagram message to @$safeTarget: $message")
+                return if (sent.success) "Message send action attempted for @$safeTarget. ${sent.message}"
+                    else "Message entered, but sending couldn't be verified: ${sent.message}"
+            }
+        }
+        return "Opened Instagram."
+    }
 
     fun openApp(appNameOrPackage: String): String {
         val clean = appNameOrPackage.trim().lowercase(Locale.ROOT)

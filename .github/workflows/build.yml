@@ -2,9 +2,11 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - Google
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
   workflow_dispatch:
 
 jobs:
@@ -12,21 +14,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
+    - name: Checkout Google branch
       uses: actions/checkout@v4
-
+      with:
+        ref: Google
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
-
+        cache: gradle
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
-
-    - name: Build with Gradle
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v4
+      with:
+        packages: 'platform-tools'
+    - name: Install native build tools
+      run: sdkmanager "ndk;27.2.12479018" "cmake;3.31.6"
+    - name: Run unit tests
+      env:
+        SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      run: ./gradlew testDebugUnitTest --stacktrace --info
+    - name: Build debug APK
+      env:
+        # Public client key for Supabase Auth. Read by app/build.gradle.kts; GitHub masks it in logs.
+        SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
       run: ./gradlew assembleDebug
-
+    - name: Print SHA1      
+      run: ./gradlew signingReport
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:

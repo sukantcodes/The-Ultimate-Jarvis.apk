@@ -37,3 +37,6 @@
     public static int v(...);
     public static int i(...);
 }
+
+# JNI method names are referenced by native llama.cpp symbols.
+-keep class com.arm.aichat.internal.InferenceEngineImpl { *; }

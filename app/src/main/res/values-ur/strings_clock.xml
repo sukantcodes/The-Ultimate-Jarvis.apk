@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Clock strings, ur (main labels; the rest fall back to English). -->
+<resources>
+    <string name="clock_title">گھڑی</string>
+    <string name="clock_subtitle">الارم، ٹونز اور ان کا رویہ</string>
+    <string name="clock_ok">ٹھیک ہے</string>
+    <string name="clock_cancel">منسوخ کریں</string>
+    <string name="clock_save">محفوظ کریں</string>
+    <string name="clock_edit">تبدیل کریں</string>
+    <string name="clock_delete">حذف کریں</string>
+    <string name="clock_play">سنیں</string>
+    <string name="clock_stop">روکیں</string>
+    <string name="clock_snooze">اسنوز</string>
+    <string name="clock_today">آج</string>
+    <string name="clock_tomorrow">کل</string>
+    <string name="clock_alarms_title">الارم</string>
+    <string name="clock_tones_title">الارم ٹونز</string>
+    <string name="clock_display_title">گھڑی ڈسپلے کی ترتیبات</string>
+    <string name="clock_behaviour_title">الارم کا رویہ</string>
+    <string name="clock_add_alarm">الارم شامل کریں</string>
+    <string name="clock_new_alarm">نیا الارم</string>
+    <string name="clock_edit_alarm">الارم تبدیل کریں</string>
+    <string name="clock_next_alarm">اگلا الارم</string>
+    <string name="clock_next_alarm_none">کوئی الارم سیٹ نہیں</string>
+    <string name="clock_alarm_default_label">الارم</string>
+    <string name="clock_label_hint">نام (اختیاری)</string>
+    <string name="clock_repeat">دہرائیں</string>
+    <string name="clock_repeat_once">ایک بار</string>
+    <string name="clock_repeat_daily">ہر روز</string>
+    <string name="clock_repeat_weekdays">ہفتے کے دن</string>
+    <string name="clock_repeat_weekends">ہفتہ وار تعطیل</string>
+    <string name="clock_tone">ٹون</string>
+    <string name="clock_vibrate">وائبریشن</string>
+    <string name="clock_snooze_length">اسنوز کا دورانیہ</string>
+    <string name="clock_minutes_fmt">%1$d منٹ</string>
+    <string name="clock_alarm_set_for">الارم %1$s کے لیے سیٹ ہو گیا</string>
+    <string name="clock_alarm_off_toast">الارم بند کر دیا گیا</string>
+    <string name="clock_deleted_toast">الارم حذف کر دیا گیا</string>
+    <string name="clock_snoozed_until">%1$s تک اسنوز کیا گیا</string>
+    <string name="clock_tone_phone_default">فون کا ڈیفالٹ</string>
+    <string name="clock_tone_phone_default_named">فون کا ڈیفالٹ (%1$s)</string>
+    <string name="clock_tone_vibration_only">صرف وائبریشن (آواز نہیں)</string>
+    <string name="clock_time_format">وقت کا انداز</string>
+    <string name="clock_format_system">فون کے مطابق</string>
+    <string name="clock_format_12">12 گھنٹے (AM/PM)</string>
+    <string name="clock_format_24">24 گھنٹے</string>
+    <string name="clock_perm_open_settings">ترتیبات کھولیں</string>
+    <string name="clock_could_not_title">یہ نہیں ہو سکا</string>
+    <string name="clock_err_invalid_time">یہ درست وقت نہیں ہے۔</string>
+    <string name="clock_err_needs_am_pm">براہ کرم بتائیں کہ یہ AM ہے یا PM۔</string>
+    <string name="clock_err_nothing_ringing">اس وقت کوئی الارم نہیں بج رہا۔</string>
+</resources>

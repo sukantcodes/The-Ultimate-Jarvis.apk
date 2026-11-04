@@ -38,9 +38,11 @@ class HomeFragment : Fragment() {
     private val preferences by lazy { JarvisApp.instance.preferences }
 
     private var isPageLoaded = false
+    private var loadedAuroraOrb = false
     private var pendingOrbState: String? = null
     private var pendingThemeKey: String? = null
     private var pendingCustomHex: String? = null
+    private var pendingOrbStyle: String? = null
     private var lastAudioPushTime = 0L
     private var taskFallbackPanel: android.widget.LinearLayout? = null
     private var taskFallbackText: android.widget.TextView? = null
@@ -78,7 +80,7 @@ class HomeFragment : Fragment() {
         }
 
         binding.btnTopSettings.setOnClickListener {
-            (activity as? MainActivity)?.selectTab(MainActivity.TAB_SETTINGS)
+            (activity as? MainActivity)?.openNavigationDrawer()
         }
 
         binding.btnDismissLiveError.setOnClickListener {
@@ -143,11 +145,17 @@ class HomeFragment : Fragment() {
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     isPageLoaded = true
+                    if (!loadedAuroraOrb) {
+                        val working = com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value != null
+                        view?.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setWorking($working);", null)
+                    }
 
                     // Sync Theme
                     val currentTheme = pendingThemeKey ?: preferences.appTheme
                     val customHex = pendingCustomHex ?: preferences.customThemeColor
                     setOrbTheme(currentTheme, customHex)
+                    setOrbStyle(pendingOrbStyle ?: preferences.orbAnimation)
+                    applyOrbLook()
 
                     // Sync State
                     val state = pendingOrbState ?: when (viewModel.conversationState.value) {
@@ -189,13 +197,63 @@ class HomeFragment : Fragment() {
         }
     }
 
+    /**
+     * Applies the glow and size chosen in Settings > Theme & 3D Orb Colors for the selected orb.
+     * Size scales the whole orb stage; glow drives the halo behind it and the orb page's own glow.
+     */
+    fun applyOrbLook(style: String = preferences.orbAnimation) {
+        if (_binding == null) return
+        val size = preferences.getOrbSize(style)
+        val glow = preferences.getOrbGlow(style)
+        binding.orbWebView.scaleX = size
+        binding.orbWebView.scaleY = size
+        binding.orbHaloRing.scaleX = size
+        binding.orbHaloRing.scaleY = size
+        binding.orbHaloRing.alpha = (glow / 1.5f).coerceIn(0f, 1f)
+        if (isPageLoaded) {
+            activity?.runOnUiThread {
+                if (_binding != null) {
+                    binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setGlow && window.JarvisOrb.setGlow($glow);", null)
+                }
+            }
+        }
+    }
+
+    fun setOrbStyle(style: String) {
+        pendingOrbStyle = style
+        applyOrbLook(style)
+        val wantsAurora = style == "aurora_orb"
+        if (wantsAurora != loadedAuroraOrb) {
+            loadedAuroraOrb = wantsAurora
+            isPageLoaded = false
+            binding.orbWebView.loadUrl(if (wantsAurora) "file:///android_asset/aurora_orb.html?hud=0&state=idle" else "file:///android_asset/orb.html?embedded=1")
+            return
+        }
+        if (!isPageLoaded || wantsAurora) return
+        val safeStyle = style.filter { it.isLetterOrDigit() || it == '_' }
+        activity?.runOnUiThread {
+            binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setStyle('$safeStyle');", null)
+        }
+    }
+
+    /** The soft halo behind the orb follows the theme colour instead of staying fixed blue. */
+    private fun tintOrbHalo() {
+        if (_binding == null) return
+        binding.orbHaloRing.backgroundTintList =
+            android.content.res.ColorStateList.valueOf(com.jarvis.assistant.util.ThemeManager.getThemeAccentColor())
+    }
+
     fun setOrbTheme(themeKey: String, customHex: String?) {
         pendingThemeKey = themeKey
         pendingCustomHex = customHex
-        if (!isPageLoaded) return
+        tintOrbHalo()
+        if (!isPageLoaded || loadedAuroraOrb) return
         activity?.runOnUiThread {
             if (themeKey == "custom" && !customHex.isNullOrBlank()) {
-                binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setBackground('$customHex');", null)
+                val second = preferences.customThemeColor2.takeIf { it.isNotBlank() } ?: customHex
+                val safeFirst = customHex.filter { it.isLetterOrDigit() || it == '#' }
+                val safeSecond = second.filter { it.isLetterOrDigit() || it == '#' }
+                binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setBackground('$safeFirst','$safeSecond');", null)
             } else {
                 val mapped = when (themeKey) {
                     "dark" -> "dark"
@@ -214,7 +272,7 @@ class HomeFragment : Fragment() {
         if (now - lastAudioPushTime < 33L) return // ~30 calls per second throttle
         lastAudioPushTime = now
         activity?.runOnUiThread {
-            binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setExternalAudio($amp, $bass, $high);", null)
+            if (loadedAuroraOrb) binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setAudioLevel(${amp.coerceIn(0f, 2f)});", null) else binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setExternalAudio($amp, $bass, $high);", null)
         }
     }
 
@@ -227,6 +285,8 @@ class HomeFragment : Fragment() {
 
         // Sync theme with settings
         setOrbTheme(preferences.appTheme, preferences.customThemeColor)
+        setOrbStyle(preferences.orbAnimation)
+        applyOrbLook()
         updateHomeHeaderAndVoiceStatus()
 
         if (PermissionHelper.hasLocationPermission(requireContext())) {
@@ -327,6 +387,9 @@ class HomeFragment : Fragment() {
                 launch {
                     com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.collect { snapshot ->
                         renderTaskFallback(snapshot)
+                        if (isPageLoaded && !loadedAuroraOrb) {
+                            binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setWorking(${snapshot != null});", null)
+                        }
                     }
                 }
                 launch {

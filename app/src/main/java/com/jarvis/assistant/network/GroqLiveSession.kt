@@ -518,7 +518,10 @@ class GroqLiveSession(
         val markerIndex = systemPromptText.indexOf(marker)
         val base = if (markerIndex >= 0) systemPromptText.substring(0, markerIndex) else systemPromptText
         val log = if (markerIndex >= 0) systemPromptText.substring(markerIndex).take(3_500) else ""
-        return base.take(3_500) + com.jarvis.assistant.util.ConfirmationPolicy.promptSection() + genderStore.promptSection() + "\n\n" + log + "\n\n" +
+        val skills = try {
+            com.jarvis.assistant.skills.SkillStore.get(context).promptSection()
+        } catch (_: Exception) { "" }
+        return base.take(3_500) + com.jarvis.assistant.util.ConfirmationPolicy.promptSection() + genderStore.promptSection() + skills + "\n\n" + log + "\n\n" +
             "ENGINE NOTES: You are running on the Groq engine. Reply in one to three short, natural spoken sentences in the " +
             "user's language (English, Hindi or Hinglish). Never use markdown, lists, emojis or asterisks. When the user asks " +
             "you to do something on the phone, call the matching tool instead of describing it. Say a task is done only after " +

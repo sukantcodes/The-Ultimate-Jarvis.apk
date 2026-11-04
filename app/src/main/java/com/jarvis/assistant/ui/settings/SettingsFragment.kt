@@ -3,11 +3,14 @@ package com.jarvis.assistant.ui.settings
 import android.Manifest
 import android.app.role.RoleManager
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.TypedValue
 import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
@@ -82,6 +85,23 @@ class SettingsFragment : Fragment() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { openPermissionsScreen() }
 
+    private val profilePhotoPicker = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null && isAdded) {
+            try {
+                requireContext().contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: SecurityException) {
+                // Some document providers grant a temporary read permission only.
+            }
+            preferences.profilePhotoUri = uri.toString()
+            showProfilePhoto()
+            toast("Profile photo saved")
+        }
+    }
+
     // ------------------------------------------------------------------------------------------
     // Lifecycle
     // ------------------------------------------------------------------------------------------
@@ -99,6 +119,12 @@ class SettingsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         ThemeManager.applyDynamicBackground(binding.root)
 
+        // Secret Maya companion settings: long-press the Settings heading to open.
+        binding.tvSettingsTitle.setOnLongClickListener {
+            startActivity(Intent(requireContext(), MayaModeActivity::class.java))
+            true
+        }
+
         markSectionHeadings()
         setupProfileCard()
         setupAiSection()
@@ -109,14 +135,92 @@ class SettingsFragment : Fragment() {
         setupPermissionsSection()
         setupAppearanceSection()
         setupAboutSection()
+        applyLiquidGlassStrength(binding.root)
+        applyDimensionalIconColors(binding.root)
 
         refreshState()
+    }
+
+    /**
+     * Tint the existing settings icons with the selected theme colour. The icon containers
+     * remain transparent, so opaque coloured squares do not appear behind them.
+     */
+    private fun applyDimensionalIconColors(root: View) {
+        val accent = ThemeManager.getThemeAccentColor()
+
+        fun visit(view: View) {
+            if (view !is ViewGroup) return
+            if (view.childCount > 0 && view.getChildAt(0) is android.widget.FrameLayout) {
+                val iconBox = view.getChildAt(0) as android.widget.FrameLayout
+                val width = iconBox.layoutParams?.width ?: 0
+                val height = iconBox.layoutParams?.height ?: 0
+                val isSettingsIconSize = width in dp(36)..dp(44) && height in dp(36)..dp(44)
+                if (isSettingsIconSize && iconBox.childCount > 0 &&
+                    iconBox.getChildAt(0) is android.widget.ImageView
+                ) {
+                    iconBox.background = null
+                    iconBox.backgroundTintList = null
+                    iconBox.elevation = 0f
+                    iconBox.translationZ = 0f
+                    iconBox.clipToOutline = false
+                    applyIconTile(iconBox, accent)
+                    (iconBox.getChildAt(0) as android.widget.ImageView).apply {
+                        imageTintList = ColorStateList.valueOf(accent)
+                        elevation = dp(2).toFloat()
+                    }
+                }
+            }
+            for (index in 0 until view.childCount) visit(view.getChildAt(index))
+        }
+
+        visit(root)
+    }
+
+    /** Repaints every Settings icon with the shape chosen in Theme & 3D Orb Colors. */
+    fun applyIconShape() {
+        if (_binding != null) applyDimensionalIconColors(binding.root)
+    }
+
+    /**
+     * The tile behind one icon. Plain keeps the original look (no tile); Rectangular is a flat square with
+     * small corners; Pillowy is a soft, raised squircle; Circular is a round badge.
+     */
+    private fun applyIconTile(box: android.widget.FrameLayout, accent: Int) {
+        val shape = JarvisApp.instance.preferences.settingsIconShape
+        if (shape == 0) return
+        val tile = GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf(
+                androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 70),
+                androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 22)
+            )
+        )
+        when (shape) {
+            1 -> { tile.shape = GradientDrawable.RECTANGLE; tile.cornerRadius = dp(4).toFloat() }
+            2 -> { tile.shape = GradientDrawable.RECTANGLE; tile.cornerRadius = dp(15).toFloat() }
+            else -> tile.shape = GradientDrawable.OVAL
+        }
+        tile.setStroke(dp(1), androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 90))
+        box.background = tile
+        box.elevation = if (shape == 2) dp(3).toFloat() else 0f
+    }
+
+    private fun applyLiquidGlassStrength(view: View) {
+        if (view.tag == "liquid_glass_surface") {
+            view.background?.alpha = ThemeManager.getLiquidGlassAlpha()
+        }
+        if (view is ViewGroup) {
+            for (index in 0 until view.childCount) {
+                applyLiquidGlassStrength(view.getChildAt(index))
+            }
+        }
     }
 
     override fun onResume() {
         super.onResume()
         if (_binding != null) {
             ThemeManager.applyDynamicBackground(binding.root)
+            applyDimensionalIconColors(binding.root)
             refreshState()
         }
     }
@@ -158,8 +262,43 @@ class SettingsFragment : Fragment() {
 
     private fun setupProfileCard() {
         binding.cardProfile.setOnClickListener { showEditNameDialog() }
+        binding.ivProfileAvatar.setOnClickListener {
+            profilePhotoPicker.launch(arrayOf("image/*"))
+        }
+        binding.ivProfileAvatar.setOnLongClickListener {
+            preferences.profilePhotoUri = ""
+            showProfilePhoto()
+            toast("Profile photo removed")
+            true
+        }
         binding.chipProfileVoiceStatus.setOnClickListener { open(VoiceEnrollmentActivity::class.java) }
     }
+
+    private fun showProfilePhoto() {
+        val avatar = binding.ivProfileAvatar
+        val savedUri = preferences.profilePhotoUri
+        if (savedUri.isBlank()) {
+            avatar.setImageResource(R.drawable.ic_user_profile)
+            avatar.imageTintList = ColorStateList.valueOf(
+                ContextCompat.getColor(requireContext(), R.color.accent_sapphire)
+            )
+            avatar.scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
+            avatar.setPadding(dp(12), dp(12), dp(12), dp(12))
+            return
+        }
+        try {
+            avatar.setImageURI(Uri.parse(savedUri))
+            avatar.imageTintList = null
+            avatar.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+            avatar.setPadding(0, 0, 0, 0)
+        } catch (_: Exception) {
+            preferences.profilePhotoUri = ""
+            avatar.setImageResource(R.drawable.ic_user_profile)
+        }
+    }
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt()
 
     // ------------------------------------------------------------------------------------------
     // 1. AI & Intelligence
@@ -183,9 +322,49 @@ class SettingsFragment : Fragment() {
 
     private fun setupVoiceSection() {
         binding.rowVoiceGender.setOnClickListener { showVoiceGenderDialog() }
+        binding.rowPocketTts.setOnClickListener { open(PocketTtsSetupActivity::class.java) }
         binding.rowNoiseCancel.setOnClickListener { showNoiseCancelDialog() }
         binding.rowAutoSleep.setOnClickListener { showAutoSleepDialog() }
         binding.rowDefaultAssistant.setOnClickListener { requestDefaultAssistant() }
+    }
+
+    /**
+     * Prefer opening Pocket TTS itself. JARVIS also selects this engine directly for synthesis
+     * when the engine package is installed; the Android panel is only the setup fallback.
+     */
+    private fun openPocketTtsSettings() {
+        val context = requireContext()
+        val enginePackage = "org.pockettts.android.engine"
+        val launchIntent = try {
+            context.packageManager.getLaunchIntentForPackage(enginePackage)
+        } catch (_: Exception) {
+            null
+        }
+        if (launchIntent != null) {
+            startActivity(launchIntent)
+            Toast.makeText(context, "Pocket TTS opened. Import a supported voice pack there; JARVIS will request this engine directly when speaking offline.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        // Pocket TTS is a separate Android system engine and its language weights are
+        // distributed as model packs. Direct users to the upstream release page rather than
+        // falsely implying that opening Android settings installs the runtime.
+        val releaseIntent = android.content.Intent(
+            android.content.Intent.ACTION_VIEW,
+            android.net.Uri.parse("https://github.com/The-unknown-Shadowman/PocketTTS-Android-Engine/releases/latest")
+        )
+        try {
+            startActivity(releaseIntent)
+            Toast.makeText(context, "Install Pocket TTS Android Engine from its official releases, import a language pack, then reopen JARVIS. Until then, JARVIS uses the device's available TTS voice.", Toast.LENGTH_LONG).show()
+        } catch (error: android.content.ActivityNotFoundException) {
+            val settingsIntent = android.content.Intent("com.android.settings.TTS_SETTINGS")
+            try {
+                startActivity(settingsIntent)
+                Toast.makeText(context, "Pocket TTS is not installed. Android speech settings cannot install it.", Toast.LENGTH_LONG).show()
+            } catch (_: android.content.ActivityNotFoundException) {
+                Toast.makeText(context, "Pocket TTS is not installed and no browser or speech settings app is available.", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     // ------------------------------------------------------------------------------------------
@@ -210,6 +389,7 @@ class SettingsFragment : Fragment() {
         }
 
         binding.rowScreenUnlock.setOnClickListener { open(ScreenUnlockActivity::class.java) }
+        binding.rowFaceLockSettings.setOnClickListener { open(FaceLockActivity::class.java) }
     }
 
     // ------------------------------------------------------------------------------------------
@@ -268,12 +448,15 @@ class SettingsFragment : Fragment() {
         }
         binding.rowApplications.setOnClickListener { open(HandsFreeActivity::class.java) }
         binding.rowAutomationStudio.setOnClickListener { open(AutomationStudioActivity::class.java) }
+        binding.rowSkillStore.setOnClickListener { open(com.jarvis.assistant.ui.skills.SkillStoreActivity::class.java) }
+        binding.rowClock.setOnClickListener { open(com.jarvis.assistant.ui.clock.ClockSettingsActivity::class.java) }
     }
 
     private fun missingCallPermissions(): Array<String> {
         val wanted = listOf(
             Manifest.permission.READ_CONTACTS,
             Manifest.permission.CALL_PHONE,
+            Manifest.permission.SEND_SMS,
             Manifest.permission.READ_PHONE_STATE,
             Manifest.permission.READ_PHONE_NUMBERS
         )
@@ -295,6 +478,8 @@ class SettingsFragment : Fragment() {
             ThemeSelectionBottomSheet.newInstance().show(childFragmentManager, ThemeSelectionBottomSheet.TAG)
         }
         binding.rowOverlayAvatars.setOnClickListener { open(OverlayAvatarActivity::class.java) }
+
+
     }
 
     // ------------------------------------------------------------------------------------------
@@ -347,6 +532,7 @@ class SettingsFragment : Fragment() {
         val sapphire = ContextCompat.getColor(ctx, R.color.accent_sapphire)
 
         binding.tvProfileName.text = preferences.userName.ifBlank { "Sukant" }
+        showProfilePhoto()
         binding.tvProfileSubtitle.text = "JARVIS OPERATOR • PRIMARY USER"
 
         // Owner voice profile status (profile card chip and the Owner Voice Profile row)

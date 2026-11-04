@@ -17,11 +17,17 @@ val releaseCertSha256 = configuredValue("JARVIS_RELEASE_CERT_SHA256")?.replace("
 val developerName = configuredValue("JARVIS_DEVELOPER_NAME")?.ifBlank { null } ?: "♪Sukant♪Codes♪"
 val copyrightOwner = configuredValue("JARVIS_COPYRIGHT_OWNER")?.ifBlank { null } ?: "Sukant Sir"
 val verificationEndpoint = configuredValue("JARVIS_VERIFICATION_ENDPOINT").orEmpty()
+// Supabase project "JARVIS-CLOUD_CLI". The URL is public; the publishable (client) key comes from the
+// SUPABASE_PUBLISHABLE_KEY Gradle property or environment variable (GitHub Actions secret in CI).
+// Never use a service_role / secret key here. If unset, the build still works and auth reports "not configured".
+val supabaseUrl = configuredValue("SUPABASE_URL")?.ifBlank { null } ?: "https://yeggjbjcoaaoqntqyjdv.supabase.co"
+val supabasePublishableKey = configuredValue("SUPABASE_PUBLISHABLE_KEY")?.trim().orEmpty()
 val releaseSigningReady = listOf(releaseStorePath, releaseStorePassword, releaseKeyAlias, releaseKeyPassword).all { !it.isNullOrBlank() }
 
 android {
     namespace = "com.jarvis.assistant"
     compileSdk = 34
+    ndkVersion = "27.2.12479018"
 
     defaultConfig {
         applicationId = "com.jarvis.assistant"
@@ -31,10 +37,13 @@ android {
         versionName = "1.8.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         buildConfigField("String", "DEVELOPER_NAME", buildConfigString(developerName.ifBlank { "Unverified developer" }))
         buildConfigField("String", "COPYRIGHT_OWNER", buildConfigString(copyrightOwner.ifBlank { "Unconfigured" }))
         buildConfigField("String", "PINNED_RELEASE_CERT_SHA256", buildConfigString(releaseCertSha256))
         buildConfigField("String", "VERIFICATION_ENDPOINT", buildConfigString(verificationEndpoint))
+        buildConfigField("String", "SUPABASE_URL", buildConfigString(supabaseUrl))
+        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", buildConfigString(supabasePublishableKey))
     }
 
     signingConfigs {
@@ -57,6 +66,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.31.6"
         }
     }
 
@@ -113,13 +129,19 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("androidx.webkit:webkit:1.12.0")
+    implementation("androidx.camera:camera-camera2:1.3.4")
+    implementation("androidx.camera:camera-lifecycle:1.3.4")
+    implementation("androidx.camera:camera-view:1.3.4")
+    implementation("com.google.mlkit:face-detection:16.1.7")
     implementation("net.java.dev.jna:jna:5.13.0@aar")
     implementation("com.alphacephei:vosk-android:0.3.75@aar")
+    // Native on-device WebRTC VAD; accepts the existing 16 kHz / 20 ms PCM frames.
+    implementation("com.github.gkonovalov.android-vad:webrtc:2.0.10")
 
     // Room Database
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    kapt("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.room:room-runtime:2.7.2")
+    implementation("androidx.room:room-ktx:2.7.2")
+    kapt("androidx.room:room-compiler:2.7.2")
 
     // Security Crypto for EncryptedSharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")

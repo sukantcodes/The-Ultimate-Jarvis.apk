@@ -2,10 +2,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Android 11+ package visibility for the optional Pocket TTS system engine. -->
+    <queries>
+        <package android:name="org.pockettts.android.engine" />
+    </queries>
+
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
@@ -31,6 +37,10 @@
         android:name="android.permission.WRITE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
@@ -56,6 +66,22 @@
         android:networkSecurityConfig="@xml/network_security_config">
 
         <activity
+            android:name=".ui.settings.PocketTtsSetupActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".ui.settings.MayaModeActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
+
+        <activity
+            android:name=".ui.offline.OfflineModelActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".ui.home.MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
@@ -68,6 +94,31 @@
 
             
         </activity>
+
+        <!-- Login / Register / Guest. singleTask so the OAuth callback returns to the existing instance.
+             The deep link com.jarvis.assistant://auth-callback/{google|signup|recovery} must also be
+             listed in Supabase > Authentication > URL Configuration > Redirect URLs. -->
+        <activity
+            android:name=".ui.auth.AuthActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="com.jarvis.assistant"
+                    android:host="auth-callback" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ui.scan.CameraScanActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
 
         <activity
             android:name=".ui.settings.SettingsActivity"
@@ -106,6 +157,11 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.settings.MoreThemeColoursActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
             android:name=".ui.settings.OverlayAvatarActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
@@ -123,6 +179,12 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.settings.FaceLockActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".ui.settings.ScreenUnlockActivity"
             android:exported="false"
             android:screenOrientation="portrait"
@@ -133,6 +195,42 @@
             android:exported="false"
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <activity
+            android:name=".ui.skills.SkillStoreActivity"
+            android:exported="false" />
+
+        <!-- Clock: alarms, tones, display and behaviour pages (Settings > Clock) -->
+        <activity android:name=".ui.clock.ClockSettingsActivity" android:exported="false" />
+        <activity android:name=".ui.clock.AlarmsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.clock.AlarmTonesActivity" android:exported="false" />
+        <activity android:name=".ui.clock.ClockDisplayActivity" android:exported="false" />
+        <activity android:name=".ui.clock.AlarmBehaviourActivity" android:exported="false" />
+        <activity
+            android:name=".ui.clock.AlarmRingActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.JarvisAssistant.Dark" />
+
+        <service
+            android:name=".clock.AlarmRingService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <receiver android:name=".clock.AlarmReceiver" android:exported="false" />
+
+        <receiver android:name=".clock.ClockSystemReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
 
         <activity
             android:name=".studio.ui.AutomationStudioActivity"

@@ -6,12 +6,14 @@ import android.content.res.ColorStateList
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.view.MotionEvent
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.GravityCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -19,6 +21,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.jarvis.assistant.R
+import com.jarvis.assistant.auth.AuthManager
+import com.jarvis.assistant.auth.SessionCheck
+import com.jarvis.assistant.ui.auth.AuthActivity
 import com.jarvis.assistant.background.JarvisConversationService
 import com.jarvis.assistant.data.model.ConversationState
 import com.jarvis.assistant.databinding.ActivityMainBinding
@@ -41,6 +46,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     val viewModel: MainViewModel by viewModels()
     private var activeSnackbar: Snackbar? = null
+    private var swipeStartX = 0f
+    private var swipeStartY = 0f
+    // One consent request per active Jarvis session; Android still requires its system prompt.
+    private var autoScreenCaptureRequestedForSession = false
 
     private var currentTab = TAB_HOME
     private val homeFragment by lazy { HomeFragment() }
@@ -137,6 +146,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Start Jarvis and wait for LIVE before sharing your screen.", Toast.LENGTH_LONG).show()
                 return
             }
+            autoScreenCaptureRequestedForSession = true
             screenCaptureLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
         }
     }
@@ -145,10 +155,41 @@ class MainActivity : AppCompatActivity() {
         com.jarvis.assistant.util.ThemeManager.applyTheme(this)
         val prefs = com.jarvis.assistant.JarvisApp.instance.preferences
         appliedThemeKey = prefs.appTheme
-        appliedCustomHex = prefs.customThemeColor
+        appliedCustomHex = prefs.customThemeSignature
         super.onCreate(savedInstanceState)
+
+        // Auth gate: only a user with neither a session nor a guest choice is sent to Login / Register /
+        // Guest. Guests and signed-in users go straight to JARVIS; the app itself is never locked.
+        AuthManager.init(applicationContext)
+        if (AuthManager.needsAuthScreen()) {
+            startActivity(Intent(this, AuthActivity::class.java))
+            finish()
+            return
+        }
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Premium JARVIS entrance: a smooth fade, subtle lift, and scale settle on cold launch.
+        // Keep it lightweight and avoid replaying it on configuration changes or theme recreation.
+        if (savedInstanceState == null) {
+            binding.rootMainLayout.apply {
+                alpha = 0f
+                translationY = 28f * resources.displayMetrics.density
+                scaleX = 0.965f
+                scaleY = 0.965f
+                post {
+                    animate()
+                        .alpha(1f)
+                        .translationY(0f)
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(520L)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
+                        .start()
+                }
+            }
+        }
 
         if (!com.jarvis.assistant.security.AppIdentityVerifier.isTrustedRelease(this)) {
             MaterialAlertDialogBuilder(this)
@@ -198,11 +239,14 @@ class MainActivity : AppCompatActivity() {
         trans.commitNow()
 
         setupNavigationDock()
+        setupDrawerNavigation()
         selectTab(currentTab)
         observeViewModel()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (currentTab != TAB_HOME) {
+                if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                    binding.drawerLayout.closeDrawer(GravityCompat.START)
+                } else if (currentTab != TAB_HOME) {
                     selectTab(TAB_HOME)
                 } else {
                     // Preserve Android's normal root behavior (return to launcher) only
@@ -215,6 +259,34 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    /**
+     * Let a horizontal swipe anywhere on the app surface open the navigation drawer;
+     * swiping left closes it. The original touch is always dispatched to the child first,
+     * so scrolling, buttons, and the orb remain interactive.
+     */
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (!::binding.isInitialized) return super.dispatchTouchEvent(event)
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                swipeStartX = event.rawX
+                swipeStartY = event.rawY
+            }
+            MotionEvent.ACTION_UP -> {
+                val dx = event.rawX - swipeStartX
+                val dy = event.rawY - swipeStartY
+                val threshold = (resources.displayMetrics.density * 56f)
+                if (kotlin.math.abs(dx) >= threshold && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.35f) {
+                    if (dx > 0 && !binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                        binding.drawerLayout.openDrawer(GravityCompat.START, true)
+                    } else if (dx < 0 && binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                        binding.drawerLayout.closeDrawer(GravityCompat.START, true)
+                    }
+                }
+            }
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putInt("CURRENT_TAB", currentTab)
@@ -222,11 +294,23 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (!::binding.isInitialized) return // redirected to the auth screen
         viewModel.refreshSettings()
+        updateAccountMenuItem()
+        lifecycleScope.launch {
+            // Refresh an expired access token when returning to the app. A rejected refresh token ends the
+            // session; being offline does not.
+            if (AuthManager.checkSession() == SessionCheck.EXPIRED) {
+                AuthManager.consumeNotice()
+                AuthManager.continueAsGuest() // keep using JARVIS as a guest rather than locking the app
+                Toast.makeText(this@MainActivity, R.string.auth_session_expired_toast, Toast.LENGTH_LONG).show()
+                updateAccountMenuItem()
+            }
+        }
         val prefs = com.jarvis.assistant.JarvisApp.instance.preferences
-        if (appliedThemeKey != prefs.appTheme || appliedCustomHex != prefs.customThemeColor) {
+        if (appliedThemeKey != prefs.appTheme || appliedCustomHex != prefs.customThemeSignature) {
             appliedThemeKey = prefs.appTheme
-            appliedCustomHex = prefs.customThemeColor
+            appliedCustomHex = prefs.customThemeSignature
             recreate()
         }
     }
@@ -234,8 +318,10 @@ class MainActivity : AppCompatActivity() {
     private fun setupNavigationDock() {
         binding.tabHome.setOnClickListener { selectTab(TAB_HOME) }
         binding.tabChat.setOnClickListener { selectTab(TAB_CHAT) }
-        binding.tabSettings.setOnClickListener { selectTab(TAB_SETTINGS) }
         binding.tabUpdates.setOnClickListener { selectTab(TAB_UPDATES) }
+        binding.tabCameraScan.setOnClickListener {
+            startActivity(Intent(this, com.jarvis.assistant.ui.scan.CameraScanActivity::class.java))
+        }
 
         binding.tabMic.setOnClickListener {
             handleMicOrOrbClick()
@@ -245,6 +331,65 @@ class MainActivity : AppCompatActivity() {
             handleHoldMicOrOrb()
             true
         }
+    }
+
+    fun openNavigationDrawer() {
+        if (!binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
+            binding.drawerLayout.openDrawer(GravityCompat.START)
+        }
+    }
+
+    private fun setupDrawerNavigation() {
+        binding.navDrawer.setNavigationItemSelectedListener { item ->
+            binding.drawerLayout.closeDrawer(GravityCompat.START)
+            when (item.itemId) {
+                R.id.drawerHome -> selectTab(TAB_HOME)
+                R.id.drawerChat -> selectTab(TAB_CHAT)
+                R.id.drawerSettings -> selectTab(TAB_SETTINGS)
+                R.id.drawerUpdates -> selectTab(TAB_UPDATES)
+                R.id.drawerAutomation -> startActivity(Intent(this, com.jarvis.assistant.studio.ui.AutomationStudioActivity::class.java))
+                R.id.drawerMemories -> startActivity(Intent(this, com.jarvis.assistant.ui.memory.MemoryActivity::class.java))
+                R.id.drawerScreenShare -> toggleScreenShare()
+                R.id.drawerOfflineJarvis -> startActivity(Intent(this, com.jarvis.assistant.ui.offline.OfflineModelActivity::class.java))
+                R.id.drawerAccount -> onAccountClicked()
+                else -> return@setNavigationItemSelectedListener false
+            }
+            true
+        }
+    }
+
+    /** "Sign in / Create account" for guests; "Log out · email" when signed in. */
+    private fun updateAccountMenuItem() {
+        val item = binding.navDrawer.menu.findItem(R.id.drawerAccount) ?: return
+        val email = AuthManager.email
+        item.title = when {
+            !AuthManager.isSignedIn -> getString(R.string.drawer_account_sign_in)
+            email != null -> getString(R.string.drawer_account_logout) + " · " + email
+            else -> getString(R.string.drawer_account_logout)
+        }
+    }
+
+    private fun onAccountClicked() {
+        if (!AuthManager.isSignedIn) {
+            startActivity(AuthActivity.returnIntent(this))
+            return
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.drawer_account_logout_title)
+            .setMessage(getString(R.string.drawer_account_logout_message, AuthManager.email ?: "your account"))
+            .setPositiveButton(R.string.drawer_account_logout) { _, _ ->
+                lifecycleScope.launch {
+                    AuthManager.signOut()
+                    // Back to the auth screen with a clean back stack. Guest data on the device is untouched.
+                    startActivity(
+                        Intent(this@MainActivity, AuthActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    )
+                    finish()
+                }
+            }
+            .setNegativeButton(R.string.drawer_account_cancel, null)
+            .show()
     }
 
     fun selectTab(tab: Int) {
@@ -316,7 +461,6 @@ class MainActivity : AppCompatActivity() {
         val navItems = listOf(
             Triple(TAB_HOME, binding.pillTabHome, Pair(binding.ivTabHome, binding.tvTabHome)),
             Triple(TAB_CHAT, binding.pillTabChat, Pair(binding.ivTabChat, binding.tvTabChat)),
-            Triple(TAB_SETTINGS, binding.pillTabSettings, Pair(binding.ivTabSettings, binding.tvTabSettings)),
             Triple(TAB_UPDATES, binding.pillTabUpdates, Pair(binding.ivTabUpdates, binding.tvTabUpdates))
         )
 
@@ -416,6 +560,32 @@ class MainActivity : AppCompatActivity() {
     private fun observeViewModel() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    combine(viewModel.isSessionOn, JarvisConversationService.connectionStatus) { isOn, status ->
+                        isOn to status
+                    }.collect { (isOn, status) ->
+                        if (!isOn) {
+                            autoScreenCaptureRequestedForSession = false
+                            if (com.jarvis.assistant.vision.ScreenCaptureManager.getInstance().isSharing.value) {
+                                JarvisConversationService.stopScreenCapture()
+                            }
+                        } else if (
+                            status == "LIVE" &&
+                            !autoScreenCaptureRequestedForSession &&
+                            !com.jarvis.assistant.vision.ScreenCaptureManager.getInstance().isSharing.value
+                        ) {
+                            // Launch Android's mandatory consent UI automatically once Jarvis is LIVE.
+                            // The OS prompt cannot be suppressed or permanently pre-approved by an APK.
+                            autoScreenCaptureRequestedForSession = true
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Allow screen capture to enable JARVIS Screen Awareness. Screen frames are sent to the active AI session for analysis.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            screenCaptureLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
+                        }
+                    }
+                }
                 launch {
                     combine(viewModel.isMicMuted, viewModel.conversationState, viewModel.isSessionOn) { isMuted, state, isOn ->
                         Triple(isMuted, state, isOn)

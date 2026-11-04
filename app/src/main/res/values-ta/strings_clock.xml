@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Clock strings, ta (main labels; the rest fall back to English). -->
+<resources>
+    <string name="clock_title">கடிகாரம்</string>
+    <string name="clock_subtitle">அலாரங்கள், ஒலிகள் மற்றும் அவற்றின் செயல்பாடு</string>
+    <string name="clock_ok">சரி</string>
+    <string name="clock_cancel">ரத்துசெய்</string>
+    <string name="clock_save">சேமி</string>
+    <string name="clock_edit">திருத்து</string>
+    <string name="clock_delete">நீக்கு</string>
+    <string name="clock_play">கேள்</string>
+    <string name="clock_stop">நிறுத்து</string>
+    <string name="clock_snooze">உறக்கநிலை (Snooze)</string>
+    <string name="clock_today">இன்று</string>
+    <string name="clock_tomorrow">நாளை</string>
+    <string name="clock_alarms_title">அலாரங்கள்</string>
+    <string name="clock_tones_title">அலாரம் ஒலிகள்</string>
+    <string name="clock_display_title">கடிகாரக் காட்சி அமைப்புகள்</string>
+    <string name="clock_behaviour_title">அலாரம் செயல்பாடு</string>
+    <string name="clock_add_alarm">அலாரம் சேர்</string>
+    <string name="clock_new_alarm">புதிய அலாரம்</string>
+    <string name="clock_edit_alarm">அலாரத்தைத் திருத்து</string>
+    <string name="clock_next_alarm">அடுத்த அலாரம்</string>
+    <string name="clock_next_alarm_none">எந்த அலாரமும் அமைக்கப்படவில்லை</string>
+    <string name="clock_alarm_default_label">அலாரம்</string>
+    <string name="clock_label_hint">பெயர் (விருப்பம்)</string>
+    <string name="clock_repeat">மீண்டும்</string>
+    <string name="clock_repeat_once">ஒருமுறை</string>
+    <string name="clock_repeat_daily">தினமும்</string>
+    <string name="clock_repeat_weekdays">வார நாட்கள்</string>
+    <string name="clock_repeat_weekends">வார இறுதி</string>
+    <string name="clock_tone">ஒலி</string>
+    <string name="clock_vibrate">அதிர்வு</string>
+    <string name="clock_snooze_length">Snooze நேரம்</string>
+    <string name="clock_minutes_fmt">%1$d நிமிடம்</string>
+    <string name="clock_alarm_set_for">அலாரம் %1$s க்கு அமைக்கப்பட்டது</string>
+    <string name="clock_alarm_off_toast">அலாரம் அணைக்கப்பட்டது</string>
+    <string name="clock_deleted_toast">அலாரம் நீக்கப்பட்டது</string>
+    <string name="clock_snoozed_until">%1$s வரை Snooze செய்யப்பட்டது</string>
+    <string name="clock_tone_phone_default">தொலைபேசி இயல்புநிலை</string>
+    <string name="clock_tone_phone_default_named">தொலைபேசி இயல்புநிலை (%1$s)</string>
+    <string name="clock_tone_vibration_only">அதிர்வு மட்டும் (ஒலி இல்லை)</string>
+    <string name="clock_time_format">நேர வடிவம்</string>
+    <string name="clock_format_system">தொலைபேசியைப் பின்பற்று</string>
+    <string name="clock_format_12">12 மணி (AM/PM)</string>
+    <string name="clock_format_24">24 மணி</string>
+    <string name="clock_perm_open_settings">அமைப்புகளைத் திற</string>
+    <string name="clock_could_not_title">இதைச் செய்ய முடியவில்லை</string>
+    <string name="clock_err_invalid_time">இது சரியான நேரம் அல்ல.</string>
+    <string name="clock_err_needs_am_pm">இது AM ஆ PM ஆ என்று சொல்லுங்கள்.</string>
+    <string name="clock_err_nothing_ringing">இப்போது எந்த அலாரமும் ஒலிக்கவில்லை.</string>
+</resources>

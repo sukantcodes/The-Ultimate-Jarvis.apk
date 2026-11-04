@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Base App Theme -->
-    <style name="Theme.JarvisAssistant" parent="Theme.JarvisAssistant.Light" />
+    <style name="Theme.JarvisAssistant" parent="Theme.JarvisAssistant.Light">
+        <item name="android:fontFamily">sans-serif</item>
+    </style>
 
     <!-- 1. LIGHT THEME - LIQUID PEARL GLASS EDITION -->
     <style name="Theme.JarvisAssistant.Light" parent="Theme.Material3.Light.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
         <item name="android:statusBarColor">#EEF2F9</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:navigationBarColor">#EEF2F9</item>
@@ -44,6 +47,7 @@
 
     <!-- 2. DARK THEME - LIQUID OBSIDIAN GLASS EDITION -->
     <style name="Theme.JarvisAssistant.Dark" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
         <item name="android:statusBarColor">#070914</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:navigationBarColor">#070914</item>
@@ -83,6 +87,7 @@
 
     <!-- 3. RED THEME - LIQUID RUBY GLASS EDITION -->
     <style name="Theme.JarvisAssistant.Red" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
         <item name="android:statusBarColor">#0E0307</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:navigationBarColor">#0E0307</item>
@@ -122,6 +127,7 @@
 
     <!-- 4. SUNSET THEME - LIQUID SUNSET GLASS EDITION -->
     <style name="Theme.JarvisAssistant.Sunset" parent="Theme.Material3.Light.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
         <item name="android:statusBarColor">#FFF0EA</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:navigationBarColor">#FFF0EA</item>
@@ -161,6 +167,7 @@
 
     <!-- 5. CUSTOM LIGHT - LIQUID GLASS -->
     <style name="Theme.JarvisAssistant.CustomLight" parent="Theme.Material3.Light.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
@@ -201,6 +208,7 @@
 
     <!-- 6. CUSTOM DARK - LIQUID GLASS -->
     <style name="Theme.JarvisAssistant.CustomDark" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
