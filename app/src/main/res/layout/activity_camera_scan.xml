@@ -22,8 +22,8 @@
         android:gravity="center_vertical"
         android:paddingStart="18dp"
         android:paddingEnd="18dp"
-        android:paddingTop="24dp"
-        android:paddingBottom="16dp"
+        android:paddingTop="28dp"
+        android:paddingBottom="18dp"
         android:background="#D90A1020">
 
         <TextView
@@ -103,7 +103,7 @@
         android:layout_marginStart="18dp"
         android:layout_marginEnd="18dp"
         android:layout_marginBottom="126dp"
-        android:padding="16dp"
+        android:padding="18dp"
         android:background="#E61A2638"
         android:elevation="8dp"
         android:text="JARVIS live visual understanding will appear here automatically."
