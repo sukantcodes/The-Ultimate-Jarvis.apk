@@ -73,6 +73,7 @@
 
         <activity android:name=".ui.debug.ActionRouterActivity" android:exported="false" />
         <activity android:name=".gallery.GalleryActivity" android:exported="false" />
+        <activity android:name=".ui.diagnostics.DeviceDiagnosticsActivity" android:exported="false" />
 
         <activity
             android:name=".ui.settings.PocketTtsSetupActivity"
