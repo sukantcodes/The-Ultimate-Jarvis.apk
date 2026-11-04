@@ -79,6 +79,7 @@ class AppPreferences(context: Context) {
         private const val KEY_ORB_SCALE = "key_orb_scale"
         private const val KEY_ORB_HUE = "key_orb_hue"
         private const val KEY_SETTINGS_ICON_SHAPE = "key_settings_icon_shape"
+        private const val KEY_UI_REFRESH_RATE = "key_ui_refresh_rate"
         const val ORB_GLOW_MIN = 0f
         const val ORB_GLOW_MAX = 2f
         const val ORB_SIZE_MIN = 0.6f
@@ -330,6 +331,19 @@ class AppPreferences(context: Context) {
     var settingsIconShape: Int
         get() = prefs.getInt(KEY_SETTINGS_ICON_SHAPE, 0).coerceIn(0, 3)
         set(value) = prefs.edit().putInt(KEY_SETTINGS_ICON_SHAPE, value.coerceIn(0, 3)).apply()
+
+    /** Preferred window refresh rate in Hz, or "system" to let Android/ColorOS decide. */
+    var uiRefreshRate: String
+        get() {
+            val stored = prefs.getString(KEY_UI_REFRESH_RATE, "system") ?: "system"
+            if (stored == "system") return stored
+            return stored.toIntOrNull()?.takeIf { it in 60..144 }?.toString() ?: "system"
+        }
+        set(value) {
+            val normalized = if (value == "system") "system"
+                else value.toIntOrNull()?.takeIf { it in 60..144 }?.toString() ?: "system"
+            prefs.edit().putString(KEY_UI_REFRESH_RATE, normalized).apply()
+        }
 
     var customEndpoint: String
         get() = prefs.getString(KEY_CUSTOM_ENDPOINT, "") ?: ""
