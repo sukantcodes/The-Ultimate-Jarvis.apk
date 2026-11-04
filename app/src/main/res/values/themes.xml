@@ -55,6 +55,39 @@
         <item name="themeAccent3">#06B6D4</item>
         <item name="themeAccent">#2F6BFF</item>
         <item name="themeAccentLight">#E0E7FF</item>
+            <item name="colorPrimary">#2F6BFF</item>
+        <item name="colorOnPrimary">#000000</item>
+        <item name="colorPrimaryContainer">#E0E7FF</item>
+        <item name="colorOnPrimaryContainer">#0F172A</item>
+        <item name="colorSecondary">#8B5CF6</item>
+        <item name="colorOnSecondary">#000000</item>
+        <item name="colorSecondaryContainer">#E0E7FF</item>
+        <item name="colorOnSecondaryContainer">#0F172A</item>
+        <item name="colorTertiary">#06B6D4</item>
+        <item name="colorOnTertiary">#000000</item>
+        <item name="colorTertiaryContainer">#E0E7FF</item>
+        <item name="colorOnTertiaryContainer">#0F172A</item>
+        <item name="colorSurfaceVariant">#EDEFF2</item>
+        <item name="colorOnSurfaceVariant">#475569</item>
+        <item name="colorOutline">#CBD5E1</item>
+        <item name="colorOutlineVariant">#CBD5E1</item>
+        <item name="colorError">#B42318</item>
+        <item name="colorOnError">#FFFFFF</item>
+        <item name="colorErrorContainer">#FEE4E2</item>
+        <item name="colorOnErrorContainer">#7A271A</item>
+        <item name="colorControlActivated">#2F6BFF</item>
+        <item name="android:colorControlActivated">#2F6BFF</item>
+        <item name="android:colorControlHighlight">#333C6ADD</item>
+        <item name="themeSuccess">#087443</item>
+        <item name="themeSuccessContainer">#DCFCE7</item>
+        <item name="themeWarning">#854D0E</item>
+        <item name="themeWarningContainer">#FEF3C7</item>
+        <item name="themeError">#B42318</item>
+        <item name="themeErrorContainer">#FEE4E2</item>
+        <item name="themeInfo">#175CD3</item>
+        <item name="themeInfoContainer">#DBEAFE</item>
+        <item name="themeNeutral">#475569</item>
+        <item name="themeNeutralContainer">#E2E8F0</item>
     </style>
 
     <!-- 2. DARK THEME - LIQUID OBSIDIAN GLASS EDITION -->
@@ -101,6 +134,39 @@
         <item name="themeAccent3">#22D3EE</item>
         <item name="themeAccent">#5B8CFF</item>
         <item name="themeAccentLight">#1E2858</item>
+            <item name="colorPrimary">#5B8CFF</item>
+        <item name="colorOnPrimary">#000000</item>
+        <item name="colorPrimaryContainer">#1E2858</item>
+        <item name="colorOnPrimaryContainer">#F8FAFC</item>
+        <item name="colorSecondary">#A78BFA</item>
+        <item name="colorOnSecondary">#000000</item>
+        <item name="colorSecondaryContainer">#1E2858</item>
+        <item name="colorOnSecondaryContainer">#F8FAFC</item>
+        <item name="colorTertiary">#22D3EE</item>
+        <item name="colorOnTertiary">#000000</item>
+        <item name="colorTertiaryContainer">#1E2858</item>
+        <item name="colorOnTertiaryContainer">#F8FAFC</item>
+        <item name="colorSurfaceVariant">#272B35</item>
+        <item name="colorOnSurfaceVariant">#94A3B8</item>
+        <item name="colorOutline">#4D5B8CFF</item>
+        <item name="colorOutlineVariant">#4D5B8CFF</item>
+        <item name="colorError">#FF6B6B</item>
+        <item name="colorOnError">#FFFFFF</item>
+        <item name="colorErrorContainer">#4A2026</item>
+        <item name="colorOnErrorContainer">#FFDAD6</item>
+        <item name="colorControlActivated">#5B8CFF</item>
+        <item name="android:colorControlActivated">#5B8CFF</item>
+        <item name="android:colorControlHighlight">#333C6CDD</item>
+        <item name="themeSuccess">#4ADE80</item>
+        <item name="themeSuccessContainer">#163D2A</item>
+        <item name="themeWarning">#FBBF24</item>
+        <item name="themeWarningContainer">#493411</item>
+        <item name="themeError">#FF6B6B</item>
+        <item name="themeErrorContainer">#4A2026</item>
+        <item name="themeInfo">#60A5FA</item>
+        <item name="themeInfoContainer">#1B3552</item>
+        <item name="themeNeutral">#CBD5E1</item>
+        <item name="themeNeutralContainer">#273449</item>
     </style>
 
     <!-- 3. RED THEME - LIQUID RUBY GLASS EDITION -->
@@ -147,6 +213,39 @@
         <item name="themeAccent3">#F97316</item>
         <item name="themeAccent">#FF4D5E</item>
         <item name="themeAccentLight">#3A0C16</item>
+            <item name="colorPrimary">#FF4D5E</item>
+        <item name="colorOnPrimary">#000000</item>
+        <item name="colorPrimaryContainer">#3A0C16</item>
+        <item name="colorOnPrimaryContainer">#FFF1F2</item>
+        <item name="colorSecondary">#FB7185</item>
+        <item name="colorOnSecondary">#000000</item>
+        <item name="colorSecondaryContainer">#3A0C16</item>
+        <item name="colorOnSecondaryContainer">#FFF1F2</item>
+        <item name="colorTertiary">#F97316</item>
+        <item name="colorOnTertiary">#000000</item>
+        <item name="colorTertiaryContainer">#3A0C16</item>
+        <item name="colorOnTertiaryContainer">#FFF1F2</item>
+        <item name="colorSurfaceVariant">#352728</item>
+        <item name="colorOnSurfaceVariant">#FDA4AF</item>
+        <item name="colorOutline">#59FF4D5E</item>
+        <item name="colorOutlineVariant">#59FF4D5E</item>
+        <item name="colorError">#FF6B6B</item>
+        <item name="colorOnError">#FFFFFF</item>
+        <item name="colorErrorContainer">#4A2026</item>
+        <item name="colorOnErrorContainer">#FFDAD6</item>
+        <item name="colorControlActivated">#FF4D5E</item>
+        <item name="android:colorControlActivated">#FF4D5E</item>
+        <item name="android:colorControlHighlight">#33DD3C4B</item>
+        <item name="themeSuccess">#4ADE80</item>
+        <item name="themeSuccessContainer">#163D2A</item>
+        <item name="themeWarning">#FBBF24</item>
+        <item name="themeWarningContainer">#493411</item>
+        <item name="themeError">#FF6B6B</item>
+        <item name="themeErrorContainer">#4A2026</item>
+        <item name="themeInfo">#60A5FA</item>
+        <item name="themeInfoContainer">#1B3552</item>
+        <item name="themeNeutral">#CBD5E1</item>
+        <item name="themeNeutralContainer">#273449</item>
     </style>
 
     <!-- 4. SUNSET THEME - LIQUID SUNSET GLASS EDITION -->
@@ -193,6 +292,39 @@
         <item name="themeAccent3">#8B5CF6</item>
         <item name="themeAccent">#FF6A3D</item>
         <item name="themeAccentLight">#FFE6DD</item>
+            <item name="colorPrimary">#FF6A3D</item>
+        <item name="colorOnPrimary">#000000</item>
+        <item name="colorPrimaryContainer">#FFE6DD</item>
+        <item name="colorOnPrimaryContainer">#2E1020</item>
+        <item name="colorSecondary">#F43F5E</item>
+        <item name="colorOnSecondary">#000000</item>
+        <item name="colorSecondaryContainer">#FFE6DD</item>
+        <item name="colorOnSecondaryContainer">#2E1020</item>
+        <item name="colorTertiary">#8B5CF6</item>
+        <item name="colorOnTertiary">#000000</item>
+        <item name="colorTertiaryContainer">#FFE6DD</item>
+        <item name="colorOnTertiaryContainer">#2E1020</item>
+        <item name="colorSurfaceVariant">#F2EEED</item>
+        <item name="colorOnSurfaceVariant">#783A5B</item>
+        <item name="colorOutline">#402E1020</item>
+        <item name="colorOutlineVariant">#402E1020</item>
+        <item name="colorError">#B42318</item>
+        <item name="colorOnError">#FFFFFF</item>
+        <item name="colorErrorContainer">#FEE4E2</item>
+        <item name="colorOnErrorContainer">#7A271A</item>
+        <item name="colorControlActivated">#FF6A3D</item>
+        <item name="android:colorControlActivated">#FF6A3D</item>
+        <item name="android:colorControlHighlight">#33DD613C</item>
+        <item name="themeSuccess">#087443</item>
+        <item name="themeSuccessContainer">#DCFCE7</item>
+        <item name="themeWarning">#854D0E</item>
+        <item name="themeWarningContainer">#FEF3C7</item>
+        <item name="themeError">#B42318</item>
+        <item name="themeErrorContainer">#FEE4E2</item>
+        <item name="themeInfo">#175CD3</item>
+        <item name="themeInfoContainer">#DBEAFE</item>
+        <item name="themeNeutral">#475569</item>
+        <item name="themeNeutralContainer">#E2E8F0</item>
     </style>
 
     <!-- 5. CUSTOM LIGHT - LIQUID GLASS -->
@@ -240,6 +372,39 @@
         <item name="themeAccent3">#06B6D4</item>
         <item name="themeAccent">#2F6BFF</item>
         <item name="themeAccentLight">#E0E7FF</item>
+            <item name="colorPrimary">#2F6BFF</item>
+        <item name="colorOnPrimary">#000000</item>
+        <item name="colorPrimaryContainer">#E0E7FF</item>
+        <item name="colorOnPrimaryContainer">#0F172A</item>
+        <item name="colorSecondary">#8B5CF6</item>
+        <item name="colorOnSecondary">#000000</item>
+        <item name="colorSecondaryContainer">#E0E7FF</item>
+        <item name="colorOnSecondaryContainer">#0F172A</item>
+        <item name="colorTertiary">#06B6D4</item>
+        <item name="colorOnTertiary">#000000</item>
+        <item name="colorTertiaryContainer">#E0E7FF</item>
+        <item name="colorOnTertiaryContainer">#0F172A</item>
+        <item name="colorSurfaceVariant">#EDEFF2</item>
+        <item name="colorOnSurfaceVariant">#475569</item>
+        <item name="colorOutline">#CBD5E1</item>
+        <item name="colorOutlineVariant">#CBD5E1</item>
+        <item name="colorError">#B42318</item>
+        <item name="colorOnError">#FFFFFF</item>
+        <item name="colorErrorContainer">#FEE4E2</item>
+        <item name="colorOnErrorContainer">#7A271A</item>
+        <item name="colorControlActivated">#2F6BFF</item>
+        <item name="android:colorControlActivated">#2F6BFF</item>
+        <item name="android:colorControlHighlight">#333C6ADD</item>
+        <item name="themeSuccess">#087443</item>
+        <item name="themeSuccessContainer">#DCFCE7</item>
+        <item name="themeWarning">#854D0E</item>
+        <item name="themeWarningContainer">#FEF3C7</item>
+        <item name="themeError">#B42318</item>
+        <item name="themeErrorContainer">#FEE4E2</item>
+        <item name="themeInfo">#175CD3</item>
+        <item name="themeInfoContainer">#DBEAFE</item>
+        <item name="themeNeutral">#475569</item>
+        <item name="themeNeutralContainer">#E2E8F0</item>
     </style>
 
     <!-- 6. CUSTOM DARK - LIQUID GLASS -->
@@ -287,6 +452,39 @@
         <item name="themeAccent3">#22D3EE</item>
         <item name="themeAccent">#5B8CFF</item>
         <item name="themeAccentLight">#1E2858</item>
+            <item name="colorPrimary">#5B8CFF</item>
+        <item name="colorOnPrimary">#000000</item>
+        <item name="colorPrimaryContainer">#1E2858</item>
+        <item name="colorOnPrimaryContainer">#F8FAFC</item>
+        <item name="colorSecondary">#A78BFA</item>
+        <item name="colorOnSecondary">#000000</item>
+        <item name="colorSecondaryContainer">#1E2858</item>
+        <item name="colorOnSecondaryContainer">#F8FAFC</item>
+        <item name="colorTertiary">#22D3EE</item>
+        <item name="colorOnTertiary">#000000</item>
+        <item name="colorTertiaryContainer">#1E2858</item>
+        <item name="colorOnTertiaryContainer">#F8FAFC</item>
+        <item name="colorSurfaceVariant">#272B35</item>
+        <item name="colorOnSurfaceVariant">#94A3B8</item>
+        <item name="colorOutline">#4D5B8CFF</item>
+        <item name="colorOutlineVariant">#4D5B8CFF</item>
+        <item name="colorError">#FF6B6B</item>
+        <item name="colorOnError">#FFFFFF</item>
+        <item name="colorErrorContainer">#4A2026</item>
+        <item name="colorOnErrorContainer">#FFDAD6</item>
+        <item name="colorControlActivated">#5B8CFF</item>
+        <item name="android:colorControlActivated">#5B8CFF</item>
+        <item name="android:colorControlHighlight">#333C6CDD</item>
+        <item name="themeSuccess">#4ADE80</item>
+        <item name="themeSuccessContainer">#163D2A</item>
+        <item name="themeWarning">#FBBF24</item>
+        <item name="themeWarningContainer">#493411</item>
+        <item name="themeError">#FF6B6B</item>
+        <item name="themeErrorContainer">#4A2026</item>
+        <item name="themeInfo">#60A5FA</item>
+        <item name="themeInfoContainer">#1B3552</item>
+        <item name="themeNeutral">#CBD5E1</item>
+        <item name="themeNeutralContainer">#273449</item>
     </style>
 
     <!-- Legacy style aliases -->
