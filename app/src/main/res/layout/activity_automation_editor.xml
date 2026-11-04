@@ -75,6 +75,7 @@
                     style="@style/Widget.LiquidGlass.Input"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:minHeight="48dp"
                     android:hint="For example: Good night"
                     android:inputType="textCapSentences"
                     android:maxLines="1" />
@@ -139,6 +140,7 @@
                         style="@style/Widget.LiquidGlass.Input"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:minHeight="96dp"
                         android:gravity="top|start"
                         android:hint="call {contact}\nmessage {contact} {message}"
                         android:inputType="textMultiLine|textNoSuggestions"
@@ -197,6 +199,7 @@
                         style="@style/Widget.LiquidGlass.Input"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:minHeight="48dp"
                         android:hint="Leave empty for anyone"
                         android:inputType="textPersonName"
                         android:maxLines="1" />
@@ -245,7 +248,7 @@
                 style="@style/Widget.LiquidGlass.Button"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:minHeight="52dp"
+                android:minHeight="56dp"
                 android:layout_marginTop="20dp"
                 android:text="Save automation" />
 
