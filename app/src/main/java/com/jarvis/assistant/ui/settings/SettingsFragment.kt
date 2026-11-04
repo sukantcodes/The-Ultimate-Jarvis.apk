@@ -448,6 +448,7 @@ class SettingsFragment : Fragment() {
         }
         binding.rowApplications.setOnClickListener { open(HandsFreeActivity::class.java) }
         binding.rowAutomationStudio.setOnClickListener { open(AutomationStudioActivity::class.java) }
+        binding.rowActionRouter.setOnClickListener { open(com.jarvis.assistant.ui.debug.ActionRouterActivity::class.java) }
         binding.rowSkillStore.setOnClickListener { open(com.jarvis.assistant.ui.skills.SkillStoreActivity::class.java) }
         binding.rowClock.setOnClickListener { open(com.jarvis.assistant.ui.clock.ClockSettingsActivity::class.java) }
     }
