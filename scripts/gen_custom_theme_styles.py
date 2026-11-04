@@ -70,6 +70,11 @@ def style(mode, idx):
         }
     out = ['    <style name="%s" parent="%s">' % (name, parent)]
     out.append('        <item name="android:fontFamily">sans-serif</item>')
+    out.append('        <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>')
+    out.append('        <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>')
+    out.append('        <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>')
+    out.append('        <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>')
+    out.append('        <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>')
     out.append('        <item name="android:statusBarColor">@android:color/transparent</item>')
     out.append('        <item name="android:navigationBarColor">@android:color/transparent</item>')
     out.append('        <item name="android:windowLightStatusBar">%s</item>' % ("false" if dark else "true"))
