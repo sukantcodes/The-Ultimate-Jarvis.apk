@@ -1,30 +1,47 @@
 ---
 name: android-files-manager
-description: Android Files app me downloads, documents, folders, file details, copy and move operations ko safely manage karna
+description: Android Files app downloads and documents search, folder creation, file details, safe copy/move/rename/share and trash workflow
 ---
-# Android Files Manager — local file organization
+# Android Files Manager — full local storage workflow
 
-Tools: `open_app`, `inspect_screen`, `click_ui_element`, `type_text`, `scroll_screen`, `press_key`.
+Real tools: `open_app(app_name)`, `inspect_screen`, `click_ui_element(target_name, element_id)`, `type_text(text, target_input_name)`, `scroll_screen`, `press_key`, `task_completed(summary)`. No dedicated file-manager API is declared; use the device's visible Files app and Android picker.
 
-## Locate files
-1. Open the Android Files app (or the device's visible file manager).
-2. Inspect the current location and navigate to Downloads, Documents, Images or the folder the user named.
-3. Search using the exact filename or phrase. Verify the filename, extension and size before opening.
-4. If multiple files match, ask which one.
+## 1. Locate files
+1. Open the device's Files app (or the exact file manager the user named).
+2. Inspect current location. Navigate to Downloads, Documents, Images, Audio or the requested folder.
+3. Search exact filename/phrase. Verify name, extension, size and modified date.
+4. If multiple files match, present choices; never guess.
 
-## Organize
-- Create folders only with the user's requested name.
-- Before copy or move, verify source and destination.
-- Preserve originals unless the user specifically requests moving.
-- Never overwrite an existing file without explaining the conflict and asking.
+## 2. File details and preview
+- Open only ordinary documents/media selected by the user.
+- Verify MIME/type and filename before opening.
+- Do not execute scripts, install APKs, launch executables or open unknown archives.
+- Never browse app-private folders or bypass scoped-storage restrictions.
 
-## Open and share
-- Open only ordinary documents/media the user selected.
-- Do not install APKs, run executables or scripts, or open unknown archives automatically.
-- Before sharing, verify the file and recipient/app, then ask for confirmation.
+## 3. Create, copy and move
+1. Create a folder only with the requested name.
+2. Before copy/move, verify source and destination.
+3. Preserve original when user says copy; move only when explicitly requested.
+4. If destination already contains same name, stop and ask; never overwrite silently.
+5. Verify the resulting file at destination.
 
-## Delete and storage
-- Show exact filename and location before deletion; ask for explicit confirmation.
-- Prefer moving to Trash when the UI offers it. Never empty Trash automatically.
-- Do not claim to clean all phone storage; this skill only acts on the exact files the user selects.
-- Do not access app-private folders or bypass Android scoped-storage protections.
+## 4. Rename
+- Confirm exact selected file and new filename.
+- Preserve file extension unless the user explicitly requests a change.
+- Check for name conflicts before applying.
+- Verify the new name after rename.
+
+## 5. Share
+1. Select exact file and open Android Sharesheet.
+2. Verify destination app/contact and file count.
+3. Ask before final share/send. Share once and verify.
+4. Do not share folders or unrelated files.
+
+## 6. Delete and storage
+- Show exact filename and location before moving to Trash; require confirmation.
+- Prefer Trash when available. Never empty Trash automatically.
+- Do not claim to free "all phone storage"; only the exact selected items are affected.
+- Do not change permissions or grant broad storage access as a workaround.
+
+## Voice examples
+"Find [filename] in Downloads"; "Create folder [name]"; "Copy [file] to Documents"; "Show details of [file]".
