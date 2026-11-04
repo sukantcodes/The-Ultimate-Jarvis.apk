@@ -172,7 +172,7 @@ class DeviceDiagnosticsActivity : AppCompatActivity() {
             "Used" to formatBytes(used),
             "Available" to formatBytes(free),
             "Total" to formatBytes(total),
-            "Usage" to if (total > 0L) "\${(used * 100L / total).coerceIn(0L, 100L)}%" else "Unavailable"
+            "Usage" to if (total > 0L) (used * 100L / total).coerceIn(0L, 100L).toString() + "%" else "Unavailable"
         )
     } catch (_: Exception) {
         listOf("Status" to "Storage information is unavailable")
