@@ -47,7 +47,9 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="13sp"\n            android:maxLines="2"\n            android:ellipsize="end" />
+            android:textSize="13sp"
+            android:maxLines="2"
+            android:ellipsize="end" />
 
         <TextView
             android:id="@+id/tvRuleActions"
@@ -55,17 +57,19 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
             android:textColor="?attr/themeTextMuted"
-            android:textSize="12sp"\n            android:maxLines="2"\n            android:ellipsize="end" />
+            android:textSize="12sp"
+            android:maxLines="2"
+            android:ellipsize="end" />
     </LinearLayout>
 
     <ImageView
         android:id="@+id/btnRuleDelete"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
         android:layout_marginStart="6dp"
         android:background="@drawable/bg_lg_row"
         android:contentDescription="Delete automation"
-        android:padding="10dp"
+        android:padding="12dp"
         android:src="@drawable/ic_delete" />
 
     <com.google.android.material.materialswitch.MaterialSwitch
