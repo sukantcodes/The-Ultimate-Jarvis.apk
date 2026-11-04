@@ -34,24 +34,31 @@ object WelcomeIntroOverlay {
             themeColor(activity, R.attr.themeAccent3, Color.rgb(28, 196, 190))
         )
         val slides = listOf(
-            Slide("WELCOME TO THE\nALL NEW JARVIS ASSISTANT", accents[0], 31f, "sans-serif-black"),
-            Slide("CREATED AND DESIGNED BY\nSUKANTA BHATTACHARYA", accents[1], 27f, "sans-serif-condensed"),
-            Slide("TO HANDLE ALL YOUR\nNECESSARY WORKS", accents[2], 32f, "sans-serif")
+            Slide("WELCOME TO THE\nALL NEW JARVIS ASSISTANT", Color.rgb(15, 38, 78), 35f, "sans-serif-black"),
+            Slide("CREATED AND DESIGNED BY\nSUKANTA BHATTACHARYA", Color.rgb(0, 83, 155), 33f, "sans-serif-condensed"),
+            Slide("TO HANDLE ALL YOUR\nNECESSARY WORKS", Color.rgb(0, 105, 94), 36f, "sans-serif-black")
         )
         val backgroundColor = themeColor(activity, R.attr.themeBg, Color.rgb(7, 12, 25))
+        val creatorBackground = GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf(
+                backgroundColor,
+                blend(backgroundColor, accents[0], 0.17f),
+                blend(backgroundColor, accents[1], 0.13f),
+                backgroundColor
+            )
+        )
         val overlay = FrameLayout(activity).apply {
             isClickable = true
             isFocusable = true
             contentDescription = "JARVIS welcome and creator support"
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(
-                    backgroundColor,
-                    blend(backgroundColor, accents[0], 0.17f),
-                    blend(backgroundColor, accents[1], 0.13f),
-                    backgroundColor
-                )
+                intArrayOf(Color.WHITE, Color.rgb(248, 251, 255), Color.WHITE)
             )
+            // The dock and its curved accent are elevated siblings of this root overlay.
+            // Raise the overlay above them so no home controls show during the intro.
+            elevation = dp(activity, 32).toFloat()
             alpha = 0f
         }
         val messageView = TextView(activity).apply {
@@ -198,6 +205,7 @@ object WelcomeIntroOverlay {
 
         fun revealCreatorPanel() {
             if (finished) return
+            overlay.background = creatorBackground
             messageView.animate().cancel()
             messageView.visibility = View.GONE
 
@@ -331,26 +339,41 @@ object WelcomeIntroOverlay {
             messageView.textSize = slide.sizeSp
             messageView.typeface = Typeface.create(slide.font, Typeface.BOLD)
             messageView.setTextColor(slide.color)
-            messageView.setShadowLayer(dp(activity, 25).toFloat(), 0f, 0f, slide.color)
+            messageView.setShadowLayer(dp(activity, 8).toFloat(), 0f, dp(activity, 2).toFloat(), Color.argb(35, 20, 45, 80))
             messageView.alpha = 0f
-            messageView.translationY = dp(activity, 24).toFloat()
-            messageView.scaleX = 0.88f
-            messageView.scaleY = 0.88f
-            messageView.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .scaleX(1f)
-                .scaleY(1f)
-                .setDuration(560L)
-                .withEndAction {
+            messageView.rotation = 0f
+            messageView.translationX = 0f
+            messageView.translationY = 0f
+            messageView.scaleX = 1f
+            messageView.scaleY = 1f
+            val entrance = messageView.animate().alpha(1f).setDuration(760L)
+            when (index) {
+                0 -> entrance.scaleX(1f).scaleY(1f).withStartAction {
+                    messageView.scaleX = 0.68f
+                    messageView.scaleY = 0.68f
+                }
+                1 -> {
+                    messageView.translationX = dp(activity, 90).toFloat()
+                    entrance.translationX(0f).setInterpolator(android.view.animation.OvershootInterpolator(0.8f))
+                }
+                else -> {
+                    messageView.scaleX = 1.28f
+                    messageView.scaleY = 1.28f
+                    messageView.rotation = -7f
+                    entrance.scaleX(1f).scaleY(1f).rotation(0f)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator(1.8f))
+                }
+            }
+            entrance.withEndAction {
                     handler.postDelayed({
                         if (finished) return@postDelayed
-                        messageView.animate()
-                            .alpha(0f)
-                            .translationY(-dp(activity, 18).toFloat())
-                            .scaleX(0.96f)
-                            .scaleY(0.96f)
-                            .setDuration(360L)
+                        val exit = messageView.animate().alpha(0f).setDuration(420L)
+                        when (index) {
+                            0 -> exit.scaleX(1.22f).scaleY(1.22f)
+                            1 -> exit.translationX(-dp(activity, 90).toFloat())
+                            else -> exit.rotation(7f).scaleX(0.82f).scaleY(0.82f)
+                        }
+                        exit
                             .withEndAction {
                                 handler.postDelayed({ showSlide(index + 1) }, 1000L)
                             }
