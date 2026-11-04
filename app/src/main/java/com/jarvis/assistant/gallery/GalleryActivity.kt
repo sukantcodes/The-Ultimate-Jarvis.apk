@@ -8,6 +8,7 @@ import android.provider.Settings
 import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -26,6 +27,9 @@ class GalleryActivity : AppCompatActivity() {
     private var selectedType: GalleryMediaType? = null
     private var selectedAlbum: String? = null
     private var dateWindowDays: Int? = null
+    private var sortOrder = GallerySortOrder.NEWEST
+    private var favoritesOnly = false
+    private lateinit var thumbnailLoader: GalleryThumbnailLoader
     private var mediaObserver: GalleryMediaObserver? = null
     private val backgroundRefreshEnabled: Boolean
         get() = prefs.getBoolean(GalleryRefreshScheduler.KEY_BACKGROUND_REFRESH, false)
@@ -55,6 +59,7 @@ class GalleryActivity : AppCompatActivity() {
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
+        thumbnailLoader = GalleryThumbnailLoader(contentResolver)
         render()
     }
 
@@ -63,6 +68,11 @@ class GalleryActivity : AppCompatActivity() {
         if (backgroundRefreshEnabled && GalleryPermissionManager.hasAnyMediaAccess(this)) {
             startMediaObserver()
         }
+    }
+
+    override fun onDestroy() {
+        if (::thumbnailLoader.isInitialized) thumbnailLoader.shutdown()
+        super.onDestroy()
     }
 
     override fun onPause() {
@@ -180,6 +190,18 @@ class GalleryActivity : AppCompatActivity() {
             text = "Album: " + (selectedAlbum ?: "All albums")
             setOnClickListener { chooseAlbum() }
         })
+        content.addView(MaterialButton(this).apply {
+            text = "Sort: " + sortOrder.name.lowercase().replaceFirstChar { it.uppercase() }
+            setOnClickListener { chooseSortOrder() }
+        })
+        content.addView(MaterialButton(this).apply {
+            text = if (favoritesOnly) "Showing favorites (tap to show all)" else "Show favorites"
+            setOnClickListener {
+                favoritesOnly = !favoritesOnly
+                showItems(activeSearch)
+                renderFilterLabels()
+            }
+        })
         resultsStartIndex = content.childCount
         showItems("")
     }
@@ -191,6 +213,31 @@ class GalleryActivity : AppCompatActivity() {
             controls[1].text = "Date: " + (dateWindowDays?.let { "Last $it days" } ?: "Any time")
             controls[2].text = "Album: " + (selectedAlbum ?: "All albums")
         }
+    }
+
+    private fun chooseSortOrder() {
+        val options = arrayOf("Newest first", "Oldest first", "Name A–Z", "Largest first")
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Sort gallery")
+            .setItems(options) { _, which ->
+                sortOrder = when (which) {
+                    1 -> GallerySortOrder.OLDEST
+                    2 -> GallerySortOrder.NAME
+                    3 -> GallerySortOrder.LARGEST
+                    else -> GallerySortOrder.NEWEST
+                }
+                showItems(activeSearch)
+                renderFilterLabels()
+            }.show()
+    }
+
+    private fun favoriteUris(): MutableSet<String> =
+        prefs.getStringSet(KEY_FAVORITES, emptySet())?.toMutableSet() ?: mutableSetOf()
+
+    private fun toggleFavorite(item: GalleryMediaItem) {
+        val favorites = favoriteUris()
+        if (!favorites.add(item.uri.toString())) favorites.remove(item.uri.toString())
+        prefs.edit().putStringSet(KEY_FAVORITES, favorites).apply()
     }
 
     private fun chooseAlbum() {
@@ -221,10 +268,19 @@ class GalleryActivity : AppCompatActivity() {
             return
         }
         val cutoff = dateWindowDays?.let { System.currentTimeMillis() / 1000L - it * 24L * 60L * 60L }
+        val favoriteSet = favoriteUris()
         val filtered = items.filter { item ->
             (selectedType == null || item.type == selectedType) &&
                 (selectedAlbum == null || item.albumName == selectedAlbum) &&
-                (cutoff == null || item.dateAddedSeconds >= cutoff)
+                (cutoff == null || item.dateAddedSeconds >= cutoff) &&
+                (!favoritesOnly || favoriteSet.contains(item.uri.toString()))
+        }.let { list ->
+            when (sortOrder) {
+                GallerySortOrder.NEWEST -> list.sortedByDescending { it.dateAddedSeconds }
+                GallerySortOrder.OLDEST -> list.sortedBy { it.dateAddedSeconds }
+                GallerySortOrder.NAME -> list.sortedBy { it.displayName.lowercase() }
+                GallerySortOrder.LARGEST -> list.sortedByDescending { it.sizeBytes }
+            }
         }
         if (filtered.isEmpty()) {
             content.addView(TextView(this).apply { text = "No media found for these filters."; setPadding(0, dp(14), 0, 0) })
@@ -252,9 +308,14 @@ class GalleryActivity : AppCompatActivity() {
             item.durationMs?.let { append("\nDuration: ").append(it / 1000).append(" seconds") }
             item.mimeType?.let { append("\nFormat: ").append(it) }
         }
+        val isFavorite = favoriteUris().contains(item.uri.toString())
         MaterialAlertDialogBuilder(this)
             .setTitle("Media details")
             .setMessage(details)
+            .setNeutralButton(if (isFavorite) "Remove favorite" else "Add favorite") { _, _ ->
+                toggleFavorite(item)
+                showItems(activeSearch)
+            }
             .setPositiveButton("Open") { _, _ ->
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     setDataAndType(item.uri, item.mimeType ?: if (item.type == GalleryMediaType.VIDEO) "video/*" else "image/*")
@@ -281,5 +342,8 @@ class GalleryActivity : AppCompatActivity() {
         return if (value.resourceId != 0) getColor(value.resourceId) else value.data
     }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
-    companion object { private const val KEY_ENABLED = "gallery_access_enabled" }
+    companion object {
+        private const val KEY_ENABLED = "gallery_access_enabled"
+        private const val KEY_FAVORITES = "gallery_favorite_uris"
+    }
 }
