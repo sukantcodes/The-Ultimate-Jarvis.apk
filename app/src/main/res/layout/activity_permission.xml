@@ -30,8 +30,8 @@
 
                 <ImageButton
                     android:id="@+id/btnBack"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:background="@drawable/bg_jarvis_icon_square"
                     android:src="@drawable/ic_back"
                     app:tint="?attr/themeTextPrimary"
@@ -150,7 +150,8 @@
                     <Button
                         android:id="@+id/btnGrantMic"
                         android:layout_width="wrap_content"
-                        android:layout_height="36dp"
+                        android:layout_height="48dp"
+                        android:minWidth="72dp"
                         android:text="Grant"
                         android:textSize="12sp"
                         android:textStyle="bold"
@@ -218,7 +219,8 @@
                     <Button
                         android:id="@+id/btnGrantLocation"
                         android:layout_width="wrap_content"
-                        android:layout_height="36dp"
+                        android:layout_height="48dp"
+                        android:minWidth="72dp"
                         android:text="Grant"
                         android:textSize="12sp"
                         android:textStyle="bold"
@@ -286,7 +288,8 @@
                     <Button
                         android:id="@+id/btnGrantNotification"
                         android:layout_width="wrap_content"
-                        android:layout_height="36dp"
+                        android:layout_height="48dp"
+                        android:minWidth="72dp"
                         android:text="Grant"
                         android:textSize="12sp"
                         android:textStyle="bold"
@@ -354,7 +357,8 @@
                     <Button
                         android:id="@+id/btnGrantOverlay"
                         android:layout_width="wrap_content"
-                        android:layout_height="36dp"
+                        android:layout_height="48dp"
+                        android:minWidth="72dp"
                         android:text="Grant"
                         android:textSize="12sp"
                         android:textStyle="bold"
@@ -422,7 +426,8 @@
                     <Button
                         android:id="@+id/btnGrantAccessibility"
                         android:layout_width="wrap_content"
-                        android:layout_height="36dp"
+                        android:layout_height="48dp"
+                        android:minWidth="72dp"
                         android:text="Grant"
                         android:textSize="12sp"
                         android:textStyle="bold"
