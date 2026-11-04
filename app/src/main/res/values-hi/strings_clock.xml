@@ -148,4 +148,16 @@
     <string name="clock_ask_time">अलार्म किस समय का लगाऊँ?</string>
     <string name="clock_ask_ampm">%1$s सुबह का है या शाम का (AM या PM)?</string>
     <string name="clock_ask_which">आपका मतलब कौन सा अलार्म है? %1$s</string>
+    <string name="clock_alarm_overview">अलार्म का सारांश</string>
+    <string name="clock_alarm_count">%1$d अलार्म सेव हैं</string>
+    <string name="clock_alarm_active_count">%1$d चालू</string>
+    <string name="clock_alarm_off_count">%1$d बंद</string>
+    <string name="clock_search_alarms">नाम, समय या दोहराव से खोजें</string>
+    <string name="clock_filter_all">सभी</string>
+    <string name="clock_filter_on">चालू</string>
+    <string name="clock_filter_off">बंद</string>
+    <string name="clock_alarm_list_heading">आपके अलार्म · %1$d</string>
+    <string name="clock_alarm_no_match">इस खोज या फ़िल्टर से कोई अलार्म मेल नहीं खाता।</string>
+    <string name="clock_next_alarm_hint">यहाँ देखने के लिए अलार्म जोड़ें।</string>
+    <string name="clock_empty_alarm_hint">अपना पहला अलार्म बनाएँ और चुनें कि यह कब दोहराया जाए।</string>
 </resources>
