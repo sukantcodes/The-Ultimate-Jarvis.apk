@@ -164,6 +164,21 @@ class JarvisConversationService : Service() {
             }
         }
 
+        /** Immediately halts current assistant audio and active automation from a Chatbox Stop action. */
+        fun stopCurrentResponseImmediately() {
+            activeInstance?.let { service ->
+                Log.i("JarvisService", "Chatbox stop requested; flushing speech and cancelling active work")
+                service.audioPlayer?.flush()
+                try { service.tts?.stop() } catch (_: Exception) {}
+                service.cancelAllActiveTools()
+                service.pendingToolCalls.clear()
+                service.suppressAudioUntilTurnComplete = true
+                synchronized(service.currentTurnAssistantText) { service.currentTurnAssistantText.clear() }
+                _liveAssistantResponse.value = ""
+                _conversationState.value = ConversationState.LISTENING
+            }
+        }
+
         fun restartSession() {
             activeInstance?.let { service ->
                 if (_isSessionOn.value) {
