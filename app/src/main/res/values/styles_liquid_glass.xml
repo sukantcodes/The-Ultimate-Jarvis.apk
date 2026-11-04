@@ -31,7 +31,7 @@
 
     <style name="Widget.LiquidGlass.Button" parent="">
         <item name="android:background">@drawable/bg_lg_button</item>
-        <item name="android:textColor">#FFFFFFFF</item>
+        <item name="android:textColor">?attr/colorOnPrimary</item>
         <item name="android:textSize">15sp</item>
         <item name="android:textStyle">bold</item>
         <item name="android:fontFamily">sans-serif-medium</item>
@@ -91,37 +91,41 @@
 
     <!-- Semantic status treatments for alerts, connectivity and task results. -->
     <style name="Widget.LiquidGlass.StatusSuccess" parent="TextAppearance.Jarvis.Status">
-        <item name="android:textColor">@color/scenario_success</item>
+        <item name="android:textColor">?attr/themeSuccess</item>
         <item name="android:background">@drawable/bg_lg_badge</item>
         <item name="android:paddingStart">9dp</item>
         <item name="android:paddingEnd">9dp</item>
         <item name="android:paddingTop">4dp</item>
         <item name="android:paddingBottom">4dp</item>
-    </style>
+            <item name="android:backgroundTint">?attr/themeSuccessContainer</item>
+</style>
     <style name="Widget.LiquidGlass.StatusWarning" parent="TextAppearance.Jarvis.Status">
-        <item name="android:textColor">@color/scenario_warning</item>
+        <item name="android:textColor">?attr/themeWarning</item>
         <item name="android:background">@drawable/bg_lg_badge</item>
         <item name="android:paddingStart">9dp</item>
         <item name="android:paddingEnd">9dp</item>
         <item name="android:paddingTop">4dp</item>
         <item name="android:paddingBottom">4dp</item>
-    </style>
+            <item name="android:backgroundTint">?attr/themeWarningContainer</item>
+</style>
     <style name="Widget.LiquidGlass.StatusError" parent="TextAppearance.Jarvis.Status">
-        <item name="android:textColor">@color/scenario_error</item>
+        <item name="android:textColor">?attr/themeError</item>
         <item name="android:background">@drawable/bg_lg_badge</item>
         <item name="android:paddingStart">9dp</item>
         <item name="android:paddingEnd">9dp</item>
         <item name="android:paddingTop">4dp</item>
         <item name="android:paddingBottom">4dp</item>
-    </style>
+            <item name="android:backgroundTint">?attr/themeErrorContainer</item>
+</style>
     <style name="Widget.LiquidGlass.StatusInfo" parent="TextAppearance.Jarvis.Status">
-        <item name="android:textColor">@color/scenario_info</item>
+        <item name="android:textColor">?attr/themeInfo</item>
         <item name="android:background">@drawable/bg_lg_badge</item>
         <item name="android:paddingStart">9dp</item>
         <item name="android:paddingEnd">9dp</item>
         <item name="android:paddingTop">4dp</item>
         <item name="android:paddingBottom">4dp</item>
-    </style>
+            <item name="android:backgroundTint">?attr/themeInfoContainer</item>
+</style>
     <style name="Widget.LiquidGlass.Technical" parent="TextAppearance.Jarvis.Technical" />
 
     <style name="Widget.LiquidGlass.StatusActive" parent="TextAppearance.Jarvis.Status">
