@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
+import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.CheckBox
 import android.widget.ScrollView
@@ -72,7 +73,7 @@ class GalleryActivity : AppCompatActivity() {
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val scrollView = ScrollView(this).apply {
             isFillViewport = true
-            addView(content, ScrollView.LayoutParams(-1, -2))
+            addView(content, ViewGroup.LayoutParams(-1, -2))
         }
         root.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
