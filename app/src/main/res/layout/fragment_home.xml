@@ -73,8 +73,8 @@
     <!-- Top Action Bar -->
     <ImageButton
         android:id="@+id/btnTopChat"
-        android:layout_width="46dp"
-        android:layout_height="46dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
         android:background="@drawable/bg_jarvis_icon_square"
         android:src="@drawable/ic_chat_bubble"
         app:tint="?attr/themeTextPrimary"
@@ -95,8 +95,8 @@
 
         <ImageView
             android:id="@+id/ivHeaderJarvisLogo"
-            android:layout_width="110dp"
-            android:layout_height="34dp"
+            android:layout_width="116dp"
+            android:layout_height="36dp"
             android:src="@drawable/ic_jarvis_logo"
             android:scaleType="fitCenter"
             android:contentDescription="Jarvis Logo" />
@@ -107,7 +107,8 @@
             android:layout_height="wrap_content"
             android:text="Welcome, Sukant"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="14sp"
+            android:textSize="13sp"
+            android:letterSpacing="0.02"
             android:textStyle="bold"
             android:fontFamily="sans-serif-medium"
             android:layout_marginTop="2dp" />
