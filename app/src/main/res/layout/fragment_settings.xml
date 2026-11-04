@@ -62,7 +62,8 @@
                 android:layout_height="wrap_content"
                 android:text="@string/set_screen_title"
                 android:textColor="?attr/themeTextPrimary"
-                android:textSize="22sp"
+                android:textSize="24sp"
+                android:letterSpacing="-0.02"
                 android:fontFamily="sans-serif-medium"
                 android:textStyle="bold" />
 
@@ -105,7 +106,8 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:background="@drawable/bg_jarvis_action_card"
-                android:padding="18dp"
+                android:padding="20dp"
+                android:elevation="4dp"
                 android:clickable="true"
                 android:focusable="true"
                 android:layout_marginBottom="22dp">
@@ -264,7 +266,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@android:color/transparent"
+                android:background="@drawable/bg_lg_card"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -548,7 +550,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@android:color/transparent"
+                android:background="@drawable/bg_lg_card"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -831,7 +833,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@android:color/transparent"
+                android:background="@drawable/bg_lg_card"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -1067,7 +1069,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@android:color/transparent"
+                android:background="@drawable/bg_lg_card"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -1343,7 +1345,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@android:color/transparent"
+                android:background="@drawable/bg_lg_card"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -1514,7 +1516,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@android:color/transparent"
+                android:background="@drawable/bg_lg_card"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -1793,7 +1795,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@android:color/transparent"
+                android:background="@drawable/bg_lg_card"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -1915,7 +1917,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@android:color/transparent"
+                android:background="@drawable/bg_lg_card"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
