@@ -1,31 +1,43 @@
 ---
 name: google-calendar-planner
-description: Google Calendar me schedule dekhna, event draft banana, reminders aur meeting details verify karna
+description: Google Calendar daily agenda, event creation, editing, guests, reminders, recurring schedules and cancellation with verification
 ---
-# Google Calendar Planner — schedule with review
+# Google Calendar Planner — complete scheduling workflow
 
-Tools: `open_app`, `inspect_screen`, `click_ui_element`, `type_text`, `scroll_screen`, `press_key`.
+Real tools: `open_app(app_name)`, `inspect_screen`, `click_ui_element(target_name, element_id)`, `type_text(text, target_input_name)`, `scroll_screen`, `press_key`, `task_completed(summary)`. No dedicated Calendar API is declared; use the visible Calendar UI.
 
-## Check schedule
-1. Open Calendar and inspect the current date and view.
-2. Navigate to the date or range the user asked about.
-3. Read only relevant visible events. Distinguish all-day events from timed events and confirm the displayed timezone if visible.
-4. If the user says "today" or "tomorrow", verify the device date before acting.
+## 1. Read the agenda
+1. Open Google Calendar and inspect current date, selected account and view.
+2. Navigate to the requested day/week/month.
+3. Read only relevant visible event titles and times. Distinguish all-day events from timed events.
+4. Confirm timezone if shown. Do not infer an event's location or attendance from its title.
 
-## Create an event
-1. Open the create-event screen.
-2. Fill title, date, start/end time, location and notes only when supplied or clearly stated.
-3. For missing essential date or time, ask one concise question; do not guess.
-4. Review the full event summary and ask before saving.
-5. If guests are added, verify each email address and ask before sending invitations.
-6. After save, inspect the calendar and verify the event appears once.
+## 2. Create an event
+1. Ask for missing essentials: title, date, start time and end time. Don't guess.
+2. Tap Create/+ and inspect the event form.
+3. Enter only confirmed details: title, date, start/end, location, description.
+4. For guests, verify every email address; adding guests may send invitations.
+5. Configure reminders and repeat schedule only as requested. For recurring events, explain scope (this event vs this and following vs all).
+6. Review the complete summary and ask for confirmation before Save.
+7. Save once, inspect the calendar and verify the event appears once.
 
-## Edit or delete
-- Identify the exact event by title and date.
-- Show the proposed change before saving.
-- Deleting an event or cancelling a meeting requires explicit confirmation.
-- Never decline invitations or email guests without instruction.
+## 3. Edit or reschedule
+1. Find the exact event by title and date; verify details.
+2. Change only requested fields.
+3. If recurring, confirm which occurrence(s) to change.
+4. Review the proposed changes and ask before saving.
+5. Verify the updated event.
 
-## Limits
-- Do not promise reminders unless the event's notification setting is visibly configured.
-- Never invent availability or assume an attendee accepted an invitation.
+## 4. Cancel or delete
+- Identify the exact event and whether it has guests.
+- Explain if cancellation notifications may be sent.
+- Obtain explicit confirmation in a new turn before deleting/cancelling.
+- Never decline invitations or message guests unless asked.
+
+## 5. Reminders and limits
+- A reminder is configured only if its setting is visibly present and saved.
+- Do not claim guest acceptance or availability unless the app shows it.
+- User completes sign-in, OTP and account verification personally.
+
+## Voice examples
+"What is on my calendar tomorrow?"; "Create [event] on [date] at [time]"; "Move [event] to [time]"; "Cancel [event]".
