@@ -395,6 +395,12 @@ class AuthActivity : AppCompatActivity() {
         const val EXTRA_RETURN_RESULT = "com.jarvis.assistant.auth.RETURN_RESULT"
         private const val STATE_MODE = "auth_mode"
 
+        /** Builds the auth intent; [returnToCaller] finishes with a result instead of opening MainActivity. */
+        fun intent(context: Context, returnToCaller: Boolean = false): Intent =
+            Intent(context, AuthActivity::class.java).apply {
+                if (returnToCaller) putExtra(EXTRA_RETURN_RESULT, true)
+            }
+
         /** Intent for the drawer's "Sign in" entry: returns to the running app instead of restarting it. */
         fun returnIntent(context: Context): Intent =
             Intent(context, AuthActivity::class.java).putExtra(EXTRA_RETURN_RESULT, true)
