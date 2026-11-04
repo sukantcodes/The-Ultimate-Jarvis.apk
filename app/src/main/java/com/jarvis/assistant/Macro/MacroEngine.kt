@@ -187,7 +187,7 @@ class MacroEngine(private val actions: MacroActions) {
         }
         return StepResult(
             false,
-            "Timed out after " + timeoutSec + " seconds waiting for "
+            "Timed out after " + timeoutSec + " seconds waiting for " +
                 options.joinToString(" / ") { "'$it'" } + (if (appear) " to appear." else " to disappear.")
         )
     }
