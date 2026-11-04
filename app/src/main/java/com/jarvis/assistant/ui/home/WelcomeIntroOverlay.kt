@@ -41,12 +41,7 @@ object WelcomeIntroOverlay {
         val backgroundColor = themeColor(activity, R.attr.themeBg, Color.rgb(7, 12, 25))
         val creatorBackground = GradientDrawable(
             GradientDrawable.Orientation.TL_BR,
-            intArrayOf(
-                backgroundColor,
-                blend(backgroundColor, accents[0], 0.17f),
-                blend(backgroundColor, accents[1], 0.13f),
-                backgroundColor
-            )
+            intArrayOf(Color.WHITE, Color.rgb(246, 250, 255), Color.WHITE)
         )
         val overlay = FrameLayout(activity).apply {
             isClickable = true
@@ -150,8 +145,8 @@ object WelcomeIntroOverlay {
                 background = GradientDrawable(
                     GradientDrawable.Orientation.LEFT_RIGHT,
                     intArrayOf(
-                        blend(backgroundColor, accent, 0.24f),
-                        blend(backgroundColor, accent, 0.10f)
+                        blend(Color.WHITE, accent, 0.10f),
+                        blend(Color.WHITE, accent, 0.035f)
                     )
                 ).apply {
                     cornerRadius = dp(activity, radius.toInt()).toFloat()
@@ -185,7 +180,7 @@ object WelcomeIntroOverlay {
             }
             val subtitleView = TextView(activity).apply {
                 text = subtitle
-                setTextColor(Color.argb(190, 225, 232, 245))
+                setTextColor(Color.rgb(75, 91, 112))
                 textSize = 10f
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 letterSpacing = 0.12f
@@ -212,17 +207,18 @@ object WelcomeIntroOverlay {
             val panel = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(dp(activity, 24), dp(activity, 22), dp(activity, 24), dp(activity, 10))
+                setPadding(dp(activity, 24), dp(activity, 18), dp(activity, 24), dp(activity, 18))
                 alpha = 0f
                 translationY = dp(activity, 16).toFloat()
             }
             val scroll = ScrollView(activity).apply {
                 isFillViewport = true
+                gravity = Gravity.CENTER
                 overScrollMode = View.OVER_SCROLL_NEVER
                 clipToPadding = false
                 addView(panel, FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
+                    ViewGroup.LayoutParams.MATCH_PARENT
                 ))
             }
             overlay.addView(scroll, FrameLayout.LayoutParams(
@@ -234,16 +230,16 @@ object WelcomeIntroOverlay {
                 text = "SUPPORT THE CREATOR"
                 gravity = Gravity.CENTER
                 textAlignment = View.TEXT_ALIGNMENT_CENTER
-                setTextColor(Color.rgb(235, 241, 255))
+                setTextColor(Color.rgb(18, 43, 79))
                 textSize = 21f
                 typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
                 letterSpacing = 0.12f
-                setShadowLayer(dp(activity, 18).toFloat(), 0f, 0f, accents[0])
+                setShadowLayer(dp(activity, 10).toFloat(), 0f, dp(activity, 2).toFloat(), Color.argb(45, 35, 80, 140))
                 setPadding(dp(activity, 4), dp(activity, 10), dp(activity, 4), dp(activity, 10))
             }
             panel.addView(heading, LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { bottomMargin = dp(activity, 20) })
+            ).apply { bottomMargin = dp(activity, 34) })
 
             val socials = listOf(
                 makeSocialButton(
@@ -264,9 +260,10 @@ object WelcomeIntroOverlay {
             )
             socials.forEachIndexed { index, button ->
                 panel.addView(button, LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, dp(activity, 68)
+                    ViewGroup.LayoutParams.MATCH_PARENT, dp(activity, 76)
                 ).apply {
-                    bottomMargin = if (index == socials.lastIndex) dp(activity, 8) else dp(activity, 14)
+                    topMargin = if (index == 0) dp(activity, 4) else dp(activity, 26)
+                    bottomMargin = if (index == socials.lastIndex) dp(activity, 8) else 0
                 })
             }
 
@@ -276,7 +273,7 @@ object WelcomeIntroOverlay {
                 setPadding(dp(activity, 24), dp(activity, 8), dp(activity, 24), dp(activity, 18))
                 background = GradientDrawable(
                     GradientDrawable.Orientation.TOP_BOTTOM,
-                    intArrayOf(Color.TRANSPARENT, blend(backgroundColor, accents[0], 0.16f), backgroundColor)
+                    intArrayOf(Color.TRANSPARENT, Color.rgb(249, 252, 255), Color.WHITE)
                 )
             }
             countdownView = TextView(activity).apply {
@@ -307,7 +304,7 @@ object WelcomeIntroOverlay {
             val hint = TextView(activity).apply {
                 text = "JARVIS WILL OPEN AUTOMATICALLY"
                 gravity = Gravity.CENTER
-                setTextColor(Color.argb(155, 205, 218, 240))
+                setTextColor(Color.rgb(91, 108, 130))
                 textSize = 9f
                 letterSpacing = 0.16f
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
