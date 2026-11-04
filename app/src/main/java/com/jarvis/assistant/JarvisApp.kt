@@ -109,6 +109,7 @@ class JarvisApp : Application() {
             override fun onActivityResumed(activity: android.app.Activity) {
                 currentResumedActivity = activity
                 com.jarvis.assistant.util.ThemeManager.applyTheme(activity)
+                com.jarvis.assistant.util.TouchGlowController.install(activity, preferences.touchGlowEnabled)
             }
             override fun onActivityPaused(activity: android.app.Activity) {
                 if (currentResumedActivity === activity) {
@@ -121,6 +122,7 @@ class JarvisApp : Application() {
             }
             override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: android.os.Bundle) {}
             override fun onActivityDestroyed(activity: android.app.Activity) {
+                com.jarvis.assistant.util.TouchGlowController.uninstall(activity)
                 if (currentResumedActivity === activity) {
                     currentResumedActivity = null
                 }
