@@ -213,7 +213,6 @@ object WelcomeIntroOverlay {
             }
             val scroll = ScrollView(activity).apply {
                 isFillViewport = true
-                gravity = Gravity.CENTER
                 overScrollMode = View.OVER_SCROLL_NEVER
                 clipToPadding = false
                 addView(panel, FrameLayout.LayoutParams(
