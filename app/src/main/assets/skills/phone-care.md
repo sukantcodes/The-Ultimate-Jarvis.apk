@@ -1,26 +1,19 @@
 ---
 name: phone-care
-description: Battery bachana, phone slow ya garam hone pe care karna, settings sahi karna
+description: Device cleanup, storage review, battery saver, memory diagnostics and safe app management
 ---
-# Phone Care — battery aur sehat
+# Phone Care and Device Cleanup
 
-Tumhare asli tools: `device_status`, `set_brightness`, `open_settings_page`, `inspect_screen`, `click_ui_element`, `clean_jarvis_cache`, `set_flashlight`.
+Device Diagnostics has seven cleanup tools. Route natural voice requests to the matching screen/action and report success only after the native operation confirms it.
 
-## Battery bachani ho
-1. `device_status` se battery % aur charging dekho, user ko batao.
-2. `set_brightness` (action "set", percentage ~30) se brightness kam karo.
-3. `open_settings_page` page "battery" → `inspect_screen` → Battery saver ka toggle `click_ui_element` se ON karo → `inspect_screen` se verify.
-4. Bluetooth tabhi band karo jab user bole ya headphone use na ho.
-5. Ek line me batao kya kiya: "Brightness kam + battery saver on kar diya, ab X% hai."
+- **Junk Clean:** scans and removes only JARVIS-owned temporary cache. It cannot clear other apps' private caches.
+- **Boost:** reports available RAM and opens Android app-management controls. Do not claim arbitrary apps were force-stopped.
+- **Battery Saver:** opens Android battery-saver settings. Verify state before saying it is enabled.
+- **Large Files Cleanup:** user selects a folder through Android's Storage Access Framework; list files at least 50 MB; ask before each deletion.
+- **WhatsApp Clean:** user selects the WhatsApp media folder; scan only that folder; review files and confirm each deletion.
+- **Photos Clean:** user selects a photo folder; list images and confirm each deletion.
+- **App Uninstaller:** list user-installed apps, resolve the exact target, then use Android's uninstall confirmation. Never uninstall JARVIS.
 
-## Phone garam/slow
-- Charging me heavy use se garam hota hai — batao. `device_status` me available memory kam ho to bolo background apps band karne se madad milegi.
-- Sirf Jarvis ka apna cache `clean_jarvis_cache` se saaf kar sakti ho — dusre apps ka nahi, aur ye jhooth mat bolna.
+Voice examples: "clean junk", "boost phone", "turn on battery saver", "find large files", "clean WhatsApp media", "show photos to delete", "uninstall <app name>".
 
-## Raat ko
-- "good night" pe: Do Not Disturb ka suggestion do, battery kam ho to charge lagane bolo.
-
-## Mat karna
-- WiFi/mobile data OFF mat karo — tumhara apna connection isi se chalta hai.
-- Airplane mode kabhi ON mat karo.
-- Security/lock-screen settings mat badlo.
+Shared-storage access is limited to the folder selected by the user. Never delete automatically based on guessed duplicates, blur or quality. Android permissions, app sandboxing and system confirmations remain authoritative.
