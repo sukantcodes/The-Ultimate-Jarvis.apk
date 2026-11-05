@@ -18,6 +18,9 @@ import android.util.Log
 import com.jarvis.assistant.clock.ClockAssistant
 import com.jarvis.assistant.clock.voice.ClockCommandParser
 import com.jarvis.assistant.clock.voice.ClockIntent
+import com.jarvis.assistant.automation.command.CommandParser
+import com.jarvis.assistant.automation.command.JarvisCommand
+import com.jarvis.assistant.automation.phone.PhoneControlManager
 import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
@@ -153,19 +156,26 @@ class JarvisVoiceInteractionSession(context: Context) : VoiceInteractionSession(
     private fun handleSpokenAlarm(spoken: String) {
         worker.execute {
             val hasPendingAnswer = runCatching { ClockAssistant.hasPendingQuestion(context) }.getOrDefault(false)
-            val parsed = ClockCommandParser.parse(spoken)
-            val isAlarmCreation = parsed?.intent is ClockIntent.SetAlarm
-            val reply = if (hasPendingAnswer || isAlarmCreation) {
+            val clockParsed = ClockCommandParser.parse(spoken)
+            val isAlarmCreation = clockParsed?.intent is ClockIntent.SetAlarm
+            val clockReply = if (hasPendingAnswer || isAlarmCreation) {
                 runCatching { ClockAssistant.handleText(context, spoken, detectedSpeechLanguage) }.getOrElse {
                     Log.e(TAG, "Lock-screen alarm command failed", it)
                     null
                 }
             } else null
 
+            val reply = clockReply ?: runCatching {
+                executeAllowedLockScreenCommand(spoken)
+            }.getOrElse {
+                Log.e(TAG, "Lock-screen command failed", it)
+                "I couldn't complete that command. Please try again."
+            }
+
             val finalReply = reply ?: if (isAlarmCreation || hasPendingAnswer) {
                 "I couldn't complete that alarm command. Please try again."
             } else {
-                "I can set alarms from the lock screen. For example, say: set an alarm for 6:30 AM."
+                "I can control supported phone settings, JARVIS preferences, and alarms from here. Try: turn on flashlight, set volume to 40 percent, or enable touch glow."
             }
             val stillNeedsAnswer = runCatching { ClockAssistant.hasPendingQuestion(context) }.getOrDefault(false)
             main.post {
@@ -173,6 +183,32 @@ class JarvisVoiceInteractionSession(context: Context) : VoiceInteractionSession(
                 waitingForClarification = stillNeedsAnswer
                 speak(finalReply)
             }
+        }
+    }
+
+    /**
+     * Lock-screen allowlist: direct, low-risk controls only. Commands that expose private data,
+     * send messages, place calls, make purchases, or change security settings stay out of this
+     * session and must use the normal unlocked/confirmation flows.
+     */
+    private fun executeAllowedLockScreenCommand(spoken: String): String? {
+        val parsed = CommandParser.parse(spoken)
+        val command = parsed.command ?: return null
+        val phone = PhoneControlManager(context)
+        return when (command) {
+            is JarvisCommand.Flash -> phone.setFlashlight(command.enabled)
+            is JarvisCommand.Volume -> if (command.isRelative) {
+                phone.adjustVolume(command.delta > 0)
+            } else {
+                phone.setVolumePercent(command.level)
+            }
+            is JarvisCommand.Brightness -> if (command.isRelative) {
+                phone.adjustBrightness(command.delta > 0)
+            } else {
+                phone.setBrightnessPercent(command.level)
+            }
+            is JarvisCommand.JarvisAppControl -> phone.controlJarvisApp(command.setting, command.value)
+            else -> null
         }
     }
 
