@@ -6,7 +6,10 @@ import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -35,9 +38,11 @@ class SkillStoreActivity : AppCompatActivity() {
 
     private val store by lazy { SkillStore.get(applicationContext) }
     private lateinit var root: LinearLayout
+    private lateinit var content: LinearLayout
     private var catalog: List<CatalogEntry> = emptyList()
     private var catalogStatus: String = "Tap Refresh to see what is available."
     private var loading = false
+    private var query = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeManager.applyTheme(this)
@@ -52,46 +57,101 @@ class SkillStoreActivity : AppCompatActivity() {
         setContentView(scroll)
         ThemeManager.applyDynamicBackground(scroll)
 
+        // Title, intro and search stay put; only the cards below are redrawn, so typing in search keeps focus.
+        root.addView(text("Skill Store", 26f, primary = true, bold = true))
+        root.addView(text("Skills are playbooks that teach Jarvis how to do a job properly. Enabled skills are offered to the AI.", 13f, primary = false).apply {
+            setPadding(0, dp(4), 0, dp(14))
+        })
+        root.addView(searchBox())
+        content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(content, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        catalog = store.cachedCatalog()
+        if (catalog.isNotEmpty()) catalogStatus = "${catalog.size} skills (saved list). Refreshing..."
         render()
         refreshCatalog()
     }
 
+    private fun searchBox() = EditText(this).apply {
+        hint = "Search skills"
+        setSingleLine()
+        imeOptions = EditorInfo.IME_ACTION_SEARCH
+        contentDescription = "Search skills"
+        textSize = 14f
+        setTextColor(themeColor(R.attr.themeTextPrimary, 0xFFFFFFFF.toInt()))
+        setHintTextColor(themeColor(R.attr.themeTextMuted, 0xFF9AA4B2.toInt()))
+        setPadding(dp(18), dp(12), dp(18), dp(12))
+        background = GradientDrawable().apply {
+            cornerRadius = dp(22).toFloat()
+            setColor(themeColor(R.attr.themeCardBg, 0x33FFFFFF))
+            setStroke(dp(1), themeColor(R.attr.themeCardBorder, 0x33FFFFFF))
+        }
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = dp(14)
+        }
+        addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                query = s?.toString().orEmpty().trim().lowercase()
+                render()
+            }
+        })
+    }
+
+    private fun matches(name: String, description: String) =
+        query.isEmpty() || name.lowercase().contains(query) || description.lowercase().contains(query)
+
     // ---- Drawing -----------------------------------------------------------------------------
 
     private fun render() {
-        root.removeAllViews()
+        content.removeAllViews()
 
-        root.addView(text("Skill Store", 24f, primary = true, bold = true))
-        root.addView(text("Skills are playbooks that teach Jarvis how to do a job properly. Enabled skills are offered to the AI.", 13f, primary = false).apply {
-            setPadding(0, dp(4), 0, dp(16))
-        })
-
-        val skills = store.installed()
-        val enabled = skills.count { store.isEnabled(it.name) }
+        val allSkills = store.installed()
+        val skills = allSkills.filter { matches(it.name, it.description) }
+        val enabled = allSkills.count { store.isEnabled(it.name) }
 
         val installedCard = card()
         installedCard.addView(text("Installed skills", 18f, primary = true, bold = true))
-        installedCard.addView(text("$enabled/${skills.size} enabled. Changes apply from the next conversation.", 12f, primary = false).apply {
+        installedCard.addView(text("$enabled of ${allSkills.size} enabled. Changes apply from the next conversation.", 12f, primary = false).apply {
             setPadding(0, dp(2), 0, dp(8))
         })
-        if (skills.isEmpty()) installedCard.addView(text("No skills installed yet.", 14f, primary = false))
+        val bulk = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 0, 0, dp(6)) }
+        bulk.addView(button("Enable all") { store.setAllEnabled(true); render() }.apply { (layoutParams as LinearLayout.LayoutParams).marginStart = 0 })
+        bulk.addView(button("Disable all") { store.setAllEnabled(false); render() })
+        installedCard.addView(bulk)
+        if (allSkills.isEmpty()) installedCard.addView(text("No skills installed yet.", 14f, primary = false))
+        else if (skills.isEmpty()) installedCard.addView(text("No installed skill matches \"$query\".", 14f, primary = false))
         skills.forEachIndexed { index, skill ->
             if (index > 0) installedCard.addView(divider())
             installedCard.addView(installedRow(skill))
         }
-        root.addView(installedCard)
+        content.addView(installedCard)
 
         val storeCard = card()
         storeCard.addView(text("Skill store", 18f, primary = true, bold = true))
         storeCard.addView(text("github.com/${store.repo}", 12f, primary = false).apply { setPadding(0, dp(2), 0, dp(8)) })
 
-        val installedByName = skills.associateBy { it.name }
+        val installedByName = allSkills.associateBy { it.name }
+        val shown = catalog.filter { matches(it.name, it.description) }
+        val updatable = catalog.filter { entry ->
+            val have = installedByName[entry.name]
+            have != null && !have.builtIn && entry.updated.isNotBlank() && have.updated != entry.updated
+        }
         if (catalog.any { installedByName[it.name]?.builtIn == true }) {
             storeCard.addView(text("Skills marked Built in already ship with Jarvis, adapted to Jarvis's own tools, so they work offline and are not replaced by the store copy.", 12f, primary = false).apply {
                 setPadding(0, 0, 0, dp(6))
             })
         }
-        catalog.forEachIndexed { index, entry ->
+        if (updatable.isNotEmpty()) {
+            storeCard.addView(button("Update all (${updatable.size})") { if (!loading) updateAll(updatable) }.apply {
+                (layoutParams as LinearLayout.LayoutParams).marginStart = 0
+            })
+        }
+        if (catalog.isNotEmpty() && shown.isEmpty()) {
+            storeCard.addView(text("No store skill matches \"$query\".", 14f, primary = false).apply { setPadding(0, dp(8), 0, 0) })
+        }
+        shown.forEachIndexed { index, entry ->
             if (index > 0) storeCard.addView(divider())
             storeCard.addView(storeRow(entry, installedByName[entry.name]))
         }
@@ -101,13 +161,32 @@ class SkillStoreActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, dp(12), 0, 0)
         }
-        footer.addView(text(if (loading) "Loading..." else catalogStatus, 13f, primary = false).apply {
+        footer.addView(text(if (loading) "Working..." else catalogStatus, 13f, primary = false).apply {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         })
         footer.addView(button("Source") { askForSource() })
         footer.addView(button(if (loading) "..." else "Refresh") { if (!loading) refreshCatalog() })
         storeCard.addView(footer)
-        root.addView(storeCard)
+        content.addView(storeCard)
+    }
+
+    /** Full steps of a skill, so you can read exactly what the AI will be told before you switch it on. */
+    private fun showDetails(skill: Skill) {
+        val preview = skill.body.let { if (it.length > 3500) it.take(3500).trimEnd() + "\n\n... (shortened)" else it }
+        val message = TextView(this).apply {
+            text = "${skill.description}\n\n${if (skill.builtIn) "Built in" else "Store skill"}" +
+                (if (skill.updated.isNotBlank() && !skill.builtIn) " \u00b7 version ${skill.updated}" else "") +
+                "\n\n$preview"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            setTextIsSelectable(true)
+            setPadding(dp(22), dp(8), dp(22), dp(8))
+        }
+        val scroller = ScrollView(this).apply { addView(message) }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(skill.name)
+            .setView(scroller)
+            .setPositiveButton("Close", null)
+            .show()
     }
 
     private fun installedRow(skill: Skill): View {
@@ -125,6 +204,11 @@ class SkillStoreActivity : AppCompatActivity() {
         title.addView(badge(if (skill.builtIn) "built-in" else "store"))
         info.addView(title)
         info.addView(text(skill.description, 13f, primary = false).apply { setPadding(0, dp(2), dp(8), 0) })
+        info.addView(text("View steps", 12f, primary = true, bold = true).apply {
+            setPadding(0, dp(6), dp(8), dp(2))
+            contentDescription = "View the steps of ${skill.name}"
+            setOnClickListener { showDetails(skill) }
+        })
         if (!skill.builtIn) {
             info.addView(text("Remove", 12f, primary = true, bold = true).apply {
                 setPadding(0, dp(6), dp(8), dp(2))
@@ -194,7 +278,8 @@ class SkillStoreActivity : AppCompatActivity() {
                 catalog = it
                 catalogStatus = "${it.size} skills available"
             }.onFailure {
-                catalogStatus = "Could not reach the store. Check your internet and tap Refresh."
+                val reason = it.message?.takeIf { m -> m.isNotBlank() } ?: "Could not reach the store."
+                catalogStatus = if (catalog.isNotEmpty()) "$reason Showing the saved list." else "$reason Tap Refresh to try again."
             }
             render()
         }
@@ -211,6 +296,23 @@ class SkillStoreActivity : AppCompatActivity() {
             }.onFailure {
                 Toast.makeText(this@SkillStoreActivity, it.message ?: "Install failed", Toast.LENGTH_LONG).show()
             }
+            render()
+        }
+    }
+
+    private fun updateAll(entries: List<CatalogEntry>) {
+        loading = true
+        render()
+        lifecycleScope.launch {
+            var done = 0
+            var firstError: String? = null
+            for (entry in entries) {
+                val result = withContext(Dispatchers.IO) { store.install(entry) }
+                result.onSuccess { done++ }.onFailure { if (firstError == null) firstError = it.message }
+            }
+            loading = false
+            val message = if (firstError == null) "$done skill(s) updated" else "$done updated. ${firstError}"
+            Toast.makeText(this@SkillStoreActivity, message, Toast.LENGTH_LONG).show()
             render()
         }
     }

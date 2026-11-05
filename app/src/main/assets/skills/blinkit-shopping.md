@@ -1,6 +1,6 @@
 ---
 name: blinkit-shopping
-description: Blinkit pe saman dhoondhna, value compare karna, budget me list banana, cart, address, order aur status; order sirf user ke saaf "place karo" ke baad
+description: Blinkit pe saman dhoondhna, compare, budget list, cart, address, order aur status; order sirf user ke saaf "place karo" ke baad
 ---
 # Blinkit — search se confirmed order tak
 

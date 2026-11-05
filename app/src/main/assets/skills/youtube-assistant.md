@@ -7,14 +7,14 @@ description: YouTube voice control — search, playback, Shorts, channels, playl
 User ke YouTube tasks ko available tools + visible UI se complete karo: Home, Search, player, Shorts, channels, Subscriptions, Library/You, playlists, Watch Later, history, comments, sharing, creator/settings screens. "Everything" ka matlab supported visible controls; hidden APIs, paid features, unavailable options ya account restrictions bypass nahi.
 
 ## Asli tools
-- \`open_app(app_name)\`
-- \`search_youtube(query)\` — results only, auto-play nahi.
-- \`search_and_play_youtube(query)\` — direct video playback.
-- \`youtube_accessibility_action(action)\` — \`skip_ad\`, \`like\`, \`subscribe\`, \`open_channel\`, \`fullscreen\`, \`click_first\`.
-- \`media_playback_control(action)\` — \`play\`, \`pause\`, \`next\`, \`previous\`, \`stop\`; active Android media session, not guaranteed YouTube.
-- \`set_volume\`
-- \`inspect_screen\`, \`click_ui_element(target_name, element_id)\`, \`type_text(text, target_input_name)\`, \`scroll_screen\`, \`press_key\`
-- \`task_completed(summary)\` only after verification.
+- `open_app(app_name)`
+- `search_youtube(query)` — results only, auto-play nahi.
+- `search_and_play_youtube(query)` — direct video playback.
+- `youtube_accessibility_action(action)` — `skip_ad`, `like`, `subscribe`, `open_channel`, `fullscreen`, `click_first`.
+- `media_playback_control(action)` — `play`, `pause`, `next`, `previous`, `stop`; active Android media session, not guaranteed YouTube.
+- `set_volume`
+- `inspect_screen`, `click_ui_element(target_name, element_id)`, `type_text(text, target_input_name)`, `scroll_screen`, `press_key`
+- `task_completed(summary)` only after verification.
 
 Dedicated YouTube tools first; no imaginary tools/APIs.
 
@@ -28,33 +28,33 @@ Dedicated YouTube tools first; no imaginary tools/APIs.
 7. Never invent views, duration, title, upload date or unavailable features. Respect age/region/private/member restrictions.
 
 ## Open & navigate
-- "YouTube kholo" → \`open_app("YouTube")\`, inspect Home.
+- "YouTube kholo" → `open_app("YouTube")`, inspect Home.
 - Home / Shorts / Subscriptions / You / Library → visible tab click, verify.
-- Back → inspect context; visible back or \`press_key\`; player back may exit.
-- Channel → verify current video/channel, then \`youtube_accessibility_action("open_channel")\` or visible channel link.
+- Back → inspect context; visible back or `press_key`; player back may exit.
+- Channel → verify current video/channel, then `youtube_accessibility_action("open_channel")` or visible channel link.
 
 ## Search & play
-- Search only: \`search_youtube(query)\`; verify results, tell visible title/channel. User ne first/top result nahi bola to random result mat choose karo; ask which.
-- Clear specific "play/chalao/lagao": \`search_and_play_youtube(query)\`; verify player. Ambiguous ("kuch comedy", common title): search first, ask choice.
-- \`youtube_accessibility_action("click_first")\` only if user explicitly wants first result and correct results page is visible.
+- Search only: `search_youtube(query)`; verify results, tell visible title/channel. User ne first/top result nahi bola to random result mat choose karo; ask which.
+- Clear specific "play/chalao/lagao": `search_and_play_youtube(query)`; verify player. Ambiguous ("kuch comedy", common title): search first, ask choice.
+- `youtube_accessibility_action("click_first")` only if user explicitly wants first result and correct results page is visible.
 - Selected video ke exact card ko tap; adjacent/wrong card nahi.
 
 ## Player controls
-- Pause/resume/next/previous/stop → \`media_playback_control\`; next/previous only if YouTube is active media session.
-- Volume up/down/mute → \`set_volume\`, requested amount only; never max automatically.
-- Fullscreen → \`youtube_accessibility_action("fullscreen")\`; verify.
-- Skip ad → \`youtube_accessibility_action("skip_ad")\` only for visible skippable ad. No ad blocking/Premium bypass.
+- Pause/resume/next/previous/stop → `media_playback_control`; next/previous only if YouTube is active media session.
+- Volume up/down/mute → `set_volume`, requested amount only; never max automatically.
+- Fullscreen → `youtube_accessibility_action("fullscreen")`; verify.
+- Skip ad → `youtube_accessibility_action("skip_ad")` only for visible skippable ad. No ad blocking/Premium bypass.
 - Captions, language, quality, speed, theater/ambient → inspect player Settings/CC; select only available requested option. "Auto" isn't a fixed resolution.
 
 ## Shorts
 - Open Shorts tab, verify.
 - Next/previous Short → inspect feed, use visible swipe/scroll/navigation; media-next isn't automatically Shorts navigation.
-- Like Short → identify correct Short, confirm, \`youtube_accessibility_action("like")\`, verify state.
+- Like Short → identify correct Short, confirm, `youtube_accessibility_action("like")`, verify state.
 - Creator → inspect visible creator name, then open channel.
 - Comments/description/audio/share → visible controls; external share requires destination + content confirmation.
 
 ## Like, subscribe, channel
-- Verify current video/channel. Like/subscribe: confirm exact target and get fresh yes, then \`youtube_accessibility_action("like")\` / \`("subscribe")\`; verify active state. Already active? don't toggle.
+- Verify current video/channel. Like/subscribe: confirm exact target and get fresh yes, then `youtube_accessibility_action("like")` / `("subscribe")`; verify active state. Already active? don't toggle.
 - Bell level only when asked; show choices and confirm exact level.
 - Dislike/report/block/hide/join/membership/donation/paid actions: explain effect, confirm exact action; never invent report reason. Payment/auth stays with user.
 

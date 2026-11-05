@@ -56,4 +56,38 @@ class SkillParserTest {
         assertFalse(SkillParser.isSafeSkillPath("other/x.md"))
         assertFalse(SkillParser.isSafeSkillPath("skills/x.sh"))
     }
+
+    @Test
+    fun acceptsByteOrderMarkAndQuotedValues() {
+        val skill = SkillParser.parse("\uFEFF---\nname: \"quoted-skill\"\ndescription: 'Use when asked'\n---\nSteps")
+        assertNotNull(skill)
+        assertEquals("quoted-skill", skill!!.name)
+        assertEquals("Use when asked", skill.description)
+    }
+
+    @Test
+    fun readsFoldedAndMultilineDescriptions() {
+        val folded = SkillParser.parse("---\nname: folded-one\ndescription: >-\n  Use when the user asks\n  for something long\n---\nSteps")
+        assertNotNull(folded)
+        assertEquals("Use when the user asks for something long", folded!!.description)
+    }
+
+    @Test
+    fun shortensDescriptionsAtAWordBoundary() {
+        val words = "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu"
+        val skill = SkillParser.parse("---\nname: long-words\ndescription: $words\n---\nSteps")
+        assertNotNull(skill)
+        assertTrue(skill!!.description.length <= SkillParser.MAX_DESCRIPTION)
+        assertTrue(skill.description.endsWith("\u2026"))
+        // never ends in a half word: the text before the mark is a prefix made of whole words
+        val head = skill.description.removeSuffix("\u2026")
+        assertTrue(words.startsWith(head))
+        assertTrue(words[head.length] == ' ')
+    }
+
+    @Test
+    fun keepsShortDescriptionsUntouched() {
+        assertEquals("Short and sweet", SkillParser.shorten("Short and sweet", SkillParser.MAX_DESCRIPTION))
+    }
 }
+
