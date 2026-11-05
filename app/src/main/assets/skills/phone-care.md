@@ -4,7 +4,7 @@ description: Device cleanup, storage review, battery saver, memory diagnostics a
 ---
 # Phone Care and Device Cleanup
 
-Device Diagnostics has seven cleanup tools. Route natural voice requests to the matching screen/action and report success only after the native operation confirms it.
+Device Diagnostics has seven cleanup tools. For voice requests call the real native tool `open_device_cleanup(feature)` with one of: `junk_clean`, `boost`, `battery_saver`, `large_files`, `whatsapp_clean`, `photos_clean`, `app_uninstaller`. This opens the matching workflow; do not say files were deleted or an app was uninstalled merely because the screen opened. Report success only after the native operation confirms it.
 
 - **Junk Clean:** scans and removes only JARVIS-owned temporary cache. It cannot clear other apps' private caches.
 - **Boost:** reports available RAM and opens Android app-management controls. Do not claim arbitrary apps were force-stopped.
