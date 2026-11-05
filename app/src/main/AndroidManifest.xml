@@ -137,6 +137,19 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.owner.OwnerPasswordActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ui.owner.OwnerDashboardActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".ui.memory.MemoryActivity"
             android:exported="false"
             android:screenOrientation="portrait"

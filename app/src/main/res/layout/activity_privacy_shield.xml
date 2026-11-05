@@ -56,7 +56,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Zero-Backend • 100% On-Device Security"
+                        android:text="On-device by default • Optional account analytics"
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -118,7 +118,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="100% PRIVATE • ZERO TRACKING"
+                        android:text="PRIVATE BY DEFAULT • ANALYTICS DISCLOSED"
                         android:textColor="@color/status_green"
                         android:textSize="10.5sp"
                         android:textStyle="bold"
@@ -187,7 +187,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Zero external server databases"
+                            android:text="Local by default; accounts are optional"
                             android:textColor="?attr/themeTextMuted"
                             android:textSize="12sp" />
                     </LinearLayout>
@@ -196,7 +196,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="In this app there is no backend, nothing. This is a process, totally local on your mobile and Gemini for your conversation. That&apos;s all. No owner added his database or any sign-up pages."
+                    android:text="JARVIS runs on your phone and uses Gemini for conversation. If you choose to sign in, JARVIS also uses a cloud backend (Supabase) for sign-in and for the minimal account analytics described below. Guest mode uses no account and shares none of this."
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
                     android:lineSpacingExtra="4dp"
@@ -212,7 +212,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="•  No Sign-Up, No Accounts, No Trackers"
+                        android:text="•  Accounts are optional; guest mode shares no analytics"
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="12.5sp"
                         android:layout_marginBottom="6dp" />
@@ -235,6 +235,29 @@
             </LinearLayout>
 
             <!-- Section 2: Open Source Release -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ACCOUNT ANALYTICS (SIGNED-IN USERS)"
+                android:textColor="?attr/themeAccent"
+                android:textSize="11sp"
+                android:letterSpacing="0.10"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginBottom="10dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                android:background="@drawable/bg_jarvis_card"
+                android:lineSpacingExtra="3dp"
+                android:padding="16dp"
+                android:text="@string/owner_privacy_disclosure"
+                android:textColor="?attr/themeTextSecondary"
+                android:textSize="13sp" />
+
+            <!-- Transparency -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -555,7 +578,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:text="JARVIS INTELLIGENCE OS • ♪Sukant♪Codes♪\nEngineered with complete local privacy &amp; transparency"
+                android:text="JARVIS INTELLIGENCE OS • ♪Sukant♪Codes♪\nEngineered for local-first privacy &amp; transparency"
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="11.5sp"
                 android:lineSpacingExtra="3dp"

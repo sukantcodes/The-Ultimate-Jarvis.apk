@@ -140,6 +140,7 @@ class SettingsFragment : Fragment() {
         setupPermissionsSection()
         setupAppearanceSection()
         setupAboutSection()
+        setupOwnerSection()
         applyLiquidGlassStrength(binding.root)
         applyDimensionalIconColors(binding.root)
 
@@ -366,7 +367,8 @@ class SettingsFragment : Fragment() {
             binding.headerMemoryData,
             binding.headerPermissionsAutomation,
             binding.headerAppearance,
-            binding.headerPrivacyAbout
+            binding.headerPrivacyAbout,
+            binding.headerOwnerSection
         ).forEach { ViewCompat.setAccessibilityHeading(it, true) }
     }
 
@@ -639,6 +641,25 @@ class SettingsFragment : Fragment() {
     // ------------------------------------------------------------------------------------------
     // 8. Privacy & About
     // ------------------------------------------------------------------------------------------
+
+    // ------------------------------------------------------------------------------------------
+    // 9. Owner Section (Dashboard is gated by a server-verified password)
+    // ------------------------------------------------------------------------------------------
+
+    private val requireAccountForOwner =
+        registerForActivityResult(com.jarvis.assistant.ui.auth.RequireAccountContract()) { signedIn ->
+            if (signedIn) open(com.jarvis.assistant.ui.owner.OwnerPasswordActivity::class.java)
+        }
+
+    private fun setupOwnerSection() {
+        binding.rowOwnerDashboard.setOnClickListener {
+            if (com.jarvis.assistant.auth.AuthManager.isSignedIn) {
+                open(com.jarvis.assistant.ui.owner.OwnerPasswordActivity::class.java)
+            } else {
+                requireAccountForOwner.launch(Unit)
+            }
+        }
+    }
 
     private fun setupAboutSection() {
         binding.rowPrivacyPolicy.setOnClickListener { open(PrivacyShieldActivity::class.java) }
