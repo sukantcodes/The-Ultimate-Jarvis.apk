@@ -151,7 +151,7 @@ class ChatFragment : Fragment() {
         }
 
         binding.btnChatMenu.setOnClickListener {
-            (activity as? MainActivity)?.selectTab(MainActivity.TAB_HOME)
+            (activity as? MainActivity)?.openNavigationDrawer()
         }
 
         binding.chipPersona.setOnClickListener {
