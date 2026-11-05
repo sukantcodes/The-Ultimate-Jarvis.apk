@@ -56,4 +56,26 @@
     <string name="owner_retention_fmt">IP addresses are kept for %1$d days, then deleted automatically.</string>
 
     <string name="owner_privacy_disclosure">Signed-in accounts share a minimal device record with JARVIS: a random install ID, device model, Android and app version, sign-in/app-open times, and the IP address your connection uses (read by the server). It is used only for account/device management and app analytics, visible only to the app owner, and IP addresses are deleted after 30 days. No contacts, messages, call logs, files, audio, location, IMEI or SIM data is collected. Guest mode shares none of this.</string>
+
+    <string name="owner_tab_insights">Insights</string>
+    <string name="owner_range_7">7 days</string>
+    <string name="owner_range_14">14 days</string>
+    <string name="owner_range_30">30 days</string>
+    <string name="owner_ins_daily">Daily activity</string>
+    <string name="owner_ins_models">Top device models</string>
+    <string name="owner_ins_android">Android versions</string>
+    <string name="owner_ins_app">JARVIS versions</string>
+    <string name="owner_ins_providers">Sign-in methods</string>
+    <string name="owner_ins_security">Dashboard security</string>
+    <string name="owner_legend_signins">Sign-ins</string>
+    <string name="owner_legend_opens">App opens</string>
+    <string name="owner_legend_devices">New devices</string>
+    <string name="owner_sec_locked">Locked now</string>
+    <string name="owner_sec_failed">Failed attempts (24 h)</string>
+    <string name="owner_sec_sessions">Open dashboard sessions</string>
+    <string name="owner_no_data_yet">No data yet. It fills in as people sign in.</string>
+    <string name="owner_updated_fmt">Updated %1$s</string>
+    <string name="owner_copy">Copy</string>
+    <string name="owner_close">Close</string>
+    <string name="owner_copied">Copied</string>
 </resources>

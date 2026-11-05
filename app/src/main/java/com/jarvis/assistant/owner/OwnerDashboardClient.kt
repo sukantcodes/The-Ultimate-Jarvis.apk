@@ -95,6 +95,25 @@ object OwnerDashboardClient {
             )
         }
 
+    suspend fun trends(days: Int): OwnerResult<TrendsData> =
+        call(JsonObject().apply { addProperty("action", "trends"); addProperty("days", days) }) { b ->
+            val sec = b.obj("security") ?: JsonObject()
+            TrendsData(
+                days = b.long("days").toInt(),
+                daily = (b.arr("daily") ?: JsonArray()).map {
+                    val o = it.asJsonObject
+                    DayPoint(o.str("day") ?: "", o.long("sign_ins").toInt(), o.long("app_opens").toInt(), o.long("new_devices").toInt())
+                },
+                models = b.arr("models").toCounts(),
+                androidVersions = b.arr("android_versions").toCounts(),
+                appVersions = b.arr("app_versions").toCounts(),
+                providers = b.arr("providers").toCounts(),
+                lockedNow = sec.long("locked_now"),
+                failedAttempts24h = sec.long("failed_attempts_24h"),
+                activeDashboardSessions = sec.long("active_dashboard_sessions")
+            )
+        }
+
     suspend fun devices(page: Int, search: String, activeWithinDays: Int): OwnerResult<OwnerPage> =
         call(JsonObject().apply {
             addProperty("action", "devices"); addProperty("page", page); addProperty("page_size", PAGE_SIZE)
@@ -109,7 +128,12 @@ object OwnerDashboardClient {
                     line3 = "Device ${shortId(r.str("install_id"))} · Account ${shortId(r.str("user_id"))}\n" +
                         "First seen ${fmt(r.str("first_seen_at"))} · Last active ${fmt(r.str("last_seen_at"))}\n" +
                         "Mode: Free (no Pro backend)",
-                    badge = if (r.str("status") == "recently_active") "ACTIVE 24H" else "INACTIVE"
+                    badge = if (r.str("status") == "recently_active") "ACTIVE 24H" else "INACTIVE",
+                    tone = if (r.str("status") == "recently_active") OwnerPalette.GREEN else OwnerPalette.GREY,
+                    detail = "Model\n$model\n\nAndroid version\n${r.str("android_version") ?: "?"}\n\n" +
+                        "JARVIS version\n${r.str("app_version") ?: "?"}\n\nDevice (install) ID\n${r.str("install_id") ?: "—"}\n\n" +
+                        "Account ID\n${r.str("user_id") ?: "—"}\n\nFirst registered\n${fmt(r.str("first_seen_at"))}\n\n" +
+                        "Last active\n${fmt(r.str("last_seen_at"))}\n\nMode\nFree (no Pro entitlement backend)"
                 )
             }
         }
@@ -125,7 +149,12 @@ object OwnerDashboardClient {
                     title = r.str("ip") ?: "—",
                     line2 = "Account ${shortId(r.str("user_id"))} · ${dev?.str("device_model") ?: "device"}",
                     line3 = "First ${fmt(r.str("first_seen_at"))} · Last ${fmt(r.str("last_seen_at"))}",
-                    badge = "${r.get("request_count")?.asIntOrNull() ?: 0}×"
+                    badge = "${r.get("request_count")?.asIntOrNull() ?: 0}×",
+                    tone = OwnerPalette.CYAN,
+                    detail = "IP address\n${r.str("ip") ?: "—"}\n\nAccount ID\n${r.str("user_id") ?: "—"}\n\n" +
+                        "Device ID\n${dev?.str("install_id") ?: r.str("device_id") ?: "—"}\n\nFirst observed\n${fmt(r.str("first_seen_at"))}\n\n" +
+                        "Last observed\n${fmt(r.str("last_seen_at"))}\n\nObserved requests\n${r.get("request_count")?.asIntOrNull() ?: 0}\n\n" +
+                        "IP addresses are approximate network identifiers, not locations."
                 )
             }
         }
@@ -216,6 +245,9 @@ object OwnerDashboardClient {
         )
     }
 
+    private fun JsonArray?.toCounts(): List<LabelCount> =
+        this?.map { val o = it.asJsonObject; LabelCount(o.str("label") ?: "?", o.long("count").toInt()) } ?: emptyList()
+
     private fun JsonArray?.toEventRows(): List<OwnerRow> =
         this?.map { it.asJsonObject.toEventRow() } ?: emptyList()
 
@@ -224,7 +256,11 @@ object OwnerDashboardClient {
         return OwnerRow(
             title = when (type) { "sign_in" -> "Sign-in"; "app_open" -> "App opened"; else -> "Sign-in" },
             line2 = "Account ${shortId(str("user_id"))} · ${obj("app_devices")?.str("device_model") ?: "device"}",
-            line3 = fmt(str("created_at"))
+            line3 = fmt(str("created_at")),
+            tone = if (type == "app_open") OwnerPalette.BLUE else OwnerPalette.VIOLET,
+            badge = if (type == "app_open") "OPEN" else "SIGN-IN",
+            detail = "Event\n${if (type == "app_open") "App opened" else "Sign-in"}\n\nAccount ID\n${str("user_id") ?: "—"}\n\n" +
+                "Device\n${obj("app_devices")?.str("device_model") ?: "—"}\n\nTime\n${fmt(str("created_at"))}"
         )
     }
 

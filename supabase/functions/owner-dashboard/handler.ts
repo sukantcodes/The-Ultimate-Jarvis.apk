@@ -1,7 +1,7 @@
 // Owner dashboard request handler. All authorization happens here, server-side.
 //
 //   POST { action: "verify", password }      -> { token, expires_at }   (needs a signed-in user)
-//   POST { action: "summary" | "devices" | "ips" | "events" | "logout", ... }
+//   POST { action: "summary" | "trends" | "devices" | "ips" | "events" | "logout", ... }
 //        needs: Authorization: Bearer <user access token>  AND  x-dashboard-session: <token from verify>
 //
 // The owner password is never stored: only a bcrypt hash supplied via the OWNER_PASSWORD_HASH secret
@@ -174,6 +174,13 @@ export function createHandler(d: Deps) {
       note: "IP addresses are observed server-side and are approximate network identifiers, not locations." };
   }
 
+  async function trends(body: Record<string, unknown>) {
+    const days = [7, 14, 30].includes(Number(body.days)) ? Number(body.days) : 14;
+    const { data, error } = await d.admin.rpc("owner_trends", { p_days: days });
+    if (error || !data) throw new Error("trends");
+    return data;
+  }
+
   async function events(body: Record<string, unknown>) {
     const { from, to, page, size } = pageParams(body);
     let q = d.admin.from("app_events").select("id,event_type,user_id,created_at,app_devices(device_model)",
@@ -202,6 +209,7 @@ export function createHandler(d: Deps) {
         case "devices": return json(await devices(body));
         case "ips": return json(await ips(body));
         case "events": return json(await events(body));
+        case "trends": return json(await trends(body));
         case "logout":
           await d.admin.from("dashboard_sessions").update({ revoked_at: d.now().toISOString() }).eq("id", session.id);
           return json({ ok: true });

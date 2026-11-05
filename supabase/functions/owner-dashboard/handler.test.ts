@@ -45,6 +45,7 @@ function fakeDb(clock: { t: number }) {
     }
     if (name === "clear_owner_failures") { attempts.delete(a.p_key); return Promise.resolve({ data: null }); }
     if (name === "owner_summary") return Promise.resolve({ data: { total_accounts: 4 } });
+    if (name === "owner_trends") return Promise.resolve({ data: { days: a.p_days, daily: [] } });
     return Promise.resolve({ data: null });
   };
   return { from: chain, rpc, sessions };
@@ -70,14 +71,14 @@ function setup(env: Record<string, string | undefined> = { OWNER_PASSWORD_HASH: 
 
 test("no signed-in user -> 401 for every action", async () => {
   const t = setup(); t.setUser(null);
-  for (const action of ["verify", "summary", "devices", "ips", "events", "logout"]) {
+  for (const action of ["verify", "summary", "trends", "devices", "ips", "events", "logout"]) {
     assert.equal((await t.call({ action, password: TEST_PASSWORD })).status, 401);
   }
 });
 
 test("analytics without a dashboard session are refused", async () => {
   const t = setup();
-  for (const action of ["summary", "devices", "ips", "events"]) {
+  for (const action of ["summary", "trends", "devices", "ips", "events"]) {
     const r = await t.call({ action });
     assert.equal(r.status, 401); assert.equal((await r.json()).error, "session_invalid");
   }
@@ -116,6 +117,9 @@ test("correct password issues a session that opens the dashboard, then expires a
   assert.equal(s.status, 200);
   assert.equal((await s.json()).counts.total_accounts, 4);
 
+  const tr = await t.call({ action: "trends", days: 30 }, h);
+  assert.equal(tr.status, 200); assert.equal((await tr.json()).days, 30);
+  assert.equal((await (await t.call({ action: "trends", days: 999 }, h)).json()).days, 14); // clamps to a known window
   t.clock.t += 899_000; assert.equal((await t.call({ action: "devices" }, h)).status, 200);
   t.clock.t += 2_000;   assert.equal((await t.call({ action: "devices" }, h)).status, 401); // expired
 

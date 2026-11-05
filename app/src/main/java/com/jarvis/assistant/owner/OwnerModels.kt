@@ -38,7 +38,41 @@ data class OwnerRow(
     val title: String,
     val line2: String,
     val line3: String,
-    val badge: String = ""
+    val badge: String = "",
+    /** ARGB colour for the badge and the row's accent; 0 keeps the theme accent. */
+    val tone: Int = 0,
+    /** Full values (complete IDs, timestamps) shown when the row is tapped. */
+    val detail: String = ""
+)
+
+/** Palette shared by the dashboard so every card, badge and chart series has a stable colour. */
+object OwnerPalette {
+    val CYAN = 0xFF22D3EE.toInt()
+    val VIOLET = 0xFFA78BFA.toInt()
+    val GREEN = 0xFF34D399.toInt()
+    val AMBER = 0xFFFBBF24.toInt()
+    val PINK = 0xFFF472B6.toInt()
+    val BLUE = 0xFF60A5FA.toInt()
+    val ORANGE = 0xFFFB923C.toInt()
+    val RED = 0xFFF87171.toInt()
+    val GREY = 0xFF94A3B8.toInt()
+    val CYCLE = intArrayOf(CYAN, VIOLET, GREEN, AMBER, PINK, BLUE, ORANGE, RED)
+}
+
+data class DayPoint(val day: String, val signIns: Int, val appOpens: Int, val newDevices: Int)
+
+data class LabelCount(val label: String, val count: Int)
+
+data class TrendsData(
+    val days: Int,
+    val daily: List<DayPoint>,
+    val models: List<LabelCount>,
+    val androidVersions: List<LabelCount>,
+    val appVersions: List<LabelCount>,
+    val providers: List<LabelCount>,
+    val lockedNow: Long,
+    val failedAttempts24h: Long,
+    val activeDashboardSessions: Long
 )
 
 data class OwnerPage(

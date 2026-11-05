@@ -1,6 +1,12 @@
 package com.jarvis.assistant.ui.owner
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -12,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.chip.Chip
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.tabs.TabLayout
 import com.jarvis.assistant.R
 import com.jarvis.assistant.databinding.ActivityOwnerDashboardBinding
@@ -19,8 +26,10 @@ import com.jarvis.assistant.owner.OverviewData
 import com.jarvis.assistant.owner.OwnerDashboardClient
 import com.jarvis.assistant.owner.OwnerPage
 import com.jarvis.assistant.owner.OwnerResult
+import com.jarvis.assistant.owner.OwnerPalette
 import com.jarvis.assistant.owner.OwnerRow
 import com.jarvis.assistant.owner.OwnerSession
+import com.jarvis.assistant.owner.TrendsData
 import com.jarvis.assistant.util.ThemeManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,15 +45,16 @@ import java.text.NumberFormat
  */
 class OwnerDashboardActivity : AppCompatActivity() {
 
-    private enum class Tab { OVERVIEW, DEVICES, IPS, ACTIVITY }
+    private enum class Tab { OVERVIEW, INSIGHTS, DEVICES, IPS, ACTIVITY }
 
     private lateinit var binding: ActivityOwnerDashboardBinding
-    private val adapter = OwnerRowAdapter()
+    private val adapter = OwnerRowAdapter { showDetail(it) }
     private var tab = Tab.OVERVIEW
     private var page = 0
     private var search = ""
     private var deviceWindowDays = 0
     private var eventType = ""
+    private var trendDays = 14
     private var loadJob: Job? = null
     private var searchJob: Job? = null
     private var expiryJob: Job? = null
@@ -99,13 +109,14 @@ class OwnerDashboardActivity : AppCompatActivity() {
 
     private fun tabTitle(t: Tab) = getString(when (t) {
         Tab.OVERVIEW -> R.string.owner_tab_overview
+        Tab.INSIGHTS -> R.string.owner_tab_insights
         Tab.DEVICES -> R.string.owner_tab_devices
         Tab.IPS -> R.string.owner_tab_ips
         Tab.ACTIVITY -> R.string.owner_tab_activity
     })
 
     private fun selectTab(t: Tab) {
-        tab = t; page = 0; search = ""; deviceWindowDays = 0; eventType = ""
+        tab = t; page = 0; search = ""; deviceWindowDays = 0; eventType = ""; trendDays = 14
         binding.etSearch.setText("")
         binding.etSearch.hint = getString(if (t == Tab.IPS) R.string.owner_search_ips else R.string.owner_search_devices)
         binding.etSearch.visibility = if (t == Tab.DEVICES || t == Tab.IPS) View.VISIBLE else View.GONE
@@ -122,6 +133,10 @@ class OwnerDashboardActivity : AppCompatActivity() {
                 R.string.owner_filter_24h to { deviceWindowDays = 1 },
                 R.string.owner_filter_7d to { deviceWindowDays = 7 },
                 R.string.owner_filter_30d to { deviceWindowDays = 30 })
+            Tab.INSIGHTS -> listOf(
+                R.string.owner_range_14 to { trendDays = 14 },
+                R.string.owner_range_7 to { trendDays = 7 },
+                R.string.owner_range_30 to { trendDays = 30 })
             Tab.ACTIVITY -> listOf(
                 R.string.owner_filter_all to { eventType = "" },
                 R.string.owner_filter_signins to { eventType = "sign_in" },
@@ -156,6 +171,7 @@ class OwnerDashboardActivity : AppCompatActivity() {
         loadJob = lifecycleScope.launch {
             when (requested) {
                 Tab.OVERVIEW -> handle(OwnerDashboardClient.overview()) { showOverview(it) }
+                Tab.INSIGHTS -> handle(OwnerDashboardClient.trends(trendDays)) { showInsights(it) }
                 Tab.DEVICES -> handle(OwnerDashboardClient.devices(page, search, deviceWindowDays)) { showPage(it) }
                 Tab.IPS -> handle(OwnerDashboardClient.ips(page, search)) { showPage(it) }
                 Tab.ACTIVITY -> handle(OwnerDashboardClient.events(page, eventType)) { showPage(it) }
@@ -175,19 +191,27 @@ class OwnerDashboardActivity : AppCompatActivity() {
         }
     }
 
-    private fun showLoading() {
-        binding.progress.visibility = View.VISIBLE
-        binding.stateBox.visibility = View.GONE
+    private fun hideContent() {
         binding.list.visibility = View.GONE
         binding.overviewScroll.visibility = View.GONE
+        binding.insightsScroll.visibility = View.GONE
         binding.pager.visibility = View.GONE
     }
 
+    private fun showLoading() {
+        hideContent()
+        binding.progress.visibility = View.VISIBLE
+        binding.stateBox.visibility = View.GONE
+    }
+
+    private fun stampUpdated() {
+        val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date())
+        binding.tvDashSubtitle.text = getString(R.string.owner_updated_fmt, time)
+    }
+
     private fun showState(message: String, retry: Boolean) {
+        hideContent()
         binding.progress.visibility = View.GONE
-        binding.list.visibility = View.GONE
-        binding.overviewScroll.visibility = View.GONE
-        binding.pager.visibility = View.GONE
         binding.stateBox.visibility = View.VISIBLE
         binding.tvState.text = message
         binding.btnRetry.visibility = if (retry) View.VISIBLE else View.GONE
@@ -200,6 +224,7 @@ class OwnerDashboardActivity : AppCompatActivity() {
             return
         }
         binding.stateBox.visibility = View.GONE
+        stampUpdated()
         binding.list.visibility = View.VISIBLE
         adapter.submit(p.rows)
         binding.list.scrollToPosition(0)
@@ -221,18 +246,21 @@ class OwnerDashboardActivity : AppCompatActivity() {
         grid.removeAllViews()
         grid.columnCount = resources.getInteger(R.integer.owner_stat_columns)
         listOf(
-            R.string.owner_stat_accounts to nf.format(o.totalAccounts),
-            R.string.owner_stat_mau to nf.format(o.accountsActive30d),
-            R.string.owner_stat_devices to nf.format(o.totalDevices),
-            R.string.owner_stat_recent_devices to nf.format(o.devicesActive24h),
-            R.string.owner_stat_free to nf.format(o.freeUsers),
-            R.string.owner_stat_pro to (o.proUsers?.let { nf.format(it) } ?: notTracked),
-            R.string.owner_stat_signins to nf.format(o.signins24h),
-            R.string.owner_stat_ips to nf.format(o.distinctIps30d)
-        ).forEach { (label, value) ->
+            Triple(R.string.owner_stat_accounts, nf.format(o.totalAccounts), OwnerPalette.CYAN),
+            Triple(R.string.owner_stat_mau, nf.format(o.accountsActive30d), OwnerPalette.VIOLET),
+            Triple(R.string.owner_stat_devices, nf.format(o.totalDevices), OwnerPalette.BLUE),
+            Triple(R.string.owner_stat_recent_devices, nf.format(o.devicesActive24h), OwnerPalette.GREEN),
+            Triple(R.string.owner_stat_free, nf.format(o.freeUsers), OwnerPalette.AMBER),
+            Triple(R.string.owner_stat_pro, o.proUsers?.let { nf.format(it) } ?: notTracked, OwnerPalette.PINK),
+            Triple(R.string.owner_stat_signins, nf.format(o.signins24h), OwnerPalette.ORANGE),
+            Triple(R.string.owner_stat_ips, nf.format(o.distinctIps30d), OwnerPalette.RED)
+        ).forEach { (label, value, color) ->
             val card = LayoutInflater.from(this).inflate(R.layout.item_owner_stat, grid, false)
-            card.findViewById<TextView>(R.id.tvStatValue).text = value
-            card.findViewById<TextView>(R.id.tvStatLabel).text = getString(label)
+            card.findViewById<TextView>(R.id.tvStatValue).apply {
+                text = value; setTextColor(color); typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
+            }
+            card.findViewById<TextView>(R.id.tvStatLabel).apply { text = getString(label); typeface = Typeface.create("sans-serif-light", Typeface.NORMAL) }
+            card.background = tinted(color)
             grid.addView(card)
         }
         binding.tvDefinitions.text = getString(R.string.owner_overview_definitions)
@@ -241,6 +269,141 @@ class OwnerDashboardActivity : AppCompatActivity() {
         fillRows(binding.recentSignins, o.recentSignins)
         fillRows(binding.recentActivity, o.recentActivity)
         binding.tvRetention.text = getString(R.string.owner_retention_fmt, o.ipRetentionDays)
+        stampUpdated()
+    }
+
+    // ── Insights ────────────────────────────────────────────────────────────────────────────────
+
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    /** Soft tinted card: translucent fill and outline in one accent colour. */
+    private fun tinted(color: Int) = GradientDrawable().apply {
+        cornerRadius = dp(16).toFloat()
+        setColor(Color.argb(34, Color.red(color), Color.green(color), Color.blue(color)))
+        setStroke(dp(1), Color.argb(110, Color.red(color), Color.green(color), Color.blue(color)))
+    }
+
+    private fun insightCard(title: String, color: Int, content: View): View {
+        val box = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(dp(14), dp(12), dp(14), dp(14))
+            background = tinted(color)
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { setMargins(dp(5), dp(5), dp(5), dp(5)) }
+        }
+        box.addView(TextView(this).apply {
+            text = title
+            setTextColor(color)
+            textSize = 13f
+            letterSpacing = 0.08f
+            isAllCaps = true
+            typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
+            setPadding(0, 0, 0, dp(8))
+        })
+        box.addView(content)
+        return box
+    }
+
+    private fun legend(items: List<Pair<String, Int>>): View {
+        val row = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.HORIZONTAL }
+        items.forEach { (name, color) ->
+            row.addView(TextView(this).apply {
+                text = "● $name"
+                setTextColor(color)
+                textSize = 12f
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setPadding(0, dp(8), dp(14), 0)
+            })
+        }
+        return row
+    }
+
+    private fun showInsights(t: TrendsData) {
+        binding.progress.visibility = View.GONE
+        binding.stateBox.visibility = View.GONE
+        binding.insightsScroll.visibility = View.VISIBLE
+        val box = binding.insightsContainer
+        box.removeAllViews()
+
+        // Daily activity chart
+        val labels = t.daily.map { it.day.takeLast(5).replace('-', '/') }
+        val chart = TrendChartView(this).apply {
+            setData(labels, listOf(
+                TrendChartView.Series(getString(R.string.owner_legend_signins), OwnerPalette.VIOLET, t.daily.map { it.signIns }),
+                TrendChartView.Series(getString(R.string.owner_legend_opens), OwnerPalette.CYAN, t.daily.map { it.appOpens }),
+                TrendChartView.Series(getString(R.string.owner_legend_devices), OwnerPalette.GREEN, t.daily.map { it.newDevices })
+            ))
+        }
+        val chartBox = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL }
+        chartBox.addView(chart)
+        chartBox.addView(legend(listOf(
+            getString(R.string.owner_legend_signins) to OwnerPalette.VIOLET,
+            getString(R.string.owner_legend_opens) to OwnerPalette.CYAN,
+            getString(R.string.owner_legend_devices) to OwnerPalette.GREEN
+        )))
+        box.addView(insightCard(getString(R.string.owner_ins_daily) + " · ${t.days}d", OwnerPalette.VIOLET, chartBox))
+
+        fun distribution(title: Int, color: Int, items: List<com.jarvis.assistant.owner.LabelCount>, palette: IntArray) {
+            val content: View = if (items.isEmpty()) {
+                TextView(this).apply {
+                    text = getString(R.string.owner_no_data_yet); textSize = 13f
+                    setTextColor(Color.GRAY)
+                }
+            } else DistributionView(this).apply { setData(items.map { it.label to it.count }, palette) }
+            box.addView(insightCard(getString(title), color, content))
+        }
+        distribution(R.string.owner_ins_models, OwnerPalette.BLUE, t.models, intArrayOf(OwnerPalette.BLUE, OwnerPalette.CYAN, OwnerPalette.VIOLET, OwnerPalette.GREEN))
+        distribution(R.string.owner_ins_android, OwnerPalette.GREEN, t.androidVersions, intArrayOf(OwnerPalette.GREEN, OwnerPalette.AMBER, OwnerPalette.ORANGE, OwnerPalette.PINK))
+        distribution(R.string.owner_ins_app, OwnerPalette.AMBER, t.appVersions, intArrayOf(OwnerPalette.AMBER, OwnerPalette.ORANGE, OwnerPalette.RED, OwnerPalette.PINK))
+        distribution(R.string.owner_ins_providers, OwnerPalette.PINK, t.providers, intArrayOf(OwnerPalette.PINK, OwnerPalette.VIOLET, OwnerPalette.CYAN))
+
+        // Security: lockouts and open sessions, straight from the backend.
+        val nf = NumberFormat.getIntegerInstance()
+        val sec = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.HORIZONTAL }
+        listOf(
+            Triple(R.string.owner_sec_locked, t.lockedNow, if (t.lockedNow > 0) OwnerPalette.RED else OwnerPalette.GREEN),
+            Triple(R.string.owner_sec_failed, t.failedAttempts24h, if (t.failedAttempts24h > 0) OwnerPalette.AMBER else OwnerPalette.GREEN),
+            Triple(R.string.owner_sec_sessions, t.activeDashboardSessions, OwnerPalette.CYAN)
+        ).forEach { (label, value, color) ->
+            sec.addView(android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                layoutParams = android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                addView(TextView(context).apply {
+                    text = nf.format(value); textSize = 24f; setTextColor(color)
+                    typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
+                })
+                addView(TextView(context).apply {
+                    text = getString(label); textSize = 11f; setTextColor(Color.GRAY)
+                    typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+                })
+            })
+        }
+        box.addView(insightCard(getString(R.string.owner_ins_security), OwnerPalette.RED, sec))
+        stampUpdated()
+    }
+
+    // ── Row details ─────────────────────────────────────────────────────────────────────────────
+
+    private fun showDetail(row: OwnerRow) {
+        if (row.detail.isBlank()) return
+        val body = TextView(this).apply {
+            text = row.detail
+            typeface = Typeface.MONOSPACE
+            textSize = 12.5f
+            setTextIsSelectable(true)
+            setPadding(dp(22), dp(8), dp(22), 0)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(row.title)
+            .setView(android.widget.ScrollView(this).apply { addView(body) })
+            .setNeutralButton(R.string.owner_copy) { _, _ ->
+                val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newPlainText("JARVIS", row.detail))
+                Toast.makeText(this, R.string.owner_copied, Toast.LENGTH_SHORT).show()
+            }
+            .setPositiveButton(R.string.owner_close, null)
+            .show()
     }
 
     private fun fillRows(container: android.widget.LinearLayout, rows: List<OwnerRow>) {

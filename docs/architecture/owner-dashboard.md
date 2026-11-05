@@ -57,6 +57,14 @@ No IP-based geolocation is performed. IP rows are deleted after `owner_settings.
 (default 30), events after `event_retention_days` (default 90), by a daily `pg_cron` job
 (`purge_expired_analytics`). Deleting an account cascades to its devices, events and IPs.
 
+## Insights tab
+
+`action: "trends"` (7/14/30 days) returns daily sign-ins, app opens and new devices, the most common device
+models, Android versions, JARVIS versions and sign-in methods (Google/Email), plus security counters
+(accounts locked now, failed owner-password attempts in 24 h, open dashboard sessions). Everything is an
+aggregate computed by `owner_trends()` in Postgres; no emails or other personal data are returned.
+Tapping a device, IP or activity row shows its full values with a Copy button.
+
 ## Known limits (by design — nothing is faked)
 
 * **No Pro entitlement backend exists** in JARVIS (sign-in never implies Pro). Pro users, conversion
