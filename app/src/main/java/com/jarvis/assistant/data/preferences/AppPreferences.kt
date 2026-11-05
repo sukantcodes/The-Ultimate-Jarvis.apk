@@ -82,6 +82,7 @@ class AppPreferences(context: Context) {
         private const val KEY_UI_REFRESH_RATE = "key_ui_refresh_rate"
         private const val KEY_TOUCH_GLOW_ENABLED = "key_touch_glow_enabled"
         private const val KEY_WELCOME_INTRO_SHOWN = "key_welcome_intro_shown"
+        private const val KEY_PRE_LOGIN_INTRO_SHOWN = "key_pre_login_intro_shown"
         const val ORB_GLOW_MIN = 0f
         const val ORB_GLOW_MAX = 2f
         const val ORB_SIZE_MIN = 0.6f
@@ -344,6 +345,11 @@ class AppPreferences(context: Context) {
     var hasSeenWelcomeIntro: Boolean
         get() = prefs.getBoolean(KEY_WELCOME_INTRO_SHOWN, false)
         set(value) = prefs.edit().putBoolean(KEY_WELCOME_INTRO_SHOWN, value).apply()
+
+    /** Tracks the revised pre-login cinematic so existing installs see the new sequence once. */
+    var hasSeenPreLoginIntro: Boolean
+        get() = prefs.getBoolean(KEY_PRE_LOGIN_INTRO_SHOWN, false)
+        set(value) = prefs.edit().putBoolean(KEY_PRE_LOGIN_INTRO_SHOWN, value).apply()
 
     var uiRefreshRate: String
         get() {
