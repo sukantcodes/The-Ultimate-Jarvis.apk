@@ -259,6 +259,14 @@
             </intent-filter>
         </receiver>
 
+        <receiver android:name=".automation.tasks.ScheduledTaskReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="com.jarvis.assistant.tasks.CALL_DUE" />
+            </intent-filter>
+        </receiver>
+
         <activity
             android:name=".studio.ui.AutomationStudioActivity"
             android:exported="false" />
