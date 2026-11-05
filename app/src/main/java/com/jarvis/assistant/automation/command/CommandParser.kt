@@ -55,6 +55,20 @@ object CommandParser {
             return ParsedCommandResult(null, 0.0f)
         }
 
+        // Voice controls for JARVIS's own preferences only.
+        val appToggle = Regex("^(?:please\\s+)?(?:turn\\s+(on|off)|enable|disable)\\s+(?:jarvis\\s+)?(touch\\s+glow|silent\\s+mode|floating\\s+avatar|task\\s+overlay|mic(?:rophone)?\\s+mute)$").find(clean)
+        if (appToggle != null) {
+            val verb = appToggle.groupValues[1].ifBlank { if (clean.startsWith("disable")) "off" else "on" }
+            val setting = appToggle.groupValues[2].replace(Regex("\\s+"), " ").trim()
+            return ParsedCommandResult(JarvisCommand.JarvisAppControl(setting, if (verb == "off") "off" else "on"), 0.99f, "JARVIS_APP_CONTROL")
+        }
+        val appSetting = Regex("^(?:please\\s+)?(?:set|change)\\s+(?:the\\s+)?(?:jarvis\\s+)?(theme|orb\\s+animation|orb\\s+speed|orb\\s+glow|orb\\s+size|language|voice|personality|overlay\\s+avatar|overlay\\s+mode|liquid\\s+glass|settings\\s+icon\\s+shape|refresh\\s+rate)\\s+(?:to|as)\\s+(.+)$").find(clean)
+        if (appSetting != null) {
+            val setting = appSetting.groupValues[1].replace(Regex("\\s+"), " ").trim()
+            val value = appSetting.groupValues[2].trim()
+            if (value.isNotBlank()) return ParsedCommandResult(JarvisCommand.JarvisAppControl(setting, value), 0.98f, "JARVIS_APP_CONTROL")
+        }
+
         // 1. Confirmations & Cancellations (Priority when awaiting confirmation)
         if (isAwaitingConfirmation) {
             if (clean.matches(Regex("^(yes|yeah|yup|send|send it|confirm|do it|sure|okay|go ahead|please send|haan|haanji|kardo|theek hai|avunu|sare|chey|aamaa|sari|ho|thik ache|thik ahe|kar da|kar do).*"))) {
