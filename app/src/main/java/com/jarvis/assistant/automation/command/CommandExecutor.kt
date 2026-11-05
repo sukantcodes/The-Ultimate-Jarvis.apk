@@ -7,6 +7,8 @@ import com.jarvis.assistant.automation.phone.PhoneControlManager
 import com.jarvis.assistant.automation.whatsapp.WhatsAppAssistant
 import com.jarvis.assistant.automation.youtube.YouTubeAutomationManager
 import com.jarvis.assistant.data.memory.MemoryManager
+import com.jarvis.assistant.JarvisApp
+import com.jarvis.assistant.automation.tasks.ScheduledTaskMemory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -86,6 +88,8 @@ class CommandExecutor(
         is JarvisCommand.OpenApp -> phoneManager.openApp(command.packageName)
         is JarvisCommand.OpenWebUrls -> phoneManager.openMultipleUrls(command.urls)
         is JarvisCommand.PhoneCall -> phoneManager.makePhoneCall(command.contactOrNumber)
+        is JarvisCommand.ScheduleCall -> ScheduledTaskMemory.scheduleCall(JarvisApp.instance, command.contact, command.delayMillis)
+        is JarvisCommand.WatchAppEvent -> ScheduledTaskMemory.watchAppEvent(JarvisApp.instance, command.app, command.keyword)
         is JarvisCommand.SearchWeb -> phoneManager.searchWeb(command.query)
         is JarvisCommand.WhatsAppMessage -> whatsappAssistant.sendMessageDirectly(command.contact, command.message)
         is JarvisCommand.WhatsAppCall -> whatsappAssistant.makeCall(command.contact, command.video)
