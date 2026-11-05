@@ -254,3 +254,12 @@ The repository baseline includes these playbooks:
 - `jarvis-master-blueprint.md` (this blueprint skill)
 
 This inventory is a source snapshot; SkillStore's runtime asset listing is authoritative.
+
+
+## 12. Device cleanup and diagnostics
+- Device Diagnostics includes Junk Clean, Boost, Battery Saver, Large Files Cleanup, WhatsApp Clean, Photos Clean and App Uninstaller.
+- Junk Clean is limited to JARVIS-owned cache. Boost reports available RAM and opens supported app-management controls; it must not claim to force-stop arbitrary apps.
+- Large-file, WhatsApp and photo scans operate only within a folder explicitly selected through Android's Storage Access Framework. Review targets and ask before deletion.
+- App uninstall uses Android's own confirmation. Battery Saver opens the supported system control page and must be verified.
+- Voice intents should route to these same workflows, not a parallel implementation.
+- Recreate the requested Snaptube-like scan/progress/result presentation with original JARVIS animation work; do not package proprietary Snaptube animation assets or code.
