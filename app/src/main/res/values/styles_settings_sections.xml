@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Per-section fonts and colours for the Settings screen. Base Widget.JarvisSettings.* styles are untouched. -->
+<resources>
+
+    <!-- Ai section -->
+    <style name="Widget.JarvisSettings.SectionTitle.Ai" parent="Widget.JarvisSettings.SectionTitle">
+        <item name="android:textColor">@color/set_accent_ai</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowTitle.Ai" parent="Widget.JarvisSettings.RowTitle">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowSubtitle.Ai" parent="Widget.JarvisSettings.RowSubtitle">
+        <item name="android:fontFamily">sans-serif-light</item>
+    </style>
+    <style name="Widget.JarvisSettings.Divider.Ai" parent="Widget.JarvisSettings.Divider">
+        <item name="android:background">@color/set_accent_ai</item>
+        <item name="android:alpha">0.30</item>
+    </style>
+
+    <!-- Voice section -->
+    <style name="Widget.JarvisSettings.SectionTitle.Voice" parent="Widget.JarvisSettings.SectionTitle">
+        <item name="android:textColor">@color/set_accent_voice</item>
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowTitle.Voice" parent="Widget.JarvisSettings.RowTitle">
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowSubtitle.Voice" parent="Widget.JarvisSettings.RowSubtitle">
+        <item name="android:fontFamily">serif</item>
+    </style>
+    <style name="Widget.JarvisSettings.Divider.Voice" parent="Widget.JarvisSettings.Divider">
+        <item name="android:background">@color/set_accent_voice</item>
+        <item name="android:alpha">0.30</item>
+    </style>
+
+    <!-- Security section -->
+    <style name="Widget.JarvisSettings.SectionTitle.Security" parent="Widget.JarvisSettings.SectionTitle">
+        <item name="android:textColor">@color/set_accent_security</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowTitle.Security" parent="Widget.JarvisSettings.RowTitle">
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowSubtitle.Security" parent="Widget.JarvisSettings.RowSubtitle">
+        <item name="android:fontFamily">monospace</item>
+    </style>
+    <style name="Widget.JarvisSettings.Divider.Security" parent="Widget.JarvisSettings.Divider">
+        <item name="android:background">@color/set_accent_security</item>
+        <item name="android:alpha">0.30</item>
+    </style>
+
+    <!-- Alerts section -->
+    <style name="Widget.JarvisSettings.SectionTitle.Alerts" parent="Widget.JarvisSettings.SectionTitle">
+        <item name="android:textColor">@color/set_accent_alerts</item>
+        <item name="android:fontFamily">casual</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowTitle.Alerts" parent="Widget.JarvisSettings.RowTitle">
+        <item name="android:fontFamily">casual</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowSubtitle.Alerts" parent="Widget.JarvisSettings.RowSubtitle">
+        <item name="android:fontFamily">sans-serif</item>
+    </style>
+    <style name="Widget.JarvisSettings.Divider.Alerts" parent="Widget.JarvisSettings.Divider">
+        <item name="android:background">@color/set_accent_alerts</item>
+        <item name="android:alpha">0.30</item>
+    </style>
+
+    <!-- Memory section -->
+    <style name="Widget.JarvisSettings.SectionTitle.Memory" parent="Widget.JarvisSettings.SectionTitle">
+        <item name="android:textColor">@color/set_accent_memory</item>
+        <item name="android:fontFamily">sans-serif-black</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowTitle.Memory" parent="Widget.JarvisSettings.RowTitle">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowSubtitle.Memory" parent="Widget.JarvisSettings.RowSubtitle">
+        <item name="android:fontFamily">sans-serif-condensed</item>
+    </style>
+    <style name="Widget.JarvisSettings.Divider.Memory" parent="Widget.JarvisSettings.Divider">
+        <item name="android:background">@color/set_accent_memory</item>
+        <item name="android:alpha">0.30</item>
+    </style>
+
+    <!-- Permissions section -->
+    <style name="Widget.JarvisSettings.SectionTitle.Permissions" parent="Widget.JarvisSettings.SectionTitle">
+        <item name="android:textColor">@color/set_accent_permissions</item>
+        <item name="android:fontFamily">serif-monospace</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowTitle.Permissions" parent="Widget.JarvisSettings.RowTitle">
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowSubtitle.Permissions" parent="Widget.JarvisSettings.RowSubtitle">
+        <item name="android:fontFamily">sans-serif-light</item>
+    </style>
+    <style name="Widget.JarvisSettings.Divider.Permissions" parent="Widget.JarvisSettings.Divider">
+        <item name="android:background">@color/set_accent_permissions</item>
+        <item name="android:alpha">0.30</item>
+    </style>
+
+    <!-- Appearance section -->
+    <style name="Widget.JarvisSettings.SectionTitle.Appearance" parent="Widget.JarvisSettings.SectionTitle">
+        <item name="android:textColor">@color/set_accent_appearance</item>
+        <item name="android:fontFamily">cursive</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowTitle.Appearance" parent="Widget.JarvisSettings.RowTitle">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textStyle">italic</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowSubtitle.Appearance" parent="Widget.JarvisSettings.RowSubtitle">
+        <item name="android:fontFamily">sans-serif</item>
+    </style>
+    <style name="Widget.JarvisSettings.Divider.Appearance" parent="Widget.JarvisSettings.Divider">
+        <item name="android:background">@color/set_accent_appearance</item>
+        <item name="android:alpha">0.30</item>
+    </style>
+
+    <!-- About section -->
+    <style name="Widget.JarvisSettings.SectionTitle.About" parent="Widget.JarvisSettings.SectionTitle">
+        <item name="android:textColor">@color/set_accent_about</item>
+        <item name="android:fontFamily">sans-serif-light</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowTitle.About" parent="Widget.JarvisSettings.RowTitle">
+        <item name="android:fontFamily">sans-serif-light</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowSubtitle.About" parent="Widget.JarvisSettings.RowSubtitle">
+        <item name="android:fontFamily">sans-serif-light</item>
+    </style>
+    <style name="Widget.JarvisSettings.Divider.About" parent="Widget.JarvisSettings.Divider">
+        <item name="android:background">@color/set_accent_about</item>
+        <item name="android:alpha">0.30</item>
+    </style>
+
+    <!-- Owner section -->
+    <style name="Widget.JarvisSettings.SectionTitle.Owner" parent="Widget.JarvisSettings.SectionTitle">
+        <item name="android:textColor">@color/set_accent_owner</item>
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowTitle.Owner" parent="Widget.JarvisSettings.RowTitle">
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textStyle">bold|italic</item>
+    </style>
+    <style name="Widget.JarvisSettings.RowSubtitle.Owner" parent="Widget.JarvisSettings.RowSubtitle">
+        <item name="android:fontFamily">serif</item>
+    </style>
+    <style name="Widget.JarvisSettings.Divider.Owner" parent="Widget.JarvisSettings.Divider">
+        <item name="android:background">@color/set_accent_owner</item>
+        <item name="android:alpha">0.30</item>
+    </style>
+
+</resources>

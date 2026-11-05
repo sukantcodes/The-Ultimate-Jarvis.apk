@@ -285,7 +285,7 @@
             <!-- SECTION 1: AI & INTELLIGENCE -->
             <TextView
                 android:id="@+id/headerAiIntelligence"
-                style="@style/Widget.JarvisSettings.SectionTitle"
+                style="@style/Widget.JarvisSettings.SectionTitle.Ai"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/set_section_ai" />
@@ -294,7 +294,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_lg_card"
+                android:background="@drawable/bg_settings_card_ai"
                 android:elevation="2dp"
                 android:clipToOutline="true"
                 
@@ -321,7 +321,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_chip"
-                            app:tint="#39C6FF" />
+                            app:tint="@color/set_accent_ai" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -332,14 +332,14 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Ai"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_aiengine_title" />
 
                         <TextView
                             android:id="@+id/tvAiEngineSubtitle"
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Ai"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_aiengine_subtitle" />
@@ -354,7 +354,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Ai"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -375,7 +375,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_plug"
-                            app:tint="#A78BFA" />
+                            app:tint="@color/set_accent_ai" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -386,14 +386,14 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Ai"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_apiconnection_title" />
 
                         <TextView
                             android:id="@+id/tvCurrentModel"
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Ai"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_apiconnection_subtitle" />
@@ -408,7 +408,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Ai"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -429,7 +429,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_language"
-                            app:tint="#34D399" />
+                            app:tint="@color/set_accent_ai" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -440,14 +440,14 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Ai"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_language_title" />
 
                         <TextView
                             android:id="@+id/tvCurrentLanguage"
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Ai"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_language_subtitle" />
@@ -462,7 +462,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Ai"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -483,7 +483,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_sparkle"
-                            app:tint="#F472B6" />
+                            app:tint="@color/set_accent_ai" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -494,14 +494,14 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Ai"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_personavoice_title" />
 
                         <TextView
                             android:id="@+id/tvCurrentPersona"
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Ai"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_personavoice_subtitle" />
@@ -516,7 +516,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Ai"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -537,7 +537,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_silent"
-                            app:tint="#FBBF24" />
+                            app:tint="@color/set_accent_ai" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -549,13 +549,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Ai"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_silentmode_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Ai"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_silentmode_subtitle" />
@@ -571,7 +571,7 @@
             <!-- SECTION 2: VOICE & LISTENING -->
             <TextView
                 android:id="@+id/headerVoiceListening"
-                style="@style/Widget.JarvisSettings.SectionTitle"
+                style="@style/Widget.JarvisSettings.SectionTitle.Voice"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/set_section_voice" />
@@ -580,7 +580,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_lg_card"
+                android:background="@drawable/bg_settings_card_voice"
                 android:elevation="2dp"
                 android:clipToOutline="true"
                 
@@ -605,7 +605,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_voice"
-                            app:tint="#FB7185" />
+                            app:tint="@color/set_accent_voice" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -616,14 +616,14 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Voice"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_voicegender_title" />
 
                         <TextView
                             android:id="@+id/tvVoiceGenderSubtitle"
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Voice"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_voicegender_subtitle" />
@@ -654,7 +654,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_tts_play"
-                            app:tint="#A78BFA" />
+                            app:tint="@color/set_accent_voice" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -665,14 +665,14 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Voice"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_pockettts_title" />
 
                         <TextView
                             android:id="@+id/tvPocketTtsSubtitle"
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Voice"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_pockettts_subtitle" />
@@ -687,12 +687,12 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Voice"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Voice"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -713,7 +713,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_wave"
-                            app:tint="#22D3EE" />
+                            app:tint="@color/set_accent_voice" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -724,14 +724,14 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Voice"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_noisecancel_title" />
 
                         <TextView
                             android:id="@+id/tvNoiseCancelSubtitle"
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Voice"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_noisecancel_subtitle" />
@@ -746,7 +746,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Voice"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -767,7 +767,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_timer"
-                            app:tint="#A3E635" />
+                            app:tint="@color/set_accent_voice" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -778,14 +778,14 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Voice"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_autosleep_title" />
 
                         <TextView
                             android:id="@+id/tvAutoSleepSubtitle"
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Voice"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_autosleep_subtitle" />
@@ -800,7 +800,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Voice"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -821,7 +821,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_orb"
-                            app:tint="#60A5FA" />
+                            app:tint="@color/set_accent_voice" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -832,13 +832,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Voice"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_defaultassistant_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Voice"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_defaultassistant_subtitle" />
@@ -856,7 +856,7 @@
             <!-- SECTION 3: VOICE SECURITY & UNLOCK -->
             <TextView
                 android:id="@+id/headerVoiceSecurity"
-                style="@style/Widget.JarvisSettings.SectionTitle"
+                style="@style/Widget.JarvisSettings.SectionTitle.Security"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/set_section_security" />
@@ -865,7 +865,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_lg_card"
+                android:background="@drawable/bg_settings_card_security"
                 android:elevation="2dp"
                 android:clipToOutline="true"
                 
@@ -890,7 +890,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_owner_voice"
-                            app:tint="#2DD4BF" />
+                            app:tint="@color/set_accent_security" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -902,14 +902,14 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Security"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_ownervoice_title" />
 
                         <TextView
                             android:id="@+id/tvOwnerVoiceSubtitle"
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Security"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_ownervoice_subtitle" />
@@ -933,7 +933,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Security"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -954,7 +954,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_shield"
-                            app:tint="#F87171" />
+                            app:tint="@color/set_accent_security" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -966,14 +966,14 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Security"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_voicemode_title" />
 
                         <TextView
                             android:id="@+id/tvVoiceModeSubtitle"
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Security"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_voicemode_subtitle" />
@@ -986,7 +986,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Security"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -1007,7 +1007,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_lock"
-                            app:tint="#C084FC" />
+                            app:tint="@color/set_accent_security" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1018,13 +1018,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Security"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_screenunlock_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Security"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_screenunlock_subtitle" />
@@ -1039,7 +1039,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Security"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -1060,7 +1060,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_lock"
-                            app:tint="#F97316" />
+                            app:tint="@color/set_accent_security" />
                     </FrameLayout>
                     <LinearLayout
                         android:layout_width="0dp"
@@ -1069,13 +1069,13 @@
                         android:layout_weight="1"
                         android:orientation="vertical">
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Security"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_facelock_title" />
                         <TextView
                             android:id="@+id/tvFaceLockSubtitle"
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Security"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Guided face scan and profiles"
@@ -1094,7 +1094,7 @@
             <!-- SECTION 4: ALERTS & ANNOUNCEMENTS -->
             <TextView
                 android:id="@+id/headerAlerts"
-                style="@style/Widget.JarvisSettings.SectionTitle"
+                style="@style/Widget.JarvisSettings.SectionTitle.Alerts"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/set_section_alerts" />
@@ -1103,7 +1103,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_lg_card"
+                android:background="@drawable/bg_settings_card_alerts"
                 android:elevation="2dp"
                 android:clipToOutline="true"
                 
@@ -1128,7 +1128,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_nav_bell"
-                            app:tint="#FACC15" />
+                            app:tint="@color/set_accent_alerts" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1139,14 +1139,14 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Alerts"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_notificationaccess_title" />
 
                         <TextView
                             android:id="@+id/tvNotificationAccessSubtitle"
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Alerts"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_notificationaccess_subtitle" />
@@ -1161,7 +1161,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Alerts"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -1182,7 +1182,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_chat_bubble"
-                            app:tint="#4ADE80" />
+                            app:tint="@color/set_accent_alerts" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1194,13 +1194,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Alerts"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_messageannounce_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Alerts"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_messageannounce_subtitle" />
@@ -1213,7 +1213,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Alerts"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -1234,7 +1234,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_tts_play"
-                            app:tint="#E879F9" />
+                            app:tint="@color/set_accent_alerts" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1246,13 +1246,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Alerts"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_messagejarvisvoice_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Alerts"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_messagejarvisvoice_subtitle" />
@@ -1265,7 +1265,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Alerts"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -1286,7 +1286,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_plug"
-                            app:tint="#FB923C" />
+                            app:tint="@color/set_accent_alerts" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1298,13 +1298,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Alerts"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_chargingalerts_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Alerts"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_chargingalerts_subtitle" />
@@ -1317,7 +1317,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Alerts"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -1338,7 +1338,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_battery"
-                            app:tint="#84CC16" />
+                            app:tint="@color/set_accent_alerts" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1350,13 +1350,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Alerts"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_autobatterysaver_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Alerts"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_autobatterysaver_subtitle" />
@@ -1372,7 +1372,7 @@
             <!-- SECTION 5: MEMORY & DATA -->
             <TextView
                 android:id="@+id/headerMemoryData"
-                style="@style/Widget.JarvisSettings.SectionTitle"
+                style="@style/Widget.JarvisSettings.SectionTitle.Memory"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/set_section_memory" />
@@ -1381,7 +1381,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_lg_card"
+                android:background="@drawable/bg_settings_card_memory"
                 android:elevation="2dp"
                 android:clipToOutline="true"
                 
@@ -1406,7 +1406,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_db"
-                            app:tint="#38BDF8" />
+                            app:tint="@color/set_accent_memory" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1417,13 +1417,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Memory"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_memory_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Memory"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_memory_subtitle" />
@@ -1438,7 +1438,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Memory"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -1459,7 +1459,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_stack_memory"
-                            app:tint="#818CF8" />
+                            app:tint="@color/set_accent_memory" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1471,13 +1471,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Memory"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_activitymemory_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Memory"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_activitymemory_subtitle" />
@@ -1490,7 +1490,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Memory"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -1521,13 +1521,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Memory"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_clearactivitymemory_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Memory"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_clearactivitymemory_subtitle" />
@@ -1538,14 +1538,14 @@
                         android:layout_height="18dp"
                         android:importantForAccessibility="no"
                         android:src="@drawable/ic_arrow_right"
-                        app:tint="#F43F5E" />
+                        app:tint="@color/set_accent_memory" />
                 </LinearLayout>
             </LinearLayout>
 
             <!-- SECTION 6: PERMISSIONS & AUTOMATION -->
             <TextView
                 android:id="@+id/headerPermissionsAutomation"
-                style="@style/Widget.JarvisSettings.SectionTitle"
+                style="@style/Widget.JarvisSettings.SectionTitle.Permissions"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/set_section_permissions" />
@@ -1554,7 +1554,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_lg_card"
+                android:background="@drawable/bg_settings_card_permissions"
                 android:elevation="2dp"
                 android:clipToOutline="true"
                 
@@ -1579,7 +1579,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_checklist_tasks"
-                            app:tint="#2DD4BF" />
+                            app:tint="@color/set_accent_permissions" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1590,13 +1590,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Permissions"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_permissions_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Permissions"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_permissions_subtitle" />
@@ -1611,7 +1611,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Permissions"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -1632,7 +1632,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_apps"
-                            app:tint="#F472B6" />
+                            app:tint="@color/set_accent_permissions" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1643,13 +1643,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Permissions"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_applications_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Permissions"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_applications_subtitle" />
@@ -1664,7 +1664,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Permissions"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -1685,7 +1685,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_automation"
-                            app:tint="#A78BFA" />
+                            app:tint="@color/set_accent_permissions" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1696,13 +1696,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Permissions"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_automationstudio_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Permissions"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_automationstudio_subtitle" />
@@ -1717,7 +1717,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Permissions"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -1734,16 +1734,16 @@
                     </FrameLayout>
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="14dp"
                         android:layout_weight="1" android:orientation="vertical">
-                        <TextView style="@style/Widget.JarvisSettings.RowTitle" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        <TextView style="@style/Widget.JarvisSettings.RowTitle.Permissions" android:layout_width="wrap_content" android:layout_height="wrap_content"
                             android:text="JARVIS Gallery" />
-                        <TextView style="@style/Widget.JarvisSettings.RowSubtitle" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        <TextView style="@style/Widget.JarvisSettings.RowSubtitle.Permissions" android:layout_width="wrap_content" android:layout_height="wrap_content"
                             android:text="Browse photos and videos with Android media access" />
                     </LinearLayout>
                     <ImageView android:layout_width="18dp" android:layout_height="18dp" android:importantForAccessibility="no"
                         android:src="@drawable/ic_arrow_right" app:tint="?attr/themeTextMuted" />
                 </LinearLayout>
 
-                <View style="@style/Widget.JarvisSettings.Divider" android:layout_width="match_parent" android:layout_height="1dp" />
+                <View style="@style/Widget.JarvisSettings.Divider.Permissions" android:layout_width="match_parent" android:layout_height="1dp" />
 
                 <LinearLayout
                     android:id="@+id/rowActionRouter"
@@ -1758,16 +1758,16 @@
                     </FrameLayout>
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="14dp"
                         android:layout_weight="1" android:orientation="vertical">
-                        <TextView style="@style/Widget.JarvisSettings.RowTitle" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        <TextView style="@style/Widget.JarvisSettings.RowTitle.Permissions" android:layout_width="wrap_content" android:layout_height="wrap_content"
                             android:text="Native-first Action Router" />
-                        <TextView style="@style/Widget.JarvisSettings.RowSubtitle" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        <TextView style="@style/Widget.JarvisSettings.RowSubtitle.Permissions" android:layout_width="wrap_content" android:layout_height="wrap_content"
                             android:text="Enable routing and inspect local execution latency" />
                     </LinearLayout>
                     <ImageView android:layout_width="18dp" android:layout_height="18dp" android:importantForAccessibility="no"
                         android:src="@drawable/ic_arrow_right" app:tint="?attr/themeTextMuted" />
                 </LinearLayout>
 
-                <View style="@style/Widget.JarvisSettings.Divider" android:layout_width="match_parent" android:layout_height="1dp" />
+                <View style="@style/Widget.JarvisSettings.Divider.Permissions" android:layout_width="match_parent" android:layout_height="1dp" />
 
                 <LinearLayout
                     android:id="@+id/rowSkillStore"
@@ -1786,7 +1786,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_skill_store"
-                            app:tint="#34D399" />
+                            app:tint="@color/set_accent_permissions" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1797,13 +1797,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Permissions"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_skillstore_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Permissions"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_skillstore_subtitle" />
@@ -1818,7 +1818,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Permissions"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -1839,7 +1839,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_clock"
-                            app:tint="#F59E0B" />
+                            app:tint="@color/set_accent_permissions" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1850,13 +1850,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Permissions"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/clock_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Permissions"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/clock_subtitle" />
@@ -1871,7 +1871,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Permissions"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -1892,7 +1892,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_plug"
-                            app:tint="#38BDF8" />
+                            app:tint="@color/set_accent_permissions" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1903,13 +1903,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Permissions"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Device Diagnostics" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Permissions"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Battery health, storage space and network status" />
@@ -1927,7 +1927,7 @@
             <!-- SECTION 7: APPEARANCE -->
             <TextView
                 android:id="@+id/headerAppearance"
-                style="@style/Widget.JarvisSettings.SectionTitle"
+                style="@style/Widget.JarvisSettings.SectionTitle.Appearance"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/set_section_appearance" />
@@ -1936,7 +1936,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_lg_card"
+                android:background="@drawable/bg_settings_card_appearance"
                 android:elevation="2dp"
                 android:clipToOutline="true"
                 
@@ -1961,7 +1961,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_palette"
-                            app:tint="#FBBF24" />
+                            app:tint="@color/set_accent_appearance" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -1972,14 +1972,14 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Appearance"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_apptheme_title" />
 
                         <TextView
                             android:id="@+id/tvCurrentTheme"
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Appearance"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_apptheme_subtitle" />
@@ -1994,7 +1994,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Appearance"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -2015,7 +2015,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_user_profile"
-                            app:tint="#67E8F9" />
+                            app:tint="@color/set_accent_appearance" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -2026,13 +2026,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Appearance"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_overlayavatars_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Appearance"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_overlayavatars_subtitle" />
@@ -2047,7 +2047,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Appearance"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -2079,14 +2079,14 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Appearance"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_refreshrate_title" />
 
                         <TextView
                             android:id="@+id/tvRefreshRateSubtitle"
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Appearance"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_refreshrate_subtitle" />
@@ -2101,7 +2101,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.Appearance"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -2133,13 +2133,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Appearance"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_touchglow_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Appearance"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_touchglow_subtitle" />
@@ -2158,7 +2158,7 @@
             <!-- SECTION 8: PRIVACY & ABOUT -->
             <TextView
                 android:id="@+id/headerPrivacyAbout"
-                style="@style/Widget.JarvisSettings.SectionTitle"
+                style="@style/Widget.JarvisSettings.SectionTitle.About"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/set_section_about" />
@@ -2167,7 +2167,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_lg_card"
+                android:background="@drawable/bg_settings_card_about"
                 android:elevation="2dp"
                 android:clipToOutline="true"
                 
@@ -2192,7 +2192,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_settings_lock"
-                            app:tint="#F87171" />
+                            app:tint="@color/set_accent_about" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -2203,13 +2203,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.About"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_privacypolicy_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.About"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_privacypolicy_subtitle" />
@@ -2224,7 +2224,7 @@
                 </LinearLayout>
 
                 <View
-                    style="@style/Widget.JarvisSettings.Divider"
+                    style="@style/Widget.JarvisSettings.Divider.About"
                     android:layout_width="match_parent"
                     android:layout_height="1dp" />
 
@@ -2245,7 +2245,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_verified_badge"
-                            app:tint="#34D399" />
+                            app:tint="@color/set_accent_about" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -2256,13 +2256,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.About"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_appidentity_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.About"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_appidentity_subtitle" />
@@ -2280,7 +2280,7 @@
             <!-- SECTION 9: OWNER SECTION (last section; Dashboard is its last row) -->
             <TextView
                 android:id="@+id/headerOwnerSection"
-                style="@style/Widget.JarvisSettings.SectionTitle"
+                style="@style/Widget.JarvisSettings.SectionTitle.Owner"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/set_section_owner" />
@@ -2289,7 +2289,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@android:color/transparent"
+                android:background="@drawable/bg_settings_card_owner"
                 android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
@@ -2322,13 +2322,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowTitle"
+                            style="@style/Widget.JarvisSettings.RowTitle.Owner"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_ownerdash_title" />
 
                         <TextView
-                            style="@style/Widget.JarvisSettings.RowSubtitle"
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Owner"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/set_ownerdash_subtitle" />

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Per-section accent colours for the Settings screen (Chatbox branch). -->
+<resources>
+    <color name="set_accent_ai">#39C6FF</color>
+    <color name="set_accent_voice">#A78BFA</color>
+    <color name="set_accent_security">#FF5C7A</color>
+    <color name="set_accent_alerts">#FFB020</color>
+    <color name="set_accent_memory">#34D399</color>
+    <color name="set_accent_permissions">#FB923C</color>
+    <color name="set_accent_appearance">#F472B6</color>
+    <color name="set_accent_about">#94A3B8</color>
+    <color name="set_accent_owner">#FACC15</color>
+</resources>
