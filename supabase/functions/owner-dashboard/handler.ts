@@ -216,7 +216,7 @@ export function createHandler(d: Deps) {
       d.admin.from("access_blocks").select("block_type,target_value"),
       d.admin.from("ip_observations").select("user_id,ip"),
     ]);
-    const { data: authPage, error } = await d.admin.auth.admin.listUsers({ page: page + 1, perPage: size });
+    const { data: authPage, error } = await d.admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     if (error) throw new Error("users");
     const deviceRows = devices ?? [];
     const blockRows = blocks ?? [];
@@ -237,7 +237,7 @@ export function createHandler(d: Deps) {
     const term = typeof body.search === "string" ? body.search.trim().toLowerCase() : "";
     const filtered = term ? items.filter((u: Record<string, unknown>) =>
       String(u.email ?? "").toLowerCase().includes(term) || String(u.user_id).toLowerCase().includes(term)) : items;
-    return { items: filtered, total: filtered.length, page, page_size: size };
+    return { items: filtered.slice(from, to + 1), total: filtered.length, page, page_size: size };
   }
 
   async function trends(body: Record<string, unknown>) {
