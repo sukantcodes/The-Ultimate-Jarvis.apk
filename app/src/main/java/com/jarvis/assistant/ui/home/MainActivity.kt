@@ -154,31 +154,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        if (!::binding.isInitialized || accessCheckInProgress) return
-        if (!AuthManager.isSignedIn) return
-        if (System.currentTimeMillis() - lastAccessCheckMs < 30_000L) return
-        accessCheckInProgress = true
-        binding.rootMainLayout.visibility = View.INVISIBLE
-        lifecycleScope.launch {
-            val allowed = com.jarvis.assistant.owner.DeviceTelemetry.isAccessAllowed()
-            accessCheckInProgress = false
-            if (isFinishing || isDestroyed) return@launch
-            if (allowed) {
-                lastAccessCheckMs = System.currentTimeMillis()
-                binding.rootMainLayout.visibility = View.VISIBLE
-            } else {
-                stopService(Intent(this@MainActivity, JarvisConversationService::class.java))
-                MaterialAlertDialogBuilder(this@MainActivity)
-                    .setTitle("JARVIS access restricted")
-                    .setMessage("This account, device, or network address has been blocked by the app owner. Contact the owner if you believe this is a mistake.")
-                    .setCancelable(false)
-                    .setPositiveButton("Close") { _, _ -> finish() }
-                    .show()
-            }
-        }
-    }
     override fun onCreate(savedInstanceState: Bundle?) {
         com.jarvis.assistant.util.ThemeManager.applyTheme(this)
         val prefs = com.jarvis.assistant.JarvisApp.instance.preferences
@@ -352,6 +327,26 @@ class MainActivity : AppCompatActivity() {
                 AuthManager.continueAsGuest() // keep using JARVIS as a guest rather than locking the app
                 Toast.makeText(this@MainActivity, R.string.auth_session_expired_toast, Toast.LENGTH_LONG).show()
                 updateAccountMenuItem()
+            }
+            if (AuthManager.isSignedIn && !accessCheckInProgress &&
+                System.currentTimeMillis() - lastAccessCheckMs >= 30_000L) {
+                accessCheckInProgress = true
+                binding.rootMainLayout.visibility = View.INVISIBLE
+                val allowed = com.jarvis.assistant.owner.DeviceTelemetry.isAccessAllowed()
+                accessCheckInProgress = false
+                if (isFinishing || isDestroyed) return@launch
+                if (allowed) {
+                    lastAccessCheckMs = System.currentTimeMillis()
+                    binding.rootMainLayout.visibility = View.VISIBLE
+                } else {
+                    stopService(Intent(this@MainActivity, JarvisConversationService::class.java))
+                    MaterialAlertDialogBuilder(this@MainActivity)
+                        .setTitle("JARVIS access restricted")
+                        .setMessage("This account, device, or network address has been blocked by the app owner. Contact the owner if you believe this is a mistake.")
+                        .setCancelable(false)
+                        .setPositiveButton("Close") { _, _ -> finish() }
+                        .show()
+                }
             }
         }
         val prefs = com.jarvis.assistant.JarvisApp.instance.preferences
