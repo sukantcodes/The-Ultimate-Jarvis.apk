@@ -88,19 +88,11 @@ Choose the least privileged supported route:
 For every command: (a) classify intent and risk; (b) check lock state and permission/service availability; (c) select native API, intent, notification action or fresh accessibility node; (d) request confirmation if needed; (e) execute once; (f) verify actual state/result; (g) report completed, blocked, opened, or awaiting unlock accurately.
 Prefer stable IDs and APIs over coordinates. Use short bounded waits and cancellation. Avoid repeated blind taps and stale UI nodes.
 
-## 9. Skill routing examples
-- "Open my JARVIS chat" → MainActivity / Chat tab.
-- "Where is API key?" → Settings → API connection; inspect current settings navigation and labels before naming a subpage.
-- "Analyze this PDF" → Chat attachment picker → DocumentAnalysisClient; confirm Gemini key configured and current file type/size limits.
-- "Turn on torch" → native flashlight action if present; otherwise supported device-control route and verify.
-- "Tap the button in YouTube" → inspect foreground YouTube UI using accessibility; locate fresh semantic node; perform one action; verify.
-- "Read my notifications while locked" → do not disclose private contents; offer a privacy-safe count/summary only if explicitly implemented and permitted, otherwise require unlock.
-- "Send this message" → show recipient and message for confirmation; require unlock/confirmation where Android or the target app requires it.
-- "Change a protected system setting" → open the official Settings page; user completes protected action.
+## 9. Skill routing and maintenance
+Route chat, settings, files, alarms, app actions and device controls through the native screen/API already present. For any unimplemented or unsupported action, say so and guide the user to the relevant screen; never invent a tool or report an unverified result.
 
 ## 10. Keep this blueprint current
-This file is a built-in SkillStore skill. Update it whenever Activities, Fragments, resource IDs, skills, tools, permission declarations or execution routes change. For exhaustive source inventory, consult docs/architecture/JARVIS_MASTER_BLUEPRINT.md. Treat source code and the installed device's live UI as truth; this document is a navigation index, not a substitute for verification.
-
+Update this built-in skill whenever Activities, Fragments, resource IDs, skills, tools, permissions or execution routes change. Keep detailed source inventory in docs/architecture/JARVIS_MASTER_BLUEPRINT.md. Source code and live device state are authoritative; this document is an index, not proof of capability.
 
 ## Device cleanup feature map
 Device Diagnostics now has seven cleanup routes: Junk Clean, Boost, Battery Saver, Large Files Cleanup, WhatsApp Clean, Photos Clean and App Uninstaller. These routes use the phone-care skill. Keep the skill and architecture map synchronized with implementation. Voice commands must invoke the same actions, resolve targets, request confirmation for deletion/uninstall, and verify results.
