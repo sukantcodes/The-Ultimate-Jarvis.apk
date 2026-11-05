@@ -103,6 +103,8 @@ class JarvisConversationService : Service() {
         private const val STANDBY_COOLDOWN_MS = 2500L
 
         @Volatile private var activeInstance: JarvisConversationService? = null
+        // Chatbox messages survive asynchronous service startup and API handshakes.
+        private val pendingTextChatMessages = java.util.concurrent.ConcurrentLinkedQueue<String>()
 
         /** Speaks a short announcement (such as a new-message alert). Returns false when the service is not running. */
         fun announceMessage(text: String): Boolean {
@@ -246,11 +248,18 @@ class JarvisConversationService : Service() {
         fun isServiceRunning(): Boolean = activeInstance != null
 
         fun sendTextMessage(text: String) {
-            val instance = activeInstance ?: return
-            instance.textChatTurnActive = true
-            instance.currentTextChatPrompt = text.trim()
-            instance.liveWebSocket?.sendClientContent(text)
-            JarvisApp.instance.chatRepository.addTurn(text, "")
+            val clean = text.trim()
+            if (clean.isBlank()) return
+            // Persist the pending row immediately, but never discard the prompt just
+            // because Android has not created the foreground service or completed
+            // the provider handshake yet.
+            JarvisApp.instance.chatRepository.addTurn(clean, "")
+            pendingTextChatMessages.add(clean)
+            val instance = activeInstance
+            if (instance != null) {
+                if (!_isSessionOn.value) instance.beginActiveConversation()
+                instance.dispatchNextPendingTextChatMessage()
+            }
         }
 
         fun cancelActiveTaskFromOverlay() {
@@ -996,6 +1005,9 @@ class JarvisConversationService : Service() {
                             updateNotification()
                             if (status == "LIVE") {
                                 _liveError.value = null
+                                // The first text message may have arrived while the
+                                // foreground service or provider handshake was starting.
+                                dispatchNextPendingTextChatMessage()
                                 // Flush any speech chunks captured during the connection handshake
                                 serviceScope.launch(Dispatchers.Default) {
                                     while (!preConnectAudioQueue.isEmpty()) {
@@ -1260,6 +1272,12 @@ class JarvisConversationService : Service() {
                                 }
                                 textChatTurnActive = false
                                 currentTextChatPrompt = ""
+                                // Serialize queued Chatbox turns; send the next one
+                                // only after this provider turn has fully completed.
+                                serviceScope.launch {
+                                    delay(120)
+                                    dispatchNextPendingTextChatMessage()
+                                }
                             }
                             suppressAudioUntilTurnComplete = false
                             automationHandledTurn = false
@@ -4467,6 +4485,33 @@ class JarvisConversationService : Service() {
     }
 
     /** Creates the Gemini Live session, or the Groq session when the user chose Groq in Settings > AI Engine. */
+    /**
+     * Sends one queued Chatbox prompt only when the selected AI provider is fully ready.
+     * A failed readiness check leaves the prompt queued for the next LIVE callback.
+     */
+    private fun dispatchNextPendingTextChatMessage() {
+        if (textChatTurnActive || !_isSessionOn.value || offlineLocalMode) return
+        val session = liveWebSocket ?: return
+        if (!session.isSessionReady()) return
+        val prompt = pendingTextChatMessages.peek() ?: return
+
+        // Set turn ownership before sending so an immediate provider callback is
+        // associated with the correct Chatbox prompt.
+        textChatTurnActive = true
+        currentTextChatPrompt = prompt
+        synchronized(currentTurnAssistantText) { currentTurnAssistantText.setLength(0) }
+        setConversationState(ConversationState.THINKING)
+
+        if (session.sendClientContent(prompt)) {
+            pendingTextChatMessages.poll()
+            Log.i("JarvisService", "Dispatched queued Chatbox prompt (${prompt.length} chars)")
+        } else {
+            textChatTurnActive = false
+            currentTextChatPrompt = ""
+            Log.w("JarvisService", "Provider was not ready to accept Chatbox prompt; it remains queued")
+        }
+    }
+
     private fun createLiveSession(
         useGroq: Boolean,
         apiKey: String,
