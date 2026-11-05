@@ -22,6 +22,8 @@ sealed class JarvisCommand {
     data class SearchWeb(val query: String) : JarvisCommand()
     data class OpenWebUrls(val urls: List<String>) : JarvisCommand()
     data class PhoneCall(val contactOrNumber: String) : JarvisCommand()
+    data class ScheduleCall(val contact: String, val delayMillis: Long) : JarvisCommand()
+    data class WatchAppEvent(val app: String, val keyword: String) : JarvisCommand()
     object PauseMedia : JarvisCommand()
     object ResumeMedia : JarvisCommand()
     object NextMedia : JarvisCommand()
