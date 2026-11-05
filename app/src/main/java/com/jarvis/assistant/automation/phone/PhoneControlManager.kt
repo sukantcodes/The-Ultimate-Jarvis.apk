@@ -1053,6 +1053,21 @@ class PhoneControlManager(
         return null
     }
 
+    /** Blocks searches that would direct a teen toward restricted or dangerous content. */
+    private fun isSafeSearchQuery(query: String): Boolean {
+        val normalized = query.lowercase(Locale.ROOT)
+        val restrictedTerms = listOf(
+            "gun", "firearm", "ammunition", "bomb", "explosive", "grenade",
+            "knife", "switchblade", "taser", "pepper spray",
+            "cocaine", "heroin", "methamphetamine", "fentanyl", "marijuana", "weed", "thc",
+            "vape", "vaping", "cigarette", "tobacco", "alcohol", "beer", "vodka",
+            "casino", "sports betting", "betting tips", "online gambling", "porn", "xxx"
+        )
+        return restrictedTerms.none { term ->
+            Regex("(?<![a-z0-9])" + Regex.escape(term) + "(?![a-z0-9])").containsMatchIn(normalized)
+        }
+    }
+
     private fun calculateStringSimilarity(s1: String, s2: String): Float {
         val longer = if (s1.length > s2.length) s1 else s2
         val shorter = if (s1.length > s2.length) s2 else s1
