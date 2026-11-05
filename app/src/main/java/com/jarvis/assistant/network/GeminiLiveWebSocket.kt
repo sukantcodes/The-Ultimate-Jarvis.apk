@@ -665,6 +665,23 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 15d. open_device_cleanup
+                        put(JSONObject().apply {
+                            put("name", "open_device_cleanup")
+                            put("description", "Opens one of JARVIS's native Device Diagnostics cleanup tools by voice: junk_clean, boost, battery_saver, large_files, whatsapp_clean, photos_clean, or app_uninstaller. This only opens the selected workflow; file deletion and uninstall still require the user's explicit confirmation and Android's permission UI.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("feature", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("enum", JSONArray().put("junk_clean").put("boost").put("battery_saver").put("large_files").put("whatsapp_clean").put("photos_clean").put("app_uninstaller"))
+                                        put("description", "The cleanup feature to open.")
+                                    })
+                                })
+                                put("required", JSONArray().put("feature"))
+                            })
+                        })
+
                         // 15d. show_power_menu
                         put(JSONObject().apply {
                             put("name", "show_power_menu")
