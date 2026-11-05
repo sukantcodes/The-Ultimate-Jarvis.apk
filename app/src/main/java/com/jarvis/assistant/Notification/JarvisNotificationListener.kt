@@ -12,6 +12,7 @@ import com.jarvis.assistant.background.JarvisConversationService
 import com.jarvis.assistant.studio.AutomationEvents
 import com.jarvis.assistant.studio.TriggerType
 import com.jarvis.assistant.util.SpeechAnnouncer
+import com.jarvis.assistant.automation.tasks.ScheduledTaskMemory
 
 /**
  * Listens for new messages from WhatsApp, Instazen and Instagram and announces who they are from, for example
@@ -38,6 +39,15 @@ class JarvisNotificationListener : NotificationListenerService() {
 
     private fun handle(sbn: StatusBarNotification) {
         if (sbn.packageName == packageName) return
+        val notificationExtras = sbn.notification?.extras
+        val notificationTitle = notificationExtras?.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString().orEmpty()
+        val notificationBody = notificationExtras?.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString().orEmpty()
+        ScheduledTaskMemory.onAppNotification(applicationContext, sbn.packageName, notificationTitle, notificationBody).forEach { update ->
+            if (!JarvisConversationService.announceMessage(update)) {
+                val announcer = fallbackAnnouncer ?: SpeechAnnouncer(applicationContext).also { fallbackAnnouncer = it }
+                announcer.say(update)
+            }
+        }
         val message = MessageNotificationParser.parse(applicationContext, sbn)
         if (message == null) {
             val lowerPackage = sbn.packageName.lowercase()
