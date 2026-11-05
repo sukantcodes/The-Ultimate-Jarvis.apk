@@ -358,7 +358,7 @@ class JarvisConversationService : Service() {
     @Volatile
     private var lastVerifiedFlowPrompt = ""
     private var autonomousLoopJob: Job? = null
-    private val MAX_AUTONOMOUS_STEPS = 25
+    private val MAX_AUTONOMOUS_STEPS = 100
     // Mic voice-activity tuning. Raised so room noise no longer flips LISTENING/THINKING when nobody speaks.
     private val onDeviceVad = OnDeviceVoiceActivityDetector()
     private val VAD_MIN_THRESHOLD = 0.05f
@@ -1388,7 +1388,7 @@ class JarvisConversationService : Service() {
                             } else if (isAutonomousTaskRunning) {
                                 val response = currentTurnAssistantText.toString().trim().ifBlank { "The Instagram bulk task is still in progress." }
                                 val needsUserDecision = false
-                                val continuationLimit = 25
+                                val continuationLimit = 100
                                 if (!autonomousWaitingForUser && !needsUserDecision && autonomousContinuationAttempts < continuationLimit) {
                                     autonomousContinuationAttempts++
                                     val attempt = autonomousContinuationAttempts
