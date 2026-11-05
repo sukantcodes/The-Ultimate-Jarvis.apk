@@ -90,6 +90,8 @@ class HomeFragment : Fragment() {
         }
 
         setupOrbWebView()
+        if (savedInstanceState == null) playHomeEntrance()
+        startStatusPulse()
 
         // Action Buttons
         binding.btnScreenShareQuick.setOnClickListener {
@@ -358,6 +360,39 @@ class HomeFragment : Fragment() {
             } else if (_binding != null) {
                 binding.tvWeatherCondition.text = "Live Weather • Tap to retry"
             }
+        }
+    }
+
+    private var statusPulse: android.animation.ObjectAnimator? = null
+
+    /** Cards rise in one after another from the bottom, so Home feels alive when it opens. */
+    private fun playHomeEntrance() {
+        val rise = dp(26).toFloat()
+        val ordered = listOf(
+            binding.layoutTitle, binding.layoutStatusIndicator, binding.cardWeather,
+            binding.homeLaunchpad, binding.layoutActionGrid
+        )
+        ordered.forEachIndexed { index, view ->
+            view.alpha = 0f
+            view.translationY = rise
+            view.animate()
+                .alpha(1f).translationY(0f)
+                .setStartDelay(120L + index * 90L)
+                .setDuration(460L)
+                .setInterpolator(android.view.animation.DecelerateInterpolator(1.6f))
+                .start()
+        }
+    }
+
+    /** A slow breathing glow on the status dot. Stopped with the view so nothing keeps running behind it. */
+    private fun startStatusPulse() {
+        statusPulse?.cancel()
+        statusPulse = android.animation.ObjectAnimator.ofFloat(binding.dotStatusGlow, View.ALPHA, 1f, 0.35f).apply {
+            duration = 1100L
+            repeatCount = android.animation.ValueAnimator.INFINITE
+            repeatMode = android.animation.ValueAnimator.REVERSE
+            interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+            start()
         }
     }
 
@@ -683,6 +718,8 @@ class HomeFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        statusPulse?.cancel()
+        statusPulse = null
         _binding = null
     }
 }

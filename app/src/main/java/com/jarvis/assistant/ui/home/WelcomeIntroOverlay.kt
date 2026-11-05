@@ -447,69 +447,46 @@ object WelcomeIntroOverlay {
     }
 
 
-    /** Short post-authentication greeting. It completes before the Home screen is handed over. */
+    /**
+     * Premium post-authentication greeting: a cinematic HUD sequence (see [PremiumWelcomeView]) of about four
+     * seconds. It completes before the Home screen is handed over, and a tap skips straight to Home.
+     */
     fun showPostLoginWelcome(activity: Activity, parent: ViewGroup, onFinished: () -> Unit) {
         val overlay = FrameLayout(activity).apply {
             isClickable = true
             isFocusable = true
             elevation = dp(activity, 36).toFloat()
             alpha = 0f
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.WHITE, Color.rgb(242, 248, 255), Color.WHITE)
-            )
+            setBackgroundColor(Color.rgb(3, 6, 14))
         }
-        val greeting = TextView(activity).apply {
-            text = composeSlide(
-                activity,
-                Slide("SYSTEMS ONLINE", "WELCOME\nTO JARVIS", "Created by Sukant", Color.rgb(12, 48, 96), Color.rgb(30, 112, 238), 40f, "sans-serif-black")
-            )
-            gravity = Gravity.CENTER
-            textAlignment = View.TEXT_ALIGNMENT_CENTER
-            setTextColor(Color.rgb(12, 48, 96))
-            typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
-            letterSpacing = 0.035f
-            maxLines = 3
-            includeFontPadding = true
-            setPadding(dp(activity, 22), dp(activity, 24), dp(activity, 22), dp(activity, 24))
-            setLineSpacing(dp(activity, 8).toFloat(), 1f)
-            setShadowLayer(dp(activity, 14).toFloat(), 0f, dp(activity, 3).toFloat(), Color.argb(65, 30, 110, 220))
-            TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
-                this, 22, 38, 1, TypedValue.COMPLEX_UNIT_SP
-            )
-            alpha = 0f
-            scaleX = 0.82f
-            scaleY = 0.82f
+        val sequence = PremiumWelcomeView(activity).apply {
+            eyebrow = "SYSTEMS ONLINE"
+            title = "WELCOME TO JARVIS"
+            subtitle = "Created by Sukant"
         }
-        overlay.addView(greeting, FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            Gravity.CENTER
-        ))
-        parent.addView(overlay, ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        ))
+        overlay.addView(
+            sequence,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+        parent.addView(
+            overlay,
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
         overlay.bringToFront()
+
+        var done = false
+        fun finish() {
+            if (done) return
+            done = true
+            overlay.animate().alpha(0f).setDuration(320L).withEndAction {
+                (overlay.parent as? ViewGroup)?.removeView(overlay)
+                onFinished()
+            }.start()
+        }
+        overlay.setOnClickListener { sequence.skip() }
         overlay.post {
-            overlay.animate().alpha(1f).setDuration(220L).start()
-            greeting.animate()
-                .alpha(1f).scaleX(1f).scaleY(1f)
-                .setDuration(720L)
-                .setInterpolator(android.view.animation.OvershootInterpolator(0.75f))
-                .withEndAction {
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        greeting.animate().alpha(0f).scaleX(1.08f).scaleY(1.08f)
-                            .setDuration(420L)
-                            .withEndAction {
-                                overlay.animate().alpha(0f).setDuration(220L)
-                                    .withEndAction {
-                                        (overlay.parent as? ViewGroup)?.removeView(overlay)
-                                        onFinished()
-                                    }.start()
-                            }.start()
-                    }, 1050L)
-                }.start()
+            overlay.animate().alpha(1f).setDuration(260L).start()
+            sequence.start { finish() }
         }
     }
 

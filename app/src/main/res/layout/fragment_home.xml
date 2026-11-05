@@ -111,8 +111,8 @@
             android:layout_height="wrap_content"
             android:text="Welcome, Sukant"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="13sp"
-            android:letterSpacing="0.02"
+            android:textSize="14sp"
+            android:letterSpacing="0.03"
             android:textStyle="bold"
             android:fontFamily="sans-serif-medium"
             android:layout_marginTop="2dp" />
@@ -150,8 +150,9 @@
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:background="@drawable/bg_jarvis_status_badge"
-            android:paddingHorizontal="16dp"
-            android:paddingVertical="8dp">
+            android:elevation="4dp"
+            android:paddingHorizontal="18dp"
+            android:paddingVertical="9dp">
 
             <View
                 android:id="@+id/dotStatusGlow"
@@ -191,7 +192,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="@drawable/bg_jarvis_action_card"
+        android:background="@drawable/bg_home_card_premium"
         android:paddingStart="20dp"
         android:paddingEnd="20dp"
         android:paddingTop="16dp"
@@ -210,11 +211,11 @@
             android:layout_height="wrap_content"
             android:text="--°C"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="26sp"
-            android:fontFamily="sans-serif-medium"
-            android:textStyle="bold"
+            android:textSize="32sp"
+            android:fontFamily="sans-serif-light"
+            android:letterSpacing="-0.02"
             android:includeFontPadding="false"
-            android:layout_marginEnd="14dp" />
+            android:layout_marginEnd="16dp" />
 
         <LinearLayout
             android:layout_width="0dp"
@@ -247,8 +248,10 @@
 
         <ImageView
             android:id="@+id/ivWeatherIcon"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:padding="11dp"
+            android:background="@drawable/bg_home_badge_accent"
             android:src="@drawable/ic_weather_sun"
             app:tint="?attr/themeAccent"
             android:contentDescription="Weather"
@@ -259,8 +262,8 @@
     <HorizontalScrollView
         android:id="@+id/homeLaunchpad"
         android:layout_width="0dp"
-        android:layout_height="78dp"
-        android:layout_marginBottom="10dp"
+        android:layout_height="82dp"
+        android:layout_marginBottom="12dp"
         android:clipToPadding="false"
         android:fillViewport="false"
         android:overScrollMode="never"
@@ -279,7 +282,7 @@
                 android:layout_width="126dp"
                 android:layout_height="match_parent"
                 android:layout_marginEnd="8dp"
-                android:background="@drawable/bg_jarvis_action_card"
+                android:background="@drawable/bg_home_card_premium"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center_vertical"
@@ -288,10 +291,12 @@
                 android:contentDescription="Open Automation Studio">
 
                 <ImageView
-                    android:layout_width="25dp"
-                    android:layout_height="25dp"
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:padding="7dp"
+                    android:background="@drawable/bg_home_badge_cyan"
                     android:src="@drawable/ic_settings_automation"
-                    app:tint="?attr/themeAccent"
+                    app:tint="#39C6FF"
                     android:contentDescription="@null" />
 
                 <LinearLayout
@@ -306,8 +311,9 @@
                         android:layout_height="wrap_content"
                         android:text="Automation"
                         android:textColor="?attr/themeTextPrimary"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:maxLines="1" />
 
                     <TextView
@@ -315,7 +321,8 @@
                         android:layout_height="wrap_content"
                         android:text="Build tasks"
                         android:textColor="?attr/themeTextMuted"
-                        android:textSize="9sp"
+                        android:textSize="10sp"
+                        android:fontFamily="sans-serif-light"
                         android:maxLines="1" />
                 </LinearLayout>
             </LinearLayout>
@@ -325,7 +332,7 @@
                 android:layout_width="126dp"
                 android:layout_height="match_parent"
                 android:layout_marginEnd="8dp"
-                android:background="@drawable/bg_jarvis_action_card"
+                android:background="@drawable/bg_home_card_premium"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center_vertical"
@@ -334,10 +341,12 @@
                 android:contentDescription="Open Offline JARVIS">
 
                 <ImageView
-                    android:layout_width="25dp"
-                    android:layout_height="25dp"
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:padding="7dp"
+                    android:background="@drawable/bg_home_badge_green"
                     android:src="@drawable/ic_sparkle"
-                    app:tint="?attr/themeAccent"
+                    app:tint="#34D399"
                     android:contentDescription="@null" />
 
                 <LinearLayout
@@ -352,8 +361,9 @@
                         android:layout_height="wrap_content"
                         android:text="Offline AI"
                         android:textColor="?attr/themeTextPrimary"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:maxLines="1" />
 
                     <TextView
@@ -361,7 +371,8 @@
                         android:layout_height="wrap_content"
                         android:text="Local assistant"
                         android:textColor="?attr/themeTextMuted"
-                        android:textSize="9sp"
+                        android:textSize="10sp"
+                        android:fontFamily="sans-serif-light"
                         android:maxLines="1" />
                 </LinearLayout>
             </LinearLayout>
@@ -370,7 +381,7 @@
                 android:id="@+id/btnHomeMaya"
                 android:layout_width="126dp"
                 android:layout_height="match_parent"
-                android:background="@drawable/bg_jarvis_action_card"
+                android:background="@drawable/bg_home_card_premium"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center_vertical"
@@ -379,10 +390,12 @@
                 android:contentDescription="Open Maya companion settings">
 
                 <ImageView
-                    android:layout_width="25dp"
-                    android:layout_height="25dp"
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:padding="7dp"
+                    android:background="@drawable/bg_home_badge_pink"
                     android:src="@drawable/ic_sparkle"
-                    app:tint="?attr/themeAccent"
+                    app:tint="#F472B6"
                     android:contentDescription="@null" />
 
                 <LinearLayout
@@ -397,8 +410,9 @@
                         android:layout_height="wrap_content"
                         android:text="Maya Mode"
                         android:textColor="?attr/themeTextPrimary"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
                         android:maxLines="1" />
 
                     <TextView
@@ -406,7 +420,8 @@
                         android:layout_height="wrap_content"
                         android:text="Companion"
                         android:textColor="?attr/themeTextMuted"
-                        android:textSize="9sp"
+                        android:textSize="10sp"
+                        android:fontFamily="sans-serif-light"
                         android:maxLines="1" />
                 </LinearLayout>
             </LinearLayout>
@@ -428,10 +443,10 @@
         <LinearLayout
             android:id="@+id/btnScreenShareQuick"
             android:layout_width="0dp"
-            android:layout_height="76dp"
+            android:layout_height="84dp"
             android:layout_weight="1"
             android:layout_marginEnd="5dp"
-            android:background="@drawable/bg_jarvis_action_card"
+            android:background="@drawable/bg_home_card_premium"
             android:orientation="vertical"
             android:gravity="center"
             android:padding="6dp"
@@ -440,10 +455,12 @@
             android:contentDescription="Start or stop screen sharing">
 
             <ImageView
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:padding="7dp"
+                    android:background="@drawable/bg_home_badge_violet"
                 android:src="@drawable/ic_screen_share"
-                app:tint="?attr/themeAccent"
+                    app:tint="#A78BFA"
                 android:layout_marginBottom="4dp" />
 
             <LinearLayout
@@ -480,11 +497,11 @@
         <LinearLayout
             android:id="@+id/btnSavedMemories"
             android:layout_width="0dp"
-            android:layout_height="76dp"
+            android:layout_height="84dp"
             android:layout_weight="1"
             android:layout_marginStart="5dp"
             android:layout_marginEnd="5dp"
-            android:background="@drawable/bg_jarvis_action_card"
+            android:background="@drawable/bg_home_card_premium"
             android:orientation="vertical"
             android:gravity="center"
             android:padding="6dp"
@@ -493,10 +510,12 @@
             android:contentDescription="Open saved memories">
 
             <ImageView
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:padding="7dp"
+                    android:background="@drawable/bg_home_badge_amber"
                 android:src="@drawable/ic_stack_memory"
-                app:tint="?attr/themeAccent"
+                    app:tint="#FFB020"
                 android:layout_marginBottom="4dp" />
 
             <LinearLayout
@@ -532,10 +551,10 @@
         <LinearLayout
             android:id="@+id/btnConversationLanguageQuick"
             android:layout_width="0dp"
-            android:layout_height="76dp"
+            android:layout_height="84dp"
             android:layout_weight="1"
             android:layout_marginStart="5dp"
-            android:background="@drawable/bg_jarvis_action_card"
+            android:background="@drawable/bg_home_card_premium"
             android:orientation="vertical"
             android:gravity="center"
             android:padding="6dp"
@@ -544,10 +563,12 @@
             android:contentDescription="Change conversation language">
 
             <ImageView
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:padding="7dp"
+                    android:background="@drawable/bg_home_badge_orange"
                 android:src="@drawable/ic_settings_language"
-                app:tint="?attr/themeAccent"
+                    app:tint="#FB923C"
                 android:layout_marginBottom="4dp" />
 
             <LinearLayout
