@@ -1,0 +1,64 @@
+name: Import Snaptube cleanup animations
+
+on:
+  push:
+    branches: [Chatbox]
+    paths:
+      - 'JARVIS_Snaptube_Lottie_Assets.zip'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Chatbox
+        uses: actions/checkout@v4
+        with:
+          ref: Chatbox
+          persist-credentials: true
+
+      - name: Extract and validate animation assets
+        run: |
+          test -f JARVIS_Snaptube_Lottie_Assets.zip
+          unzip -oq JARVIS_Snaptube_Lottie_Assets.zip
+          count=$(find app/src/main/assets/lottie/snaptube -mindepth 2 -maxdepth 2 -name animation.json | wc -l)
+          echo "Found $count animation JSON files"
+          test "$count" -ge 10
+          test -f app/src/main/assets/lottie/snaptube/clean_app_junk/animation.json
+          test -f app/src/main/assets/lottie/snaptube/animation_boost_loading/animation.json
+          test -f app/src/main/assets/lottie/snaptube/animation_battery_loading/animation.json
+          git rm -f JARVIS_Snaptube_Lottie_Assets.zip
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/assets/lottie/snaptube
+          git commit -m "Add Snaptube cleanup animations"
+          git push origin HEAD:Chatbox
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0 ndk;27.2.12479018 cmake;3.31.6'
+
+      - name: Grant Gradle permission
+        run: chmod +x gradlew
+
+      - name: Build debug APK
+        env:
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Jarvis-App-Debug-Snaptube
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
