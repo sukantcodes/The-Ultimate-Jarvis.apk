@@ -707,7 +707,13 @@ class PhoneControlManager(
                 val siteQuery = URLEncoder.encode("site:$domain $cleanQuery", "UTF-8")
                 return openUrl("https://www.google.com/search?q=$siteQuery")
             }
-            return "I couldn't find '$cleanApp' installed. If it has a website, tell me its web address and I can search its public pages."
+            val publicSearch = if (domain != null) {
+                val siteQuery = URLEncoder.encode("site:$domain $cleanQuery", "UTF-8")
+                openUrl("https://www.google.com/search?q=$siteQuery")
+            } else {
+                searchWeb("\"$cleanApp\" $cleanQuery")
+            }
+            return "The app isn't installed, so I searched public web results instead. $publicSearch"
         }
 
         val launchResult = openApp(cleanApp)
