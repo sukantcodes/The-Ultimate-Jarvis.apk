@@ -1122,9 +1122,9 @@ open class GeminiLiveWebSocket(
     /**
      * Sends a text prompt to Gemini Live using the client_content turn protocol.
      */
-    open fun sendClientContent(text: String) {
-        if (!isConnected.get() || !isSetupComplete.get() || text.isBlank()) return
-        try {
+    open fun sendClientContent(text: String): Boolean {
+        if (!isConnected.get() || !isSetupComplete.get() || text.isBlank()) return false
+        return try {
             val msg = JSONObject().apply {
                 put("client_content", JSONObject().apply {
                     put("turns", JSONArray().put(JSONObject().apply {
@@ -1136,10 +1136,12 @@ open class GeminiLiveWebSocket(
                     put("turn_complete", true)
                 })
             }
-            webSocket?.send(msg.toString())
-            Log.d(TAG, "Sent client_content: $text")
+            val sent = webSocket?.send(msg.toString()) == true
+            if (sent) Log.d(TAG, "Sent client_content: ${text.take(120)}")
+            sent
         } catch (e: Exception) {
             Log.e(TAG, "sendClientContent failed: ${e.message}", e)
+            false
         }
     }
 
