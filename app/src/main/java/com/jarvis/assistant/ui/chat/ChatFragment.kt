@@ -206,27 +206,28 @@ class ChatFragment : Fragment() {
         val document = selectedDocument
         if (document != null) {
             val prompt = text.ifBlank { "Analyze this file and explain what it contains. Highlight key points and any issues." }
-            selectedDocument = null
             binding.etMessageInput.text?.clear()
-            binding.etMessageInput.hint = "Message Jarvis"
             binding.btnSendMessage.isEnabled = false
-            Toast.makeText(requireContext(), "Jarvis is reading and analyzing ${document.name}…", Toast.LENGTH_LONG).show()
+            binding.btnStopChat.visibility = View.VISIBLE
+            binding.tvChatStatus.text = "● ANALYZING"
+            Toast.makeText(requireContext(), "JARVIS is analyzing ${document.name}…", Toast.LENGTH_LONG).show()
             viewLifecycleOwner.lifecycleScope.launch {
                 try {
                     val key = (requireActivity().application as JarvisApp).preferences.apiKey
                     val answer = DocumentAnalysisClient.analyze(requireContext(), document, prompt, key)
-                    JarvisApp.instance.chatRepository.addTurn(
-                        "📎 ${document.name}\n$prompt", answer,
-                        document.savedPath, document.name, document.mimeType
-                    )
+                    JarvisApp.instance.chatRepository.addTurn("📎 ${document.name}\n$prompt", answer, document.savedPath, document.name, document.mimeType)
+                    selectedDocument?.savedPath?.let { path -> runCatching { java.io.File(path).delete() } }
+                    selectedDocument = null
+                    if (_binding != null) { updateAttachmentPreview(); binding.etMessageInput.hint = "Message JARVIS…" }
                 } catch (error: Exception) {
-                    val friendlyMessage = "I couldn't complete the analysis of ${document.name} this time. Please check that the file opens normally, is within the provider's size limits, and that a suitable API key/model is configured in Settings. Your attachment is still saved in this chat, so you can try again."
-                    JarvisApp.instance.chatRepository.addTurn(
-                        "📎 ${document.name}\n$prompt", friendlyMessage,
-                        document.savedPath, document.name, document.mimeType
-                    )
+                    val message = "I couldn't analyze ${document.name}. ${error.message ?: "Please check your Gemini API key, connection, and file format."} Your attachment remains selected so you can retry or choose another file."
+                    JarvisApp.instance.chatRepository.addTurn("📎 ${document.name}\n$prompt", message, document.savedPath, document.name, document.mimeType)
                 } finally {
-                    if (_binding != null) binding.btnSendMessage.isEnabled = true
+                    if (_binding != null) {
+                        binding.btnSendMessage.isEnabled = true
+                        binding.btnStopChat.visibility = View.GONE
+                        binding.tvChatStatus.text = "● READY"
+                    }
                 }
             }
             return
@@ -234,13 +235,11 @@ class ChatFragment : Fragment() {
 
         if (text.isBlank()) return
         val appContext = requireContext().applicationContext
-        // Prefer the local brain whenever the selected online provider has no key,
-        // or the device has no internet. The offline model never needs a cloud API key.
         val engineStore = com.jarvis.assistant.security.AiEngineStore(appContext)
         val selectedProviderHasKey = if (engineStore.useGroq) engineStore.hasGroqKey() else JarvisApp.instance.preferences.apiKey.isNotBlank()
         val forceOffline = selectedChatMode == "offline"
         val forceGemini = selectedChatMode == "gemini"
-        if (forceGemini && !JarvisApp.instance.preferences.apiKey.isNotBlank()) {
+        if (forceGemini && JarvisApp.instance.preferences.apiKey.isBlank()) {
             Toast.makeText(requireContext(), "Add your Gemini API key in Settings before choosing Gemini mode.", Toast.LENGTH_LONG).show()
             return
         }
@@ -253,33 +252,59 @@ class ChatFragment : Fragment() {
             }
             binding.etMessageInput.text?.clear()
             binding.btnSendMessage.isEnabled = false
+            binding.btnStopChat.visibility = View.VISIBLE
+            binding.tvChatStatus.text = "● THINKING"
             offlineGenerationJob = viewLifecycleOwner.lifecycleScope.launch {
                 try {
                     val answer = OfflineLlm.generate(appContext, text)
                     JarvisApp.instance.chatRepository.addTurn(text, answer)
                 } catch (error: kotlinx.coroutines.CancellationException) {
-                    // The Stop control cancels this generation; do not add a misleading error turn.
                     throw error
                 } catch (error: Exception) {
                     JarvisApp.instance.chatRepository.addTurn(text, "Offline JARVIS could not start the local model. Open Offline JARVIS in the navigation menu and check model status. (" + (error.message ?: "unknown error") + ")")
                 } finally {
                     offlineGenerationJob = null
-                    if (_binding != null) binding.btnSendMessage.isEnabled = true
+                    if (_binding != null) {
+                        binding.btnSendMessage.isEnabled = true
+                        binding.btnStopChat.visibility = View.GONE
+                        binding.tvChatStatus.text = "● READY"
+                    }
                 }
             }
             return
         }
-        if (!JarvisConversationService.isServiceRunning()) {
-            (activity as? MainActivity)?.handleMicOrOrbClick()
-        }
+        if (!JarvisConversationService.isServiceRunning()) (activity as? MainActivity)?.handleMicOrOrbClick()
         JarvisConversationService.sendTextMessage(text)
         binding.etMessageInput.text?.clear()
+        binding.btnStopChat.visibility = View.VISIBLE
+        binding.tvChatStatus.text = "● THINKING"
+    }
+    private fun setPrompt(prompt: String) {
+        binding.etMessageInput.setText(prompt)
+        binding.etMessageInput.setSelection(prompt.length)
+        binding.etMessageInput.requestFocus()
+        val keyboard = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        keyboard.showSoftInput(binding.etMessageInput, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun updateAttachmentPreview() {
+        val document = selectedDocument
+        binding.layoutAttachmentPreview.visibility = if (document == null) View.GONE else View.VISIBLE
+        binding.tvAttachmentName.text = document?.name.orEmpty()
     }
 
     private fun observeChatTurns() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.chatTurns.collect { turns ->
+                    if (_binding != null) {
+                        binding.layoutChatWelcome.visibility = if (turns.isEmpty()) View.VISIBLE else View.GONE
+                        val pending = turns.lastOrNull()?.jarvisResponse.isNullOrBlank()
+                        if (!pending && offlineGenerationJob == null && selectedDocument == null) {
+                            binding.btnStopChat.visibility = View.GONE
+                            binding.tvChatStatus.text = "● READY"
+                        }
+                    }
                     chatAdapter.submitList(turns) {
                         if (turns.isNotEmpty()) binding.rvChatMessages.smoothScrollToPosition(turns.size - 1)
                     }
