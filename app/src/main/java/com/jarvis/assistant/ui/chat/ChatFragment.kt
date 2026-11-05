@@ -38,6 +38,7 @@ class ChatFragment : Fragment() {
     private var selectedDocument: DocumentAnalysisClient.SelectedDocument? = null
     private var pendingExportText: String = ""
     private var offlineGenerationJob: Job? = null
+    private var fileAnalysisJob: Job? = null
     private val chatModePrefs by lazy { requireContext().getSharedPreferences("jarvis_chatbox_preferences", android.content.Context.MODE_PRIVATE) }
     private var selectedChatMode: String = "auto"
 
@@ -126,6 +127,8 @@ class ChatFragment : Fragment() {
         binding.btnStopChat.setOnClickListener {
             offlineGenerationJob?.cancel()
             offlineGenerationJob = null
+            fileAnalysisJob?.cancel()
+            fileAnalysisJob = null
             binding.btnStopChat.visibility = View.GONE
             binding.tvChatStatus.text = "● READY"
             binding.btnSendMessage.isEnabled = true
@@ -213,17 +216,20 @@ class ChatFragment : Fragment() {
             binding.btnStopChat.visibility = View.VISIBLE
             binding.tvChatStatus.text = "● ANALYZING"
             Toast.makeText(requireContext(), "JARVIS is analyzing ${document.name}…", Toast.LENGTH_LONG).show()
-            viewLifecycleOwner.lifecycleScope.launch {
+            fileAnalysisJob = viewLifecycleOwner.lifecycleScope.launch {
                 try {
                     val key = (requireActivity().application as JarvisApp).preferences.apiKey
                     val answer = DocumentAnalysisClient.analyze(requireContext(), document, prompt, key)
                     JarvisApp.instance.chatRepository.addTurn("📎 ${document.name}\n$prompt", answer, document.savedPath, document.name, document.mimeType)
                     selectedDocument = null
                     if (_binding != null) { updateAttachmentPreview(); binding.etMessageInput.hint = "Message JARVIS…" }
+                } catch (error: kotlinx.coroutines.CancellationException) {
+                    throw error
                 } catch (error: Exception) {
                     val message = "I couldn't analyze ${document.name}. ${error.message ?: "Please check your Gemini API key, connection, and file format."} Your attachment remains selected so you can retry or choose another file."
                     JarvisApp.instance.chatRepository.addTurn("📎 ${document.name}\n$prompt", message, document.savedPath, document.name, document.mimeType)
                 } finally {
+                    fileAnalysisJob = null
                     if (_binding != null) {
                         binding.btnSendMessage.isEnabled = true
                         binding.btnStopChat.visibility = View.GONE
