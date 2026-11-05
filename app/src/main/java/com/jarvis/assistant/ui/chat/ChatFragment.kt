@@ -6,6 +6,9 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.content.Context
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -47,6 +50,7 @@ class ChatFragment : Fragment() {
                 selectedDocument = DocumentAnalysisClient.persistForChat(requireContext(), picked)
                 if (_binding != null) {
                     binding.etMessageInput.hint = "Ask about ${selectedDocument?.name}"
+                    updateAttachmentPreview()
                     Toast.makeText(requireContext(), "Attached and saved: ${selectedDocument?.name}. Type a question or tap Send.", Toast.LENGTH_LONG).show()
                 }
             } catch (error: Exception) {
@@ -106,6 +110,19 @@ class ChatFragment : Fragment() {
         selectedChatMode = chatModePrefs.getString("chat_mode", "auto") ?: "auto"
         refreshChatModeLabel()
         binding.btnSendMessage.setOnClickListener { sendMessage() }
+        binding.etMessageInput.setOnEditorActionListener { _, actionId, event ->
+            val enterPressed = event?.keyCode == android.view.KeyEvent.KEYCODE_ENTER && event.action == android.view.KeyEvent.ACTION_DOWN
+            if (actionId == EditorInfo.IME_ACTION_SEND || enterPressed) { sendMessage(); true } else false
+        }
+        binding.chipSuggestionExplain.setOnClickListener { setPrompt("Explain a difficult topic to me in simple language, step by step, with examples.") }
+        binding.chipSuggestionWrite.setOnClickListener { setPrompt("Help me write something. Ask me what I want to create.") }
+        binding.chipSuggestionAnalyze.setOnClickListener { documentPicker.launch(arrayOf("*/*")) }
+        binding.btnRemoveAttachment.setOnClickListener {
+            selectedDocument?.savedPath?.let { path -> runCatching { java.io.File(path).delete() } }
+            selectedDocument = null
+            updateAttachmentPreview()
+            binding.etMessageInput.hint = "Message JARVIS…"
+        }
         binding.btnStopChat.setOnClickListener {
             offlineGenerationJob?.cancel()
             offlineGenerationJob = null
@@ -121,7 +138,8 @@ class ChatFragment : Fragment() {
                 .setPositiveButton("New Chat") { _, _ ->
                     JarvisApp.instance.chatRepository.clearHistory()
                     selectedDocument = null
-                    binding.etMessageInput.hint = "Message Jarvis"
+                    updateAttachmentPreview()
+                    binding.etMessageInput.hint = "Message JARVIS…"
                 }
                 .setNegativeButton("Cancel", null)
                 .show()
