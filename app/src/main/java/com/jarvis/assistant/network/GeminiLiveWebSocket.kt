@@ -211,31 +211,28 @@ open class GeminiLiveWebSocket(
         val setup = JSONObject().apply {
             put("setup", JSONObject().apply {
                 put("model", activeModel)
-                put("system_instruction", JSONObject().apply {
+                put("systemInstruction", JSONObject().apply {
                     put("parts", JSONArray().put(JSONObject().put("text", effectivePrompt)))
                 })
-                put("generation_config", JSONObject().apply {
-                    put("response_modalities", JSONArray().put("AUDIO"))
-                    // Text transcription is required by Chatbox: it displays the answer while
-                    // the service independently suppresses audio playback for typed prompts.
-                    put("output_audio_transcription", JSONObject())
-                    put("speech_config", JSONObject().apply {
-                        put("voice_config", JSONObject().apply {
-                            put("prebuilt_voice_config", JSONObject().apply {
-                                put("voice_name", voiceName)
+                put("generationConfig", JSONObject().apply {
+                    put("responseModalities", JSONArray().put("AUDIO"))
+                    put("speechConfig", JSONObject().apply {
+                        put("voiceConfig", JSONObject().apply {
+                            put("prebuiltVoiceConfig", JSONObject().apply {
+                                put("voiceName", voiceName)
                             })
                         })
                     })
                     put("temperature", 0.6)
-                    // Gemini 2.5 Flash native audio has thinking enabled by default (budget=2048),
-                    // which causes a 2-3 second delay before generating speech.
-                    // Setting thinking_budget to 0 disables chain-of-thought, yielding instant (<1s) conversational response.
+                    // Gemini 2.5 Flash native audio has thinking enabled by default (budget=2048).
                     if (activeModel.contains("2.5")) {
-                        put("thinking_config", JSONObject().apply {
-                            put("thinking_budget", 0)
+                        put("thinkingConfig", JSONObject().apply {
+                            put("thinkingBudget", 0)
                         })
                     }
                 })
+                // Audio transcription is a top-level Live setup field, not a generationConfig field.
+                put("outputAudioTranscription", JSONObject())
                 put("tools", JSONArray().put(JSONObject().apply {
                     put("functionDeclarations", JSONArray().apply {
                         // 1. open_app
@@ -1055,8 +1052,8 @@ open class GeminiLiveWebSocket(
     open fun sendToolResponse(callId: String, functionName: String, result: JSONObject) {
         try {
             val msg = JSONObject().apply {
-                put("tool_response", JSONObject().apply {
-                    put("function_responses", JSONArray().put(JSONObject().apply {
+                put("toolResponse", JSONObject().apply {
+                    put("functionResponses", JSONArray().put(JSONObject().apply {
                         put("id", callId)
                         put("name", functionName)
                         put("response", result)
@@ -1126,14 +1123,14 @@ open class GeminiLiveWebSocket(
         if (!isConnected.get() || !isSetupComplete.get() || text.isBlank()) return false
         return try {
             val msg = JSONObject().apply {
-                put("client_content", JSONObject().apply {
+                put("clientContent", JSONObject().apply {
                     put("turns", JSONArray().put(JSONObject().apply {
                         put("role", "user")
                         put("parts", JSONArray().put(JSONObject().apply {
                             put("text", text)
                         }))
                     }))
-                    put("turn_complete", true)
+                    put("turnComplete", true)
                 })
             }
             val sent = webSocket?.send(msg.toString()) == true
