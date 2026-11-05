@@ -212,7 +212,10 @@ export function createHandler(d: Deps) {
     const { data: devices } = await d.admin.from("app_devices")
       .select("user_id,install_id,device_model,android_version,app_version,last_seen_at")
       .order("last_seen_at", { ascending: false });
-    const { data: blocks } = await d.admin.from("access_blocks").select("block_type,target_value");
+    const [{ data: blocks }, { data: ipRows }] = await Promise.all([
+      d.admin.from("access_blocks").select("block_type,target_value"),
+      d.admin.from("ip_observations").select("user_id,ip"),
+    ]);
     const { data: authPage, error } = await d.admin.auth.admin.listUsers({ page: page + 1, perPage: size });
     if (error) throw new Error("users");
     const deviceRows = devices ?? [];
@@ -220,14 +223,15 @@ export function createHandler(d: Deps) {
     const items = (authPage?.users ?? []).map((u: Record<string, unknown>) => {
       const id = String(u.id ?? "");
       const ownDevices = deviceRows.filter((x: Record<string, unknown>) => x.user_id === id);
-      const ips = new Set<string>();
+      const ips = [...new Set((ipRows ?? []).filter((x: Record<string, unknown>) => x.user_id === id).map((x: Record<string, unknown>) => String(x.ip)))];
       return {
         user_id: id, email: typeof u.email === "string" ? u.email : null,
         created_at: u.created_at ?? null, last_sign_in_at: u.last_sign_in_at ?? null,
-        devices: ownDevices,
+        devices: ownDevices, ips,
         blocked: blockRows.some((x: Record<string, unknown>) =>
           (x.block_type === "user" && x.target_value === id) ||
-          (x.block_type === "device" && ownDevices.some((dev: Record<string, unknown>) => dev.install_id === x.target_value)))
+          (x.block_type === "device" && ownDevices.some((dev: Record<string, unknown>) => dev.install_id === x.target_value)) ||
+          (x.block_type === "ip" && ips.includes(String(x.target_value))))
       };
     });
     const term = typeof body.search === "string" ? body.search.trim().toLowerCase() : "";
