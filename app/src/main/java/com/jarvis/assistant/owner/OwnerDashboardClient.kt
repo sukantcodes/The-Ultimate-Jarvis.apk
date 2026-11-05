@@ -165,6 +165,40 @@ object OwnerDashboardClient {
             if (type.isNotBlank()) addProperty("event_type", type)
         }) { b -> b.toPage { it.toEventRow() } }
 
+    suspend fun blocks(): OwnerResult<OwnerPage> =
+        call(JsonObject().apply { addProperty("action", "blocks") }) { b ->
+            val items = b.arr("items") ?: JsonArray()
+            OwnerPage(items.map { e ->
+                val r = e.asJsonObject
+                val type = r.str("block_type") ?: "?"
+                val target = r.str("target_value") ?: "—"
+                OwnerRow(target, type.uppercase() + " BLOCK", (r.str("reason") ?: "").ifBlank { "No reason supplied" } + " · " + fmt(r.str("created_at")), "BLOCKED", OwnerPalette.RED, "BLOCK|" + type + "|" + target)
+            }, b.get("total")?.asIntOrNull() ?: items.size(), 0, PAGE_SIZE)
+        }
+
+    suspend fun users(page: Int, search: String): OwnerResult<OwnerPage> =
+        call(JsonObject().apply {
+            addProperty("action", "users"); addProperty("page", page); addProperty("page_size", PAGE_SIZE)
+            if (search.isNotBlank()) addProperty("search", search.trim())
+        }) { b ->
+            b.toPage { r ->
+                val email = r.str("email") ?: "No email available"
+                val id = r.str("user_id") ?: "—"
+                val devs = r.arr("devices") ?: JsonArray()
+                val ips = r.arr("ips") ?: JsonArray()
+                val deviceText = devs.mapNotNull { it.asJsonObject.str("device_model") }.distinct().joinToString(", ").ifBlank { "No device reported" }
+                val ipText = ips.mapNotNull { it.asString }.distinct().joinToString(", ").ifBlank { "No IP observed" }
+                val blocked = r.get("blocked")?.asBoolean == true
+                OwnerRow(email, devs.size().toString() + " device(s) · " + ips.size() + " IP(s)", "Account " + shortId(id) + " · " + if (blocked) "BLOCKED" else "ALLOWED", if (blocked) "BLOCKED" else "USER", if (blocked) OwnerPalette.RED else OwnerPalette.GREEN, "Email\n" + email + "\n\nUser ID\n" + id + "\n\nDevices\n" + deviceText + "\n\nObserved IPs\n" + ipText + "\n\nCreated\n" + fmt(r.str("created_at")) + "\n\nLast sign in\n" + fmt(r.str("last_sign_in_at")))
+            }
+        }
+
+    suspend fun setBlock(type: String, target: String, reason: String = "", blocked: Boolean): OwnerResult<Boolean> =
+        call(JsonObject().apply {
+            addProperty("action", if (blocked) "block" else "unblock")
+            addProperty("block_type", type); addProperty("target_value", target)
+            if (reason.isNotBlank()) addProperty("reason", reason)
+        }) { true }
     // ── Plumbing ────────────────────────────────────────────────────────────────────────────────
 
     const val PAGE_SIZE = 20
