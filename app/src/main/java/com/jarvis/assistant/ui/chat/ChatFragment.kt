@@ -111,7 +111,7 @@ class ChatFragment : Fragment() {
         refreshChatModeLabel()
         binding.btnSendMessage.setOnClickListener { sendMessage() }
         binding.etMessageInput.setOnEditorActionListener { _, actionId, event ->
-            val enterPressed = event?.keyCode == android.view.KeyEvent.KEYCODE_ENTER && event.action == android.view.KeyEvent.ACTION_DOWN
+            val enterPressed = event?.keyCode == android.view.KeyEvent.KEYCODE_ENTER && event?.action == android.view.KeyEvent.ACTION_DOWN
             if (actionId == EditorInfo.IME_ACTION_SEND || enterPressed) { sendMessage(); true } else false
         }
         binding.chipSuggestionExplain.setOnClickListener { setPrompt("Explain a difficult topic to me in simple language, step by step, with examples.") }
@@ -126,6 +126,8 @@ class ChatFragment : Fragment() {
         binding.btnStopChat.setOnClickListener {
             offlineGenerationJob?.cancel()
             offlineGenerationJob = null
+            binding.btnStopChat.visibility = View.GONE
+            binding.tvChatStatus.text = "● READY"
             binding.btnSendMessage.isEnabled = true
             com.jarvis.assistant.background.JarvisConversationService.stopCurrentResponseImmediately()
             Toast.makeText(requireContext(), "JARVIS response stopped.", Toast.LENGTH_SHORT).show()
@@ -216,7 +218,6 @@ class ChatFragment : Fragment() {
                     val key = (requireActivity().application as JarvisApp).preferences.apiKey
                     val answer = DocumentAnalysisClient.analyze(requireContext(), document, prompt, key)
                     JarvisApp.instance.chatRepository.addTurn("📎 ${document.name}\n$prompt", answer, document.savedPath, document.name, document.mimeType)
-                    selectedDocument?.savedPath?.let { path -> runCatching { java.io.File(path).delete() } }
                     selectedDocument = null
                     if (_binding != null) { updateAttachmentPreview(); binding.etMessageInput.hint = "Message JARVIS…" }
                 } catch (error: Exception) {
