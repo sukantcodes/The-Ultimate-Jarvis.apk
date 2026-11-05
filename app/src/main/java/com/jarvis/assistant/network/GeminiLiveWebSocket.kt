@@ -231,7 +231,8 @@ open class GeminiLiveWebSocket(
                         })
                     }
                 })
-                // Audio transcription is a top-level Live setup field, not a generationConfig field.
+                // Live transcription settings are top-level setup fields, not generationConfig fields.
+                put("inputAudioTranscription", JSONObject())
                 put("outputAudioTranscription", JSONObject())
                 put("tools", JSONArray().put(JSONObject().apply {
                     put("functionDeclarations", JSONArray().apply {
