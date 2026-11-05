@@ -696,9 +696,11 @@ class PhoneControlManager(
         )
         val domain = knownWebDomains[normalized]
             ?: cleanApp.takeIf { it.matches(Regex("""(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}""")) }
-        val expectedPackage = POPULAR_APP_PACKAGES[normalized]
+        val mappedPackage = POPULAR_APP_PACKAGES[normalized]
             ?: POPULAR_APP_PACKAGES[normalized.replace(" ", "")]
-            ?: resolveInstalledPackageByName(cleanApp)
+        val expectedPackage = mappedPackage?.takeIf { packageName ->
+            context.packageManager.getLaunchIntentForPackage(packageName) != null
+        } ?: resolveInstalledPackageByName(cleanApp)
 
         if (expectedPackage == null) {
             if (domain != null) {
