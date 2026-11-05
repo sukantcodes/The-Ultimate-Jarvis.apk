@@ -8,6 +8,11 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.AbsoluteSizeSpan
+import android.text.style.ForegroundColorSpan
+import android.text.style.TypefaceSpan
 import android.os.Handler
 import android.os.Looper
 import android.util.TypedValue
@@ -25,7 +30,15 @@ import com.jarvis.assistant.R
 
 /** First-run cinematic welcome sequence followed by creator links and timed entry to JARVIS. */
 object WelcomeIntroOverlay {
-    private data class Slide(val text: String, val color: Int, val sizeSp: Float, val font: String)
+    private data class Slide(
+        val eyebrow: String,
+        val title: String,
+        val subtitle: String,
+        val color: Int,
+        val accent: Int,
+        val sizeSp: Float,
+        val font: String
+    )
 
     fun show(activity: Activity, parent: ViewGroup, onFinished: () -> Unit) {
         val handler = Handler(Looper.getMainLooper())
@@ -35,9 +48,18 @@ object WelcomeIntroOverlay {
             themeColor(activity, R.attr.themeAccent3, Color.rgb(28, 196, 190))
         )
         val slides = listOf(
-            Slide("WELCOME TO THE\nALL NEW JARVIS ASSISTANT", Color.rgb(15, 38, 78), 35f, "sans-serif-black"),
-            Slide("CREATED AND DESIGNED BY\nSUKANTA BHATTACHARYA", Color.rgb(0, 83, 155), 33f, "sans-serif-condensed"),
-            Slide("TO HANDLE ALL YOUR\nNECESSARY WORKS", Color.rgb(0, 105, 94), 36f, "sans-serif-black")
+            Slide(
+                "INTRODUCING", "J.A.R.V.I.S.", "Your intelligent voice assistant",
+                Color.rgb(15, 38, 78), Color.rgb(30, 112, 238), 44f, "sans-serif-black"
+            ),
+            Slide(
+                "CRAFTED WITH PASSION BY", "SUKANTA\nBHATTACHARYA", "Designed and engineered by one creator",
+                Color.rgb(0, 83, 155), Color.rgb(124, 77, 255), 36f, "sans-serif-condensed"
+            ),
+            Slide(
+                "BUILT TO SERVE YOU", "SPEAK.\nJARVIS ACTS.", "Hands-free help in Hindi, Bengali and English",
+                Color.rgb(0, 105, 94), Color.rgb(0, 150, 136), 40f, "sans-serif-black"
+            )
         )
         val backgroundColor = themeColor(activity, R.attr.themeBg, Color.rgb(7, 12, 25))
         val creatorBackground = GradientDrawable(
@@ -63,7 +85,7 @@ object WelcomeIntroOverlay {
             includeFontPadding = true
             setPadding(dp(activity, 20), dp(activity, 22), dp(activity, 20), dp(activity, 22))
             letterSpacing = 0.02f
-            maxLines = 4
+            maxLines = 6
             ellipsize = null
             setLineSpacing(dp(activity, 8).toFloat(), 1.0f)
             breakStrategy = android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY
@@ -75,8 +97,26 @@ object WelcomeIntroOverlay {
             scaleX = 0.88f
             scaleY = 0.88f
         }
-        overlay.addView(
+        val accentBar = View(activity).apply {
+            alpha = 0f
+            scaleX = 0.2f
+        }
+        val stage = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        stage.addView(
             messageView,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+        stage.addView(accentBar, LinearLayout.LayoutParams(dp(activity, 72), dp(activity, 4)).apply {
+            topMargin = dp(activity, 6)
+        })
+        overlay.addView(
+            stage,
             FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -102,6 +142,7 @@ object WelcomeIntroOverlay {
             finished = true
             handler.removeCallbacksAndMessages(null)
             messageView.animate().cancel()
+            accentBar.animate().cancel()
             overlay.animate().cancel()
             overlay.animate()
                 .alpha(0f)
@@ -209,7 +250,9 @@ object WelcomeIntroOverlay {
             if (finished) return
             overlay.background = creatorBackground
             messageView.animate().cancel()
+            accentBar.animate().cancel()
             messageView.visibility = View.GONE
+            accentBar.visibility = View.GONE
 
             val panel = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
@@ -338,7 +381,14 @@ object WelcomeIntroOverlay {
                 return
             }
             val slide = slides[index]
-            messageView.text = slide.text
+            messageView.text = composeSlide(activity, slide)
+            accentBar.background = GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(Color.TRANSPARENT, slide.accent, Color.TRANSPARENT)
+            ).apply { cornerRadius = dp(activity, 2).toFloat() }
+            accentBar.alpha = 0f
+            accentBar.scaleX = 0.2f
+            accentBar.animate().alpha(1f).scaleX(1f).setStartDelay(260L).setDuration(620L).start()
             messageView.textSize = slide.sizeSp
             TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
                 messageView, 22, slide.sizeSp.toInt().coerceAtLeast(22), 1, TypedValue.COMPLEX_UNIT_SP
@@ -373,6 +423,7 @@ object WelcomeIntroOverlay {
             entrance.withEndAction {
                     handler.postDelayed({
                         if (finished) return@postDelayed
+                        accentBar.animate().alpha(0f).setStartDelay(0L).setDuration(300L).start()
                         val exit = messageView.animate().alpha(0f).setDuration(420L)
                         when (index) {
                             0 -> exit.scaleX(1.22f).scaleY(1.22f)
@@ -409,7 +460,10 @@ object WelcomeIntroOverlay {
             )
         }
         val greeting = TextView(activity).apply {
-            text = "WELCOME TO JARVIS\\nBY SUKANT"
+            text = composeSlide(
+                activity,
+                Slide("SYSTEMS ONLINE", "WELCOME\nTO JARVIS", "Created by Sukant", Color.rgb(12, 48, 96), Color.rgb(30, 112, 238), 40f, "sans-serif-black")
+            )
             gravity = Gravity.CENTER
             textAlignment = View.TEXT_ALIGNMENT_CENTER
             setTextColor(Color.rgb(12, 48, 96))
@@ -457,6 +511,28 @@ object WelcomeIntroOverlay {
                     }, 1050L)
                 }.start()
         }
+    }
+
+    /** Eyebrow + title + subtitle, with the small lines kept at a fixed readable size. */
+    private fun composeSlide(activity: Activity, slide: Slide): CharSequence {
+        fun px(sp: Float) = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP, sp, activity.resources.displayMetrics
+        ).toInt()
+        // Hair spaces give the small caps line a tracked, premium look.
+        val eyebrow = slide.eyebrow.map { it.toString() }.joinToString("\u200A")
+        val builder = SpannableStringBuilder()
+        val eyebrowStart = builder.length
+        builder.append(eyebrow).append('\n')
+        builder.setSpan(AbsoluteSizeSpan(px(12f)), eyebrowStart, builder.length - 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        builder.setSpan(ForegroundColorSpan(slide.accent), eyebrowStart, builder.length - 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        builder.setSpan(TypefaceSpan("sans-serif-medium"), eyebrowStart, builder.length - 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        builder.append(slide.title).append('\n')
+        val subStart = builder.length
+        builder.append(slide.subtitle)
+        builder.setSpan(AbsoluteSizeSpan(px(14f)), subStart, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        builder.setSpan(ForegroundColorSpan(Color.rgb(75, 91, 112)), subStart, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        builder.setSpan(TypefaceSpan("sans-serif-light"), subStart, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        return builder
     }
 
     private fun themeColor(activity: Activity, attribute: Int, fallback: Int): Int {

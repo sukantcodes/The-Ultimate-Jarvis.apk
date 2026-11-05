@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="auth_brand">J.A.R.V.I.S.</string>
-    <string name="auth_tagline">PERSONAL AI ASSISTANT</string>
+    <string name="auth_tagline">YOUR INTELLIGENT VOICE ASSISTANT</string>
 
     <string name="auth_login_title">Welcome back</string>
-    <string name="auth_login_subtitle">Sign in to sync your account, or just continue as a guest.</string>
+    <string name="auth_login_subtitle">Sign in to sync your account and settings across devices, or continue as a guest.</string>
     <string name="auth_register_title">Create your account</string>
-    <string name="auth_register_subtitle">Use your email, or continue with Google.</string>
+    <string name="auth_register_subtitle">Join with your email or Google account in a few seconds.</string>
     <string name="auth_forgot_title">Reset your password</string>
     <string name="auth_forgot_subtitle">We\'ll email you a link to choose a new password.</string>
     <string name="auth_newpass_title">Choose a new password</string>
@@ -55,4 +55,9 @@
     <string name="drawer_account_logout_message">You\'ll be signed out of %1$s. Your data on this device stays put.</string>
     <string name="drawer_account_cancel">Cancel</string>
     <string name="auth_session_expired_toast">Your session expired. Please sign in again.</string>
+
+    <string name="auth_chip_voice">Voice first</string>
+    <string name="auth_chip_languages">Hindi · Bengali · English</string>
+    <string name="auth_chip_hands_free">Hands-free</string>
+    <string name="auth_footer">Created by Sukanta Bhattacharya</string>
 </resources>

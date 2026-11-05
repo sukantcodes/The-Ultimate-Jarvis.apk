@@ -75,8 +75,23 @@ class AuthActivity : AppCompatActivity() {
         })
 
         render()
+        if (savedInstanceState == null) playEntrance()
         AuthManager.consumeNotice()?.let { showStatus(it, error = false) }
         handleCallbackIntent(intent)
+    }
+
+    /** Gentle staggered fade-and-rise for the logo, brand and card on first open. */
+    private fun playEntrance() {
+        val rise = resources.displayMetrics.density * 22f
+        binding.ivAuthLogo.apply { alpha = 0f; scaleX = 0.8f; scaleY = 0.8f }
+        binding.tvAuthBrand.apply { alpha = 0f; translationY = rise }
+        binding.cardAuth.apply { alpha = 0f; translationY = rise * 1.6f }
+        binding.ivAuthLogo.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(520L)
+            .setInterpolator(android.view.animation.OvershootInterpolator(0.9f)).start()
+        binding.tvAuthBrand.animate().alpha(1f).translationY(0f).setStartDelay(140L).setDuration(420L)
+            .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+        binding.cardAuth.animate().alpha(1f).translationY(0f).setStartDelay(260L).setDuration(520L)
+            .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
     }
 
     override fun onNewIntent(intent: Intent) {
