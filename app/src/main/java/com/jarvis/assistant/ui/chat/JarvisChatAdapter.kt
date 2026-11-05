@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -22,7 +23,7 @@ class JarvisChatAdapter(
 
     private var speechEngine: TextToSpeech? = null
     private var speechReady = false
-    private var speaking = false
+    @Volatile private var speaking = false
     private var pendingSpeech = ""
 
     fun release() {
@@ -43,6 +44,11 @@ class JarvisChatAdapter(
                     speechReady = true
                     val engine = speechEngine
                     if (engine != null) {
+                        engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                            override fun onStart(utteranceId: String?) { speaking = true }
+                            override fun onDone(utteranceId: String?) { speaking = false }
+                            override fun onError(utteranceId: String?) { speaking = false }
+                        })
                         val languageResult = engine.setLanguage(Locale.getDefault())
                         if (languageResult == TextToSpeech.LANG_MISSING_DATA || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) engine.setLanguage(Locale.US)
                         val queued = pendingSpeech
