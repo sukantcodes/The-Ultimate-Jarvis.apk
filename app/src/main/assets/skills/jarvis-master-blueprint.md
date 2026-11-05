@@ -100,3 +100,7 @@ Prefer stable IDs and APIs over coordinates. Use short bounded waits and cancell
 
 ## 10. Keep this blueprint current
 This file is a built-in SkillStore skill. Update it whenever Activities, Fragments, resource IDs, skills, tools, permission declarations or execution routes change. For exhaustive source inventory, consult docs/architecture/JARVIS_MASTER_BLUEPRINT.md. Treat source code and the installed device's live UI as truth; this document is a navigation index, not a substitute for verification.
+
+
+## Device cleanup feature map
+Device Diagnostics now has seven cleanup routes: Junk Clean, Boost, Battery Saver, Large Files Cleanup, WhatsApp Clean, Photos Clean and App Uninstaller. These routes use the phone-care skill. Keep the skill and architecture map synchronized with implementation. Voice commands must invoke the same actions, resolve targets, request confirmation for deletion/uninstall, and verify results.
