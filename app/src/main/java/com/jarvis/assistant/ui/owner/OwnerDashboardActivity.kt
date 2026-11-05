@@ -45,7 +45,7 @@ import java.text.NumberFormat
  */
 class OwnerDashboardActivity : AppCompatActivity() {
 
-    private enum class Tab { OVERVIEW, INSIGHTS, DEVICES, IPS, ACTIVITY }
+    private enum class Tab { OVERVIEW, INSIGHTS, DEVICES, IPS, ACTIVITY, USER_CONTROL, USERS }
 
     private lateinit var binding: ActivityOwnerDashboardBinding
     private val adapter = OwnerRowAdapter { showDetail(it) }
@@ -75,6 +75,7 @@ class OwnerDashboardActivity : AppCompatActivity() {
         binding.list.layoutManager = LinearLayoutManager(this)
         binding.list.adapter = adapter
         binding.btnBack.setOnClickListener { finish() }
+        binding.btnAddBlock.setOnClickListener { showAddBlockDialog() }
         binding.btnRefresh.setOnClickListener { load() }
         binding.btnRetry.setOnClickListener { load() }
         binding.btnPrev.setOnClickListener { if (page > 0) { page--; load() } }
@@ -113,13 +114,16 @@ class OwnerDashboardActivity : AppCompatActivity() {
         Tab.DEVICES -> R.string.owner_tab_devices
         Tab.IPS -> R.string.owner_tab_ips
         Tab.ACTIVITY -> R.string.owner_tab_activity
+        Tab.USER_CONTROL -> R.string.owner_tab_user_control
+        Tab.USERS -> R.string.owner_tab_users
     })
 
     private fun selectTab(t: Tab) {
         tab = t; page = 0; search = ""; deviceWindowDays = 0; eventType = ""; trendDays = 14
         binding.etSearch.setText("")
         binding.etSearch.hint = getString(if (t == Tab.IPS) R.string.owner_search_ips else R.string.owner_search_devices)
-        binding.etSearch.visibility = if (t == Tab.DEVICES || t == Tab.IPS) View.VISIBLE else View.GONE
+        binding.etSearch.visibility = if (t == Tab.DEVICES || t == Tab.IPS || t == Tab.USERS) View.VISIBLE else View.GONE
+        binding.btnAddBlock.visibility = if (t == Tab.USER_CONTROL) View.VISIBLE else View.GONE
         buildFilters()
         binding.filterBar.visibility = if (t == Tab.OVERVIEW) View.GONE else View.VISIBLE
         load()
@@ -175,6 +179,8 @@ class OwnerDashboardActivity : AppCompatActivity() {
                 Tab.DEVICES -> handle(OwnerDashboardClient.devices(page, search, deviceWindowDays)) { showPage(it) }
                 Tab.IPS -> handle(OwnerDashboardClient.ips(page, search)) { showPage(it) }
                 Tab.ACTIVITY -> handle(OwnerDashboardClient.events(page, eventType)) { showPage(it) }
+                Tab.USER_CONTROL -> handle(OwnerDashboardClient.blocks()) { showPage(it) }
+                Tab.USERS -> handle(OwnerDashboardClient.users(page, search)) { showPage(it) }
             }
         }
     }
@@ -386,6 +392,22 @@ class OwnerDashboardActivity : AppCompatActivity() {
     // ── Row details ─────────────────────────────────────────────────────────────────────────────
 
     private fun showDetail(row: OwnerRow) {
+        if (tab == Tab.USER_CONTROL && row.detail.startsWith("BLOCK|")) {
+            val parts = row.detail.split("|", limit = 3)
+            if (parts.size == 3) MaterialAlertDialogBuilder(this)
+                .setTitle("Unblock access?")
+                .setMessage("Allow this " + parts[1] + " to use JARVIS again?\\n\\n" + parts[2])
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("UNBLOCK") { _, _ ->
+                    lifecycleScope.launch {
+                        when (OwnerDashboardClient.setBlock(parts[1], parts[2], blocked = false)) {
+                            is OwnerResult.Ok -> { Toast.makeText(this@OwnerDashboardActivity, "Access unblocked", Toast.LENGTH_SHORT).show(); load() }
+                            else -> Toast.makeText(this@OwnerDashboardActivity, R.string.owner_error, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }.show()
+            return
+        }
         if (row.detail.isBlank()) return
         val body = TextView(this).apply {
             text = row.detail
@@ -423,6 +445,37 @@ class OwnerDashboardActivity : AppCompatActivity() {
         }
     }
 
+    private fun showAddBlockDialog() {
+        val types = arrayOf("IP address", "Device install ID", "User account ID")
+        val keys = arrayOf("ip", "device", "user")
+        var selected = 0
+        val input = android.widget.EditText(this).apply { hint = "Exact IP / device ID / user ID"; maxLines = 1 }
+        val reason = android.widget.EditText(this).apply { hint = "Reason (optional)"; maxLines = 2 }
+        val content = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+            addView(android.widget.Spinner(this@OwnerDashboardActivity).apply {
+                adapter = android.widget.ArrayAdapter(this@OwnerDashboardActivity, android.R.layout.simple_spinner_dropdown_item, types)
+                onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                    override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+                    override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) { selected = position }
+                }
+            })
+            addView(input); addView(reason)
+        }
+        MaterialAlertDialogBuilder(this).setTitle("Block JARVIS access")
+            .setMessage("The server will reject matching access checks.")
+            .setView(content).setNegativeButton("Cancel", null)
+            .setPositiveButton("BLOCK") { _, _ ->
+                val target = input.text?.toString()?.trim().orEmpty()
+                if (target.isNotBlank()) lifecycleScope.launch {
+                    when (OwnerDashboardClient.setBlock(keys[selected], target, reason.text?.toString().orEmpty(), true)) {
+                        is OwnerResult.Ok -> { Toast.makeText(this@OwnerDashboardActivity, "Access block saved", Toast.LENGTH_SHORT).show(); load() }
+                        else -> Toast.makeText(this@OwnerDashboardActivity, "Could not save block. Check the identifier.", Toast.LENGTH_SHORT).show()
+                    }
+                } else Toast.makeText(this, "Enter an identifier", Toast.LENGTH_SHORT).show()
+            }.show()
+    }
     // ── Session lifetime ────────────────────────────────────────────────────────────────────────
 
     /** Closes the dashboard when the session's time is up; the server rejects it at the same moment. */
