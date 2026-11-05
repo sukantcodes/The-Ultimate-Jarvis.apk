@@ -308,6 +308,7 @@ class AuthActivity : AppCompatActivity() {
     private fun openJarvis() {
         startActivity(
             Intent(this, MainActivity::class.java)
+                .putExtra(MainActivity.EXTRA_SHOW_POST_LOGIN_WELCOME, true)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         )
         finish()
