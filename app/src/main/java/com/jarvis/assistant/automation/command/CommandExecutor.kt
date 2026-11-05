@@ -20,16 +20,6 @@ class CommandExecutor(
     companion object { private const val TAG = "CommandExecutor" }
 
     suspend fun execute(command: JarvisCommand): String = withContext(Dispatchers.Main) {
-        val searchQuery = when (command) {
-            is JarvisCommand.SearchWeb -> command.query
-            is JarvisCommand.SearchYouTube -> command.query
-            is JarvisCommand.SearchSocialApp -> command.query
-            is JarvisCommand.SearchInApp -> command.query
-            else -> null
-        }
-        if (searchQuery != null && !phoneManager.isSafeSearchQuery(searchQuery)) {
-            return@withContext "I can't search for content that could enable harm or bypass safety protections."
-        }
         Log.i(TAG, "Executing command: $command")
         val router = actionRouter
         if (router == null || !router.isEnabled) return@withContext executeExistingAutomation(command)
