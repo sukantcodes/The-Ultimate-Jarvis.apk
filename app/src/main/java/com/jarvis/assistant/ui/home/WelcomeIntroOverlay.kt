@@ -20,6 +20,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.widget.TextViewCompat
 import com.jarvis.assistant.R
 
 /** First-run cinematic welcome sequence followed by creator links and timed entry to JARVIS. */
@@ -59,11 +60,17 @@ object WelcomeIntroOverlay {
         val messageView = TextView(activity).apply {
             gravity = Gravity.CENTER
             textAlignment = View.TEXT_ALIGNMENT_CENTER
-            includeFontPadding = false
-            setPadding(dp(activity, 26), dp(activity, 24), dp(activity, 26), dp(activity, 24))
-            letterSpacing = 0.045f
-            maxLines = 3
-            setLineSpacing(dp(activity, 12).toFloat(), 1.02f)
+            includeFontPadding = true
+            setPadding(dp(activity, 20), dp(activity, 22), dp(activity, 20), dp(activity, 22))
+            letterSpacing = 0.02f
+            maxLines = 4
+            ellipsize = null
+            setLineSpacing(dp(activity, 8).toFloat(), 1.0f)
+            breakStrategy = android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY
+            hyphenationFrequency = android.text.Layout.HYPHENATION_FREQUENCY_NONE
+            TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                this, 22, 36, 1, TypedValue.COMPLEX_UNIT_SP
+            )
             alpha = 0f
             scaleX = 0.88f
             scaleY = 0.88f
@@ -333,6 +340,9 @@ object WelcomeIntroOverlay {
             val slide = slides[index]
             messageView.text = slide.text
             messageView.textSize = slide.sizeSp
+            TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                messageView, 22, slide.sizeSp.toInt().coerceAtLeast(22), 1, TypedValue.COMPLEX_UNIT_SP
+            )
             messageView.typeface = Typeface.create(slide.font, Typeface.BOLD)
             messageView.setTextColor(slide.color)
             messageView.setShadowLayer(dp(activity, 8).toFloat(), 0f, dp(activity, 2).toFloat(), Color.argb(35, 20, 45, 80))
@@ -382,6 +392,70 @@ object WelcomeIntroOverlay {
         overlay.post {
             overlay.animate().alpha(1f).setDuration(260L).start()
             showSlide(0)
+        }
+    }
+
+
+    /** Short post-authentication greeting. It completes before the Home screen is handed over. */
+    fun showPostLoginWelcome(activity: Activity, parent: ViewGroup, onFinished: () -> Unit) {
+        val overlay = FrameLayout(activity).apply {
+            isClickable = true
+            isFocusable = true
+            elevation = dp(activity, 36).toFloat()
+            alpha = 0f
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.WHITE, Color.rgb(242, 248, 255), Color.WHITE)
+            )
+        }
+        val greeting = TextView(activity).apply {
+            text = "WELCOME TO JARVIS\\nBY SUKANT"
+            gravity = Gravity.CENTER
+            textAlignment = View.TEXT_ALIGNMENT_CENTER
+            setTextColor(Color.rgb(12, 48, 96))
+            typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+            letterSpacing = 0.035f
+            maxLines = 3
+            includeFontPadding = true
+            setPadding(dp(activity, 22), dp(activity, 24), dp(activity, 22), dp(activity, 24))
+            setLineSpacing(dp(activity, 8).toFloat(), 1f)
+            setShadowLayer(dp(activity, 14).toFloat(), 0f, dp(activity, 3).toFloat(), Color.argb(65, 30, 110, 220))
+            TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                this, 22, 38, 1, TypedValue.COMPLEX_UNIT_SP
+            )
+            alpha = 0f
+            scaleX = 0.82f
+            scaleY = 0.82f
+        }
+        overlay.addView(greeting, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER
+        ))
+        parent.addView(overlay, ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+        overlay.bringToFront()
+        overlay.post {
+            overlay.animate().alpha(1f).setDuration(220L).start()
+            greeting.animate()
+                .alpha(1f).scaleX(1f).scaleY(1f)
+                .setDuration(720L)
+                .setInterpolator(android.view.animation.OvershootInterpolator(0.75f))
+                .withEndAction {
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        greeting.animate().alpha(0f).scaleX(1.08f).scaleY(1.08f)
+                            .setDuration(420L)
+                            .withEndAction {
+                                overlay.animate().alpha(0f).setDuration(220L)
+                                    .withEndAction {
+                                        (overlay.parent as? ViewGroup)?.removeView(overlay)
+                                        onFinished()
+                                    }.start()
+                            }.start()
+                    }, 1050L)
+                }.start()
         }
     }
 
