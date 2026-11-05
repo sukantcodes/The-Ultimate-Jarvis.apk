@@ -141,6 +141,10 @@ class ChatFragment : Fragment() {
                 .setTitle("New Conversation")
                 .setMessage("Start a new conversation and clear current history?")
                 .setPositiveButton("New Chat") { _, _ ->
+                    offlineGenerationJob?.cancel()
+                    fileAnalysisJob?.cancel()
+                    JarvisConversationService.stopCurrentResponseImmediately()
+                    selectedDocument?.savedPath?.let { path -> runCatching { java.io.File(path).delete() } }
                     JarvisApp.instance.chatRepository.clearHistory()
                     selectedDocument = null
                     updateAttachmentPreview()
@@ -283,6 +287,7 @@ class ChatFragment : Fragment() {
         if (!JarvisConversationService.isServiceRunning()) (activity as? MainActivity)?.handleMicOrOrbClick()
         JarvisConversationService.sendTextMessage(text)
         binding.etMessageInput.text?.clear()
+        binding.btnSendMessage.isEnabled = false
         binding.btnStopChat.visibility = View.VISIBLE
         binding.tvChatStatus.text = "● THINKING"
     }
@@ -307,9 +312,14 @@ class ChatFragment : Fragment() {
                     if (_binding != null) {
                         binding.layoutChatWelcome.visibility = if (turns.isEmpty()) View.VISIBLE else View.GONE
                         val pending = turns.lastOrNull()?.jarvisResponse.isNullOrBlank()
-                        if (!pending && offlineGenerationJob == null && selectedDocument == null) {
+                        if (!pending && offlineGenerationJob == null && fileAnalysisJob == null && selectedDocument == null) {
                             binding.btnStopChat.visibility = View.GONE
+                            binding.btnSendMessage.isEnabled = true
                             binding.tvChatStatus.text = "● READY"
+                        } else if (pending) {
+                            binding.btnStopChat.visibility = View.VISIBLE
+                            binding.btnSendMessage.isEnabled = false
+                            binding.tvChatStatus.text = "● THINKING"
                         }
                     }
                     chatAdapter.submitList(turns) {
