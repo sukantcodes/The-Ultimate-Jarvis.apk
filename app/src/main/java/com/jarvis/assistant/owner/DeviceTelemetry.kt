@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -59,6 +60,20 @@ object DeviceTelemetry {
         if (report("app_open")) prefs.edit().putLong(KEY_LAST_OPEN, now).apply()
     }
 
+    /** Online owner-policy check for the current signed-in installation. Network failure does not lock out users. */
+    suspend fun isAccessAllowed(): Boolean {
+        if (!::appContext.isInitialized || !SupabaseConfig.isConfigured || !AuthManager.isSignedIn) return true
+        val token = (AuthManager.validAccessToken() as? AuthResult.Success)?.value ?: return true
+        return withContext(Dispatchers.IO) {
+            try {
+                val body = JsonObject().apply { addProperty("install_id", installId()); addProperty("event", "check") }
+                val req = Request.Builder().url(SupabaseConfig.url + "/functions/v1/device-telemetry")
+                    .header("apikey", SupabaseConfig.publishableKey).header("Authorization", "Bearer " + token)
+                    .post(body.toString().toRequestBody(jsonType)).build()
+                http.newCall(req).execute().use { it.code != 403 }
+            } catch (_: Exception) { true }
+        }
+    }
     private fun report(event: String): Boolean {
         if (!::appContext.isInitialized || !SupabaseConfig.isConfigured || !AuthManager.isSignedIn) return false
         scope.launch {
