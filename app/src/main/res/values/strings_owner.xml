@@ -24,6 +24,8 @@
     <string name="owner_tab_devices">Devices</string>
     <string name="owner_tab_ips">IP addresses</string>
     <string name="owner_tab_activity">Activity</string>
+    <string name="owner_tab_user_control">User Control</string>
+    <string name="owner_tab_users">Users</string>
     <string name="owner_search_devices">Search model, version or ID</string>
     <string name="owner_search_ips">Search IP, account or device ID</string>
     <string name="owner_filter_any">Any time</string>
