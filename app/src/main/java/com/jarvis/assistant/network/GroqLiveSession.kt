@@ -184,20 +184,27 @@ class GroqLiveSession(
         finished?.let { startVoiceTurn(it) }
     }
 
-    override fun sendClientContent(text: String) {
-        if (!ready.get() || text.isBlank()) return
-        val scope = sessionScope ?: return
+    override fun sendClientContent(text: String): Boolean {
+        if (!ready.get() || text.isBlank()) return false
+        val scope = sessionScope ?: return false
         activeTurns.incrementAndGet()
-        scope.launch(Dispatchers.IO) {
-            try {
-                turnMutex.withLock { respond(text) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                reportException(e)
-            } finally {
-                activeTurns.decrementAndGet()
+        return try {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    turnMutex.withLock { respond(text) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    reportException(e)
+                } finally {
+                    activeTurns.decrementAndGet()
+                }
             }
+            true
+        } catch (e: Exception) {
+            activeTurns.decrementAndGet()
+            Log.e(TAG, "Could not queue Groq text turn: ${e.message}", e)
+            false
         }
     }
 
