@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.speech.RecognitionListener
@@ -37,11 +38,13 @@ class JarvisVoiceInteractionSession(context: Context) : VoiceInteractionSession(
     private var sessionActive = false
     private var ttsReady = false
     private var waitingForClarification = false
+    @Volatile private var detectedSpeechLanguage: String? = null
 
     override fun onShow(args: Bundle?, showFlags: Int) {
         super.onShow(args, showFlags)
         sessionActive = true
         waitingForClarification = false
+        detectedSpeechLanguage = null
         releaseSpeechResources()
         initializeSpeech()
     }
@@ -86,6 +89,16 @@ class JarvisVoiceInteractionSession(context: Context) : VoiceInteractionSession(
                     override fun onEndOfSpeech() = Unit
                     override fun onEvent(eventType: Int, params: Bundle?) = Unit
 
+                    override fun onLanguageDetection(results: Bundle) {
+                        if (Build.VERSION.SDK_INT >= 34) {
+                            val tag = results.getString(SpeechRecognizer.DETECTED_LANGUAGE)
+                            if (!tag.isNullOrBlank()) {
+                                detectedSpeechLanguage = tag
+                                Log.d(TAG, "Speech language detected: $tag")
+                            }
+                        }
+                    }
+
                     override fun onError(error: Int) {
                         if (!sessionActive) return
                         val message = when (error) {
@@ -121,6 +134,11 @@ class JarvisVoiceInteractionSession(context: Context) : VoiceInteractionSession(
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
                 putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
+                // Android 14+ can detect and switch languages when the installed recognition service
+                // has the corresponding speech models. Do not restrict the user to one locale.
+                if (Build.VERSION.SDK_INT >= 34) {
+                    putExtra(RecognizerIntent.EXTRA_ENABLE_LANGUAGE_SWITCH, RecognizerIntent.LANGUAGE_SWITCH_QUICK_RESPONSE)
+                }
             }
             speech.startListening(intent)
         } catch (e: SecurityException) {
@@ -138,7 +156,7 @@ class JarvisVoiceInteractionSession(context: Context) : VoiceInteractionSession(
             val parsed = ClockCommandParser.parse(spoken)
             val isAlarmCreation = parsed?.intent is ClockIntent.SetAlarm
             val reply = if (hasPendingAnswer || isAlarmCreation) {
-                runCatching { ClockAssistant.handleText(context, spoken) }.getOrElse {
+                runCatching { ClockAssistant.handleText(context, spoken, detectedSpeechLanguage) }.getOrElse {
                     Log.e(TAG, "Lock-screen alarm command failed", it)
                     null
                 }
