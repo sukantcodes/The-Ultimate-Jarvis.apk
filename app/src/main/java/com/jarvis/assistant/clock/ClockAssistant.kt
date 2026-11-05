@@ -46,9 +46,9 @@ object ClockAssistant {
      * Handles a typed or spoken sentence if it belongs to the alarm clock, in any supported language. Returns the reply to say
      * or show, or null when the sentence is not about alarms.
      */
-    fun handleText(context: Context, raw: String): String? {
+    fun handleText(context: Context, raw: String, languageHint: String? = null): String? {
         val app = context.applicationContext
-        val reply = dialog(app).handle(raw) ?: return null
+        val reply = dialog(app).handle(raw, languageHint) ?: return null
         val out = reply.outcome
         if (out is ClockOutcome.Success && out.kind == Done.OPEN_SETTINGS) openSettings(app)
         return ClockReplies.render(app, out, reply.language, ClockServices.engine(app).settings())
