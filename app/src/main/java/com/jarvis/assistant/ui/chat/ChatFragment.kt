@@ -330,6 +330,7 @@ class ChatFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        chatAdapter.release()
         super.onDestroyView()
         _binding = null
     }
