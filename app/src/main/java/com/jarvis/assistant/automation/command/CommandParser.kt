@@ -55,6 +55,23 @@ object CommandParser {
             return ParsedCommandResult(null, 0.0f)
         }
 
+        val delayedCall = Regex("^(\\d+)\\s+(minute|minutes|min|hour|hours)\\s+baad\\s+(.+?)\\s+ko\\s+call\\s+(?:karo|karna)$").find(clean)
+        if (delayedCall != null) {
+            val amount = delayedCall.groupValues[1].toLongOrNull() ?: 0L
+            val unit = delayedCall.groupValues[2]
+            val contact = delayedCall.groupValues[3].trim()
+            val factor = if (unit.startsWith("hour")) 3_600_000L else 60_000L
+            if (amount > 0L && contact.isNotBlank()) {
+                return ParsedCommandResult(JarvisCommand.ScheduleCall(contact, (amount * factor).coerceAtMost(2_592_000_000L)), 0.98f, "SCHEDULED_CALL")
+            }
+        }
+
+        val watchedApp = Regex("\\b(blinkit|whatsapp|instagram|amazon|flipkart|swiggy|zomato|telegram|gmail)\\b").find(clean)?.groupValues?.get(1)
+        if (watchedApp != null && listOf("jaise hi", "hote hi", "mujhe batana", "mujhe bata dena", "bol dena", "order", "notification", "message", "deliver", "arriv").any { clean.contains(it) }) {
+            val keyword = if (listOf("deliver", "arriv", "pahunch", "order aa").any { clean.contains(it) }) "delivered" else "any"
+            return ParsedCommandResult(JarvisCommand.WatchAppEvent(watchedApp, keyword), 0.97f, "WATCH_APP_EVENT")
+        }
+
         // Voice controls for JARVIS's own preferences only.
         val appToggle = Regex("^(?:please\\s+)?(?:turn\\s+(on|off)|enable|disable)\\s+(?:jarvis\\s+)?(touch\\s+glow|silent\\s+mode|floating\\s+avatar|task\\s+overlay|mic(?:rophone)?\\s+mute)$").find(clean)
         if (appToggle != null) {
