@@ -3034,6 +3034,36 @@ class JarvisConversationService : Service() {
                         }
                     }
 
+                    "open_device_cleanup" -> {
+                        val requestedFeature = args.optString("feature", "").trim().lowercase(Locale.ROOT)
+                        val featureIndex = when (requestedFeature) {
+                            "junk_clean" -> 0
+                            "boost" -> 1
+                            "battery_saver" -> 2
+                            "large_files" -> 3
+                            "whatsapp_clean" -> 4
+                            "photos_clean" -> 5
+                            "app_uninstaller" -> 6
+                            else -> -1
+                        }
+                        if (featureIndex < 0) {
+                            result.put("success", false)
+                            result.put("message", "Unknown cleanup feature. Choose junk_clean, boost, battery_saver, large_files, whatsapp_clean, photos_clean, or app_uninstaller.")
+                        } else {
+                            try {
+                                val launch = Intent(applicationContext, com.jarvis.assistant.ui.diagnostics.CleanupFeatureActivity::class.java)
+                                    .putExtra(com.jarvis.assistant.ui.diagnostics.CleanupFeatureActivity.EXTRA_FEATURE, featureIndex)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                applicationContext.startActivity(launch)
+                                result.put("success", true)
+                                result.put("message", "Opened the $requestedFeature workflow. The user must review targets and confirm any deletion or uninstall.")
+                            } catch (e: Exception) {
+                                result.put("success", false)
+                                result.put("message", "Could not open the cleanup workflow: ${e.message ?: "unknown error"}")
+                            }
+                        }
+                    }
+
                     "show_power_menu" -> {
                         val request = currentTurnUserText.toString().lowercase(Locale.ROOT)
                         if (!(request.contains("restart") || request.contains("reboot") || request.contains("power off") || request.contains("shutdown"))) {
