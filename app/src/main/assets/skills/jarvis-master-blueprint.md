@@ -48,7 +48,6 @@ The app has resource IDs and runtime view bounds, not universal pixel coordinate
 - For another app, use JarvisAccessibilityService to inspect the current foreground package, visible windows and node tree. Match stable resource-id first, then contentDescription/text/class and visible bounds. Re-inspect after every screen transition.
 - Coordinates are a last resort: obtain fresh bounds from the current screen, calculate the target center, perform one action, then verify. Never reuse old coordinates after scrolling, rotation, app switch, dialog, keyboard or layout change.
 - Never invent IDs, coordinates, screen positions or claim a control exists without current source/runtime evidence.
-- When a user asks "where is X?", answer with the app destination, visible label, resource ID when confirmed, and the steps to reach it. If source does not expose an ID, say that and use live UI inspection.
 
 ## 4. Cross-app execution routing
 Choose the least privileged supported route:
