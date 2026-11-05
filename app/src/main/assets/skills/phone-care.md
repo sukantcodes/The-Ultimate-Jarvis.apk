@@ -18,4 +18,4 @@ Android sandbox limits remain in force. All files access does not grant access t
 
 Voice examples express intent, not proof of a completed action. Use a registered native action only when one exists; otherwise open Device Diagnostics and let the same UI workflow execute. Never claim a scan, cleanup, boost or uninstall occurred until the native operation returns a verified result.
 
-The scan UI uses original JARVIS progress animation and review states. Do not copy Snaptube's proprietary source code, Lottie files, graphics or exact assets.
+The cleanup UI loads the user-authorized Snaptube Lottie animations from `app/src/main/assets/lottie/snaptube/<animation_name>/animation.json`, with referenced image files stored beside each JSON file. Run `python3 tools/extract_snaptube_animations.py <user-supplied-Snaptube-ZIP>` to populate those assets. If the animation files are not present in the checkout, the UI falls back to the JARVIS progress indicator. Do not copy unrelated app source code or resources.
