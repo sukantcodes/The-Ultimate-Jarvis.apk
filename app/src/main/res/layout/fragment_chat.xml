@@ -8,65 +8,83 @@
     android:paddingStart="12dp"
     android:paddingEnd="12dp"
     android:paddingTop="10dp"
-    android:paddingBottom="96dp">
-
-    <ImageButton
-        android:id="@+id/btnChatMenu"
-        android:layout_width="42dp"
-        android:layout_height="42dp"
-        android:background="@drawable/bg_jarvis_icon_square"
-        android:src="@drawable/ic_menu"
-        app:tint="?attr/themeTextPrimary"
-        android:contentDescription="Open navigation"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+    android:paddingBottom="94dp">
 
     <LinearLayout
         android:id="@+id/layoutChatHeader"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="12dp"
-        android:paddingTop="2dp"
-        android:paddingBottom="2dp"
-        app:layout_constraintTop_toTopOf="@id/btnChatMenu"
-        app:layout_constraintBottom_toBottomOf="@id/btnChatMenu"
-        app:layout_constraintStart_toEndOf="@id/btnChatMenu"
-        app:layout_constraintEnd_toStartOf="@id/btnChatNew">
-
-        <TextView
-            android:id="@+id/tvChatTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="JARVIS"
-            android:letterSpacing="0.12"
-            android:textColor="?attr/themeTextPrimary"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:fontFamily="sans-serif-medium" />
-
-        <TextView
-            android:id="@+id/tvChatSubtitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Your AI workspace"
-            android:textColor="?attr/themeTextMuted"
-            android:textSize="11sp"
-            android:fontFamily="sans-serif" />
-    </LinearLayout>
-
-    <ImageButton
-        android:id="@+id/btnChatNew"
-        android:layout_width="42dp"
-        android:layout_height="42dp"
-        android:background="@drawable/bg_jarvis_icon_square"
-        android:src="@drawable/ic_plus"
-        app:tint="?attr/themeTextPrimary"
-        android:contentDescription="Start new conversation"
+        android:layout_height="68dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@drawable/bg_chat_hero"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:elevation="5dp"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageButton
+            android:id="@+id/btnChatMenu"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:background="@drawable/bg_chat_header_icon"
+            android:src="@drawable/ic_menu"
+            app:tint="#FFFFFF"
+            android:contentDescription="Open navigation" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp">
+
+            <TextView
+                android:id="@+id/tvChatTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="JARVIS AI"
+                android:letterSpacing="0.10"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium" />
+
+            <TextView
+                android:id="@+id/tvChatSubtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Your intelligent workspace  ·  Ready"
+                android:textColor="#DDEBFF"
+                android:textSize="11sp"
+                android:fontFamily="sans-serif" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvChatStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:background="@drawable/bg_chat_status"
+            android:text="● READY"
+            android:textColor="#D9FFF7"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.06" />
+
+        <ImageButton
+            android:id="@+id/btnChatNew"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginStart="7dp"
+            android:background="@drawable/bg_chat_header_icon"
+            android:src="@drawable/ic_plus"
+            app:tint="#FFFFFF"
+            android:contentDescription="Start new conversation" />
+    </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvChatMessages"
@@ -83,36 +101,189 @@
         app:layout_constraintEnd_toEndOf="parent" />
 
     <LinearLayout
+        android:id="@+id/layoutChatWelcome"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        app:layout_constraintTop_toTopOf="@id/rvChatMessages"
+        app:layout_constraintBottom_toBottomOf="@id/rvChatMessages"
+        app:layout_constraintStart_toStartOf="@id/rvChatMessages"
+        app:layout_constraintEnd_toEndOf="@id/rvChatMessages">
+
+        <TextView
+            android:layout_width="76dp"
+            android:layout_height="76dp"
+            android:gravity="center"
+            android:background="@drawable/bg_chat_orb"
+            android:text="J"
+            android:textColor="#FFFFFF"
+            android:textSize="38sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-black" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="What can I help you with?"
+            android:textColor="?attr/themeTextPrimary"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="7dp"
+            android:text="Ask anything, explore an idea, or attach a file for a deeper analysis."
+            android:textColor="?attr/themeTextMuted"
+            android:textSize="13sp"
+            android:gravity="center"
+            android:lineSpacingExtra="3dp" />
+
+        <TextView
+            android:id="@+id/chipSuggestionExplain"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="20dp"
+            android:background="@drawable/bg_chat_suggestion"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="✦  Explain a topic in simple steps"
+            android:textColor="?attr/themeTextPrimary"
+            android:textSize="13sp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/chipSuggestionWrite"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_chat_suggestion"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="✧  Help me write or improve something"
+            android:textColor="?attr/themeTextPrimary"
+            android:textSize="13sp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/chipSuggestionAnalyze"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_chat_suggestion"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="⌁  Analyze a document or code file"
+            android:textColor="?attr/themeTextPrimary"
+            android:textSize="13sp"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/cardInputContainer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="@drawable/bg_jarvis_action_card"
-        android:elevation="8dp"
-        android:paddingStart="16dp"
-        android:paddingEnd="14dp"
-        android:paddingTop="14dp"
-        android:paddingBottom="12dp"
+        android:background="@drawable/bg_chat_composer"
+        android:elevation="10dp"
+        android:paddingStart="14dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="10dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <TextView
-            android:id="@+id/btnChatTools"
-            android:layout_width="wrap_content"
-            android:layout_height="32dp"
-            android:layout_marginBottom="8dp"
-            android:background="@drawable/bg_jarvis_chip"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:text="⚡ 67 CHAT TOOLS"
-            android:textColor="?attr/themeTextPrimary"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:contentDescription="Open 67 chat tools" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/btnChatTools"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                android:background="@drawable/bg_chat_tool_chip"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:paddingStart="11dp"
+                android:paddingEnd="11dp"
+                android:text="✦  CHAT TOOLS"
+                android:textColor="?attr/themeTextPrimary"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:contentDescription="Open chat tools" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="AI ASSISTANT"
+                android:textColor="?attr/themeTextMuted"
+                android:textSize="9sp"
+                android:letterSpacing="0.10"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layoutAttachmentPreview"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_chat_attachment"
+            android:gravity="center_vertical"
+            android:paddingStart="10dp"
+            android:paddingEnd="6dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:gravity="center"
+                android:text="📎"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tvAttachmentName"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="7dp"
+                android:text="document.pdf"
+                android:textColor="?attr/themeTextPrimary"
+                android:textSize="12sp"
+                android:maxLines="1"
+                android:ellipsize="middle" />
+
+            <ImageButton
+                android:id="@+id/btnRemoveAttachment"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:background="@drawable/bg_chat_header_icon"
+                android:src="@drawable/ic_close"
+                app:tint="?attr/themeTextSecondary"
+                android:contentDescription="Remove attachment" />
+        </LinearLayout>
 
         <EditText
             android:id="@+id/etMessageInput"
@@ -127,7 +298,8 @@
             android:minLines="1"
             android:maxLines="5"
             android:inputType="textCapSentences|textMultiLine"
-            android:paddingTop="2dp"
+            android:imeOptions="actionSend"
+            android:paddingTop="10dp"
             android:paddingBottom="12dp" />
 
         <LinearLayout
@@ -142,7 +314,7 @@
                 android:layout_height="34dp"
                 android:orientation="horizontal"
                 android:gravity="center"
-                android:background="@drawable/bg_jarvis_chip"
+                android:background="@drawable/bg_chat_tool_chip"
                 android:paddingStart="10dp"
                 android:paddingEnd="12dp"
                 android:layout_marginEnd="7dp">
@@ -170,7 +342,7 @@
                 android:layout_height="34dp"
                 android:orientation="horizontal"
                 android:gravity="center"
-                android:background="@drawable/bg_jarvis_chip"
+                android:background="@drawable/bg_chat_tool_chip"
                 android:paddingStart="10dp"
                 android:paddingEnd="12dp">
 
@@ -199,32 +371,33 @@
             <TextView
                 android:id="@+id/btnStopChat"
                 android:layout_width="wrap_content"
-                android:layout_height="48dp"
+                android:layout_height="42dp"
                 android:gravity="center"
                 android:text="Stop"
                 android:textColor="?attr/themeTextSecondary"
                 android:textSize="12sp"
                 android:textStyle="bold"
-                android:background="@drawable/bg_jarvis_chip"
+                android:background="@drawable/bg_chat_tool_chip"
                 android:paddingStart="10dp"
                 android:paddingEnd="10dp"
                 android:layout_marginEnd="4dp"
+                android:visibility="gone"
                 android:contentDescription="Stop JARVIS response" />
 
             <ImageButton
                 android:id="@+id/btnAttach"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="@null"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="@drawable/bg_chat_attach_button"
                 android:src="@drawable/ic_plus"
-                app:tint="?attr/themeTextSecondary"
+                app:tint="?attr/themeTextPrimary"
                 android:layout_marginEnd="6dp"
                 android:contentDescription="Attach a file" />
 
             <ImageButton
                 android:id="@+id/btnSendMessage"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
                 android:background="@drawable/bg_jarvis_pill_button"
                 android:src="@drawable/ic_send_up"
                 app:tint="#FFFFFF"
