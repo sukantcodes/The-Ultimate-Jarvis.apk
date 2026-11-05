@@ -635,9 +635,6 @@ class PhoneControlManager(
      */
     fun searchSocialApp(appName: String, query: String): String {
         val cleanQuery = query.trim()
-        if (!isSafeSearchQuery(cleanQuery)) {
-            return "I can't search for content that could enable harm or bypass safety protections."
-        }
         if (cleanQuery.isBlank()) return "What should I search for in $appName?"
         val encoded = Uri.encode(cleanQuery)
         val normalized = appName.trim().lowercase(Locale.ROOT)
