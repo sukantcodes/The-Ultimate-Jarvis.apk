@@ -192,7 +192,7 @@ export function createHandler(d: Deps) {
     if (type === "device" && !UUID.test(target)) return json({ error: "bad_request" }, 400);
     if (type === "ip" && (!IP_LIKE.test(target) || !(target.includes(".") || target.includes(":"))))
       return json({ error: "bad_request" }, 400);
-    if (type === "user" && ownerIds()?.includes(target.toLowerCase())) return json({ error: "protected_owner" }, 403);
+    if (type === "user" && (target.toLowerCase() === user.id.toLowerCase() || ownerIds()?.includes(target.toLowerCase()))) return json({ error: "protected_owner" }, 403);
     if (remove) {
       const { error } = await d.admin.from("access_blocks").delete()
         .eq("block_type", type).eq("target_value", target);
