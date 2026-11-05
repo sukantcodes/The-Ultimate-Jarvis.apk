@@ -94,3 +94,12 @@ Deploy / update functions from this repo: `supabase functions deploy owner-dashb
 `cd supabase/functions/owner-dashboard && node --experimental-strip-types --test handler.test.ts`
 covers: unauthenticated and session-less requests are refused, wrong password is generic, fail-closed
 when unconfigured, lockout, session expiry and revocation, session bound to user, and owner allow-list.
+
+
+## User control and account inventory
+
+The dashboard now adds **User Control** and **Users** after Activity. User Control lists owner-managed blocks and allows adding/removing exact user UUIDs, per-install UUIDs, and server-observed IP addresses. The Users tab pages through Supabase Auth accounts and displays email, account ID, known install/device metadata, observed IPs and block status.
+
+Block rules live in `public.access_blocks`, with RLS enabled and forced and no client policies. Only the owner-dashboard Edge Function's service-role client can mutate them. The function requires the existing authenticated owner allow-list and dashboard session; an owner cannot block their own account. The device-telemetry Edge Function checks user, install ID and request IP before accepting telemetry. The Android Home activity performs an online access check for signed-in accounts before showing Home.
+
+**Important limits:** device identifiers are random per-install IDs, not hardware identifiers; clearing app data/reinstalling can create a new install ID. IP blocks apply to the public IP observed by the edge and can affect other people sharing that network, or stop matching after an IP changes. Existing guest mode is not inventoried or access-checked because the privacy model deliberately sends no telemetry for guests. A startup check is not a network firewall for unrelated third-party APIs, and offline/network failures do not prove that a device is allowed. The dashboard does not claim otherwise.
