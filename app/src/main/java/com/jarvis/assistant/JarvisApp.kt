@@ -68,6 +68,7 @@ class JarvisApp : Application() {
         instance = this
         preferences = AppPreferences(this)
         com.jarvis.assistant.auth.AuthManager.init(this)
+        com.jarvis.assistant.owner.DeviceTelemetry.init(this)
         com.jarvis.assistant.owner.DeviceTelemetry.onAppOpen()
         chatRepository = ChatRepository(preferences)
 
