@@ -51,6 +51,8 @@ class MainActivity : AppCompatActivity() {
     private var swipeStartY = 0f
     // One consent request per active Jarvis session; Android still requires its system prompt.
     private var autoScreenCaptureRequestedForSession = false
+    private var accessCheckInProgress = false
+    private var accessCheckComplete = false
 
     private var currentTab = TAB_HOME
     private val homeFragment by lazy { HomeFragment() }
@@ -152,6 +154,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (!::binding.isInitialized || accessCheckComplete || accessCheckInProgress) return
+        if (!AuthManager.isSignedIn) { accessCheckComplete = true; return }
+        accessCheckInProgress = true
+        binding.rootMainLayout.visibility = View.INVISIBLE
+        lifecycleScope.launch {
+            val allowed = com.jarvis.assistant.owner.DeviceTelemetry.isAccessAllowed()
+            accessCheckInProgress = false
+            if (isFinishing || isDestroyed) return@launch
+            if (allowed) {
+                accessCheckComplete = true
+                binding.rootMainLayout.visibility = View.VISIBLE
+            } else {
+                MaterialAlertDialogBuilder(this@MainActivity)
+                    .setTitle("JARVIS access restricted")
+                    .setMessage("This account, device, or network address has been blocked by the app owner. Contact the owner if you believe this is a mistake.")
+                    .setCancelable(false)
+                    .setPositiveButton("Close") { _, _ -> finish() }
+                    .show()
+            }
+        }
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         com.jarvis.assistant.util.ThemeManager.applyTheme(this)
         val prefs = com.jarvis.assistant.JarvisApp.instance.preferences
