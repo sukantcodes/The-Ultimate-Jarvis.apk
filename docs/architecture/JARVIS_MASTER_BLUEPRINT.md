@@ -257,9 +257,12 @@ This inventory is a source snapshot; SkillStore's runtime asset listing is autho
 
 
 ## 12. Device cleanup and diagnostics
-- Device Diagnostics includes Junk Clean, Boost, Battery Saver, Large Files Cleanup, WhatsApp Clean, Photos Clean and App Uninstaller.
-- Junk Clean is limited to JARVIS-owned cache. Boost reports available RAM and opens supported app-management controls; it must not claim to force-stop arbitrary apps.
-- Large-file, WhatsApp and photo scans operate only within a folder explicitly selected through Android's Storage Access Framework. Review targets and ask before deletion.
-- App uninstall uses Android's own confirmation. Battery Saver opens the supported system control page and must be verified.
-- Voice intents should route to these same workflows, not a parallel implementation.
-- Recreate the requested Snaptube-like scan/progress/result presentation with original JARVIS animation work; do not package proprietary Snaptube animation assets or code.
+- Device Diagnostics contains phone-wide Junk Clean, Boost, Battery Saver, Large Files Cleanup, WhatsApp Clean, Photos Clean and App Uninstaller workflows.
+- Phone-wide file scans use Android's All files access special permission on Android 11+ and operate on accessible shared storage. If the user declines, offer a user-selected SAF folder scan.
+- Junk Clean reviews temporary/cache folders and thumbnails in shared storage; it does not clear another app's private cache.
+- Large-file, WhatsApp and photo scans search accessible shared storage. Show a selectable review list and require confirmation before deleting selected files.
+- Android/data, Android/obb and other apps' private sandboxes are not traversed. All files access does not grant permission to clear another app's private cache.
+- Boost reports memory pressure and opens Android app-management controls; Android owns background-process lifecycle. Do not claim to force-stop every app or permanently increase RAM.
+- Battery Saver opens Android's device-wide settings page. App uninstall uses Android's native confirmation. Verify outcomes before reporting completion.
+- Voice intents must route to these same workflows when native voice routes are available; otherwise navigate to Device Diagnostics without claiming the action ran.
+- Recreate Snaptube-inspired progress and result feedback using original JARVIS animations; do not copy proprietary APK code or animation assets.

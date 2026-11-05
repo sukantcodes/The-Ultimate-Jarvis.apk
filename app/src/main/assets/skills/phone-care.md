@@ -1,21 +1,21 @@
 ---
 name: phone-care
-description: Device cleanup, storage review, battery saver, memory diagnostics and safe app management
+description: Phone-wide shared-storage cleanup, memory diagnostics, battery saver, media review and app management
 ---
 # Phone Care and Device Cleanup
 
-Device Diagnostics contains seven workflows: Junk Clean, Boost, Battery Saver, Large Files Cleanup, WhatsApp Clean, Photos Clean and App Uninstaller.
+The seven Device Diagnostics workflows operate on the **phone**, not just JARVIS. On Android 11+, JARVIS requests the system's special All files access only when the user starts a phone-wide scan. If the user declines, offer a single-folder SAF scan instead.
 
-Use only tools that are actually registered. For JARVIS-owned temporary cache, use the existing cache-cleaning action and report its returned result. For device information, use the existing device-status action. For Battery Saver, open the supported Android battery settings page and let the user confirm any system switch. Do not invent tool names for the other workflows or claim they were executed by voice until a native voice route exists; guide the user to Settings > Device Diagnostics and the relevant workflow.
+- **Junk Clean:** scan accessible shared storage for temporary/cache folders and thumbnail files. Show a selectable review list and require confirmation before deletion. Do not describe this as clearing private caches belonging to other apps.
+- **Boost:** show available/total RAM and low-memory state, then offer Android's app-management screen. Android owns process lifecycle; never claim to force-stop all apps, empty RAM, or make a permanent speed increase.
+- **Battery Saver:** open the device-wide Android Battery Saver page. Report only that the page opened unless the resulting enabled state is actually verified.
+- **Large Files Cleanup:** scan accessible shared storage for files of at least 50 MB. Let the user select items and confirm deletion.
+- **WhatsApp Clean:** find WhatsApp / WhatsApp Business media in accessible shared storage, review selected files and confirm deletion.
+- **Photos Clean:** find image files across accessible shared storage, review selected files and confirm deletion.
+- **App Uninstaller:** list installed user apps, exclude JARVIS, and launch Android's native uninstall confirmation for the selected app.
 
-- **Junk Clean:** only JARVIS-owned temporary cache can be removed by the cache-cleaning action. It cannot clear another app's private cache.
-- **Boost:** report available RAM and low-memory state; do not claim arbitrary apps were force-stopped or RAM was permanently increased.
-- **Battery Saver:** open Android battery settings. Verify the resulting state before saying it is enabled.
-- **Large Files Cleanup:** user selects a folder through Android's Storage Access Framework; list files at least 50 MB and ask before deletion.
-- **WhatsApp Clean:** user selects the WhatsApp media folder; scan only that folder; review files and confirm each deletion.
-- **Photos Clean:** user selects a photo folder; list images and confirm each deletion.
-- **App Uninstaller:** list user-installed apps, resolve the exact target, then use Android's uninstall confirmation. Never uninstall JARVIS.
+Android sandbox limits remain in force. All files access does not grant access to another app's private internal data or private cache; Android/data and Android/obb are excluded from traversal. The app cannot silently clear another app's cache, force-stop arbitrary apps, uninstall without Android confirmation, or bypass the user's storage permission choice.
 
-Voice examples: "clean junk", "boost phone", "turn on battery saver", "find large files", "clean WhatsApp media", "show photos to delete", "uninstall <app name>". Treat these as intent examples, not proof that every command is currently wired to a native operation. If no direct action is available, explain and navigate the user to Device Diagnostics.
+Voice examples express intent, not proof of a completed action. Use a registered native action only when one exists; otherwise open Device Diagnostics and let the same UI workflow execute. Never claim a scan, cleanup, boost or uninstall occurred until the native operation returns a verified result.
 
-Shared-storage access is limited to the folder selected by the user. Never delete automatically based on guessed duplicates, blur or quality. Android permissions, app sandboxing and system confirmations remain authoritative.
+The scan UI uses original JARVIS progress animation and review states. Do not copy Snaptube's proprietary source code, Lottie files, graphics or exact assets.

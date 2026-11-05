@@ -119,12 +119,12 @@ class DeviceDiagnosticsActivity : AppCompatActivity() {
 
     private fun addCleanupTools() {
         val entries = listOf(
-            "Junk Clean" to "Scan temporary files owned by JARVIS",
-            "Boost" to "Check memory and open app-management controls",
+            "Junk Clean" to "Scan phone-wide shared storage for junk",
+            "Boost" to "Check phone memory and open app controls",
             "Battery Saver" to "Open Android battery-saver controls",
-            "Large Files Cleanup" to "Select a folder and review large files",
-            "WhatsApp Clean" to "Select WhatsApp media and review files",
-            "Photos Clean" to "Select a photo folder and review images",
+            "Large Files Cleanup" to "Find large files across shared phone storage",
+            "WhatsApp Clean" to "Find WhatsApp media across shared storage",
+            "Photos Clean" to "Find photos across shared phone storage",
             "App Uninstaller" to "Select an app and confirm uninstall"
         )
         val card = MaterialCardView(this).apply {
