@@ -110,10 +110,82 @@ class DeviceDiagnosticsActivity : AppCompatActivity() {
 
     private fun renderDiagnostics() {
         cards.removeAllViews()
+        addCleanupTools()
         addCard("BATTERY & CHARGING", batteryLines())
         addCard("INTERNAL STORAGE", storageLines())
         addCard("NETWORK CONNECTIVITY", networkLines())
         lastUpdated.text = "Updated " + SimpleDateFormat("h:mm:ss a", Locale.getDefault()).format(Date())
+    }
+
+    private fun addCleanupTools() {
+        val entries = listOf(
+            "Junk Clean" to "Scan temporary files owned by JARVIS",
+            "Boost" to "Check memory and open app-management controls",
+            "Battery Saver" to "Open Android battery-saver controls",
+            "Large Files Cleanup" to "Select a folder and review large files",
+            "WhatsApp Clean" to "Select WhatsApp media and review files",
+            "Photos Clean" to "Select a photo folder and review images",
+            "App Uninstaller" to "Select an app and confirm uninstall"
+        )
+        val card = MaterialCardView(this).apply {
+            radius = dp(20).toFloat()
+            cardElevation = dp(3).toFloat()
+            setCardBackgroundColor(surfaceColor)
+            useCompatPadding = true
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(16) }
+        }
+        val column = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(16), dp(16), dp(12))
+        }
+        column.addView(TextView(this).apply {
+            text = "DEVICE CLEANUP"
+            textSize = 12f
+            letterSpacing = 0.09f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(accentColor)
+            setPadding(0, 0, 0, dp(10))
+        })
+        entries.forEachIndexed { index, entry ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(9), 0, dp(9))
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    startActivity(Intent(this@DeviceDiagnosticsActivity, CleanupFeatureActivity::class.java)
+                        .putExtra(CleanupFeatureActivity.EXTRA_FEATURE, index))
+                }
+            }
+            val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            labels.addView(TextView(this).apply {
+                text = entry.first
+                textSize = 15f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(primaryTextColor)
+            })
+            labels.addView(TextView(this).apply {
+                text = entry.second
+                textSize = 12f
+                setTextColor(secondaryTextColor)
+            })
+            row.addView(labels, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(TextView(this).apply {
+                text = "›"
+                textSize = 28f
+                setTextColor(accentColor)
+            })
+            column.addView(row)
+            if (index != entries.lastIndex) column.addView(View(this).apply {
+                setBackgroundColor(secondaryTextColor.withAlpha(35))
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1))
+            })
+        }
+        card.addView(column)
+        cards.addView(card)
     }
 
     private fun batteryLines(): List<Pair<String, String>> {
