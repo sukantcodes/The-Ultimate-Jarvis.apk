@@ -1053,6 +1053,89 @@ class PhoneControlManager(
         return null
     }
 
+
+    /** Voice-driven allowlisted control of JARVIS's own non-sensitive preferences. */
+    fun controlJarvisApp(settingName: String, rawValue: String): String {
+        val prefs = com.jarvis.assistant.data.preferences.AppPreferences(context)
+        val key = settingName.lowercase(Locale.ROOT).trim()
+        val value = rawValue.lowercase(Locale.ROOT).trim()
+        val enabled = value in setOf("on", "enable", "enabled", "true", "yes")
+        val disabled = value in setOf("off", "disable", "disabled", "false", "no")
+        return try {
+            when (key) {
+                "touch glow" -> { if (!enabled && !disabled) return "Say turn touch glow on or off."; prefs.touchGlowEnabled = enabled; "JARVIS touch glow " + if (enabled) "enabled." else "disabled." }
+                "silent mode" -> { if (!enabled && !disabled) return "Say turn silent mode on or off."; prefs.isSilentExecutionMode = enabled; "JARVIS silent mode " + if (enabled) "enabled." else "disabled." }
+                "floating avatar", "task overlay" -> { if (!enabled && !disabled) return "Say turn the floating avatar on or off."; prefs.isTaskOverlayEnabled = enabled; "JARVIS floating avatar " + if (enabled) "enabled." else "disabled." }
+                "mic mute", "microphone mute" -> { if (!enabled && !disabled) return "Say microphone mute on or off."; prefs.isMicMuted = enabled; "JARVIS microphone " + if (enabled) "muted." else "unmuted." }
+                "theme" -> {
+                    val theme = when (value.replace(" ", "_")) {
+                        "light", "pearl_white" -> "light"
+                        "dark", "midnight_onyx", "cyberpunk_neon", "emerald_obsidian" -> "dark"
+                        "red" -> "red"
+                        "sunset", "rose_gold" -> "sunset"
+                        "custom" -> "custom"
+                        else -> return "Available JARVIS themes: light, dark, red, sunset, or custom."
+                    }
+                    prefs.appTheme = theme
+                    "JARVIS theme set to $theme."
+                }
+                "orb animation" -> {
+                    val animation = value.replace(" ", "_")
+                    val valid = setOf("default", "aurora_orb", "iron_man_head", "full_human", "quantum_core", "siri_glow")
+                    if (animation !in valid) return "Available orb animations: default, aurora orb, iron man head, full human, quantum core, siri glow."
+                    prefs.orbAnimation = animation
+                    "JARVIS orb animation changed to $animation."
+                }
+                "orb speed", "orb glow", "orb size", "liquid glass" -> {
+                    val number = value.removeSuffix("%").toFloatOrNull() ?: return "Give a numeric value for $key."
+                    when (key) {
+                        "orb speed" -> prefs.orbSpeed = number.coerceIn(0.25f, 3f)
+                        "orb glow" -> prefs.orbGlow = (number / if (value.endsWith("%")) 50f else 1f).coerceIn(0f, 2f)
+                        "orb size" -> prefs.orbScale = (number / if (value.endsWith("%")) 100f else 1f).coerceIn(0.6f, 1.4f)
+                        else -> prefs.liquidGlassStrength = number.toInt().coerceIn(0, 100)
+                    }
+                    "JARVIS $key updated."
+                }
+                "language" -> {
+                    val allowed = setOf("auto", "english", "hindi", "kannada", "bengali", "telugu", "tamil", "marathi")
+                    if (value !in allowed) return "Choose Auto, English, Hindi, Kannada, Bengali, Telugu, Tamil, or Marathi."
+                    prefs.language = value.replaceFirstChar { it.uppercase() }
+                    "JARVIS language set to $value."
+                }
+                "voice" -> { if (value.length !in 2..40) return "Tell me the voice name you want."; prefs.voice = value; "JARVIS voice preference updated." }
+                "personality" -> {
+                    val allowed = setOf("assistant", "friendly", "professional", "concise", "humorous")
+                    if (value !in allowed) return "Available personalities: assistant, friendly, professional, concise, humorous."
+                    prefs.personality = value
+                    "JARVIS personality set to $value."
+                }
+                "overlay avatar" -> {
+                    val avatar = value.replace(" ", "_")
+                    val allowed = setOf("alien", "blob", "cat", "circle", "cloud", "droid", "drop", "flower", "ghost", "hexagon", "mech", "pebble", "pill", "puddle", "square", "star", "triangle")
+                    if (avatar !in allowed) return "Try an available avatar: ghost, droid, cat, mech, star, or another listed avatar."
+                    prefs.taskOverlayAvatar = avatar
+                    "JARVIS overlay avatar changed to $avatar."
+                }
+                "overlay mode" -> { if (value !in setOf("always", "working")) return "Overlay mode can be always or working."; prefs.taskOverlayMode = value; "JARVIS overlay mode set to $value." }
+                "settings icon shape" -> {
+                    val shape = when (value) { "plain" -> 0; "rectangular", "rectangle" -> 1; "squircle", "pillowy" -> 2; "circle", "circular" -> 3; else -> return "Choose plain, rectangular, squircle, or circular." }
+                    prefs.settingsIconShape = shape
+                    "JARVIS settings icon shape updated."
+                }
+                "refresh rate" -> {
+                    val hz = value.toIntOrNull()
+                    if (value != "system" && (hz == null || hz !in 60..144)) return "Refresh rate must be system or between 60 and 144 hertz."
+                    prefs.uiRefreshRate = value
+                    "JARVIS refresh-rate preference updated."
+                }
+                else -> "I don't have a JARVIS setting named $settingName yet."
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "JARVIS app setting update failed: $key", e)
+            "I couldn't update that JARVIS setting."
+        }
+    }
+
     /** Blocks searches that would direct a teen toward restricted or dangerous content. */
     private fun isSafeSearchQuery(query: String): Boolean {
         val normalized = query.lowercase(Locale.ROOT)
