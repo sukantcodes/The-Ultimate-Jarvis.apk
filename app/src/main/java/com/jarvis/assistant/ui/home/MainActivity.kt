@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
         const val TAB_CHAT = 1
         const val TAB_SETTINGS = 2
         const val TAB_UPDATES = 3
+        const val EXTRA_SHOW_POST_LOGIN_WELCOME = "com.jarvis.assistant.SHOW_POST_LOGIN_WELCOME"
     }
 
     private lateinit var binding: ActivityMainBinding
@@ -158,12 +159,22 @@ class MainActivity : AppCompatActivity() {
         appliedCustomHex = prefs.customThemeSignature
         super.onCreate(savedInstanceState)
 
-        // Auth gate: only a user with neither a session nor a guest choice is sent to Login / Register /
-        // Guest. Guests and signed-in users go straight to JARVIS; the app itself is never locked.
+        // First-run cinematic plays before Login / Register / Guest. Existing users who have
+        // already seen it go directly to the auth screen; no Home UI is exposed behind Login.
         AuthManager.init(applicationContext)
         if (AuthManager.needsAuthScreen()) {
-            startActivity(Intent(this, AuthActivity::class.java))
-            finish()
+            if (!prefs.hasSeenPreLoginIntro) {
+                val preLoginRoot = android.widget.FrameLayout(this)
+                setContentView(preLoginRoot)
+                WelcomeIntroOverlay.show(this, preLoginRoot) {
+                    prefs.hasSeenPreLoginIntro = true
+                    startActivity(Intent(this, AuthActivity::class.java))
+                    finish()
+                }
+            } else {
+                startActivity(Intent(this, AuthActivity::class.java))
+                finish()
+            }
             return
         }
 
@@ -258,9 +269,12 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        if (!prefs.hasSeenWelcomeIntro) {
-            WelcomeIntroOverlay.show(this, binding.rootMainLayout) {
-                prefs.hasSeenWelcomeIntro = true
+        // After a successful login / guest choice, show the short creator welcome before
+        // handing the user to the live JARVIS home screen. Voice is never started silently.
+        if (intent.getBooleanExtra(EXTRA_SHOW_POST_LOGIN_WELCOME, false)) {
+            intent.removeExtra(EXTRA_SHOW_POST_LOGIN_WELCOME)
+            WelcomeIntroOverlay.showPostLoginWelcome(this, binding.rootMainLayout) {
+                // The normal Home screen is now ready for the user.
             }
         }
     }
