@@ -4,7 +4,7 @@ description: JARVIS app map and safe voice, lock-screen, alarm and device-contro
 ---
 # JARVIS Master Blueprint — App Awareness and Cross-App Control
 
-This is the routing map for JARVIS itself and its Android host device. It is a knowledge and execution plan, not permission to bypass Android security. Prefer real app tools and semantic UI identifiers over guessed screen coordinates.
+Routing map for JARVIS and its Android host. Not permission to bypass Android security. Prefer native tools and semantic UI identifiers.
 
 ## 1. Identity and project facts
 - Android application ID / namespace: com.jarvis.assistant
