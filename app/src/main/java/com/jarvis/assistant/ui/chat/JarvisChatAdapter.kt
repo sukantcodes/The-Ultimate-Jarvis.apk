@@ -7,6 +7,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import android.speech.tts.TextToSpeech
+import java.util.Locale
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -18,6 +20,44 @@ class JarvisChatAdapter(
     private val onSaveAssistantMessage: ((String) -> Unit)? = null
 ) : ListAdapter<ChatTurn, JarvisChatAdapter.MessageViewHolder>(DiffCallback) {
 
+    private var speechEngine: TextToSpeech? = null
+    private var speechReady = false
+    private var speaking = false
+    private var pendingSpeech = ""
+
+    fun release() {
+        speechEngine?.stop()
+        speechEngine?.shutdown()
+        speechEngine = null
+        speechReady = false
+        speaking = false
+        pendingSpeech = ""
+    }
+
+    private fun speak(context: Context, text: String) {
+        if (speaking) { speechEngine?.stop(); speaking = false; return }
+        if (speechEngine == null) {
+            pendingSpeech = text
+            speechEngine = TextToSpeech(context.applicationContext) { status ->
+                if (status == TextToSpeech.SUCCESS) {
+                    speechReady = true
+                    val engine = speechEngine
+                    if (engine != null) {
+                        val languageResult = engine.setLanguage(Locale.getDefault())
+                        if (languageResult == TextToSpeech.LANG_MISSING_DATA || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) engine.setLanguage(Locale.US)
+                        val queued = pendingSpeech
+                        pendingSpeech = ""
+                        if (queued.isNotBlank()) speakNow(queued)
+                    }
+                } else Toast.makeText(context, "Text-to-speech is unavailable on this device.", Toast.LENGTH_SHORT).show()
+            }
+        } else if (speechReady) speakNow(text) else pendingSpeech = text
+    }
+
+    private fun speakNow(text: String) {
+        speechEngine?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis-chat-response")
+        speaking = true
+    }
     companion object DiffCallback : DiffUtil.ItemCallback<ChatTurn>() {
         override fun areItemsTheSame(oldItem: ChatTurn, newItem: ChatTurn): Boolean = oldItem.id == newItem.id
         override fun areContentsTheSame(oldItem: ChatTurn, newItem: ChatTurn): Boolean = oldItem == newItem
@@ -52,7 +92,7 @@ class JarvisChatAdapter(
                 binding.tvAssistantMessage.text = turn.jarvisResponse
                 binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", turn.jarvisResponse) }
                 binding.btnAssistantPlay.setOnClickListener {
-                    Toast.makeText(context, "Text-to-speech playback is not connected to this control yet.", Toast.LENGTH_SHORT).show()
+                    speak(context, turn.jarvisResponse)
                 }
                 binding.btnAssistantSave.setOnClickListener { onSaveAssistantMessage?.invoke(turn.jarvisResponse) }
             } else {
