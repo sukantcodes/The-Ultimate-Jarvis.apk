@@ -137,7 +137,7 @@ class ApiConnectionActivity : AppCompatActivity() {
             if (result.first) {
                 val ping = result.second
                 binding.tvPingResult.text = "Ping: ${ping}ms • Valid"
-                binding.tvLiveStatus.text = "CONNECTED • HANDSHAKE OK"
+                binding.tvLiveStatus.text = "API KEY ACCEPTED • LIVE SESSION NOT TESTED"
                 binding.viewStatusDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#22C55E"))
                 Snackbar.make(binding.root, "Connection verified! Ping: ${ping}ms", Snackbar.LENGTH_LONG).show()
             } else {
