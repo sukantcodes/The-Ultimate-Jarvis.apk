@@ -174,6 +174,68 @@ export function createHandler(d: Deps) {
       note: "IP addresses are observed server-side and are approximate network identifiers, not locations." };
   }
 
+
+  async function blocks() {
+    const { data, count } = await d.admin.from("access_blocks")
+      .select("id,block_type,target_value,reason,created_at,created_by", { count: "exact" })
+      .order("created_at", { ascending: false }).limit(200);
+    if (!data) throw new Error("blocks");
+    return { items: data, total: count ?? data.length };
+  }
+
+  async function mutateBlock(body: Record<string, unknown>, user: AuthedUser, remove: boolean) {
+    const type = typeof body.block_type === "string" ? body.block_type : "";
+    const target = typeof body.target_value === "string" ? body.target_value.trim() : "";
+    if (!["user", "device", "ip"].includes(type) || target.length < 2 || target.length > 128)
+      return json({ error: "bad_request" }, 400);
+    if (type === "user" && !UUID.test(target)) return json({ error: "bad_request" }, 400);
+    if (type === "device" && !UUID.test(target)) return json({ error: "bad_request" }, 400);
+    if (type === "ip" && (!IP_LIKE.test(target) || !(target.includes(".") || target.includes(":"))))
+      return json({ error: "bad_request" }, 400);
+    if (type === "user" && ownerIds()?.includes(target.toLowerCase())) return json({ error: "protected_owner" }, 403);
+    if (remove) {
+      const { error } = await d.admin.from("access_blocks").delete()
+        .eq("block_type", type).eq("target_value", target);
+      if (error) throw new Error("unblock");
+    } else {
+      const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 240) : "";
+      const { error } = await d.admin.from("access_blocks").upsert({
+        block_type: type, target_value: target, reason, created_by: user.id
+      }, { onConflict: "block_type,target_value" });
+      if (error) throw new Error("block");
+    }
+    return json({ ok: true });
+  }
+
+  async function users(body: Record<string, unknown>) {
+    const { from, to, page, size } = pageParams(body);
+    const { data: devices } = await d.admin.from("app_devices")
+      .select("user_id,install_id,device_model,android_version,app_version,last_seen_at")
+      .order("last_seen_at", { ascending: false });
+    const { data: blocks } = await d.admin.from("access_blocks").select("block_type,target_value");
+    const { data: authPage, error } = await d.admin.auth.admin.listUsers({ page: page + 1, perPage: size });
+    if (error) throw new Error("users");
+    const deviceRows = devices ?? [];
+    const blockRows = blocks ?? [];
+    const items = (authPage?.users ?? []).map((u: Record<string, unknown>) => {
+      const id = String(u.id ?? "");
+      const ownDevices = deviceRows.filter((x: Record<string, unknown>) => x.user_id === id);
+      const ips = new Set<string>();
+      return {
+        user_id: id, email: typeof u.email === "string" ? u.email : null,
+        created_at: u.created_at ?? null, last_sign_in_at: u.last_sign_in_at ?? null,
+        devices: ownDevices,
+        blocked: blockRows.some((x: Record<string, unknown>) =>
+          (x.block_type === "user" && x.target_value === id) ||
+          (x.block_type === "device" && ownDevices.some((dev: Record<string, unknown>) => dev.install_id === x.target_value)))
+      };
+    });
+    const term = typeof body.search === "string" ? body.search.trim().toLowerCase() : "";
+    const filtered = term ? items.filter((u: Record<string, unknown>) =>
+      String(u.email ?? "").toLowerCase().includes(term) || String(u.user_id).toLowerCase().includes(term)) : items;
+    return { items: filtered, total: filtered.length, page, page_size: size };
+  }
+
   async function trends(body: Record<string, unknown>) {
     const days = [7, 14, 30].includes(Number(body.days)) ? Number(body.days) : 14;
     const { data, error } = await d.admin.rpc("owner_trends", { p_days: days });
@@ -209,6 +271,10 @@ export function createHandler(d: Deps) {
         case "devices": return json(await devices(body));
         case "ips": return json(await ips(body));
         case "events": return json(await events(body));
+        case "blocks": return json(await blocks());
+        case "block": return await mutateBlock(body, user, false);
+        case "unblock": return await mutateBlock(body, user, true);
+        case "users": return json(await users(body));
         case "trends": return json(await trends(body));
         case "logout":
           await d.admin.from("dashboard_sessions").update({ revoked_at: d.now().toISOString() }).eq("id", session.id);
