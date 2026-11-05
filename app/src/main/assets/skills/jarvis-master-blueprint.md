@@ -59,8 +59,14 @@ Choose the least privileged supported route:
 5. Settings fallback: open the exact supported Settings page and let the user complete any restricted switch or confirmation.
 6. If no supported route exists, explain the limitation and offer the nearest safe route. Never simulate a successful action.
 
-## 5. Lock-screen and background command policy
-- Safe, low-risk actions may run from an already authorized voice/assistant session or notification action when Android permits it: speak a response, report time/battery, stop JARVIS playback/session, or manage a previously configured alarm/timer.
+## 5. Lock-screen command policy — highest product priority
+- Lock-screen JARVIS voice control is a core requirement. The intended flow is: invoke JARVIS as the configured Android Digital Assistant while locked, speak a command, execute a supported native action, speak a verified result, and do not require opening MainActivity for simple commands.
+- **Alarm setting is the first required lock-screen action.** Support clear commands such as “set an alarm for 6:30 AM” and “wake me at 7 tomorrow”. Use the existing shared ClockServices.engine(context) / ClockEngine and AlarmDraft; do not create a parallel alarm store.
+- Parse time/date/repeat details into typed values. Ask a concise clarification for ambiguous AM/PM, date or repeat intent. Speak success only after ClockResult.Ok confirms that the alarm was saved and scheduled. If scheduling fails or unlock is required, say it was not completed.
+- List/edit/cancel alarms only after uniquely resolving the requested alarm; ask which one if multiple match. Do not silently delete an ambiguous alarm.
+- Keep lock-screen speech privacy-safe. Do not reveal private notification contents, messages, contacts, files, account information or OTPs while locked.
+- The assistant session must receive and route the command before it hides. Do not rely on launching the full JARVIS app for a simple alarm action.
+- Safe, low-risk actions may run from an already authorized voice/assistant session or notification action when Android permits it: speak a response, report time/battery, stop JARVIS playback/session, or manage alarms/timers.
 - AlarmRingActivity is explicitly configured to show over the lock screen for alarm UI; that does not grant general permission to expose other app content.
 - Keep lock-screen responses privacy-preserving. Do not read message contents, contacts, calendar details, files, account information, OTPs or private notifications aloud unless the device is unlocked and the user has authorized that specific operation.
 - Do not launch arbitrary apps, send messages, make purchases, delete data, change security settings, reveal secrets, or trigger financial/identity actions from a locked device without required user confirmation and authentication.
