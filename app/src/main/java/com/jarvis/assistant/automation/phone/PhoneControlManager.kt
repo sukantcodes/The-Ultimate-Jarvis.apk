@@ -543,8 +543,26 @@ class PhoneControlManager(
         }
     }
 
+    /**
+     * Search guard shared by web and app search routes. It blocks requests that would
+     * help locate dangerous or age-restricted material while leaving ordinary searches intact.
+     */
+    fun isSafeSearchQuery(query: String): Boolean {
+        val normalized = query.lowercase(Locale.ROOT)
+        val restrictedPatterns = listOf(
+            Regex("""\\b(?:guns?|firearms?|pistols?|rifles?|ammunition|weapon accessories|switchblades?|tasers?|pepper spray)\\b"""),
+            Regex("""\\b(?:cocaine|heroin|methamphetamine|fentanyl|recreational drugs?|intoxicants?|buy drugs|drug dealer)\\b"""),
+            Regex("""\\b(?:gambling|online betting|sports betting|casino|sportsbook|prediction markets?)\\b"""),
+            Regex("""\\b(?:self[- ]harm|suicide methods?|dangerous challenges?|choking challenge|blackout challenge)\\b""")
+        )
+        return restrictedPatterns.none { it.containsMatchIn(normalized) }
+    }
+
     fun searchWeb(query: String): String {
         val cleanQuery = query.trim()
+        if (!isSafeSearchQuery(cleanQuery)) {
+            return "I can't search for content that could enable harm or bypass safety protections."
+        }
         if (cleanQuery.isBlank()) {
             return "Please specify what you want to search for."
         }
@@ -635,6 +653,9 @@ class PhoneControlManager(
      */
     fun searchSocialApp(appName: String, query: String): String {
         val cleanQuery = query.trim()
+        if (!isSafeSearchQuery(cleanQuery)) {
+            return "I can't search for content that could enable harm or bypass safety protections."
+        }
         if (cleanQuery.isBlank()) return "What should I search for in $appName?"
         val encoded = Uri.encode(cleanQuery)
         val normalized = appName.trim().lowercase(Locale.ROOT)
@@ -676,6 +697,9 @@ class PhoneControlManager(
     suspend fun searchInApp(appName: String, query: String): String {
         val cleanQuery = query.trim()
         val cleanApp = appName.trim()
+        if (!isSafeSearchQuery(cleanQuery)) {
+            return "I can't search for content that could enable harm or bypass safety protections."
+        }
         if (cleanQuery.isBlank() || cleanApp.isBlank()) return "Tell me what to search for and which app to use."
 
         val normalized = cleanApp.lowercase(Locale.ROOT)
