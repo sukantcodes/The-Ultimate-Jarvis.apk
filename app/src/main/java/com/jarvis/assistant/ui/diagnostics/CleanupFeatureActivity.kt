@@ -17,6 +17,8 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
+import com.airbnb.lottie.LottieAnimationView
+import com.airbnb.lottie.LottieDrawable
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.io.File
@@ -47,6 +49,7 @@ class CleanupFeatureActivity : AppCompatActivity() {
     private var scanMode = 0
     private lateinit var status: TextView
     private lateinit var progress: ProgressBar
+    private lateinit var animationView: LottieAnimationView
     private val feature by lazy { intent.getIntExtra(EXTRA_FEATURE, 0).coerceIn(0, 6) }
 
     private val storageSettings = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -101,6 +104,13 @@ class CleanupFeatureActivity : AppCompatActivity() {
         root.addView(progress, LinearLayout.LayoutParams(dp(42), dp(42)).apply {
             gravity = android.view.Gravity.CENTER_HORIZONTAL
         })
+        animationView = LottieAnimationView(this).apply {
+            visibility = View.GONE
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+        }
+        root.addView(animationView, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(190)
+        ))
         status = TextView(this).apply {
             text = "Ready"
             textSize = 14f
@@ -140,7 +150,10 @@ class CleanupFeatureActivity : AppCompatActivity() {
                 ensureStorageAccess()
             }
             1 -> showMemory()
-            2 -> openSystemPage(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
+            2 -> {
+                playSnaptubeAnimation("animation_battery_loading", loop = true)
+                openSystemPage(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
+            }
             6 -> chooseAppToUninstall()
         }
     }
@@ -180,6 +193,7 @@ class CleanupFeatureActivity : AppCompatActivity() {
             "\nTotal RAM: " + formatBytes(info.totalMem) +
             "\nLow-memory state: " + if (info.lowMemory) "Yes" else "No"
         status.text = report
+        playSnaptubeAnimation("animation_boost_loading", loop = false)
         MaterialAlertDialogBuilder(this)
             .setTitle("Phone memory diagnostics")
             .setMessage(
@@ -289,8 +303,11 @@ class CleanupFeatureActivity : AppCompatActivity() {
         }
         if (items.isEmpty()) {
             status.text = "No " + category + " found in accessible shared storage."
+            val emptyAnimation = if (mode == 4) "animation_scan_whats_app_empty" else "animation_clean_noting"
+            playSnaptubeAnimation(emptyAnimation, loop = false)
             return
         }
+        playSnaptubeAnimation("animation_all_finish", loop = false)
         val total = items.sumOf { it.size }
         status.text = "Found " + items.size + " " + category + " • " + formatBytes(total) +
             ". Select only the files you want removed."
@@ -347,19 +364,56 @@ class CleanupFeatureActivity : AppCompatActivity() {
     }
 
     private fun showScanning() {
-        progress.visibility = View.VISIBLE
-        val pulse = AlphaAnimation(0.45f, 1f).apply {
-            duration = 650
-            repeatMode = AlphaAnimation.REVERSE
-            repeatCount = AlphaAnimation.INFINITE
-        }
         status.text = "Scanning shared phone storage…"
-        status.startAnimation(pulse)
+        status.clearAnimation()
+        val animation = when (scanMode) {
+            0 -> "clean_app_junk"
+            3 -> "animation_large_file_scan"
+            4 -> "animation_scan_whats_app_loading"
+            5 -> "animation_clean_noting"
+            else -> "animation_boost_loading"
+        }
+        if (!playSnaptubeAnimation(animation, loop = true)) {
+            progress.visibility = View.VISIBLE
+            val pulse = AlphaAnimation(0.45f, 1f).apply {
+                duration = 650
+                repeatMode = AlphaAnimation.REVERSE
+                repeatCount = AlphaAnimation.INFINITE
+            }
+            progress.startAnimation(pulse)
+        }
+    }
+
+    private fun playSnaptubeAnimation(name: String, loop: Boolean): Boolean {
+        val folder = "lottie/snaptube/$name/"
+        val animationFile = folder + "animation.json"
+        val available = try {
+            assets.open(animationFile).close()
+            true
+        } catch (_: Exception) {
+            false
+        }
+        if (!available) {
+            animationView.visibility = View.GONE
+            return false
+        }
+        progress.clearAnimation()
+        progress.visibility = View.GONE
+        animationView.cancelAnimation()
+        animationView.setImageAssetsFolder(folder)
+        animationView.setAnimation(animationFile)
+        animationView.repeatCount = if (loop) LottieDrawable.INFINITE else 0
+        animationView.visibility = View.VISIBLE
+        animationView.playAnimation()
+        return true
     }
 
     private fun hideScanning() {
         status.clearAnimation()
+        progress.clearAnimation()
         progress.visibility = View.GONE
+        animationView.cancelAnimation()
+        animationView.visibility = View.GONE
     }
 
     private fun openSystemPage(intent: Intent) {
