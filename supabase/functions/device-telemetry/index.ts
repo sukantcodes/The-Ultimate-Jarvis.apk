@@ -17,8 +17,20 @@ Deno.serve(async (req: Request) => {
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
 
   const installId = typeof body.install_id === "string" ? body.install_id : "";
-  const event = body.event === "sign_in" || body.event === "app_open" ? body.event : null;
+  const event = body.event === "sign_in" || body.event === "app_open" || body.event === "check" ? body.event : null;
   if (!UUID.test(installId) || !event) return json({ error: "bad_request" }, 400);
+
+  const ip = clientIp(req);
+  const [userBlock, deviceBlock, ipBlock] = await Promise.all([
+    admin.from("access_blocks").select("id").eq("block_type", "user").eq("target_value", user.id).maybeSingle(),
+    admin.from("access_blocks").select("id").eq("block_type", "device").eq("target_value", installId).maybeSingle(),
+    ip ? admin.from("access_blocks").select("id").eq("block_type", "ip").eq("target_value", ip).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  if (userBlock.data || deviceBlock.data || ipBlock.data) {
+    return json({ error: "access_blocked", message: "Access to JARVIS has been restricted. Contact the app owner." }, 403);
+  }
+  if (event === "check") return json({ ok: true, allowed: true });
 
   const { error } = await admin.rpc("record_device_seen", {
     p_install_id: installId,
@@ -27,7 +39,7 @@ Deno.serve(async (req: Request) => {
     p_android: clean(body.android_version, 32),
     p_app_version: clean(body.app_version, 32),
     p_event: event,
-    p_ip: clientIp(req),
+    p_ip: ip,
   });
   if (error) return json({ error: "server_error" }, 500);
   return json({ ok: true });
