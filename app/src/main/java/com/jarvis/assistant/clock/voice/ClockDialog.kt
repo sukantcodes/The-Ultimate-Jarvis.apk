@@ -38,14 +38,17 @@ class ClockDialog(private val ops: ClockOps, private val now: () -> Long = { Sys
 
     /** Returns a reply if the sentence belongs to the alarm clock (a new command, or the answer to the last question), else null. */
     @Synchronized
-    fun handle(raw: String): ClockReply? {
+    fun handle(raw: String, languageHint: String? = null): ClockReply? {
         current()?.let { p ->
-            val lang = ClockCommandParser.detectLanguage(raw).let { if (it == "en") p.language else it }
+            val lang = ClockCommandParser.detectLanguage(raw).let { detected -> if (detected == "en") languageHint?.substringBefore("-")?.takeIf { it.isNotBlank() } ?: p.language else detected }
             answer(p, raw, lang)?.let { return it }
         }
         val parsed = ClockCommandParser.parse(raw) ?: return null
         pending = null
-        return run(parsed.intent, null, parsed.language, raw)
+        val language = if (parsed.language == "en") {
+            languageHint?.substringBefore("-")?.takeIf { it.isNotBlank() } ?: parsed.language
+        } else parsed.language
+        return run(parsed.intent, null, language, raw)
     }
 
     private fun run(intent: ClockIntent, targetId: Long?, language: String, spoken: String?): ClockReply {
