@@ -689,7 +689,7 @@ class PhoneControlManager(
             "chatgpt" to "chatgpt.com", "gemini" to "gemini.google.com"
         )
         val domain = knownWebDomains[normalized]
-            ?: cleanApp.takeIf { it.matches(Regex("""(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,}""")) }
+            ?: cleanApp.takeIf { it.matches(Regex("""(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}""")) }
         val expectedPackage = POPULAR_APP_PACKAGES[normalized]
             ?: POPULAR_APP_PACKAGES[normalized.replace(" ", "")]
             ?: resolveInstalledPackageByName(cleanApp)

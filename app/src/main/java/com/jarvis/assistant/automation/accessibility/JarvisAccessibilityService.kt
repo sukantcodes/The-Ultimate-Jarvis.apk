@@ -2187,7 +2187,7 @@ private fun findAndInjectEditText(
         // Other fields are only tried when nothing pointed at one: not for an explicit rect or an input-focused field.
         val queue = ArrayList<AccessibilityNodeInfo>()
         queue.add(resolved.node)
-        val pinned = resolved.source == "target-rect" || resolved.source == "input-focus"
+        val pinned = resolved.source == "target-rect" || resolved.source == "input-focus" || resolved.source == "live-input-focus"
         if (!pinned) {
             val refs = collectEditables(typingRoots(), false)
             TypingText.rank(refs.map { it.candidate }, toBox(targetRect)).forEach { c ->
