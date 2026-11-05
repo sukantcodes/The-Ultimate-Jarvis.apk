@@ -12,7 +12,6 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
-import java.io.File
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.util.Locale
@@ -111,7 +110,7 @@ class CleanupFeatureActivity : AppCompatActivity() {
 
     private fun cleanOwnCache() {
         val roots = listOfNotNull(cacheDir, externalCacheDir).distinct()
-        val files = roots.flatMap { it.walkTopDown().filter(File::isFile).toList() }.distinct()
+        val files = roots.flatMap { it.walkTopDown().filter { file -> file.isFile }.toList() }.distinct()
         val total = files.sumOf { it.length() }
         status.text = "Found ${files.size} JARVIS cache files • ${formatBytes(total)}."
         MaterialAlertDialogBuilder(this)
