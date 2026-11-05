@@ -103,9 +103,29 @@ Execution should be routed by capability, not by pretending every action is a ta
 - For sending, calling, posting, buying, deleting, uninstalling or security changes, show the target/action and require explicit confirmation; require unlock where Android or the target app demands it.
 - Respect app sandboxing and other apps' privacy. Only interact with visible UI that the user asked JARVIS to operate.
 
-## 5. Lock-screen / background capability model
+## 5. Lock-screen / background capability model — highest-priority interaction
 
-A lock screen is not a second unlocked desktop. Android allows selected assistant and notification experiences, but restricts private content and high-impact actions.
+**Product priority:** Lock-screen JARVIS invocation and useful voice commands are a core requirement, not a secondary convenience. The target flow is: user invokes the configured JARVIS Digital Assistant while the phone is locked, speaks a command, JARVIS routes it to a native action, speaks a concise result, and returns control without requiring the user to open the JARVIS app. Implement and test this path before expanding lower-priority automation features.
+
+A lock screen is not a second unlocked desktop. Android allows selected assistant and notification experiences, but restricts private content and high-impact actions. The assistant session must remain the entry point; do not depend on launching MainActivity or showing the full chat UI.
+
+### Lock-screen alarm commands — required first native skill
+- Support direct commands such as “set an alarm for 6:30 AM”, “wake me at 7 tomorrow”, and repeat-day alarms when the time/date is unambiguous.
+- Route all create/read/update/delete/ring/snooze operations through the existing shared `ClockServices.engine(context)` / `ClockEngine`; never create a second alarm store or bypass the existing alarm scheduler.
+- For create: parse time/date/repeat/label into a typed `AlarmDraft`, call `ClockEngine.create`, and speak success only after `ClockResult.Ok` confirms Android accepted and persisted the schedule. On ambiguous AM/PM, date or repeat intent, ask a short clarification instead of guessing.
+- For list/cancel/edit: resolve the target uniquely using ClockEngine; ask which alarm if multiple matches. Confirm destructive deletion/cancellation when the target is not unambiguously specified.
+- Keep the response short and privacy-safe on the lock screen (for example, “Alarm set for 6:30 AM”). Do not expose alarm labels that may contain private information unless appropriate.
+- If the OS blocks execution or requires unlock, state that it was not completed; never announce a scheduled alarm without a verified engine result.
+
+### Implementation sequence
+1. Keep the Android VoiceInteractionSession alive long enough to receive/route a command; do not immediately hide it before the command path is ready.
+2. Connect assistant-session speech input to the existing conversation/tool runtime or a small deterministic native-command router. Prefer deterministic local parsing for alarms so they do not depend on a network model.
+3. Route alarm actions to the shared ClockEngine and return verified outcomes through the assistant session's speech output.
+4. Check device lock state and command risk before every action; do not launch the full app to complete a simple alarm command.
+5. Add automated tests for locked/unlocked session routing, exact time parsing, ambiguous AM/PM, repeat days, schedule rejection, duplicate delivery and verification.
+6. Test on the actual Android/OEM device: selecting JARVIS as default assistant, invocation while locked, microphone availability, foreground-service restrictions, and spoken result.
+
+
 
 ### Safe low-risk examples (only if implemented and allowed by active OS role/session)
 - Speak a generic answer or time.
