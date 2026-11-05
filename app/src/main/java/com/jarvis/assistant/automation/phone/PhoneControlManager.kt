@@ -669,6 +669,77 @@ class PhoneControlManager(
     }
 
     /**
+     * Universal installed-app search. It launches the requested app, waits for its window
+     * to become foreground, then uses the same verified typing pipeline as the visual agent.
+     * If the app exposes no searchable field, JARVIS reports that instead of guessing at controls.
+     */
+    suspend fun searchInApp(appName: String, query: String): String {
+        val cleanQuery = query.trim()
+        val cleanApp = appName.trim()
+        if (cleanQuery.isBlank() || cleanApp.isBlank()) return "Tell me what to search for and which app to use."
+
+        val normalized = cleanApp.lowercase(Locale.ROOT)
+        val knownWebDomains = mapOf(
+            "reddit" to "reddit.com", "tiktok" to "tiktok.com", "instagram" to "instagram.com",
+            "facebook" to "facebook.com", "twitter" to "x.com", "x" to "x.com",
+            "linkedin" to "linkedin.com", "pinterest" to "pinterest.com", "spotify" to "spotify.com",
+            "amazon" to "amazon.in", "flipkart" to "flipkart.com", "netflix" to "netflix.com",
+            "discord" to "discord.com", "telegram" to "t.me", "quora" to "quora.com",
+            "medium" to "medium.com", "github" to "github.com", "canva" to "canva.com",
+            "chatgpt" to "chatgpt.com", "gemini" to "gemini.google.com"
+        )
+        val domain = knownWebDomains[normalized]
+            ?: cleanApp.takeIf { it.matches(Regex("""(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,}""")) }
+        val expectedPackage = POPULAR_APP_PACKAGES[normalized]
+            ?: POPULAR_APP_PACKAGES[normalized.replace(" ", "")]
+            ?: resolveInstalledPackageByName(cleanApp)
+
+        if (expectedPackage == null) {
+            if (domain != null) {
+                val siteQuery = URLEncoder.encode("site:$domain $cleanQuery", "UTF-8")
+                return openUrl("https://www.google.com/search?q=$siteQuery")
+            }
+            return "I couldn't find '$cleanApp' installed. If it has a website, tell me its web address and I can search its public pages."
+        }
+
+        val launchResult = openApp(cleanApp)
+        if (launchResult.startsWith("Failed", true) || launchResult.startsWith("Could not", true) ||
+            launchResult.startsWith("I could not find", true)) return launchResult
+
+        val service = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance
+            ?: return "$launchResult Enable JARVIS Accessibility Service to let me search inside the app."
+        var foreground = false
+        for (attempt in 0 until 24) {
+            val activePackage = service.getActiveRootNode()?.packageName?.toString().orEmpty()
+            if (activePackage == expectedPackage || activePackage.startsWith("$expectedPackage:")) {
+                foreground = true
+                break
+            }
+            delay(150L)
+        }
+        if (!foreground) {
+            return "$launchResult I couldn't confirm that $cleanApp reached the foreground, so I did not type into another app."
+        }
+
+        val orchestrator = com.jarvis.assistant.vision.VisualTaskOrchestrator.getInstance()
+        val direct = orchestrator.handleType(cleanQuery, targetInputName = "search")
+        if (direct.success) return "Searched for '$cleanQuery' in $cleanApp. ${direct.message}"
+
+        // Some apps hide their search input behind a magnifying-glass/Search control.
+        val openedSearch = orchestrator.handleClick(
+            "Search",
+            taskGoal = "Open the Search control in $cleanApp so the user can search for: $cleanQuery"
+        )
+        if (openedSearch.success) {
+            delay(350L)
+            val retry = orchestrator.handleType(cleanQuery, targetInputName = "search")
+            if (retry.success) return "Entered '$cleanQuery' in $cleanApp search. ${retry.message}"
+            return "I opened $cleanApp's Search screen, but its input field could not be verified. ${retry.message}"
+        }
+        return "I opened $cleanApp, but its search control wasn't exposed clearly enough to use safely. ${direct.message}"
+    }
+
+    /**
      * Opens a targeted Instagram destination immediately without an AI round-trip.
      * Instagram does not expose public deep links for silently liking/following or sending DMs;
      * those requests navigate to the relevant screen and leave the final interaction to the user.

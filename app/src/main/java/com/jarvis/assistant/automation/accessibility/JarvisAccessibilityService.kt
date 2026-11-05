@@ -1957,6 +1957,30 @@ private fun findAndInjectEditText(
 
     private fun interrupted() = Thread.currentThread().isInterrupted
 
+    /**
+     * Resolve the field that actually owns input focus after the keyboard opens. A field's
+     * screen bounds can move when the IME animates in, so a rectangle captured before the
+     * first tap must not outrank the live input-focus node.
+     */
+    private fun focusedEditableTarget(targetRect: Rect? = null): ResolvedTarget? {
+        val expandedTarget = targetRect?.let { Rect(it).apply { inset(-500, -500) } }
+        for (root in typingRoots()) {
+            val focused = try {
+                root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+            } catch (_: Exception) {
+                null
+            } ?: continue
+            if (!isEditableLike(focused) || isUrlBarNode(focused) || !focused.isEnabled) continue
+            if (expandedTarget != null) {
+                val bounds = Rect()
+                focused.getBoundsInScreen(bounds)
+                if (bounds.width() <= 0 || bounds.height() <= 0 || !Rect.intersects(bounds, expandedTarget)) continue
+            }
+            return ResolvedTarget(focused, "live-input-focus")
+        }
+        return null
+    }
+
     /** Polls the field until [expected] is read back or [timeoutMs] passes (web views sync their tree late). */
     private fun settle(field: Field, expected: String, timeoutMs: Long): Boolean {
         val deadline = System.currentTimeMillis() + timeoutMs
@@ -2129,20 +2153,26 @@ private fun findAndInjectEditText(
         Log.i(TAG, "smartTypeText starting (length=${textToType.length}, targeted=${targetRect != null}, submit=$submit)")
 
         val hasRect = toBox(targetRect) != null
+        var resolved: ResolvedTarget? = null
         if (hasRect) {
-            // A failed tap no longer aborts: the field may already be focused, and the tree scan can still find it.
+            // The tap opens the IME on many apps. Wait for Android to assign real input focus,
+            // then use that live node instead of trusting bounds from before the keyboard moved the layout.
             if (!performClickAtRect(targetRect!!)) Log.w(TAG, "smartTypeText: tap at target failed, continuing with tree search")
-            pause(100)
+            val focusDeadline = System.currentTimeMillis() + 1200L
+            while (resolved == null && !interrupted() && System.currentTimeMillis() < focusDeadline) {
+                resolved = focusedEditableTarget(targetRect)
+                if (resolved == null) pause(100)
+            }
         }
 
-        // Fields can appear/focus late (expanding search bars, WebViews): keep looking for up to ~1.5s.
-        var resolved = resolveTypingTarget(targetRect, relaxed = false)
-        val deadline = System.currentTimeMillis() + 1500
+        // Fields can appear/focus late (expanding search bars, WebViews): keep looking for up to ~1.8s.
+        if (resolved == null) resolved = resolveTypingTarget(targetRect, relaxed = false)
+        val deadline = System.currentTimeMillis() + 1800
         while (resolved == null && !interrupted() && System.currentTimeMillis() < deadline) {
-            pause(120)
-            resolved = resolveTypingTarget(targetRect, relaxed = false)
+            resolved = focusedEditableTarget(targetRect) ?: resolveTypingTarget(targetRect, relaxed = false)
+            if (resolved == null) pause(120)
         }
-        if (resolved == null) resolved = resolveTypingTarget(targetRect, relaxed = true)
+        if (resolved == null) resolved = focusedEditableTarget(targetRect) ?: resolveTypingTarget(targetRect, relaxed = true)
         if (resolved == null) {
             Log.w(TAG, "smartTypeText found no editable field in any window; no text was entered")
             lastTypeDetail = "no editable field found in any window"
@@ -2184,6 +2214,28 @@ private fun findAndInjectEditText(
             Log.w(TAG, "smartTypeText field #${i + 1} (${resolved.source}) failed: $log")
             lastTypeDetail = "field #${i + 1} failed: $log"
             restoreBaseline(field, baseline)
+        }
+        // One bounded recovery pass: the first tap may have opened the keyboard and caused the
+        // target field to be recreated/repositioned. Re-resolve from the live focused node and
+        // verify again; never append blindly or report success without a fresh readback.
+        if (!interrupted()) {
+            pause(300)
+            val refreshedTarget = focusedEditableTarget(targetRect)
+                ?: resolveTypingTarget(targetRect, relaxed = false)
+            if (refreshedTarget != null && !refreshedTarget.isUrlBar) {
+                val refreshedField = Field(refreshedTarget.node)
+                val refreshedBaseline = refreshedField.text() ?: ""
+                val refreshedWeb = isWebContext(refreshedTarget.node)
+                log.setLength(0)
+                val retryStrategy = typeIntoField(refreshedField, textToType, refreshedWeb, log)
+                if (retryStrategy != null) {
+                    lastTypeVerified = true
+                    lastTypeDetail = "$retryStrategy via ${refreshedTarget.source} after keyboard-focus recovery"
+                    Log.i(TAG, "smartTypeText verified after focus recovery: $lastTypeDetail")
+                    return true
+                }
+                restoreBaseline(refreshedField, refreshedBaseline)
+            }
         }
         // Everything failed: report failure; never claim success.
         return false

@@ -529,6 +529,21 @@ object CommandParser {
             if (query.isNotBlank()) return ParsedCommandResult(JarvisCommand.SearchSocialApp(app, query), 0.95f, "SOCIAL_SEARCH_PREFIX")
         }
 
+        // Generic app search: keep app-specific fast paths above, then support any installed
+        // app with an exposed Search field (e.g. Spotify, Reddit, TikTok, Amazon, ChatGPT).
+        val genericAppSearch = Regex(
+            "$prefix(?:search|find|look up)\\s+(?:for\\s+)?(.+?)\\s+(?:on|in|inside)\\s+([a-zA-Z0-9][a-zA-Z0-9 .&_-]{1,40})$",
+            RegexOption.IGNORE_CASE
+        ).find(clean)
+        if (genericAppSearch != null) {
+            val query = genericAppSearch.groupValues[1].trim()
+            val app = genericAppSearch.groupValues[2].trim().replace(Regex("(?i)\\s+app$"), "").trim()
+            val excludedTargets = setOf("google", "the web", "web", "internet", "browser", "chrome", "online", "youtube", "instagram", "instazen")
+            if (query.length > 1 && app.lowercase(Locale.ROOT) !in excludedTargets) {
+                return ParsedCommandResult(JarvisCommand.SearchInApp(app, query), 0.95f, "GENERIC_APP_SEARCH")
+            }
+        }
+
         // 10. Multi-Website and Web URL Navigation
         val cleanForDomain = clean
             .replace(Regex("\\s+dot\\s+"), ".")

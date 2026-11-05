@@ -71,6 +71,7 @@ class CommandExecutor(
         }
         is JarvisCommand.SearchYouTube -> youtubeManager.searchYouTube(command.query)
         is JarvisCommand.SearchSocialApp -> phoneManager.searchSocialApp(command.app, command.query)
+        is JarvisCommand.SearchInApp -> phoneManager.searchInApp(command.app, command.query)
         is JarvisCommand.SocialAppAction -> phoneManager.socialAppAction(command.app, command.action, command.target, command.message)
         is JarvisCommand.PauseMedia -> youtubeManager.pausePlayback()
         is JarvisCommand.ResumeMedia -> youtubeManager.resumePlayback()
