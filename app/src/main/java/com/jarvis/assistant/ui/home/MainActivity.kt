@@ -52,7 +52,7 @@ class MainActivity : AppCompatActivity() {
     // One consent request per active Jarvis session; Android still requires its system prompt.
     private var autoScreenCaptureRequestedForSession = false
     private var accessCheckInProgress = false
-    private var accessCheckComplete = false
+    private var lastAccessCheckMs = 0L
 
     private var currentTab = TAB_HOME
     private val homeFragment by lazy { HomeFragment() }
@@ -156,8 +156,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (!::binding.isInitialized || accessCheckComplete || accessCheckInProgress) return
-        if (!AuthManager.isSignedIn) { accessCheckComplete = true; return }
+        if (!::binding.isInitialized || accessCheckInProgress) return
+        if (!AuthManager.isSignedIn) return
+        if (System.currentTimeMillis() - lastAccessCheckMs < 30_000L) return
         accessCheckInProgress = true
         binding.rootMainLayout.visibility = View.INVISIBLE
         lifecycleScope.launch {
@@ -165,9 +166,10 @@ class MainActivity : AppCompatActivity() {
             accessCheckInProgress = false
             if (isFinishing || isDestroyed) return@launch
             if (allowed) {
-                accessCheckComplete = true
+                lastAccessCheckMs = System.currentTimeMillis()
                 binding.rootMainLayout.visibility = View.VISIBLE
             } else {
+                stopService(Intent(this@MainActivity, JarvisConversationService::class.java))
                 MaterialAlertDialogBuilder(this@MainActivity)
                     .setTitle("JARVIS access restricted")
                     .setMessage("This account, device, or network address has been blocked by the app owner. Contact the owner if you believe this is a mistake.")
