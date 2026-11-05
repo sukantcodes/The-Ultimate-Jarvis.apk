@@ -112,6 +112,20 @@
         </HorizontalScrollView>
     </LinearLayout>
 
+    <TextView
+        android:id="@+id/btnAddBlock"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_jarvis_pill_button"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
+        android:text="＋  BLOCK IP / DEVICE / USER"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
