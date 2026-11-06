@@ -2004,22 +2004,47 @@ private fun findAndInjectEditText(
     }
 
     /** Gives the field input focus: ACTION_FOCUS, then a click on the node itself or a tap at its centre. */
-    private fun ensureFocused(field: Field) {
-        val n = field.fresh() ?: return
-        if (n.isFocused) return
-        n.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
-        pause(80)
-        if (field.fresh()?.isFocused == true) return
-        val node = field.node
-        if (node.isClickable && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
-            pause(120)
-        } else {
-            val b = Rect()
-            node.getBoundsInScreen(b)
-            if (b.width() > 0 && b.height() > 0) clickAt(b.exactCenterX(), b.exactCenterY())
-            pause(150)
+    private fun hasLiveInputFocus(field: Field): Boolean {
+        val current = field.fresh() ?: return false
+        return try {
+            typingRoots().any { root ->
+                val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+                focused != null && focused == current
+            } || current.isFocused
+        } catch (_: Exception) {
+            current.isFocused
         }
-        field.fresh()
+    }
+
+    /**
+     * Acquire real input focus, not merely view focus. Several Compose/WebView-backed fields
+     * accept ACTION_SET_TEXT only after the IME owns the field. Wait for the live focus event
+     * instead of assuming ACTION_FOCUS succeeded.
+     */
+    private fun ensureFocused(field: Field): Boolean {
+        if (hasLiveInputFocus(field)) return true
+        val n = field.fresh() ?: return false
+        try { n.performAction(AccessibilityNodeInfo.ACTION_FOCUS) } catch (_: Exception) {}
+        val firstDeadline = System.currentTimeMillis() + 350L
+        while (!interrupted() && System.currentTimeMillis() < firstDeadline) {
+            if (hasLiveInputFocus(field)) return true
+            pause(50)
+        }
+        val node = field.fresh() ?: return false
+        try {
+            if (node.isClickable) node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            else {
+                val b = Rect()
+                node.getBoundsInScreen(b)
+                if (b.width() > 0 && b.height() > 0) clickAt(b.exactCenterX(), b.exactCenterY())
+            }
+        } catch (_: Exception) {}
+        val deadline = System.currentTimeMillis() + 1800L
+        while (!interrupted() && System.currentTimeMillis() < deadline) {
+            if (hasLiveInputFocus(field)) return true
+            pause(70)
+        }
+        return false
     }
 
     /**
@@ -2073,8 +2098,13 @@ private fun findAndInjectEditText(
      * or null. Never returns success without a readback.
      */
     private fun typeIntoField(field: Field, text: String, web: Boolean, log: StringBuilder): String? {
-        val timeout = if (web) 1100L else 450L
+        // Focus-first is important for apps whose editable node exists before its input
+        // connection is ready (Compose, WebView and delayed search composers).
         val baseline = field.text() ?: ""
+        val focusReady = ensureFocused(field)
+        Log.d(TAG, "Typing focus readiness: $focusReady (web=$web)")
+
+        val timeout = if (web) 2600L else 1600L
 
         if (field.holds(text)) {
             Log.i(TAG, "smartTypeText skipped duplicate request: the exact text is already present")
@@ -2158,7 +2188,7 @@ private fun findAndInjectEditText(
             // The tap opens the IME on many apps. Wait for Android to assign real input focus,
             // then use that live node instead of trusting bounds from before the keyboard moved the layout.
             if (!performClickAtRect(targetRect!!)) Log.w(TAG, "smartTypeText: tap at target failed, continuing with tree search")
-            val focusDeadline = System.currentTimeMillis() + 1200L
+            val focusDeadline = System.currentTimeMillis() + 2600L
             while (resolved == null && !interrupted() && System.currentTimeMillis() < focusDeadline) {
                 resolved = focusedEditableTarget(targetRect)
                 if (resolved == null) pause(100)
@@ -2167,7 +2197,7 @@ private fun findAndInjectEditText(
 
         // Fields can appear/focus late (expanding search bars, WebViews): keep looking for up to ~1.8s.
         if (resolved == null) resolved = resolveTypingTarget(targetRect, relaxed = false)
-        val deadline = System.currentTimeMillis() + 1800
+        val deadline = System.currentTimeMillis() + 3200
         while (resolved == null && !interrupted() && System.currentTimeMillis() < deadline) {
             resolved = focusedEditableTarget(targetRect) ?: resolveTypingTarget(targetRect, relaxed = false)
             if (resolved == null) pause(120)
@@ -2242,13 +2272,29 @@ private fun findAndInjectEditText(
     }
 
     /** True when some editable field on screen currently holds [expected] (re-read from the live tree). */
-    fun verifyTextInAnyEditable(expected: String): Boolean {
+    fun verifyTextInAnyEditable(expected: String, includeBrowserUrlBar: Boolean = false): Boolean {
         return try {
-            collectEditables(typingRoots(), false).any { r ->
+            val roots = typingRoots()
+            val normalMatch = collectEditables(roots, false).any { r ->
                 val n = r.node
                 !n.isShowingHintText &&
                     (if (n.isPassword) TypingText.isMaskOf(n.text, expected) else TypingText.isVerified(n.text, expected))
             }
+            if (normalMatch || !includeBrowserUrlBar) return normalMatch
+
+            // Browser omniboxes are excluded from generic page-field scans.
+            // Permit readback only when the caller explicitly targeted browser search.
+            fun scan(node: AccessibilityNodeInfo, depth: Int): Boolean {
+                if (depth > 70) return false
+                if (isUrlBarNode(node) && node.isEditable && node.isEnabled && !node.isShowingHintText &&
+                    TypingText.isVerified(node.text, expected)) return true
+                for (i in 0 until node.childCount) {
+                    val child = node.getChild(i) ?: continue
+                    if (scan(child, depth + 1)) return true
+                }
+                return false
+            }
+            roots.any { scan(it, 0) }
         } catch (e: Exception) {
             false
         }
