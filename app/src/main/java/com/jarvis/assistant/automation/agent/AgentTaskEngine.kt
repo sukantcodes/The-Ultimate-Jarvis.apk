@@ -256,6 +256,15 @@ object AgentTaskEngine {
             context.failureReason = "Completion rejected: local goal evidence is ${context.completionEvidence}."
             return false
         }
+        if (state == State.COMPLETED) {
+            val unfinished = context.steps.filter { it.status != TaskStepStatus.COMPLETED }
+            if (unfinished.isNotEmpty()) {
+                context.failureReason = "Completion rejected: ${unfinished.size} mapped action(s) still lack individual verification."
+                context.status = State.VERIFYING
+                publish(context)
+                return false
+            }
+        }
         context.status = state
         context.failureReason = reason
         if (state == State.COMPLETED) {
@@ -476,9 +485,17 @@ object AgentTaskEngine {
         val title = step.title.lowercase()
         val relevant = when {
             normalizedAction.contains("open_app") -> title.contains("open") || title.contains("foreground")
-            normalizedAction.contains("search") || normalizedAction.contains("type_text") -> title.contains("search") || title.contains("find")
-            normalizedAction.contains("scroll") -> title.contains("scroll") || title.contains("load")
-            normalizedAction.contains("click") -> title.contains("navigate") || title.contains("select") || title.contains("perform") || title.contains("unlike")
+            normalizedAction.contains("search") -> title.contains("search") || title.contains("find") || title.contains("resolve")
+            normalizedAction.contains("type_text") -> title.contains("enter") || title.contains("type") || title.contains("comment")
+            normalizedAction.contains("scroll") -> title.contains("scroll") || title.contains("load") || title.contains("process")
+            normalizedAction.contains("wait") -> title.contains("wait") || title.contains("observe")
+            normalizedAction.contains("copy") -> title.contains("copy")
+            normalizedAction.contains("send") -> title.contains("send") || title.contains("submit")
+            normalizedAction.contains("call") -> title.contains("call") || title.contains("initiate")
+            normalizedAction.contains("click") -> title.contains("open") || title.contains("navigate") || title.contains("select") ||
+                title.contains("activate") || title.contains("perform") || title.contains("unlike") || title.contains("like") ||
+                title.contains("submit") || title.contains("skip") || title.contains("dismiss") || title.contains("composer") ||
+                title.contains("conversation")
             normalizedAction.contains("task_completed") -> title.contains("verify") || title.contains("finish")
             else -> false
         }
