@@ -12,18 +12,22 @@
     android:paddingTop="16dp"
     android:paddingBottom="96dp">
 
-    <!-- Dedicated orb stage: preserve the orb's home-screen position without covering the header or status area. -->
+    <!-- The upper 65% is reserved for the main orb; the lower 35% holds Home controls. -->
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/orbAreaEnd"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.65" />
+
     <FrameLayout
         android:id="@+id/orbContainer"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:minHeight="220dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginBottom="8dp"
         android:clipChildren="false"
         android:clipToPadding="false"
-        app:layout_constraintTop_toBottomOf="@id/layoutTitle"
-        app:layout_constraintBottom_toTopOf="@id/layoutStatusIndicator"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/orbAreaEnd"
         app:layout_constraintHeight_default="spread"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -139,7 +143,9 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center"
-        android:layout_marginBottom="14dp"
+        android:layout_marginTop="5dp"
+        android:layout_marginBottom="5dp"
+        app:layout_constraintTop_toTopOf="@id/orbAreaEnd"
         app:layout_constraintBottom_toTopOf="@id/cardWeather"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -195,12 +201,12 @@
         android:background="@drawable/bg_home_card_premium"
         android:paddingStart="20dp"
         android:paddingEnd="20dp"
-        android:paddingTop="16dp"
-        android:paddingBottom="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
         android:clickable="true"
         android:focusable="true"
-        android:minHeight="76dp"
-        android:layout_marginBottom="16dp"
+        android:minHeight="58dp"
+        android:layout_marginBottom="6dp"
         app:layout_constraintBottom_toTopOf="@id/homeLaunchpad"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -262,8 +268,8 @@
     <HorizontalScrollView
         android:id="@+id/homeLaunchpad"
         android:layout_width="0dp"
-        android:layout_height="82dp"
-        android:layout_marginBottom="12dp"
+        android:layout_height="58dp"
+        android:layout_marginBottom="6dp"
         android:clipToPadding="false"
         android:fillViewport="false"
         android:overScrollMode="never"
@@ -434,7 +440,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="8dp"
+        android:layout_marginBottom="4dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -443,7 +449,7 @@
         <LinearLayout
             android:id="@+id/btnScreenShareQuick"
             android:layout_width="0dp"
-            android:layout_height="84dp"
+            android:layout_height="66dp"
             android:layout_weight="1"
             android:layout_marginEnd="5dp"
             android:background="@drawable/bg_home_card_premium"
@@ -455,13 +461,13 @@
             android:contentDescription="Start or stop screen sharing">
 
             <ImageView
-                android:layout_width="32dp"
-                    android:layout_height="32dp"
+                android:layout_width="26dp"
+                    android:layout_height="26dp"
                     android:padding="7dp"
                     android:background="@drawable/bg_home_badge_violet"
                 android:src="@drawable/ic_screen_share"
                     app:tint="#A78BFA"
-                android:layout_marginBottom="4dp" />
+                android:layout_marginBottom="2dp" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -497,7 +503,7 @@
         <LinearLayout
             android:id="@+id/btnSavedMemories"
             android:layout_width="0dp"
-            android:layout_height="84dp"
+            android:layout_height="66dp"
             android:layout_weight="1"
             android:layout_marginStart="5dp"
             android:layout_marginEnd="5dp"
@@ -510,13 +516,13 @@
             android:contentDescription="Open saved memories">
 
             <ImageView
-                android:layout_width="32dp"
-                    android:layout_height="32dp"
+                android:layout_width="26dp"
+                    android:layout_height="26dp"
                     android:padding="7dp"
                     android:background="@drawable/bg_home_badge_amber"
                 android:src="@drawable/ic_stack_memory"
                     app:tint="#FFB020"
-                android:layout_marginBottom="4dp" />
+                android:layout_marginBottom="2dp" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -551,7 +557,7 @@
         <LinearLayout
             android:id="@+id/btnConversationLanguageQuick"
             android:layout_width="0dp"
-            android:layout_height="84dp"
+            android:layout_height="66dp"
             android:layout_weight="1"
             android:layout_marginStart="5dp"
             android:background="@drawable/bg_home_card_premium"
@@ -563,13 +569,13 @@
             android:contentDescription="Change conversation language">
 
             <ImageView
-                android:layout_width="32dp"
-                    android:layout_height="32dp"
+                android:layout_width="26dp"
+                    android:layout_height="26dp"
                     android:padding="7dp"
                     android:background="@drawable/bg_home_badge_orange"
                 android:src="@drawable/ic_settings_language"
                     app:tint="#FB923C"
-                android:layout_marginBottom="4dp" />
+                android:layout_marginBottom="2dp" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
