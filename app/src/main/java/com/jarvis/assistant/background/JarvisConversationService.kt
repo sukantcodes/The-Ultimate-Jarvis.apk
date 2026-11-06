@@ -2261,7 +2261,14 @@ class JarvisConversationService : Service() {
                     lastPlaybackEndTime = System.currentTimeMillis()
                     // Drop any of JARVIS's own voice the recognizer may have half-heard.
                     try { offlineRecognizer?.reset() } catch (_: Exception) {}
-                    if (_isSessionOn.value && offlineLocalMode) setConversationState(ConversationState.IDLE)
+                    if (_isSessionOn.value && offlineLocalMode) {
+                        setConversationState(ConversationState.IDLE)
+                        if (returnToStandbyAfterAuthorizedTurn && !isAutonomousTaskRunning && !autonomousWaitingForUser) {
+                            returnToStandbyAfterAuthorizedTurn = false
+                            suppressMicUploadUntilVoiceCommandComplete = false
+                            enterStandby(announce = false)
+                        }
+                    }
                 }
             }
         }
