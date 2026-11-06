@@ -33,7 +33,7 @@ object UniversalTaskMapper {
             .replace(Regex("""(?i)\\b(?:and then|then|after that|next)\\b"""), " ; ")
             .replace(Regex("""(?i)\\b(?:once|when)\\s+(?:the\\s+)?(?:skip\\s+)?button\\s+(?:appears|is available|becomes available)"""), " ; when the requested control becomes available ; ")
             .replace(Regex("""[.!?]+"""), " ; ")
-        val fragments = normalized.split(';', ',', '\\n')
+        val fragments = normalized.split(';', ',', '\n')
             .map { it.trim().trim('-', ' ') }
             .filter { it.isNotBlank() }
             .distinctBy { it.lowercase(Locale.ROOT) }
