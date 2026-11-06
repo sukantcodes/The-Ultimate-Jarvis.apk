@@ -14,7 +14,7 @@ object MessageSpeechSanitizer {
         val normalized = Normalizer.normalize(raw, Normalizer.Form.NFKC)
             .replace(Regex("[\\u200e\\u200f\\u202a-\\u202e\\u2066-\\u2069]"), "")
             .replace(Regex("[_\\-./\\\\|]+"), " ")
-            .replace(Regex("[^\\p{L}\\p{N}\\s'’]"), " ")
+            .replace(Regex("[^\\p{L}\\p{M}\\p{N}\\s'’]"), " ")
             .replace(Regex("\\s+"), " ")
             .trim()
         return normalized
