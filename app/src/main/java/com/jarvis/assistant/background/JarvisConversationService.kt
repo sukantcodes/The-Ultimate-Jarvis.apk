@@ -860,7 +860,8 @@ class JarvisConversationService : Service() {
                 com.jarvis.assistant.util.ConfirmationPolicy.promptSection()
             }
             val skillsSection = com.jarvis.assistant.skills.SkillStore.get(applicationContext).promptSection()
-            basePrompt + policySection + genderSection + skillsSection + com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).promptSection()
+            val learnedTaskProfile = com.jarvis.assistant.memory.TaskBehaviorLearner.promptSection(applicationContext)
+            basePrompt + learnedTaskProfile + policySection + genderSection + skillsSection + com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).promptSection()
         }
     }
 
