@@ -4381,7 +4381,8 @@ class JarvisConversationService : Service() {
         hasSpeechInCurrentUtterance = false
         hasSignalledUtteranceEnd = false
         serviceScope.launch { _wakeEvents.emit(Unit) }
-        beginActiveConversation(wakeTriggered = true)
+        // A full wake-prefixed request is already present; do not send an extra wake greeting.
+        beginActiveConversation(wakeTriggered = commandText.isNullOrBlank())
         if (!commandText.isNullOrBlank()) {
             val relevantContext = ambientContextStore.contextForExplicitRequest(commandText)
             val authorizedPrompt = if (relevantContext.isBlank()) commandText else "$commandText\n\n$relevantContext"
