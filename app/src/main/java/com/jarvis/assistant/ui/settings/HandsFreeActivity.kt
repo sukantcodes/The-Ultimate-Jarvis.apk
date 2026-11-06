@@ -25,14 +25,28 @@ class HandsFreeActivity : AppCompatActivity() {
         ThemeManager.applyDynamicBackground(binding.root)
 
         setupListeners()
+        binding.switchAmbientContext.isChecked = (application as com.jarvis.assistant.JarvisApp).preferences.isAmbientContextEnabled
     }
 
     override fun onResume() {
         super.onResume()
         updateServiceStatus()
+        binding.switchAmbientContext.isChecked = (application as com.jarvis.assistant.JarvisApp).preferences.isAmbientContextEnabled
     }
 
     private fun setupListeners() {
+        binding.switchAmbientContext.setOnCheckedChangeListener { _, enabled ->
+            val app = application as com.jarvis.assistant.JarvisApp
+            app.preferences.isAmbientContextEnabled = enabled
+            com.jarvis.assistant.background.JarvisConversationService.refreshAmbientContextMode()
+            Toast.makeText(this, if (enabled) "Local conversation context enabled" else "Local conversation context paused", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.btnClearAmbientContext.setOnClickListener {
+            com.jarvis.assistant.background.JarvisConversationService.clearAmbientContext()
+            Toast.makeText(this, "Recent conversation context cleared", Toast.LENGTH_SHORT).show()
+        }
+
         binding.btnBack.setOnClickListener {
             finish()
         }
