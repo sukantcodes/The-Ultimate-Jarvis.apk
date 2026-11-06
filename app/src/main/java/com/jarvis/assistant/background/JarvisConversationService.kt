@@ -867,10 +867,8 @@ class JarvisConversationService : Service() {
             }
             val skillsSection = com.jarvis.assistant.skills.SkillStore.get(applicationContext).promptSection()
             val learnedTaskProfile = com.jarvis.assistant.memory.TaskBehaviorLearner.promptSection(applicationContext)
-            val ambientContext = ambientContextStore.contextForPrompt()
             basePrompt + learnedTaskProfile + policySection + genderSection + skillsSection +
-                com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).promptSection() +
-                if (ambientContext.isBlank()) "" else "\n\n" + ambientContext
+                com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).promptSection()
         }
     }
 
@@ -4382,7 +4380,11 @@ class JarvisConversationService : Service() {
         hasSignalledUtteranceEnd = false
         serviceScope.launch { _wakeEvents.emit(Unit) }
         beginActiveConversation(wakeTriggered = true)
-        if (!commandText.isNullOrBlank()) sendTextMessage(commandText)
+        if (!commandText.isNullOrBlank()) {
+            val relevantContext = ambientContextStore.contextForExplicitRequest(commandText)
+            val authorizedPrompt = if (relevantContext.isBlank()) commandText else "$commandText\\n\\n$relevantContext"
+            sendTextMessage(authorizedPrompt)
+        }
     }
 
     private fun refreshAmbientContextModeInternal() {
