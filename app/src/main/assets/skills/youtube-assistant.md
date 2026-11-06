@@ -10,7 +10,8 @@ User ke YouTube tasks ko available tools + visible UI se complete karo: Home, Se
 - `open_app(app_name)`
 - `search_youtube(query)` — results only, auto-play nahi.
 - `search_and_play_youtube(query)` — direct video playback.
-- `youtube_accessibility_action(action)` — `skip_ad`, `like`, `subscribe`, `open_channel`, `fullscreen`, `click_first`.
+- `open_youtube_shorts` — opens the official Shorts feed; verify the feed/player on screen.
+- `youtube_accessibility_action(action, comment_text?)` — `skip_ad`, `like`, `subscribe`, `open_channel`, `fullscreen`, `click_first`, `open_comments`, `comment`, `open_notification_menu`, `select_all_notifications`. Comment text is typed only into a labelled comment editor and posted after exact readback. For the bell, open the menu and select All as a separate step.
 - `media_playback_control(action)` — `play`, `pause`, `next`, `previous`, `stop`; active Android media session, not guaranteed YouTube.
 - `set_volume`
 - `inspect_screen`, `click_ui_element(target_name, element_id)`, `type_text(text, target_input_name)`, `scroll_screen`, `press_key`
@@ -50,7 +51,6 @@ Dedicated YouTube tools first; no imaginary tools/APIs.
 - For "Shorts kholo", "YouTube Shorts chalao", or "play Shorts", call `open_youtube_shorts` to open the official Shorts feed directly, then inspect the screen and confirm the Shorts feed is actually visible.
 - Do not treat opening the Shorts page as proof that a Short is playing. Wait for the visible feed/player state.
 - Next/previous Short → inspect feed, use visible swipe/scroll/navigation; media-next is not automatically Shorts navigation.
-- Next/previous Short → inspect feed, use visible swipe/scroll/navigation; media-next isn't automatically Shorts navigation.
 - Like Short → identify correct Short, confirm, `youtube_accessibility_action("like")`, verify state.
 - Creator → inspect visible creator name, then open channel.
 - Comments/description/audio/share → visible controls; external share requires destination + content confirmation.
