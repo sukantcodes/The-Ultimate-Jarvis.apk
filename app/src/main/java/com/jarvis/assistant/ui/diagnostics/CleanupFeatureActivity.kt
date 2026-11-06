@@ -276,7 +276,7 @@ class CleanupFeatureActivity : AppCompatActivity() {
                 addView(idleBody())
             }
             host.addView(scroll)
-            val cta = ui.primaryButton(ctaLabel()).apply { setOnClickListener { onStart() } }
+            val cta = ui.primaryButton(ctaLabel()).apply { setOnClickListener { beginFeature() } }
             host.addView(cta, ui.lp().apply { topMargin = ui.dp(10) })
         }
     }
@@ -404,7 +404,7 @@ class CleanupFeatureActivity : AppCompatActivity() {
         return column
     }
 
-    private fun onStart() {
+    private fun beginFeature() {
         when (feature) {
             CleanerActions.F_BOOST, CleanerActions.F_BATTERY -> runBoostOnly()
             CleanerActions.F_JUNK -> ensureAccess(allowSkip = true) { runScan(it) }
