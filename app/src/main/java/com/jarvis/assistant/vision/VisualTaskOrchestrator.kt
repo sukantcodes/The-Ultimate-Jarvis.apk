@@ -1061,15 +1061,18 @@ class VisualTaskOrchestrator(
         val visibleUiText = elementsForTyping.joinToString(" ") {
             "${it.text} ${it.contentDescription} ${it.viewId}"
         }.lowercase(Locale.ROOT)
-        val browserPackage = (rootForTyping?.packageName?.toString() ?: "").let {
-            it.contains("chrome", ignoreCase = true) || it.contains("browser", ignoreCase = true) ||
-                it.contains("firefox", ignoreCase = true) || it.contains("brave", ignoreCase = true) ||
-                it.contains("edge", ignoreCase = true) || it.contains("opera", ignoreCase = true)
+        val browserPackage = (rootForTyping?.packageName?.toString() ?: "").lowercase(Locale.ROOT).let { pkg ->
+            listOf("chrome", "browser", "firefox", "brave", "edge", "opera", "duckduckgo", "vivaldi")
+                .any { marker -> pkg.contains(marker) }
         }
-        // The browser omnibox is a legitimate search field only when the user explicitly
-        // asked JARVIS to search in the browser. It must never be used for page prompts.
-        val allowBrowserSearchBar = browserPackage &&
-            targetInputName?.trim()?.equals("search", ignoreCase = true) == true
+        // Browser address/search fields are allowed only for an explicitly named search target.
+        // Accept common target labels ("search bar", "search box", "browser search") while
+        // refusing page prompts, message composers and other unrelated inputs.
+        val requestedInputTokens = targetInputName.orEmpty().lowercase(Locale.ROOT)
+            .split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotBlank() }
+        val explicitlyRequestedBrowserSearch = "search" in requestedInputTokens &&
+            requestedInputTokens.none { it in setOf("prompt", "message", "compose", "recipient") }
+        val allowBrowserSearchBar = browserPackage && explicitlyRequestedBrowserSearch
         val isGoogleFlowPage = groundingEngine.isGoogleFlowSurface(elementsForTyping) ||
             visibleUiText.contains("flow.google") || visibleUiText.contains("labs.google/fx/tools/flow")
         val isGoogleAiStudioPage = visibleUiText.contains("aistudio.google") || visibleUiText.contains("google ai studio")
