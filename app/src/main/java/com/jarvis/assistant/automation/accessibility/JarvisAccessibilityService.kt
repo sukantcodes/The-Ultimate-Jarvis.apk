@@ -1670,6 +1670,14 @@ private fun findAndInjectEditText(
      */
     fun pressCallControl(action: String): String {
         val root = getActiveRootNode() ?: return "NO_SCREEN"
+        val pkg = root.packageName?.toString().orEmpty()
+        val supportedCallPackages = setOf(
+            "com.android.incallui", "com.google.android.dialer", "com.android.dialer",
+            "com.android.phone", "com.oplus.dialer", "com.coloros.dialer",
+            "com.samsung.android.incallui", "com.whatsapp", "com.whatsapp.w4b"
+        )
+        if (pkg !in supportedCallPackages) return "NO_SCREEN"
+        if (findCallButton(root, listOf("end call", "hang up", "disconnect")) == null) return "NO_SCREEN"
 
         fun press(node: AccessibilityNodeInfo): String {
             var current: AccessibilityNodeInfo? = node
