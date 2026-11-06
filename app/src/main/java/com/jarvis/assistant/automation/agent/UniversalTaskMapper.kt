@@ -47,6 +47,12 @@ object UniversalTaskMapper {
     private fun expandClause(fragment: String): List<MappedAction> {
         val text = fragment.lowercase(Locale.ROOT)
         val steps = when {
+            "instagram" in text && ("unlike" in text || "liked" in text) ->
+                listOf("Open Instagram", "Navigate to liked content", "Observe and process matching items", "Scroll and wait for more items", "Verify list end and results")
+            "spotify" in text && Regex("""\b(play|listen to)\b""").containsMatchIn(text) ->
+                listOf("Open Spotify", "Search for the requested track", "Select one unique match", "Verify playback")
+            "youtube" in text && Regex("""\b(play|watch)\b""").containsMatchIn(text) ->
+                listOf("Open YouTube", "Find the exact requested video or song", "Select one uniquely matching result", "Verify playback")
             Regex("""\b(play|watch|listen to)\b""").containsMatchIn(text) ->
                 listOf("Find the exact requested song or video", "Select one uniquely matching result", "Verify that the requested media is playing")
             Regex("""\b(skip|dismiss)\b.*\b(ad|advertisement)\b|\b(ad|advertisement)\b.*\b(skip|dismiss)\b""").containsMatchIn(text) ->
