@@ -88,7 +88,7 @@ object ContactManagementManager {
         }
     }
 
-    private fun applyAndVerify(context: Context, action: String, number: String): Outcome = try {
+    private fun applyAndVerify(context: Context, action: String, number: String): Outcome {\n        return try {
         val before = BlockedNumberContract.isBlocked(context, number)
         if (action == "block" && before) return Outcome(true, "That number is already blocked.")
         if (action == "unblock" && !before) return Outcome(true, "That number is not currently blocked.")
@@ -105,8 +105,9 @@ object ContactManagementManager {
         else Outcome(false, "Android did not confirm the $action operation. Check the system blocked list.")
     } catch (_: SecurityException) {
         Outcome(false, "Android denied direct blocked-list access. No change was confirmed; use the Phone app's blocked-number settings.")
-    } catch (e: Exception) {
-        Outcome(false, "Could not $action $number: ${e.message ?: "unknown Android error"}.")
+        } catch (e: Exception) {
+            Outcome(false, "Could not $action $number: ${e.message ?: "unknown Android error"}.")
+        }
     }
 }
 
