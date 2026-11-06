@@ -2035,14 +2035,19 @@ private fun findAndInjectEditText(
             pause(50)
         }
         val node = field.fresh() ?: return false
+        var clickAccepted = false
         try {
-            if (node.isClickable) node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            else {
-                val b = Rect()
-                node.getBoundsInScreen(b)
-                if (b.width() > 0 && b.height() > 0) clickAt(b.exactCenterX(), b.exactCenterY())
-            }
+            if (node.isClickable) clickAccepted = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
         } catch (_: Exception) {}
+        if (!clickAccepted) {
+            // Some custom fields report clickable but reject ACTION_CLICK. Use their live
+            // bounds as a last focus-only fallback; never tap a different candidate.
+            val bounds = Rect()
+            try { node.getBoundsInScreen(bounds) } catch (_: Exception) {}
+            if (bounds.width() > 0 && bounds.height() > 0) {
+                clickAt(bounds.exactCenterX(), bounds.exactCenterY())
+            }
+        }
         val deadline = System.currentTimeMillis() + 1800L
         while (!interrupted() && System.currentTimeMillis() < deadline) {
             if (hasLiveInputFocus(field)) return true
