@@ -42,7 +42,8 @@ class BuiltInSkillsTest {
     private val argumentNames = setOf(
         "contact_name", "recipient_name", "app_number", "call_type", "app_name", "target_name", "element_id",
         // action values written in backticks, not tool names
-        "skip_ad", "open_channel", "click_first", "speaker_on", "speaker_off", "record_start", "record_stop"
+        "skip_ad", "open_channel", "click_first", "open_comments", "comment", "open_notification_menu",
+        "select_all_notifications", "speaker_on", "speaker_off", "record_start", "record_stop"
     )
 
     @Test
