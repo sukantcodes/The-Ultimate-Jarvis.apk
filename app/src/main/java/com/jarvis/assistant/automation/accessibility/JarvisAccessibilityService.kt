@@ -1246,7 +1246,7 @@ private fun findAndInjectEditText(
      * video (NOT the "Subscribe" button).
      */
     fun openChannel(): Boolean {
-        val root = rootInActiveWindow ?: return false
+        val root = youtubeRoot() ?: return false
         val candidates = mutableListOf<AccessibilityNodeInfo>()
         collectByResourceId(root, "channel", candidates)
         val target = candidates
@@ -1263,7 +1263,7 @@ private fun findAndInjectEditText(
     fun toggleFullscreen(): Boolean {
         if (clickNodeMatching("full screen", "fullscreen")) return true
 
-        val root = rootInActiveWindow ?: return false
+        val root = youtubeRoot() ?: return false
         val candidates = mutableListOf<AccessibilityNodeInfo>()
         collectByResourceId(root, "fullscreen", candidates)
         val target = candidates.firstOrNull { it.isClickable } ?: return false
@@ -1272,7 +1272,7 @@ private fun findAndInjectEditText(
 
     /** Auto-clicks first video result when YouTube search opens. */
     fun clickFirstVideoResult(): Boolean {
-        val root = rootInActiveWindow ?: return false
+        val root = youtubeRoot() ?: return false
         val candidates = mutableListOf<AccessibilityNodeInfo>()
         collectClickableVideoNodes(root, candidates)
         if (candidates.isNotEmpty()) {
@@ -1297,7 +1297,7 @@ private fun findAndInjectEditText(
 
     private fun clickNodeMatching(vararg keywords: String, exclude: String? = null): Boolean {
         return try {
-            val root = rootInActiveWindow ?: return false
+            val root = youtubeRoot() ?: return false
             val lowerKeywords = keywords.map { it.lowercase() }
             val lowerExclude = exclude?.lowercase()
 
