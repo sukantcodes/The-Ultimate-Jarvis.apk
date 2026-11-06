@@ -965,7 +965,10 @@ class BlinkitAgent(
         if (BlinkitScreenReader.classify(nodes) != BlinkitScreen.PAYMENT) {
             return BlinkitResult(false, BlinkitStatus.WRONG_SCREEN, "Blinkit's payment screen is not open. I did not change the payment method.")
         }
-        val carried = gate.pending?.summary?.items.orEmpty()
+        val pendingOrder = gate.pending
+            ?: return BlinkitResult(false, BlinkitStatus.NEEDS_USER, "Prepare checkout first so I can verify the cart and bill before changing payment.")
+        val carried = pendingOrder.summary.items
+        if (carried.isEmpty()) return BlinkitResult(false, BlinkitStatus.NOT_VERIFIED, "The prepared checkout has no verified item list. Re-open checkout before changing payment.")
         val before = BlinkitScreenReader.extractPayment(nodes, carried)
         val options = nodes.filter { it.clickable && paymentOptionMatches(it.haystack, requested) }
             .distinctBy { TitleMatch.normalize(it.label) }

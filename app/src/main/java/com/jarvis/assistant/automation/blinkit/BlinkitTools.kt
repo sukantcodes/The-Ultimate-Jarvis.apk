@@ -176,6 +176,7 @@ object BlinkitTools {
         "blinkit_cart" -> "Blinkit: cart " + args.optString("action", "view")
         "blinkit_address" -> "Blinkit: address " + args.optString("action", "status")
         "blinkit_prepare_checkout" -> "Blinkit: prepare checkout"
+        "blinkit_payment_method" -> "Blinkit: select payment method " + args.optString("method", "").take(40)
         "blinkit_place_order" -> "Blinkit: place confirmed order"
         else -> "Blinkit: order " + args.optString("action", "status")
     }
