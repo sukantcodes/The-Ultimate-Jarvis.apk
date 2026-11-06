@@ -48,6 +48,26 @@ class AmbientConversationContextStore(
         return entries.toList()
     }
 
+    /**
+     * Ambient text is attached to a cloud request only when the explicit request
+     * clearly refers to earlier discussion. A bare wake word or unrelated request
+     * never exports the buffer.
+     */
+    @Synchronized
+    fun contextForExplicitRequest(request: String): String {
+        val normalized = normalize(request).lowercase(Locale.ROOT)
+        val referencesPriorContext = listOf(
+            "based on what we discussed", "based on what we talked about",
+            "based on our conversation", "from our conversation",
+            "what did we discuss", "what did we talk about",
+            "what were we discussing", "what was i saying",
+            "what did i say about", "as we discussed", "as we talked about",
+            "like i mentioned earlier", "what i mentioned earlier",
+            "from earlier", "the thing we discussed", "the thing we talked about"
+        ).any { normalized.contains(it) }
+        return if (referencesPriorContext) contextForPrompt() else ""
+    }
+
     @Synchronized
     fun contextForPrompt(): String {
         val current = snapshot()
