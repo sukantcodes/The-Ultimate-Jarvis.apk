@@ -2932,6 +2932,20 @@ class JarvisConversationService : Service() {
                         }
                     }
 
+                    "save_contact" -> {
+                        val outcome = com.jarvis.assistant.automation.contacts.ContactManagementManager.openContactEditor(this@JarvisConversationService, args.optString("contact_name", "").trim(), args.optString("phone_number", "").trim(), args.optString("email", "").trim().takeIf { it.isNotBlank() })
+                        result.put("success", outcome.success)
+                        result.put("requires_user_action", outcome.requiresUserAction)
+                        result.put("message", outcome.message)
+                    }
+
+                    "manage_blocked_contacts" -> {
+                        val outcome = com.jarvis.assistant.automation.contacts.ContactManagementManager.manageBlockedContact(this@JarvisConversationService, args.optString("action", "").trim().lowercase(Locale.ROOT), args.optString("contact_name", "").trim(), args.optString("phone_number", "").trim())
+                        result.put("success", outcome.success)
+                        result.put("requires_user_action", outcome.requiresUserAction)
+                        result.put("message", outcome.message)
+                    }
+
                     "call_contact" -> {
                         val contact = args.optString("contact_name", "").trim()
                         val simArg = args.optString("sim", "").trim()

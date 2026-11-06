@@ -22,7 +22,7 @@ class BuiltInSkillsTest {
 
     /** Every tool the live AI session can call. Update this list when a tool is added or removed. */
     private val realTools = setOf(
-        "builtin_chrome_search", "call_contact", "call_control", "clean_jarvis_cache", "click_ui_element",
+        "builtin_chrome_search", "call_contact", "call_control", "save_contact", "manage_blocked_contacts", "clean_jarvis_cache", "click_ui_element",
         "device_status", "go_to_background", "inspect_screen", "lock_device", "media_playback_control", "open_app",
         "open_settings_page", "open_website", "press_key", "recall_activity", "run_macro", "scroll_screen",
         "search_and_play_youtube", "search_in_chrome", "search_youtube", "open_youtube_shorts", "send_whatsapp_message", "set_brightness",
@@ -43,7 +43,7 @@ class BuiltInSkillsTest {
         "contact_name", "recipient_name", "app_number", "call_type", "app_name", "target_name", "element_id",
         // action values written in backticks, not tool names
         "skip_ad", "open_channel", "click_first", "open_comments", "comment", "open_notification_menu",
-        "select_all_notifications", "speaker_on", "speaker_off", "record_start", "record_stop"
+        "select_all_notifications", "speaker_on", "speaker_off", "record_start", "record_stop", "block", "unblock", "phone_number", "email"
     )
 
     @Test

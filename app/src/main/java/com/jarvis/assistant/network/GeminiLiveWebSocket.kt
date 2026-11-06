@@ -498,6 +498,35 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 10a. save_contact
+                        put(JSONObject().apply {
+                            put("name", "save_contact")
+                            put("description", "Opens Android's native contact editor with name, phone and optional email prefilled. The user reviews and taps Save; never claim it is saved merely because the editor opened.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("contact_name", JSONObject().apply { put("type", "STRING") })
+                                    put("phone_number", JSONObject().apply { put("type", "STRING") })
+                                    put("email", JSONObject().apply { put("type", "STRING") })
+                                })
+                                put("required", JSONArray().put("contact_name").put("phone_number"))
+                            })
+                        })
+                        // 10b. manage_blocked_contacts
+                        put(JSONObject().apply {
+                            put("name", "manage_blocked_contacts")
+                            put("description", "Blocks or unblocks a phone number or uniquely matched saved contact using Android's blocked-number provider when Jarvis is the default dialer. Otherwise opens the system blocked-number manager when available. Never claim a change unless verified.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("action", JSONObject().apply { put("type", "STRING"); put("enum", JSONArray().put("block").put("unblock")) })
+                                    put("contact_name", JSONObject().apply { put("type", "STRING") })
+                                    put("phone_number", JSONObject().apply { put("type", "STRING") })
+                                })
+                                put("required", JSONArray().put("action"))
+                            })
+                        })
+
                         // 11. set_volume
                         put(JSONObject().apply {
                             put("name", "set_volume")

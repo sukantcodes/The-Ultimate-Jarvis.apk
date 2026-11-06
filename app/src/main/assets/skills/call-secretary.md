@@ -19,6 +19,10 @@ Tumhare asli tools: `call_control` (hold, resume, speaker_on, speaker_off, mute,
 - User pooche "kiska call tha?" to `recall_activity` (query "call") se dekho.
 - Wapas call karna ho to `call_contact` (`contact_name`; do SIM hon to `sim` "1" ya "2").
 
+## Contacts aur blocked numbers
+- Naya contact save karne ke liye `save_contact` se Android contact editor kholo; naam aur number prefill karo. User ko Save button khud tap karna hai; editor khulne ko saved mat bolo.
+- Number block/unblock karne ke liye `manage_blocked_contacts(action=block|unblock, phone_number=...)` use karo. Naam bola ho to `contact_name` do; multiple matches hon to pehle clarify karo. Android restriction aaye to sach batao; system screen par user ko finish karne do.
+
 ## Mat karna
 - Bina bole kisi ko call mat karo.
 - Call ke beech me nudge ya commentary mat do.
