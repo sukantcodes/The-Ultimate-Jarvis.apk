@@ -13,7 +13,7 @@ class AgentTaskEngineTest {
         val context = AgentTaskEngine.begin("Instagram unlike all my liked reels", "unit-test-plan")
         val initial = AgentTaskEngine.taskState.value
         assertNotNull(initial)
-        assertEquals("Understand goal", initial!!.steps.first().title)
+        assertEquals("Internal task map created", initial!!.steps.first().title)
         assertEquals(TaskStepStatus.COMPLETED, initial.steps.first().status)
         assertEquals("Open Instagram", initial.steps.first { it.stepId == initial.currentStepId }.title)
 
