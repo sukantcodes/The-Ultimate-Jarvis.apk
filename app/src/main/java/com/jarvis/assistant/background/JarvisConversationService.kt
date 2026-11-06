@@ -3473,17 +3473,15 @@ class JarvisConversationService : Service() {
                     val toolSig = name + ":" + normalizedArgsSignature(args)
                     if (name != "scroll_screen" && toolSig == lastToolSignature) sameToolRepeatCount++
                     else { lastToolSignature = toolSig; sameToolRepeatCount = 1 }
-                    if (consecutiveToolFailures >= MAX_CONSECUTIVE_FAILURES ||
-                        (sameToolRepeatCount >= 3 && !isInstagramBulkTask())) {
-                        autonomousHardStop = true
-                    }
-                    if (autonomousHardStop) {
-                        com.jarvis.assistant.automation.agent.AgentTaskEngine.finish(
-                            com.jarvis.assistant.automation.agent.AgentTaskEngine.State.FAILED,
-                            "Execution paused by the repeated-failure safety guard; the unfinished task is not marked complete."
+                    val recoveryRequired = consecutiveToolFailures >= MAX_CONSECUTIVE_FAILURES ||
+                        (sameToolRepeatCount >= 3 && !isInstagramBulkTask())
+                    if (recoveryRequired) {
+                        com.jarvis.assistant.automation.agent.AgentTaskEngine.failCurrentStep(
+                            "Repeated failure or duplicate action detected. Re-observe the current screen and re-plan with a different grounded approach before retrying.",
+                            blocked = false
                         )
-                        result.put("autonomous_status", "STOPPED")
-                        result.put("system_directive", "HARD STOP: you are repeating actions or failing repeatedly. Do NOT call any more tools. Tell the user honestly, in one or two short sentences, what you actually completed and what went wrong (do NOT claim success), then wait for their next instruction.")
+                        result.put("autonomous_status", "RECOVERING")
+                        result.put("system_directive", "RECOVERY REQUIRED: Do not repeat the same tool call or target blindly. Inspect the current screen and task map, determine whether the previous action already took effect, then choose a different safe route or wait for the required UI condition. Continue the original task from its last verified checkpoint. If a real permission, login, or user decision is required, pause at that exact step.")
                     } else if (toolSuccess) {
                         result.put("autonomous_status", "EXECUTED")
                         result.put("system_directive", "AUTONOMOUS STEP $autonomousStepCount EXECUTED. OVERARCHING GOAL: '$autonomousTaskGoal'$otpNotice$bulkNotice. MANDATE: Inspect the screen. If the OVERARCHING GOAL is not yet 100% finished on screen, you MUST IMMEDIATELY take the next concrete action (click, type, scroll, wait for install/open). NEVER ABANDON THE TASK MID-WAY! NEVER call task_completed until the ultimate goal is fully achieved on screen!")
