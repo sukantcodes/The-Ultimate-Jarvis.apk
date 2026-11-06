@@ -145,6 +145,57 @@
                     app:backgroundTint="?attr/themeAccent" />
             </LinearLayout>
 
+
+            <!-- SECTION: PRIVATE LOCAL CONVERSATION CONTEXT -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_jarvis_card"
+                android:padding="18dp"
+                android:layout_marginBottom="22dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="PRIVATE LOCAL CONVERSATION CONTEXT"
+                    android:textColor="?attr/themeAccent"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.08" />
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switchAmbientContext"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Understand nearby conversation (optional)"
+                    android:textColor="?attr/themeTextPrimary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="OFF by default. When enabled, speech is transcribed on this phone only while Jarvis is in standby. No ambient audio or transcript is sent to an AI server. Temporary text expires after 15 minutes and is cleared when the service fully stops. Jarvis will not speak or act on overheard words; say “Jarvis” and make a clear request."
+                    android:textColor="?attr/themeTextMuted"
+                    android:textSize="12sp"
+                    android:lineSpacingExtra="2dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnClearAmbientContext"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Clear recent conversation context"
+                    android:textAllCaps="false"
+                    android:textColor="?attr/themeAccent"
+                    app:cornerRadius="10dp"
+                    app:strokeColor="?attr/themeAccent" />
+            </LinearLayout>
+
             <!-- SECTION 1: HOW JARVIS WORKS (NON-DEVELOPER GUIDE) -->
             <TextView
                 android:layout_width="wrap_content"
