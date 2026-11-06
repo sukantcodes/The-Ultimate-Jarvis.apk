@@ -48,6 +48,14 @@ class AmbientConversationContextStoreTest {
     }
 
     @Test
+    fun onlyExplicitContextReferenceExportsTranscript() {
+        val store = AmbientConversationContextStore()
+        store.add("Battery life and gaming performance are important.")
+        assertEquals("", store.contextForExplicitRequest("Jarvis, open YouTube"))
+        assertTrue(store.contextForExplicitRequest("Jarvis, suggest a phone based on what we discussed").contains("Battery life"))
+    }
+
+    @Test
     fun clearRemovesAllContextImmediately() {
         val store = AmbientConversationContextStore()
         store.add("We were comparing two phone models.")
