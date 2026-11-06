@@ -21,7 +21,8 @@ object ActionVerifier {
         service: JarvisAccessibilityService,
         targetRect: Rect?,
         expectedText: String,
-        retries: Int = 2
+        retries: Int = 2,
+        allowBrowserUrlBar: Boolean = false
     ): VerificationResult {
         val cleanExpected = expectedText.trim()
         if (cleanExpected.isEmpty()) {
@@ -55,7 +56,8 @@ object ActionVerifier {
                 }
             }
 
-            if (targetNode != null && targetNode.isVisibleToUser && targetNode.isEditable) {
+            if (targetNode != null && targetNode.isVisibleToUser &&
+                (targetNode.isEditable || (allowBrowserUrlBar && service.isUrlBarNode(targetNode)))) {
                 val actualText = targetNode.text?.toString() ?: ""
                 // Do not log entered text: it may contain searches, messages, or credentials.
                 Log.d(TAG, "Verify typing: target length=${actualText.length}, expected length=${cleanExpected.length}")
@@ -78,7 +80,8 @@ object ActionVerifier {
         // The typing engine may have found the real field somewhere other than the exact target rect (custom or
         // nested inputs, WebViews). Accept only if it read the text back AND a live re-scan still shows an editable
         // field holding exactly that text; a stale flag alone never counts.
-        if (service.lastTypeVerified && service.verifyTextInAnyEditable(cleanExpected)) {
+        if (service.lastTypeVerified &&
+            service.verifyTextInAnyEditable(cleanExpected, includeBrowserUrlBar = allowBrowserUrlBar)) {
             return VerificationResult(
                 isVerified = true,
                 reason = "Text verified in an editable field located by the tree scan",
