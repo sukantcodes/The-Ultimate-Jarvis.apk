@@ -2937,6 +2937,7 @@ class JarvisConversationService : Service() {
                         if (simOutcome != null) {
                             result.put("success", simOutcome.first)
                             result.put("message", simOutcome.second)
+                            if (simOutcome.first) scheduleDefaultSpeakerForCall()
                         } else {
                             val callResult = com.jarvis.assistant.util.ContactCaller.callContact(this@JarvisConversationService, contact)
                             val (ok, msg) = when (callResult) {
@@ -2949,11 +2950,20 @@ class JarvisConversationService : Service() {
                             }
                             result.put("success", ok)
                             result.put("message", msg)
+                            if (callResult is com.jarvis.assistant.util.ContactCaller.CallResult.Success) {
+                                scheduleDefaultSpeakerForCall()
+                            }
                         }
                     }
 
                     "call_control" -> {
                         val callAction = args.optString("action", "").lowercase(Locale.ROOT).trim()
+                        val consentConfirmed = args.optBoolean("consent_confirmed", false)
+                        if (callAction == "record_start" && !consentConfirmed) {
+                            result.put("success", false)
+                            result.put("requires_confirmation", true)
+                            result.put("message", "Call recording was not started. First obtain clear agreement from everyone on the call, then explicitly confirm that consent.")
+                        } else {
                         val callService = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance
                         if (callService == null) {
                             result.put("success", false)
@@ -2981,6 +2991,7 @@ class JarvisConversationService : Service() {
                             }
                             result.put("success", ok)
                             result.put("message", msg)
+                        }
                         }
                     }
 
@@ -5225,6 +5236,40 @@ class JarvisConversationService : Service() {
      * Dual-SIM handling for call_contact. Returns null when the normal ContactCaller path should be used
      * (single SIM, or SIM details cannot be read), otherwise the (success, message) to report.
      */
+    /**
+     * Route an outgoing call through the dialer's speaker control only when no external
+     * headset is connected. If the active call UI has no labelled speaker control, do nothing.
+     */
+    private fun scheduleDefaultSpeakerForCall() {
+        serviceScope.launch {
+            val audio = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return@launch
+            val headsetTypes = setOf(
+                AudioDeviceInfo.TYPE_WIRED_HEADSET,
+                AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+                AudioDeviceInfo.TYPE_USB_HEADSET,
+                AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+                AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+                AudioDeviceInfo.TYPE_BLE_HEADSET,
+                AudioDeviceInfo.TYPE_HEARING_AID
+            )
+            if (audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { it.type in headsetTypes }) {
+                Log.i("JarvisService", "External headset detected; keeping call audio on the headset.")
+                return@launch
+            }
+            repeat(8) {
+                delay(500)
+                val a11y = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance
+                    ?: return@launch
+                val outcome = withContext(Dispatchers.Main) { a11y.pressCallControl("speaker_on") }
+                if (outcome == "OK" || outcome == "ALREADY") {
+                    Log.i("JarvisService", "Speaker routing confirmed on active call: $outcome")
+                    return@launch
+                }
+            }
+            Log.w("JarvisService", "No verified speaker control found on the active call screen; leaving routing unchanged.")
+        }
+    }
+
     private fun handleSimCall(contact: String, simArg: String): Pair<Boolean, String>? {
         val ctx = applicationContext
         val simChoice = com.jarvis.assistant.util.SimCallHelper.parseSimNumber(simArg)

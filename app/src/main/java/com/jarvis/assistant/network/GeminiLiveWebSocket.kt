@@ -587,13 +587,17 @@ open class GeminiLiveWebSocket(
                         // 14d. call_control
                         put(JSONObject().apply {
                             put("name", "call_control")
-                            put("description", "Controls the phone call that is on the call screen by pressing the dialer's own buttons. Actions: hold, resume, speaker_on, speaker_off, mute, unmute, record_start, record_stop, end, swap, merge. Recording only works if this phone's dialer has a Record button. Use only when the user clearly asks.")
+                            put("description", "Controls the active phone call using the dialer's visible controls: hold, resume, speaker_on, speaker_off, mute, unmute, record_start, record_stop, end, swap, merge. Recording is attempted only when the user confirms everyone on the call has agreed; it works only if the dialer itself exposes a Record button.")
                             put("parameters", JSONObject().apply {
                                 put("type", "OBJECT")
                                 put("properties", JSONObject().apply {
                                     put("action", JSONObject().apply {
                                         put("type", "STRING")
                                         put("description", "One of: hold, resume, speaker_on, speaker_off, mute, unmute, record_start, record_stop, end, swap, merge.")
+                                    })
+                                    put("consent_confirmed", JSONObject().apply {
+                                        put("type", "BOOLEAN")
+                                        put("description", "Must be true only after everyone on the call has clearly agreed to recording.")
                                     })
                                 })
                                 put("required", JSONArray().put("action"))
