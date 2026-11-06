@@ -2927,6 +2927,9 @@ class JarvisConversationService : Service() {
                         }
                         result.put("success", ok)
                         result.put("message", msg)
+                        if (callResult is com.jarvis.assistant.util.WhatsAppMessenger.CallResult.Success) {
+                            scheduleDefaultSpeakerForCall()
+                        }
                     }
 
                     "call_contact" -> {
