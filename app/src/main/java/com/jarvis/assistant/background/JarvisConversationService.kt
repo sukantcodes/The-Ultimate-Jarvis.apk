@@ -1394,7 +1394,8 @@ class JarvisConversationService : Service() {
 
                             val engineStatus = com.jarvis.assistant.automation.agent.AgentTaskEngine.current()?.status
                             if (isAutonomousTaskRunning && engineStatus == com.jarvis.assistant.automation.agent.AgentTaskEngine.State.COMPLETED) {
-                                Log.i("JarvisService", "Task engine already verified completion; skipping another automatic continuation")
+                                com.jarvis.assistant.memory.TaskBehaviorLearner.recordVerifiedCompletion(applicationContext, autonomousTaskGoal)
+                                Log.i("JarvisService", "Verified task completion recorded as a coarse behaviour preference")
                                 isAutonomousTaskRunning = false
                                 autonomousStepCount = 0
                                 autonomousLoopJob?.cancel()
