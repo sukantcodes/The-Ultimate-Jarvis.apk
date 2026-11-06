@@ -135,6 +135,34 @@ object YouTubeController {
         }
     }
 
+    /**
+     * Opens the official Shorts feed directly. YouTube owns feed playback and navigation;
+     * Jarvis must inspect the resulting screen before claiming a Short is playing.
+     */
+    fun openShorts(context: Context): PlayResult {
+        val shortsUri = Uri.parse("https://www.youtube.com/shorts")
+        return try {
+            val appIntent = Intent(Intent.ACTION_VIEW, shortsUri).apply {
+                setPackage("com.google.android.youtube")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            val opened = ActivityLauncherHelper.startActivitySafely(context, appIntent)
+            if (opened) {
+                PlayResult(true, "YouTube Shorts", "Opened the YouTube Shorts feed.")
+            } else {
+                val webIntent = Intent(Intent.ACTION_VIEW, shortsUri).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                val fallbackOpened = ActivityLauncherHelper.startActivitySafely(context, webIntent)
+                PlayResult(fallbackOpened, "YouTube Shorts",
+                    if (fallbackOpened) "Opened the YouTube Shorts page." else "Couldn't open YouTube Shorts.")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("YouTubeController", "Could not open Shorts", e)
+            PlayResult(false, null, "Couldn't open YouTube Shorts.")
+        }
+    }
+
     /** Opens a specific video ID directly in the YouTube app's player. */
     fun playVideoId(context: Context, videoId: String): Boolean {
         return try {

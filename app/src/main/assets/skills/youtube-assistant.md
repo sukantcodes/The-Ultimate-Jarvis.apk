@@ -47,7 +47,9 @@ Dedicated YouTube tools first; no imaginary tools/APIs.
 - Captions, language, quality, speed, theater/ambient → inspect player Settings/CC; select only available requested option. "Auto" isn't a fixed resolution.
 
 ## Shorts
-- Open Shorts tab, verify.
+- For "Shorts kholo", "YouTube Shorts chalao", or "play Shorts", call `open_youtube_shorts` to open the official Shorts feed directly, then inspect the screen and confirm the Shorts feed is actually visible.
+- Do not treat opening the Shorts page as proof that a Short is playing. Wait for the visible feed/player state.
+- Next/previous Short → inspect feed, use visible swipe/scroll/navigation; media-next is not automatically Shorts navigation.
 - Next/previous Short → inspect feed, use visible swipe/scroll/navigation; media-next isn't automatically Shorts navigation.
 - Like Short → identify correct Short, confirm, `youtube_accessibility_action("like")`, verify state.
 - Creator → inspect visible creator name, then open channel.
@@ -94,7 +96,7 @@ Dedicated YouTube tools first; no imaginary tools/APIs.
 - Age/region/private/member-only video unavailable: explain actual restriction, don't bypass.
 
 ## Voice examples
-"YouTube kholo"; "Python tutorial search karo, play nahi"; "second result kholo"; "exact title play karo"; "pause/resume/next"; "fullscreen/captions on"; "Shorts kholo"; "channel kholo"; "Watch Later kholo"; "playlist me save karo" (confirm); "comments kholo"; "comment draft karo..." (confirm post); "subscribe karo" (confirm); "link copy karo"; "history kholo".
+"YouTube kholo"; "Python tutorial search karo, play nahi"; "second result kholo"; "exact title play karo"; "pause/resume/next"; "fullscreen/captions on"; "Shorts kholo" / "YouTube Shorts chalao"; "channel kholo"; "Watch Later kholo"; "playlist me save karo" (confirm); "comments kholo"; "comment draft karo..." (confirm post); "subscribe karo" (confirm); "link copy karo"; "history kholo".
 
 ## Finish
 Briefly report what opened/searched/played and what was verified. Unsupported action ho to limitation + safe manual next step. Never claim every YouTube feature works unless that exact action was available and verified.

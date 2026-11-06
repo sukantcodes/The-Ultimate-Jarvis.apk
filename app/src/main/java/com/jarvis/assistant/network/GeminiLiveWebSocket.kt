@@ -308,6 +308,16 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 5. open_youtube_shorts
+                        put(JSONObject().apply {
+                            put("name", "open_youtube_shorts")
+                            put("description", "Opens the official YouTube Shorts feed directly when the user asks to open or play Shorts. This only navigates to the feed; inspect the screen before claiming a Short is playing.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject())
+                            })
+                        })
+
                         // 5. search_youtube
                         put(JSONObject().apply {
                             put("name", "search_youtube")

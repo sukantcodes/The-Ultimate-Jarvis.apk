@@ -2778,6 +2778,13 @@ class JarvisConversationService : Service() {
                         result.put("message", playResult.message ?: if (playResult.success) "Playing $resolvedSong on YouTube." else "Could not play on YouTube.")
                     }
 
+                    "open_youtube_shorts" -> {
+                        audioPlayer?.flush()
+                        val shortsResult = com.jarvis.assistant.automation.youtube.YouTubeController.openShorts(this@JarvisConversationService)
+                        result.put("success", shortsResult.success)
+                        result.put("message", shortsResult.message ?: "Opening YouTube Shorts.")
+                    }
+
                     "search_youtube" -> {
                         val query = args.optString("query", "").trim()
                         val lower = query.lowercase()
