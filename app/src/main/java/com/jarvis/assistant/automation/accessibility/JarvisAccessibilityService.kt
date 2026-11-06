@@ -1216,7 +1216,7 @@ private fun findAndInjectEditText(
     /** Opens the comments panel using a labelled control, not a screen coordinate. */
     fun openYouTubeComments(): Boolean {
         val root = youtubeRoot() ?: return false
-        if (findEditableNode(root) != null) return true
+        if (findCommentEditor(root) != null) return true
         return clickExactYouTubeLabel(root, listOf("comments", "view comments", "comment"))
     }
 
@@ -1228,12 +1228,10 @@ private fun findAndInjectEditText(
         val text = comment.trim()
         if (text.isBlank() || text.length > 2000) return false
         val root = youtubeRoot() ?: return false
-        var editor = findEditableNode(root)
+        var editor = findCommentEditor(root)
         if (editor == null) {
             clickExactYouTubeLabel(root, listOf("add a comment", "comment"))
-            editor = rootInActiveWindow?.let { current ->
-                if (current.packageName?.toString() in setOf("com.google.android.youtube", "app.revanced.android.youtube")) findEditableNode(current) else null
-            }
+            editor = youtubeRoot()?.let { current -> findCommentEditor(current) }
         }
         val field = editor ?: return false
         if (!field.text.isNullOrBlank()) return false // Do not overwrite an existing draft.
@@ -1241,7 +1239,7 @@ private fun findAndInjectEditText(
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
         }
         if (!field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return false
-        val currentText = findEditableNode(youtubeRoot() ?: return false)?.text?.toString()?.trim()
+        val currentText = findCommentEditor(youtubeRoot() ?: return false)?.text?.toString()?.trim()
         if (currentText != text) return false
         val currentRoot = youtubeRoot() ?: return false
         return clickExactYouTubeLabel(currentRoot, listOf("post", "send"))
@@ -1259,6 +1257,21 @@ private fun findAndInjectEditText(
         val all = findExactLabelNode(root, "all") ?: return false
         if (all.isCheckable && all.isChecked) return true
         return clickNodeAndTap(all)
+    }
+
+    private fun findCommentEditor(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        val viewId = node.viewIdResourceName?.lowercase(Locale.ROOT).orEmpty()
+        val hint = node.hintText?.toString()?.lowercase(Locale.ROOT).orEmpty()
+        val label = nodeLabel(node).lowercase(Locale.ROOT)
+        val parentLabel = node.parent?.let { nodeLabel(it).lowercase(Locale.ROOT) }.orEmpty()
+        val isCommentField = viewId.contains("comment") || hint.contains("comment") ||
+            label.contains("comment") || parentLabel.contains("comment")
+        if (node.isEditable && isCommentField) return node
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            findCommentEditor(child)?.let { return it }
+        }
+        return null
     }
 
     private fun findEditableNode(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
