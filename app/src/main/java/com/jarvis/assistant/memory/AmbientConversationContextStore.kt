@@ -58,11 +58,11 @@ class AmbientConversationContextStore(
         val normalized = normalize(request).lowercase(Locale.ROOT)
         val referencesPriorContext = listOf(
             "based on what we discussed", "based on what we talked about",
-            "based on our conversation", "from our conversation",
-            "what did we discuss", "what did we talk about",
-            "what were we discussing", "what was i saying",
+            "based on our conversation", "based on our discussion", "based on our earlier discussion", "from our conversation",
+            "what did we discuss", "what did we discuss about", "what did we talk about", "what phone did we talk about",
+            "what were we discussing", "what were we talking about", "what was i saying",
             "what did i say about", "as we discussed", "as we talked about",
-            "like i mentioned earlier", "what i mentioned earlier",
+            "like i mentioned earlier", "what i mentioned earlier", "we talked about earlier", "we discussed earlier",
             "from earlier", "the thing we discussed", "the thing we talked about"
         ).any { normalized.contains(it) }
         return if (referencesPriorContext) contextForPrompt() else ""
