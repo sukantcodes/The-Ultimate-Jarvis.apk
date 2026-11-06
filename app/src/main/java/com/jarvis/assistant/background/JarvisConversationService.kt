@@ -536,7 +536,7 @@ class JarvisConversationService : Service() {
     // --- Standby / wake-word components (Pure Vosk) ---
     private var voskSpeechService: SpeechService? = null
     private val ambientContextStore = com.jarvis.assistant.memory.AmbientConversationContextStore()
-    @Volatile private var lastAmbientTranscript = ""
+    @Volatile private var lastAmbientTranscriptHash = 0
     @Volatile private var lastAmbientTranscriptAt = 0L
     private var tts: TextToSpeech? = null
     private var batteryAnnouncer: com.jarvis.assistant.util.SpeechAnnouncer? = null
@@ -4291,9 +4291,9 @@ class JarvisConversationService : Service() {
             if (!addressed && ambientEnabled) {
                 if (averageConfidence >= 0.62 && words.size >= 2 && duration in 0.45..15.0 && transcript.length in 8..280) {
                     val now = System.currentTimeMillis()
-                    if (transcript != lastAmbientTranscript || now - lastAmbientTranscriptAt > 1_800L) {
+                    if (transcript.hashCode() != lastAmbientTranscriptHash || now - lastAmbientTranscriptAt > 1_800L) {
                         if (ambientContextStore.add(transcript)) {
-                            lastAmbientTranscript = transcript
+                            lastAmbientTranscriptHash = transcript.hashCode()
                             lastAmbientTranscriptAt = now
                             Log.d("JarvisService", "Stored local ambient context segment; no network or action.")
                         }
@@ -4390,7 +4390,7 @@ class JarvisConversationService : Service() {
     private fun refreshAmbientContextModeInternal() {
         if (!preferences.isAmbientContextEnabled) {
             ambientContextStore.clear()
-            lastAmbientTranscript = ""
+            lastAmbientTranscriptHash = 0
             lastAmbientTranscriptAt = 0L
         }
         if (_isStandby.value) {
