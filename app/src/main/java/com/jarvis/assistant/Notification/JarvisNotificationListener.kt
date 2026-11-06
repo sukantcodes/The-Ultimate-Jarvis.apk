@@ -136,10 +136,13 @@ class JarvisNotificationListener : NotificationListenerService() {
         }
         if (!allowed) return
 
+        // Keep the original sender/group for logs and identity; sanitize only the spoken display text.
+        val spokenSender = MessageSpeechSanitizer.forAnnouncement(message.sender).ifBlank { "someone" }
+        val spokenGroup = message.group?.let { MessageSpeechSanitizer.forAnnouncement(it) }.orEmpty()
         val text = if (message.group != null) {
-            "Sir, " + message.group + " group mein " + message.sender + " se " + message.app.displayName + " par message aaya hai."
+            "Sir, " + (spokenGroup.ifBlank { "group" }) + " group mein " + spokenSender + " se " + message.app.displayName + " par message aaya hai."
         } else {
-            "Sir, " + message.sender + " se " + message.app.displayName + " par message aaya hai."
+            "Sir, " + spokenSender + " se " + message.app.displayName + " par message aaya hai."
         }
         note("announced a " + message.app.displayName + " message from " + message.sender)
         if (!JarvisConversationService.announceMessage(text)) {
