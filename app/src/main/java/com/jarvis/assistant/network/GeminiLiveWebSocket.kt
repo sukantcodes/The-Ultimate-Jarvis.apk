@@ -337,15 +337,19 @@ open class GeminiLiveWebSocket(
                         // 6. youtube_accessibility_action
                         put(JSONObject().apply {
                             put("name", "youtube_accessibility_action")
-                            put("description", "Performs an in-app YouTube action using accessibility: skipping an ad ('skip_ad'), liking the video ('like'), subscribing to the channel ('subscribe'), opening the channel ('open_channel'), or toggling fullscreen ('fullscreen').")
+                            put("description", "Performs a visible, labelled YouTube UI action: skip_ad, like (never unlike an already-liked video), subscribe, open_channel, fullscreen, open_comments, comment, open_notification_menu, or select_all_notifications. For comment, include comment_text; it is entered only into a visible comment editor and posted only after exact text readback. For notification settings, open the menu then select All as a separate step; report failure if the option is not visible.")
                             put("parameters", JSONObject().apply {
                                 put("type", "OBJECT")
                                 put("properties", JSONObject().apply {
                                     put("action", JSONObject().apply {
                                         put("type", "STRING")
                                         put("enum", JSONArray().apply {
-                                            put("skip_ad"); put("like"); put("subscribe"); put("open_channel"); put("fullscreen"); put("click_first")
+                                            put("skip_ad"); put("like"); put("subscribe"); put("open_channel"); put("fullscreen"); put("click_first"); put("open_comments"); put("comment"); put("open_notification_menu"); put("select_all_notifications")
                                         })
+                                    })
+                                    put("comment_text", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Exact comment text to post when action is comment.")
                                     })
                                 })
                                 put("required", JSONArray().put("action"))

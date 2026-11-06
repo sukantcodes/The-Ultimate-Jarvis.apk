@@ -1137,11 +1137,106 @@ private fun findAndInjectEditText(
     // Reference YouTube & Accessibility Actions
     // ---------------------------------------------------------------
 
+    private fun youtubeRoot(): AccessibilityNodeInfo? {
+        val root = rootInActiveWindow ?: return null
+        val pkg = root.packageName?.toString().orEmpty()
+        return root.takeIf { pkg == "com.google.android.youtube" || pkg == "app.revanced.android.youtube" }
+    }
+
+    /** Like only when the current video is not already liked; never toggle an existing Like off. */
+    fun likeCurrentVideo(): Boolean {
+        val root = youtubeRoot() ?: return false
+        val nodes = mutableListOf<AccessibilityNodeInfo>()
+        collectMatches(root, listOf("like"), "dislike", nodes)
+        val target = nodes.firstOrNull { node ->
+            val label = nodeLabel(node).lowercase(Locale.ROOT)
+            !label.contains("liked") && !node.isChecked
+        } ?: return nodes.any { nodeLabel(it).contains("liked", true) || it.isChecked }
+        return clickNodeAndTap(target)
+    }
+
+    /** Opens the comments panel using a labelled control, not a screen coordinate. */
+    fun openYouTubeComments(): Boolean {
+        val root = youtubeRoot() ?: return false
+        if (findEditableNode(root) != null) return true
+        return clickExactYouTubeLabel(root, listOf("comments", "view comments", "comment"))
+    }
+
+    /**
+     * Enters a comment only into a visible YouTube comment editor and posts only after
+     * reading the exact text back. Returns false if the UI does not expose a verifiable editor.
+     */
+    fun writeYouTubeComment(comment: String): Boolean {
+        val text = comment.trim()
+        if (text.isBlank() || text.length > 2000) return false
+        val root = youtubeRoot() ?: return false
+        var editor = findEditableNode(root)
+        if (editor == null) {
+            clickExactYouTubeLabel(root, listOf("add a comment", "comment"))
+            editor = rootInActiveWindow?.let { current ->
+                if (current.packageName?.toString() in setOf("com.google.android.youtube", "app.revanced.android.youtube")) findEditableNode(current) else null
+            }
+        }
+        val field = editor ?: return false
+        if (!field.text.isNullOrBlank()) return false // Do not overwrite an existing draft.
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+        }
+        if (!field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return false
+        val currentText = findEditableNode(youtubeRoot() ?: return false)?.text?.toString()?.trim()
+        if (currentText != text) return false
+        val currentRoot = youtubeRoot() ?: return false
+        return clickExactYouTubeLabel(currentRoot, listOf("post", "send"))
+    }
+
+    /** Opens the video's notification menu; the follow-up All selection is a separate verified step. */
+    fun openYouTubeNotificationMenu(): Boolean {
+        val root = youtubeRoot() ?: return false
+        return clickExactYouTubeLabel(root, listOf("notifications", "notification bell", "bell"))
+    }
+
+    /** Selects All only when the visible menu exposes that exact option. */
+    fun selectAllYouTubeNotifications(): Boolean {
+        val root = youtubeRoot() ?: return false
+        val all = findExactLabelNode(root, "all") ?: return false
+        if (all.isCheckable && all.isChecked) return true
+        return clickNodeAndTap(all)
+    }
+
+    private fun findEditableNode(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        if (node.isEditable || node.className?.toString()?.contains("EditText", true) == true) return node
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            findEditableNode(child)?.let { return it }
+        }
+        return null
+    }
+
+    private fun findExactLabelNode(node: AccessibilityNodeInfo, label: String): AccessibilityNodeInfo? {
+        val current = nodeLabel(node).trim().lowercase(Locale.ROOT)
+        val description = node.contentDescription?.toString()?.trim()?.lowercase(Locale.ROOT).orEmpty()
+        if (current == label || description == label) return node
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            findExactLabelNode(child, label)?.let { return it }
+        }
+        return null
+    }
+
+    private fun clickExactYouTubeLabel(root: AccessibilityNodeInfo, labels: List<String>): Boolean {
+        for (label in labels) {
+            val target = findExactLabelNode(root, label) ?: continue
+            val clickable = if (target.isClickable) target else target.parent?.takeIf { it.isClickable }
+            if (clickable != null && clickNodeAndTap(clickable)) return true
+        }
+        return false
+    }
+
     /** Taps the "Skip Ad" / "Skip Ads" button if currently visible. Returns true if found and tapped. */
     fun skipAd(): Boolean = clickNodeMatching("skip ad")
 
     /** Taps the Like button on the currently open video. */
-    fun likeVideo(): Boolean = clickNodeMatching("like", exclude = "dislike")
+    fun likeVideo(): Boolean = likeCurrentVideo()
 
     /** Taps the Subscribe button on the current channel/video. */
     fun subscribeChannel(): Boolean = clickNodeMatching("subscribe")

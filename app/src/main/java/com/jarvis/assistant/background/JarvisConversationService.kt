@@ -2820,11 +2820,15 @@ class JarvisConversationService : Service() {
                         if (a11y != null) {
                             val actionOk = when (action) {
                                 "skip_ad" -> a11y.skipAd()
-                                "like" -> a11y.likeVideo()
+                                "like" -> a11y.likeCurrentVideo()
                                 "subscribe" -> a11y.subscribeChannel()
                                 "open_channel" -> a11y.openChannel()
                                 "fullscreen" -> a11y.toggleFullscreen()
                                 "click_first" -> a11y.clickFirstVideoResult()
+                                "open_comments" -> a11y.openYouTubeComments()
+                                "comment" -> a11y.writeYouTubeComment(args.optString("comment_text", ""))
+                                "open_notification_menu" -> a11y.openYouTubeNotificationMenu()
+                                "select_all_notifications" -> a11y.selectAllYouTubeNotifications()
                                 else -> false
                             }
                             result.put("success", actionOk)
