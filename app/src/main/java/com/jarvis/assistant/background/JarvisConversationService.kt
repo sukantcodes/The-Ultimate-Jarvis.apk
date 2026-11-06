@@ -358,7 +358,6 @@ class JarvisConversationService : Service() {
     @Volatile
     private var lastVerifiedFlowPrompt = ""
     private var autonomousLoopJob: Job? = null
-    private val MAX_AUTONOMOUS_STEPS = 100
     // Mic voice-activity tuning. Raised so room noise no longer flips LISTENING/THINKING when nobody speaks.
     private val onDeviceVad = OnDeviceVoiceActivityDetector()
     private val VAD_MIN_THRESHOLD = 0.05f
@@ -393,8 +392,6 @@ class JarvisConversationService : Service() {
             else -> 25_000L
         }
     }
-
-    private fun autonomousTaskStepLimit(): Int = if (isInstagramBulkTask()) 400 else MAX_AUTONOMOUS_STEPS
 
     private fun expectedPackageForTask(goal: String): String? {
         val text = goal.lowercase(Locale.ROOT)
@@ -1361,35 +1358,13 @@ class JarvisConversationService : Service() {
                                 autonomousLoopJob = null
                             }
 
-                            // Do NOT reset autonomous task state on turn completion!
-                            // Autonomous tasks span across multiple turns (e.g. download -> open -> onboarding -> phone entry -> OTP -> setup complete).
-                            // The autonomous task ONLY completes when:
-                            // 1. Gemini explicitly calls `task_completed(summary=...)`
-                            // 2. The user explicitly gives a cancel/stop command ("stop", "ruko", "cancel")
-                            // 3. Safety cap of MAX_AUTONOMOUS_STEPS (25) is reached.
-                            if (isAutonomousTaskRunning && autonomousStepCount >= autonomousTaskStepLimit()) {
-                                Log.w("JarvisService", "Autonomous task reached its step safety cap (${autonomousTaskStepLimit()}). Terminating loop safety.")
-                                autonomousHardStop = true
-                                isAutonomousTaskRunning = false
-                                com.jarvis.assistant.automation.agent.AgentTaskEngine.recordCompletionEvidence(
-                                    com.jarvis.assistant.automation.agent.AgentTaskEngine.CompletionEvidence.SAFETY_LIMIT,
-                                    "Reached the current action batch limit; the original task is preserved and can resume from a fresh screen."
-                                )
-                                com.jarvis.assistant.automation.agent.AgentTaskEngine.failCurrentStep(
-                                    "Reached the current action batch limit. Say continue to resume this same task from a fresh screen.",
-                                    blocked = true
-                                )
-                                com.jarvis.assistant.automation.agent.AgentTaskEngine.setState(
-                                    com.jarvis.assistant.automation.agent.AgentTaskEngine.State.BLOCKED
-                                )
-                                autonomousStepCount = 0
-                                autonomousLoopJob?.cancel()
-                                autonomousLoopJob = null
-                            } else if (isAutonomousTaskRunning) {
+                            // Autonomous workflows have no arbitrary action-count or continuation-count cap.
+                            // They continue across model turns until verified completion, explicit cancellation,
+                            // or a real external blocker (permissions, authentication, unavailable UI/service).
+                            if (isAutonomousTaskRunning) {
                                 val response = currentTurnAssistantText.toString().trim().ifBlank { "The Instagram bulk task is still in progress." }
                                 val needsUserDecision = false
-                                val continuationLimit = 100
-                                if (!autonomousWaitingForUser && !needsUserDecision && autonomousContinuationAttempts < continuationLimit) {
+                                if (!autonomousWaitingForUser && !needsUserDecision) {
                                     autonomousContinuationAttempts++
                                     val attempt = autonomousContinuationAttempts
                                     autonomousLoopJob?.cancel()
@@ -1482,13 +1457,6 @@ class JarvisConversationService : Service() {
                                     com.jarvis.assistant.automation.agent.AgentTaskEngine.setState(
                                         com.jarvis.assistant.automation.agent.AgentTaskEngine.State.BLOCKED
                                     )
-                                } else {
-                                    Log.w("JarvisService", "Auto-resume limit reached; stopping task to avoid an unattended loop")
-                                    isAutonomousTaskRunning = false
-                                    com.jarvis.assistant.automation.agent.AgentTaskEngine.failCurrentStep(
-                                        "Automatic continuation limit reached without verified completion.", blocked = true
-                                    )
-                                    serviceScope.launch { _events.emit("The task is blocked because it did not reach a verified result within the automatic recovery limit.") }
                                 }
                             }
                         }
