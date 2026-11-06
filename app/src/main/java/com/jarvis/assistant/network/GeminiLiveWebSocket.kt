@@ -402,6 +402,28 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 8a. whatsapp_status_action
+                        put(JSONObject().apply {
+                            put("name", "whatsapp_status_action")
+                            put("description", "Navigates WhatsApp Status using visible labelled controls. Actions: open_updates, open_composer, open_gallery, publish. Never selects an arbitrary photo. Before publish, the user must inspect the selected preview and explicitly confirm; pass confirmed=true only after that current confirmation.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("action", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("enum", JSONArray().apply {
+                                            put("open_updates"); put("open_composer"); put("open_gallery"); put("publish")
+                                        })
+                                    })
+                                    put("confirmed", JSONObject().apply {
+                                        put("type", "BOOLEAN")
+                                        put("description", "True only after the user explicitly confirmed publishing the currently previewed Status image.")
+                                    })
+                                })
+                                put("required", JSONArray().put("action"))
+                            })
+                        })
+
                         // 9. whatsapp_call
                         put(JSONObject().apply {
                             put("name", "whatsapp_call")

@@ -2887,6 +2887,28 @@ class JarvisConversationService : Service() {
                         }
                     }
 
+                    "whatsapp_status_action" -> {
+                        val action = args.optString("action", "").trim().lowercase(Locale.ROOT)
+                        val confirmed = args.optBoolean("confirmed", false)
+                        val a11y = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance
+                        val ok = if (a11y == null) false else when (action) {
+                            "open_updates" -> a11y.openWhatsAppUpdates()
+                            "open_composer" -> a11y.openWhatsAppStatusComposer()
+                            "open_gallery" -> a11y.openWhatsAppStatusGallery()
+                            "publish" -> a11y.publishWhatsAppStatus(confirmed)
+                            else -> false
+                        }
+                        result.put("success", ok)
+                        result.put("published", action == "publish" && ok)
+                        result.put("message", when {
+                            a11y == null -> "WhatsApp accessibility control is unavailable. Enable the JARVIS accessibility service."
+                            action == "publish" && !confirmed -> "Publishing was not attempted because explicit confirmation is missing."
+                            ok && action == "publish" -> "The WhatsApp Status publish control was pressed. Verify that the Status appears in Updates before reporting it as posted."
+                            ok -> "Opened the requested WhatsApp Status screen."
+                            else -> "That labelled Status control is not visible on the current WhatsApp screen. No guessed tap was made."
+                        })
+                    }
+
                     "whatsapp_call" -> {
                         val recipient = args.optString("recipient_name", "").trim()
                         val callType = args.optString("call_type", "voice").trim()

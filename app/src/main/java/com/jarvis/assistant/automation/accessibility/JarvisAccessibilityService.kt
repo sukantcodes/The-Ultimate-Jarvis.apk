@@ -360,6 +360,64 @@ class JarvisAccessibilityService : AccessibilityService() {
     // WhatsApp Send & Text Injection
     // -------------------------------------------------------------
 
+    private fun whatsAppRoot(): AccessibilityNodeInfo? {
+        val root = rootInActiveWindow ?: return null
+        val pkg = root.packageName?.toString().orEmpty()
+        return root.takeIf { pkg == "com.whatsapp" || pkg == "com.whatsapp.w4b" }
+    }
+
+    private fun clickExactWhatsAppLabel(root: AccessibilityNodeInfo, labels: List<String>): Boolean {
+        for (label in labels) {
+            val target = findExactLabelNode(root, label) ?: continue
+            val clickable = if (target.isClickable) target else target.parent?.takeIf { it.isClickable }
+            if (clickable != null && clickNodeAndTap(clickable)) return true
+        }
+        return false
+    }
+
+    /** Opens the currently visible Updates/Status tab; never guesses a coordinate. */
+    fun openWhatsAppUpdates(): Boolean {
+        val root = whatsAppRoot() ?: return false
+        return clickExactWhatsAppLabel(root, listOf("updates", "status"))
+    }
+
+    /** Opens the user's own Status composer only when its labelled entry is visible. */
+    fun openWhatsAppStatusComposer(): Boolean {
+        val root = whatsAppRoot() ?: return false
+        return clickExactWhatsAppLabel(root, listOf("my status", "add status", "add to status", "add to my status"))
+    }
+
+    /** Opens the gallery option; does not pick an arbitrary photo. */
+    fun openWhatsAppStatusGallery(): Boolean {
+        val root = whatsAppRoot() ?: return false
+        return clickExactWhatsAppLabel(root, listOf("gallery", "choose from gallery", "photos"))
+    }
+
+    /**
+     * Publishes only from a WhatsApp status preview screen. The caller must have received
+     * a fresh, explicit user confirmation after the selected image was inspected.
+     */
+    fun publishWhatsAppStatus(confirmed: Boolean): Boolean {
+        if (!confirmed) return false
+        val root = whatsAppRoot() ?: return false
+        val visibleText = collectVisibleText(root).joinToString(" ").lowercase(Locale.ROOT)
+        val isStatusPreview = visibleText.contains("status") || visibleText.contains("my status") ||
+            visibleText.contains("add a caption")
+        if (!isStatusPreview) return false
+        return clickExactWhatsAppLabel(root, listOf("send", "share"))
+    }
+
+    private fun collectVisibleText(node: AccessibilityNodeInfo): List<String> {
+        val out = mutableListOf<String>()
+        node.text?.toString()?.takeIf { it.isNotBlank() }?.let(out::add)
+        node.contentDescription?.toString()?.takeIf { it.isNotBlank() }?.let(out::add)
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            out.addAll(collectVisibleText(child))
+        }
+        return out
+    }
+
     fun armWhatsAppSend(targetText: String?) {
         isWaitingForWhatsAppSend = true
         pendingWhatsAppMessage = targetText

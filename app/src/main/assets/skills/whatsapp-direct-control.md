@@ -6,7 +6,7 @@ description: WhatsApp ko direct navigate karna — Updates/Status, exact chat, a
 
 Is skill ko WhatsApp navigation aur media sharing requests par pehle use karo. Existing `whatsapp-pro` aur `photo-share` skills ke saath kaam karo; unke tools ko dobara implement mat karo.
 
-Available real tools include: `open_app`, `inspect_screen`, `click_ui_element`, `type_text`, `scroll_screen`, `press_key`, `send_whatsapp_message`, `use_skill`.
+Available real tools include: `open_app`, `inspect_screen`, `click_ui_element`, `type_text`, `scroll_screen`, `press_key`, `send_whatsapp_message`, `whatsapp_status_action`, `use_skill`.
 
 ## Core rules
 - Navigation requests may be carried out immediately: open WhatsApp, open the visible Updates/Status area, or open a clearly identified visible chat.
@@ -41,10 +41,10 @@ Available real tools include: `open_app`, `inspect_screen`, `click_ui_element`, 
 
 ## Set a photo as Status
 1. Open WhatsApp and navigate to Updates/Status as described above.
-2. Open the user's own Status update composer (for example, `My status` / `Add status`) only when clearly visible.
-3. Select the specific photo requested from the Android/WhatsApp media picker. Do not choose the newest item automatically unless the user explicitly said the newest photo.
+2. Use `whatsapp_status_action(open_composer)` to open the user's own Status composer (for example, `My status` / `Add status`) only when clearly visible.
+3. Use `whatsapp_status_action(open_gallery)` to open the gallery. The user must identify/select the specific photo; do not choose the newest item automatically unless the user explicitly said the newest photo.
 4. Inspect the preview and verify the chosen image. Stop before publishing and ask for confirmation.
-5. After explicit confirmation, click the visible publish/send control once. Inspect the screen to verify the Status was posted.
+5. After explicit confirmation, call `whatsapp_status_action(publish, confirmed=true)` once. Inspect the screen to verify the Status was posted.
 6. If the UI indicates an audience selector or privacy setting, do not change it without the user's instruction.
 
 ## Confirmation and recovery
