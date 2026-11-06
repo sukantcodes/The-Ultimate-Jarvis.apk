@@ -485,8 +485,10 @@ object BlinkitScreenReader {
         var payment: String? = null
         val label = ls.indexOfFirst { Regex("""paying (?:with|via|using)|pay using|pay with|payment method|selected payment""").containsMatchIn(it.lowercase(Locale.ROOT)) }
         if (label >= 0) {
-            val same = ls[label].substringAfter(':', "").trim()
-            payment = same.takeIf { it.isNotBlank() } ?: ls.drop(label + 1).take(3).firstOrNull { paymentWords.containsMatchIn(it.lowercase(Locale.ROOT)) }
+            val same = Regex("""(?i)\\b(?:paying (?:with|via|using)|pay using|pay with|payment method|selected payment)\\b""")
+                .replaceFirst(ls[label], "").trim().trimStart(':', '-', ' ')
+            payment = same.takeIf { it.isNotBlank() && paymentWords.containsMatchIn(it.lowercase(Locale.ROOT)) }
+                ?: ls.drop(label + 1).take(3).firstOrNull { paymentWords.containsMatchIn(it.lowercase(Locale.ROOT)) }
         }
         if (payment == null) payment = ls.firstOrNull { paymentWords.containsMatchIn(it.lowercase(Locale.ROOT)) && it.length < 60 }
         return CheckoutSummary(carried, extractBill(nodes), address(nodes), payment?.take(60), eta(nodes))

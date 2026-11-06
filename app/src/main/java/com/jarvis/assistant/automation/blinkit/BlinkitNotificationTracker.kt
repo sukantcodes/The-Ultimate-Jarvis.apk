@@ -30,7 +30,8 @@ object BlinkitNotificationTracker {
             text.contains("preparing your order") || text.contains("order is being prepared") ||
                 text.contains("packing your order") || text.contains("getting your order ready") -> OrderStage.PREPARING
             text.contains("order placed") || text.contains("order confirmed") ||
-                text.contains("we've received your order") || text.contains("we have received your order") -> OrderStage.PLACED
+                text.contains("order is confirmed") || text.contains("we've received your order") ||
+                text.contains("we have received your order") -> OrderStage.PLACED
             else -> null
         }
     }
