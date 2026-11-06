@@ -86,21 +86,28 @@ object AgentTaskEngine {
             else -> TaskScope.SINGLE_TARGET
         }
         return Context(UUID.randomUUID().toString(), goal, normalized, taskScope, scope, actionGeneration).also { context ->
-            val titles = planTitles(goal)
+            val mapped = UniversalTaskMapper.map(goal)
+            val titles = listOf("Internal task map created") + mapped.actions.map { it.title }
             context.plan.addAll(titles)
             titles.forEachIndexed { index, title ->
+                val isMappingRecord = index == 0
+                val action = mapped.actions.getOrNull(index - 1)
                 context.steps += TaskPlanStep(
                     title = title,
-                    description = planDescription(title, goal),
-                    status = if (index == 0) TaskStepStatus.COMPLETED else TaskStepStatus.PENDING,
+                    description = if (isMappingRecord) {
+                        "The complete request was structurally mapped into ordered actions. Each action remains pending until independently executed and verified."
+                    } else action?.description ?: planDescription(title, goal),
+                    status = if (isMappingRecord) TaskStepStatus.COMPLETED else TaskStepStatus.PENDING,
                     dependencies = if (index == 0) emptyList() else listOf(context.steps[index - 1].stepId),
-                    expectedResult = expectedResult(title),
-                    actualResult = if (index == 0) "Goal parsed and task scope classified" else null,
-                    startedAt = if (index == 0) context.startTime else null,
-                    completedAt = if (index == 0) context.startTime else null
+                    expectedResult = if (isMappingRecord) {
+                        "${mapped.actions.size} individual action(s) mapped; execution has not yet been claimed"
+                    } else action?.expectedResult ?: expectedResult(title),
+                    actualResult = if (isMappingRecord) "Mapped ${mapped.actions.size} action(s) from the complete user request" else null,
+                    startedAt = if (isMappingRecord) context.startTime else null,
+                    completedAt = if (isMappingRecord) context.startTime else null
                 )
             }
-            context.completedSteps += titles.firstOrNull().orEmpty()
+            context.completedSteps += titles.first()
             context.pendingSteps.addAll(titles.drop(1))
             active = context
             _isPaused.value = false
