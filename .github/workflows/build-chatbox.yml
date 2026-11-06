@@ -44,6 +44,11 @@ jobs:
       - name: Grant Gradle permission
         run: chmod +x gradlew
 
+      - name: Run unit tests
+        env:
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: ./gradlew testDebugUnitTest --stacktrace
+
       - name: Build debug APK (retry transient download failures)
         env:
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
