@@ -52,6 +52,8 @@ class AmbientConversationContextStoreTest {
         val store = AmbientConversationContextStore()
         store.add("Battery life and gaming performance are important.")
         assertEquals("", store.contextForExplicitRequest("Jarvis, open YouTube"))
+        assertEquals("", store.contextForExplicitRequest("Jarvis, what is the weather?"))
+        assertTrue(store.contextForExplicitRequest("Jarvis, what phone did we talk about?").contains("Battery life"))
         assertTrue(store.contextForExplicitRequest("Jarvis, suggest a phone based on what we discussed").contains("Battery life"))
     }
 
