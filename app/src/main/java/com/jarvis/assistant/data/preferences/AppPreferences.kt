@@ -48,6 +48,7 @@ class AppPreferences(context: Context) {
         private const val KEY_USER_NAME = "key_user_name"
         private const val KEY_PROFILE_PHOTO_URI = "key_profile_photo_uri"
         private const val KEY_MIC_MUTED = "key_mic_muted"
+        private const val KEY_AMBIENT_CONTEXT_ENABLED = "key_ambient_context_enabled"
         private const val KEY_CHAT_HISTORY = "key_chat_history"
         private const val KEY_FAVORITE_SONG = "key_favorite_song"
         private const val KEY_FAVORITE_APP = "key_favorite_app"
@@ -402,6 +403,11 @@ class AppPreferences(context: Context) {
         set(value) {
             prefs.edit().putString(KEY_FAVORITE_APP, value.trim()).commit()
         }
+
+    /** Explicit opt-in for local-only ambient speech context while Jarvis is in standby. */
+    var isAmbientContextEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AMBIENT_CONTEXT_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_AMBIENT_CONTEXT_ENABLED, value).commit()
 
     var isMicMuted: Boolean
         get() = prefs.getBoolean(KEY_MIC_MUTED, false)
