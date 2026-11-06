@@ -954,6 +954,79 @@ class BlinkitAgent(
         return BlinkitResult(false, BlinkitStatus.TIMEOUT, "Checkout did not reach the payment screen in time. Nothing was ordered.")
     }
 
+    /**
+     * Selects a payment method only from a visible clickable option on Blinkit's payment screen.
+     * The updated bill/payment summary is re-read and the order confirmation gate is refreshed.
+     */
+    suspend fun selectPaymentMethod(method: String, utterance: String): BlinkitResult {
+        val requested = method.trim()
+        if (requested.isBlank()) return BlinkitResult(false, BlinkitStatus.NOT_FOUND, "Tell me which visible payment method to select.")
+        val nodes = driver.snapshot() ?: return BlinkitResult(false, BlinkitStatus.SCREEN_UNREADABLE, "The payment screen could not be read.")
+        if (BlinkitScreenReader.classify(nodes) != BlinkitScreen.PAYMENT) {
+            return BlinkitResult(false, BlinkitStatus.WRONG_SCREEN, "Blinkit's payment screen is not open. I did not change the payment method.")
+        }
+        val carried = gate.pending?.summary?.items.orEmpty()
+        val before = BlinkitScreenReader.extractPayment(nodes, carried)
+        val options = nodes.filter { it.clickable && paymentOptionMatches(it.haystack, requested) }
+            .distinctBy { TitleMatch.normalize(it.label) }
+        if (options.isEmpty()) {
+            val visible = nodes.filter { it.clickable && Regex("""upi|google pay|gpay|phonepe|paytm|cash on delivery|pay on delivery|credit card|debit card|net ?banking|wallet|emi""").containsMatchIn(it.haystack) }
+                .map { it.label }.filter { it.isNotBlank() }.distinct().take(8)
+            return BlinkitResult(false, BlinkitStatus.NOT_FOUND,
+                "I could not find a clickable payment option matching '" + requested + "'. Visible options: " + visible.ifEmpty { listOf("none readable") }.joinToString(", ") + ". Nothing was changed.")
+        }
+        val exact = options.firstOrNull { TitleMatch.normalize(it.label) == TitleMatch.normalize(requested) }
+        val target = exact ?: options.singleOrNull()
+            ?: return BlinkitResult(false, BlinkitStatus.AMBIGUOUS,
+                "More than one visible payment option matches '" + requested + "': " + options.joinToString { it.label } + ". Tell me the exact one.")
+        if (paymentLabelMatches(before.paymentLabel.orEmpty(), requested)) {
+            return BlinkitResult(true, BlinkitStatus.PREPARED,
+                "Blinkit already shows " + before.paymentLabel + " as the selected payment method. Order NOT placed. Review the existing total and confirm in a new message if you want me to place it.",
+                verified = true, extra = mapOf("payment" to before.paymentLabel.orEmpty(), "total" to before.total))
+        }
+        if (!driver.click(target)) return BlinkitResult(false, BlinkitStatus.ERROR, "The payment option tap did not go through. No order was placed.")
+        driver.pause(700)
+        val afterNodes = driver.snapshot() ?: return BlinkitResult(false, BlinkitStatus.NOT_VERIFIED, "I tapped the payment option but could not re-read the screen. Check the payment method yourself; no order was placed.")
+        if (BlinkitScreenReader.classify(afterNodes) != BlinkitScreen.PAYMENT) {
+            return BlinkitResult(false, BlinkitStatus.NOT_VERIFIED, "The screen changed after selecting payment, so I could not verify the method. No order was placed.")
+        }
+        val after = BlinkitScreenReader.extractPayment(afterNodes, carried)
+        if (!paymentLabelMatches(after.paymentLabel.orEmpty(), requested)) {
+            return BlinkitResult(false, BlinkitStatus.NOT_VERIFIED,
+                "I tapped '" + target.label + "', but Blinkit does not show '" + requested + "' as selected (it shows '" + (after.paymentLabel ?: "no readable method") + "'). I did not place the order.")
+        }
+        if (!after.readable) return BlinkitResult(false, BlinkitStatus.NOT_VERIFIED, "Payment method is selected, but I cannot re-read the items and total reliably. Please review the payment screen; no order was placed.")
+        gate.prepare(after, utterance)
+        val sb = StringBuilder("PAYMENT METHOD UPDATED AND VERIFIED. Order NOT placed.\n")
+        after.items.forEach { sb.append("- ").append(it.name.take(60)).append(it.packText?.let { p -> " (" + p + ")" } ?: "").append(" × ").append(it.quantity).append(" — ").append(BlinkitMoney.format(it.price)).append('\n') }
+        appendBill(sb, after.bill)
+        sb.append("Deliver to: ").append(after.addressLabel ?: "address not readable").append('\n')
+        sb.append("Payment: ").append(after.paymentLabel).append('\n')
+        after.deliveryEstimate?.let { sb.append(it).append('\n') }
+        sb.append("Read this updated summary and wait for the user to clearly confirm placing the order in a NEW message.")
+        return BlinkitResult(true, BlinkitStatus.PREPARED, sb.toString(), verified = true,
+            extra = mapOf("payment" to after.paymentLabel, "total" to after.total))
+    }
+
+    private fun paymentOptionMatches(candidate: String, requested: String): Boolean {
+        val c = TitleMatch.normalize(candidate)
+        val r = TitleMatch.normalize(requested)
+        if (r.isBlank()) return false
+        val aliases = when (r) {
+            "gpay", "google pay" -> setOf("google pay", "gpay")
+            "cod", "cash" -> setOf("cash on delivery", "pay on delivery", "cod")
+            "card" -> setOf("credit card", "debit card", "card")
+            "phonepe" -> setOf("phonepe")
+            "paytm" -> setOf("paytm")
+            "upi" -> setOf("upi")
+            else -> setOf(r)
+        }
+        return aliases.any { alias -> c == alias || c.contains(alias) }
+    }
+
+    private fun paymentLabelMatches(label: String, requested: String): Boolean =
+        paymentOptionMatches(label, requested)
+
     private fun paymentResult(nodes: List<AmazonNode>, cart: CartSnapshot, utterance: String): BlinkitResult {
         val summary = BlinkitScreenReader.extractPayment(nodes, cart.lines)
         if (!summary.readable) {

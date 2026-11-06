@@ -31,7 +31,7 @@ class BuiltInSkillsTest {
         "amazon_search", "amazon_compare", "amazon_open_product", "amazon_add_to_cart", "amazon_cart",
         "amazon_prepare_checkout", "amazon_place_order",
         "blinkit_search", "blinkit_compare", "blinkit_budget_plan", "blinkit_cart", "blinkit_address",
-        "blinkit_prepare_checkout", "blinkit_place_order", "blinkit_order_status",
+        "blinkit_prepare_checkout", "blinkit_payment_method", "blinkit_place_order", "blinkit_order_status",
         "rapido_location_status", "rapido_find_rides", "rapido_prepare_booking", "rapido_book", "rapido_status",
         "rapido_cancel_ride",
         "clock_set_alarm", "clock_list_alarms", "clock_next_alarm", "clock_change_alarm", "clock_set_alarm_enabled",

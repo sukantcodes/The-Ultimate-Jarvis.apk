@@ -117,13 +117,13 @@ object BScreens {
         return listOf(node("Select delivery address"), node("Saved addresses"), node("Home"), node(address), node("Proceed to pay", clickable = true))
     }
 
-    fun payment(address: String, total: Int, itemTotal: Int, fees: List<Pair<String, String>>, method: String = "UPI - Google Pay"): List<AmazonNode> {
+    fun payment(address: String, total: Int, itemTotal: Int, fees: List<Pair<String, String>>, method: String = "UPI - Google Pay", options: List<String> = listOf(method)): List<AmazonNode> {
         reset()
         val out = ArrayList<AmazonNode>()
         out += node("Payment options")
         out += node("Delivering to Home - $address")
-        out += node("Paying using")
-        out += node(method)
+        out += node("Paying using " + method)
+        options.filterNot { it == method }.forEach { out += node(it, clickable = true) }
         out += node("Bill details")
         out += node("Item total"); out += node(rs(itemTotal))
         fees.forEach { (l, a) -> out += node(l); out += node(a) }
@@ -213,6 +213,8 @@ class BlinkitWorld(val catalog: List<Item>) {
     var address = "HOME - Flat 12, MG Road, Hyderabad"
     val saved = mutableListOf("Home" to "Flat 12, MG Road, Hyderabad", "Work" to "Tower B, HITEC City, Hyderabad")
     var fees = listOf("Delivery charge" to "₹25", "Handling charge" to "₹2")
+    var paymentMethod = "UPI - Google Pay"
+    var paymentOptions = listOf("UPI - Google Pay", "PhonePe", "Cash on Delivery")
     var requireAddressConfirm = false
     var loggedIn = true
     var paymentAppOpens = false
@@ -248,7 +250,7 @@ class BlinkitWorld(val catalog: List<Item>) {
             At.CART -> BScreens.cart(catalog, cart, fees, "Delivering to ${address.replace("HOME - ", "Home - ")}", note = cartNote, loggedIn = loggedIn, unavailable = unavailableInCart)
             At.SEARCHBOX -> { BScreens.reset(); listOf(BScreens.node("Search for products", clickable = true, editable = true), BScreens.node("Trending searches"), BScreens.node("Milk"), BScreens.node("Bread")) }
             At.PICKER -> if (requireAddressConfirm) BScreens.confirmAddressPicker(addressLine()) else BScreens.picker(saved)
-            At.PAYMENT -> BScreens.payment(addressLine(), total(), itemTotal(), fees)
+            At.PAYMENT -> BScreens.payment(addressLine(), total(), itemTotal(), fees, paymentMethod, paymentOptions)
             At.TRACKING -> {
                 val finished = orderStage.contains("delivered", true) || orderStage.contains("cancelled", true)
                 BScreens.tracking(orderStage, if (finished) null else "Arriving in 9 mins", cancel = cancelAvailable && !finished)
@@ -282,6 +284,7 @@ class BlinkitWorld(val catalog: List<Item>) {
                 l == "View cart" -> { at = At.CART; render() }
                 l == "Proceed" -> { at = if (requireAddressConfirm) At.PICKER else At.PAYMENT; render() }
                 l == "Proceed to pay" -> { at = At.PAYMENT; render() }
+                at == At.PAYMENT && paymentOptions.contains(l) -> { paymentMethod = l; render() }
                 l.startsWith("Pay ₹") -> {
                     payClicks++
                     if (paymentAppOpens) { phone.foreground = "com.google.android.apps.nbu.paisa.user"; phone.screen = BScreens.upiPin() }

@@ -114,6 +114,31 @@ class BlinkitAgentFlowTest {
         assertTrue(r.message.contains("Lowest price"))
     }
 
+    @Test fun `payment method changes only when a visible option matches and refreshed summary is verified`() = runBlocking {
+        val w = world()
+        w.cartWith("Amul Taaza Toned Milk" to 2)
+        val prepared = w.prepare()
+        assertEquals(BlinkitStatus.PREPARED, prepared.status)
+        val selected = w.agent.selectPaymentMethod("PhonePe", "choose PhonePe")
+        assertTrue(selected.message, selected.success && selected.verified)
+        assertEquals(BlinkitStatus.PREPARED, selected.status)
+        assertEquals("PhonePe", w.paymentMethod)
+        assertTrue(selected.message.contains("PhonePe"))
+        assertTrue(selected.message.contains("Order NOT placed"))
+        assertEquals(0, w.payClicks)
+    }
+
+    @Test fun `payment method selection refuses when no matching visible option exists`() = runBlocking {
+        val w = world()
+        w.cartWith("Amul Taaza Toned Milk" to 1)
+        w.prepare()
+        val selected = w.agent.selectPaymentMethod("Bitcoin", "choose Bitcoin")
+        assertFalse(selected.success)
+        assertEquals(BlinkitStatus.NOT_FOUND, selected.status)
+        assertEquals("UPI - Google Pay", w.paymentMethod)
+        assertEquals(0, w.payClicks)
+    }
+
     // ---- Serviceability, login, recovery ------------------------------------------------------
 
     @Test fun `an address Blinkit does not serve is reported and the address is not changed`() = runBlocking {

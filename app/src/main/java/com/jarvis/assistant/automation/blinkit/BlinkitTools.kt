@@ -50,7 +50,7 @@ object BlinkitTools {
 
     val NAMES: Set<String> = setOf(
         "blinkit_search", "blinkit_compare", "blinkit_budget_plan", "blinkit_cart",
-        "blinkit_address", "blinkit_prepare_checkout", "blinkit_place_order", "blinkit_order_status"
+        "blinkit_address", "blinkit_prepare_checkout", "blinkit_payment_method", "blinkit_place_order", "blinkit_order_status"
     )
 
     /** One call may legitimately take a while (searching, planning); the agent has its own, shorter budgets. */
@@ -144,6 +144,12 @@ object BlinkitTools {
             "Opens the cart's checkout in Blinkit, re-reads items, quantities, bill (item total, fees, discounts, total), delivery address and payment method, and stores a summary. It NEVER orders. " +
                 "You must read the summary to the user and wait for them to clearly say to place it in a NEW message. Refuses on unavailable items, minimum-order gaps or an unserviceable address.",
             JSONObject()
+        ),
+        tool(
+            "blinkit_payment_method",
+            "Selects a payment method that is visibly offered on Blinkit's payment screen (UPI, Google Pay, PhonePe, Paytm, cash on delivery, card, etc.). It reads the screen before and after the tap, verifies the selected method, re-reads the payable summary and refreshes the confirmation gate. It NEVER places the order; read the updated summary and wait for a separate clear confirmation.",
+            JSONObject().put("method", prop("STRING", "The payment method the user explicitly named, e.g. Google Pay, PhonePe, Paytm, UPI or Cash on Delivery.")),
+            listOf("method")
         ),
         tool(
             "blinkit_place_order",
@@ -299,6 +305,7 @@ object BlinkitTools {
             } else agent.address(action, text(args, "label"))
         }
         "blinkit_prepare_checkout" -> agent.prepareCheckout(utterance)
+        "blinkit_payment_method" -> agent.selectPaymentMethod(text(args, "method") ?: "", utterance)
         "blinkit_place_order" -> agent.placeOrder(utterance)
         else -> agent.orderStatus(args.optString("action", "status").trim().lowercase(), utterance)
     }
