@@ -2172,7 +2172,12 @@ private fun findAndInjectEditText(
      * Types [textToType] into the right input field of whatever app is on screen and returns true ONLY if the
      * text was then read back from that field. Never auto-submits. Handles Unicode (Hindi, Hinglish, English).
      */
-    fun smartTypeText(textToType: String, targetRect: Rect? = null, submit: Boolean = false): Boolean {
+    fun smartTypeText(
+        textToType: String,
+        targetRect: Rect? = null,
+        submit: Boolean = false,
+        allowBrowserUrlBar: Boolean = false
+    ): Boolean {
         lastTypeVerified = false
         lastTypeDetail = ""
         if (textToType.isBlank()) {
@@ -2208,9 +2213,9 @@ private fun findAndInjectEditText(
             lastTypeDetail = "no editable field found in any window"
             return false
         }
-        if (resolved.isUrlBar) {
-            Log.w(TAG, "smartTypeText refused browser URL/address bar")
-            lastTypeDetail = "target is the browser address bar"
+        if (resolved.isUrlBar && !allowBrowserUrlBar) {
+            Log.w(TAG, "smartTypeText refused browser URL/address bar without an explicit search target")
+            lastTypeDetail = "browser address bar is allowed only for an explicitly requested browser search"
             return false
         }
 
