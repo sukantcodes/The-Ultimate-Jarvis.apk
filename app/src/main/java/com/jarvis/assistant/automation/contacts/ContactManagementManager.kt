@@ -88,7 +88,8 @@ object ContactManagementManager {
         }
     }
 
-    private fun applyAndVerify(context: Context, action: String, number: String): Outcome {\n        return try {
+    private fun applyAndVerify(context: Context, action: String, number: String): Outcome {
+        return try {
         val before = BlockedNumberContract.isBlocked(context, number)
         if (action == "block" && before) return Outcome(true, "That number is already blocked.")
         if (action == "unblock" && !before) return Outcome(true, "That number is not currently blocked.")
