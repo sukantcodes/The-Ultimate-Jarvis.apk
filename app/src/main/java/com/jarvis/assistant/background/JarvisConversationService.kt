@@ -596,6 +596,8 @@ class JarvisConversationService : Service() {
             var previousAvailability: List<Any>? = null
             while (isActive) {
                 delay(900L)
+                // Expire volatile ambient transcripts promptly even when no new speech arrives.
+                ambientContextStore.size()
                 if (_isSessionOn.value &&
                     (!PermissionHelper.hasRecordAudioPermission(this@JarvisConversationService) ||
                         !PermissionHelper.hasNotificationPermission(this@JarvisConversationService))) {
