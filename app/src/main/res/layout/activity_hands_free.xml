@@ -178,7 +178,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="OFF by default. When enabled, speech is transcribed on this phone only while Jarvis is in standby. No ambient audio or transcript is sent to an AI server. Temporary text expires after 15 minutes and is cleared when the service fully stops. Jarvis will not speak or act on overheard words; say “Jarvis” and make a clear request."
+                    android:text="OFF by default. When enabled, speech is transcribed on this phone only while Jarvis is in standby. Ambient audio stays on this phone. Temporary text stays local unless you explicitly ask a question about the earlier conversation; then recent text context is included with that request. Temporary text expires after 15 minutes and is cleared when the service fully stops. Jarvis will not speak or act on overheard words; say “Jarvis” and make a clear request."
                     android:textColor="?attr/themeTextMuted"
                     android:textSize="12sp"
                     android:lineSpacingExtra="2dp" />
