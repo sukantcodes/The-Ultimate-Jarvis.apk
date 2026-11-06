@@ -485,7 +485,7 @@ object BlinkitScreenReader {
         var payment: String? = null
         val label = ls.indexOfFirst { Regex("""paying (?:with|via|using)|pay using|pay with|payment method|selected payment""").containsMatchIn(it.lowercase(Locale.ROOT)) }
         if (label >= 0) {
-            val same = Regex("""(?i)\\b(?:paying (?:with|via|using)|pay using|pay with|payment method|selected payment)\\b""")
+            val same = Regex("""(?i)\b(?:paying (?:with|via|using)|pay using|pay with|payment method|selected payment)\b""")
                 .replaceFirst(ls[label], "").trim().trimStart(':', '-', ' ')
             payment = same.takeIf { it.isNotBlank() && paymentWords.containsMatchIn(it.lowercase(Locale.ROOT)) }
                 ?: ls.drop(label + 1).take(3).firstOrNull { paymentWords.containsMatchIn(it.lowercase(Locale.ROOT)) }
