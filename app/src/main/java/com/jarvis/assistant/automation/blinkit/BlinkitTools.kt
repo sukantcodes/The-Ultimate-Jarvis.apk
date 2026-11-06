@@ -247,6 +247,17 @@ object BlinkitTools {
             Log.e(TAG, "$name failed: ${e.message}", e)
             BlinkitResult(false, BlinkitStatus.ERROR, "Blinkit automation hit an unexpected problem: ${e.message ?: "unknown"}. Nothing was ordered or cancelled.")
         }
+        if (name == "blinkit_place_order" && result.success && result.verified && result.status == BlinkitStatus.PLACED) {
+            BlinkitNotificationTracker.beginTracking(context, OrderStage.PLACED)
+            Log.i(TAG, "Blinkit notification monitoring enabled after verified order placement.")
+        } else if (name == "blinkit_order_status" && result.success && result.verified) {
+            val stage = (result.extra["stage"] as? String)?.let { runCatching { OrderStage.valueOf(it) }.getOrNull() }
+            if (stage != null && stage != OrderStage.DELIVERED && stage != OrderStage.CANCELLED && stage != OrderStage.UNKNOWN) {
+                BlinkitNotificationTracker.beginTracking(context, stage)
+            } else if (stage == OrderStage.DELIVERED || stage == OrderStage.CANCELLED) {
+                BlinkitNotificationTracker.stopTracking(context)
+            }
+        }
         finishTask(result)
         return toJson(name, result)
     }

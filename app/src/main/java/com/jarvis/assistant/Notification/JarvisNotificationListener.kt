@@ -42,6 +42,18 @@ class JarvisNotificationListener : NotificationListenerService() {
         val notificationExtras = sbn.notification?.extras
         val notificationTitle = notificationExtras?.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString().orEmpty()
         val notificationBody = notificationExtras?.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString().orEmpty()
+        if (com.jarvis.assistant.automation.blinkit.BlinkitLinks.isBlinkitPackage(sbn.packageName)) {
+            val orderUpdate = com.jarvis.assistant.automation.blinkit.BlinkitNotificationTracker.onNotification(
+                applicationContext, sbn.packageName, notificationTitle, notificationBody
+            )
+            if (orderUpdate != null) {
+                ActivityLog.get(applicationContext).log(ActivityLog.TYPE_MESSAGE, orderUpdate)
+                if (!JarvisConversationService.announceMessage(orderUpdate)) {
+                    val announcer = fallbackAnnouncer ?: SpeechAnnouncer(applicationContext).also { fallbackAnnouncer = it }
+                    announcer.say(orderUpdate)
+                }
+            }
+        }
         ScheduledTaskMemory.onAppNotification(applicationContext, sbn.packageName, notificationTitle, notificationBody).forEach { update ->
             if (!JarvisConversationService.announceMessage(update)) {
                 val announcer = fallbackAnnouncer ?: SpeechAnnouncer(applicationContext).also { fallbackAnnouncer = it }

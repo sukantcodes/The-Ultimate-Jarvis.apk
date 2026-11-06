@@ -33,3 +33,10 @@ Tumhare asli tools: `blinkit_search`, `blinkit_compare`, `blinkit_budget_plan`, 
 
 ## Jo nahi hota
 Blinkit ka apna filter/sort UI nahi chalta (ranking Jarvis khud karta hai); delay ka background alert nahi (status maangne par padha jaata hai); coupon eligibility pehle se check nahi hoti.
+
+
+## Background order updates
+- After a Blinkit order is verified as placed (or the user asks JARVIS to monitor a verified existing order), JARVIS enables a lightweight local notification tracker.
+- It listens only to Blinkit's own status notifications while the user uses other apps; it does not keep Blinkit in the foreground or repeatedly steal the screen.
+- It reports only clearly recognized order-stage changes and stops after Delivered or Cancelled. Promotions, wallet alerts, unclear text and duplicate/regressing stages are ignored.
+- This is notification-based monitoring, not a promise of continuous live polling. Android notification access must be enabled and Blinkit must actually publish order-status notifications. If no status notification arrives, JARVIS cannot infer the order's progress; the user can ask for a fresh screen-based status check.
