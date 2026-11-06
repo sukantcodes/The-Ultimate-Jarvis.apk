@@ -95,14 +95,14 @@ object AgentTaskEngine {
                 context.steps += TaskPlanStep(
                     title = title,
                     description = if (isMappingRecord) {
-                        "The complete request was structurally mapped into ordered actions. Each action remains pending until independently executed and verified."
+                        "The complete request was structurally mapped into ordered actions. Scheduled trigger: ${mapped.scheduledTrigger ?: "none"}. Each action remains pending until independently executed and verified."
                     } else action?.description ?: planDescription(title, goal),
                     status = if (isMappingRecord) TaskStepStatus.COMPLETED else TaskStepStatus.PENDING,
                     dependencies = if (index == 0) emptyList() else listOf(context.steps[index - 1].stepId),
                     expectedResult = if (isMappingRecord) {
                         "${mapped.actions.size} individual action(s) mapped; execution has not yet been claimed"
                     } else action?.expectedResult ?: expectedResult(title),
-                    actualResult = if (isMappingRecord) "Mapped ${mapped.actions.size} action(s) from the complete user request" else null,
+                    actualResult = if (isMappingRecord) "Mapped ${mapped.actions.size} action(s) from the complete user request; scheduled trigger: ${mapped.scheduledTrigger ?: "none"}" else null,
                     startedAt = if (isMappingRecord) context.startTime else null,
                     completedAt = if (isMappingRecord) context.startTime else null
                 )
