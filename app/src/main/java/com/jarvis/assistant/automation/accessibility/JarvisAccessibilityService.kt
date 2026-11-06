@@ -2266,7 +2266,7 @@ private fun findAndInjectEditText(
             pause(300)
             val refreshedTarget = focusedEditableTarget(targetRect)
                 ?: resolveTypingTarget(targetRect, relaxed = false)
-            if (refreshedTarget != null && !refreshedTarget.isUrlBar) {
+            if (refreshedTarget != null && (!refreshedTarget.isUrlBar || allowBrowserUrlBar)) {
                 val refreshedField = Field(refreshedTarget.node)
                 val refreshedBaseline = refreshedField.text() ?: ""
                 val refreshedWeb = isWebContext(refreshedTarget.node)
