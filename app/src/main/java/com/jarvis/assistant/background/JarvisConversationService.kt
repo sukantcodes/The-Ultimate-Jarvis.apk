@@ -305,6 +305,10 @@ class JarvisConversationService : Service() {
     /** Chatbox messages are rendered as text and must never be played through the speaker. */
     @Volatile private var textChatTurnActive = false
     @Volatile private var currentTextChatPrompt: String = ""
+    @Volatile private var pendingAuthorizedVoicePrompt: String? = null
+    @Volatile private var pendingAuthorizedVoiceUserText: String? = null
+    @Volatile private var suppressMicUploadUntilVoiceCommandComplete = false
+    @Volatile private var returnToStandbyAfterAuthorizedTurn = false
     @Volatile
     private var isExecutingTool = false
     private val currentUtteranceAudioStream = java.io.ByteArrayOutputStream()
@@ -1023,6 +1027,7 @@ class JarvisConversationService : Service() {
                                 _liveError.value = null
                                 // The first text message may have arrived while the
                                 // foreground service or provider handshake was starting.
+                                dispatchPendingAuthorizedVoiceCommand()
                                 dispatchNextPendingTextChatMessage()
                                 // Flush any speech chunks captured during the connection handshake
                                 serviceScope.launch(Dispatchers.Default) {
@@ -1148,6 +1153,10 @@ class JarvisConversationService : Service() {
                                     currentTurnWakeAuthorized = wakeAuthorizationArmed || VoiceIntentGate.hasWakePrefix(trimmed)
                                     wakeAuthorizationArmed = false
                                     if (VoiceIntentGate.isWakeOnly(trimmed)) wakeAuthorizationArmed = true
+                                    if (currentTurnWakeAuthorized) {
+                                        returnToStandbyAfterAuthorizedTurn = true
+                                        suppressMicUploadUntilVoiceCommandComplete = true
+                                    }
                                 }
                                 val answeringTaskBlocker = startsNewUserTurn && isAutonomousTaskRunning && autonomousWaitingForUser
                                 if (answeringTaskBlocker) {
@@ -1512,6 +1521,18 @@ class JarvisConversationService : Service() {
                                     )
                                 }
                             }
+                            if (returnToStandbyAfterAuthorizedTurn) {
+                                if (autonomousWaitingForUser) {
+                                    // A requested clarification is an authorized continuation of this task.
+                                    suppressMicUploadUntilVoiceCommandComplete = false
+                                } else {
+                                    suppressMicUploadUntilVoiceCommandComplete = true
+                                    if (!isAutonomousTaskRunning && pendingToolCalls.isEmpty() &&
+                                        activeToolJobs.isEmpty() && !isExecutingTool && macroJob?.isActive != true) {
+                                        scheduleStandbyAfterAuthorizedVoiceTurn()
+                                    }
+                                }
+                            }
                         }
 
                         override fun onError(message: String, isFatal: Boolean, errorCode: String?) {
@@ -1659,13 +1680,13 @@ class JarvisConversationService : Service() {
                 val cleanedChunk = cleanForModel(chunk)
                 if (offlineLocalMode) {
                     if (cleanedChunk.isNotEmpty()) handleOfflineAudioChunk(cleanedChunk)
-                } else if (liveWebSocket?.isSessionReady() == true) {
+                } else if (!suppressMicUploadUntilVoiceCommandComplete && liveWebSocket?.isSessionReady() == true) {
                     while (!preConnectAudioQueue.isEmpty()) {
                         val queued = preConnectAudioQueue.poll() ?: break
                         liveWebSocket?.sendAudioChunk(queued)
                     }
                     if (cleanedChunk.isNotEmpty()) liveWebSocket?.sendAudioChunk(cleanedChunk)
-                } else {
+                } else if (!suppressMicUploadUntilVoiceCommandComplete) {
                     // Connection still warming up: buffer up to 60 chunks (~1.2s of audio) so early speech is never lost
                     if (preConnectAudioQueue.size < 60 && cleanedChunk.isNotEmpty()) {
                         preConnectAudioQueue.offer(cleanedChunk.copyOf())
@@ -4087,6 +4108,10 @@ class JarvisConversationService : Service() {
 
         currentTurnAssistantText.clear()
         currentTurnUserText.clear()
+        pendingAuthorizedVoicePrompt = null
+        pendingAuthorizedVoiceUserText = null
+        suppressMicUploadUntilVoiceCommandComplete = false
+        returnToStandbyAfterAuthorizedTurn = false
         preConnectAudioQueue.clear()
         hasSpeechInCurrentUtterance = false
         hasSignalledUtteranceEnd = false
@@ -4382,17 +4407,34 @@ class JarvisConversationService : Service() {
         hasSignalledUtteranceEnd = false
         serviceScope.launch { _wakeEvents.emit(Unit) }
         // A full wake-prefixed request is already present; do not send an extra wake greeting.
-        beginActiveConversation(wakeTriggered = commandText.isNullOrBlank())
         if (!commandText.isNullOrBlank()) {
-            val relevantContext = ambientContextStore.contextForExplicitRequest(commandText)
-            val authorizedPrompt = if (relevantContext.isBlank()) commandText else "$commandText\n\n$relevantContext"
-            if (offlineLocalMode) {
-                processOfflineTranscript(authorizedPrompt) // consumes the one-shot wake authorization
-            } else {
-                wakeAuthorizationArmed = false
-                currentTurnWakeAuthorized = true
-                sendTextMessage(authorizedPrompt)
+            suppressMicUploadUntilVoiceCommandComplete = true
+            returnToStandbyAfterAuthorizedTurn = true
+        }
+        beginActiveConversation(wakeTriggered = commandText.isNullOrBlank())
+        if (!_isSessionOn.value || commandText.isNullOrBlank()) {
+            if (commandText.isNullOrBlank()) {
+                serviceScope.launch {
+                    delay(15_000L)
+                    if (_isSessionOn.value && wakeAuthorizationArmed &&
+                        currentTurnUserText.isEmpty() && !isAutonomousTaskRunning) {
+                        enterStandby(announce = false)
+                    }
+                }
             }
+            return
+        }
+
+        val relevantContext = ambientContextStore.contextForExplicitRequest(commandText)
+        val authorizedPrompt = if (relevantContext.isBlank()) commandText else "$commandText\n\n$relevantContext"
+        if (offlineLocalMode) {
+            processOfflineTranscript(authorizedPrompt) // consumes the one-shot wake authorization
+        } else {
+            wakeAuthorizationArmed = false
+            currentTurnWakeAuthorized = true
+            pendingAuthorizedVoiceUserText = commandText
+            pendingAuthorizedVoicePrompt = authorizedPrompt
+            dispatchPendingAuthorizedVoiceCommand()
         }
     }
 
@@ -4520,6 +4562,59 @@ class JarvisConversationService : Service() {
      * Sends one queued Chatbox prompt only when the selected AI provider is fully ready.
      * A failed readiness check leaves the prompt queued for the next LIVE callback.
      */
+    /**
+     * Sends a locally recognized, wake-authorized voice request as a voice turn.
+     * Unlike Chatbox text messages, this path keeps spoken assistant output enabled.
+     */
+    private fun dispatchPendingAuthorizedVoiceCommand() {
+        if (!_isSessionOn.value || offlineLocalMode) return
+        val session = liveWebSocket ?: return
+        if (!session.isSessionReady()) return
+        val prompt = pendingAuthorizedVoicePrompt ?: return
+        val userText = pendingAuthorizedVoiceUserText ?: prompt
+
+        currentTurnAssistantText.clear()
+        currentTurnUserText.clear()
+        currentTurnUserText.append(userText)
+        currentTurnWakeAuthorized = true
+        lastUserSpeechDetectedTime = System.currentTimeMillis()
+        lastRealInteractionTime = lastUserSpeechDetectedTime
+        _liveUserTranscript.value = userText
+        _liveAssistantResponse.value = ""
+        setConversationState(ConversationState.THINKING)
+
+        if (session.sendClientContent(prompt)) {
+            pendingAuthorizedVoicePrompt = null
+            pendingAuthorizedVoiceUserText = null
+            Log.i("JarvisService", "Dispatched locally recognized explicit voice request.")
+        } else {
+            currentTurnUserText.clear()
+            currentTurnWakeAuthorized = false
+            setConversationState(ConversationState.IDLE)
+            Log.w("JarvisService", "Voice request handoff failed; keeping it queued for the next ready callback.")
+        }
+    }
+
+    private fun scheduleStandbyAfterAuthorizedVoiceTurn() {
+        serviceScope.launch {
+            delay(300L)
+            val deadline = System.currentTimeMillis() + 120_000L
+            while (isActive && _isSessionOn.value &&
+                (audioPlayer?.isPlaying() == true || tts?.isSpeaking == true) &&
+                System.currentTimeMillis() < deadline) {
+                delay(150L)
+            }
+            if (_isSessionOn.value && returnToStandbyAfterAuthorizedTurn &&
+                !isAutonomousTaskRunning && !autonomousWaitingForUser &&
+                pendingToolCalls.isEmpty() && activeToolJobs.isEmpty() &&
+                !isExecutingTool && macroJob?.isActive != true) {
+                returnToStandbyAfterAuthorizedTurn = false
+                suppressMicUploadUntilVoiceCommandComplete = false
+                enterStandby(announce = false)
+            }
+        }
+    }
+
     private fun dispatchNextPendingTextChatMessage() {
         if (textChatTurnActive || !_isSessionOn.value || offlineLocalMode) return
         val session = liveWebSocket ?: return
