@@ -33,10 +33,6 @@ object UniversalTaskMapper {
         val normalized = actionSource
             .replace(Regex("""(?i)\b(?:and then|then|after that|next)\b"""), " ; ")
             .replace(Regex("""(?i)\s+and\s+(?=(?:open|launch|play|skip|like|comment|copy|send|share|search|find|tap|click|turn|set|call|wait|download|install|delete|save|select|choose|subscribe|follow|unfollow|message|type|scroll|navigate|verify)\b)"""), " ; ")
-            .replace(
-                Regex("""(?i)\b(?:once|when)\s+(?:the\s+)?(?:skip\s+)?button\s+(?:appears|is available|becomes available)"""),
-                " ; when the requested control becomes available ; "
-            )
             .replace(Regex("""[.!?]+"""), " ; ")
 
         val fragments = normalized.split(';', ',', '\n')
@@ -73,7 +69,7 @@ object UniversalTaskMapper {
             MappedAction(
                 title = title,
                 description = "Resolve the required app, person, or control from fresh context; perform only this action; inspect the result before advancing." +
-                    (condition?.let { " Condition: $it. Do not act until the condition is observed." } .orEmpty()),
+                    (condition?.let { " Condition: $it. Do not act until the condition is observed." } ?: ""),
                 expectedResult = "Observable evidence that this specific action succeeded",
                 condition = condition
             )
