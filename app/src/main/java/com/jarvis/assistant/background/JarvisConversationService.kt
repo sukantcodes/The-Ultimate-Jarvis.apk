@@ -36,6 +36,7 @@ import org.vosk.android.RecognitionListener as VoskRecognitionListener
 import org.vosk.android.SpeechService
 import com.jarvis.assistant.audio.AudioPlayer
 import com.jarvis.assistant.audio.AudioRecorder
+import com.jarvis.assistant.audio.VoiceIntentGate
 import com.jarvis.assistant.audio.OnDeviceVoiceActivityDetector
 import com.jarvis.assistant.data.model.ConversationState
 import com.jarvis.assistant.network.GeminiLiveWebSocket
@@ -537,6 +538,14 @@ class JarvisConversationService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
     private var standbyActivatedTime = 0L
+
+    // Listening is not authorization. Only an explicit wake phrase or a one-shot
+    // token issued by the standby wake detector can authorize this utterance.
+    @Volatile private var wakeAuthorizationArmed = false
+    @Volatile private var currentTurnWakeAuthorized = false
+
+    private fun isCurrentVoiceTurnAuthorized(): Boolean =
+        currentTurnWakeAuthorized || VoiceIntentGate.hasWakePrefix(currentTurnUserText.toString())
     @Volatile
     private var isPendingWakeGreeting = false
     private var headsetAudioRouter: com.jarvis.assistant.audio.HeadsetAudioRouter? = null
@@ -1047,6 +1056,10 @@ class JarvisConversationService : Service() {
                             thinkingTimeoutJob?.cancel()
                             thinkingTimeoutJob = null
                             lastResponseTimedOut = false
+                            if (!isCurrentVoiceTurnAuthorized() && !isAutonomousTaskRunning && !announcementOnlySession) {
+                                Log.d("JarvisService", "Suppressing assistant audio: no explicit Jarvis activation")
+                                return
+                            }
                             if (textChatTurnActive) {
                                 Log.d("JarvisService", "Suppressing generated audio for text-only Chatbox turn")
                                 return
@@ -1083,6 +1096,10 @@ class JarvisConversationService : Service() {
 
                         override fun onAssistantTextReceived(textChunk: String) {
                             if (textChunk.isEmpty()) return
+                            if (!isCurrentVoiceTurnAuthorized() && !isAutonomousTaskRunning && !announcementOnlySession) {
+                                Log.d("JarvisService", "Suppressing assistant text: no explicit Jarvis activation")
+                                return
+                            }
                             thinkingTimeoutJob?.cancel()
                             thinkingTimeoutJob = null
                             lastResponseTimedOut = false
@@ -1117,6 +1134,11 @@ class JarvisConversationService : Service() {
                             val trimmed = textChunk.trim()
                             if (trimmed.isNotEmpty()) {
                                 val startsNewUserTurn = currentTurnUserText.isEmpty()
+                                if (startsNewUserTurn) {
+                                    currentTurnWakeAuthorized = wakeAuthorizationArmed || VoiceIntentGate.hasWakePrefix(trimmed)
+                                    wakeAuthorizationArmed = false
+                                    if (VoiceIntentGate.isWakeOnly(trimmed)) wakeAuthorizationArmed = true
+                                }
                                 val answeringTaskBlocker = startsNewUserTurn && isAutonomousTaskRunning && autonomousWaitingForUser
                                 if (answeringTaskBlocker) {
                                     autonomousWaitingForUser = false
@@ -1155,6 +1177,7 @@ class JarvisConversationService : Service() {
                                     currentTurnUserText.append(" ")
                                 }
                                 currentTurnUserText.append(trimmed)
+                                currentTurnWakeAuthorized = currentTurnWakeAuthorized || VoiceIntentGate.hasWakePrefix(currentTurnUserText.toString())
                                 _liveUserTranscript.value = currentTurnUserText.toString().trim()
                                 if (_conversationState.value == ConversationState.IDLE) {
                                     setConversationState(ConversationState.LISTENING)
@@ -1180,10 +1203,11 @@ class JarvisConversationService : Service() {
                                 enterStandby(announce = true)
                                 return
                             }
-                            app.memoryManager.learnPreferencesFromConversation(currentTurnUserText.toString())
+                            // Learn only from explicitly addressed, completed owner interactions.
+                            // Do not mine private conversations overheard while the microphone is active.
                             // Do not run checkAndExecuteCommand on streaming chunks mid-speech!
                             // Gemini Live onToolCall is the authoritative neural intent engine.
-                            if (!usingGroqEngine()) scheduleAutomationMatch()
+                            if (isCurrentVoiceTurnAuthorized() && !usingGroqEngine()) scheduleAutomationMatch()
                         }
 
                         override fun onInterrupted() {
@@ -1290,6 +1314,23 @@ class JarvisConversationService : Service() {
 
                             // Owner voice gating: if owner-only mode is active and speaker was not verified, ignore turn completely
                             val hasActualSpeechInThisTurn = hasSpeechInCurrentUtterance || currentTurnUserText.isNotEmpty()
+                            if (hasActualSpeechInThisTurn && !isCurrentVoiceTurnAuthorized() && !isAutonomousTaskRunning) {
+                                Log.i("JarvisService", "Ignoring overheard conversation: no explicit Jarvis activation")
+                                audioPlayer?.flush()
+                                currentTurnAssistantText.clear()
+                                currentTurnUserText.clear()
+                                _liveAssistantResponse.value = ""
+                                _liveUserTranscript.value = ""
+                                pendingToolCalls.clear()
+                                currentTurnWakeAuthorized = false
+                                hasSpeechInCurrentUtterance = false
+                                hasSignalledUtteranceEnd = false
+                                consecutiveVoicedFrames = 0
+                                totalVoicedFramesInCurrentUtterance = 0
+                                setConversationState(ConversationState.IDLE)
+                                updateNotification()
+                                return
+                            }
                             val isLeaseActive = (System.currentTimeMillis() - lastOwnerVerifiedTimestamp) < 120_000L
 
                             if (ownerVoiceGateOn() && !isCurrentTurnOwnerVoiceVerified && !isLeaseActive && hasActualSpeechInThisTurn) {
@@ -1311,9 +1352,10 @@ class JarvisConversationService : Service() {
                             }
 
                             val userUtterance = currentTurnUserText.toString().trim()
-                            if (userUtterance.isNotEmpty()) {
+                            if (userUtterance.isNotEmpty() && isCurrentVoiceTurnAuthorized()) {
                                 app.memoryManager.learnPreferencesFromConversation(userUtterance)
                             }
+                            currentTurnWakeAuthorized = false
                             val assistantText = currentTurnAssistantText.toString().lowercase(Locale.ROOT)
                             val isConfused = assistantText.contains("not understand") ||
                                     assistantText.contains("didn't understand") ||
@@ -1512,6 +1554,11 @@ class JarvisConversationService : Service() {
                         }
 
                         override fun onToolCall(callId: String, name: String, args: JSONObject) {
+                            if (!isCurrentVoiceTurnAuthorized() && !isAutonomousTaskRunning) {
+                                Log.w("JarvisService", "Rejected tool '$name': no explicit Jarvis wake phrase in current turn")
+                                liveWebSocket?.sendToolResponse(callId, name, JSONObject().put("success", false).put("error", "No authorized request. Wait until the user explicitly addresses Jarvis, for example: Jarvis, ... Do not act on overheard conversation."))
+                                return
+                            }
                             if (automationHandledTurn) {
                                 liveWebSocket?.sendToolResponse(
                                     callId, name,
@@ -2105,6 +2152,14 @@ class JarvisConversationService : Service() {
     private fun processOfflineTranscript(text: String) {
         val clean = text.trim()
         if (clean.isBlank() || !offlineLocalMode || offlineGenerationJob?.isActive == true) return
+        val authorized = VoiceIntentGate.isAuthorized(clean, wakeAuthorizationArmed)
+        if (!authorized) {
+            Log.i("JarvisService", "Ignoring offline overheard speech without explicit Jarvis activation")
+            return
+        }
+        wakeAuthorizationArmed = false
+        currentTurnWakeAuthorized = true
+        if (VoiceIntentGate.isWakeOnly(clean)) wakeAuthorizationArmed = true
         // The unrestricted offline recognizer turns background noise into one-word "sentences".
         if (clean.length < 3 || clean.lowercase(Locale.ROOT) in offlineNoiseWords) return
         val now = System.currentTimeMillis()
@@ -3690,7 +3745,7 @@ class JarvisConversationService : Service() {
 
     private fun checkAndExecuteCommand(userSpeech: String) {
         val cleanSpeech = userSpeech.trim()
-        if (cleanSpeech.isBlank()) return
+        if (cleanSpeech.isBlank() || (!isCurrentVoiceTurnAuthorized() && !isAutonomousTaskRunning)) return
 
         if (cleanSpeech.lowercase(Locale.ROOT).matches(Regex(".*\\b(stop|cancel task|cancel automation|bas karo|ruk jao)\\b.*"))) {
             com.jarvis.assistant.automation.agent.AgentTaskEngine.requestCancellation()
@@ -4335,6 +4390,8 @@ class JarvisConversationService : Service() {
 
     private fun onWakeWordDetected() {
         if (!_isStandby.value) return
+        // The standby recognizer verified the wake phrase; authorize one command turn.
+        wakeAuthorizationArmed = true
         requestAudioDuckFocus()
         vibrateBriefly()
         com.jarvis.assistant.ui.overlay.GlowOverlay.show(applicationContext)
@@ -4752,7 +4809,7 @@ class JarvisConversationService : Service() {
      */
     private suspend fun tryInstantSocialCommand(rawText: String): Boolean {
         val text = rawText.trim()
-        if (text.isBlank() || automationHandledTurn || hasExecutedCommandInCurrentTurn) return false
+        if (text.isBlank() || !isCurrentVoiceTurnAuthorized() || automationHandledTurn || hasExecutedCommandInCurrentTurn) return false
         val app = application as? JarvisApp ?: return false
 
         if (ownerVoiceGateOn()) {
@@ -4809,7 +4866,7 @@ class JarvisConversationService : Service() {
         automationMatchJob = serviceScope.launch {
             kotlinx.coroutines.delay(450)
             val text = currentTurnUserText.toString().trim()
-            if (text.isNotEmpty() && !tryInstantSocialCommand(text)) {
+            if (isCurrentVoiceTurnAuthorized() && text.isNotEmpty() && !tryInstantSocialCommand(text)) {
                 tryLocalAutomation(text)
             }
         }
