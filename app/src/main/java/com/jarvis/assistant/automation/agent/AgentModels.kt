@@ -52,7 +52,7 @@ data class TaskGoal(
     val rawGoal: String,
     val isBulkAction: Boolean = false,
     val bulkKeywords: List<String> = emptyList(),
-    val maxSteps: Int = 30,
+    val maxSteps: Int = Int.MAX_VALUE,
     val requiresVerification: Boolean = true
 ) {
     companion object {
@@ -77,7 +77,7 @@ data class TaskGoal(
                 rawGoal = utterance,
                 isBulkAction = isBulk,
                 bulkKeywords = matchedKeywords,
-                maxSteps = if (isBulk) 40 else 25
+                maxSteps = Int.MAX_VALUE
             )
         }
     }
