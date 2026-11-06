@@ -4387,8 +4387,10 @@ class JarvisConversationService : Service() {
             val relevantContext = ambientContextStore.contextForExplicitRequest(commandText)
             val authorizedPrompt = if (relevantContext.isBlank()) commandText else "$commandText\n\n$relevantContext"
             if (offlineLocalMode) {
-                processOfflineTranscript(authorizedPrompt)
+                processOfflineTranscript(authorizedPrompt) // consumes the one-shot wake authorization
             } else {
+                wakeAuthorizationArmed = false
+                currentTurnWakeAuthorized = true
                 sendTextMessage(authorizedPrompt)
             }
         }
