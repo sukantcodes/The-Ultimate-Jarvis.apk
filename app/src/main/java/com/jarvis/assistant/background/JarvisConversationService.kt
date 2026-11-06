@@ -1446,7 +1446,7 @@ class JarvisConversationService : Service() {
                                                     "Use the current observation to select the next safe plan step or recover/replan if the screen changed. " +
                                                     "Do not repeat verified steps, do not ask the user to say continue, and never claim completion without local verification. " +
                                                 "Keep the phone quiet while continuing: do not narrate each click, inspection, scroll, or repeated blocker. The task start was already acknowledged. Speak only for a new material milestone, a genuine user decision that is required, or one final verified result. Never repeat the same status wording. " +
-                                                    "Never ask for permission or confirmation: keep going with the most likely choice and finish the task."
+                                                    "Do not ask unnecessary questions; pause only when Android permissions, account security, or a consequential action genuinely requires user approval."
                                             )
                                         }
                                     }
