@@ -407,7 +407,7 @@ class AppPreferences(context: Context) {
     /** Explicit opt-in for local-only ambient speech context while Jarvis is in standby. */
     var isAmbientContextEnabled: Boolean
         get() = prefs.getBoolean(KEY_AMBIENT_CONTEXT_ENABLED, false)
-        set(value) = prefs.edit().putBoolean(KEY_AMBIENT_CONTEXT_ENABLED, value).commit()
+        set(value) = prefs.edit().putBoolean(KEY_AMBIENT_CONTEXT_ENABLED, value).apply()
 
     var isMicMuted: Boolean
         get() = prefs.getBoolean(KEY_MIC_MUTED, false)
