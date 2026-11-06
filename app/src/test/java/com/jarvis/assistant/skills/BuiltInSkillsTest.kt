@@ -27,7 +27,7 @@ class BuiltInSkillsTest {
         "open_settings_page", "open_website", "press_key", "recall_activity", "run_macro", "scroll_screen",
         "search_and_play_youtube", "search_in_chrome", "search_youtube", "send_whatsapp_message", "set_brightness",
         "set_flashlight", "set_volume", "show_power_menu", "social_app_action", "stop_macro", "task_completed",
-        "type_text", "unlock_device", "use_skill", "whatsapp_call", "youtube_accessibility_action",
+        "type_text", "unlock_device", "use_skill", "whatsapp_call", "whatsapp_status_action", "youtube_accessibility_action",
         "amazon_search", "amazon_compare", "amazon_open_product", "amazon_add_to_cart", "amazon_cart",
         "amazon_prepare_checkout", "amazon_place_order",
         "blinkit_search", "blinkit_compare", "blinkit_budget_plan", "blinkit_cart", "blinkit_address",
