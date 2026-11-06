@@ -1062,8 +1062,14 @@ class VisualTaskOrchestrator(
             "${it.text} ${it.contentDescription} ${it.viewId}"
         }.lowercase(Locale.ROOT)
         val browserPackage = (rootForTyping?.packageName?.toString() ?: "").let {
-            it.contains("chrome", ignoreCase = true) || it.contains("browser", ignoreCase = true)
+            it.contains("chrome", ignoreCase = true) || it.contains("browser", ignoreCase = true) ||
+                it.contains("firefox", ignoreCase = true) || it.contains("brave", ignoreCase = true) ||
+                it.contains("edge", ignoreCase = true) || it.contains("opera", ignoreCase = true)
         }
+        // The browser omnibox is a legitimate search field only when the user explicitly
+        // asked JARVIS to search in the browser. It must never be used for page prompts.
+        val allowBrowserSearchBar = browserPackage &&
+            targetInputName?.trim()?.equals("search", ignoreCase = true) == true
         val isGoogleFlowPage = groundingEngine.isGoogleFlowSurface(elementsForTyping) ||
             visibleUiText.contains("flow.google") || visibleUiText.contains("labs.google/fx/tools/flow")
         val isGoogleAiStudioPage = visibleUiText.contains("aistudio.google") || visibleUiText.contains("google ai studio")
@@ -1121,6 +1127,20 @@ class VisualTaskOrchestrator(
                     editable.isNotEmpty() -> editable.maxByOrNull { it.bounds.bottom }
                     else -> null
                 }
+            } else if (allowBrowserSearchBar) {
+                val browserSearch = elementsForTyping.filter { element ->
+                    val label = "${element.primaryLabel} ${element.contentDescription}".lowercase(Locale.ROOT)
+                    val id = element.viewId.lowercase(Locale.ROOT)
+                    (element.isEditable || element.className.contains("EditText", ignoreCase = true)) &&
+                        (id.contains("url_bar") || id.contains("omnibox") || id.contains("location_bar") ||
+                            id.contains("search_box_text") || label.contains("search or type") ||
+                            label.contains("address bar") || label.contains("web address"))
+                }
+                when {
+                    browserSearch.size == 1 -> browserSearch.single()
+                    browserSearch.size > 1 -> browserSearch.maxByOrNull { it.bounds.bottom }
+                    else -> null
+                }
             } else if (!targetInputName.isNullOrBlank()) {
                 val editable = elementsForTyping.filter {
                     (it.isEditable || it.className.contains("EditText", ignoreCase = true)) &&
@@ -1152,8 +1172,10 @@ class VisualTaskOrchestrator(
             } else null
             found?.takeIf {
                 (it.isEditable || it.className.contains("EditText", ignoreCase = true)) &&
-                    !it.viewId.contains("url_bar", ignoreCase = true) &&
-                    !it.viewId.contains("omnibox", ignoreCase = true)
+                    (allowBrowserSearchBar ||
+                        (!it.viewId.contains("url_bar", ignoreCase = true) &&
+                            !it.viewId.contains("omnibox", ignoreCase = true) &&
+                            !it.viewId.contains("location_bar", ignoreCase = true)))
             }?.bounds
         } catch (e: Exception) {
             null
@@ -1267,9 +1289,15 @@ class VisualTaskOrchestrator(
         AgentTaskEngine.setState(AgentTaskEngine.State.ACTING)
         val success = SerializedActionExecutor.execute(
             "type:${targetInputName ?: "focused-field"}",
+            timeoutMs = 30_000L,
             expectedGeneration = AgentTaskEngine.current()?.actionGeneration
         ) {
-            service.smartTypeText(text, targetRect, submit && !browserBeforeTyping && !composeField)
+            service.smartTypeText(
+                text,
+                targetRect,
+                submit && !browserBeforeTyping && !composeField,
+                allowBrowserUrlBar = allowBrowserSearchBar
+            )
         } == true
         val rootPkg = service.getActiveRootNode()?.packageName?.toString() ?: ""
         val isBrowser = browserBeforeTyping || rootPkg.contains("chrome", ignoreCase = true) || rootPkg.contains("browser", ignoreCase = true)
@@ -1304,7 +1332,8 @@ class VisualTaskOrchestrator(
             val verification = com.jarvis.assistant.automation.agent.ActionVerifier.verifyTyping(
                 service = service,
                 targetRect = targetRect,
-                expectedText = text
+                expectedText = text,
+                allowBrowserUrlBar = allowBrowserSearchBar
             )
             verification.isVerified
         }
