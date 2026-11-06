@@ -489,6 +489,7 @@ object AgentTaskEngine {
             normalizedAction.contains("type_text") -> title.contains("enter") || title.contains("type") || title.contains("comment")
             normalizedAction.contains("scroll") -> title.contains("scroll") || title.contains("load") || title.contains("process")
             normalizedAction.contains("wait") -> title.contains("wait") || title.contains("observe")
+            normalizedAction.contains("inspect") || normalizedAction.contains("observe") -> title.contains("inspect") || title.contains("observe") || title.contains("resolve")
             normalizedAction.contains("copy") -> title.contains("copy")
             normalizedAction.contains("send") -> title.contains("send") || title.contains("submit")
             normalizedAction.contains("call") -> title.contains("call") || title.contains("initiate")
