@@ -337,12 +337,14 @@ object AgentTaskEngine {
         }
         var iterations = 0
         try {
-            while (iterations < maxIterations.coerceAtLeast(1)) {
+            // No task-length ceiling: continue until the workflow ends, is cancelled,
+            // is replaced, or reaches a genuine blocked/failed state.
+            while (true) {
                 if (!awaitIfRunnable()) return LoopOutcome(iterations, false, true)
                 val context = active?.takeIf { it.taskId == taskId } ?: return LoopOutcome(iterations, false, true, "Task was replaced")
                 setState(State.OBSERVING)
                 val shouldContinue = step(iterations, context)
-                iterations++
+                if (iterations < Int.MAX_VALUE) iterations++
                 if (isCancelled()) return LoopOutcome(iterations, false, true)
                 if (!shouldContinue) return LoopOutcome(iterations, false, false)
                 if (active?.taskId != taskId) return LoopOutcome(iterations, false, true, "Task was replaced")
@@ -350,9 +352,6 @@ object AgentTaskEngine {
                     return LoopOutcome(iterations, false, false, active?.failureReason)
                 }
             }
-            recordCompletionEvidence(CompletionEvidence.SAFETY_LIMIT, "App-controlled task loop reached its $maxIterations iteration limit")
-            finish(State.BLOCKED, "Task loop reached its safety limit; remaining steps were not marked complete")
-            return LoopOutcome(iterations, true, false, "Task loop reached its safety limit")
         } catch (cancelled: CancellationException) {
             if (isCancelled()) return LoopOutcome(iterations, false, true)
             throw cancelled
