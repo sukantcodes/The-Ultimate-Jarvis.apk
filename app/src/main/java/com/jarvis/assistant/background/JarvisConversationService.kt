@@ -3474,14 +3474,13 @@ class JarvisConversationService : Service() {
                     if (name != "scroll_screen" && toolSig == lastToolSignature) sameToolRepeatCount++
                     else { lastToolSignature = toolSig; sameToolRepeatCount = 1 }
                     if (consecutiveToolFailures >= MAX_CONSECUTIVE_FAILURES ||
-                        (sameToolRepeatCount >= 3 && !isInstagramBulkTask()) ||
-                        autonomousStepCount >= autonomousTaskStepLimit()) {
+                        (sameToolRepeatCount >= 3 && !isInstagramBulkTask())) {
                         autonomousHardStop = true
                     }
                     if (autonomousHardStop) {
                         com.jarvis.assistant.automation.agent.AgentTaskEngine.finish(
                             com.jarvis.assistant.automation.agent.AgentTaskEngine.State.FAILED,
-                            "Autonomous safety limit reached after repeated failures or actions."
+                            "Execution paused by the repeated-failure safety guard; the unfinished task is not marked complete."
                         )
                         result.put("autonomous_status", "STOPPED")
                         result.put("system_directive", "HARD STOP: you are repeating actions or failing repeatedly. Do NOT call any more tools. Tell the user honestly, in one or two short sentences, what you actually completed and what went wrong (do NOT claim success), then wait for their next instruction.")
