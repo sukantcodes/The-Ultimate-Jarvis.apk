@@ -4382,7 +4382,7 @@ class JarvisConversationService : Service() {
         beginActiveConversation(wakeTriggered = true)
         if (!commandText.isNullOrBlank()) {
             val relevantContext = ambientContextStore.contextForExplicitRequest(commandText)
-            val authorizedPrompt = if (relevantContext.isBlank()) commandText else "$commandText\\n\\n$relevantContext"
+            val authorizedPrompt = if (relevantContext.isBlank()) commandText else "$commandText\n\n$relevantContext"
             sendTextMessage(authorizedPrompt)
         }
     }
