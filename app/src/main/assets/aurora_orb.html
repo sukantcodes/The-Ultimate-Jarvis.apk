@@ -39,6 +39,7 @@
       background-color: rgba(0, 0, 0, 0) !important;
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, sans-serif;
       -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
       -moz-osx-font-smoothing: grayscale;
       touch-action: none;
     }
@@ -1464,9 +1465,13 @@
 
       let width = window.innerWidth;
       let height = window.innerHeight;
-      let ssaa = Math.min(2.25, Math.max(1.5, window.devicePixelRatio || 1.5));
+      const deviceMemory = navigator.deviceMemory || 4;
+      const hardwareCores = navigator.hardwareConcurrency || 4;
+      const qualityCap = deviceMemory >= 6 && hardwareCores >= 8 ? 3 : 2;
+      let ssaa = Math.min(qualityCap, Math.max(1, window.devicePixelRatio || 1));
 
       function applyCanvasResolution() {
+        ssaa = Math.min(qualityCap, Math.max(1, window.devicePixelRatio || 1));
         width = window.innerWidth;
         height = window.innerHeight;
         canvas.width = Math.floor(width * ssaa);
