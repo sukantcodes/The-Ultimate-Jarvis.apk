@@ -28,8 +28,10 @@ object UniversalTaskMapper {
             """(?i)\b(?:after|in)\s+\d+\s*(?:seconds?|secs?|minutes?|mins?|hours?|hrs?|days?)\b"""
         ).find(source)?.value
 
-        val normalized = source
+        val actionSource = if (trigger != null) source.replace(trigger, " ", ignoreCase = true) else source
+        val normalized = actionSource
             .replace(Regex("""(?i)\b(?:and then|then|after that|next)\b"""), " ; ")
+            .replace(Regex("""(?i)\s+and\s+(?=(?:open|launch|play|skip|like|comment|copy|send|share|search|find|tap|click|turn|set|call|wait|download|install|delete|save|select|choose|subscribe|follow|unfollow|message|type|scroll|navigate|verify)\b)"""), " ; ")
             .replace(
                 Regex("""(?i)\b(?:once|when)\s+(?:the\s+)?(?:skip\s+)?button\s+(?:appears|is available|becomes available)"""),
                 " ; when the requested control becomes available ; "
