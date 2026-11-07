@@ -111,6 +111,7 @@ class JarvisApp : Application() {
             override fun onActivityResumed(activity: android.app.Activity) {
                 currentResumedActivity = activity
                 com.jarvis.assistant.util.ThemeManager.applyTheme(activity)
+                com.jarvis.assistant.util.ResponsiveLayoutController.apply(activity)
                 com.jarvis.assistant.util.TouchGlowController.install(activity, preferences.touchGlowEnabled)
             }
             override fun onActivityPaused(activity: android.app.Activity) {
