@@ -73,7 +73,7 @@ class AutomationStudioActivity : AppCompatActivity() {
     }
 
     private fun confirmDelete(rule: AutomationRule) {
-        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("Delete \"" + rule.name + "\"?")
             .setMessage("This automation will be removed for good.")
             .setPositiveButton("Delete") { _, _ ->
