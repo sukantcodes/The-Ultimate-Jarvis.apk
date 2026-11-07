@@ -607,7 +607,7 @@ class SettingsFragment : Fragment() {
 
     private fun showRefreshRateDialog() {
         val rates = ThemeManager.supportedRefreshRates(requireActivity())
-        val labels = mutableListOf("System default (recommended)")
+        val labels = mutableListOf("Maximum available (recommended)")
         val values = mutableListOf("system")
         rates.forEach { rate ->
             labels += "$rate Hz"
@@ -617,7 +617,7 @@ class SettingsFragment : Fragment() {
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Refresh rate")
-            .setMessage("Choose a preferred rate for Jarvis windows. Android and ColorOS may override it to manage battery, heat or display behaviour.")
+            .setMessage("Maximum uses the highest rate your display supports (120 Hz on 120 Hz screens). Android and ColorOS may still lower it to manage battery or heat, for example in battery saver mode.")
             .setSingleChoiceItems(labels.toTypedArray(), selected) { dialog, which ->
                 preferences.uiRefreshRate = values[which]
                 ThemeManager.applyPreferredRefreshRate(requireActivity())
@@ -631,7 +631,7 @@ class SettingsFragment : Fragment() {
     private fun updateRefreshRateSubtitle() {
         val requested = preferences.uiRefreshRate.toIntOrNull()
         binding.tvRefreshRateSubtitle.text = when {
-            requested == null -> "System default • ColorOS manages the rate"
+            requested == null -> "Maximum available • system may adapt"
             requested in ThemeManager.supportedRefreshRates(requireActivity()) ->
                 "$requested Hz preferred • system may adapt"
             else -> "$requested Hz is not supported by this display"

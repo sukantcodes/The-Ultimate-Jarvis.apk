@@ -1468,10 +1468,16 @@
       const deviceMemory = navigator.deviceMemory || 4;
       const hardwareCores = navigator.hardwareConcurrency || 4;
       const qualityCap = deviceMemory >= 6 && hardwareCores >= 8 ? 3 : 2;
-      let ssaa = Math.min(qualityCap, Math.max(1, window.devicePixelRatio || 1));
+      // ssaaMax is the full-fidelity scale for this display. ssaa is the live, adaptive scale: it equals
+      // ssaaMax whenever the device keeps up and only drops under sustained load.
+      const SSAA_MIN = 1.25;
+      let ssaaMax = Math.min(qualityCap, Math.max(1, window.devicePixelRatio || 1));
+      let ssaa = ssaaMax;
 
       function applyCanvasResolution() {
-        ssaa = Math.min(qualityCap, Math.max(1, window.devicePixelRatio || 1));
+        ssaaMax = Math.min(qualityCap, Math.max(1, window.devicePixelRatio || 1));
+        // Keep the adaptive scale across resizes (it used to be reset here, which undid every adjustment).
+        ssaa = Math.min(ssaaMax, Math.max(Math.min(SSAA_MIN, ssaaMax), ssaa));
         width = window.innerWidth;
         height = window.innerHeight;
         canvas.width = Math.floor(width * ssaa);
@@ -1549,11 +1555,15 @@
       let lastFrameTime = performance.now();
       let elapsed = 0;
       let fpsFrames = 0;
-      let fpsTimer = 0;
+      let fpsWindowStart = 0;
+      let displayHz = 120;
+      let drsSlowWindows = 0;
+      let drsFastWindows = 0;
+      let drsCooldown = 0;
       const fpsLabelEl = document.getElementById('fps-lock-label');
 
       function executeTick(now) {
-        const targetIntervalMs = 1000.0 / targetFPS;
+        const targetIntervalMs = 1000.0 / Math.min(targetFPS, displayHz);
         const deltaMs = now - lastFrameTime;
 
         if (deltaMs < targetIntervalMs * 0.92) {
@@ -1589,41 +1599,73 @@
         ctx.clearRect(cx - clearPad, cy - clearPad, clearPad * 2, clearPad * 2);
         crystalEngine.render3DRotatableInterior(ctx, cx, cy, bubbleR, elapsed, live, acoustic, cam3D, webglOk);
 
-        // Live FPS Counter & Adaptive DRS Governor
+        // Live FPS counter & adaptive resolution governor (wall-clock based, with hysteresis).
         fpsFrames++;
-        fpsTimer += dt;
-        if (fpsTimer >= 0.5) {
-          const measuredFPS = Math.round(fpsFrames / fpsTimer);
-          const displayFPS = Math.max(targetFPS === 120 ? 120 : 90, measuredFPS);
+        if (fpsWindowStart === 0) fpsWindowStart = now;
+        const windowMs = now - fpsWindowStart;
+        if (windowMs >= 500) {
+          const measuredFPS = Math.round(fpsFrames * 1000 / windowMs);
           if (fpsLabelEl) {
-            fpsLabelEl.textContent = `⚡ ${displayFPS} FPS LOCKED`;
+            fpsLabelEl.textContent = `\u26A1 ${measuredFPS} FPS`;
           }
-          // Adaptive Dynamic Resolution Scaling to guarantee locked 90/120 FPS
-          if (measuredFPS < targetFPS * 0.75 && ssaa > 1.35) {
-            ssaa = Math.max(1.25, ssaa - 0.15);
-            applyCanvasResolution();
-          } else if (measuredFPS >= targetFPS * 0.95 && ssaa < 2.25) {
-            ssaa = Math.min(2.25, ssaa + 0.10);
-            applyCanvasResolution();
+          const goalFPS = Math.min(targetFPS, displayHz);
+          const floorScale = Math.min(SSAA_MIN, ssaaMax);
+          if (drsCooldown > 0) drsCooldown--;
+          if (measuredFPS < goalFPS * 0.85 && ssaa > floorScale) {
+            drsSlowWindows++;
+            drsFastWindows = 0;
+            // Two consecutive slow windows before reacting: ignore one-off hitches.
+            if (drsSlowWindows >= 2) {
+              ssaa = Math.max(floorScale, ssaa * 0.9);
+              drsSlowWindows = 0;
+              drsCooldown = 12;
+              applyCanvasResolution();
+            }
+          } else if (measuredFPS >= goalFPS * 0.97 && ssaa < ssaaMax && drsCooldown === 0) {
+            drsFastWindows++;
+            drsSlowWindows = 0;
+            // Recover fidelity slowly, after ~3 s of headroom, so it cannot oscillate.
+            if (drsFastWindows >= 6) {
+              ssaa = Math.min(ssaaMax, ssaa + 0.1);
+              drsFastWindows = 0;
+              applyCanvasResolution();
+            }
+          } else {
+            drsSlowWindows = 0;
+            drsFastWindows = 0;
           }
           fpsFrames = 0;
-          fpsTimer = 0;
+          fpsWindowStart = now;
         }
       }
 
-      // Dual-driver loop: native VSync rAF + high-frequency MessageChannel pacer for 90/120Hz lock
-      const channel = new MessageChannel();
-      channel.port1.onmessage = () => {
-        executeTick(performance.now());
-      };
+      // Single render driver locked to the display's real VSync (120 Hz panel => 120 renders per second).
+      // The old MessageChannel + setTimeout side loop rendered extra frames that were never shown.
+      let animationFrameId = 0;
+      let rafSampleStart = 0;
+      let rafSampleCount = 0;
 
       function masterLoop(now) {
+        if (rafSampleStart === 0) rafSampleStart = now;
+        rafSampleCount++;
+        if (rafSampleCount >= 30) {
+          const observedHz = rafSampleCount * 1000 / Math.max(1, now - rafSampleStart);
+          const supported = [60, 90, 120, 144, 165];
+          displayHz = supported.reduce((best, c) =>
+            Math.abs(c - observedHz) < Math.abs(best - observedHz) ? c : best, 60);
+          rafSampleStart = now;
+          rafSampleCount = 0;
+        }
         executeTick(now);
-        // Schedule intermediate high-frequency sub-ticks if display VSync is 60Hz so internal physics/render stays at 90/120Hz
-        setTimeout(() => {
-          channel.port2.postMessage(null);
-        }, 1000 / targetFPS);
-        requestAnimationFrame(masterLoop);
+        animationFrameId = requestAnimationFrame(masterLoop);
+      }
+
+      function startRenderLoop() {
+        if (animationFrameId !== 0) return;
+        lastFrameTime = performance.now();
+        rafSampleStart = 0;
+        rafSampleCount = 0;
+        animationFrameId = requestAnimationFrame(masterLoop);
       }
 
       /* -----------------------------------------------------------------------
@@ -1669,7 +1711,7 @@
           e.stopPropagation();
           targetFPS = targetFPS === 120 ? 90 : 120;
           if (fpsLabelEl) {
-            fpsLabelEl.textContent = `⚡ ${targetFPS} FPS LOCKED`;
+            fpsLabelEl.textContent = `\u26A1 ${targetFPS} FPS TARGET`;
           }
           wakeMinimalUI();
         });
@@ -1881,7 +1923,7 @@
         triggerPulse: (dir = 1) => crystalEngine.triggerBurst(dir)
       };
 
-      requestAnimationFrame(masterLoop);
+      startRenderLoop();
     })();
   </script>
 </body>

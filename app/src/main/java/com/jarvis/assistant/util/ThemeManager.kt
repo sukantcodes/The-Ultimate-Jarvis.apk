@@ -158,25 +158,18 @@ object ThemeManager {
         emptyList()
     }
 
-    /** Apply the saved preference as a window hint; "system" clears the hint. */
-    @Suppress("DEPRECATION")
+    /**
+     * Apply the saved preference. A specific rate is requested as-is; "system" (the default) now means
+     * "highest rate the display supports", so JARVIS runs at 120 Hz on 120 Hz panels. It no longer clears
+     * the request, which used to let the system fall back to 60 Hz.
+     */
     fun applyPreferredRefreshRate(activity: Activity) {
         val requested = try {
             JarvisApp.instance.preferences.uiRefreshRate.toIntOrNull()
         } catch (_: Exception) {
             null
         }
-        val supported = if (requested == null) emptyList() else supportedRefreshRates(activity)
-        val preferred = requested?.takeIf { it in supported }?.toFloat() ?: 0f
-        try {
-            val params = activity.window.attributes
-            if (params.preferredRefreshRate != preferred) {
-                params.preferredRefreshRate = preferred
-                activity.window.attributes = params
-            }
-        } catch (_: Exception) {
-            // Some OEM window managers ignore the optional hint; normal system refresh remains active.
-        }
+        DisplayRefreshRateController.apply(activity, requested)
     }
 
     /** Alpha derived from the user's persisted Liquid Glass strength (0..100%). */

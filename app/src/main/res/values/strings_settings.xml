@@ -68,7 +68,7 @@
     <string name="set_overlayavatars_title">Overlay Avatars</string>
     <string name="set_overlayavatars_subtitle">Choose a floating avatar or turn the overlay off</string>
     <string name="set_refreshrate_title">Motion &amp; Refresh Rate</string>
-    <string name="set_refreshrate_subtitle">System default • ColorOS manages the rate</string>
+    <string name="set_refreshrate_subtitle">Maximum available • system may adapt</string>
     <string name="set_touchglow_title">Touch Glow Effect</string>
     <string name="set_touchglow_subtitle">Show a soft theme-coloured halo around every touch</string>
         <string name="set_orbstyle_title">Orb Appearance</string>

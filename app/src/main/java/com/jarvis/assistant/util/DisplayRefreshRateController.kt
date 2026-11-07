@@ -4,42 +4,59 @@ import android.app.Activity
 import android.os.Build
 import android.util.Log
 import android.view.Display
+import kotlin.math.abs
 
 /**
- * Requests the highest refresh rate exposed by the display currently hosting
- * an Activity. This is a window preference, not a display-mode or resolution
- * switch: Android and the device manufacturer retain final control.
+ * Single owner of the window's refresh-rate request.
  *
- * Applying this at the Application activity lifecycle keeps the policy
- * consistent across every JARVIS screen without requiring each Activity to
- * duplicate display-specific code.
+ * Many OEM display policies (ColorOS included) honour `preferredDisplayModeId` far more reliably than the
+ * legacy `preferredRefreshRate` float, so both are set, using a concrete mode of the active display:
+ *  - a specific rate chosen in Settings -> that mode, otherwise
+ *  - the highest refresh rate the panel offers *at its current resolution* (never a resolution switch).
+ *
+ * Android and the manufacturer keep final control (battery saver, thermal limits); this is a request.
+ * Every caller (activity lifecycle, theme application, the Settings dialog) goes through [apply], so
+ * nothing can silently clear the request again.
  */
 object DisplayRefreshRateController {
 
     private const val TAG = "JarvisRefreshRate"
 
-    fun applyMaximumRefreshRate(activity: Activity) {
-        if (activity.isFinishing || activity.isDestroyed) return
+    /** Requests the highest supported rate (the app default). */
+    fun applyMaximumRefreshRate(activity: Activity) = apply(activity, null)
 
+    /** @param requestedHz a specific rate, or null for the highest available. */
+    fun apply(activity: Activity, requestedHz: Int?) {
+        if (activity.isFinishing || activity.isDestroyed) return
         try {
             val display = resolveDisplay(activity) ?: return
-            val maximumSupportedRate = display.supportedModes
-                .asSequence()
-                .map { it.refreshRate }
-                .filter { it.isFinite() && it > 0f }
-                .maxOrNull()
-                ?: return
+            val current = display.mode
+            // Same physical resolution only: a refresh-rate request must never change the resolution.
+            val candidates = display.supportedModes.filter {
+                it.physicalWidth == current.physicalWidth &&
+                    it.physicalHeight == current.physicalHeight &&
+                    it.refreshRate.isFinite() && it.refreshRate > 0f
+            }
+            if (candidates.isEmpty()) return
+
+            val target = if (requestedHz != null) {
+                candidates.minByOrNull { abs(it.refreshRate - requestedHz) }
+                    ?.takeIf { abs(it.refreshRate - requestedHz) < 1.5f }
+            } else null
+            val mode = target ?: candidates.maxByOrNull { it.refreshRate } ?: return
 
             val attributes = activity.window.attributes
-            if (attributes.preferredRefreshRate != maximumSupportedRate) {
-                attributes.preferredRefreshRate = maximumSupportedRate
+            if (attributes.preferredDisplayModeId != mode.modeId ||
+                attributes.preferredRefreshRate != mode.refreshRate
+            ) {
+                attributes.preferredDisplayModeId = mode.modeId
+                attributes.preferredRefreshRate = mode.refreshRate
                 activity.window.attributes = attributes
             }
-
             Log.d(
                 TAG,
-                "Requested max refresh rate " + maximumSupportedRate + "Hz for " +
-                    activity.javaClass.simpleName + "; display=" + display.displayId
+                "Requested " + mode.refreshRate + "Hz (mode " + mode.modeId + ") for " +
+                    activity.javaClass.simpleName + "; active=" + current.refreshRate + "Hz"
             )
         } catch (securityException: SecurityException) {
             Log.w(TAG, "Display refresh-rate request was rejected by the system", securityException)
