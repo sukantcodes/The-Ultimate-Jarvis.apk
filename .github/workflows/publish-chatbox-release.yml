@@ -1,0 +1,208 @@
+name: Publish Chatbox Release to Supabase
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: "Android versionCode (must be higher than the active release)"
+        required: true
+        type: string
+        default: "144"
+      version_name:
+        description: "User-visible JARVIS version"
+        required: true
+        type: string
+        default: "1.8.8"
+      channel:
+        description: "Release channel"
+        required: true
+        type: choice
+        options:
+          - stable
+          - beta
+        default: stable
+      min_supported_version_code:
+        description: "Oldest versionCode allowed to update directly"
+        required: true
+        type: string
+        default: "1"
+      release_notes:
+        description: "Release notes shown inside JARVIS"
+        required: true
+        type: string
+        default: "JARVIS update"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jarvis-chatbox-release-\${{ inputs.channel }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/Chatbox'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: https://yeggjbjcoaaoqntqyjdv.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: \${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_PUBLISHABLE_KEY: \${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      JARVIS_RELEASE_KEYSTORE_BASE64: \${{ secrets.JARVIS_RELEASE_KEYSTORE_BASE64 }}
+      JARVIS_RELEASE_STORE_PASSWORD: \${{ secrets.JARVIS_RELEASE_STORE_PASSWORD }}
+      JARVIS_RELEASE_KEY_ALIAS: \${{ secrets.JARVIS_RELEASE_KEY_ALIAS }}
+      JARVIS_RELEASE_KEY_PASSWORD: \${{ secrets.JARVIS_RELEASE_KEY_PASSWORD }}
+      JARVIS_RELEASE_CERT_SHA256: \${{ secrets.JARVIS_RELEASE_CERT_SHA256 }}
+      JARVIS_VERSION_CODE: \${{ inputs.version_code }}
+      JARVIS_VERSION_NAME: \${{ inputs.version_name }}
+      RELEASE_CHANNEL: \${{ inputs.channel }}
+      MIN_SUPPORTED_VERSION_CODE: \${{ inputs.min_supported_version_code }}
+      RELEASE_NOTES: \${{ inputs.release_notes }}
+    steps:
+      - name: Checkout Chatbox only
+        uses: actions/checkout@v4
+        with:
+          ref: Chatbox
+          persist-credentials: false
+
+      - name: Validate release inputs and required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "Chatbox"
+          [[ "$JARVIS_VERSION_CODE" =~ ^[1-9][0-9]{0,8}$ ]]
+          [[ "$MIN_SUPPORTED_VERSION_CODE" =~ ^[1-9][0-9]{0,8}$ ]]
+          (( MIN_SUPPORTED_VERSION_CODE <= JARVIS_VERSION_CODE ))
+          [[ "$JARVIS_VERSION_NAME" =~ ^[A-Za-z0-9._+-]{1,40}$ ]]
+          [[ "$RELEASE_CHANNEL" == "stable" || "$RELEASE_CHANNEL" == "beta" ]]
+          [[ \${#RELEASE_NOTES} -le 8000 ]]
+          for name in SUPABASE_SERVICE_ROLE_KEY JARVIS_RELEASE_KEYSTORE_BASE64 JARVIS_RELEASE_STORE_PASSWORD JARVIS_RELEASE_KEY_ALIAS JARVIS_RELEASE_KEY_PASSWORD JARVIS_RELEASE_CERT_SHA256; do
+            if [[ -z "\${!name:-}" ]]; then
+              echo "::error::Missing required GitHub Actions secret: $name"
+              exit 1
+            fi
+          done
+          CERT="\${JARVIS_RELEASE_CERT_SHA256//:/}"
+          CERT="\${CERT^^}"
+          [[ "$CERT" =~ ^[A-F0-9]{64}$ ]]
+          echo "JARVIS_RELEASE_CERT_SHA256=$CERT" >> "$GITHUB_ENV"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: temurin
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: "platform-tools platforms;android-34 build-tools;34.0.0 ndk;27.2.12479018 cmake;3.31.6"
+
+      - name: Restore private release keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/jarvis-release.jks"
+          printf '%s' "$JARVIS_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          chmod 600 "$KEYSTORE"
+          test -s "$KEYSTORE"
+          echo "JARVIS_RELEASE_STORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"
+
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build signed release APK
+        run: ./gradlew clean assembleRelease --stacktrace
+
+      - name: Verify APK signer and calculate SHA-256
+        id: apk
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
+          SIGNER_OUTPUT="$("$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$APK")"
+          ACTUAL_CERT="$(printf '%s\n' "$SIGNER_OUTPUT" | sed -nE 's/.*certificate SHA-256 digest: ([A-Fa-f0-9]{64}).*/\1/p' | head -n1 | tr '[:lower:]' '[:upper:]')"
+          if [[ -z "$ACTUAL_CERT" || "$ACTUAL_CERT" != "$JARVIS_RELEASE_CERT_SHA256" ]]; then
+            echo "::error::APK signer does not match JARVIS_RELEASE_CERT_SHA256."
+            exit 1
+          fi
+          SHA="$(sha256sum "$APK" | awk '{print toupper($1)}')"
+          echo "path=$APK" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "apk_path=jarvis-v\${JARVIS_VERSION_CODE}-\${SHA:0:12}.apk" >> "$GITHUB_OUTPUT"
+
+      - name: Install pinned resumable upload client
+        run: npm install --no-save --no-package-lock --no-audit --no-fund tus-js-client@4.3.1
+
+      - name: Upload APK to Supabase Storage with resumable TUS
+        env:
+          APK_FILE: \${{ steps.apk.outputs.path }}
+          STORAGE_OBJECT: \${{ steps.apk.outputs.apk_path }}
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const { Upload } = require("tus-js-client");
+          const upload = new Upload(fs.createReadStream(process.env.APK_FILE), {
+            endpoint: "https://yeggjbjcoaaoqntqyjdv.storage.supabase.co/storage/v1/upload/resumable",
+            chunkSize: 6 * 1024 * 1024,
+            retryDelays: [0, 1000, 3000, 5000, 10000],
+            headers: {
+              authorization: "Bearer " + process.env.SUPABASE_SERVICE_ROLE_KEY,
+              apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+              "x-upsert": "false"
+            },
+            uploadMetadata: {
+              bucketName: "jarvis-releases",
+              objectName: process.env.STORAGE_OBJECT,
+              contentType: "application/vnd.android.package-archive",
+              cacheControl: "3600"
+            },
+            onError(error) {
+              console.error("Supabase Storage upload failed:", error.message);
+              process.exitCode = 1;
+            },
+            onSuccess() {
+              console.log("APK uploaded to jarvis-releases/" + process.env.STORAGE_OBJECT);
+            }
+          });
+          upload.start();
+          NODE
+
+      - name: Publish release metadata through restricted RPC
+        env:
+          APK_PATH: \${{ steps.apk.outputs.apk_path }}
+          APK_SHA256: \${{ steps.apk.outputs.sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg channel "$RELEASE_CHANNEL" \
+            --arg version_name "$JARVIS_VERSION_NAME" \
+            --arg apk_path "$APK_PATH" \
+            --arg sha256 "$APK_SHA256" \
+            --arg notes "$RELEASE_NOTES" \
+            --argjson version_code "$JARVIS_VERSION_CODE" \
+            --argjson min_supported_version_code "$MIN_SUPPORTED_VERSION_CODE" \
+            '{
+              p_channel: $channel,
+              p_version_code: $version_code,
+              p_version_name: $version_name,
+              p_apk_path: $apk_path,
+              p_apk_url: ("https://yeggjbjcoaaoqntqyjdv.supabase.co/storage/v1/object/public/jarvis-releases/" + $apk_path),
+              p_sha256: $sha256,
+              p_min_supported_version_code: $min_supported_version_code,
+              p_release_notes: $notes
+            }' > "$RUNNER_TEMP/publish-release.json"
+
+          curl --silent --show-error --fail-with-body \
+            --request POST "$SUPABASE_URL/rest/v1/rpc/publish_app_release" \
+            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "Content-Type: application/json" \
+            --data-binary @"$RUNNER_TEMP/publish-release.json" \
+            --output "$RUNNER_TEMP/published-release.json"
+          jq -e 'type == "object" and .version_code != null and .is_active == true' \
+            "$RUNNER_TEMP/published-release.json" >/dev/null
+          echo "Published JARVIS $JARVIS_VERSION_NAME ($JARVIS_VERSION_CODE) to $RELEASE_CHANNEL."
