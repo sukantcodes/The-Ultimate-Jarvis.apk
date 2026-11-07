@@ -41,7 +41,7 @@
         <item name="android:minHeight">48dp</item>
     </style>
 
-    <style name="Jarvis.Dialog.WindowAnimation">
+    <style name="Jarvis.Dialog.WindowAnimation" parent="">
         <item name="android:windowEnterAnimation">@anim/jarvis_dialog_enter</item>
         <item name="android:windowExitAnimation">@anim/jarvis_dialog_exit</item>
     </style>
@@ -54,7 +54,7 @@
         <item name="materialAlertDialogTitleTextStyle">@style/TextAppearance.Jarvis.DialogTitle</item>
         <item name="materialAlertDialogBodyTextStyle">@style/TextAppearance.Jarvis.DialogBody</item>
         <item name="android:windowAnimationStyle">@style/Jarvis.Dialog.WindowAnimation</item>
-        <item name="android:windowDimAmount">0.62</item>
+        <item name="android:backgroundDimAmount">0.62</item>
         <item name="android:windowSoftInputMode">adjustResize</item>
         <item name="android:windowMinWidthMajor">87%</item>
         <item name="android:windowMinWidthMinor">87%</item>
