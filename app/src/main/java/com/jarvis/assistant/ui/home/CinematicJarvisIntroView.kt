@@ -28,6 +28,7 @@ import kotlin.math.min
  */
 internal class CinematicJarvisIntroView(context: Context) : View(context) {
     private val density = resources.displayMetrics.density
+    // Share the original master mark used by HomeFragment; the intro never substitutes a new logo.
     private val logo: Bitmap = BitmapFactory.decodeResource(resources, com.jarvis.assistant.R.drawable.ic_jarvis_logo)
         ?: throw IllegalStateException("JARVIS brand artwork is missing")
     private val backdrop = Paint(Paint.ANTI_ALIAS_FLAG)
