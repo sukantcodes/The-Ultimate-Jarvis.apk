@@ -121,7 +121,7 @@ class SetupTutorialActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(0, dp(10), 0, dp(18))
         }
-        scroll.addView(content, ScrollView.LayoutParams(-1, -2))
+        scroll.addView(content, ViewGroup.LayoutParams(-1, -2))
         column.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         val actions = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
