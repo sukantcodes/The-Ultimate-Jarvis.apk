@@ -343,19 +343,22 @@ class SetupTutorialActivity : AppCompatActivity() {
                     lift.start()
                 }
             }
-            content.childrenSequence().filterIsInstance<MaterialButton>().forEachIndexed { index, button ->
+            var buttonIndex = 0
+            for (childIndex in 0 until content.childCount) {
+                val button = content.getChildAt(childIndex) as? MaterialButton ?: continue
                 val pulse = ObjectAnimator.ofPropertyValuesHolder(
                     button,
                     android.animation.PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.018f, 1f),
                     android.animation.PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.018f, 1f)
                 ).apply {
                     duration = 1900L
-                    startDelay = 500L + index * 180L
+                    startDelay = 500L + buttonIndex * 180L
                     repeatCount = ValueAnimator.INFINITE
                     repeatMode = ValueAnimator.RESTART
                 }
                 premiumAnimators += pulse
                 pulse.start()
+                buttonIndex++
             }
         }
     }
