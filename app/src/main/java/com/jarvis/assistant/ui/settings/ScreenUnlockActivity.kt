@@ -94,7 +94,7 @@ class ScreenUnlockActivity : AppCompatActivity() {
         binding.switchAllowWithoutVoice.setOnCheckedChangeListener { _, checked ->
             if (ignoreSwitchCallback) return@setOnCheckedChangeListener
             if (checked) {
-                MaterialAlertDialogBuilder(this)
+                MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
                     .setTitle("Allow unlock without voice match?")
                     .setMessage("Anyone who says the unlock command near your phone will be able to unlock it. Only turn this on if you understand the risk.")
                     .setNegativeButton("Cancel") { _, _ -> setSwitchSilently(false) }
@@ -240,7 +240,7 @@ class ScreenUnlockActivity : AppCompatActivity() {
     }
 
     private fun confirmDelete() {
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("Delete saved screen lock?")
             .setMessage("Jarvis will no longer be able to unlock your phone until you save it again.")
             .setNegativeButton("Cancel", null)
@@ -264,7 +264,7 @@ class ScreenUnlockActivity : AppCompatActivity() {
             toast("Save your screen lock first.")
             return
         }
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("Lock and test")
             .setMessage("Jarvis will lock your phone, wait a few seconds, then try to wake and unlock it with the saved screen lock. Please do not touch the phone during the test.")
             .setNegativeButton("Cancel", null)
