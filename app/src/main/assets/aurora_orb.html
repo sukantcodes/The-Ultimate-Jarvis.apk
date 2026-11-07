@@ -1640,7 +1640,7 @@
         }
 
         executeTick(now);
-        animationFrameId = startRenderLoop();
+        animationFrameId = requestAnimationFrame(masterLoop);
       }
 
       function startRenderLoop() {
@@ -1916,7 +1916,7 @@
         triggerPulse: (dir = 1) => crystalEngine.triggerBurst(dir)
       };
 
-      requestAnimationFrame(masterLoop);
+      startRenderLoop();
     })();
   </script>
 </body>
