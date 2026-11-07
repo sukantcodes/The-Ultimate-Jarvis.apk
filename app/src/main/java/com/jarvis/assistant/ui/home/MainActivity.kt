@@ -228,7 +228,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (!com.jarvis.assistant.security.AppIdentityVerifier.isTrustedRelease(this)) {
-            MaterialAlertDialogBuilder(this)
+            MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
                 .setTitle("App integrity check failed")
                 .setMessage("This JARVIS build is not signed with the configured official release certificate. Sensitive features have been blocked.")
                 .setCancelable(false)
@@ -392,7 +392,7 @@ class MainActivity : AppCompatActivity() {
         if (!force && prefs.getBoolean(com.jarvis.assistant.updates.UpdateInstallReceiver.KEY_PROMPT_SHOWN, false)) return
 
         prefs.edit().putBoolean(com.jarvis.assistant.updates.UpdateInstallReceiver.KEY_PROMPT_SHOWN, true).apply()
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("JARVIS update installed")
             .setMessage("The update was installed successfully. Restart JARVIS now to finish applying it?")
             .setCancelable(false)
@@ -441,7 +441,7 @@ class MainActivity : AppCompatActivity() {
                     binding.rootMainLayout.visibility = View.VISIBLE
                 } else {
                     stopService(Intent(this@MainActivity, JarvisConversationService::class.java))
-                    MaterialAlertDialogBuilder(this@MainActivity)
+                    MaterialAlertDialogBuilder(this@MainActivity, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
                         .setTitle("JARVIS access restricted")
                         .setMessage("This account, device, or network address has been blocked by the app owner. Contact the owner if you believe this is a mistake.")
                         .setCancelable(false)
@@ -534,7 +534,7 @@ class MainActivity : AppCompatActivity() {
             startActivity(AuthActivity.returnIntent(this))
             return
         }
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle(R.string.drawer_account_logout_title)
             .setMessage(getString(R.string.drawer_account_logout_message, AuthManager.email ?: "your account"))
             .setPositiveButton(R.string.drawer_account_logout) { _, _ ->
@@ -711,7 +711,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showBatteryPermissionDialog() {
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("Unrestricted Battery Required")
             .setMessage("Jarvis requires Unrestricted Battery access so it can stay active in the background and respond to wake words.\n\nPlease allow it or open Settings.")
             .setPositiveButton("ALLOW") { _, _ ->
