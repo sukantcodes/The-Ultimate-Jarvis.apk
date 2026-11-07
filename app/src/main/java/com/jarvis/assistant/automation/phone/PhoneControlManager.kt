@@ -865,6 +865,16 @@ class PhoneControlManager(
         return "Opened Instagram."
     }
 
+    /** Best-effort package for a spoken app name, so a launch can be verified against the foreground window. */
+    fun resolvePackageForApp(appName: String): String? {
+        val clean = appName.trim().lowercase(Locale.ROOT)
+        if (clean.isEmpty()) return null
+        return POPULAR_APP_PACKAGES[clean]
+            ?: POPULAR_APP_PACKAGES[clean.replace(" ", "")]
+            ?: POPULAR_APP_PACKAGES[clean.replace("-", "")]
+            ?: resolveInstalledPackageByName(clean)
+    }
+
     fun openApp(appNameOrPackage: String): String {
         val clean = appNameOrPackage.trim().lowercase(Locale.ROOT)
         Log.i(TAG, "openApp called with: '$clean'")

@@ -34,4 +34,6 @@ sealed class JarvisCommand {
     object RecallFavoriteSong : JarvisCommand()
     object RecallRoutine : JarvisCommand()
     object GoToBackground : JarvisCommand()
+    /** Universal typing: optionally opens [intent].app first, then types/replaces/clears as ONE task. */
+    data class TypeText(val intent: com.jarvis.assistant.automation.typing.TypeIntent) : JarvisCommand()
 }

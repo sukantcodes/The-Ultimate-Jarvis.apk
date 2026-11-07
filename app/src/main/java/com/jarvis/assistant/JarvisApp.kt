@@ -98,6 +98,8 @@ class JarvisApp : Application() {
             memoryManager = memoryManager,
             actionRouter = actionRouter
         )
+        // Recover an interrupted typing/looping task (auto-resumes only if it was cut off moments ago).
+        try { commandExecutor.unifiedTasks.resumeAfterRestart() } catch (_: Exception) { }
 
         VoskModelManager.init(this, CoroutineScope(Dispatchers.Default))
 

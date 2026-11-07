@@ -505,6 +505,7 @@ class JarvisConversationService : Service() {
     fun cancelAllActiveTools() {
         Log.i("JarvisService", "cancelAllActiveTools: Aborting all active and pending tool calls (${activeToolJobs.size} jobs)")
         com.jarvis.assistant.automation.agent.AgentTaskEngine.requestCancellation()
+        (application as? JarvisApp)?.commandExecutor?.cancelUnifiedTask()
         isAutonomousContinuationTurn = false
         synchronized(autonomousAudioLock) {
             autonomousAudioBuffer.clear()
@@ -4112,10 +4113,22 @@ class JarvisConversationService : Service() {
         serviceScope.launch {
             try {
                 val result = app.commandExecutor.execute(command)
-                Log.i("JarvisService", "Command executed successfully: $result (source: $source)")
+                Log.i("JarvisService", "Command executed (source: $source, length=${result.length})")
                 app.memoryManager.addShortTermTurn(source, result)
+                if (command is com.jarvis.assistant.automation.command.JarvisCommand.TypeText) {
+                    // The local engine owns this turn, so its real outcome (verified, blocked or failed) is what the user hears.
+                    announce(result)
+                    speakAnnouncement(result)
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("JarvisService", "Command execution FAILED: ${e.message}", e)
+                if (command is com.jarvis.assistant.automation.command.JarvisCommand.TypeText) {
+                    val failure = "I couldn't finish typing because something went wrong."
+                    announce(failure)
+                    speakAnnouncement(failure)
+                }
             }
         }
     }
@@ -4839,6 +4852,10 @@ class JarvisConversationService : Service() {
             sink.complete(result)
             return
         }
+        // The AI always sees the latest execution state before it chooses its next action.
+        try {
+            (application as? JarvisApp)?.commandExecutor?.unifiedTaskState()?.let { result.put("task_state", it) }
+        } catch (_: Exception) { }
         liveWebSocket?.sendToolResponse(callId, name, result)
     }
 
@@ -5007,6 +5024,8 @@ class JarvisConversationService : Service() {
             is com.jarvis.assistant.automation.command.JarvisCommand.WhatsAppMessage -> true
             is com.jarvis.assistant.automation.command.JarvisCommand.WhatsAppCall -> true
             is com.jarvis.assistant.automation.command.JarvisCommand.WhatsAppDeleteMessage -> true
+            // Typing is handled completely by the local engine (open + type + verify), so the model must not repeat it.
+            is com.jarvis.assistant.automation.command.JarvisCommand.TypeText -> true
             is com.jarvis.assistant.automation.command.JarvisCommand.OpenApp ->
                 command.packageName.contains("whatsapp", ignoreCase = true) ||
                 command.packageName.contains("instagram", ignoreCase = true) ||

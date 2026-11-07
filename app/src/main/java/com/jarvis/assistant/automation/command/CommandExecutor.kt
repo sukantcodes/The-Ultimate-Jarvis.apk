@@ -21,6 +21,18 @@ class CommandExecutor(
 ) {
     companion object { private const val TAG = "CommandExecutor" }
 
+    /** The shared looping engine + universal typing. Created on first use. */
+    private val unifiedTasksLazy = lazy {
+        com.jarvis.assistant.automation.task.UnifiedTaskExecutor(JarvisApp.instance, phoneManager)
+    }
+    val unifiedTasks: com.jarvis.assistant.automation.task.UnifiedTaskExecutor by unifiedTasksLazy
+
+    /** Cancels a running typing/looping task without creating the engine when none was ever used. */
+    fun cancelUnifiedTask(): Boolean = unifiedTasksLazy.isInitialized() && unifiedTasks.cancel()
+
+    /** Latest task state for the AI, or null when no task has run. */
+    fun unifiedTaskState(): String? = if (unifiedTasksLazy.isInitialized()) unifiedTasks.stateSummary() else null
+
     suspend fun execute(command: JarvisCommand): String = withContext(Dispatchers.Main) {
         Log.i(TAG, "Executing command: $command")
         val router = actionRouter
@@ -103,5 +115,6 @@ class CommandExecutor(
         is JarvisCommand.RecallFavoriteSong -> memoryManager.getFavoriteSongResponse()
         is JarvisCommand.RecallRoutine -> memoryManager.getRoutineResponse()
         is JarvisCommand.GoToBackground -> "Going to background."
+        is JarvisCommand.TypeText -> unifiedTasks.execute(command.intent)
     }
 }

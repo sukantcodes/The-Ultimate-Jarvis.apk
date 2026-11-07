@@ -55,6 +55,13 @@ object CommandParser {
             return ParsedCommandResult(null, 0.0f)
         }
 
+        // Typing requests are parsed from the ORIGINAL utterance: `clean` is lower-cased and stripped of
+        // punctuation, which would corrupt the exact text the user asked JARVIS to type. This must run before
+        // the generic open-app pattern, which would otherwise swallow "open chrome and type ..." as an app name.
+        com.jarvis.assistant.automation.typing.TypeCommandParser.parse(input)?.let { typeIntent ->
+            return ParsedCommandResult(JarvisCommand.TypeText(typeIntent), 0.97f, "TYPE_TEXT")
+        }
+
         val delayedCall = Regex("^(\\d+)\\s+(minute|minutes|min|hour|hours)\\s+baad\\s+(.+?)\\s+ko\\s+call\\s+(?:karo|karna)$").find(clean)
         if (delayedCall != null) {
             val amount = delayedCall.groupValues[1].toLongOrNull() ?: 0L
@@ -659,7 +666,8 @@ object CommandParser {
             val nonAppWords = listOf("door", "window", "gate", "bottle", "box", "bag", "something", "anything", "background", "tab", "website", "site")
             val isWebDomain = app.contains(".com") || app.contains(".dev") || app.contains(".org") ||
                     app.contains(".net") || app.contains(".io") || DomainNormalizer.isKnownWebAlias(app)
-            if (app.isNotBlank() && !nonAppWords.contains(app.lowercase(Locale.ROOT)) && !isWebDomain) {
+            val hasTrailingTypeRequest = Regex("(?i)\\b(?:and|then|aur|phir|fir)\\s+(?:type|write|enter|likho)\\b").containsMatchIn(app)
+            if (app.isNotBlank() && !hasTrailingTypeRequest && !nonAppWords.contains(app.lowercase(Locale.ROOT)) && !isWebDomain) {
                 return ParsedCommandResult(JarvisCommand.OpenApp(app), 0.95f, "OPEN_APP")
             }
         }

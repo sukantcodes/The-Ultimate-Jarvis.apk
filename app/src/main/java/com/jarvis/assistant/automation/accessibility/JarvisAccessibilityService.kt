@@ -21,6 +21,12 @@ import android.view.Display
 import java.io.ByteArrayOutputStream
 import java.util.Locale
 import java.util.concurrent.Executors
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
+import com.jarvis.assistant.automation.typing.FieldInfo
+import com.jarvis.assistant.automation.typing.FieldProbe
+import com.jarvis.assistant.automation.typing.Readiness
+import com.jarvis.assistant.automation.typing.TypeAttempt
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -2777,5 +2783,133 @@ private fun findAndInjectEditText(
             "notifications" -> performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
             else -> false
         }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Universal typing support API. Used by TypingSession (through AccessibilityTypingHost) to locate,
+    // focus, check, fill and read back ANY accessible text field, by structure rather than package name.
+    // ---------------------------------------------------------------------------------------------
+
+    private val typingHandles = ConcurrentHashMap<Long, Field>()
+    private val typingHandleSeq = AtomicLong(0)
+
+    private fun registerTypingField(field: Field): Long {
+        if (typingHandles.size >= 16) typingHandles.clear()   // keep memory bounded; handles are short lived
+        val id = typingHandleSeq.incrementAndGet()
+        typingHandles[id] = field
+        return id
+    }
+
+    /** Package of the window the user is looking at, or null when unknown. */
+    fun foregroundPackageName(): String? = try { getActiveRootNode()?.packageName?.toString() } catch (_: Exception) { null }
+
+    private fun isProtectedField(n: AccessibilityNodeInfo): Boolean {
+        if (n.isPassword) return true
+        val variation = n.inputType and 0x00000fff
+        // TYPE_TEXT_VARIATION_PASSWORD (0x81), VISIBLE_PASSWORD (0x91), WEB_PASSWORD (0xe1), NUMBER_VARIATION_PASSWORD
+        return (n.inputType and 0xf == 1 && variation in setOf(0x81, 0x91, 0xe1)) ||
+            (n.inputType and 0xf == 2 && variation == 0x12)
+    }
+
+    private fun describeTypingField(node: AccessibilityNodeInfo, addressBar: Boolean): FieldProbe {
+        if (isProtectedField(node)) return FieldProbe.Protected("it is a password or secure input")
+        val field = Field(node)
+        val label = (node.hintText?.toString() ?: node.contentDescription?.toString()).orEmpty()
+        return FieldProbe.Found(
+            FieldInfo(
+                handle = registerTypingField(field),
+                packageName = node.packageName?.toString().orEmpty(),
+                label = label,
+                viewId = node.viewIdResourceName,
+                editable = isEditableLike(node),
+                enabled = node.isEnabled,
+                focused = node.isFocused || hasLiveInputFocus(node),
+                canSetText = supportsSetText(node),
+                isAddressBar = addressBar
+            )
+        )
+    }
+
+    private fun hasLiveInputFocus(node: AccessibilityNodeInfo): Boolean = try {
+        typingRoots().any { it.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) == node }
+    } catch (_: Exception) { false }
+
+    /** Browser address bar or new-tab search box; used only when the user explicitly asked to type in a browser. */
+    private fun findAddressBarNode(roots: List<AccessibilityNodeInfo>): AccessibilityNodeInfo? {
+        var visited = 0
+        fun walk(n: AccessibilityNodeInfo, depth: Int): AccessibilityNodeInfo? {
+            if (visited++ > 3000 || depth > 60) return null
+            if (isUrlBarNode(n) && n.isVisibleToUser && n.isEnabled) return n
+            for (i in 0 until n.childCount) {
+                val c = n.getChild(i) ?: continue
+                walk(c, depth + 1)?.let { return it }
+            }
+            return null
+        }
+        for (r in roots) walk(r, 0)?.let { return it }
+        return null
+    }
+
+    /**
+     * Finds the field a typing request should use, in priority order: the field that owns live input focus,
+     * the best editable field in any window, then (only when [preferAddressBar]) the browser address/search box.
+     * Never returns a protected field as typeable and never an unrelated hidden/disabled one.
+     */
+    fun probeTypingField(preferAddressBar: Boolean): FieldProbe {
+        val roots = typingRoots()
+        if (roots.isEmpty()) return FieldProbe.NotFound
+        for (root in roots) {
+            val focused = try { root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) } catch (_: Exception) { null } ?: continue
+            if (!isEditableLike(focused)) continue
+            val bar = isUrlBarNode(focused)
+            if (bar && !preferAddressBar) continue
+            return describeTypingField(focused, bar)
+        }
+        val refs = collectEditables(roots, false)
+        TypingText.pick(refs.map { it.candidate }, null)?.let { best ->
+            return describeTypingField(refs.first { it.candidate === best }.node, false)
+        }
+        if (preferAddressBar) findAddressBarNode(roots)?.let { return describeTypingField(it, true) }
+        return FieldProbe.NotFound
+    }
+
+    /** Gives the located field input focus (ACTION_FOCUS, then click / tap). Verification is the caller's job. */
+    fun requestTypingFocus(handle: Long): Boolean {
+        val field = typingHandles[handle] ?: return false
+        return try { ensureFocused(field); true } catch (e: Exception) { Log.w(TAG, "requestTypingFocus failed: ${e.message}"); false }
+    }
+
+    /** READY only when the live node is enabled, visible, editable and owns input focus. A visible keyboard is not enough. */
+    fun typingFieldReadiness(handle: Long): Readiness {
+        val field = typingHandles[handle] ?: return Readiness.STALE
+        val n = field.fresh() ?: return Readiness.STALE
+        return if (n.isEnabled && n.isVisibleToUser && isEditableLike(n) && (n.isFocused || hasLiveInputFocus(n)))
+            Readiness.READY else Readiness.NOT_READY
+    }
+
+    /** Current text of the field; "" while it shows only a hint; null when unreadable. */
+    fun readTypingField(handle: Long): String? = typingHandles[handle]?.text()
+
+    /**
+     * Writes [text] as the field's whole value using the strategy chain (SET_TEXT, focus then SET_TEXT,
+     * clipboard paste, keyboard chip, long-press paste) and reports whether it was READ BACK.
+     * An empty [text] clears the field.
+     */
+    fun typeIntoTypingField(handle: Long, text: String): TypeAttempt {
+        val field = typingHandles[handle] ?: return TypeAttempt(false, "field handle is stale")
+        val node = field.fresh() ?: return TypeAttempt(false, "field is no longer on screen")
+        if (isProtectedField(node)) return TypeAttempt(false, "protected field")
+        if (text.isEmpty()) {
+            if (!setValue(node, "")) return TypeAttempt(false, "clear rejected")
+            val end = System.currentTimeMillis() + 600
+            while (System.currentTimeMillis() < end && !interrupted()) {
+                if (field.text().isNullOrEmpty()) return TypeAttempt(true, "CLEARED")
+                pause(60)
+            }
+            return TypeAttempt(false, "clear not confirmed")
+        }
+        val log = StringBuilder()
+        val strategy = typeIntoField(field, text, isWebContext(node), log)
+        return if (strategy != null) TypeAttempt(true, strategy) else TypeAttempt(false, log.toString())
     }
 }
