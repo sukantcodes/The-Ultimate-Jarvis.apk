@@ -9,9 +9,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -86,9 +83,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -163,9 +157,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -240,9 +231,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -317,9 +305,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -394,9 +379,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -471,9 +453,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -548,9 +527,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -625,9 +601,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -702,9 +675,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -779,9 +749,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -856,9 +823,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -933,9 +897,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -1010,9 +971,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -1087,9 +1045,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -1164,9 +1119,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -1241,9 +1193,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -1318,9 +1267,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -1395,9 +1341,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -1472,9 +1415,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -1549,9 +1489,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -1626,9 +1563,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -1703,9 +1637,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -1780,9 +1711,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -1857,9 +1785,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -1934,9 +1859,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -2011,9 +1933,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -2088,9 +2007,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -2165,9 +2081,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -2242,9 +2155,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -2319,9 +2229,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -2396,9 +2303,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -2473,9 +2377,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -2550,9 +2451,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -2627,9 +2525,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -2704,9 +2599,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -2781,9 +2673,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -2858,9 +2747,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -2935,9 +2821,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -3012,9 +2895,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -3089,9 +2969,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -3166,9 +3043,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -3243,9 +3117,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -3320,9 +3191,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -3397,9 +3265,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -3474,9 +3339,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -3551,9 +3413,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -3628,9 +3487,6 @@
         <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
-        <item name="android:alertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Jarvis.MaterialDialog</item>
-        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Jarvis.BottomSheet</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
