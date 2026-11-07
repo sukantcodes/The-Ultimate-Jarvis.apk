@@ -47,6 +47,11 @@
     </style>
 
     <style name="ThemeOverlay.Jarvis.MaterialDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="android:windowBackground">@drawable/bg_jarvis_dialog_surface</item>
+        <item name="android:colorAccent">?attr/themeAccent</item>
+        <item name="colorPrimary">?attr/themeAccent</item>
+        <item name="colorSecondary">?attr/themeAccent2</item>
+        <item name="colorTertiary">?attr/themeAccent3</item>
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:editTextStyle">@style/Widget.Jarvis.Dialog.EditText</item>
         <item name="materialButtonStyle">@style/Widget.Jarvis.Dialog.ActionButton</item>
@@ -59,7 +64,15 @@
         <item name="android:windowMinWidthMinor">87%</item>
     </style>
 
+    <style name="Widget.Jarvis.BottomSheet" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="android:background">@drawable/bg_jarvis_dialog_surface</item>
+        <item name="backgroundTint">?attr/themeSurface</item>
+        <item name="shapeAppearance">@style/ShapeAppearanceOverlay.Jarvis.Dialog</item>
+        <item name="android:elevation">20dp</item>
+    </style>
+
     <style name="ThemeOverlay.Jarvis.BottomSheet" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/Widget.Jarvis.BottomSheet</item>
         <item name="android:windowAnimationStyle">@style/Jarvis.Dialog.WindowAnimation</item>
     </style>
 </resources>
