@@ -1,5 +1,7 @@
 package com.jarvis.assistant.ui.settings
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -42,7 +44,7 @@ class FaceLockActivity : AppCompatActivity() {
         }
         b.btnCancelScan.setOnClickListener { scanning = false; unbindCamera(); b.btnStartScan.isEnabled = true; b.tvScanStatus.text = "Scan cancelled." }
         b.btnSaveProfile.setOnClickListener { saveProfile() }
-        b.btnDeleteAll.setOnClickListener { androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Delete all face data?").setMessage("Remove all saved local enrollment records?").setNegativeButton("Cancel", null).setPositiveButton("Delete") { _, _ -> prefs.edit().remove("profiles").apply(); showProfiles() }.show() }
+        b.btnDeleteAll.setOnClickListener { MaterialAlertDialogBuilder(this).setTitle("Delete all face data?").setMessage("Remove all saved local enrollment records?").setNegativeButton("Cancel", null).setPositiveButton("Delete") { _, _ -> prefs.edit().remove("profiles").apply(); showProfiles() }.show() }
         showProfiles()
     }
 
