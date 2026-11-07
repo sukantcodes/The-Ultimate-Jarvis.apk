@@ -96,16 +96,16 @@ class SetupTutorialActivity : AppCompatActivity() {
             setPadding(dp(22), dp(18), dp(22), dp(18))
         }
         val brand = TextView(this).apply {
-            text = "J A R V I S   •   SYSTEM SETUP"
-            textSize = 11f
-            letterSpacing = .18f
+            text = "J A R V I S   •   PREMIUM SETUP"
+            textSize = 12f
+            letterSpacing = .22f
             setTextColor(Color.rgb(103, 216, 255))
             gravity = Gravity.CENTER
         }
         column.addView(brand, LinearLayout.LayoutParams(-1, dp(34)))
         progress = TextView(this).apply {
-            textSize = 11f
-            letterSpacing = .12f
+            textSize = 12f
+            letterSpacing = .16f
             gravity = Gravity.CENTER
             setTextColor(Color.rgb(145, 164, 195))
             setPadding(0, dp(8), 0, dp(12))
@@ -129,9 +129,15 @@ class SetupTutorialActivity : AppCompatActivity() {
         }
         primary = MaterialButton(this).apply {
             text = "CONTINUE"
-            cornerRadius = dp(18)
+            cornerRadius = dp(20)
             setTextColor(Color.WHITE)
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(35, 128, 255))
+            background = android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(Color.rgb(0, 190, 255), Color.rgb(45, 105, 255), Color.rgb(132, 75, 255))
+            ).apply { cornerRadius = dp(20).toFloat() }
+            elevation = dp(8).toFloat()
+            textSize = 16f
+            letterSpacing = .04f
             isAllCaps = false
         }
         secondary = MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
@@ -281,9 +287,20 @@ class SetupTutorialActivity : AppCompatActivity() {
         // Rebind primary action for ordinary pages after any custom profile action.
         if (step != 2) primary.setOnClickListener { advance() }
         secondary.visibility = if (step == 0) View.VISIBLE else View.VISIBLE
-        content.alpha = 0f
-        content.translationY = dp(12).toFloat()
-        content.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(DecelerateInterpolator()).start()
+        content.alpha = 1f
+        content.translationY = 0f
+        // Premium page entrance: stagger each block with a soft spring-like settle.
+        for (index in 0 until content.childCount) {
+            val child = content.getChildAt(index)
+            child.animate().cancel()
+            child.alpha = 0f
+            child.translationY = dp(24).toFloat()
+            child.scaleX = .975f
+            child.scaleY = .975f
+            child.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f)
+                .setStartDelay(index * 75L).setDuration(520L)
+                .setInterpolator(android.view.animation.OvershootInterpolator(0.85f)).start()
+        }
     }
 
     private fun addWorkflowDemo(labels: List<String> = listOf("VOICE", "JARVIS", "APP", "DONE")) {
@@ -296,8 +313,8 @@ class SetupTutorialActivity : AppCompatActivity() {
             val node = TextView(this).apply {
                 text = label
                 gravity = Gravity.CENTER
-                textSize = 9f
-                letterSpacing = .05f
+                textSize = 12f
+                letterSpacing = .08f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
                 setTextColor(Color.WHITE)
                 background = android.graphics.drawable.GradientDrawable().apply {
@@ -310,13 +327,13 @@ class SetupTutorialActivity : AppCompatActivity() {
                 scaleX = .88f
                 scaleY = .88f
             }
-            row.addView(node, LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+            row.addView(node, LinearLayout.LayoutParams(0, dp(58), 1f).apply {
                 if (index > 0) leftMargin = dp(5)
                 if (index < labels.lastIndex) rightMargin = dp(5)
             })
             node.animate().alpha(1f).scaleX(1f).scaleY(1f)
-                .setStartDelay(index * 260L).setDuration(360L)
-                .setInterpolator(DecelerateInterpolator()).start()
+                .setStartDelay(index * 330L).setDuration(620L)
+                .setInterpolator(android.view.animation.OvershootInterpolator(1.15f)).start()
         }
         content.addView(row, fullWidth())
     }
@@ -380,57 +397,80 @@ class SetupTutorialActivity : AppCompatActivity() {
         ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 
     private fun hero(title: String, description: String, symbol: String) {
+        val heroFrame = FrameLayout(this).apply {
+            background = android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.argb(105, 0, 195, 255), Color.argb(95, 92, 75, 255), Color.argb(45, 20, 35, 75))
+            ).apply { cornerRadius = dp(30).toFloat(); setStroke(dp(1), Color.argb(110, 100, 205, 255)) }
+            elevation = dp(10).toFloat()
+        }
         val glyph = TextView(this).apply {
             text = symbol
-            textSize = 42f
+            textSize = 54f
             gravity = Gravity.CENTER
-            setTextColor(Color.rgb(91, 203, 255))
-            setShadowLayer(dp(20).toFloat(), 0f, 0f, Color.rgb(31, 122, 255))
+            setTextColor(Color.WHITE)
+            setShadowLayer(dp(24).toFloat(), 0f, 0f, Color.rgb(0, 190, 255))
+            background = android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(0, 180, 255), Color.rgb(104, 73, 255))
+            ).apply { shape = android.graphics.drawable.GradientDrawable.OVAL }
+            elevation = dp(12).toFloat()
         }
-        content.addView(glyph, LinearLayout.LayoutParams(-1, dp(88)))
+        heroFrame.addView(glyph, FrameLayout.LayoutParams(dp(112), dp(112), Gravity.CENTER))
+        content.addView(heroFrame, LinearLayout.LayoutParams(-1, dp(154)).apply {
+            bottomMargin = dp(22); leftMargin = dp(4); rightMargin = dp(4)
+        })
+        glyph.scaleX = .72f
+        glyph.scaleY = .72f
+        glyph.animate().scaleX(1f).scaleY(1f).rotation(360f).setDuration(900L)
+            .setInterpolator(android.view.animation.OvershootInterpolator(1.1f)).start()
         val heading = TextView(this).apply {
             text = title
-            textSize = 23f
+            textSize = 30f
             gravity = Gravity.CENTER
-            letterSpacing = .035f
+            letterSpacing = .015f
             setTextColor(Color.WHITE)
-            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)
+            setLineSpacing(dp(2).toFloat(), 1f)
+            typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
+            setShadowLayer(dp(16).toFloat(), 0f, dp(3).toFloat(), Color.argb(150, 0, 115, 255))
         }
         content.addView(heading, fullWidth())
         val body = TextView(this).apply {
             text = description
-            textSize = 14f
+            textSize = 17f
             gravity = Gravity.CENTER
-            setTextColor(Color.rgb(173, 190, 218))
-            setLineSpacing(dp(4).toFloat(), 1f)
-            setPadding(dp(8), dp(10), dp(8), dp(14))
+            setTextColor(Color.rgb(207, 222, 255))
+            setLineSpacing(dp(6).toFloat(), 1.04f)
+            setPadding(dp(8), dp(12), dp(8), dp(22))
+            typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
         }
         content.addView(body, fullWidth())
     }
 
     private fun infoCard(title: String, body: String) {
         val card = MaterialCardView(this).apply {
-            radius = dp(18).toFloat()
-            cardElevation = dp(2).toFloat()
-            setCardBackgroundColor(Color.argb(218, 16, 27, 50))
+            radius = dp(22).toFloat()
+            cardElevation = dp(7).toFloat()
+            setCardBackgroundColor(Color.argb(235, 13, 25, 51))
             strokeWidth = dp(1)
-            strokeColor = Color.argb(100, 67, 124, 204)
-            setContentPadding(dp(16), dp(13), dp(16), dp(13))
+            strokeColor = Color.argb(155, 55, 155, 255)
+            setContentPadding(dp(19), dp(17), dp(19), dp(18))
         }
         val stack = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         stack.addView(TextView(this).apply {
             text = title
-            textSize = 10f
-            letterSpacing = .12f
-            setTextColor(Color.rgb(101, 203, 255))
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            textSize = 13f
+            letterSpacing = .14f
+            setTextColor(Color.rgb(72, 218, 255))
+            typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
         })
         stack.addView(TextView(this).apply {
             text = body
-            textSize = 13f
-            setTextColor(Color.rgb(221, 231, 247))
-            setPadding(0, dp(6), 0, 0)
-            setLineSpacing(dp(3).toFloat(), 1f)
+            textSize = 16f
+            setTextColor(Color.rgb(238, 244, 255))
+            setPadding(0, dp(9), 0, 0)
+            setLineSpacing(dp(5).toFloat(), 1.02f)
+            typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
         })
         card.addView(stack)
         content.addView(card, fullWidth().apply { bottomMargin = dp(10) })
@@ -448,9 +488,15 @@ class SetupTutorialActivity : AppCompatActivity() {
         MaterialButton(this).apply {
             text = label
             isAllCaps = false
-            cornerRadius = dp(15)
+            cornerRadius = dp(18)
             setTextColor(Color.WHITE)
-            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(26, 91, 180))
+            textSize = 15f
+            letterSpacing = .025f
+            background = android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(Color.rgb(0, 153, 235), Color.rgb(58, 93, 238), Color.rgb(123, 70, 224))
+            ).apply { cornerRadius = dp(18).toFloat() }
+            elevation = dp(6).toFloat()
             setOnClickListener { action() }
         }
 
@@ -491,14 +537,30 @@ class SetupTutorialActivity : AppCompatActivity() {
             super.onDraw(canvas)
             val w = width.toFloat()
             val h = height.toFloat()
-            val radius = w * (.64f + pulse * .08f)
+            val radius = w * (.72f + pulse * .10f)
             paint.shader = RadialGradient(
-                w * .5f, h * (.18f + pulse * .025f), radius,
-                intArrayOf(Color.argb(100, 22, 112, 225), Color.argb(34, 25, 48, 132), Color.TRANSPARENT),
+                w * (.22f + pulse * .08f), h * (.20f + pulse * .035f), radius,
+                intArrayOf(Color.argb(125, 0, 177, 255), Color.argb(54, 44, 71, 210), Color.TRANSPARENT),
+                floatArrayOf(0f, .43f, 1f), Shader.TileMode.CLAMP
+            )
+            canvas.drawRect(0f, 0f, w, h, paint)
+            paint.shader = RadialGradient(
+                w * (.88f - pulse * .06f), h * .57f, radius * .72f,
+                intArrayOf(Color.argb(85, 139, 58, 255), Color.argb(28, 28, 91, 190), Color.TRANSPARENT),
                 floatArrayOf(0f, .48f, 1f), Shader.TileMode.CLAMP
             )
             canvas.drawRect(0f, 0f, w, h, paint)
             paint.shader = null
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = dp(1).toFloat()
+            paint.color = Color.argb(24, 91, 201, 255)
+            canvas.drawCircle(w * .5f, h * .30f, w * (.34f + pulse * .025f), paint)
+            canvas.drawCircle(w * .5f, h * .30f, w * (.43f - pulse * .02f), paint)
+            paint.style = Paint.Style.FILL
+            paint.color = Color.argb(145, 69, 215, 255)
+            canvas.drawCircle(w * (.5f + .34f * kotlin.math.cos(pulse * 6.283f)), h * .30f, dp(2).toFloat(), paint)
+            paint.color = Color.argb(120, 166, 104, 255)
+            canvas.drawCircle(w * (.5f + .43f * kotlin.math.cos(pulse * 6.283f + 2f)), h * .30f, dp(2).toFloat(), paint)
         }
     }
 
