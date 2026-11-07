@@ -137,7 +137,7 @@ class ChatFragment : Fragment() {
         }
 
         binding.btnChatNew.setOnClickListener {
-            MaterialAlertDialogBuilder(requireContext())
+            MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
                 .setTitle("New Conversation")
                 .setMessage("Start a new conversation and clear current history?")
                 .setPositiveButton("New Chat") { _, _ ->
@@ -179,7 +179,7 @@ class ChatFragment : Fragment() {
         val labels = arrayOf("Auto · choose available brain", "Gemini Live · online", "Offline Brain · on-device")
         val values = arrayOf("auto", "gemini", "offline")
         val selected = values.indexOf(selectedChatMode).coerceAtLeast(0)
-        MaterialAlertDialogBuilder(requireContext())
+        MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("Choose chat engine")
             .setSingleChoiceItems(labels, selected) { dialog, which ->
                 selectedChatMode = values[which]
