@@ -198,7 +198,15 @@ class SetupTutorialActivity : AppCompatActivity() {
                     if (drawable == null) setImageResource(R.drawable.jarvis_default_user)
                     clipToOutline = true
                 }
+                avatar.cameraDistance = dp(1400).toFloat()
+                avatar.rotationY = -24f
+                avatar.alpha = 0f
+                avatar.scaleX = .72f
+                avatar.scaleY = .72f
                 content.addView(avatar)
+                avatar.animate().alpha(1f).scaleX(1f).scaleY(1f).rotationY(0f)
+                    .setStartDelay(180L).setDuration(1050L)
+                    .setInterpolator(android.view.animation.OvershootInterpolator(1.05f)).start()
                 val photo = actionButton(if (prefs.profilePhotoUri.isBlank()) "CHOOSE PROFILE PHOTO" else "CHANGE PROFILE PHOTO") {
                     photoPicker.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 }
