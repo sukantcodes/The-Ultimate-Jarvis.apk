@@ -171,7 +171,7 @@ abstract class ClockPageActivity : AppCompatActivity() {
 
     /** Tells the person why something did not happen. Never pretends it worked. */
     protected fun showFailure(failure: ClockResult.Failed) {
-        val builder = MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+        val builder = MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle(R.string.clock_could_not_title)
             .setMessage(ClockMessages.forFailure(this, failure))
             .setPositiveButton(R.string.clock_ok, null)
@@ -192,7 +192,7 @@ abstract class ClockPageActivity : AppCompatActivity() {
     }
 
     protected fun chooseOne(titleRes: Int, labels: List<String>, current: Int, onPick: (Int) -> Unit) {
-        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle(titleRes)
             .setSingleChoiceItems(labels.toTypedArray(), current) { dialog, which ->
                 dialog.dismiss()
