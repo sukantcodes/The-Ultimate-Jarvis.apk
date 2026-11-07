@@ -359,7 +359,7 @@ class SetupTutorialActivity : AppCompatActivity() {
                 prefs.setupTutorialStep = 0
                 finish()
             }
-            1, 3, 4, 5, 6 -> {
+            1, 3, 4, 5 -> {
                 // Optional configuration can be completed later from Settings.
                 step++
                 render()
