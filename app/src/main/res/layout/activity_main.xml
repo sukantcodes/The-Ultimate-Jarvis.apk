@@ -303,6 +303,12 @@
         app:itemIconTint="?attr/themeAccent"
         app:itemTextColor="?attr/themeTextPrimary"
         app:itemRippleColor="?attr/themeAccentLight"
+        app:itemIconSize="24dp"
+        app:itemHorizontalPadding="22dp"
+        app:itemVerticalPadding="10dp"
+        app:itemMaxLines="1"
+        app:dividerInsetStart="72dp"
+        app:subheaderColor="?attr/themeTextMuted"
         app:headerLayout="@layout/nav_drawer_header"
         app:menu="@menu/nav_drawer_menu" />
 

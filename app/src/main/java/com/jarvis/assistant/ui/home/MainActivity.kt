@@ -270,6 +270,7 @@ class MainActivity : AppCompatActivity() {
         trans.commitNow()
 
         setupNavigationDock()
+        configureNavigationDrawer()
         setupDrawerNavigation()
         selectTab(currentTab)
         observeViewModel()
@@ -417,6 +418,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Size the drawer against the actual display rather than relying on a fixed
+     * width. This keeps navigation comfortable on compact phones and avoids
+     * covering too much of a large-screen layout.
+     */
+    private fun configureNavigationDrawer() {
+        val availableWidth = (resources.displayMetrics.widthPixels - dp(32)).coerceAtLeast(dp(240))
+        val drawerWidth = minOf(dp(360), availableWidth)
+        binding.navDrawer.layoutParams = binding.navDrawer.layoutParams.apply {
+            width = drawerWidth
+        }
+        binding.navDrawer.requestLayout()
+    }
+
     private fun setupDrawerNavigation() {
         binding.navDrawer.setNavigationItemSelectedListener { item ->
             binding.drawerLayout.closeDrawer(GravityCompat.START)
@@ -473,6 +488,13 @@ class MainActivity : AppCompatActivity() {
     fun selectTab(tab: Int) {
         val previousTab = currentTab
         currentTab = tab
+        val drawerItem = when (tab) {
+            TAB_CHAT -> R.id.drawerChat
+            TAB_SETTINGS -> R.id.drawerSettings
+            TAB_UPDATES -> R.id.drawerUpdates
+            else -> R.id.drawerHome
+        }
+        if (::binding.isInitialized) binding.navDrawer.setCheckedItem(drawerItem)
 
         val tabs = listOf(
             TAB_HOME to homeFragment,
