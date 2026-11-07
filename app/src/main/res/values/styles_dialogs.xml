@@ -34,6 +34,13 @@
         <item name="android:minHeight">54dp</item>
     </style>
 
+    <style name="Widget.Jarvis.Dialog.ActionButton" parent="Widget.Material3.Button.TextButton">
+        <item name="android:fontFamily">sans-serif-bold</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:letterSpacing">0.025</item>
+        <item name="android:minHeight">48dp</item>
+    </style>
+
     <style name="Jarvis.Dialog.WindowAnimation">
         <item name="android:windowEnterAnimation">@anim/jarvis_dialog_enter</item>
         <item name="android:windowExitAnimation">@anim/jarvis_dialog_exit</item>
@@ -42,6 +49,7 @@
     <style name="ThemeOverlay.Jarvis.MaterialDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:editTextStyle">@style/Widget.Jarvis.Dialog.EditText</item>
+        <item name="materialButtonStyle">@style/Widget.Jarvis.Dialog.ActionButton</item>
         <item name="colorSurface">?attr/colorSurface</item>
         <item name="colorOnSurface">?attr/colorOnSurface</item>
         <item name="colorOnSurfaceVariant">?attr/colorOnSurfaceVariant</item>
