@@ -1467,10 +1467,7 @@
       let height = window.innerHeight;
       const deviceMemory = navigator.deviceMemory || 4;
       const hardwareCores = navigator.hardwareConcurrency || 4;
-      // Bound supersampling by device class. Extreme 3x supersampling multiplies
-      // pixel work dramatically and is not a useful default for a continuously animated orb.
-      const qualityCap = deviceMemory >= 8 && hardwareCores >= 8 ? 2.0 :
-        deviceMemory >= 4 && hardwareCores >= 6 ? 1.5 : 1.25;
+      const qualityCap = deviceMemory >= 6 && hardwareCores >= 8 ? 3 : 2;
       let ssaa = Math.min(qualityCap, Math.max(1, window.devicePixelRatio || 1));
 
       function applyCanvasResolution() {
@@ -1599,18 +1596,10 @@
           const measuredFPS = Math.round(fpsFrames / fpsTimer);
           const displayFPS = measuredFPS;
           if (fpsLabelEl) {
-            fpsLabelEl.textContent = `⚡ ${displayFPS} FPS LOCKED`;
+            fpsLabelEl.textContent = `⚡ ${displayFPS} FPS`;
           }
-          // Adaptive Dynamic Resolution Scaling to guarantee locked 90/120 FPS
-          if (measuredFPS < targetFPS * 0.82 && ssaa > 1.0) {
-            // Reduce GPU fill-rate quickly under sustained frame pressure.
-            ssaa = Math.max(1.0, ssaa - 0.20);
-            applyCanvasResolution();
-          } else if (measuredFPS >= targetFPS * 0.96 && ssaa < qualityCap) {
-            // Recover quality slowly to avoid oscillating between resolutions.
-            ssaa = Math.min(qualityCap, ssaa + 0.05);
-            applyCanvasResolution();
-          }
+          // Keep the original supersampling and visual fidelity unchanged.
+          // Performance tuning must not dynamically soften or resize the orb.
           fpsFrames = 0;
           fpsTimer = 0;
         }
