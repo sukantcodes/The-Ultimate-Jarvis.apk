@@ -33,6 +33,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
+import androidx.appcompat.view.ContextThemeWrapper
 import androidx.fragment.app.Fragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.jarvis.assistant.BuildConfig
@@ -418,6 +419,10 @@ class SettingsFragment : Fragment() {
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
 
+    /** Applies premium styling locally without changing the Activity theme. */
+    private fun dialogContext(): ContextThemeWrapper =
+        ContextThemeWrapper(requireContext(), R.style.ThemeOverlay_Jarvis_MaterialDialog)
+
     // ------------------------------------------------------------------------------------------
     // 1. AI & Intelligence
     // ------------------------------------------------------------------------------------------
@@ -543,7 +548,7 @@ class SettingsFragment : Fragment() {
         }
 
         binding.rowClearActivityMemory.setOnClickListener {
-            MaterialAlertDialogBuilder(requireContext())
+            MaterialAlertDialogBuilder(dialogContext())
                 .setTitle("Clear activity memory?")
                 .setMessage("Jarvis will forget everything from the last 2 days. This cannot be undone.")
                 .setPositiveButton("Clear") { _, _ ->
@@ -617,7 +622,7 @@ class SettingsFragment : Fragment() {
         }
         val selected = values.indexOf(preferences.uiRefreshRate).coerceAtLeast(0)
 
-        MaterialAlertDialogBuilder(requireContext())
+        MaterialAlertDialogBuilder(dialogContext())
             .setTitle("Refresh rate")
             .setMessage("Maximum uses the highest rate your display supports (120 Hz on 120 Hz screens). Android and ColorOS may still lower it to manage battery or heat, for example in battery saver mode.")
             .setSingleChoiceItems(labels.toTypedArray(), selected) { dialog, which ->
@@ -667,7 +672,7 @@ class SettingsFragment : Fragment() {
         binding.rowPrivacyPolicy.setOnClickListener { open(PrivacyShieldActivity::class.java) }
 
         binding.rowAppIdentity.setOnClickListener {
-            MaterialAlertDialogBuilder(requireContext())
+            MaterialAlertDialogBuilder(dialogContext())
                 .setTitle("JARVIS App Identity")
                 .setMessage(AppIdentityVerifier.report(requireContext()))
                 .setPositiveButton("Close", null)
@@ -876,7 +881,7 @@ class SettingsFragment : Fragment() {
             setText(preferences.userName.ifBlank { "Sukant" })
             setSelection(text.length)
         }
-        MaterialAlertDialogBuilder(requireContext())
+        MaterialAlertDialogBuilder(dialogContext())
             .setTitle("Operator Name")
             .setMessage("Enter the name Jarvis should use to address you:")
             .setView(input)
@@ -896,7 +901,7 @@ class SettingsFragment : Fragment() {
         val currentIndex = languages.indexOfFirst { it.equals(preferences.language, ignoreCase = true) }
             .let { if (it >= 0) it else 0 }
 
-        MaterialAlertDialogBuilder(requireContext())
+        MaterialAlertDialogBuilder(dialogContext())
             .setTitle("Select Conversation Language")
             .setSingleChoiceItems(languages, currentIndex) { dialog, which ->
                 val chosen = languages[which]
@@ -944,7 +949,7 @@ class SettingsFragment : Fragment() {
         container.addView(keyInput)
         container.addView(modelInput)
 
-        MaterialAlertDialogBuilder(ctx)
+        MaterialAlertDialogBuilder(dialogContext())
             .setTitle("AI Engine")
             .setView(container)
             .setPositiveButton("Save") { _, _ ->
@@ -1038,7 +1043,7 @@ class SettingsFragment : Fragment() {
         container.addView(spinner)
         refreshVoiceList()
 
-        MaterialAlertDialogBuilder(ctx)
+        MaterialAlertDialogBuilder(dialogContext())
             .setTitle("Voice & Gender")
             .setView(container)
             .setPositiveButton("Save") { _, _ ->
@@ -1057,7 +1062,7 @@ class SettingsFragment : Fragment() {
         val settings = NoiseCancelSettings(ctx)
         val levels = NoiseLevel.values()
         var selected = levels.indexOf(settings.level).coerceAtLeast(0)
-        MaterialAlertDialogBuilder(ctx)
+        MaterialAlertDialogBuilder(dialogContext())
             .setTitle("Noise Cancellation")
             .setSingleChoiceItems(levels.map { it.label }.toTypedArray(), selected) { _, which -> selected = which }
             .setPositiveButton("Save") { _, _ ->
@@ -1104,7 +1109,7 @@ class SettingsFragment : Fragment() {
         container.addView(group)
         container.addView(box)
 
-        MaterialAlertDialogBuilder(ctx)
+        MaterialAlertDialogBuilder(dialogContext())
             .setTitle("Auto-Sleep")
             .setView(container)
             .setPositiveButton("Save") { _, _ ->
