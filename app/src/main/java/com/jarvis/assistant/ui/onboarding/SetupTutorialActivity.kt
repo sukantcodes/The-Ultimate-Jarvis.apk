@@ -242,7 +242,7 @@ class SetupTutorialActivity : AppCompatActivity() {
                 val enabled = PermissionHelper.isAccessibilityServiceEnabled(this)
                 statusCard("JARVIS Accessibility Service", if (enabled) "Enabled and detected by Android." else "Not enabled. Open Android Accessibility settings, find JARVIS and turn its service on.", enabled)
                 content.addView(actionButton("OPEN ACCESSIBILITY SETTINGS") {
-                    returnedFromSettings = true
+
                     PermissionHelper.openAccessibilitySettings(this)
                 }, fullWidth())
                 infoCard("PRIVACY & CONTROL", "Android requires you to enable this service manually. JARVIS does not activate it silently. You can turn it off at any time in system settings.")
