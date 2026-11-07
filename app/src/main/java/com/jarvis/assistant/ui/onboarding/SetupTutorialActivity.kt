@@ -344,91 +344,82 @@ class SetupTutorialActivity : AppCompatActivity() {
      * Animations are cancelled before a page is rebuilt and when the Activity is destroyed.
      */
     private fun runPremiumEntrance() {
+        pageEntrance?.cancel()
         premiumAnimators.forEach { it.cancel() }
         premiumAnimators.clear()
-        content.alpha = 1f
-        content.translationY = 0f
 
+        // Respect Android's system-wide animation-off setting and accessibility preferences.
+        if (!ValueAnimator.areAnimatorsEnabled()) {
+            for (index in 0 until content.childCount) {
+                content.getChildAt(index).apply {
+                    animate().cancel()
+                    alpha = 1f; translationY = 0f; translationZ = 0f
+                    scaleX = 1f; scaleY = 1f; rotationX = 0f; rotationY = 0f
+                }
+            }
+            return
+        }
+
+        val page = AnimatorSet()
+        val entrances = mutableListOf<Animator>()
         for (index in 0 until content.childCount) {
             val child = content.getChildAt(index)
             child.animate().cancel()
+            child.cameraDistance = dp(2200).toFloat()
             child.alpha = 0f
-            child.translationY = dp(30).toFloat()
-            child.scaleX = .94f
-            child.scaleY = .94f
-            child.cameraDistance = dp(1800).toFloat()
-            child.rotationX = 16f
-            child.rotationY = if (index % 2 == 0) -12f else 12f
-            child.animate()
-                .alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).rotationX(0f).rotationY(0f)
-                .setStartDelay(index * 115L)
-                .setDuration(900L)
-                .setInterpolator(android.view.animation.OvershootInterpolator(0.78f))
-                .start()
+            child.translationY = dp(34).toFloat()
+            child.scaleX = .955f; child.scaleY = .955f
+            child.rotationX = 10f
+            child.rotationY = if (index % 2 == 0) -8f else 8f
+            val reveal = AnimatorSet().apply {
+                playTogether(
+                    ObjectAnimator.ofFloat(child, View.ALPHA, 0f, 1f),
+                    ObjectAnimator.ofFloat(child, View.TRANSLATION_Y, dp(34).toFloat(), 0f),
+                    ObjectAnimator.ofFloat(child, View.SCALE_X, .955f, 1f),
+                    ObjectAnimator.ofFloat(child, View.SCALE_Y, .955f, 1f),
+                    ObjectAnimator.ofFloat(child, View.ROTATION_X, 10f, 0f),
+                    ObjectAnimator.ofFloat(child, View.ROTATION_Y, if (index % 2 == 0) -8f else 8f, 0f)
+                )
+                duration = 760L
+                startDelay = index * 105L
+                interpolator = android.view.animation.PathInterpolator(.18f, .82f, .22f, 1f)
+            }
+            entrances += reveal
         }
+        page.playTogether(entrances)
+        page.addListener(object : android.animation.AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                for (index in 0 until content.childCount) content.getChildAt(index).apply {
+                    rotationX = 0f; rotationY = 0f; translationY = 0f
+                    scaleX = 1f; scaleY = 1f; alpha = 1f
+                }
+            }
+        })
+        pageEntrance = page
+        page.start()
 
-        // Give each premium surface a subtle, non-distracting floating lift.
+        // One restrained hero idle loop replaces constant pulsing on every card and button.
         content.post {
-            if (isFinishing || isDestroyed) return@post
-            for (index in 0 until content.childCount) {
-                val view = content.getChildAt(index)
-                if (view is MaterialCardView) {
-                    val lift = ObjectAnimator.ofFloat(view, View.TRANSLATION_Z, dp(0).toFloat(), dp(7).toFloat(), dp(0).toFloat()).apply {
-                        duration = 3000L
-                        startDelay = index * 130L
-                        repeatCount = ValueAnimator.INFINITE
-                        repeatMode = ValueAnimator.REVERSE
-                    }
-                    premiumAnimators += lift
-                    lift.start()
-                }
-                if (view is FrameLayout && index == 0) {
-                    val floatMotion = ObjectAnimator.ofFloat(view, View.TRANSLATION_Y, 0f, -dp(6).toFloat(), 0f).apply {
-                        duration = 3400L
-                        repeatCount = ValueAnimator.INFINITE
-                        repeatMode = ValueAnimator.REVERSE
-                        interpolator = android.view.animation.AccelerateDecelerateInterpolator()
-                    }
-                    premiumAnimators += floatMotion
-                    floatMotion.start()
-                    val emblem = view.getChildAt(0)
-                    if (emblem != null) {
-                        val haloPulse = ObjectAnimator.ofPropertyValuesHolder(
-                            emblem,
-                            android.animation.PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.07f, 1f),
-                            android.animation.PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.07f, 1f),
-                            android.animation.PropertyValuesHolder.ofFloat(View.ROTATION, 0f, 4f, 0f, -4f, 0f)
-                        ).apply {
-                            duration = 3600L
-                            repeatCount = ValueAnimator.INFINITE
-                            repeatMode = ValueAnimator.RESTART
-                        }
-                        premiumAnimators += haloPulse
-                        haloPulse.start()
-                    }
-                }
+            if (isFinishing || isDestroyed || !ValueAnimator.areAnimatorsEnabled()) return@post
+            val hero = content.getChildAt(0) as? FrameLayout ?: return@post
+            val emblem = hero.getChildAt(0) ?: return@post
+            val floatMotion = ObjectAnimator.ofFloat(hero, View.TRANSLATION_Y, 0f, -dp(4).toFloat(), 0f).apply {
+                duration = 4600L; repeatCount = ValueAnimator.INFINITE; repeatMode = ValueAnimator.RESTART
+                interpolator = android.view.animation.AccelerateDecelerateInterpolator()
             }
-            var buttonIndex = 0
-            for (childIndex in 0 until content.childCount) {
-                val button = content.getChildAt(childIndex) as? MaterialButton ?: continue
-                val pulse = ObjectAnimator.ofPropertyValuesHolder(
-                    button,
-                    android.animation.PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.018f, 1f),
-                    android.animation.PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.018f, 1f)
-                ).apply {
-                    duration = 1900L
-                    startDelay = 500L + buttonIndex * 180L
-                    repeatCount = ValueAnimator.INFINITE
-                    repeatMode = ValueAnimator.RESTART
-                }
-                premiumAnimators += pulse
-                pulse.start()
-                buttonIndex++
+            val breathe = ObjectAnimator.ofPropertyValuesHolder(
+                emblem,
+                android.animation.PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.045f, 1f),
+                android.animation.PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.045f, 1f),
+                android.animation.PropertyValuesHolder.ofFloat(View.ROTATION, 0f, 2f, 0f, -2f, 0f)
+            ).apply {
+                duration = 4200L; repeatCount = ValueAnimator.INFINITE; repeatMode = ValueAnimator.RESTART
+                interpolator = android.view.animation.AccelerateDecelerateInterpolator()
             }
+            premiumAnimators += floatMotion; premiumAnimators += breathe
+            floatMotion.start(); breathe.start()
         }
     }
-
-
 
     private fun addWorkflowDemo(labels: List<String> = listOf("VOICE", "JARVIS", "APP", "DONE")) {
         val row = LinearLayout(this).apply {
