@@ -340,7 +340,8 @@ class SetupTutorialActivity : AppCompatActivity() {
                 }
                 step++
             }
-            6 -> {
+            6 -> { step++ }
+            7 -> {
                 prefs.hasCompletedSetupTutorial = true
                 prefs.setupTutorialStep = 0
                 finish()
