@@ -87,6 +87,13 @@ class ChatFragment : Fragment() {
         onSaveAssistantMessage = { text ->
             pendingExportText = text
             exportLauncher.launch("Jarvis-Edited-File.txt")
+        },
+        onOpenAttachment = { path, name, mime ->
+            startActivity(Intent(requireContext(), ChatAttachmentPreviewActivity::class.java).apply {
+                putExtra(ChatAttachmentPreviewActivity.EXTRA_PATH, path)
+                putExtra(ChatAttachmentPreviewActivity.EXTRA_NAME, name)
+                putExtra(ChatAttachmentPreviewActivity.EXTRA_MIME, mime)
+            })
         }
     )
 
