@@ -877,7 +877,7 @@ class SettingsFragment : Fragment() {
     // ------------------------------------------------------------------------------------------
 
     private fun showEditNameDialog() {
-        val input = EditText(requireContext()).apply {
+        val input = EditText(dialogContext()).apply {
             setText(preferences.userName.ifBlank { "Sukant" })
             setSelection(text.length)
         }
