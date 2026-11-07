@@ -877,11 +877,27 @@ function handleResize(){
   shadowEl.style.top=Math.round(h/2+pxPerUnit*1.2)+"px";
 }
 let last=performance.now();
+let orbFrameId=0;
 function animate(now){
-  requestAnimationFrame(animate);
+  if(document.hidden){orbFrameId=0;return;}
   const dt=Math.min((now-last)/1000,.05);last=now;
   updateOrb(dt);updateParticles(dt);renderer.render(scene,camera);
+  orbFrameId=startOrbRenderLoop();
 }
+function startOrbRenderLoop(){
+  if(document.hidden||orbFrameId!==0)return;
+  last=performance.now();
+  orbFrameId=requestAnimationFrame(animate);
+}
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden){
+    if(orbFrameId!==0)cancelAnimationFrame(orbFrameId);
+    orbFrameId=0;
+    last=performance.now();
+  }else{
+    startOrbRenderLoop();
+  }
+});
 
 document.querySelectorAll("[data-s]").forEach(b=>b.addEventListener("click",()=>setOrbState(b.dataset.s)));
 document.querySelectorAll("[data-t]").forEach(b=>b.addEventListener("click",()=>applyTheme(b.dataset.t)));
