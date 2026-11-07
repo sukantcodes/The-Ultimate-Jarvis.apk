@@ -44,7 +44,7 @@ class FaceLockActivity : AppCompatActivity() {
         }
         b.btnCancelScan.setOnClickListener { scanning = false; unbindCamera(); b.btnStartScan.isEnabled = true; b.tvScanStatus.text = "Scan cancelled." }
         b.btnSaveProfile.setOnClickListener { saveProfile() }
-        b.btnDeleteAll.setOnClickListener { MaterialAlertDialogBuilder(this).setTitle("Delete all face data?").setMessage("Remove all saved local enrollment records?").setNegativeButton("Cancel", null).setPositiveButton("Delete") { _, _ -> prefs.edit().remove("profiles").apply(); showProfiles() }.show() }
+        b.btnDeleteAll.setOnClickListener { MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog).setTitle("Delete all face data?").setMessage("Remove all saved local enrollment records?").setNegativeButton("Cancel", null).setPositiveButton("Delete") { _, _ -> prefs.edit().remove("profiles").apply(); showProfiles() }.show() }
         showProfiles()
     }
 
