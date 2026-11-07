@@ -1,6 +1,11 @@
 name: Publish Chatbox Release to Supabase
 
 on:
+  push:
+    branches:
+      - Chatbox
+    paths:
+      - ".github/workflows/publish-chatbox-release.yml"
   workflow_dispatch:
     inputs:
       version_code:
@@ -36,7 +41,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: jarvis-chatbox-release-\${{ inputs.channel }}
+  group: jarvis-chatbox-release-${{ github.event.inputs.channel || 'stable' }}
   cancel-in-progress: false
 
 jobs:
@@ -46,18 +51,18 @@ jobs:
     timeout-minutes: 45
     env:
       SUPABASE_URL: https://yeggjbjcoaaoqntqyjdv.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: \${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      SUPABASE_PUBLISHABLE_KEY: \${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-      JARVIS_RELEASE_KEYSTORE_BASE64: \${{ secrets.JARVIS_RELEASE_KEYSTORE_BASE64 }}
-      JARVIS_RELEASE_STORE_PASSWORD: \${{ secrets.JARVIS_RELEASE_STORE_PASSWORD }}
-      JARVIS_RELEASE_KEY_ALIAS: \${{ secrets.JARVIS_RELEASE_KEY_ALIAS }}
-      JARVIS_RELEASE_KEY_PASSWORD: \${{ secrets.JARVIS_RELEASE_KEY_PASSWORD }}
-      JARVIS_RELEASE_CERT_SHA256: \${{ secrets.JARVIS_RELEASE_CERT_SHA256 }}
-      JARVIS_VERSION_CODE: \${{ inputs.version_code }}
-      JARVIS_VERSION_NAME: \${{ inputs.version_name }}
-      RELEASE_CHANNEL: \${{ inputs.channel }}
-      MIN_SUPPORTED_VERSION_CODE: \${{ inputs.min_supported_version_code }}
-      RELEASE_NOTES: \${{ inputs.release_notes }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      JARVIS_RELEASE_KEYSTORE_BASE64: ${{ secrets.JARVIS_RELEASE_KEYSTORE_BASE64 }}
+      JARVIS_RELEASE_STORE_PASSWORD: ${{ secrets.JARVIS_RELEASE_STORE_PASSWORD }}
+      JARVIS_RELEASE_KEY_ALIAS: ${{ secrets.JARVIS_RELEASE_KEY_ALIAS }}
+      JARVIS_RELEASE_KEY_PASSWORD: ${{ secrets.JARVIS_RELEASE_KEY_PASSWORD }}
+      JARVIS_RELEASE_CERT_SHA256: ${{ secrets.JARVIS_RELEASE_CERT_SHA256 }}
+      JARVIS_VERSION_CODE: ${{ github.event.inputs.version_code || '144' }}
+      JARVIS_VERSION_NAME: ${{ github.event.inputs.version_name || '1.8.8' }}
+      RELEASE_CHANNEL: ${{ github.event.inputs.channel || 'stable' }}
+      MIN_SUPPORTED_VERSION_CODE: ${{ github.event.inputs.min_supported_version_code || '1' }}
+      RELEASE_NOTES: ${{ github.event.inputs.release_notes || 'JARVIS 1.8.8 — New signed release' }}
     steps:
       - name: Checkout Chatbox only
         uses: actions/checkout@v4
@@ -138,8 +143,8 @@ jobs:
 
       - name: Upload APK to Supabase Storage with resumable TUS
         env:
-          APK_FILE: \${{ steps.apk.outputs.path }}
-          STORAGE_OBJECT: \${{ steps.apk.outputs.apk_path }}
+          APK_FILE: ${{ steps.apk.outputs.path }}
+          STORAGE_OBJECT: ${{ steps.apk.outputs.apk_path }}
         run: |
           node <<'NODE'
           (async () => {
@@ -178,8 +183,8 @@ jobs:
 
       - name: Publish release metadata through restricted RPC
         env:
-          APK_PATH: \${{ steps.apk.outputs.apk_path }}
-          APK_SHA256: \${{ steps.apk.outputs.sha256 }}
+          APK_PATH: ${{ steps.apk.outputs.apk_path }}
+          APK_SHA256: ${{ steps.apk.outputs.sha256 }}
         shell: bash
         run: |
           set -euo pipefail
