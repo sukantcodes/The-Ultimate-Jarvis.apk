@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Shared app-wide Material dialogs. Colours resolve from the currently active JARVIS theme. -->
-    <style name="ShapeAppearanceOverlay.Jarvis.Dialog" parent="ShapeAppearance.Material3.LargeComponent">
+    <style name="ShapeAppearanceOverlay.Jarvis.Dialog" parent="">
         <item name="cornerSize">30dp</item>
     </style>
 
@@ -53,7 +53,6 @@
         <item name="materialAlertDialogBodyTextStyle">@style/TextAppearance.Jarvis.DialogBody</item>
         <item name="android:windowAnimationStyle">@style/Jarvis.Dialog.WindowAnimation</item>
         <item name="android:windowDimAmount">0.62</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowSoftInputMode">adjustResize</item>
         <item name="android:windowMinWidthMajor">87%</item>
         <item name="android:windowMinWidthMinor">87%</item>
