@@ -1,10 +1,13 @@
 package com.jarvis.assistant.ui.settings
 
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -79,6 +82,10 @@ class ApiConnectionActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
+        binding.tvGetApiKey.setOnClickListener {
+            openGeminiApiKeyPage()
+        }
+
         binding.btnPasteKey.setOnClickListener {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val item = clipboard.primaryClip?.getItemAt(0)
@@ -106,6 +113,19 @@ class ApiConnectionActivity : AppCompatActivity() {
 
         binding.btnSaveConnection.setOnClickListener {
             saveAndApply()
+        }
+    }
+
+    private fun openGeminiApiKeyPage() {
+        val intent = Intent(Intent.ACTION_VIEW, GEMINI_API_KEY_URI)
+        try {
+            startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+            Snackbar.make(
+                binding.root,
+                "No browser is available to open Google AI Studio.",
+                Snackbar.LENGTH_LONG
+            ).show()
         }
     }
 
@@ -173,5 +193,9 @@ class ApiConnectionActivity : AppCompatActivity() {
 
         Toast.makeText(this, "API & Connection settings saved!", Toast.LENGTH_SHORT).show()
         finish()
+    }
+
+    private companion object {
+        val GEMINI_API_KEY_URI: Uri = Uri.parse("https://aistudio.google.com/apikey")
     }
 }

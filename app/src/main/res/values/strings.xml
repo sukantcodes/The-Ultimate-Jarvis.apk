@@ -57,5 +57,7 @@
     <string name="category_notes">Notes</string>
     <string name="google_web_client_id">684324005847-mqf8reui1gqtu9v70s02dci56dt4j64i.apps.googleusercontent.com.apps.googleusercontent.com</string>
   
+    <string name="get_gemini_api_key">Get your API key</string>
+    <string name="get_gemini_api_key_description">Open Google AI Studio to create a Gemini API key</string>
 </resources>
 
