@@ -423,6 +423,9 @@ class MainActivity : AppCompatActivity() {
      * width. This keeps navigation comfortable on compact phones and avoids
      * covering too much of a large-screen layout.
      */
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density + 0.5f).toInt()
+
     private fun configureNavigationDrawer() {
         val availableWidth = (resources.displayMetrics.widthPixels - dp(32)).coerceAtLeast(dp(240))
         val drawerWidth = minOf(dp(360), availableWidth)
