@@ -43,6 +43,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         binding.btnOrbIronMan.setOnClickListener { selectOrb("iron_man_head", "Iron Man 3D Helmet") }
         binding.btnOrbFullCharacter.setOnClickListener { selectOrb("full_human", "Full Human 3D Assistant") }
 
+        setupOrbSelectionState()
         setupOrbLookControls()
 
         binding.cardThemeLight.setOnClickListener { selectTheme("light", "Light") }
@@ -70,6 +71,39 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
 
     private fun homeFragment(): HomeFragment? =
         (activity as? MainActivity)?.supportFragmentManager?.fragments?.filterIsInstance<HomeFragment>()?.firstOrNull()
+
+    /**
+     * Visually identifies the active orb without relying on text alone. Accent colour comes from
+     * ThemeManager, so built-in and custom palettes stay in sync.
+     */
+    private fun setupOrbSelectionState() {
+        val accent = com.jarvis.assistant.util.ThemeManager.getThemeAccentColor()
+        val activeStyle = preferences.orbAnimation
+        val textPrimary = android.util.TypedValue().also {
+            requireContext().theme.resolveAttribute(com.jarvis.assistant.R.attr.themeTextPrimary, it, true)
+        }.data
+        val options = listOf(
+            "default" to binding.btnOrbDefault,
+            "aurora_orb" to binding.btnOrbAurora,
+            "iron_man_head" to binding.btnOrbIronMan,
+            "full_human" to binding.btnOrbFullCharacter
+        )
+        options.forEach { (style, button) ->
+            val selected = style == activeStyle
+            button.isSelected = selected
+            button.strokeColor = android.content.res.ColorStateList.valueOf(
+                if (selected) accent else androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 105)
+            )
+            button.strokeWidth = if (selected) dp(2) else dp(1)
+            button.setTextColor(if (selected) accent else textPrimary)
+            button.alpha = if (selected) 1f else 0.82f
+            button.contentDescription = button.text.toString() +
+                if (selected) ", currently selected" else ", select orb"
+        }
+    }
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density + 0.5f).toInt()
 
     /**
      * Glow and size of the selected orb, and the shape of the Settings icons. Every slider applies live,

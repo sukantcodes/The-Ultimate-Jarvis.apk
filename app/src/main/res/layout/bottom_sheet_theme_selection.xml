@@ -108,84 +108,172 @@
                     android:layout_marginBottom="6dp" />
             </LinearLayout>
 
-            <!-- Orb and icon look controls -->
-            <TextView
-                android:id="@+id/tvOrbControlsTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Orb look"
-                android:textColor="?attr/themeTextPrimary"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tvOrbControlsHint"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="6dp"
-                android:text="Applies to the selected orb"
-                android:textColor="?attr/themeTextMuted"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/tvOrbGlowValue"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Glow"
-                android:textColor="?attr/themeTextSecondary"
-                android:textSize="13sp" />
-
-            <SeekBar
-                android:id="@+id/seekOrbGlow"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:max="200"
-                android:progressTint="?attr/themeAccent"
-                android:thumbTint="?attr/themeAccent" />
-
-            <TextView
-                android:id="@+id/tvOrbSizeValue"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Size"
-                android:textColor="?attr/themeTextSecondary"
-                android:textSize="13sp" />
-
-            <SeekBar
-                android:id="@+id/seekOrbSize"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:max="80"
-                android:progressTint="?attr/themeAccent"
-                android:thumbTint="?attr/themeAccent" />
-
-            <TextView
-                android:id="@+id/tvIconShapeValue"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Settings icon shape"
-                android:textColor="?attr/themeTextSecondary"
-                android:textSize="13sp" />
-
-            <SeekBar
-                android:id="@+id/seekIconShape"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:max="3"
-                android:progressTint="?attr/themeAccent"
-                android:thumbTint="?attr/themeAccent" />
-
+            <!-- Theme-aware adjustment panel -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="18dp"
-                android:orientation="horizontal">
+                android:orientation="vertical"
+                android:background="@drawable/bg_jarvis_card"
+                android:padding="16dp"
+                android:layout_marginBottom="18dp">
 
-                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Plain" android:textColor="?attr/themeTextMuted" android:textSize="11sp" />
-                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Rectangular" android:textColor="?attr/themeTextMuted" android:textSize="11sp" />
-                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Pillowy" android:textColor="?attr/themeTextMuted" android:textSize="11sp" />
-                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="end" android:text="Circular" android:textColor="?attr/themeTextMuted" android:textSize="11sp" />
+                <TextView
+                    android:id="@+id/tvOrbControlsTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Personalise the Orb"
+                    android:textColor="?attr/themeTextPrimary"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvOrbControlsHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:layout_marginBottom="14dp"
+                    android:text="Adjustments apply instantly to the selected orb"
+                    android:textColor="?attr/themeTextMuted"
+                    android:textSize="12sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Glow intensity"
+                        android:textColor="?attr/themeTextPrimary"
+                        android:textStyle="bold"
+                        android:textSize="14sp" />
+                    <TextView
+                        android:id="@+id/tvOrbGlowValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="100%"
+                        android:textColor="?attr/themeAccent"
+                        android:textStyle="bold"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seekOrbGlow"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:minHeight="48dp"
+                    android:max="200"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp"
+                    android:progressTint="?attr/themeAccent"
+                    android:progressBackgroundTint="?attr/themeCardBorder"
+                    android:thumbTint="?attr/themeAccent"
+                    android:contentDescription="Orb glow intensity" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Off                                      Maximum"
+                    android:textColor="?attr/themeTextMuted"
+                    android:textSize="10sp" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:background="?attr/themeCardBorder" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Orb scale"
+                        android:textColor="?attr/themeTextPrimary"
+                        android:textStyle="bold"
+                        android:textSize="14sp" />
+                    <TextView
+                        android:id="@+id/tvOrbSizeValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="100%"
+                        android:textColor="?attr/themeAccent"
+                        android:textStyle="bold"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seekOrbSize"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:minHeight="48dp"
+                    android:max="80"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp"
+                    android:progressTint="?attr/themeAccent"
+                    android:progressBackgroundTint="?attr/themeCardBorder"
+                    android:thumbTint="?attr/themeAccent"
+                    android:contentDescription="Orb size" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="60%                                      140%"
+                    android:textColor="?attr/themeTextMuted"
+                    android:textSize="10sp" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:background="?attr/themeCardBorder" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:id="@+id/tvIconShapeValue"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Settings icon shape"
+                        android:textColor="?attr/themeTextPrimary"
+                        android:textStyle="bold"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seekIconShape"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:minHeight="48dp"
+                    android:max="3"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp"
+                    android:progressTint="?attr/themeAccent"
+                    android:progressBackgroundTint="?attr/themeCardBorder"
+                    android:thumbTint="?attr/themeAccent"
+                    android:contentDescription="Settings icon shape" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Plain" android:textColor="?attr/themeTextMuted" android:textSize="10sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Rectangular" android:textColor="?attr/themeTextMuted" android:textSize="10sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Pillowy" android:textColor="?attr/themeTextMuted" android:textSize="10sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="end" android:text="Circular" android:textColor="?attr/themeTextMuted" android:textSize="10sp" />
+                </LinearLayout>
             </LinearLayout>
 
             <!-- Theme 1: Light -->
