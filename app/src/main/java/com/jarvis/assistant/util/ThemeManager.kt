@@ -130,16 +130,14 @@ object ThemeManager {
         controller.isAppearanceLightStatusBars = isLightStatusBar
         controller.isAppearanceLightNavigationBars = isLightStatusBar
 
+        // The window owns the continuous canvas. Keep the content host transparent so it
+        // cannot paint a second, differently-sized copy over the same screen.
         val content = try { activity.findViewById<View>(android.R.id.content) } catch (_: Exception) { null }
-        if (isCustom) {
-            content?.background = null
-        } else {
-            content?.background = createThemeBackgroundDrawable(themeKey)
-            activity.window.decorView.post {
-                try {
-                    activity.findViewById<View>(android.R.id.content)?.background = createThemeBackgroundDrawable(themeKey)
-                } catch (_: Exception) {}
-            }
+        content?.background = ColorDrawable(Color.TRANSPARENT)
+        activity.window.decorView.post {
+            try {
+                activity.findViewById<View>(android.R.id.content)?.background = ColorDrawable(Color.TRANSPARENT)
+            } catch (_: Exception) {}
         }
         applyPreferredRefreshRate(activity)
     }
@@ -219,12 +217,22 @@ object ThemeManager {
         return hex(first) to hex(second)
     }
 
+    /**
+     * One shared, full-canvas ambient background for every built-in and custom palette.
+     * A single renderer avoids small view-bound glow patches and duplicated gradients.
+     */
+    private fun themeGlowColors(themeKey: String): Pair<Int, Int> = when (themeKey) {
+        "dark" -> Color.parseColor("#5B8CFF") to Color.parseColor("#A78BFA")
+        "red" -> Color.parseColor("#FF4D5E") to Color.parseColor("#FB7185")
+        "sunset" -> Color.parseColor("#FF6A3D") to Color.parseColor("#E879A8")
+        "custom" -> customColors()
+        else -> Color.parseColor("#2F6BFF") to Color.parseColor("#8B5CF6")
+    }
+
     private fun createThemeBackgroundDrawable(themeKey: String): Drawable {
-        if (themeKey != "custom") return ColorDrawable(getThemeBgColor(themeKey, null))
-        val (first, second) = customColors()
-        val light = customIsLight(first, second)
-        val base = customBaseColor(accentSource(first, second, light), light)
-        return AmbientGlowDrawable(base, first, second, light)
+        val base = getThemeBgColor(themeKey, null)
+        val (first, second) = themeGlowColors(themeKey)
+        return AmbientGlowDrawable(base, first, second, isLight(base))
     }
 
     private fun withAlpha(color: Int, alpha: Int): Int =
@@ -251,8 +259,9 @@ object ThemeManager {
             val height = area.height().toFloat()
             val big = maxOf(width, height)
 
-            val strongA = if (lightCanvas) 0x40 else 0x66
-            val softA = if (lightCanvas) 0x2A else 0x44
+            // Keep pearl palettes luminous but restrained; darker palettes retain richer colour.
+            val strongA = if (lightCanvas) 0x22 else 0x48
+            val softA = if (lightCanvas) 0x16 else 0x30
             drawGlow(canvas, area.left + width * 0.82f, area.top + height * 0.10f, big * 0.95f, firstColor, strongA)
             drawGlow(canvas, area.left + width * 0.10f, area.top + height * 0.88f, big * 0.85f, secondColor, strongA)
             drawGlow(canvas, area.left + width * 0.08f, area.top + height * 0.38f, big * 0.55f, secondColor, softA / 2)
@@ -284,12 +293,7 @@ object ThemeManager {
     fun applyDynamicBackground(view: View) {
         val prefs = try { JarvisApp.instance.preferences } catch (_: Exception) { null }
         val themeKey = prefs?.appTheme ?: "sunset"
-        // Custom-theme glow is drawn once, on the window. Any second glow or tinted fill drawn on a
-        // smaller view would start and stop at that view's edges and show up as a coloured rectangle.
-        view.background = if (themeKey == "custom") {
-            ColorDrawable(Color.TRANSPARENT)
-        } else {
-            ColorDrawable(getThemeBgColor(themeKey, null))
-        }
+        // Use the same full-bounds renderer for every activity and fragment, including Updates.
+        view.background = createThemeBackgroundDrawable(themeKey)
     }
 }

@@ -10,37 +10,6 @@
     android:paddingTop="16dp"
     android:paddingBottom="100dp">
 
-    <!-- Ambient Liquid Glass Glow Fields (Soft luminous refractions behind glass) -->
-    <View
-        android:id="@+id/glowOrbTopRight"
-        android:layout_width="280dp"
-        android:layout_height="280dp"
-        android:layout_marginTop="-70dp"
-        android:layout_marginEnd="-70dp"
-        android:background="?attr/themeGlowBlob1"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <View
-        android:id="@+id/glowOrbCenterLeft"
-        android:layout_width="260dp"
-        android:layout_height="260dp"
-        android:layout_marginStart="-80dp"
-        android:background="?attr/themeGlowBlob2"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <View
-        android:id="@+id/glowOrbBottom"
-        android:layout_width="280dp"
-        android:layout_height="280dp"
-        android:layout_marginBottom="-60dp"
-        android:layout_marginEnd="-40dp"
-        android:background="?attr/themeGlowBlob3"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
     <!-- Top Header -->
     <LinearLayout
         android:id="@+id/layoutHeader"
