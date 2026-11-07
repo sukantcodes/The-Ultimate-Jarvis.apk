@@ -41,7 +41,6 @@
             android:id="@+id/tvUserTranscript"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:maxWidth="720dp"
             android:textColor="?attr/themeTextPrimary"
             android:textSize="14sp"
             android:lineSpacingExtra="2dp"

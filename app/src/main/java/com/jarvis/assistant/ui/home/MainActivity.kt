@@ -186,18 +186,23 @@ class MainActivity : AppCompatActivity() {
         // Premium JARVIS entrance: a smooth fade, subtle lift, and scale settle on cold launch.
         // Keep it lightweight and avoid replaying it on configuration changes or theme recreation.
         if (savedInstanceState == null) {
+            val entranceScale = com.jarvis.assistant.util.ResponsiveMotionMetrics.scaleFactor(this)
+            val density = resources.displayMetrics.density
+            val startScale = 1f - (0.035f * entranceScale)
+            val liftDistancePx = 28f * entranceScale * density
+            val entranceDuration = (360L * (0.9f + entranceScale * 0.1f)).toLong().coerceIn(330L, 430L)
             binding.rootMainLayout.apply {
                 alpha = 0f
-                translationY = 28f * resources.displayMetrics.density
-                scaleX = 0.965f
-                scaleY = 0.965f
+                translationY = liftDistancePx
+                scaleX = startScale
+                scaleY = startScale
                 post {
                     animate()
                         .alpha(1f)
                         .translationY(0f)
                         .scaleX(1f)
                         .scaleY(1f)
-                        .setDuration(360L)
+                        .setDuration(entranceDuration)
                         .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
                         .start()
                 }

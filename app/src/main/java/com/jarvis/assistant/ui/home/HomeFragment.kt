@@ -367,7 +367,9 @@ class HomeFragment : Fragment() {
 
     /** Cards rise in one after another from the bottom, so Home feels alive when it opens. */
     private fun playHomeEntrance() {
-        val rise = dp(26).toFloat()
+        val motionScale = com.jarvis.assistant.util.ResponsiveMotionMetrics.scaleFactor(requireContext())
+        val rise = dp((26f * motionScale).toInt()).toFloat()
+        val entranceDuration = (460f * (0.9f + motionScale * 0.1f)).toLong().coerceIn(420L, 560L)
         val ordered = listOf(
             binding.layoutTitle, binding.layoutStatusIndicator, binding.cardWeather,
             binding.homeLaunchpad, binding.layoutActionGrid
@@ -377,8 +379,8 @@ class HomeFragment : Fragment() {
             view.translationY = rise
             view.animate()
                 .alpha(1f).translationY(0f)
-                .setStartDelay(120L + index * 90L)
-                .setDuration(460L)
+                .setStartDelay((120f * motionScale + index * 90f * motionScale).toLong())
+                .setDuration(entranceDuration)
                 .setInterpolator(android.view.animation.DecelerateInterpolator(1.6f))
                 .start()
         }
