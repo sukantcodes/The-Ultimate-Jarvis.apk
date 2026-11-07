@@ -174,7 +174,7 @@ class VoiceEnrollmentActivity : AppCompatActivity() {
         }
 
         binding.btnClearProfile.setOnClickListener {
-            MaterialAlertDialogBuilder(this)
+            MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
                 .setTitle("Reset Voice Profile?")
                 .setMessage("This will remove your enrolled voiceprint. Jarvis will respond to all voices until you re-train.")
                 .setPositiveButton("RESET") { _, _ ->
