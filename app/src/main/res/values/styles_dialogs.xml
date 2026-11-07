@@ -20,6 +20,20 @@
         <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
     </style>
 
+    <style name="Widget.Jarvis.Dialog.EditText" parent="Widget.AppCompat.EditText">
+        <item name="android:background">@drawable/bg_jarvis_dialog_input</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:textColorHint">?attr/colorOnSurfaceVariant</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:paddingStart">15dp</item>
+        <item name="android:paddingEnd">15dp</item>
+        <item name="android:paddingTop">13dp</item>
+        <item name="android:paddingBottom">13dp</item>
+        <item name="android:minHeight">54dp</item>
+    </style>
+
     <style name="Jarvis.Dialog.WindowAnimation">
         <item name="android:windowEnterAnimation">@anim/jarvis_dialog_enter</item>
         <item name="android:windowExitAnimation">@anim/jarvis_dialog_exit</item>
@@ -27,6 +41,7 @@
 
     <style name="ThemeOverlay.Jarvis.MaterialDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:editTextStyle">@style/Widget.Jarvis.Dialog.EditText</item>
         <item name="colorSurface">?attr/colorSurface</item>
         <item name="colorOnSurface">?attr/colorOnSurface</item>
         <item name="colorOnSurfaceVariant">?attr/colorOnSurfaceVariant</item>
