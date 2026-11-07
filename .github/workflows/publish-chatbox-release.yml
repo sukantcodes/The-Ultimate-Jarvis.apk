@@ -113,6 +113,18 @@ jobs:
           test -s "$KEYSTORE"
           echo "JARVIS_RELEASE_STORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"
 
+      - name: Verify restored keystore certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE_CERT="$(keytool -exportcert -alias "$JARVIS_RELEASE_KEY_ALIAS" -keystore "$JARVIS_RELEASE_STORE_FILE" -storepass "$JARVIS_RELEASE_STORE_PASSWORD" | sha256sum | awk '{print toupper($1)}')"
+          echo "Expected release certificate SHA-256: $JARVIS_RELEASE_CERT_SHA256"
+          echo "Restored keystore certificate SHA-256: $KEYSTORE_CERT"
+          if [[ "$KEYSTORE_CERT" != "$JARVIS_RELEASE_CERT_SHA256" ]]; then
+            echo "::error::The restored keystore does not match JARVIS_RELEASE_CERT_SHA256. Check that the keystore Base64 and fingerprint secrets belong to the same release key."
+            exit 1
+          fi
+
       - name: Ensure Gradle wrapper is executable
         run: chmod +x ./gradlew
 
@@ -131,8 +143,14 @@ jobs:
           test -s "$APK"
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
           SIGNER_OUTPUT="$("$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$APK")"
-          ACTUAL_CERT="$(printf '%s\n' "$SIGNER_OUTPUT" | sed -nE 's/.*certificate SHA-256 digest: ([A-Fa-f0-9]{64}).*/\1/p' | head -n1 | tr '[:lower:]' '[:upper:]')"
-          if [[ -z "$ACTUAL_CERT" || "$ACTUAL_CERT" != "$JARVIS_RELEASE_CERT_SHA256" ]]; then
+          ACTUAL_CERT="$(printf '%s\\n' "$SIGNER_OUTPUT" | awk -F': ' '/certificate SHA-256 digest:/ { print toupper($NF); exit }')"
+          echo "APK signer certificate SHA-256: ${ACTUAL_CERT:-NOT_FOUND}"
+          if [[ ! "$ACTUAL_CERT" =~ ^[A-F0-9]{64}$ ]]; then
+            echo "::error::Could not parse the APK signer SHA-256 fingerprint from apksigner output."
+            printf '%s\\n' "$SIGNER_OUTPUT"
+            exit 1
+          fi
+          if [[ "$ACTUAL_CERT" != "$JARVIS_RELEASE_CERT_SHA256" ]]; then
             echo "::error::APK signer does not match JARVIS_RELEASE_CERT_SHA256."
             exit 1
           fi
