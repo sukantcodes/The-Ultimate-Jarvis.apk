@@ -10,6 +10,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Shader
@@ -29,6 +31,7 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
     private val logo: Bitmap = BitmapFactory.decodeResource(resources, com.jarvis.assistant.R.drawable.ic_jarvis_logo)
         ?: throw IllegalStateException("JARVIS brand artwork is missing")
     private val backdrop = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val reflectionXfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_ATOP)
     private val logoPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
     private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val trailPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -51,8 +54,12 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         isClickable = true
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
         contentDescription = "JARVIS BY SUKANT cinematic logo reveal"
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
         backdrop.shader = LinearGradient(
-            0f, 0f, 0f, 1f,
+            0f, 0f, 0f, h.toFloat(),
             intArrayOf(Color.rgb(2, 5, 14), Color.rgb(7, 15, 34), Color.rgb(1, 3, 10)),
             null, Shader.TileMode.CLAMP
         )
@@ -155,6 +162,8 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
 
         val logoAlpha = (255 * reveal).toInt().coerceIn(0, 255)
         logoPaint.alpha = logoAlpha
+        // Isolate the logo in a layer so SRC_ATOP clips the reflection to its real alpha silhouette.
+        val logoLayer = canvas.saveLayer(logoRect, null)
         canvas.drawBitmap(logo, null, logoRect, logoPaint)
 
         // A narrow moving white-blue reflection passes over the original logo.
@@ -169,11 +178,12 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
                     Color.argb(0, 255, 255, 255), Color.TRANSPARENT),
                 null, Shader.TileMode.CLAMP
             )
-            canvas.save()
-            canvas.clipRect(logoRect)
+            flarePaint.xfermode = reflectionXfermode
             canvas.drawRect(logoRect, flarePaint)
-            canvas.restore()
+            flarePaint.xfermode = null
+            flarePaint.shader = null
         }
+        canvas.restoreToCount(logoLayer)
 
         val brandAlpha = smooth((progress - 0.64f) / 0.22f)
         titlePaint.textSize = dp(12f).coerceAtLeast(resources.displayMetrics.scaledDensity * 10f)
