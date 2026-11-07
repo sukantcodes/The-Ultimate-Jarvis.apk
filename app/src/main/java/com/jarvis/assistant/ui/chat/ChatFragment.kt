@@ -11,7 +11,7 @@ import android.view.inputmethod.InputMethodManager
 import android.content.Context
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -137,7 +137,7 @@ class ChatFragment : Fragment() {
         }
 
         binding.btnChatNew.setOnClickListener {
-            AlertDialog.Builder(requireContext())
+            MaterialAlertDialogBuilder(requireContext())
                 .setTitle("New Conversation")
                 .setMessage("Start a new conversation and clear current history?")
                 .setPositiveButton("New Chat") { _, _ ->
@@ -179,7 +179,7 @@ class ChatFragment : Fragment() {
         val labels = arrayOf("Auto · choose available brain", "Gemini Live · online", "Offline Brain · on-device")
         val values = arrayOf("auto", "gemini", "offline")
         val selected = values.indexOf(selectedChatMode).coerceAtLeast(0)
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle("Choose chat engine")
             .setSingleChoiceItems(labels, selected) { dialog, which ->
                 selectedChatMode = values[which]
