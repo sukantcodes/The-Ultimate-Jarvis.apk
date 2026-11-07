@@ -604,6 +604,8 @@ class SetupTutorialActivity : AppCompatActivity() {
             super.onDetachedFromWindow()
         }
 
+        private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
             val w = width.toFloat()
