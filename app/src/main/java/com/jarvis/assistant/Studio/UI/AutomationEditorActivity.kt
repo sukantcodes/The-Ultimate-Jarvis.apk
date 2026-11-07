@@ -240,7 +240,7 @@ class AutomationEditorActivity : AppCompatActivity() {
 
     private fun confirmReset() {
         val id = original?.id ?: return
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("Reset to the original version?")
             .setMessage("Your changes to this default automation will be replaced.")
             .setPositiveButton("Reset") { _, _ ->
@@ -257,7 +257,7 @@ class AutomationEditorActivity : AppCompatActivity() {
     private fun confirmDelete() {
         val rule = original ?: return
         if (rule.isDefault) return
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("Delete \"" + rule.name + "\"?")
             .setMessage("This automation will be removed for good.")
             .setPositiveButton("Delete") { _, _ ->
