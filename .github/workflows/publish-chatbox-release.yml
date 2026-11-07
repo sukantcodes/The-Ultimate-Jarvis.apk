@@ -142,32 +142,38 @@ jobs:
           STORAGE_OBJECT: \${{ steps.apk.outputs.apk_path }}
         run: |
           node <<'NODE'
-          const fs = require("node:fs");
-          const { Upload } = require("tus-js-client");
-          const upload = new Upload(fs.createReadStream(process.env.APK_FILE), {
-            endpoint: "https://yeggjbjcoaaoqntqyjdv.storage.supabase.co/storage/v1/upload/resumable",
-            chunkSize: 6 * 1024 * 1024,
-            retryDelays: [0, 1000, 3000, 5000, 10000],
-            headers: {
-              authorization: "Bearer " + process.env.SUPABASE_SERVICE_ROLE_KEY,
-              apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-              "x-upsert": "false"
-            },
-            uploadMetadata: {
-              bucketName: "jarvis-releases",
-              objectName: process.env.STORAGE_OBJECT,
-              contentType: "application/vnd.android.package-archive",
-              cacheControl: "3600"
-            },
-            onError(error) {
-              console.error("Supabase Storage upload failed:", error.message);
-              process.exitCode = 1;
-            },
-            onSuccess() {
-              console.log("APK uploaded to jarvis-releases/" + process.env.STORAGE_OBJECT);
-            }
+          (async () => {
+            const fs = require("node:fs");
+            const { Upload } = require("tus-js-client");
+            const file = process.env.APK_FILE;
+            const uploadSize = fs.statSync(file).size;
+            await new Promise((resolve, reject) => {
+              const upload = new Upload(fs.createReadStream(file), {
+                endpoint: "https://yeggjbjcoaaoqntqyjdv.storage.supabase.co/storage/v1/upload/resumable",
+                uploadSize,
+                chunkSize: 6 * 1024 * 1024,
+                retryDelays: [0, 1000, 3000, 5000, 10000],
+                headers: {
+                  authorization: "Bearer " + process.env.SUPABASE_SERVICE_ROLE_KEY,
+                  apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+                  "x-upsert": "false"
+                },
+                uploadMetadata: {
+                  bucketName: "jarvis-releases",
+                  objectName: process.env.STORAGE_OBJECT,
+                  contentType: "application/vnd.android.package-archive",
+                  cacheControl: "3600"
+                },
+                onError: reject,
+                onSuccess: resolve
+              });
+              upload.start();
+            });
+            console.log("APK uploaded to jarvis-releases/" + process.env.STORAGE_OBJECT);
+          })().catch((error) => {
+            console.error("Supabase Storage upload failed:", error.message);
+            process.exit(1);
           });
-          upload.start();
           NODE
 
       - name: Publish release metadata through restricted RPC
