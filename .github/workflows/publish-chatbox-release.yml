@@ -184,7 +184,7 @@ jobs:
                   apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
                   "x-upsert": "false"
                 },
-                uploadMetadata: {
+                metadata: {
                   bucketName: "jarvis-releases",
                   objectName: process.env.STORAGE_OBJECT,
                   contentType: "application/vnd.android.package-archive",
