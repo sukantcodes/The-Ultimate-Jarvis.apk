@@ -85,6 +85,8 @@ class AppPreferences(context: Context) {
         private const val KEY_WELCOME_INTRO_SHOWN = "key_welcome_intro_shown"
         private const val KEY_PRE_LOGIN_INTRO_SHOWN = "key_pre_login_intro_shown"
         private const val KEY_OPENING_ANIMATION_PENDING = "key_opening_animation_pending"
+        private const val KEY_SETUP_TUTORIAL_COMPLETED = "key_setup_tutorial_completed"
+        private const val KEY_SETUP_TUTORIAL_STEP = "key_setup_tutorial_step"
         const val ORB_GLOW_MIN = 0f
         const val ORB_GLOW_MAX = 2f
         const val ORB_SIZE_MIN = 0.6f
@@ -507,4 +509,13 @@ class AppPreferences(context: Context) {
     fun clearChatHistory() {
         prefs.edit().remove(KEY_CHAT_HISTORY).apply()
     }
+
+    var hasCompletedSetupTutorial: Boolean
+        get() = prefs.getBoolean(KEY_SETUP_TUTORIAL_COMPLETED, false)
+        set(value) { prefs.edit().putBoolean(KEY_SETUP_TUTORIAL_COMPLETED, value).apply() }
+
+    var setupTutorialStep: Int
+        get() = prefs.getInt(KEY_SETUP_TUTORIAL_STEP, 0).coerceIn(0, 7)
+        set(value) { prefs.edit().putInt(KEY_SETUP_TUTORIAL_STEP, value.coerceIn(0, 7)).apply() }
+
 }
