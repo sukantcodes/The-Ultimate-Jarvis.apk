@@ -51,7 +51,9 @@ class SetupTutorialActivity : AppCompatActivity() {
     private lateinit var secondary: MaterialButton
     private var step = 0
     private var draftName: String? = null
+    private var backdrop: OrbBackdrop? = null
     private val premiumAnimators = mutableListOf<Animator>()
+    private var pageEntrance: AnimatorSet? = null
 
     private val permissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -77,9 +79,24 @@ class SetupTutorialActivity : AppCompatActivity() {
         render()
     }
 
+    override fun onStart() {
+        super.onStart()
+        backdrop?.resumeMotion()
+        premiumAnimators.forEach { if (it.isPaused) it.resume() }
+    }
+
+    override fun onStop() {
+        premiumAnimators.forEach { if (it.isStarted && !it.isPaused) it.pause() }
+        backdrop?.pauseMotion()
+        super.onStop()
+    }
+
     override fun onDestroy() {
+        pageEntrance?.cancel()
         premiumAnimators.forEach { it.cancel() }
         premiumAnimators.clear()
+        backdrop?.pauseMotion()
+        backdrop = null
         super.onDestroy()
     }
 
@@ -99,7 +116,8 @@ class SetupTutorialActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
         val root = FrameLayout(this).apply {
             setBackgroundColor(Color.rgb(5, 9, 22))
-            addView(OrbBackdrop(this@SetupTutorialActivity), FrameLayout.LayoutParams(-1, -1))
+            backdrop = OrbBackdrop(this@SetupTutorialActivity)
+            addView(backdrop, FrameLayout.LayoutParams(-1, -1))
         }
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
