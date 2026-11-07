@@ -52,6 +52,7 @@ class SetupTutorialActivity : AppCompatActivity() {
     private var step = 0
     private var draftName: String? = null
     private var backdrop: OrbBackdrop? = null
+    private var uiStarted = false
     private val premiumAnimators = mutableListOf<Animator>()
     private var pageEntrance: AnimatorSet? = null
 
@@ -81,11 +82,15 @@ class SetupTutorialActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        uiStarted = true
         backdrop?.resumeMotion()
+        pageEntrance?.let { if (it.isPaused) it.resume() }
         premiumAnimators.forEach { if (it.isPaused) it.resume() }
     }
 
     override fun onStop() {
+        uiStarted = false
+        pageEntrance?.let { if (it.isStarted && !it.isPaused) it.pause() }
         premiumAnimators.forEach { if (it.isStarted && !it.isPaused) it.pause() }
         backdrop?.pauseMotion()
         super.onStop()
@@ -400,7 +405,7 @@ class SetupTutorialActivity : AppCompatActivity() {
 
         // One restrained hero idle loop replaces constant pulsing on every card and button.
         content.post {
-            if (isFinishing || isDestroyed || !ValueAnimator.areAnimatorsEnabled()) return@post
+            if (!uiStarted || isFinishing || isDestroyed || !ValueAnimator.areAnimatorsEnabled()) return@post
             val hero = content.getChildAt(0) as? FrameLayout ?: return@post
             val emblem = hero.getChildAt(0) ?: return@post
             val floatMotion = ObjectAnimator.ofFloat(hero, View.TRANSLATION_Y, 0f, -dp(4).toFloat(), 0f).apply {
