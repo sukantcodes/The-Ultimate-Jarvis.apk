@@ -546,6 +546,8 @@ class SetupTutorialActivity : AppCompatActivity() {
         val heading = TextView(this).apply {
             text = title
             textSize = 38f
+            setAutoSizeTextTypeUniformWithConfiguration(27, 38, 1, android.util.TypedValue.COMPLEX_UNIT_SP)
+            maxLines = 3
             gravity = Gravity.CENTER
             letterSpacing = .015f
             setTextColor(Color.WHITE)
