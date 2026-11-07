@@ -194,7 +194,8 @@ class SetupTutorialActivity : AppCompatActivity() {
                     setBackgroundColor(Color.rgb(23, 39, 68))
                     val uri = prefs.profilePhotoUri
                     if (uri.isNotBlank()) runCatching { setImageURI(Uri.parse(uri)) }
-                    if (drawable == null) setImageResource(R.drawable.ic_user_profile)
+                    else setImageResource(R.drawable.jarvis_default_user)
+                    if (drawable == null) setImageResource(R.drawable.jarvis_default_user)
                     clipToOutline = true
                 }
                 content.addView(avatar)
@@ -318,11 +319,13 @@ class SetupTutorialActivity : AppCompatActivity() {
             child.translationY = dp(30).toFloat()
             child.scaleX = .94f
             child.scaleY = .94f
-            child.rotationX = 5f
+            child.cameraDistance = dp(1800).toFloat()
+            child.rotationX = 16f
+            child.rotationY = if (index % 2 == 0) -12f else 12f
             child.animate()
-                .alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).rotationX(0f)
-                .setStartDelay(index * 95L)
-                .setDuration(680L)
+                .alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).rotationX(0f).rotationY(0f)
+                .setStartDelay(index * 115L)
+                .setDuration(900L)
                 .setInterpolator(android.view.animation.OvershootInterpolator(0.78f))
                 .start()
         }
@@ -497,7 +500,7 @@ class SetupTutorialActivity : AppCompatActivity() {
             .setDuration(720L).setInterpolator(android.view.animation.OvershootInterpolator(.8f)).start()
         val heading = TextView(this).apply {
             text = title
-            textSize = 30f
+            textSize = 38f
             gravity = Gravity.CENTER
             letterSpacing = .015f
             setTextColor(Color.WHITE)
@@ -508,7 +511,7 @@ class SetupTutorialActivity : AppCompatActivity() {
         content.addView(heading, fullWidth())
         val body = TextView(this).apply {
             text = description
-            textSize = 17f
+            textSize = 20f
             gravity = Gravity.CENTER
             setTextColor(Color.rgb(207, 222, 255))
             setLineSpacing(dp(6).toFloat(), 1.04f)
@@ -530,14 +533,14 @@ class SetupTutorialActivity : AppCompatActivity() {
         val stack = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         stack.addView(TextView(this).apply {
             text = title
-            textSize = 13f
-            letterSpacing = .14f
+            textSize = 16f
+            letterSpacing = .16f
             setTextColor(Color.rgb(72, 218, 255))
             typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
         })
         stack.addView(TextView(this).apply {
             text = body
-            textSize = 16f
+            textSize = 18f
             setTextColor(Color.rgb(238, 244, 255))
             setPadding(0, dp(9), 0, 0)
             setLineSpacing(dp(5).toFloat(), 1.02f)
@@ -561,8 +564,8 @@ class SetupTutorialActivity : AppCompatActivity() {
             isAllCaps = false
             cornerRadius = dp(18)
             setTextColor(Color.WHITE)
-            textSize = 15f
-            letterSpacing = .025f
+            textSize = 17f
+            letterSpacing = .035f
             background = android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
                 intArrayOf(Color.rgb(0, 153, 235), Color.rgb(58, 93, 238), Color.rgb(123, 70, 224))
