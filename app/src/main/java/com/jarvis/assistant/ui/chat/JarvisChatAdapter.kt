@@ -18,7 +18,8 @@ import com.jarvis.assistant.databinding.ItemNairaChatMessageBinding
 
 class JarvisChatAdapter(
     private val onEditUserMessage: ((String) -> Unit)? = null,
-    private val onSaveAssistantMessage: ((String) -> Unit)? = null
+    private val onSaveAssistantMessage: ((String) -> Unit)? = null,
+    private val onOpenAttachment: ((String, String, String) -> Unit)? = null
 ) : ListAdapter<ChatTurn, JarvisChatAdapter.MessageViewHolder>(DiffCallback) {
 
     private var speechEngine: TextToSpeech? = null
@@ -84,6 +85,15 @@ class JarvisChatAdapter(
 
         fun bind(turn: ChatTurn) {
             val context = binding.root.context
+            val attachmentPath = turn.attachmentPath
+            val attachmentName = turn.attachmentName.orEmpty()
+            val attachmentMime = turn.attachmentMimeType.orEmpty()
+            binding.tvUserAttachment.visibility = if (!attachmentPath.isNullOrBlank() && java.io.File(attachmentPath).isFile) View.VISIBLE else View.GONE
+            binding.tvUserAttachment.text = "▣  " + attachmentName.ifBlank { "Open attachment" } + "   ·   Preview"
+            binding.tvUserAttachment.setOnClickListener {
+                if (!attachmentPath.isNullOrBlank()) onOpenAttachment?.invoke(attachmentPath, attachmentName, attachmentMime)
+            }
+
             if (turn.userTranscript.isNotBlank()) {
                 binding.layoutUserContainer.visibility = View.VISIBLE
                 binding.tvUserMessage.text = turn.userTranscript
