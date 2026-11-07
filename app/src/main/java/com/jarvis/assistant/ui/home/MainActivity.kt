@@ -30,6 +30,7 @@ import com.jarvis.assistant.databinding.ActivityMainBinding
 import com.jarvis.assistant.ui.chat.ChatFragment
 import com.jarvis.assistant.ui.settings.SettingsFragment
 import com.jarvis.assistant.util.PermissionHelper
+import com.jarvis.assistant.updates.UpdateNotificationChecker
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -42,6 +43,8 @@ class MainActivity : AppCompatActivity() {
         const val TAB_SETTINGS = 2
         const val TAB_UPDATES = 3
         const val EXTRA_SHOW_POST_LOGIN_WELCOME = "com.jarvis.assistant.SHOW_POST_LOGIN_WELCOME"
+        const val EXTRA_OPEN_UPDATES = "com.jarvis.assistant.OPEN_UPDATES"
+        @Volatile private var updateCheckStartedThisProcess = false
     }
 
     private lateinit var binding: ActivityMainBinding
@@ -273,6 +276,14 @@ class MainActivity : AppCompatActivity() {
         configureNavigationDrawer()
         setupDrawerNavigation()
         selectTab(currentTab)
+        if (intent.getBooleanExtra(EXTRA_OPEN_UPDATES, false)) {
+            selectTab(TAB_UPDATES)
+            intent.removeExtra(EXTRA_OPEN_UPDATES)
+        }
+        if (!updateCheckStartedThisProcess) {
+            updateCheckStartedThisProcess = true
+            UpdateNotificationChecker.checkOnForeground(applicationContext)
+        }
         observeViewModel()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -351,9 +362,19 @@ class MainActivity : AppCompatActivity() {
         outState.putInt("CURRENT_TAB", currentTab)
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_OPEN_UPDATES, false) && ::binding.isInitialized) {
+            selectTab(TAB_UPDATES)
+            intent.removeExtra(EXTRA_OPEN_UPDATES)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         if (!::binding.isInitialized) return // redirected to the auth screen
+        UpdateNotificationChecker.checkOnForeground(applicationContext)
         viewModel.refreshSettings()
         updateAccountMenuItem()
         lifecycleScope.launch {
