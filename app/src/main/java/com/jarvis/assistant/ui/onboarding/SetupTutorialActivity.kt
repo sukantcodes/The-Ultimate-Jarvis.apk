@@ -153,7 +153,7 @@ class SetupTutorialActivity : AppCompatActivity() {
         if (isFinishing || isDestroyed) return
         prefs.setupTutorialStep = step
         content.removeAllViews()
-        progress.text = "SETUP  •  ${(step + 1).coerceAtMost(7)} / 7"
+        progress.text = "SETUP  •  ${(step + 1).coerceAtMost(8)} / 8"
         when (step) {
             0 -> {
                 hero("WELCOME TO THE ALL NEW JARVIS", "Your personal AI assistant is almost ready. Let’s configure the essentials together.", "✦")
@@ -250,17 +250,28 @@ class SetupTutorialActivity : AppCompatActivity() {
                 secondary.text = "CONTINUE WITHOUT ACCESSIBILITY"
             }
             6 -> {
-                hero("JARVIS IS READY TO LEARN", "Explore how your assistant works. These are examples of supported integration paths, not automatic actions.", "✧")
+                hero("APP CONTROL & VOICE", "See how a supported request moves through JARVIS. This is a safe animated preview; it will not open apps or perform actions.", "✧")
+                addWorkflowDemo()
                 listOf(
-                    "VOICE COMMAND  →  JARVIS understands your request",
                     "APP SKILLS  →  WhatsApp, YouTube, Blinkit, Rapido and Amazon where supported",
-                    "ACCESSIBILITY  →  Finds supported controls and assists with navigation and typing",
-                    "VOICE & OFFLINE  →  Vosk speech recognition and configured voice responses"
+                    "ACCESSIBILITY  →  Identifies supported controls and assists with navigation and typing",
+                    "VOICE  →  Wake-word and voice features where configured",
+                    "OFFLINE SPEECH  →  Vosk can recognize speech offline; AI responses still depend on the configured AI engine"
                 ).forEach { infoCard("CAPABILITY", it) }
+                primary.text = "CONTINUE TO SYSTEM CHECK"
+                secondary.text = "BACK"
+            }
+            7 -> {
+                hero("FINAL SYSTEM CHECK", "Review your actual setup status. Optional items can be completed later in Settings.", "✓")
                 val mic = hasPermission(Manifest.permission.RECORD_AUDIO)
+                val notifications = Build.VERSION.SDK_INT < 33 || hasPermission(Manifest.permission.POST_NOTIFICATIONS)
                 val access = PermissionHelper.isAccessibilityServiceEnabled(this)
                 val api = prefs.apiKey.isNotBlank() && prefs.canStoreApiKeySecurely
-                statusCard("SYSTEM CHECK", "Microphone: ${if (mic) "Granted" else "Not granted"}\nAI key: ${if (api) "Configured" else "Optional / not configured"}\nAccessibility: ${if (access) "Enabled" else "Not enabled"}\nProfile: ${if (prefs.userName.isNotBlank()) "Saved" else "Default"}", mic && access)
+                statusCard("MICROPHONE", if (mic) "Granted" else "Not granted — voice features may be unavailable", mic)
+                statusCard("NOTIFICATIONS", if (notifications) "Available" else "Not granted — background notices may be limited", notifications)
+                statusCard("GEMINI API", if (api) "Key saved in encrypted storage; connection should be tested in AI settings" else "Optional — not configured", api)
+                statusCard("ACCESSIBILITY", if (access) "Enabled and detected" else "Not enabled — app automation is limited", access)
+                statusCard("USER CARD", "Name: ${prefs.userName}\nPhoto: ${if (prefs.profilePhotoUri.isBlank()) "Default avatar" else "Selected"}", true)
                 primary.text = "FINISH SETUP"
                 secondary.text = "BACK"
             }
@@ -271,6 +282,42 @@ class SetupTutorialActivity : AppCompatActivity() {
         content.alpha = 0f
         content.translationY = dp(12).toFloat()
         content.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(DecelerateInterpolator()).start()
+    }
+
+    private fun addWorkflowDemo() {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(10), 0, dp(16))
+        }
+        val labels = listOf("VOICE", "JARVIS", "APP", "DONE")
+        labels.forEachIndexed { index, label ->
+            val node = TextView(this).apply {
+                text = label
+                gravity = Gravity.CENTER
+                textSize = 9f
+                letterSpacing = .05f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setTextColor(Color.WHITE)
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    cornerRadius = dp(12).toFloat()
+                    setColor(Color.argb(220, 24, 65 + index * 12, 125 + index * 18))
+                    setStroke(dp(1), Color.argb(150, 92, 188, 255))
+                }
+                alpha = 0f
+                scaleX = .88f
+                scaleY = .88f
+            }
+            row.addView(node, LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+                if (index > 0) leftMargin = dp(5)
+                if (index < labels.lastIndex) rightMargin = dp(5)
+            })
+            node.animate().alpha(1f).scaleX(1f).scaleY(1f)
+                .setStartDelay(index * 260L).setDuration(360L)
+                .setInterpolator(DecelerateInterpolator()).start()
+        }
+        content.addView(row, fullWidth())
     }
 
     private fun advance() {
@@ -311,7 +358,7 @@ class SetupTutorialActivity : AppCompatActivity() {
                 prefs.setupTutorialStep = 0
                 finish()
             }
-            1, 3, 4, 5 -> {
+            1, 3, 4, 5, 6 -> {
                 // Optional configuration can be completed later from Settings.
                 step++
                 render()
