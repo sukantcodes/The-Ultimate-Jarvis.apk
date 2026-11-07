@@ -166,7 +166,7 @@ object ManualUpdateInstaller {
                 publish(State.Message("Opening Android's installation confirmation…"))
                 val packageInstaller = app.packageManager.packageInstaller
                 val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
-                    setAppPackageName(app.packageName)
+                    if (Build.VERSION.SDK_INT >= 29) setAppPackageName(app.packageName)
                     setSize(apkFile!!.length())
                 }
                 val sessionId = packageInstaller.createSession(params)
@@ -199,7 +199,9 @@ object ManualUpdateInstaller {
 
     private object PendingIntentFlags {
         fun mutableUpdateCurrent(): Int =
-            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_MUTABLE
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or
+                (if (Build.VERSION.SDK_INT >= 31) android.app.PendingIntent.FLAG_MUTABLE
+                else android.app.PendingIntent.FLAG_IMMUTABLE)
     }
 
     @Suppress("DEPRECATION")
