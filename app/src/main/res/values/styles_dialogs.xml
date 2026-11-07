@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared app-wide Material dialogs. Colours resolve from the currently active JARVIS theme. -->
+    <style name="ShapeAppearanceOverlay.Jarvis.Dialog" parent="ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerSize">30dp</item>
+    </style>
+
+    <style name="TextAppearance.Jarvis.DialogTitle" parent="TextAppearance.Jarvis.Headline">
+        <item name="android:fontFamily">sans-serif-black</item>
+        <item name="android:textSize">23sp</item>
+        <item name="android:letterSpacing">-0.015</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="TextAppearance.Jarvis.DialogBody" parent="TextAppearance.Jarvis.Body">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:lineSpacingExtra">3dp</item>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+    </style>
+
+    <style name="Jarvis.Dialog.WindowAnimation">
+        <item name="android:windowEnterAnimation">@anim/jarvis_dialog_enter</item>
+        <item name="android:windowExitAnimation">@anim/jarvis_dialog_exit</item>
+    </style>
+
+    <style name="ThemeOverlay.Jarvis.MaterialDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="colorSurface">?attr/colorSurface</item>
+        <item name="colorOnSurface">?attr/colorOnSurface</item>
+        <item name="colorOnSurfaceVariant">?attr/colorOnSurfaceVariant</item>
+        <item name="colorPrimary">?attr/colorPrimary</item>
+        <item name="colorSecondary">?attr/colorSecondary</item>
+        <item name="colorOutline">?attr/colorOutline</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearanceOverlay.Jarvis.Dialog</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/TextAppearance.Jarvis.DialogTitle</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/TextAppearance.Jarvis.DialogBody</item>
+        <item name="android:windowAnimationStyle">@style/Jarvis.Dialog.WindowAnimation</item>
+        <item name="android:windowDimAmount">0.62</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowSoftInputMode">adjustResize</item>
+        <item name="android:windowMinWidthMajor">87%</item>
+        <item name="android:windowMinWidthMinor">87%</item>
+    </style>
+
+    <style name="ThemeOverlay.Jarvis.BottomSheet" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="colorSurface">?attr/colorSurface</item>
+        <item name="colorOnSurface">?attr/colorOnSurface</item>
+        <item name="colorPrimary">?attr/colorPrimary</item>
+        <item name="android:windowAnimationStyle">@style/Jarvis.Dialog.WindowAnimation</item>
+    </style>
+</resources>
