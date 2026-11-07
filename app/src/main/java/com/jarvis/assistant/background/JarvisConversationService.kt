@@ -5434,6 +5434,9 @@ class JarvisConversationService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
         Log.i("JarvisService", "onTaskRemoved: App removed from recents. Keeping service alive in foreground.")
+        // The service may keep the process alive after the task is swiped away; request the
+        // logo-only opening ident for the next explicit app launch without replaying text slides.
+        runCatching { JarvisApp.instance.preferences.openingAnimationPending = true }
         acquireWakeLock()
         ensureMicrophoneForegroundService()
         updateNotification()

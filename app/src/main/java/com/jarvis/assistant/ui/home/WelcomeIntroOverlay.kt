@@ -41,6 +41,9 @@ object WelcomeIntroOverlay {
     )
 
     fun show(activity: Activity, parent: ViewGroup, onFinished: () -> Unit) {
+        // The first-run intro includes this same logo ident, so do not replay it again
+        // when authentication returns to MainActivity in the same app session.
+        com.jarvis.assistant.JarvisApp.instance.preferences.openingAnimationPending = false
         val handler = Handler(Looper.getMainLooper())
         val accents = listOf(
             themeColor(activity, R.attr.themeAccent1, Color.rgb(64, 145, 255)),
@@ -460,6 +463,39 @@ object WelcomeIntroOverlay {
         }
     }
 
+
+    /** Plays only the brand ident on a fresh launch; first-run text slides remain separate. */
+    fun showCinematicOnly(activity: Activity, parent: ViewGroup, onFinished: () -> Unit) {
+        val overlay = FrameLayout(activity).apply {
+            isClickable = true
+            isFocusable = true
+            elevation = dp(activity, 40).toFloat()
+            setBackgroundColor(Color.rgb(2, 5, 14))
+            contentDescription = "JARVIS opening animation"
+        }
+        val reveal = CinematicJarvisIntroView(activity)
+        overlay.addView(
+            reveal,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+        reveal.setOnClickListener { reveal.skip() }
+        overlay.setOnClickListener { reveal.skip() }
+        parent.addView(
+            overlay,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+        overlay.bringToFront()
+        reveal.start {
+            overlay.setOnClickListener(null)
+            (reveal.parent as? ViewGroup)?.removeView(reveal)
+            (overlay.parent as? ViewGroup)?.removeView(overlay)
+            onFinished()
+        }
+    }
 
     /**
      * Premium post-authentication greeting: a cinematic HUD sequence (see [PremiumWelcomeView]) of about four

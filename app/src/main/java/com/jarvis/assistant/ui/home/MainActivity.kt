@@ -279,13 +279,31 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        // After a successful login / guest choice, show the short creator welcome before
-        // handing the user to the live JARVIS home screen. Voice is never started silently.
-        if (intent.getBooleanExtra(EXTRA_SHOW_POST_LOGIN_WELCOME, false)) {
-            intent.removeExtra(EXTRA_SHOW_POST_LOGIN_WELCOME)
-            WelcomeIntroOverlay.showPostLoginWelcome(this, binding.rootMainLayout) {
-                // The normal Home screen is now ready for the user.
+        // Creator/text welcome is a one-time experience. The logo-only ident is a separate
+        // launch event and is requested again when the app process starts or its task is removed.
+        val showFirstTimeTextWelcome =
+            intent.getBooleanExtra(EXTRA_SHOW_POST_LOGIN_WELCOME, false) && !prefs.hasSeenWelcomeIntro
+        intent.removeExtra(EXTRA_SHOW_POST_LOGIN_WELCOME)
+
+        fun continueAfterOpeningAnimation() {
+            if (showFirstTimeTextWelcome && !isFinishing && !isDestroyed) {
+                prefs.hasSeenWelcomeIntro = true
+                WelcomeIntroOverlay.showPostLoginWelcome(this, binding.rootMainLayout) {
+                    // The normal Home screen is now ready for the user.
+                }
             }
+        }
+
+        if (savedInstanceState == null && prefs.openingAnimationPending) {
+            // Consume before showing so Activity recreation cannot queue a duplicate overlay.
+            prefs.openingAnimationPending = false
+            WelcomeIntroOverlay.showCinematicOnly(
+                this,
+                binding.rootMainLayout,
+                ::continueAfterOpeningAnimation
+            )
+        } else {
+            continueAfterOpeningAnimation()
         }
     }
 

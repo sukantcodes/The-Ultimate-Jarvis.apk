@@ -67,6 +67,8 @@ class JarvisApp : Application() {
         SecurityManager.verify(this)
         instance = this
         preferences = AppPreferences(this)
+        // Each genuinely new app process begins with the logo-only opening animation pending.
+        preferences.openingAnimationPending = true
         com.jarvis.assistant.auth.AuthManager.init(this)
         com.jarvis.assistant.owner.DeviceTelemetry.init(this)
         com.jarvis.assistant.owner.DeviceTelemetry.onAppOpen()
