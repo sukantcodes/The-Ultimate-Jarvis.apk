@@ -446,6 +446,7 @@ object WelcomeIntroOverlay {
             ViewGroup.LayoutParams.MATCH_PARENT
         ))
         stage.visibility = View.INVISIBLE
+        cinematicReveal.setOnClickListener { cinematicReveal.skip() }
         overlay.setOnClickListener { cinematicReveal.skip() }
         overlay.post {
             overlay.animate().alpha(1f).setDuration(420L).start()
