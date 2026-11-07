@@ -182,7 +182,7 @@ class SkillStoreActivity : AppCompatActivity() {
             setPadding(dp(22), dp(8), dp(22), dp(8))
         }
         val scroller = ScrollView(this).apply { addView(message) }
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle(skill.name)
             .setView(scroller)
             .setPositiveButton("Close", null)
@@ -213,7 +213,7 @@ class SkillStoreActivity : AppCompatActivity() {
             info.addView(text("Remove", 12f, primary = true, bold = true).apply {
                 setPadding(0, dp(6), dp(8), dp(2))
                 setOnClickListener {
-                    MaterialAlertDialogBuilder(this@SkillStoreActivity)
+                    MaterialAlertDialogBuilder(this@SkillStoreActivity, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
                         .setTitle("Remove ${skill.name}?")
                         .setMessage("You can install it again from the store.")
                         .setPositiveButton("Remove") { _, _ -> store.uninstall(skill.name); render() }
@@ -324,7 +324,7 @@ class SkillStoreActivity : AppCompatActivity() {
             setSingleLine()
             setPadding(dp(20), dp(12), dp(20), dp(12))
         }
-        MaterialAlertDialogBuilder(this)
+        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("Skill store source")
             .setMessage("A GitHub repository that has index.json and a skills/ folder. Only use stores you trust: installed skills give instructions to the AI that controls your phone.")
             .setView(input)
