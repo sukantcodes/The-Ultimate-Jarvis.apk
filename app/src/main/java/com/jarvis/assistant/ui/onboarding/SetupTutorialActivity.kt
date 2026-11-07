@@ -2,6 +2,9 @@ package com.jarvis.assistant.ui.onboarding
 
 import android.Manifest
 import android.content.Intent
+import android.animation.Animator
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.view.animation.LinearInterpolator
 import android.content.pm.PackageManager
@@ -48,6 +51,7 @@ class SetupTutorialActivity : AppCompatActivity() {
     private lateinit var secondary: MaterialButton
     private var step = 0
     private var draftName: String? = null
+    private val premiumAnimators = mutableListOf<Animator>()
 
     private val permissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -71,6 +75,12 @@ class SetupTutorialActivity : AppCompatActivity() {
         step = savedInstanceState?.getInt(STATE_STEP) ?: prefs.setupTutorialStep
         buildShell()
         render()
+    }
+
+    override fun onDestroy() {
+        premiumAnimators.forEach { it.cancel() }
+        premiumAnimators.clear()
+        super.onDestroy()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -287,21 +297,70 @@ class SetupTutorialActivity : AppCompatActivity() {
         // Rebind primary action for ordinary pages after any custom profile action.
         if (step != 2) primary.setOnClickListener { advance() }
         secondary.visibility = if (step == 0) View.VISIBLE else View.VISIBLE
+        runPremiumEntrance()
+    }
+
+    /**
+     * A coordinated, lifecycle-bound entrance system. Every page element receives a staggered
+     * spring settle; hero surfaces, cards and action controls get their own restrained motion.
+     * Animations are cancelled before a page is rebuilt and when the Activity is destroyed.
+     */
+    private fun runPremiumEntrance() {
+        premiumAnimators.forEach { it.cancel() }
+        premiumAnimators.clear()
         content.alpha = 1f
         content.translationY = 0f
-        // Premium page entrance: stagger each block with a soft spring-like settle.
+
         for (index in 0 until content.childCount) {
             val child = content.getChildAt(index)
             child.animate().cancel()
             child.alpha = 0f
-            child.translationY = dp(24).toFloat()
-            child.scaleX = .975f
-            child.scaleY = .975f
-            child.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f)
-                .setStartDelay(index * 75L).setDuration(520L)
-                .setInterpolator(android.view.animation.OvershootInterpolator(0.85f)).start()
+            child.translationY = dp(30).toFloat()
+            child.scaleX = .94f
+            child.scaleY = .94f
+            child.rotationX = 5f
+            child.animate()
+                .alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).rotationX(0f)
+                .setStartDelay(index * 95L)
+                .setDuration(680L)
+                .setInterpolator(android.view.animation.OvershootInterpolator(0.78f))
+                .start()
+        }
+
+        // Give each premium surface a subtle, non-distracting floating lift.
+        content.post {
+            if (isFinishing || isDestroyed) return@post
+            for (index in 0 until content.childCount) {
+                val view = content.getChildAt(index)
+                if (view is MaterialCardView) {
+                    val lift = ObjectAnimator.ofFloat(view, View.TRANSLATION_Z, dp(0).toFloat(), dp(5).toFloat(), dp(0).toFloat()).apply {
+                        duration = 2600L
+                        startDelay = index * 110L
+                        repeatCount = ValueAnimator.INFINITE
+                        repeatMode = ValueAnimator.RESTART
+                    }
+                    premiumAnimators += lift
+                    lift.start()
+                }
+            }
+            content.childrenSequence().filterIsInstance<MaterialButton>().forEachIndexed { index, button ->
+                val pulse = ObjectAnimator.ofPropertyValuesHolder(
+                    button,
+                    android.animation.PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.018f, 1f),
+                    android.animation.PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.018f, 1f)
+                ).apply {
+                    duration = 1900L
+                    startDelay = 500L + index * 180L
+                    repeatCount = ValueAnimator.INFINITE
+                    repeatMode = ValueAnimator.RESTART
+                }
+                premiumAnimators += pulse
+                pulse.start()
+            }
         }
     }
+
+
 
     private fun addWorkflowDemo(labels: List<String> = listOf("VOICE", "JARVIS", "APP", "DONE")) {
         val row = LinearLayout(this).apply {
@@ -324,16 +383,17 @@ class SetupTutorialActivity : AppCompatActivity() {
                     setStroke(dp(1), Color.argb(150, 92, 188, 255))
                 }
                 alpha = 0f
-                scaleX = .88f
-                scaleY = .88f
+                scaleX = .78f
+                scaleY = .78f
+                rotationY = -18f
             }
             row.addView(node, LinearLayout.LayoutParams(0, dp(58), 1f).apply {
                 if (index > 0) leftMargin = dp(5)
                 if (index < labels.lastIndex) rightMargin = dp(5)
             })
-            node.animate().alpha(1f).scaleX(1f).scaleY(1f)
-                .setStartDelay(index * 330L).setDuration(620L)
-                .setInterpolator(android.view.animation.OvershootInterpolator(1.15f)).start()
+            node.animate().alpha(1f).scaleX(1f).scaleY(1f).rotationY(0f)
+                .setStartDelay(index * 380L).setDuration(760L)
+                .setInterpolator(android.view.animation.OvershootInterpolator(1.05f)).start()
         }
         content.addView(row, fullWidth())
     }
@@ -422,8 +482,16 @@ class SetupTutorialActivity : AppCompatActivity() {
         })
         glyph.scaleX = .72f
         glyph.scaleY = .72f
-        glyph.animate().scaleX(1f).scaleY(1f).rotation(360f).setDuration(900L)
-            .setInterpolator(android.view.animation.OvershootInterpolator(1.1f)).start()
+        glyph.animate().scaleX(1f).scaleY(1f).rotation(360f).rotationX(12f).setDuration(1050L)
+            .setInterpolator(android.view.animation.OvershootInterpolator(1.05f)).withEndAction {
+                glyph.animate().rotation(0f).rotationX(0f).setDuration(420L)
+                    .setInterpolator(DecelerateInterpolator()).start()
+            }.start()
+        heroFrame.alpha = 0f
+        heroFrame.scaleX = .96f
+        heroFrame.scaleY = .96f
+        heroFrame.animate().alpha(1f).scaleX(1f).scaleY(1f)
+            .setDuration(720L).setInterpolator(android.view.animation.OvershootInterpolator(.8f)).start()
         val heading = TextView(this).apply {
             text = title
             textSize = 30f
