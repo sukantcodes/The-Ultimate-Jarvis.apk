@@ -93,7 +93,7 @@ class HomeFragment : Fragment() {
         }
 
         val guideId = View.generateViewId().also { landscapeGuideId = it }
-        val set = androidx.constraintlayout.widget.ConstraintSet().apply {
+        val landscapeConstraints = androidx.constraintlayout.widget.ConstraintSet().apply {
             clone(root)
             create(guideId, androidx.constraintlayout.widget.ConstraintSet.VERTICAL_GUIDELINE)
             setGuidelinePercent(guideId, 0.585f)
@@ -156,7 +156,7 @@ class HomeFragment : Fragment() {
             constrainHeight(R.id.layoutStatusIndicator, androidx.constraintlayout.widget.ConstraintSet.WRAP_CONTENT)
 
             // Landscape is intentionally edge-to-edge within the app window, not a clipped portrait canvas.
-            set.applyTo(root)
+            landscapeConstraints.applyTo(root)
         }
     }
 
