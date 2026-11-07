@@ -4,7 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.jarvis.assistant.JarvisApp
@@ -39,7 +39,7 @@ class ChatHistoryBottomSheet : BottomSheetDialogFragment() {
         updateList(turns)
 
         binding.btnClearHistory.setOnClickListener {
-            AlertDialog.Builder(requireContext())
+            MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Clear History")
                 .setMessage("Are you sure you want to clear the conversation history?")
                 .setPositiveButton("Clear") { _, _ ->
