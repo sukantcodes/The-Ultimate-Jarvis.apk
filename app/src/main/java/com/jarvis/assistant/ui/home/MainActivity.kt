@@ -44,6 +44,7 @@ class MainActivity : AppCompatActivity() {
         const val TAB_UPDATES = 3
         const val EXTRA_SHOW_POST_LOGIN_WELCOME = "com.jarvis.assistant.SHOW_POST_LOGIN_WELCOME"
         const val EXTRA_OPEN_UPDATES = "com.jarvis.assistant.OPEN_UPDATES"
+        const val EXTRA_PROMPT_UPDATE_RESTART = "com.jarvis.assistant.PROMPT_UPDATE_RESTART"
         @Volatile private var updateCheckStartedThisProcess = false
     }
 
@@ -283,6 +284,7 @@ class MainActivity : AppCompatActivity() {
         if (!updateCheckStartedThisProcess) {
             updateCheckStartedThisProcess = true
             UpdateNotificationChecker.checkOnForeground(applicationContext)
+        showUpdateRestartPrompt(force = false)
         }
         observeViewModel()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -365,10 +367,42 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_PROMPT_UPDATE_RESTART, false) && ::binding.isInitialized) {
+            intent.removeExtra(EXTRA_PROMPT_UPDATE_RESTART)
+            showUpdateRestartPrompt(force = true)
+        }
         if (intent.getBooleanExtra(EXTRA_OPEN_UPDATES, false) && ::binding.isInitialized) {
             selectTab(TAB_UPDATES)
             intent.removeExtra(EXTRA_OPEN_UPDATES)
         }
+    }
+
+    private fun showUpdateRestartPrompt(force: Boolean) {
+        if (!::binding.isInitialized || isFinishing || isDestroyed) return
+        val prefs = getSharedPreferences(com.jarvis.assistant.updates.UpdateInstallReceiver.PREFS, MODE_PRIVATE)
+        if (!prefs.getBoolean(com.jarvis.assistant.updates.UpdateInstallReceiver.KEY_PENDING_RESTART, false)) return
+        if (!force && prefs.getBoolean(com.jarvis.assistant.updates.UpdateInstallReceiver.KEY_PROMPT_SHOWN, false)) return
+
+        prefs.edit().putBoolean(com.jarvis.assistant.updates.UpdateInstallReceiver.KEY_PROMPT_SHOWN, true).apply()
+        MaterialAlertDialogBuilder(this)
+            .setTitle("JARVIS update installed")
+            .setMessage("The update was installed successfully. Restart JARVIS now to finish applying it?")
+            .setCancelable(false)
+            .setPositiveButton("Restart Now") { _, _ ->
+                prefs.edit().putBoolean(com.jarvis.assistant.updates.UpdateInstallReceiver.KEY_PENDING_RESTART, false).apply()
+                (getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager)
+                    .cancel(com.jarvis.assistant.updates.UpdateInstallReceiver.NOTIFICATION_ID)
+                val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+                if (launchIntent != null) {
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    finishAffinity()
+                    startActivity(launchIntent)
+                } else {
+                    recreate()
+                }
+            }
+            .setNegativeButton("Later", null)
+            .show()
     }
 
     override fun onResume() {

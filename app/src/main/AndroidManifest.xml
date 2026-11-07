@@ -311,6 +311,15 @@
             </intent-filter>
         </service>
 
+        <receiver
+            android:name=".updates.UpdateInstallReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name=".background.JarvisConversationService"
             android:exported="false"
