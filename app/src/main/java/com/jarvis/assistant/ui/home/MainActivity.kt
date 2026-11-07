@@ -155,11 +155,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Let Activity/AppCompat finish attaching and initializing the window before theme
+        // application touches decorView, contentView, or window attributes. Theme is still
+        // applied before any layout is inflated, so the first frame uses the selected palette.
+        super.onCreate(savedInstanceState)
         com.jarvis.assistant.util.ThemeManager.applyTheme(this)
         val prefs = com.jarvis.assistant.JarvisApp.instance.preferences
         appliedThemeKey = prefs.appTheme
         appliedCustomHex = prefs.customThemeSignature
-        super.onCreate(savedInstanceState)
 
         // First-run cinematic plays before Login / Register / Guest. Existing users who have
         // already seen it go directly to the auth screen; no Home UI is exposed behind Login.
