@@ -244,7 +244,7 @@ class AlarmsActivity : ClockPageActivity() {
     }
 
     private fun confirmDelete(alarm: AlarmItem) {
-        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle(R.string.clock_delete_title)
             .setMessage(getString(R.string.clock_delete_message, ClockFormat.title(this, alarm), ClockFormat.time(this, alarm.hour, alarm.minute, engine.settings())))
             .setPositiveButton(R.string.clock_delete) { _, _ ->
@@ -376,7 +376,7 @@ class AlarmsActivity : ClockPageActivity() {
         body.addView(snoozeRow)
 
         val scroll = android.widget.ScrollView(this).apply { addView(body) }
-        val dialog = MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+        val dialog = MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle(if (existing == null) R.string.clock_new_alarm else R.string.clock_edit_alarm)
             .setView(scroll)
             .setPositiveButton(R.string.clock_save, null)
