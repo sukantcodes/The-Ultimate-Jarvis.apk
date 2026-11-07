@@ -116,7 +116,7 @@ class HomeFragment : Fragment() {
             clear(R.id.layoutTitle)
             constrainWidth(R.id.layoutTitle, 0)
             connect(R.id.layoutTitle, androidx.constraintlayout.widget.ConstraintSet.START,
-                androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.START)
+                R.id.btnTopChat, androidx.constraintlayout.widget.ConstraintSet.END, dp(8))
             connect(R.id.layoutTitle, androidx.constraintlayout.widget.ConstraintSet.END,
                 guideId, androidx.constraintlayout.widget.ConstraintSet.START)
             connect(R.id.layoutTitle, androidx.constraintlayout.widget.ConstraintSet.TOP,
