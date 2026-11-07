@@ -584,14 +584,15 @@ class SetupTutorialActivity : AppCompatActivity() {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         private var pulse = 0f
         private var animator: ValueAnimator? = null
+        private val glowPalette = intArrayOf(Color.rgb(0, 214, 255), Color.rgb(133, 55, 255), Color.rgb(255, 54, 163), Color.rgb(255, 151, 42), Color.rgb(45, 255, 177))
 
         override fun onAttachedToWindow() {
             super.onAttachedToWindow()
             animator?.cancel()
             animator = ValueAnimator.ofFloat(0f, 1f).apply {
-                duration = 4200L
+                duration = 9000L
                 repeatCount = ValueAnimator.INFINITE
-                repeatMode = ValueAnimator.REVERSE
+                repeatMode = ValueAnimator.RESTART
                 interpolator = LinearInterpolator()
                 addUpdateListener {
                     pulse = it.animatedValue as Float
@@ -613,30 +614,41 @@ class SetupTutorialActivity : AppCompatActivity() {
             super.onDraw(canvas)
             val w = width.toFloat()
             val h = height.toFloat()
-            val radius = w * (.72f + pulse * .10f)
-            paint.shader = RadialGradient(
-                w * (.22f + pulse * .08f), h * (.20f + pulse * .035f), radius,
-                intArrayOf(Color.argb(125, 0, 177, 255), Color.argb(54, 44, 71, 210), Color.TRANSPARENT),
-                floatArrayOf(0f, .43f, 1f), Shader.TileMode.CLAMP
-            )
-            canvas.drawRect(0f, 0f, w, h, paint)
-            paint.shader = RadialGradient(
-                w * (.88f - pulse * .06f), h * .57f, radius * .72f,
-                intArrayOf(Color.argb(85, 139, 58, 255), Color.argb(28, 28, 91, 190), Color.TRANSPARENT),
-                floatArrayOf(0f, .48f, 1f), Shader.TileMode.CLAMP
-            )
-            canvas.drawRect(0f, 0f, w, h, paint)
+            val phase = pulse * (Math.PI * 2.0)
+            val radius = maxOf(w, h) * (.66f + .10f * kotlin.math.sin(phase).toFloat())
+            val colors = intArrayOf(Color.rgb(0, 214, 255), Color.rgb(133, 55, 255), Color.rgb(255, 54, 163), Color.rgb(255, 151, 42))
+            for (i in 0..3) {
+                val x = w * (0.15f + i * 0.23f + 0.06f * kotlin.math.sin(phase + i).toFloat())
+                val y = h * (0.18f + (i % 2) * 0.55f + 0.04f * kotlin.math.cos(phase + i).toFloat())
+                val color = colors[i]
+                paint.shader = RadialGradient(x, y, radius * .8f,
+                    intArrayOf(Color.argb(130, Color.red(color), Color.green(color), Color.blue(color)), Color.argb(42, Color.red(color), Color.green(color), Color.blue(color)), Color.TRANSPARENT),
+                    floatArrayOf(0f, .42f, 1f), Shader.TileMode.CLAMP)
+                canvas.drawRect(0f, 0f, w, h, paint)
+            }
             paint.shader = null
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = dp(1).toFloat()
-            paint.color = Color.argb(24, 91, 201, 255)
-            canvas.drawCircle(w * .5f, h * .30f, w * (.34f + pulse * .025f), paint)
-            canvas.drawCircle(w * .5f, h * .30f, w * (.43f - pulse * .02f), paint)
+            paint.color = Color.argb(44, 126, 196, 255)
+            val cx = w * .5f
+            val cy = h * .46f
+            for (ring in 0..4) {
+                canvas.save()
+                canvas.rotate((pulse * 360f) * (if (ring % 2 == 0) 1f else -1f) + ring * 27f, cx, cy)
+                canvas.drawOval(android.graphics.RectF(cx - w * (.24f + ring * .045f), cy - h * (.10f + ring * .018f), cx + w * (.24f + ring * .045f), cy + h * (.10f + ring * .018f)), paint)
+                canvas.restore()
+            }
             paint.style = Paint.Style.FILL
-            paint.color = Color.argb(145, 69, 215, 255)
-            canvas.drawCircle(w * (.5f + .34f * kotlin.math.cos(pulse * 6.283f)), h * .30f, dp(2).toFloat(), paint)
-            paint.color = Color.argb(120, 166, 104, 255)
-            canvas.drawCircle(w * (.5f + .43f * kotlin.math.cos(pulse * 6.283f + 2f)), h * .30f, dp(2).toFloat(), paint)
+            for (orb in 0 until 10) {
+                val angle = phase * (if (orb % 2 == 0) 1.0 else -1.15) + orb * Math.PI / 5.0
+                val x = cx + kotlin.math.cos(angle).toFloat() * w * (.25f + (orb % 3) * .05f)
+                val y = cy + kotlin.math.sin(angle).toFloat() * h * (.10f + (orb % 3) * .02f)
+                val color = glowPalette[orb % glowPalette.size]
+                paint.color = Color.argb(220, Color.red(color), Color.green(color), Color.blue(color))
+                paint.setShadowLayer(dp(14).toFloat(), 0f, 0f, color)
+                canvas.drawCircle(x, y, dp(3 + orb % 3).toFloat(), paint)
+                paint.clearShadowLayer()
+            }
         }
     }
 
