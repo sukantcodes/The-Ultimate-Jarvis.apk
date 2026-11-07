@@ -162,7 +162,7 @@ class HomeFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root)
+        com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
         binding.root.addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
             applyResponsiveHomeLayout(right - left, bottom - top)
         }
@@ -387,7 +387,7 @@ class HomeFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root)
+        com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
         binding.orbWebView.onResume()
         binding.orbWebView.resumeTimers()
         renderTaskFallback(com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value)
@@ -416,7 +416,7 @@ class HomeFragment : Fragment() {
             binding.orbWebView.visibility = View.VISIBLE
             binding.orbWebView.onResume()
             binding.orbWebView.resumeTimers()
-            com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root)
+            com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
             setOrbTheme(preferences.appTheme, preferences.customThemeColor)
             updateHomeHeaderAndVoiceStatus()
         } else if (hidden && _binding != null) {

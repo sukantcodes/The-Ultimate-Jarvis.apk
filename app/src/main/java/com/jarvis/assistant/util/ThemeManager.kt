@@ -290,6 +290,14 @@ object ThemeManager {
         override fun getOpacity(): Int = PixelFormat.OPAQUE
     }
 
+    /**
+     * Fragment roots share the activity's single screen-sized ambient canvas. Keeping these
+     * roots transparent prevents each tab from restarting the gradient at a different height.
+     */
+    fun applyFragmentBackground(view: View) {
+        view.background = ColorDrawable(Color.TRANSPARENT)
+    }
+
     fun applyDynamicBackground(view: View) {
         val prefs = try { JarvisApp.instance.preferences } catch (_: Exception) { null }
         val themeKey = prefs?.appTheme ?: "sunset"

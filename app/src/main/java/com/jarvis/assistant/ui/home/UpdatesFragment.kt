@@ -147,19 +147,19 @@ class UpdatesFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root)
+        com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
     }
 
     override fun onResume() {
         super.onResume()
-        if (_binding != null) com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root)
+        if (_binding != null) com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
     }
 
     override fun onHiddenChanged(hidden: Boolean) {
         super.onHiddenChanged(hidden)
         if (_binding != null) {
             binding.root.visibility = if (hidden) View.GONE else View.VISIBLE
-            if (!hidden) com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root)
+            if (!hidden) com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
         }
     }
 

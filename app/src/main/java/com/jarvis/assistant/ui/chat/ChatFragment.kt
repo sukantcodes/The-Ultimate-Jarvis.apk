@@ -101,7 +101,7 @@ class ChatFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root)
+        com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
 
         binding.rvChatMessages.layoutManager = LinearLayoutManager(requireContext()).apply {
             stackFromEnd = true
@@ -332,14 +332,14 @@ class ChatFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        if (_binding != null) com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root)
+        if (_binding != null) com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
     }
 
     override fun onHiddenChanged(hidden: Boolean) {
         super.onHiddenChanged(hidden)
         if (!hidden && _binding != null) {
             binding.root.visibility = View.VISIBLE
-            com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root)
+            com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
         } else if (hidden && _binding != null) {
             binding.root.visibility = View.GONE
         }

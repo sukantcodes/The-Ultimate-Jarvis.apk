@@ -121,7 +121,7 @@ class SettingsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        ThemeManager.applyDynamicBackground(binding.root)
+        ThemeManager.applyFragmentBackground(binding.root)
 
         // Secret Maya companion settings: long-press the Settings heading to open.
         binding.tvSettingsTitle.setOnLongClickListener {
@@ -225,7 +225,7 @@ class SettingsFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         if (_binding != null) {
-            ThemeManager.applyDynamicBackground(binding.root)
+            ThemeManager.applyFragmentBackground(binding.root)
             applyDimensionalIconColors(binding.root)
             refreshState()
         }
@@ -236,7 +236,7 @@ class SettingsFragment : Fragment() {
         if (_binding == null) return
         if (!hidden) {
             binding.root.visibility = View.VISIBLE
-            ThemeManager.applyDynamicBackground(binding.root)
+            ThemeManager.applyFragmentBackground(binding.root)
             refreshState()
         } else {
             binding.root.visibility = View.GONE
