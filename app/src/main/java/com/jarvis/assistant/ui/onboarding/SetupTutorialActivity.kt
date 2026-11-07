@@ -46,6 +46,7 @@ class SetupTutorialActivity : AppCompatActivity() {
     private lateinit var secondary: MaterialButton
     private var step = 0
     private var returnedFromSettings = false
+    private var draftName: String? = null
 
     private val permissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -190,7 +191,12 @@ class SetupTutorialActivity : AppCompatActivity() {
                     setBoxStrokeColor(Color.rgb(72, 140, 255))
                 }
                 val nameInput = TextInputEditText(nameLayout.context).apply {
-                    setText(prefs.userName)
+                    setText(draftName ?: prefs.userName)
+                    addTextChangedListener(object : android.text.TextWatcher {
+                        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { draftName = s?.toString() }
+                        override fun afterTextChanged(s: android.text.Editable?) = Unit
+                    })
                     setTextColor(Color.WHITE)
                     setHintTextColor(Color.GRAY)
                     textSize = 16f
@@ -202,7 +208,7 @@ class SetupTutorialActivity : AppCompatActivity() {
                 primary.setOnClickListener {
                     val newName = nameInput.text?.toString()?.trim().orEmpty()
                     if (newName.isNotBlank()) prefs.userName = newName
-                    render()
+                    draftName = prefs.userName
                     step++
                     render()
                 }
