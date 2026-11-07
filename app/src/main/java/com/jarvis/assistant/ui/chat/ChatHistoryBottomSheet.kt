@@ -1,11 +1,13 @@
 package com.jarvis.assistant.ui.chat
 
+import android.app.Dialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.databinding.SheetChatHistoryBinding
@@ -15,6 +17,9 @@ class ChatHistoryBottomSheet : BottomSheetDialogFragment() {
     private var _binding: SheetChatHistoryBinding? = null
     private val binding get() = _binding!!
     private val adapter = ChatAdapter()
+
+    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog =
+        BottomSheetDialog(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_BottomSheet)
 
     override fun onCreateView(
         inflater: LayoutInflater,
