@@ -229,6 +229,7 @@ class SetupTutorialActivity : AppCompatActivity() {
             }
             4 -> {
                 hero("ALLOW RESTRICTED SETTINGS", "Some Android versions block accessibility activation for sideloaded apps until the user explicitly allows restricted settings.", "⚙")
+                addWorkflowDemo(listOf("APP INFO", "⋮ MENU", "ALLOW"))
                 infoCard("STEP 1", "Open JARVIS App Info → tap the three-dot menu (if available) → Allow restricted settings. Device manufacturers may use different wording, and some devices do not show this option.")
                 content.addView(actionButton("OPEN JARVIS APP INFO") {
                     startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
@@ -239,6 +240,7 @@ class SetupTutorialActivity : AppCompatActivity() {
             }
             5 -> {
                 hero("ENABLE ACCESSIBILITY", "Accessibility lets JARVIS identify supported screen controls and perform actions you explicitly request.", "⌗")
+                addWorkflowDemo(listOf("SETTINGS", "JARVIS", "ENABLE"))
                 val enabled = PermissionHelper.isAccessibilityServiceEnabled(this)
                 statusCard("JARVIS Accessibility Service", if (enabled) "Enabled and detected by Android." else "Not enabled. Open Android Accessibility settings, find JARVIS and turn its service on.", enabled)
                 content.addView(actionButton("OPEN ACCESSIBILITY SETTINGS") {
@@ -284,13 +286,12 @@ class SetupTutorialActivity : AppCompatActivity() {
         content.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(DecelerateInterpolator()).start()
     }
 
-    private fun addWorkflowDemo() {
+    private fun addWorkflowDemo(labels: List<String> = listOf("VOICE", "JARVIS", "APP", "DONE")) {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, dp(10), 0, dp(16))
         }
-        val labels = listOf("VOICE", "JARVIS", "APP", "DONE")
         labels.forEachIndexed { index, label ->
             val node = TextView(this).apply {
                 text = label
