@@ -2,6 +2,8 @@ package com.jarvis.assistant.ui.onboarding
 
 import android.Manifest
 import android.content.Intent
+import android.animation.ValueAnimator
+import android.view.animation.LinearInterpolator
 import android.content.pm.PackageManager
 import android.graphics.Canvas
 import android.graphics.Color
@@ -45,7 +47,6 @@ class SetupTutorialActivity : AppCompatActivity() {
     private lateinit var primary: MaterialButton
     private lateinit var secondary: MaterialButton
     private var step = 0
-    private var returnedFromSettings = false
     private var draftName: String? = null
 
     private val permissionRequest = registerForActivityResult(
@@ -167,7 +168,7 @@ class SetupTutorialActivity : AppCompatActivity() {
                 else permissionRow("Notifications", "Controlled by Android notification settings", true)
                 infoCard("OTHER PERMISSIONS", "Camera, contacts, location and media access are requested contextually when you use the related feature—not all at once during setup.")
                 primary.text = if (corePermissionsGranted()) "CONTINUE" else "ALLOW REQUIRED PERMISSIONS"
-                secondary.text = "BACK"
+                secondary.text = "CONTINUE WITHOUT"
             }
             2 -> {
                 hero("YOUR USER CARD", "Personalize the card JARVIS uses to address you.", "◎")
@@ -223,18 +224,17 @@ class SetupTutorialActivity : AppCompatActivity() {
                 }, fullWidth())
                 infoCard("SECURITY", "JARVIS uses its existing encrypted API-key storage. Never share your key or place it in screenshots, logs or source code.")
                 primary.text = "CONTINUE"
-                secondary.text = "BACK"
+                secondary.text = "SKIP AI SETUP"
             }
             4 -> {
                 hero("ALLOW RESTRICTED SETTINGS", "Some Android versions block accessibility activation for sideloaded apps until the user explicitly allows restricted settings.", "⚙")
                 infoCard("STEP 1", "Open JARVIS App Info → tap the three-dot menu (if available) → Allow restricted settings. Device manufacturers may use different wording, and some devices do not show this option.")
                 content.addView(actionButton("OPEN JARVIS APP INFO") {
-                    returnedFromSettings = true
                     startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
                 }, fullWidth())
                 statusCard("Restricted settings", "Android does not expose a reliable public API to verify this toggle on every device. Confirm it manually if your device displays it.", false)
                 primary.text = "I’VE CHECKED — CONTINUE"
-                secondary.text = "BACK"
+                secondary.text = "SKIP THIS STEP"
             }
             5 -> {
                 hero("ENABLE ACCESSIBILITY", "Accessibility lets JARVIS identify supported screen controls and perform actions you explicitly request.", "⌗")
@@ -246,7 +246,7 @@ class SetupTutorialActivity : AppCompatActivity() {
                 }, fullWidth())
                 infoCard("PRIVACY & CONTROL", "Android requires you to enable this service manually. JARVIS does not activate it silently. You can turn it off at any time in system settings.")
                 primary.text = if (enabled) "CONTINUE" else "CHECK AGAIN"
-                secondary.text = "BACK"
+                secondary.text = "CONTINUE WITHOUT ACCESSIBILITY"
             }
             6 -> {
                 hero("JARVIS IS READY TO LEARN", "Explore how your assistant works. These are examples of supported integration paths, not automatic actions.", "✧")
@@ -304,13 +304,21 @@ class SetupTutorialActivity : AppCompatActivity() {
     }
 
     private fun skipOrBack() {
-        if (step == 0) {
-            prefs.hasCompletedSetupTutorial = true
-            prefs.setupTutorialStep = 0
-            finish()
-        } else {
-            step = (step - 1).coerceAtLeast(0)
-            render()
+        when (step) {
+            0 -> {
+                prefs.hasCompletedSetupTutorial = true
+                prefs.setupTutorialStep = 0
+                finish()
+            }
+            1, 3, 4, 5 -> {
+                // Optional configuration can be completed later from Settings.
+                step++
+                render()
+            }
+            else -> {
+                step = (step - 1).coerceAtLeast(0)
+                render()
+            }
         }
     }
 
@@ -404,13 +412,41 @@ class SetupTutorialActivity : AppCompatActivity() {
 
     private class OrbBackdrop(context: android.content.Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private var pulse = 0f
+        private var animator: ValueAnimator? = null
+
+        override fun onAttachedToWindow() {
+            super.onAttachedToWindow()
+            animator?.cancel()
+            animator = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 4200L
+                repeatCount = ValueAnimator.INFINITE
+                repeatMode = ValueAnimator.REVERSE
+                interpolator = LinearInterpolator()
+                addUpdateListener {
+                    pulse = it.animatedValue as Float
+                    invalidate()
+                }
+                start()
+            }
+        }
+
+        override fun onDetachedFromWindow() {
+            animator?.cancel()
+            animator = null
+            super.onDetachedFromWindow()
+        }
+
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
             val w = width.toFloat()
             val h = height.toFloat()
-            paint.shader = RadialGradient(w * .5f, h * .22f, w * .72f,
-                intArrayOf(Color.argb(85, 22, 91, 190), Color.argb(24, 25, 48, 112), Color.TRANSPARENT),
-                floatArrayOf(0f, .48f, 1f), Shader.TileMode.CLAMP)
+            val radius = w * (.64f + pulse * .08f)
+            paint.shader = RadialGradient(
+                w * .5f, h * (.18f + pulse * .025f), radius,
+                intArrayOf(Color.argb(100, 22, 112, 225), Color.argb(34, 25, 48, 132), Color.TRANSPARENT),
+                floatArrayOf(0f, .48f, 1f), Shader.TileMode.CLAMP
+            )
             canvas.drawRect(0f, 0f, w, h, paint)
             paint.shader = null
         }
