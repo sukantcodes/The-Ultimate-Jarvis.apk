@@ -206,6 +206,7 @@ class SetupTutorialActivity : AppCompatActivity() {
                 content.addView(nameLayout, fullWidth().apply { topMargin = dp(14) })
                 infoCard("PROFILE PREVIEW", "Name: ${prefs.userName}\nPhoto: ${if (prefs.profilePhotoUri.isBlank()) "Default avatar" else "Selected photo"}")
                 primary.text = "SAVE PROFILE & CONTINUE"
+                secondary.text = "BACK"
                 primary.setOnClickListener {
                     val newName = nameInput.text?.toString()?.trim().orEmpty()
                     if (newName.isNotBlank()) prefs.userName = newName
