@@ -113,6 +113,9 @@ jobs:
           test -s "$KEYSTORE"
           echo "JARVIS_RELEASE_STORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"
 
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x ./gradlew
+
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --stacktrace
 
