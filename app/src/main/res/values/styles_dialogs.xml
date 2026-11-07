@@ -50,12 +50,6 @@
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:editTextStyle">@style/Widget.Jarvis.Dialog.EditText</item>
         <item name="materialButtonStyle">@style/Widget.Jarvis.Dialog.ActionButton</item>
-        <item name="colorSurface">?attr/colorSurface</item>
-        <item name="colorOnSurface">?attr/colorOnSurface</item>
-        <item name="colorOnSurfaceVariant">?attr/colorOnSurfaceVariant</item>
-        <item name="colorPrimary">?attr/colorPrimary</item>
-        <item name="colorSecondary">?attr/colorSecondary</item>
-        <item name="colorOutline">?attr/colorOutline</item>
         <item name="shapeAppearanceOverlay">@style/ShapeAppearanceOverlay.Jarvis.Dialog</item>
         <item name="materialAlertDialogTitleTextStyle">@style/TextAppearance.Jarvis.DialogTitle</item>
         <item name="materialAlertDialogBodyTextStyle">@style/TextAppearance.Jarvis.DialogBody</item>
@@ -67,9 +61,6 @@
     </style>
 
     <style name="ThemeOverlay.Jarvis.BottomSheet" parent="ThemeOverlay.Material3.BottomSheetDialog">
-        <item name="colorSurface">?attr/colorSurface</item>
-        <item name="colorOnSurface">?attr/colorOnSurface</item>
-        <item name="colorPrimary">?attr/colorPrimary</item>
         <item name="android:windowAnimationStyle">@style/Jarvis.Dialog.WindowAnimation</item>
     </style>
 </resources>
