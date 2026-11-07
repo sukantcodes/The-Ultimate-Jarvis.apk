@@ -80,15 +80,15 @@ jobs:
           (( MIN_SUPPORTED_VERSION_CODE <= JARVIS_VERSION_CODE ))
           [[ "$JARVIS_VERSION_NAME" =~ ^[A-Za-z0-9._+-]{1,40}$ ]]
           [[ "$RELEASE_CHANNEL" == "stable" || "$RELEASE_CHANNEL" == "beta" ]]
-          [[ \${#RELEASE_NOTES} -le 8000 ]]
+          [[ ${#RELEASE_NOTES} -le 8000 ]]
           for name in SUPABASE_SERVICE_ROLE_KEY JARVIS_RELEASE_KEYSTORE_BASE64 JARVIS_RELEASE_STORE_PASSWORD JARVIS_RELEASE_KEY_ALIAS JARVIS_RELEASE_KEY_PASSWORD JARVIS_RELEASE_CERT_SHA256; do
-            if [[ -z "\${!name:-}" ]]; then
+            if [[ -z "${!name:-}" ]]; then
               echo "::error::Missing required GitHub Actions secret: $name"
               exit 1
             fi
           done
-          CERT="\${JARVIS_RELEASE_CERT_SHA256//:/}"
-          CERT="\${CERT^^}"
+          CERT="${JARVIS_RELEASE_CERT_SHA256//:/}"
+          CERT="${CERT^^}"
           [[ "$CERT" =~ ^[A-F0-9]{64}$ ]]
           echo "JARVIS_RELEASE_CERT_SHA256=$CERT" >> "$GITHUB_ENV"
 
@@ -136,7 +136,7 @@ jobs:
           SHA="$(sha256sum "$APK" | awk '{print toupper($1)}')"
           echo "path=$APK" >> "$GITHUB_OUTPUT"
           echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
-          echo "apk_path=jarvis-v\${JARVIS_VERSION_CODE}-\${SHA:0:12}.apk" >> "$GITHUB_OUTPUT"
+          echo "apk_path=jarvis-v${JARVIS_VERSION_CODE}-${SHA:0:12}.apk" >> "$GITHUB_OUTPUT"
 
       - name: Install pinned resumable upload client
         run: npm install --no-save --no-package-lock --no-audit --no-fund tus-js-client@4.3.1
