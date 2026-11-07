@@ -69,9 +69,103 @@ class HomeFragment : Fragment() {
         return binding.root
     }
 
+    private var appliedLandscapeLayout: Boolean? = null
+    private var landscapeGuideId: Int = View.NO_ID
+
+    /**
+     * Reflows the Home dashboard when the available app window changes shape.
+     * Landscape uses a true two-pane composition: the live orb owns the left
+     * stage while every Home option remains visible in a dedicated right rail.
+     * Portrait restores the original XML constraints without accumulating edits.
+     */
+    private fun applyResponsiveHomeLayout(width: Int, height: Int) {
+        val root = binding.root as? androidx.constraintlayout.widget.ConstraintLayout ?: return
+        val landscape = width > height && width >= dp(600)
+        if (appliedLandscapeLayout == landscape) return
+        appliedLandscapeLayout = landscape
+
+        if (!landscape) {
+            androidx.constraintlayout.widget.ConstraintSet().apply {
+                clone(requireContext(), R.layout.fragment_home)
+                applyTo(root)
+            }
+            return
+        }
+
+        val guideId = View.generateViewId().also { landscapeGuideId = it }
+        val set = androidx.constraintlayout.widget.ConstraintSet().apply {
+            clone(root)
+            create(guideId, androidx.constraintlayout.widget.ConstraintSet.VERTICAL_GUIDELINE)
+            setGuidelinePercent(guideId, 0.585f)
+
+            // Remove the portrait-only horizontal split and build a full-height orb stage.
+            setVisibility(R.id.orbAreaEnd, View.GONE)
+            clear(R.id.orbContainer)
+            constrainWidth(R.id.orbContainer, 0)
+            constrainHeight(R.id.orbContainer, 0)
+            connect(R.id.orbContainer, androidx.constraintlayout.widget.ConstraintSet.START,
+                androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.START)
+            connect(R.id.orbContainer, androidx.constraintlayout.widget.ConstraintSet.END,
+                guideId, androidx.constraintlayout.widget.ConstraintSet.START)
+            connect(R.id.orbContainer, androidx.constraintlayout.widget.ConstraintSet.TOP,
+                androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.TOP)
+            connect(R.id.orbContainer, androidx.constraintlayout.widget.ConstraintSet.BOTTOM,
+                androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.BOTTOM)
+
+            // Keep the header in the orb pane; the menu remains reachable at the far right.
+            clear(R.id.layoutTitle)
+            constrainWidth(R.id.layoutTitle, 0)
+            connect(R.id.layoutTitle, androidx.constraintlayout.widget.ConstraintSet.START,
+                androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.START)
+            connect(R.id.layoutTitle, androidx.constraintlayout.widget.ConstraintSet.END,
+                guideId, androidx.constraintlayout.widget.ConstraintSet.START)
+            connect(R.id.layoutTitle, androidx.constraintlayout.widget.ConstraintSet.TOP,
+                androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.TOP, dp(8))
+
+            clear(R.id.btnTopSettings)
+            connect(R.id.btnTopSettings, androidx.constraintlayout.widget.ConstraintSet.START,
+                guideId, androidx.constraintlayout.widget.ConstraintSet.START, dp(8))
+            connect(R.id.btnTopSettings, androidx.constraintlayout.widget.ConstraintSet.TOP,
+                androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.TOP, dp(8))
+
+            // Right-side dashboard rail: status, weather, shortcuts, then quick actions.
+            val railViews = intArrayOf(R.id.layoutStatusIndicator, R.id.cardWeather, R.id.homeLaunchpad, R.id.layoutActionGrid)
+            railViews.forEach { id ->
+                clear(id)
+                constrainWidth(id, 0)
+                connect(id, androidx.constraintlayout.widget.ConstraintSet.START,
+                    guideId, androidx.constraintlayout.widget.ConstraintSet.START, dp(12))
+                connect(id, androidx.constraintlayout.widget.ConstraintSet.END,
+                    androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.END, dp(12))
+            }
+
+            connect(R.id.layoutStatusIndicator, androidx.constraintlayout.widget.ConstraintSet.TOP,
+                androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.TOP, dp(12))
+            connect(R.id.cardWeather, androidx.constraintlayout.widget.ConstraintSet.TOP,
+                R.id.layoutStatusIndicator, androidx.constraintlayout.widget.ConstraintSet.BOTTOM, dp(8))
+            connect(R.id.homeLaunchpad, androidx.constraintlayout.widget.ConstraintSet.TOP,
+                R.id.cardWeather, androidx.constraintlayout.widget.ConstraintSet.BOTTOM, dp(8))
+            connect(R.id.layoutActionGrid, androidx.constraintlayout.widget.ConstraintSet.TOP,
+                R.id.homeLaunchpad, androidx.constraintlayout.widget.ConstraintSet.BOTTOM, dp(8))
+            connect(R.id.layoutActionGrid, androidx.constraintlayout.widget.ConstraintSet.BOTTOM,
+                androidx.constraintlayout.widget.ConstraintSet.PARENT_ID, androidx.constraintlayout.widget.ConstraintSet.BOTTOM, dp(8))
+
+            constrainHeight(R.id.homeLaunchpad, dp(64))
+            constrainHeight(R.id.layoutActionGrid, dp(84))
+            constrainHeight(R.id.cardWeather, androidx.constraintlayout.widget.ConstraintSet.WRAP_CONTENT)
+            constrainHeight(R.id.layoutStatusIndicator, androidx.constraintlayout.widget.ConstraintSet.WRAP_CONTENT)
+
+            // Landscape is intentionally edge-to-edge within the app window, not a clipped portrait canvas.
+            set.applyTo(root)
+        }
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root)
+        binding.root.addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
+            applyResponsiveHomeLayout(right - left, bottom - top)
+        }
         createTaskFallbackPanel()
 
         // Top Navigation
