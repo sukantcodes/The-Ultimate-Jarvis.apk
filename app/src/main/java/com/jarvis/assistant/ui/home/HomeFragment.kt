@@ -513,7 +513,7 @@ class HomeFragment : Fragment() {
         val currentLang = preferences.language
         val currentIndex = languages.indexOfFirst { it.equals(currentLang, ignoreCase = true) }.let { if (it >= 0) it else 0 }
 
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext(), R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("Select Conversation Language")
             .setSingleChoiceItems(languages, currentIndex) { dialog, which ->
                 val chosen = languages[which]
