@@ -882,7 +882,7 @@ function animate(now){
   if(document.hidden){orbFrameId=0;return;}
   const dt=Math.min((now-last)/1000,.05);last=now;
   updateOrb(dt);updateParticles(dt);renderer.render(scene,camera);
-  orbFrameId=startOrbRenderLoop();
+  orbFrameId=requestAnimationFrame(animate);
 }
 function startOrbRenderLoop(){
   if(document.hidden||orbFrameId!==0)return;
@@ -931,7 +931,7 @@ window.JarvisOrb={
 handleResize();
 applyTheme("light");
 setOrbState("idle");
-requestAnimationFrame(animate);
+startOrbRenderLoop();
 })();
 </script>
 <script>
