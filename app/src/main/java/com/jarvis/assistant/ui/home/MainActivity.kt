@@ -284,7 +284,6 @@ class MainActivity : AppCompatActivity() {
         if (!updateCheckStartedThisProcess) {
             updateCheckStartedThisProcess = true
             UpdateNotificationChecker.checkOnForeground(applicationContext)
-        showUpdateRestartPrompt(force = false)
         }
         observeViewModel()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -409,6 +408,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         if (!::binding.isInitialized) return // redirected to the auth screen
         UpdateNotificationChecker.checkOnForeground(applicationContext)
+        showUpdateRestartPrompt(force = false)
         viewModel.refreshSettings()
         updateAccountMenuItem()
         lifecycleScope.launch {
