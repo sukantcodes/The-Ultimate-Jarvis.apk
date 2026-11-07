@@ -663,6 +663,7 @@ class SetupTutorialActivity : AppCompatActivity() {
 
         override fun onAttachedToWindow() {
             super.onAttachedToWindow()
+            if (!ValueAnimator.areAnimatorsEnabled()) return
             animator?.cancel()
             animator = ValueAnimator.ofFloat(0f, 1f).apply {
                 duration = 9000L
@@ -675,6 +676,17 @@ class SetupTutorialActivity : AppCompatActivity() {
                 }
                 start()
             }
+        }
+
+        fun pauseMotion() {
+            animator?.let { if (it.isStarted && !it.isPaused) it.pause() }
+        }
+
+        fun resumeMotion() {
+            if (!isAttachedToWindow || !ValueAnimator.areAnimatorsEnabled()) return
+            val current = animator
+            if (current != null && current.isStarted && current.isPaused) current.resume()
+            else if (current == null || !current.isStarted) onAttachedToWindow()
         }
 
         override fun onDetachedFromWindow() {
