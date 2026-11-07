@@ -86,6 +86,7 @@
 
         <activity android:name=".ui.debug.ActionRouterActivity" android:exported="false" />
         <activity android:name=".gallery.GalleryActivity" android:exported="false" />
+        <activity android:name=".ui.chat.ChatAttachmentPreviewActivity" android:exported="false" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.diagnostics.DeviceDiagnosticsActivity" android:exported="false" />
         <activity android:name=".ui.diagnostics.CleanupFeatureActivity" android:exported="false" />
 
