@@ -49,6 +49,7 @@ class ChatAttachmentPreviewActivity : AppCompatActivity() {
     private var pdfRenderer: PdfRenderer? = null
     private var pdfPageIndex = 0
     private var videoView: VideoView? = null
+    private var currentPdfBitmap: Bitmap? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,9 +67,9 @@ class ChatAttachmentPreviewActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.tvPreviewTitle).text = name
         findViewById<TextView>(R.id.tvPreviewSubtitle).text = mime.ifBlank { "LOCAL ATTACHMENT" }.uppercase()
 
-        val file = File(path).canonicalFile
+        val file = try { File(path).canonicalFile } catch (_: Exception) { null }
         val privateDirectory = File(filesDir, "chat_attachments").canonicalFile
-        if (!file.isFile || !file.path.startsWith(privateDirectory.path + File.separator) ||
+        if (file == null || !file.isFile || !file.path.startsWith(privateDirectory.path + File.separator) ||
             file.length() > MAX_PREVIEW_FILE_BYTES
         ) {
             showMessage("This attachment is no longer available or is too large to preview.")
@@ -162,10 +163,15 @@ class ChatAttachmentPreviewActivity : AppCompatActivity() {
         content.removeAllViews()
         try {
             renderer.openPage(index).use { page ->
-                val targetWidth = minOf(MAX_RENDER_WIDTH, resources.displayMetrics.widthPixels - dp(56)).coerceAtLeast(320)
-                val scale = targetWidth.toFloat() / page.width.toFloat()
+                    val availableWidth = minOf(MAX_RENDER_WIDTH, resources.displayMetrics.widthPixels - dp(56)).coerceAtLeast(320)
+                val widthScale = availableWidth.toFloat() / page.width.toFloat()
+                val pixelBudgetScale = kotlin.math.sqrt(8_000_000.0 / (page.width.toDouble() * page.height.toDouble())).toFloat()
+                val scale = minOf(widthScale, pixelBudgetScale).coerceAtLeast(0.1f)
+                val targetWidth = (page.width * scale).toInt().coerceAtLeast(1)
                 val targetHeight = (page.height * scale).toInt().coerceAtLeast(1)
+                currentPdfBitmap?.recycle()
                 val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+                currentPdfBitmap = bitmap
                 bitmap.eraseColor(Color.WHITE)
                 page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                 val image = ImageView(this).apply {
@@ -240,6 +246,8 @@ class ChatAttachmentPreviewActivity : AppCompatActivity() {
         videoView?.stopPlayback()
         pdfRenderer?.close()
         pdfDescriptor?.close()
+        currentPdfBitmap?.recycle()
+        currentPdfBitmap = null
         super.onDestroy()
     }
 }
