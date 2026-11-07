@@ -105,6 +105,7 @@ class JarvisApp : Application() {
             private var startedActivities = 0
             override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) {
                 com.jarvis.assistant.util.ThemeManager.applyTheme(activity)
+                com.jarvis.assistant.util.DisplayRefreshRateController.applyMaximumRefreshRate(activity)
             }
             override fun onActivityStarted(activity: android.app.Activity) {
                 startedActivities++
@@ -113,6 +114,7 @@ class JarvisApp : Application() {
             override fun onActivityResumed(activity: android.app.Activity) {
                 currentResumedActivity = activity
                 com.jarvis.assistant.util.ThemeManager.applyTheme(activity)
+                com.jarvis.assistant.util.DisplayRefreshRateController.applyMaximumRefreshRate(activity)
                 com.jarvis.assistant.util.TouchGlowController.install(activity, preferences.touchGlowEnabled)
             }
             override fun onActivityPaused(activity: android.app.Activity) {
