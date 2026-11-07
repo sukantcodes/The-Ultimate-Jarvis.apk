@@ -156,7 +156,7 @@ class HomeFragment : Fragment() {
             constrainHeight(R.id.layoutStatusIndicator, androidx.constraintlayout.widget.ConstraintSet.WRAP_CONTENT)
 
             // Landscape is intentionally edge-to-edge within the app window, not a clipped portrait canvas.
-            landscapeConstraints.applyTo(root)
+            applyTo(root)
         }
     }
 
