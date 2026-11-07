@@ -40,7 +40,6 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         color = Color.WHITE
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        letterSpacing = 0.24f
     }
     private val logoRect = RectF()
     private val trailPath = Path()
