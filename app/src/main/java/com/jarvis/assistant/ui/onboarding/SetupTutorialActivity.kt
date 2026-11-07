@@ -111,6 +111,8 @@ class SetupTutorialActivity : AppCompatActivity() {
             letterSpacing = .22f
             setTextColor(Color.rgb(103, 216, 255))
             gravity = Gravity.CENTER
+            typeface = premiumTypeface("sans-serif-black")
+            includeFontPadding = false
         }
         column.addView(brand, LinearLayout.LayoutParams(-1, dp(34)))
         progress = TextView(this).apply {
@@ -119,6 +121,8 @@ class SetupTutorialActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setTextColor(Color.rgb(145, 164, 195))
             setPadding(0, dp(8), 0, dp(12))
+            typeface = premiumTypeface("sans-serif-medium")
+            includeFontPadding = false
         }
         column.addView(progress)
         val scroll = ScrollView(this).apply {
@@ -147,13 +151,18 @@ class SetupTutorialActivity : AppCompatActivity() {
             ).apply { cornerRadius = dp(20).toFloat() }
             elevation = dp(8).toFloat()
             textSize = 16f
-            letterSpacing = .04f
+            letterSpacing = .075f
+            typeface = premiumTypeface("sans-serif-medium")
+            includeFontPadding = false
             isAllCaps = false
         }
         secondary = MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
             text = "SKIP FOR NOW"
             isAllCaps = false
             setTextColor(Color.rgb(165, 183, 211))
+            typeface = premiumTypeface("sans-serif-medium")
+            textSize = 14f
+            letterSpacing = .055f
             strokeColor = android.content.res.ColorStateList.valueOf(Color.rgb(65, 88, 125))
         }
         actions.addView(primary, LinearLayout.LayoutParams(-1, dp(54)))
@@ -225,7 +234,9 @@ class SetupTutorialActivity : AppCompatActivity() {
                     })
                     setTextColor(Color.WHITE)
                     setHintTextColor(Color.GRAY)
-                    textSize = 16f
+                    textSize = 17f
+                    typeface = premiumTypeface("sans-serif-medium")
+                    includeFontPadding = false
                 }
                 nameLayout.addView(nameInput)
                 content.addView(nameLayout, fullWidth().apply { topMargin = dp(14) })
@@ -344,14 +355,39 @@ class SetupTutorialActivity : AppCompatActivity() {
             for (index in 0 until content.childCount) {
                 val view = content.getChildAt(index)
                 if (view is MaterialCardView) {
-                    val lift = ObjectAnimator.ofFloat(view, View.TRANSLATION_Z, dp(0).toFloat(), dp(5).toFloat(), dp(0).toFloat()).apply {
-                        duration = 2600L
-                        startDelay = index * 110L
+                    val lift = ObjectAnimator.ofFloat(view, View.TRANSLATION_Z, dp(0).toFloat(), dp(7).toFloat(), dp(0).toFloat()).apply {
+                        duration = 3000L
+                        startDelay = index * 130L
                         repeatCount = ValueAnimator.INFINITE
-                        repeatMode = ValueAnimator.RESTART
+                        repeatMode = ValueAnimator.REVERSE
                     }
                     premiumAnimators += lift
                     lift.start()
+                }
+                if (view is FrameLayout && index == 0) {
+                    val floatMotion = ObjectAnimator.ofFloat(view, View.TRANSLATION_Y, 0f, -dp(6).toFloat(), 0f).apply {
+                        duration = 3400L
+                        repeatCount = ValueAnimator.INFINITE
+                        repeatMode = ValueAnimator.REVERSE
+                        interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+                    }
+                    premiumAnimators += floatMotion
+                    floatMotion.start()
+                    val emblem = view.getChildAt(0)
+                    if (emblem != null) {
+                        val haloPulse = ObjectAnimator.ofPropertyValuesHolder(
+                            emblem,
+                            android.animation.PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.07f, 1f),
+                            android.animation.PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.07f, 1f),
+                            android.animation.PropertyValuesHolder.ofFloat(View.ROTATION, 0f, 4f, 0f, -4f, 0f)
+                        ).apply {
+                            duration = 3600L
+                            repeatCount = ValueAnimator.INFINITE
+                            repeatMode = ValueAnimator.RESTART
+                        }
+                        premiumAnimators += haloPulse
+                        haloPulse.start()
+                    }
                 }
             }
             var buttonIndex = 0
@@ -388,7 +424,8 @@ class SetupTutorialActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER
                 textSize = 12f
                 letterSpacing = .08f
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                typeface = premiumTypeface("sans-serif-condensed", android.graphics.Typeface.BOLD)
+                includeFontPadding = false
                 setTextColor(Color.WHITE)
                 background = android.graphics.drawable.GradientDrawable().apply {
                     shape = android.graphics.drawable.GradientDrawable.RECTANGLE
@@ -513,7 +550,8 @@ class SetupTutorialActivity : AppCompatActivity() {
             letterSpacing = .015f
             setTextColor(Color.WHITE)
             setLineSpacing(dp(2).toFloat(), 1f)
-            typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
+            typeface = premiumTypeface("sans-serif-condensed", android.graphics.Typeface.BOLD)
+            includeFontPadding = false
             setShadowLayer(dp(16).toFloat(), 0f, dp(3).toFloat(), Color.argb(150, 0, 115, 255))
         }
         content.addView(heading, fullWidth())
@@ -524,7 +562,8 @@ class SetupTutorialActivity : AppCompatActivity() {
             setTextColor(Color.rgb(207, 222, 255))
             setLineSpacing(dp(6).toFloat(), 1.04f)
             setPadding(dp(8), dp(12), dp(8), dp(22))
-            typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
+            typeface = premiumTypeface("sans-serif", android.graphics.Typeface.NORMAL)
+            includeFontPadding = false
         }
         content.addView(body, fullWidth())
     }
@@ -544,7 +583,8 @@ class SetupTutorialActivity : AppCompatActivity() {
             textSize = 16f
             letterSpacing = .16f
             setTextColor(Color.rgb(72, 218, 255))
-            typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
+            typeface = premiumTypeface("sans-serif-medium")
+            includeFontPadding = false
         })
         stack.addView(TextView(this).apply {
             text = body
@@ -552,7 +592,8 @@ class SetupTutorialActivity : AppCompatActivity() {
             setTextColor(Color.rgb(238, 244, 255))
             setPadding(0, dp(9), 0, 0)
             setLineSpacing(dp(5).toFloat(), 1.02f)
-            typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
+            typeface = premiumTypeface("sans-serif", android.graphics.Typeface.NORMAL)
+            includeFontPadding = false
         })
         card.addView(stack)
         content.addView(card, fullWidth().apply { bottomMargin = dp(10) })
@@ -573,7 +614,9 @@ class SetupTutorialActivity : AppCompatActivity() {
             cornerRadius = dp(18)
             setTextColor(Color.WHITE)
             textSize = 17f
-            letterSpacing = .035f
+            letterSpacing = .06f
+            typeface = premiumTypeface("sans-serif-medium")
+            includeFontPadding = false
             background = android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
                 intArrayOf(Color.rgb(0, 153, 235), Color.rgb(58, 93, 238), Color.rgb(123, 70, 224))
@@ -585,6 +628,15 @@ class SetupTutorialActivity : AppCompatActivity() {
     private fun fullWidth() = LinearLayout.LayoutParams(-1, -2).apply {
         bottomMargin = dp(10)
     }
+
+    /**
+     * Uses Android's bundled high-quality type families, so typography is instant, offline,
+     * consistent across devices, and never depends on downloading a font at first launch.
+     */
+    private fun premiumTypeface(
+        family: String,
+        style: Int = android.graphics.Typeface.NORMAL
+    ): android.graphics.Typeface = android.graphics.Typeface.create(family, style)
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
