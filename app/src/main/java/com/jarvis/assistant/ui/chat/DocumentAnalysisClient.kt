@@ -176,6 +176,21 @@ object DocumentAnalysisClient {
         return output.toByteArray()
     }
 
+    /** Returns bounded text for the in-app preview of modern Office documents. */
+    suspend fun previewOfficeText(filePath: String, fileName: String, mimeType: String): String =
+        withContext(Dispatchers.IO) {
+            val file = File(filePath)
+            if (!file.isFile || file.length() > MAX_FILE_BYTES) {
+                throw IllegalArgumentException("This attachment is missing or exceeds the 14 MB preview limit.")
+            }
+            val extension = fileName.substringAfterLast('.', "").lowercase(Locale.ROOT)
+            if (extension !in listOf("docx", "xlsx", "pptx", "odt", "ods", "odp")) {
+                throw IllegalArgumentException("In-app preview supports modern Office (.docx, .xlsx, .pptx) and OpenDocument files. Convert legacy .xls/.ppt files to .xlsx/.pptx to preview them.")
+            }
+            val bytes = FileInputStream(file).use { readLimited(it) }
+            extractText(bytes, extension, mimeType.lowercase(Locale.ROOT))
+        }
+
     private fun extractText(bytes: ByteArray, extension: String, mime: String): String {
         val text = if (extension in listOf("docx", "xlsx", "pptx", "odt", "ods", "odp")) {
             extractOfficeXml(bytes)
