@@ -440,9 +440,22 @@ object WelcomeIntroOverlay {
                 .start()
         }
 
+        val cinematicReveal = CinematicJarvisIntroView(activity)
+        overlay.addView(cinematicReveal, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+        stage.visibility = View.INVISIBLE
+        overlay.setOnClickListener { cinematicReveal.skip() }
         overlay.post {
-            overlay.animate().alpha(1f).setDuration(260L).start()
-            showSlide(0)
+            overlay.animate().alpha(1f).setDuration(420L).start()
+            cinematicReveal.start {
+                if (finished) return@start
+                overlay.setOnClickListener(null)
+                (cinematicReveal.parent as? ViewGroup)?.removeView(cinematicReveal)
+                stage.visibility = View.VISIBLE
+                showSlide(0)
+            }
         }
     }
 
