@@ -10,6 +10,7 @@ import android.os.ParcelFileDescriptor
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.util.TypedValue
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -166,7 +167,7 @@ class ChatAttachmentPreviewActivity : AppCompatActivity() {
                     val availableWidth = minOf(MAX_RENDER_WIDTH, resources.displayMetrics.widthPixels - dp(56)).coerceAtLeast(320)
                 val widthScale = availableWidth.toFloat() / page.width.toFloat()
                 val pixelBudgetScale = kotlin.math.sqrt(8_000_000.0 / (page.width.toDouble() * page.height.toDouble())).toFloat()
-                val scale = minOf(widthScale, pixelBudgetScale).coerceAtLeast(0.1f)
+                val scale = minOf(widthScale, pixelBudgetScale).coerceAtLeast(0.01f)
                 val targetWidth = (page.width * scale).toInt().coerceAtLeast(1)
                 val targetHeight = (page.height * scale).toInt().coerceAtLeast(1)
                 currentPdfBitmap?.recycle()
@@ -206,7 +207,7 @@ class ChatAttachmentPreviewActivity : AppCompatActivity() {
                 val body = TextView(this@ChatAttachmentPreviewActivity).apply {
                     setText(text)
                     setTextIsSelectable(true)
-                    setTextColor(android.graphics.Color.WHITE)
+                    setTextColor(resolveThemeTextColor())
                     textSize = 14f
                     setPadding(dp(14), dp(14), dp(14), dp(14))
                 }
@@ -225,7 +226,7 @@ class ChatAttachmentPreviewActivity : AppCompatActivity() {
         pageControls.visibility = View.GONE
         val label = TextView(this).apply {
             text = message
-            setTextColor(getColor(com.jarvis.assistant.R.color.white))
+            setTextColor(resolveThemeTextColor())
             textSize = 15f
             gravity = Gravity.CENTER
             setPadding(dp(24), dp(24), dp(24), dp(24))
@@ -233,6 +234,12 @@ class ChatAttachmentPreviewActivity : AppCompatActivity() {
         content.addView(label, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
         ))
+    }
+
+    private fun resolveThemeTextColor(): Int {
+        val value = TypedValue()
+        theme.resolveAttribute(R.attr.themeTextPrimary, value, true)
+        return if (value.resourceId != 0) getColor(value.resourceId) else value.data
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
