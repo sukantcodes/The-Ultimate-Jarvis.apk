@@ -39,7 +39,7 @@ class ChatHistoryBottomSheet : BottomSheetDialogFragment() {
         updateList(turns)
 
         binding.btnClearHistory.setOnClickListener {
-            MaterialAlertDialogBuilder(requireContext())
+            MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
                 .setTitle("Clear History")
                 .setMessage("Are you sure you want to clear the conversation history?")
                 .setPositiveButton("Clear") { _, _ ->
