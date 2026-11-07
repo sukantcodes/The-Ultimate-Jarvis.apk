@@ -540,18 +540,22 @@ class SetupTutorialActivity : AppCompatActivity() {
         content.addView(heroFrame, LinearLayout.LayoutParams(-1, dp(154)).apply {
             bottomMargin = dp(22); leftMargin = dp(4); rightMargin = dp(4)
         })
-        glyph.scaleX = .72f
-        glyph.scaleY = .72f
-        glyph.animate().scaleX(1f).scaleY(1f).rotation(360f).rotationX(12f).setDuration(1050L)
-            .setInterpolator(android.view.animation.OvershootInterpolator(1.05f)).withEndAction {
-                glyph.animate().rotation(0f).rotationX(0f).setDuration(420L)
-                    .setInterpolator(DecelerateInterpolator()).start()
-            }.start()
+        glyph.cameraDistance = dp(1500).toFloat()
+        glyph.alpha = 0f
+        glyph.scaleX = .78f
+        glyph.scaleY = .78f
+        glyph.rotationY = -72f
+        glyph.rotationX = 16f
+        glyph.animate().alpha(1f).scaleX(1f).scaleY(1f).rotationY(0f).rotationX(0f)
+            .setStartDelay(100L).setDuration(980L)
+            .setInterpolator(android.view.animation.PathInterpolator(.16f, .88f, .22f, 1f)).start()
+        heroFrame.cameraDistance = dp(2400).toFloat()
         heroFrame.alpha = 0f
-        heroFrame.scaleX = .96f
-        heroFrame.scaleY = .96f
-        heroFrame.animate().alpha(1f).scaleX(1f).scaleY(1f)
-            .setDuration(720L).setInterpolator(android.view.animation.OvershootInterpolator(.8f)).start()
+        heroFrame.scaleX = .94f
+        heroFrame.scaleY = .94f
+        heroFrame.rotationX = 7f
+        heroFrame.animate().alpha(1f).scaleX(1f).scaleY(1f).rotationX(0f)
+            .setDuration(820L).setInterpolator(android.view.animation.PathInterpolator(.16f, .88f, .22f, 1f)).start()
         val heading = TextView(this).apply {
             text = title
             textSize = 38f
