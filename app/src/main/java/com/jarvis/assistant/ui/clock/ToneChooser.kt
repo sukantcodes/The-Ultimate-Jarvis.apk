@@ -44,7 +44,7 @@ object ToneChooser {
             if (candidates.isNotEmpty()) player.start(candidates, loop = false, volume = 1f)
         }
 
-        val dialog: AlertDialog = MaterialAlertDialogBuilder(activity)
+        val dialog: AlertDialog = MaterialAlertDialogBuilder(activity, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle(titleRes)
             .setSingleChoiceItems(labels.toTypedArray(), selected) { _, which ->
                 selected = which
