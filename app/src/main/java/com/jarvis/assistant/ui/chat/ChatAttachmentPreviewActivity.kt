@@ -13,6 +13,7 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.ImageButton
 import android.widget.MediaController
 import android.widget.ScrollView
 import android.widget.TextView
@@ -57,7 +58,7 @@ class ChatAttachmentPreviewActivity : AppCompatActivity() {
         pageLabel = findViewById(R.id.tvPdfPage)
         previousButton = findViewById(R.id.btnPdfPrevious)
         nextButton = findViewById(R.id.btnPdfNext)
-        findViewById<ImageButtonCompat>(R.id.btnPreviewClose).setOnClickListener { finish() }
+        findViewById<ImageButton>(R.id.btnPreviewClose).setOnClickListener { finish() }
 
         val path = intent.getStringExtra(EXTRA_PATH).orEmpty()
         val name = intent.getStringExtra(EXTRA_NAME).orEmpty().ifBlank { "Attachment" }
@@ -199,7 +200,7 @@ class ChatAttachmentPreviewActivity : AppCompatActivity() {
                 val body = TextView(this@ChatAttachmentPreviewActivity).apply {
                     setText(text)
                     setTextIsSelectable(true)
-                    setTextColor(getColor(com.jarvis.assistant.R.color.white))
+                    setTextColor(android.graphics.Color.WHITE)
                     textSize = 14f
                     setPadding(dp(14), dp(14), dp(14), dp(14))
                 }
