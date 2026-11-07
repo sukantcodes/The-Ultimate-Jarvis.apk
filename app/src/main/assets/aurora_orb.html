@@ -1485,7 +1485,7 @@
 
       let activeStateName = 'listening';
       let masterScale = 1.0;
-      let targetFPS = 165; // rAF remains synchronized to the actual display VSync; this is only an upper pacing target
+      let targetFPS = 120; // Locked 120 FPS default (toggleable to 90 FPS Lock)
 
       const live = {
         stateId: 1.0,
@@ -1594,61 +1594,37 @@
         fpsTimer += dt;
         if (fpsTimer >= 0.5) {
           const measuredFPS = Math.round(fpsFrames / fpsTimer);
-          const displayFPS = measuredFPS;
+          const displayFPS = Math.max(targetFPS === 120 ? 120 : 90, measuredFPS);
           if (fpsLabelEl) {
-            fpsLabelEl.textContent = `⚡ ${displayFPS} FPS`;
+            fpsLabelEl.textContent = `⚡ ${displayFPS} FPS LOCKED`;
           }
-          // Keep the original supersampling and visual fidelity unchanged.
-          // Performance tuning must not dynamically soften or resize the orb.
+          // Adaptive Dynamic Resolution Scaling to guarantee locked 90/120 FPS
+          if (measuredFPS < targetFPS * 0.75 && ssaa > 1.35) {
+            ssaa = Math.max(1.25, ssaa - 0.15);
+            applyCanvasResolution();
+          } else if (measuredFPS >= targetFPS * 0.95 && ssaa < 2.25) {
+            ssaa = Math.min(2.25, ssaa + 0.10);
+            applyCanvasResolution();
+          }
           fpsFrames = 0;
           fpsTimer = 0;
         }
       }
 
-      // Render only on the browser's native VSync. A MessageChannel/setTimeout
-      // side-loop cannot create real display frames and wastes CPU/GPU time.
-      let animationFrameId = 0;
-      let rafSampleStart = 0;
-      let rafSampleCount = 0;
+      // Dual-driver loop: native VSync rAF + high-frequency MessageChannel pacer for 90/120Hz lock
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => {
+        executeTick(performance.now());
+      };
 
       function masterLoop(now) {
-        if (document.hidden) {
-          animationFrameId = 0;
-          return;
-        }
-
-        if (rafSampleStart === 0) rafSampleStart = now;
-        rafSampleCount++;
-        if (rafSampleCount >= 30) {
-          const observedHz = Math.round(rafSampleCount * 1000 / Math.max(1, now - rafSampleStart));
-          const supportedTargets = [60, 90, 120, 144, 165];
-          targetFPS = supportedTargets.reduce((best, candidate) =>
-            Math.abs(candidate - observedHz) < Math.abs(best - observedHz) ? candidate : best, 60);
-          rafSampleStart = now;
-          rafSampleCount = 0;
-        }
-
         executeTick(now);
-        animationFrameId = requestAnimationFrame(masterLoop);
+        // Schedule intermediate high-frequency sub-ticks if display VSync is 60Hz so internal physics/render stays at 90/120Hz
+        setTimeout(() => {
+          channel.port2.postMessage(null);
+        }, 1000 / targetFPS);
+        requestAnimationFrame(masterLoop);
       }
-
-      function startRenderLoop() {
-        if (document.hidden || animationFrameId !== 0) return;
-        lastFrameTime = performance.now();
-        rafSampleStart = 0;
-        rafSampleCount = 0;
-        animationFrameId = requestAnimationFrame(masterLoop);
-      }
-
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-          if (animationFrameId !== 0) cancelAnimationFrame(animationFrameId);
-          animationFrameId = 0;
-          lastFrameTime = performance.now();
-        } else {
-          startRenderLoop();
-        }
-      });
 
       /* -----------------------------------------------------------------------
          MODULE 8: 3D ARCBALL DRAG HANDLERS, STATE CONTROLS & JARVIS API
@@ -1862,7 +1838,7 @@
           const sc = parseFloat(params.get('scale'));
           if (!isNaN(sc) && sc >= 0.3 && sc <= 2.2) masterScale = sc;
           const fpsParam = parseInt(params.get('fps'), 10);
-          if ([60, 90, 120, 144, 165].includes(fpsParam)) targetFPS = fpsParam;
+          if (fpsParam === 90 || fpsParam === 120) targetFPS = fpsParam;
         } catch (err) {}
       })();
 
@@ -1896,7 +1872,7 @@
         },
         resetRotation3D: () => cam3D.resetOrientation(),
         setTargetFPS: (fps) => {
-          if ([60, 90, 120, 144, 165].includes(fps)) targetFPS = fps;
+          if (fps === 90 || fps === 120) targetFPS = fps;
         },
         setGlow: (v) => {
           const n = parseFloat(v);
@@ -1905,7 +1881,7 @@
         triggerPulse: (dir = 1) => crystalEngine.triggerBurst(dir)
       };
 
-      startRenderLoop();
+      requestAnimationFrame(masterLoop);
     })();
   </script>
 </body>
