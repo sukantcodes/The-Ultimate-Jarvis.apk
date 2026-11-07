@@ -309,12 +309,20 @@ class MainActivity : AppCompatActivity() {
             intent.getBooleanExtra(EXTRA_SHOW_POST_LOGIN_WELCOME, false) && !prefs.hasSeenWelcomeIntro
         intent.removeExtra(EXTRA_SHOW_POST_LOGIN_WELCOME)
 
+        fun launchSetupTutorial() {
+            if (!prefs.hasCompletedSetupTutorial && !isFinishing && !isDestroyed) {
+                startActivity(Intent(this, com.jarvis.assistant.ui.onboarding.SetupTutorialActivity::class.java))
+            }
+        }
+
         fun continueAfterOpeningAnimation() {
             if (showFirstTimeTextWelcome && !isFinishing && !isDestroyed) {
                 prefs.hasSeenWelcomeIntro = true
                 WelcomeIntroOverlay.showPostLoginWelcome(this, binding.rootMainLayout) {
-                    // The normal Home screen is now ready for the user.
+                    launchSetupTutorial()
                 }
+            } else {
+                launchSetupTutorial()
             }
         }
 
