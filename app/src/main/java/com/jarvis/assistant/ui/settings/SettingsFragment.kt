@@ -394,12 +394,11 @@ class SettingsFragment : Fragment() {
         val avatar = binding.ivProfileAvatar
         val savedUri = preferences.profilePhotoUri
         if (savedUri.isBlank()) {
-            avatar.setImageResource(R.drawable.ic_user_profile)
-            avatar.imageTintList = ColorStateList.valueOf(
-                ContextCompat.getColor(requireContext(), R.color.accent_sapphire)
-            )
-            avatar.scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
-            avatar.setPadding(dp(12), dp(12), dp(12), dp(12))
+            // The bundled creator portrait is the default until the user picks a personal photo.
+            avatar.setImageResource(R.drawable.jarvis_default_user)
+            avatar.imageTintList = null
+            avatar.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+            avatar.setPadding(0, 0, 0, 0)
             return
         }
         try {
@@ -409,7 +408,10 @@ class SettingsFragment : Fragment() {
             avatar.setPadding(0, 0, 0, 0)
         } catch (_: Exception) {
             preferences.profilePhotoUri = ""
-            avatar.setImageResource(R.drawable.ic_user_profile)
+            avatar.setImageResource(R.drawable.jarvis_default_user)
+            avatar.imageTintList = null
+            avatar.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+            avatar.setPadding(0, 0, 0, 0)
         }
     }
 
