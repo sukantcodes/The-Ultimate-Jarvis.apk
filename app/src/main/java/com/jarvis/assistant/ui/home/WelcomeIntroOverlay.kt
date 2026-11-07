@@ -465,15 +465,31 @@ object WelcomeIntroOverlay {
 
 
     /** Plays only the brand ident on a fresh launch; first-run text slides remain separate. */
-    fun showCinematicOnly(activity: Activity, parent: ViewGroup, onFinished: () -> Unit) {
+    fun showCinematicOnly(activity: Activity, parent: ViewGroup, onFinished: () -> Unit) =
+        showCinematicOnly(activity, parent, true, onFinished)
+
+    /**
+     * @param dissolveIntoContent true when [parent] already holds the screen the user is about to see
+     * (Home): the ident dissolves away to reveal it. Pass false when the host will immediately switch
+     * to another screen, so the overlay stays opaque and nothing flashes through.
+     */
+    fun showCinematicOnly(
+        activity: Activity,
+        parent: ViewGroup,
+        dissolveIntoContent: Boolean,
+        onFinished: () -> Unit
+    ) {
         val overlay = FrameLayout(activity).apply {
             isClickable = true
             isFocusable = true
             elevation = dp(activity, 40).toFloat()
-            setBackgroundColor(Color.rgb(2, 5, 14))
+            // The ident paints its own opaque backdrop; only keep a solid base when it must not dissolve.
+            if (!dissolveIntoContent) setBackgroundColor(Color.rgb(2, 5, 14))
             contentDescription = "JARVIS opening animation"
         }
-        val reveal = CinematicJarvisIntroView(activity)
+        val reveal = CinematicJarvisIntroView(activity).apply {
+            dissolveOnFinish = dissolveIntoContent
+        }
         overlay.addView(
             reveal,
             FrameLayout.LayoutParams(
@@ -491,7 +507,6 @@ object WelcomeIntroOverlay {
         overlay.bringToFront()
         reveal.start {
             overlay.setOnClickListener(null)
-            (reveal.parent as? ViewGroup)?.removeView(reveal)
             (overlay.parent as? ViewGroup)?.removeView(overlay)
             onFinished()
         }

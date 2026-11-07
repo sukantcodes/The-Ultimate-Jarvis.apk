@@ -186,7 +186,8 @@ class MainActivity : AppCompatActivity() {
                 val authRoot = android.widget.FrameLayout(this)
                 setContentView(authRoot)
                 prefs.openingAnimationPending = false
-                WelcomeIntroOverlay.showCinematicOnly(this, authRoot) {
+                // The login screen is a separate Activity, so keep the ident opaque until it hands over.
+                WelcomeIntroOverlay.showCinematicOnly(this, authRoot, false) {
                     startActivity(Intent(this, AuthActivity::class.java))
                     finish()
                 }
