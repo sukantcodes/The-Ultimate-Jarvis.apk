@@ -320,6 +320,11 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".updates.InstallSessionReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
         <service
             android:name=".background.JarvisConversationService"
             android:exported="false"

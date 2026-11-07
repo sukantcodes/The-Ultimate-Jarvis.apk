@@ -11,6 +11,10 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Button
+import android.widget.ProgressBar
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
 import com.jarvis.assistant.databinding.FragmentUpdatesBinding
@@ -71,6 +75,113 @@ class UpdatesFragment : Fragment() {
         updates.forEachIndexed { index, item ->
             list.addView(createUpdateCard(item, index + 1))
         }
+        list.addView(createManualUpdateCard())
+    }
+
+    private fun createManualUpdateCard(): View {
+        val context = requireContext()
+        val card = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(21, 37, 57), Color.rgb(12, 18, 34))
+            ).apply {
+                cornerRadius = dp(20).toFloat()
+                setStroke(dp(1), Color.rgb(0, 190, 235))
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(16) }
+            elevation = dp(5).toFloat()
+        }
+        val eyebrow = TextView(context).apply {
+            text = "OFFICIAL JARVIS UPDATES"
+            textSize = 10f
+            letterSpacing = 0.12f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.rgb(0, 224, 255))
+        }
+        val heading = TextView(context).apply {
+            text = "Check and install updates"
+            textSize = 18f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            setPadding(0, dp(8), 0, dp(6))
+        }
+        val detail = TextView(context).apply {
+            text = "Download a newer release from the JARVIS update server. The APK is verified before Android asks you to confirm installation."
+            textSize = 13f
+            setTextColor(Color.rgb(190, 199, 218))
+            setLineSpacing(dp(3).toFloat(), 1.03f)
+        }
+        val status = TextView(context).apply {
+            text = "Ready to check for updates."
+            textSize = 12f
+            setTextColor(Color.rgb(0, 224, 255))
+            setPadding(0, dp(12), 0, dp(7))
+        }
+        val progress = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100
+            progress = 0
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(5)
+            ).apply { bottomMargin = dp(10) }
+        }
+        val install = Button(context).apply {
+            text = "Install Update"
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat()
+                setColor(Color.rgb(0, 135, 190))
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(50)
+            )
+        }
+        card.addView(eyebrow)
+        card.addView(heading)
+        card.addView(detail)
+        card.addView(status)
+        card.addView(progress)
+        card.addView(install)
+
+        install.setOnClickListener {
+            install.isEnabled = false
+            progress.visibility = View.VISIBLE
+            progress.isIndeterminate = true
+            status.text = "Starting secure update check…"
+            viewLifecycleOwner.lifecycleScope.launch {
+                com.jarvis.assistant.updates.ManualUpdateInstaller.install(requireContext()) { state ->
+                    if (_binding == null) return@install
+                    when (state) {
+                        is com.jarvis.assistant.updates.ManualUpdateInstaller.State.Message -> {
+                            status.text = state.text
+                            if (state.progress != null) {
+                                progress.isIndeterminate = false
+                                progress.progress = state.progress
+                            } else {
+                                progress.isIndeterminate = true
+                            }
+                        }
+                        is com.jarvis.assistant.updates.ManualUpdateInstaller.State.Failure -> {
+                            status.text = state.text
+                            progress.visibility = View.GONE
+                            install.isEnabled = true
+                        }
+                        com.jarvis.assistant.updates.ManualUpdateInstaller.State.InstallerLaunched -> {
+                            status.text = "Android's installer is open. Review the details and confirm if you want to update JARVIS."
+                            progress.visibility = View.GONE
+                            install.isEnabled = true
+                        }
+                    }
+                }
+            }
+        }
+        return card
     }
 
     private fun createUpdateCard(item: FeatureNotice, number: Int): View {
