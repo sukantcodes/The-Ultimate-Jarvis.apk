@@ -182,7 +182,7 @@ class MemoryActivity : AppCompatActivity() {
         layout.addView(spinner)
         layout.addView(editText)
 
-        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("Add New Memory")
             .setView(layout)
             .setPositiveButton("SAVE") { _, _ ->
@@ -221,7 +221,7 @@ class MemoryActivity : AppCompatActivity() {
             addView(editText)
         }
 
-        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("Edit Memory")
             .setView(container)
             .setPositiveButton("UPDATE") { _, _ ->
@@ -244,7 +244,7 @@ class MemoryActivity : AppCompatActivity() {
     }
 
     private fun confirmDeleteMemory(memory: MemoryEntity) {
-        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("Delete Memory")
             .setMessage("Are you sure you want JARVIS to forget this fact?\n\n\"${memory.rawText}\"")
             .setPositiveButton("DELETE") { _, _ ->
