@@ -18,6 +18,27 @@
         android:visibility="gone">
 
         <TextView
+            android:id="@+id/tvUserAttachment"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxWidth="280dp"
+            android:minWidth="190dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/bg_chat_attachment"
+            android:paddingStart="13dp"
+            android:paddingEnd="13dp"
+            android:paddingTop="11dp"
+            android:paddingBottom="11dp"
+            android:text="▣  Open attachment"
+            android:textColor="?attr/themeTextPrimary"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="Preview attached file inside JARVIS chat" />
+
+        <TextView
             android:id="@+id/tvUserMessage"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
