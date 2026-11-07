@@ -176,6 +176,16 @@ class MainActivity : AppCompatActivity() {
                     startActivity(Intent(this, AuthActivity::class.java))
                     finish()
                 }
+            } else if (prefs.openingAnimationPending) {
+                // Returning users who are signed out still receive the logo ident on every
+                // fresh launch, but never see the first-run text slides again.
+                val authRoot = android.widget.FrameLayout(this)
+                setContentView(authRoot)
+                prefs.openingAnimationPending = false
+                WelcomeIntroOverlay.showCinematicOnly(this, authRoot) {
+                    startActivity(Intent(this, AuthActivity::class.java))
+                    finish()
+                }
             } else {
                 startActivity(Intent(this, AuthActivity::class.java))
                 finish()
