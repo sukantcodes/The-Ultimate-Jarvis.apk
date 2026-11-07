@@ -199,9 +199,7 @@ object ManualUpdateInstaller {
 
     private object PendingIntentFlags {
         fun mutableUpdateCurrent(): Int =
-            android.app.PendingIntent.FLAG_UPDATE_CURRENT or
-                (if (Build.VERSION.SDK_INT >= 31) android.app.PendingIntent.FLAG_MUTABLE
-                else android.app.PendingIntent.FLAG_IMMUTABLE)
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_MUTABLE
     }
 
     @Suppress("DEPRECATION")
