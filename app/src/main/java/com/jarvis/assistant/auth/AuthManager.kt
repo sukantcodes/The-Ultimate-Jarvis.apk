@@ -4,6 +4,10 @@ import android.content.Context
 import android.net.Uri
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -20,6 +24,8 @@ object AuthManager {
     private lateinit var store: SessionStore
     private val client = SupabaseAuthClient()
     private val refreshLock = Mutex()
+    private val profileRefreshLock = Mutex()
+    private val profileScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _session = MutableStateFlow<AuthSession?>(null)
 
     /** Current session, or null for guests / signed-out users. */
@@ -36,6 +42,10 @@ object AuthManager {
             _session.value = store.loadSession()
             syncAccountProfile(_session.value)
             initialised = true
+            _session.value?.let { saved ->
+                // Refresh persisted claims in the background; Settings observes session changes and repaints the card.
+                profileScope.launch { refreshAccountProfile(saved.userId) }
+            }
         }
     }
 
@@ -52,8 +62,11 @@ object AuthManager {
 
     // ── Email / password ────────────────────────────────────────────────────────────────────────
 
-    suspend fun signIn(email: String, password: String): AuthResult<AuthSession> =
-        client.signInWithPassword(email.trim(), password).also { if (it is AuthResult.Success) adoptNewSignIn(it.value) }
+    suspend fun signIn(email: String, password: String): AuthResult<AuthSession> {
+        val result = client.signInWithPassword(email.trim(), password)
+        if (result is AuthResult.Success) adoptNewSignIn(result.value)
+        return result
+    }
 
     suspend fun signUp(email: String, password: String): AuthResult<SignUpOutcome> {
         val verifier = Pkce.newVerifier()
@@ -219,9 +232,38 @@ object AuthManager {
     }
 
     /** A fresh interactive sign-in (not a token refresh): adopt the session and record the sign-in. */
-    private fun adoptNewSignIn(session: AuthSession) {
+    private suspend fun adoptNewSignIn(session: AuthSession) {
         adopt(session)
         com.jarvis.assistant.owner.DeviceTelemetry.onSignedIn()
+        // Token responses can omit provider identity claims. Resolve the authenticated user record
+        // before the auth screen hands control back to the app (bounded to a short network timeout).
+        refreshAccountProfile(session.userId)
+    }
+
+    private suspend fun refreshAccountProfile(expectedUserId: String) {
+        if (expectedUserId.isBlank()) return
+        profileRefreshLock.withLock {
+            val before = _session.value?.takeIf { it.userId == expectedUserId } ?: return
+            val token = when (val access = validAccessToken()) {
+                is AuthResult.Success -> access.value
+                is AuthResult.Failure -> return
+            }
+            val result = client.fetchCurrentUserProfile(token)
+            if (result !is AuthResult.Success || result.value.userId != expectedUserId) return
+
+            // Never let a slow response from account A overwrite a later sign-in to account B.
+            val current = _session.value?.takeIf { it.userId == expectedUserId } ?: return
+            val profile = result.value
+            val updated = current.copy(
+                displayName = profile.displayName.ifBlank { current.displayName },
+                avatarUrl = profile.avatarUrl.ifBlank { current.avatarUrl }
+            )
+            if (updated != before) {
+                store.saveSession(updated)
+                _session.value = updated
+                syncAccountProfile(updated)
+            }
+        }
     }
 
     private fun nowSec() = System.currentTimeMillis() / 1000L
