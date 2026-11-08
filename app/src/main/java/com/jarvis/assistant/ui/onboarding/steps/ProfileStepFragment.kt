@@ -177,7 +177,10 @@ class ProfileStepFragment : StepFragment() {
             return
         }
         try {
-            if (name.isNotEmpty()) prefs.userName = name
+            if (name.isNotEmpty()) {
+                prefs.userName = name
+                prefs.profileNameOverride = name
+            }
             when {
                 vm.stagedPhotoRemoved -> prefs.profilePhotoUri = ""
                 vm.stagedPhotoUri != null -> prefs.profilePhotoUri = vm.stagedPhotoUri!!
