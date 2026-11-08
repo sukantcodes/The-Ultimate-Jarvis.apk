@@ -18,7 +18,6 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.jarvis.assistant.R
 import com.jarvis.assistant.auth.AuthManager
@@ -706,18 +705,117 @@ class MainActivity : AppCompatActivity() {
         viewModel.toggleSession()
     }
 
+    /**
+     * Uses a custom view instead of MaterialAlertDialogBuilder's internal m3_alert_dialog
+     * layout. This avoids the reported layout_width inflation crash on affected devices/themes.
+     */
     private fun showBatteryPermissionDialog() {
-        MaterialAlertDialogBuilder(this, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
-            .setTitle("Unrestricted Battery Required")
-            .setMessage("Jarvis requires Unrestricted Battery access so it can stay active in the background and respond to wake words.\n\nPlease allow it or open Settings.")
-            .setPositiveButton("ALLOW") { _, _ ->
-                PermissionHelper.requestBatteryOptimization(this)
+        if (isFinishing || isDestroyed) return
+
+        val dialog = android.app.Dialog(this, R.style.ThemeOverlay_Jarvis_MaterialDialog)
+        val dialogContext = dialog.context
+        val density = resources.displayMetrics.density
+        fun dp(value: Int): Int = (value * density + 0.5f).toInt()
+
+        fun resolveColor(attribute: Int, fallback: Int): Int {
+            val value = android.util.TypedValue()
+            if (!dialogContext.theme.resolveAttribute(attribute, value, true)) return fallback
+            if (value.resourceId != 0) {
+                return try {
+                    androidx.core.content.ContextCompat.getColor(dialogContext, value.resourceId)
+                } catch (_: Exception) {
+                    value.data
+                }
             }
-            .setNeutralButton("OPEN SETTINGS") { _, _ ->
-                selectTab(TAB_SETTINGS)
+            return value.data
+        }
+
+        val surfaceColor = resolveColor(
+            com.google.android.material.R.attr.colorSurface,
+            android.graphics.Color.rgb(18, 22, 48)
+        )
+        val titleColor = resolveColor(R.attr.themeTextPrimary, android.graphics.Color.WHITE)
+        val bodyColor = resolveColor(R.attr.themeTextSecondary, android.graphics.Color.LTGRAY)
+        val accentColor = resolveColor(R.attr.themeAccent, android.graphics.Color.rgb(91, 140, 255))
+
+        val content = android.widget.LinearLayout(dialogContext).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(dp(24), dp(22), dp(24), dp(12))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = dp(28).toFloat()
+                setColor(surfaceColor)
+                setStroke(dp(1), (accentColor and 0x00FFFFFF) or 0x44000000)
             }
-            .setNegativeButton("CANCEL", null)
-            .show()
+        }
+
+        content.addView(android.widget.TextView(dialogContext).apply {
+            text = "Unrestricted Battery Required"
+            setTextColor(titleColor)
+            textSize = 21f
+            typeface = android.graphics.Typeface.create(
+                "sans-serif-medium",
+                android.graphics.Typeface.NORMAL
+            )
+            includeFontPadding = false
+        }, android.widget.LinearLayout.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
+
+        content.addView(android.widget.TextView(dialogContext).apply {
+            text = "Jarvis requires Unrestricted Battery access so it can stay active in the background and respond to wake words.\n\nPlease allow it or open Settings."
+            setTextColor(bodyColor)
+            textSize = 15f
+            setLineSpacing(dp(3).toFloat(), 1f)
+        }, android.widget.LinearLayout.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            topMargin = dp(14)
+            bottomMargin = dp(10)
+        })
+
+        fun addAction(label: String, action: () -> Unit) {
+            val button = android.widget.Button(dialogContext).apply {
+                text = label
+                isAllCaps = true
+                textSize = 13f
+                setTextColor(accentColor)
+                minHeight = dp(48)
+                setPadding(dp(8), 0, dp(8), 0)
+                background = android.graphics.drawable.ColorDrawable(
+                    android.graphics.Color.TRANSPARENT
+                )
+                setOnClickListener {
+                    dialog.dismiss()
+                    action()
+                }
+            }
+            content.addView(button, android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(48)
+            ))
+        }
+
+        addAction("ALLOW") { PermissionHelper.requestBatteryOptimization(this) }
+        addAction("OPEN SETTINGS") { selectTab(TAB_SETTINGS) }
+        addAction("CANCEL") { /* Dismiss only. */ }
+
+        dialog.setContentView(content)
+        dialog.setCancelable(true)
+        dialog.setCanceledOnTouchOutside(true)
+        dialog.setOnShowListener {
+            dialog.window?.apply {
+                setBackgroundDrawableResource(android.R.color.transparent)
+                val screenWidth = resources.displayMetrics.widthPixels
+                val width = minOf(dp(420), screenWidth - dp(40)).coerceAtLeast(dp(280))
+                setLayout(width, android.view.WindowManager.LayoutParams.WRAP_CONTENT)
+                addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                setDimAmount(0.48f)
+            }
+        }
+        if (!isFinishing && !isDestroyed) dialog.show()
     }
 
     private fun observeViewModel() {
