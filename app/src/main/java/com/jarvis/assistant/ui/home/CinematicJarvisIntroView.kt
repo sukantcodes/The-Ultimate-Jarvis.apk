@@ -59,7 +59,6 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        letterSpacingCompat = 0f
     }
     private val secondaryPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
@@ -361,7 +360,3 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
     }
 }
 
-/** Keeps the Paint API surface compatible with older Android releases. */
-private var Paint.letterSpacingCompat: Float
-    get() = 0f
-    set(@Suppress("UNUSED_PARAMETER") value) = Unit
