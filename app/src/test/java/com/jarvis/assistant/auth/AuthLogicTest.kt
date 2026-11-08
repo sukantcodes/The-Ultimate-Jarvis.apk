@@ -88,6 +88,38 @@ class SupabaseResponseParserTest {
     }
 
     @Test
+    fun `Google profile claims are read from provider identity data when user metadata is absent`() {
+        val body = """{"access_token":"A","refresh_token":"R","expires_in":3600,
+            "user":{"id":"google-user","email":"person@example.com",
+            "identities":[{"provider":"google","identity_data":{
+                "name":"Google Person","picture":"https://lh3.googleusercontent.com/avatar"
+            }}]}}"""
+        val session = SupabaseResponseParser.parseSession(body, now)!!
+        assertEquals("Google Person", session.displayName)
+        assertEquals("https://lh3.googleusercontent.com/avatar", session.avatarUrl)
+    }
+
+    @Test
+    fun `authenticated profile endpoint parses metadata and provider identity fallbacks`() {
+        val body = """{"id":"u-profile","user_metadata":{},
+            "identities":[{"identity_data":{"full_name":"Profile Name",
+            "avatar_url":"https://example.com/avatar.jpg"}}]}"""
+        val profile = SupabaseResponseParser.parseProfile(body)!!
+        assertEquals("u-profile", profile.userId)
+        assertEquals("Profile Name", profile.displayName)
+        assertEquals("https://example.com/avatar.jpg", profile.avatarUrl)
+    }
+
+    @Test
+    fun `profile parser rejects non HTTPS avatar URLs`() {
+        val body = """{"id":"u-profile","user_metadata":{
+            "name":"Safe Name","avatar_url":"http://example.com/avatar.jpg"}}"""
+        val profile = SupabaseResponseParser.parseProfile(body)!!
+        assertEquals("Safe Name", profile.displayName)
+        assertEquals("", profile.avatarUrl)
+    }
+
+    @Test
     fun `missing expires_at falls back to expires_in`() {
         val s = SupabaseResponseParser.parseSession("""{"access_token":"A","refresh_token":"R","expires_in":60}""", now)!!
         assertEquals(1060L, s.expiresAtEpochSec)
