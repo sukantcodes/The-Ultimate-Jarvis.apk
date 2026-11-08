@@ -75,7 +75,7 @@ if (isEmbedded) {
   document.body.style.background = "transparent";
 }
 
-const FOV=45, VIS=3.1, ORBIT=36, COUNT=6000;
+const FOV=45, VIS=3.1, ORBIT=36, COUNT=12000;
 const STATES={
   idle:     {scale:1.00,speed:.35,cyan:.35,purple:.45,bright:1.00,glow:.50,ring:.15,wob:0},
   listening:{scale:1.05,speed:.85,cyan:1.00,purple:.25,bright:1.12,glow:.95,ring:.35,wob:0},
@@ -789,12 +789,52 @@ function readAudio(t,dt){
   audio.level+=(l-audio.level)*k;audio.bass+=(b-audio.bass)*k;audio.high+=(h-audio.high)*k;
 }
 
-/* ---------- Drag to rotate (3D) ---------- */
+/* ---------- Frame-coalesced, velocity-smoothed 3D drag rotation ---------- */
+const ROTATION_SENSITIVITY=.024;
+const MAX_ANGULAR_VELOCITY=8.0;
 let dragging=false,px=0,py=0,velX=0,velY=0;
-canvas.addEventListener("pointerdown",e=>{dragging=true;px=e.clientX;py=e.clientY;canvas.setPointerCapture(e.pointerId);canvas.style.cursor="grabbing";});
-canvas.addEventListener("pointermove",e=>{if(!dragging)return;velY+=(e.clientX-px)*.012;velX+=(e.clientY-py)*.012;px=e.clientX;py=e.clientY;});
-const endDrag=()=>{dragging=false;canvas.style.cursor="grab";};
-canvas.addEventListener("pointerup",endDrag);canvas.addEventListener("pointercancel",endDrag);
+let dragPointerId=null,lastPointerTime=0,dragDeltaX=0,dragDeltaY=0;
+
+canvas.addEventListener("pointerdown",e=>{
+  if(dragPointerId!==null)return;
+  dragging=true;
+  dragPointerId=e.pointerId;
+  px=e.clientX;py=e.clientY;
+  lastPointerTime=performance.now();
+  dragDeltaX=0;dragDeltaY=0;
+  velX=0;velY=0;
+  canvas.setPointerCapture(e.pointerId);
+  canvas.style.cursor="grabbing";
+});
+
+canvas.addEventListener("pointermove",e=>{
+  if(!dragging||e.pointerId!==dragPointerId)return;
+  const now=performance.now();
+  const sampleDt=Math.max(1/240,Math.min((now-lastPointerTime)/1000,.05));
+  const dx=e.clientX-px,dy=e.clientY-py;
+  px=e.clientX;py=e.clientY;lastPointerTime=now;
+
+  // Coalesce all pointer deltas and apply them once on the next rendered frame.
+  // This avoids event-rate-dependent rotation and keeps input aligned with WebGL rendering.
+  dragDeltaX+=dx;dragDeltaY+=dy;
+
+  // Estimate release inertia in radians/second, smoothing noisy touch samples.
+  const response=1-Math.exp(-sampleDt*24);
+  const targetYawVelocity=Math.max(-MAX_ANGULAR_VELOCITY,Math.min(MAX_ANGULAR_VELOCITY,dx*ROTATION_SENSITIVITY/sampleDt));
+  const targetPitchVelocity=Math.max(-MAX_ANGULAR_VELOCITY,Math.min(MAX_ANGULAR_VELOCITY,dy*ROTATION_SENSITIVITY/sampleDt));
+  velY+=(targetYawVelocity-velY)*response;
+  velX+=(targetPitchVelocity-velX)*response;
+});
+
+const endDrag=e=>{
+  if(dragPointerId===null||(e&&e.pointerId!==dragPointerId))return;
+  dragging=false;
+  dragPointerId=null;
+  canvas.style.cursor="grab";
+};
+canvas.addEventListener("pointerup",endDrag);
+canvas.addEventListener("pointercancel",endDrag);
+canvas.addEventListener("lostpointercapture",endDrag);
 
 /* ---------- Update ---------- */
 let time=0,flow=0,r1a=0,r2a=0,pxPerUnit=300;
@@ -807,10 +847,18 @@ function updateOrb(dt){
   const idlePulse=Math.pow(Math.max(0,Math.sin(time*.5)),12)*.15*(1-cur.wob);
   const s=cur.scale*(1+.018*Math.sin(time*1.2)+audio.level*.07+cur.wob*.025*Math.sin(time*3.6));
   orb.scale.setScalar(s);
-  orb.rotation.y+=dt*.18*(.5+cur.speed)+velY*Math.min(dt*20,1)*.5;
-  orb.rotation.x=Math.max(-1.2,Math.min(1.2,orb.rotation.x+velX*Math.min(dt*20,1)*.5));
-  velX*=Math.exp(-dt*5);velY*=Math.exp(-dt*5);
-  if(!dragging&&Math.abs(orb.rotation.x)>.001) orb.rotation.x*=Math.exp(-dt*.6);
+  // Preserve the existing automatic orbit while applying touch movement at render cadence.
+  const queuedYaw=dragDeltaX*ROTATION_SENSITIVITY;
+  const queuedPitch=dragDeltaY*ROTATION_SENSITIVITY;
+  dragDeltaX=0;dragDeltaY=0;
+  orb.rotation.y+=dt*.18*(.5+cur.speed)+queuedYaw+(dragging?0:velY*dt);
+  orb.rotation.x=Math.max(-1.2,Math.min(1.2,orb.rotation.x+queuedPitch+(dragging?0:velX*dt)));
+  if(!dragging){
+    // Time-based damping makes fling inertia consistent on 60/90/120 Hz displays.
+    const inertiaDamping=Math.exp(-dt*5);
+    velX*=inertiaDamping;velY*=inertiaDamping;
+    if(Math.abs(orb.rotation.x)>.001)orb.rotation.x*=Math.exp(-dt*.6);
+  }
   U.uTime.value=flow;U.uAmp.value=audio.level+cur.wob*.25;U.uBass.value=audio.bass;U.uHigh.value=audio.high;
   U.uCyan.value=cur.cyan;U.uPurple.value=cur.purple;U.uBright.value=cur.bright+idlePulse;
   glowMat.uniforms.uTime.value=time;glowMat.uniforms.uMix.value=cur.cyan;
