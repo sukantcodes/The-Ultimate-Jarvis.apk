@@ -311,9 +311,25 @@ class HomeFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             val html = try {
                 withContext(Dispatchers.IO) {
-                    appContext.assets.open("eleptical_orb.html.gz").use { compressed ->
+                    val originalHtml = appContext.assets.open("eleptical_orb.html.gz").use { compressed ->
                         java.util.zip.GZIPInputStream(compressed).bufferedReader(Charsets.UTF_8).use { it.readText() }
                     }
+
+                    // Keep the supplied HTML/Three.js design, but cap its WebGL workload for
+                    // Android phones. The original 36k particles at up to 2x/3x DPR can exhaust
+                    // the WebView GPU process on mid-range devices and take the whole app down.
+                    val particleMarker = "COUNT = 36000"
+                    val qualityMarker = "deviceMemory >= 6 && cores >= 8 ? 3 : 2"
+                    check(originalHtml.contains(particleMarker)) {
+                        "The supplied Eleptical Orb source did not match the expected version."
+                    }
+                    check(originalHtml.contains(qualityMarker)) {
+                        "The supplied Eleptical Orb quality settings were not found."
+                    }
+                    originalHtml
+                        .replace(particleMarker, "COUNT = 24000")
+                        .replace("antialias: true", "antialias: false")
+                        .replace(qualityMarker, "deviceMemory >= 6 && cores >= 8 ? 1.5 : 1.25")
                 }
             } catch (error: Exception) {
                 android.util.Log.e("JarvisOrb", "Unable to inflate the supplied Eleptical Orb asset", error)
@@ -858,6 +874,11 @@ class HomeFragment : Fragment() {
         super.onDestroyView()
         statusPulse?.cancel()
         statusPulse = null
+        // A newly-created WebView starts on the built-in page; force the selected
+        // optional orb to be loaded again when Home is recreated.
+        isPageLoaded = false
+        loadedAuroraOrb = false
+        loadedElepticalOrb = false
         _binding = null
     }
 }
