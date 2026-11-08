@@ -5,6 +5,7 @@ on:
     branches:
       - Google
       - Chatbox
+      - Termux
     paths-ignore:
       - "*.md"
       - "docs/**"
@@ -15,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Google branch
+    - name: Checkout source branch
       uses: actions/checkout@v4
       with:
         ref: ${{ github.ref }}
@@ -30,7 +31,7 @@ jobs:
     - name: Set up Android SDK
       uses: android-actions/setup-android@v4
       with:
-        packages: 'platform-tools'
+        packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
     - name: Install native build tools
       run: sdkmanager "ndk;27.2.12479018" "cmake;3.31.6"
     - name: Run unit tests
@@ -39,13 +40,12 @@ jobs:
       run: ./gradlew testDebugUnitTest --stacktrace --info
     - name: Build debug APK
       env:
-        # Public client key for Supabase Auth. Read by app/build.gradle.kts; GitHub masks it in logs.
         SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
       run: ./gradlew assembleDebug
-    - name: Print SHA1      
+    - name: Print SHA1
       run: ./gradlew signingReport
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
-        name: Jarvis-App-Debug
+        name: Jarvis-App-Debug-Termux
         path: app/build/outputs/apk/debug/*.apk
