@@ -37,7 +37,9 @@ internal class SessionStore(context: Context) {
             refreshToken = refresh,
             expiresAtEpochSec = prefs.getLong(K_EXPIRES, 0L),
             userId = prefs.getString(K_USER_ID, "").orEmpty(),
-            email = prefs.getString(K_EMAIL, "").orEmpty()
+            email = prefs.getString(K_EMAIL, "").orEmpty(),
+            displayName = prefs.getString(K_DISPLAY_NAME, "").orEmpty(),
+            avatarUrl = prefs.getString(K_AVATAR_URL, "").orEmpty()
         )
     }
 
@@ -49,6 +51,8 @@ internal class SessionStore(context: Context) {
             ?.putLong(K_EXPIRES, session.expiresAtEpochSec)
             ?.putString(K_USER_ID, session.userId)
             ?.putString(K_EMAIL, session.email)
+            ?.putString(K_DISPLAY_NAME, session.displayName)
+            ?.putString(K_AVATAR_URL, session.avatarUrl)
             ?.apply()
     }
 
@@ -56,6 +60,7 @@ internal class SessionStore(context: Context) {
         memorySession = null
         secure?.edit()
             ?.remove(K_ACCESS)?.remove(K_REFRESH)?.remove(K_EXPIRES)?.remove(K_USER_ID)?.remove(K_EMAIL)
+            ?.remove(K_DISPLAY_NAME)?.remove(K_AVATAR_URL)
             ?.apply()
     }
 
@@ -97,6 +102,8 @@ internal class SessionStore(context: Context) {
         const val K_EXPIRES = "expires_at"
         const val K_USER_ID = "user_id"
         const val K_EMAIL = "email"
+        const val K_DISPLAY_NAME = "display_name"
+        const val K_AVATAR_URL = "avatar_url"
         const val K_VERIFIER = "pkce_verifier_"
         const val K_GUEST = "guest_chosen"
         const val K_NOTICE = "pending_notice"
