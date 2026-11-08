@@ -34,6 +34,44 @@ jobs:
         packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
     - name: Install native build tools
       run: sdkmanager "ndk;27.2.12479018" "cmake;3.31.6"
+    - name: Prefetch pinned llama.cpp source with retries
+      env:
+        LLAMA_CPP_REVISION: da2ee1e7a640445fc562fe5529598cee1917e0f5
+      run: |
+        set -euo pipefail
+        dest="$RUNNER_TEMP/llama-cpp"
+        archive="$RUNNER_TEMP/llama-cpp.tar.gz"
+        urls=(
+          "https://codeload.github.com/ggml-org/llama.cpp/tar.gz/$LLAMA_CPP_REVISION"
+          "https://github.com/ggml-org/llama.cpp/archive/$LLAMA_CPP_REVISION.tar.gz"
+          "https://api.github.com/repos/ggml-org/llama.cpp/tarball/$LLAMA_CPP_REVISION"
+        )
+        downloaded=false
+        for url in "${urls[@]}"; do
+          for attempt in 1 2 3 4 5; do
+            rm -f "$archive"
+            if curl --http1.1 -fL --retry 2 --retry-all-errors --retry-delay 4 \
+                 --connect-timeout 30 --max-time 300 -o "$archive" "$url" \
+               && tar -tzf "$archive" >/dev/null 2>&1; then
+              downloaded=true
+              echo "Downloaded pinned llama.cpp source from $url"
+              break 2
+            fi
+            echo "Attempt $attempt failed for $url; retrying"
+            sleep $((attempt * 6))
+          done
+        done
+        if [ "$downloaded" != true ]; then
+          echo "::error::Unable to download pinned llama.cpp source from the configured GitHub archive endpoints."
+          exit 1
+        fi
+        rm -rf "$dest"
+        mkdir -p "$dest"
+        tar -xzf "$archive" -C "$dest" --strip-components=1
+        test -f "$dest/CMakeLists.txt"
+        test -d "$dest/ggml"
+        echo "LLAMA_CPP_SRC=$dest" >> "$GITHUB_ENV"
+        echo "Pinned llama.cpp source is ready at $dest"
     - name: Prefetch KleidiAI with retries
       # GitHub release assets intermittently return 504, which fails the native build. Keep the
       # version in sync with the KleidiAI release that the pinned llama.cpp commit downloads.
