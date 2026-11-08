@@ -5,6 +5,7 @@ import android.app.Activity
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RadialGradient
+import android.graphics.Rect
 import android.graphics.Shader
 import android.graphics.Color
 import android.view.MotionEvent
@@ -141,9 +142,13 @@ private class TouchGlowView(activity: Activity) : View(activity) {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> begin(x, y)
             MotionEvent.ACTION_MOVE -> {
+                if (glowAlpha <= 0f || radius <= 0f) return
+                val oldX = centerX
+                val oldY = centerY
                 centerX = x
                 centerY = y
-                invalidate()
+                // Redraw only the glow's previous and current bounds, not the full overlay.
+                invalidateGlowRegion(oldX, oldY, x, y)
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> end()
         }
@@ -160,11 +165,11 @@ private class TouchGlowView(activity: Activity) : View(activity) {
             duration = 190L
             addUpdateListener {
                 radius = 58f * density * it.animatedValue as Float
-                invalidate()
+                invalidateGlowRegion(centerX, centerY, centerX, centerY)
             }
             start()
         }
-        invalidate()
+        invalidateGlowRegion(centerX, centerY, centerX, centerY)
     }
 
     private fun end() {
@@ -179,18 +184,32 @@ private class TouchGlowView(activity: Activity) : View(activity) {
                 val fraction = it.animatedValue as Float
                 glowAlpha = startAlpha * (1f - fraction)
                 radius = startRadius + (34f * density * fraction)
-                invalidate()
+                invalidateGlowRegion(centerX, centerY, centerX, centerY)
             }
             start()
         }
     }
 
     fun clearGlow() {
+        val oldX = centerX
+        val oldY = centerY
         animator?.cancel()
         pressed = false
         glowAlpha = 0f
         radius = 0f
-        invalidate()
+        invalidateGlowRegion(oldX, oldY, oldX, oldY)
+    }
+
+    private fun invalidateGlowRegion(oldX: Float, oldY: Float, newX: Float, newY: Float) {
+        val extent = (maxRadius * 1.35f + 2f).toInt()
+        val dirty = Rect(
+            kotlin.math.floor(minOf(oldX, newX)).toInt() - extent,
+            kotlin.math.floor(minOf(oldY, newY)).toInt() - extent,
+            kotlin.math.ceil(maxOf(oldX, newX)).toInt() + extent,
+            kotlin.math.ceil(maxOf(oldY, newY)).toInt() + extent
+        )
+        dirty.intersect(0, 0, width, height)
+        if (!dirty.isEmpty) invalidate(dirty)
     }
 
     override fun onDraw(canvas: Canvas) {
