@@ -82,6 +82,15 @@
                     android:layout_marginBottom="6dp" />
 
                 <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOrbEleptical"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="🌀  Eleptical Orb"
+                    android:textAllCaps="false"
+                    android:layout_marginBottom="6dp" />
+
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnOrbAurora"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="match_parent"

@@ -39,6 +39,7 @@ class HomeFragment : Fragment() {
 
     private var isPageLoaded = false
     private var loadedAuroraOrb = false
+    private var loadedElepticalOrb = false
     private var pendingOrbState: String? = null
     private var pendingThemeKey: String? = null
     private var pendingCustomHex: String? = null
@@ -298,6 +299,19 @@ class HomeFragment : Fragment() {
         }
     }
 
+    /**
+     * Loads the supplied orb source without modifying its HTML. The gzip asset is inflated
+     * in memory and the Android asset base URL keeps its relative three.min.js reference local.
+     */
+    private fun loadElepticalOrb() {
+        val html = requireContext().assets.open("eleptical_orb.html.gz").use { compressed ->
+            java.util.zip.GZIPInputStream(compressed).bufferedReader(Charsets.UTF_8).use { it.readText() }
+        }
+        binding.orbWebView.loadDataWithBaseURL(
+            "file:///android_asset/", html, "text/html", "UTF-8", null
+        )
+    }
+
     fun setOrbState(state: String) {
         pendingOrbState = state
         if (!isPageLoaded) return
@@ -332,13 +346,19 @@ class HomeFragment : Fragment() {
         pendingOrbStyle = style
         applyOrbLook(style)
         val wantsAurora = style == "aurora_orb"
-        if (wantsAurora != loadedAuroraOrb) {
+        val wantsEleptical = style == "eleptical_orb"
+        if (wantsAurora != loadedAuroraOrb || wantsEleptical != loadedElepticalOrb) {
             loadedAuroraOrb = wantsAurora
+            loadedElepticalOrb = wantsEleptical
             isPageLoaded = false
-            binding.orbWebView.loadUrl(if (wantsAurora) "file:///android_asset/aurora_orb.html?hud=0&state=idle" else "file:///android_asset/orb.html?embedded=1")
+            when {
+                wantsAurora -> binding.orbWebView.loadUrl("file:///android_asset/aurora_orb.html?hud=0&state=idle")
+                wantsEleptical -> loadElepticalOrb()
+                else -> binding.orbWebView.loadUrl("file:///android_asset/orb.html?embedded=1")
+            }
             return
         }
-        if (!isPageLoaded || wantsAurora) return
+        if (!isPageLoaded || wantsAurora || wantsEleptical) return
         val safeStyle = style.filter { it.isLetterOrDigit() || it == '_' }
         activity?.runOnUiThread {
             binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setStyle('$safeStyle');", null)

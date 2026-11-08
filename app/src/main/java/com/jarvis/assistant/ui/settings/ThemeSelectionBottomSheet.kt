@@ -44,6 +44,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         } catch (_: Exception) {}
 
         binding.btnOrbDefault.setOnClickListener { selectOrb("default", "Default Orb") }
+        binding.btnOrbEleptical.setOnClickListener { selectOrb("eleptical_orb", "Eleptical Orb") }
         binding.btnOrbAurora.setOnClickListener { selectOrb("aurora_orb", "Aurora Orb") }
         binding.btnOrbIronMan.setOnClickListener { selectOrb("iron_man_head", "Iron Man 3D Helmet") }
         binding.btnOrbFullCharacter.setOnClickListener { selectOrb("full_human", "Full Human 3D Assistant") }
@@ -89,6 +90,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         }.data
         val options = listOf(
             "default" to binding.btnOrbDefault,
+            "eleptical_orb" to binding.btnOrbEleptical,
             "aurora_orb" to binding.btnOrbAurora,
             "iron_man_head" to binding.btnOrbIronMan,
             "full_human" to binding.btnOrbFullCharacter
@@ -118,6 +120,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         val style = preferences.orbAnimation
         binding.tvOrbControlsHint.text = "Applies to the selected orb: " + when (style) {
             "aurora_orb" -> "Aurora Orb"
+            "eleptical_orb" -> "Eleptical Orb"
             "iron_man_head" -> "Iron Man 3D Helmet"
             "full_human" -> "Full Human 3D Assistant"
             else -> "Default Orb"

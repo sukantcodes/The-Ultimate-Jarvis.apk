@@ -331,7 +331,7 @@ class AppPreferences(context: Context) {
     var orbAnimation: String
         get() {
             // Removed orbs (plasma_core, holographic_pulse and their old aliases) fall back to the default orb.
-            val valid = listOf("default", "aurora_orb", "iron_man_head", "full_human", "quantum_core", "siri_glow")
+            val valid = listOf("default", "eleptical_orb", "aurora_orb", "iron_man_head", "full_human", "quantum_core", "siri_glow")
             val stored = prefs.getString(KEY_ORB_ANIMATION, "default") ?: "default"
             return if (stored in valid) stored else "default"
         }
