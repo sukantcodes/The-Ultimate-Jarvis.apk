@@ -24,6 +24,28 @@ internal class SupabaseAuthClient(
         .build()
 ) {
     private val json = "application/json; charset=utf-8".toMediaType()
+    private val profileHttp = http.newBuilder()
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(8, TimeUnit.SECONDS)
+        .callTimeout(10, TimeUnit.SECONDS)
+        .build()
+
+    /** Fetches the authoritative profile for the current authenticated user. */
+    suspend fun fetchCurrentUserProfile(accessToken: String): AuthResult<AuthProfile> {
+        val result: AuthResult<AuthProfile?> = call(
+            path = "/auth/v1/user",
+            query = emptyMap(),
+            body = null,
+            method = "GET",
+            bearer = accessToken,
+            requestClient = profileHttp
+        ) { SupabaseResponseParser.parseProfile(it) }
+        return when (result) {
+            is AuthResult.Success -> result.value?.let { AuthResult.Success(it) }
+                ?: AuthResult.Failure(AuthError.UNKNOWN, "The account profile response was incomplete.")
+            is AuthResult.Failure -> result
+        }
+    }
 
     suspend fun signUp(email: String, password: String, challenge: String): AuthResult<SignUpOutcome> =
         call(
@@ -100,9 +122,10 @@ internal class SupabaseAuthClient(
     private suspend fun <T> call(
         path: String,
         query: Map<String, String>,
-        body: JsonObject,
+        body: JsonObject?,
         method: String = "POST",
         bearer: String? = null,
+        requestClient: OkHttpClient = http,
         parse: (String) -> T
     ): AuthResult<T> {
         if (!SupabaseConfig.isConfigured) {
@@ -120,9 +143,13 @@ internal class SupabaseAuthClient(
                     .url(url)
                     .header("apikey", SupabaseConfig.publishableKey)
                     .header("Authorization", "Bearer ${bearer ?: SupabaseConfig.publishableKey}")
-                    .method(method, body.toString().toRequestBody(json))
+                    .method(
+                        method,
+                        if (method.equals("GET", ignoreCase = true) || method.equals("HEAD", ignoreCase = true)) null
+                        else body?.toString()?.toRequestBody(json)
+                    )
                     .build()
-                http.newCall(request).execute().use { response ->
+                requestClient.newCall(request).execute().use { response ->
                     val text = response.body?.string().orEmpty()
                     if (response.isSuccessful) AuthResult.Success(parse(text))
                     else SupabaseResponseParser.parseError(response.code, text)
