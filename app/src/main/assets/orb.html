@@ -111,7 +111,7 @@ void main(){
  vec3 c=mix(BLUE,CYAN,smoothstep(-.5,.9,d.y+n)*uCyan);
  c=mix(c,PURP,smoothstep(.1,.9,d.x*.6-d.y*.3+aRnd*.4)*uPurple);
  c=mix(DEEP,c,.5+.5*aRnd);
- vC=c*uBright*mix(.6,1.,depth);
+ vC=c*uBright*2.0*mix(.6,1.,depth);
  gl_PointSize=max((.009+aRnd*.017)*(1.+uAmp*.5)*uPx/(-mv.z)*mix(.85,1.2,depth),1.7);
  gl_Position=projectionMatrix*mv;}`;
 const dotF="precision highp float;varying vec3 vC;varying float vA;void main(){float d=length(gl_PointCoord-.5);gl_FragColor=vec4(vC,smoothstep(.5,.05,d)*vA);}";
@@ -814,7 +814,7 @@ function updateOrb(dt){
   U.uTime.value=flow;U.uAmp.value=audio.level+cur.wob*.25;U.uBass.value=audio.bass;U.uHigh.value=audio.high;
   U.uCyan.value=cur.cyan;U.uPurple.value=cur.purple;U.uBright.value=cur.bright+idlePulse;
   glowMat.uniforms.uTime.value=time;glowMat.uniforms.uMix.value=cur.cyan;
-  glowMat.uniforms.uStrength.value=(cur.glow+audio.level*.6+idlePulse*2)*glowMul;
+  glowMat.uniforms.uStrength.value=2.0*(cur.glow+audio.level*.6+idlePulse*2)*glowMul;
   const voicePulse = state==="speaking" ? .10 + audio.level*.12 : state==="listening" ? .035 + audio.level*.07 : .015;
   if(false) {
   } else if(orbStyle==="siri_glass_aurora") {
