@@ -27,8 +27,10 @@ import com.jarvis.assistant.util.PermissionHelper
 import android.content.res.ColorStateList
 import androidx.core.content.ContextCompat
 import com.jarvis.assistant.R
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class HomeFragment : Fragment() {
 
@@ -300,16 +302,34 @@ class HomeFragment : Fragment() {
     }
 
     /**
-     * Loads the supplied orb source without modifying its HTML. The gzip asset is inflated
-     * in memory and the Android asset base URL keeps its relative three.min.js reference local.
+     * Loads the user's original supplied orb HTML unchanged. Inflate it off the UI thread so
+     * WebView selection never blocks the Activity, then attach it only if this view is still
+     * alive and the user has not switched to another orb in the meantime.
      */
     private fun loadElepticalOrb() {
-        val html = requireContext().assets.open("eleptical_orb.html.gz").use { compressed ->
-            java.util.zip.GZIPInputStream(compressed).bufferedReader(Charsets.UTF_8).use { it.readText() }
+        val appContext = requireContext().applicationContext
+        viewLifecycleOwner.lifecycleScope.launch {
+            val html = try {
+                withContext(Dispatchers.IO) {
+                    appContext.assets.open("eleptical_orb.html.gz").use { compressed ->
+                        java.util.zip.GZIPInputStream(compressed).bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    }
+                }
+            } catch (error: Exception) {
+                android.util.Log.e("JarvisOrb", "Unable to inflate the supplied Eleptical Orb asset", error)
+                android.widget.Toast.makeText(appContext, "Eleptical Orb could not be loaded. Default Orb is still available.", android.widget.Toast.LENGTH_LONG).show()
+                return@launch
+            }
+
+            if (_binding == null || !isAdded || preferences.orbAnimation != "eleptical_orb") return@launch
+
+            // Avoid an extra off-screen hardware layer for the WebGL canvas. The WebView
+            // remains hardware accelerated by the Activity window, which WebGL requires.
+            binding.orbWebView.setLayerType(View.LAYER_TYPE_NONE, null)
+            binding.orbWebView.loadDataWithBaseURL(
+                "file:///android_asset/", html, "text/html", "UTF-8", null
+            )
         }
-        binding.orbWebView.loadDataWithBaseURL(
-            "file:///android_asset/", html, "text/html", "UTF-8", null
-        )
     }
 
     fun setOrbState(state: String) {
@@ -351,6 +371,8 @@ class HomeFragment : Fragment() {
             loadedAuroraOrb = wantsAurora
             loadedElepticalOrb = wantsEleptical
             isPageLoaded = false
+            // Restore the existing renderer setup for the built-in orb variants.
+            if (!wantsEleptical) binding.orbWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             when {
                 wantsAurora -> binding.orbWebView.loadUrl("file:///android_asset/aurora_orb.html?hud=0&state=idle")
                 wantsEleptical -> loadElepticalOrb()
