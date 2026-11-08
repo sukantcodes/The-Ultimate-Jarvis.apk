@@ -60,7 +60,7 @@ object OnboardingStatusReader {
         if (Build.VERSION.SDK_INT < 33) return false
         val installer = try {
             if (Build.VERSION.SDK_INT >= 30) {
-                context.packageManager.getInstallSourceInfo(context.packageName).installingPackage
+                context.packageManager.getInstallSourceInfo(context.packageName).installingPackageName
             } else {
                 @Suppress("DEPRECATION")
                 context.packageManager.getInstallerPackageName(context.packageName)
