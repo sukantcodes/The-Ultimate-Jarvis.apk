@@ -4,6 +4,8 @@ import android.Manifest
 import android.app.role.RoleManager
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.drawable.GradientDrawable
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
@@ -35,6 +37,14 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.jarvis.assistant.BuildConfig
 import com.jarvis.assistant.JarvisApp
@@ -81,6 +91,11 @@ class SettingsFragment : Fragment() {
 
     /** True while switches are being set from stored values, so their listeners do not fire. */
     private var syncingUi = false
+    private var profileImageJob: Job? = null
+    private var loadedRemoteAvatarUrl: String? = null
+    private val profileImageClient by lazy {
+        OkHttpClient.Builder().connectTimeout(8, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build()
+    }
 
     /**
      * Calling and SIM choice need contacts and phone permissions. They are asked for when the user
@@ -246,6 +261,8 @@ class SettingsFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        profileImageJob?.cancel()
+        profileImageJob = null
         _binding = null
     }
 
@@ -393,27 +410,62 @@ class SettingsFragment : Fragment() {
 
     private fun showProfilePhoto() {
         val avatar = binding.ivProfileAvatar
+        avatar.imageTintList = null
+        avatar.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+        avatar.setPadding(0, 0, 0, 0)
+
+        // A photo explicitly selected in Settings remains the user's override.
         val savedUri = preferences.profilePhotoUri
-        if (savedUri.isBlank()) {
-            // The bundled creator portrait is the default until the user picks a personal photo.
-            avatar.setImageResource(R.drawable.jarvis_default_user)
-            avatar.imageTintList = null
-            avatar.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-            avatar.setPadding(0, 0, 0, 0)
+        if (savedUri.isNotBlank()) {
+            profileImageJob?.cancel()
+            loadedRemoteAvatarUrl = null
+            try {
+                avatar.setImageURI(Uri.parse(savedUri))
+            } catch (_: Exception) {
+                preferences.profilePhotoUri = ""
+                showProfilePhoto()
+            }
             return
         }
-        try {
-            avatar.setImageURI(Uri.parse(savedUri))
-            avatar.imageTintList = null
-            avatar.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-            avatar.setPadding(0, 0, 0, 0)
-        } catch (_: Exception) {
-            preferences.profilePhotoUri = ""
+
+        val accountUrl = preferences.accountAvatarUrl
+        if (accountUrl.startsWith("https://", ignoreCase = true)) {
+            if (loadedRemoteAvatarUrl == accountUrl && avatar.drawable != null) return
+            profileImageJob?.cancel()
             avatar.setImageResource(R.drawable.jarvis_default_user)
-            avatar.imageTintList = null
-            avatar.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-            avatar.setPadding(0, 0, 0, 0)
+            profileImageJob = lifecycleScope.launch {
+                val bitmap = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val request = Request.Builder().url(accountUrl).header("Accept", "image/*").build()
+                        profileImageClient.newCall(request).execute().use { response ->
+                            if (!response.isSuccessful) return@use null
+                            val body = response.body ?: return@use null
+                            if (body.contentLength() > 4L * 1024L * 1024L) return@use null
+                            val bytes = body.bytes()
+                            if (bytes.size > 4 * 1024 * 1024) return@use null
+                            val options = BitmapFactory.Options().apply { inSampleSize = 2 }
+                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                        }
+                    }.getOrNull()
+                }
+                if (_binding != null && preferences.profilePhotoUri.isBlank() &&
+                    preferences.accountAvatarUrl == accountUrl
+                ) {
+                    if (bitmap != null) {
+                        binding.ivProfileAvatar.setImageBitmap(bitmap)
+                        loadedRemoteAvatarUrl = accountUrl
+                    } else {
+                        binding.ivProfileAvatar.setImageResource(R.drawable.jarvis_default_user)
+                        loadedRemoteAvatarUrl = null
+                    }
+                }
+            }
+            return
         }
+
+        profileImageJob?.cancel()
+        loadedRemoteAvatarUrl = null
+        avatar.setImageResource(R.drawable.jarvis_default_user)
     }
 
     private fun dp(value: Int): Int =
@@ -717,7 +769,9 @@ class SettingsFragment : Fragment() {
         val green = ContextCompat.getColor(ctx, R.color.status_green)
         val sapphire = ContextCompat.getColor(ctx, R.color.accent_sapphire)
 
-        binding.tvProfileName.text = preferences.userName.ifBlank { "Sukant" }
+        binding.tvProfileName.text = preferences.profileNameOverride.ifBlank {
+            preferences.accountDisplayName.ifBlank { preferences.userName.ifBlank { "Sukant" } }
+        }
         showProfilePhoto()
         binding.tvProfileSubtitle.text = "JARVIS OPERATOR • PRIMARY USER"
 
@@ -860,7 +914,9 @@ class SettingsFragment : Fragment() {
 
     private fun showEditNameDialog() {
         val input = EditText(dialogContext()).apply {
-            setText(preferences.userName.ifBlank { "Sukant" })
+            setText(preferences.profileNameOverride.ifBlank {
+                preferences.accountDisplayName.ifBlank { preferences.userName.ifBlank { "Sukant" } }
+            })
             setSelection(text.length)
         }
         MaterialAlertDialogBuilder(dialogContext())
@@ -871,6 +927,7 @@ class SettingsFragment : Fragment() {
                 val newName = input.text.toString().trim()
                 if (newName.isNotBlank()) {
                     preferences.userName = newName
+                    preferences.profileNameOverride = newName
                     loadUserData()
                 }
             }
