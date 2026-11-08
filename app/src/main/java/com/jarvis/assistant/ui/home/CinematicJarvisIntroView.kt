@@ -338,9 +338,10 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
             val scale = 0.965f + 0.035f * logoSettle
             val drawW = logoWidth * scale
             val drawH = logoHeight * scale
+            val logoY = cy + coreRadius * 1.92f
             logoRect.set(
-                cx - drawW * 0.5f, cy - drawH * 0.5f,
-                cx + drawW * 0.5f, cy + drawH * 0.5f
+                cx - drawW * 0.5f, logoY - drawH * 0.5f,
+                cx + drawW * 0.5f, logoY + drawH * 0.5f
             )
 
             val reveal = segment(p, 0.39f, 0.66f, EASE_OUT)
@@ -503,7 +504,8 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         canvas.save()
         canvas.rotate(tilt)
         aperturePath.reset()
-        aperturePath.addOval(RectF(-coreRadius * rx, -coreRadius * ry, coreRadius * rx, coreRadius * ry), Path.Direction.CW)
+        energyRect.set(-coreRadius * rx, -coreRadius * ry, coreRadius * rx, coreRadius * ry)
+        aperturePath.addOval(energyRect, Path.Direction.CW)
         energyRing.color = Color.argb(128, Color.red(color), Color.green(color), Color.blue(color))
         energyRing.strokeWidth = dp(1.15f)
         canvas.drawPath(aperturePath, energyRing)
