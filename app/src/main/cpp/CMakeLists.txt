@@ -5,7 +5,16 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(FetchContent)
-FetchContent_Declare(llama_cpp URL https://github.com/ggml-org/llama.cpp/archive/da2ee1e7a640445fc562fe5529598cee1917e0f5.tar.gz DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+# Keep the upstream revision pinned. CI prefetches this archive with retries and
+# supplies LLAMA_CPP_SRC, avoiding fragile long downloads inside CMake.
+FetchContent_Declare(llama_cpp
+ URL https://codeload.github.com/ggml-org/llama.cpp/tar.gz/da2ee1e7a640445fc562fe5529598cee1917e0f5
+ DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+if(DEFINED ENV{LLAMA_CPP_SRC} AND IS_DIRECTORY "$ENV{LLAMA_CPP_SRC}")
+ set(FETCHCONTENT_SOURCE_DIR_LLAMA_CPP "$ENV{LLAMA_CPP_SRC}" CACHE PATH "Prefetched llama.cpp sources" FORCE)
+ message(STATUS "Using prefetched llama.cpp from $ENV{LLAMA_CPP_SRC}")
+endif()
 set(LLAMA_BUILD_COMMON ON CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
