@@ -178,6 +178,19 @@ object ThemeManager {
         return (strength.coerceIn(0, 100) * 255 / 100)
     }
 
+    /**
+     * What a WebView orb needs to match the app theme exactly: whether the UI is light, plus the two
+     * theme accent colours as hex. (Guessing light/dark from a colour name made light themes such as
+     * Sunset render with a dark-background palette and wash out.)
+     */
+    fun getOrbThemeSpec(themeKey: String? = null): Triple<Boolean, String, String> {
+        val prefs = try { JarvisApp.instance.preferences } catch (_: Exception) { null }
+        val key = themeKey ?: prefs?.appTheme ?: "sunset"
+        val (first, second) = themeGlowColors(key)
+        fun hex(c: Int) = String.format("#%06X", 0xFFFFFF and c)
+        return Triple(isLight(getThemeBgColor(key, null)), hex(first), hex(second))
+    }
+
     /** Accent used by runtime-tinted UI elements, including custom themes. */
     fun getThemeAccentColor(): Int {
         val prefs = try { JarvisApp.instance.preferences } catch (_: Exception) { null }

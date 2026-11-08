@@ -278,9 +278,11 @@ class HomeFragment : Fragment() {
                 }
             }
 
-            // Single tap detection triggers mic/conversation without interrupting 3D rotation drag
+            // Single tap detection triggers mic/conversation without interrupting 3D rotation drag.
+            // onSingleTapUp fires on finger-up (never after a long press or a drag), so the orb responds
+            // instantly instead of waiting out the ~300 ms double-tap window of onSingleTapConfirmed.
             val gestureDetector = GestureDetector(requireContext(), object : GestureDetector.SimpleOnGestureListener() {
-                override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                override fun onSingleTapUp(e: MotionEvent): Boolean {
                     (activity as? MainActivity)?.handleMicOrOrbClick()
                     return true
                 }
@@ -295,20 +297,31 @@ class HomeFragment : Fragment() {
                 v.onTouchEvent(event)
             }
 
-            loadUrl("file:///android_asset/orb.html?embedded=1")
+            // Load the orb the user actually selected straight away. Previously the default orb was
+            // loaded first and then replaced, which flashed the wrong orb and built two WebGL contexts.
+            loadOrbPage(preferences.orbAnimation)
         }
     }
 
     /**
-     * Loads the user's original supplied orb HTML unchanged. Inflate it off the UI thread so
-     * WebView selection never blocks the Activity, then attach it only if this view is still
-     * alive and the user has not switched to another orb in the meantime.
+     * Loads the page for [style] into the shared orb WebView and records which page family is active.
+     * Every page uses the same hardware-accelerated renderer; relative three.min.js paths resolve
+     * because all pages live next to it in assets.
      */
-    private fun loadElepticalOrb() {
-        // The original uploaded HTML is unpacked into the APK's assets at build time.
-        // Load it exactly like Default Orb so its relative three.min.js path resolves.
+    private fun loadOrbPage(style: String) {
+        val wantsAurora = style == "aurora_orb"
+        val wantsEleptical = style == "eleptical_orb"
+        loadedAuroraOrb = wantsAurora
+        loadedElepticalOrb = wantsEleptical
+        isPageLoaded = false
         binding.orbWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-        binding.orbWebView.loadUrl("file:///android_asset/eleptical_orb.html")
+        binding.orbWebView.loadUrl(
+            when {
+                wantsAurora -> "file:///android_asset/aurora_orb.html?hud=0&state=idle"
+                wantsEleptical -> "file:///android_asset/eleptical_orb.html"
+                else -> "file:///android_asset/orb.html?embedded=1"
+            }
+        )
     }
 
     fun setOrbState(state: String) {
@@ -331,7 +344,9 @@ class HomeFragment : Fragment() {
         binding.orbWebView.scaleY = size
         binding.orbHaloRing.scaleX = size
         binding.orbHaloRing.scaleY = size
-        binding.orbHaloRing.alpha = (glow / 1.5f).coerceIn(0f, 1f)
+        // The Elliptical Orb paints its own elliptical halo inside the page; the round native halo
+        // behind it would double the glow and not match its shape.
+        binding.orbHaloRing.alpha = if (style == "eleptical_orb") 0f else (glow / 1.5f).coerceIn(0f, 1f)
         if (isPageLoaded) {
             activity?.runOnUiThread {
                 if (_binding != null) {
@@ -347,16 +362,7 @@ class HomeFragment : Fragment() {
         val wantsAurora = style == "aurora_orb"
         val wantsEleptical = style == "eleptical_orb"
         if (wantsAurora != loadedAuroraOrb || wantsEleptical != loadedElepticalOrb) {
-            loadedAuroraOrb = wantsAurora
-            loadedElepticalOrb = wantsEleptical
-            isPageLoaded = false
-            // Use the same hardware-accelerated WebView renderer for every orb variant.
-            binding.orbWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-            when {
-                wantsAurora -> binding.orbWebView.loadUrl("file:///android_asset/aurora_orb.html?hud=0&state=idle")
-                wantsEleptical -> loadElepticalOrb()
-                else -> binding.orbWebView.loadUrl("file:///android_asset/orb.html?embedded=1")
-            }
+            loadOrbPage(style)
             return
         }
         if (!isPageLoaded || wantsAurora || wantsEleptical) return
@@ -379,6 +385,16 @@ class HomeFragment : Fragment() {
         tintOrbHalo()
         if (!isPageLoaded || loadedAuroraOrb) return
         activity?.runOnUiThread {
+            if (_binding == null) return@runOnUiThread
+            if (loadedElepticalOrb) {
+                // Exact light/dark flag + the app's two accent colours (custom themes included).
+                val (isLight, first, second) = com.jarvis.assistant.util.ThemeManager.getOrbThemeSpec(themeKey)
+                binding.orbWebView.evaluateJavascript(
+                    "window.JarvisOrb && window.JarvisOrb.setAppTheme && window.JarvisOrb.setAppTheme($isLight,'$first','$second');",
+                    null
+                )
+                return@runOnUiThread
+            }
             if (themeKey == "custom" && !customHex.isNullOrBlank()) {
                 val second = preferences.customThemeColor2.takeIf { it.isNotBlank() } ?: customHex
                 val safeFirst = customHex.filter { it.isLetterOrDigit() || it == '#' }
@@ -401,8 +417,13 @@ class HomeFragment : Fragment() {
         val now = System.currentTimeMillis()
         if (now - lastAudioPushTime < 33L) return // ~30 calls per second throttle
         lastAudioPushTime = now
+        // NaN/Infinity would be pasted into the JS call as bare identifiers; keep values finite and in range.
+        val a = amp.takeIf { it.isFinite() }?.coerceIn(0f, 2f) ?: 0f
+        val b = bass.takeIf { it.isFinite() }?.coerceIn(0f, 2f) ?: 0f
+        val h = high.takeIf { it.isFinite() }?.coerceIn(0f, 2f) ?: 0f
         activity?.runOnUiThread {
-            if (loadedAuroraOrb) binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setAudioLevel(${amp.coerceIn(0f, 2f)});", null) else binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setExternalAudio($amp, $bass, $high);", null)
+            if (_binding == null) return@runOnUiThread
+            if (loadedAuroraOrb) binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setAudioLevel($a);", null) else binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setExternalAudio($a, $b, $h);", null)
         }
     }
 
