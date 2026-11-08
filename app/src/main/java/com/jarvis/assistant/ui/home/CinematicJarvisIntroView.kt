@@ -11,6 +11,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RadialGradient
@@ -21,20 +22,26 @@ import android.view.View
 import android.view.animation.Interpolator
 import android.view.animation.LinearInterpolator
 import android.view.animation.PathInterpolator
-import kotlin.math.min
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.min
 import kotlin.math.sin
 
 /**
- * Cinematic JARVIS brand reveal.
+ * Premium glassmorphism JARVIS opening.
  *
- * The mark remains the hero and is rendered in its original artwork colours. Motion is
- * authored as one deterministic timeline: atmosphere -> aperture -> mark reveal -> scan ->
- * creator signature -> purpose -> welcome. Geometry is recalculated for the actual window.
+ * Scene: a deep midnight backdrop lit by four slowly drifting aurora lights, with soft glass
+ * bubbles floating above them. A frosted glass card (translucent fill, gradient rim light, top
+ * sheen, soft depth shadow) rises into place and carries the JARVIS wordmark; a single light sweep
+ * crosses it. Below, a second frosted panel carries the descriptor, creator credit and purpose,
+ * and a glowing glass pill delivers the final "WELCOME TO JARVIS" lockup.
  *
- * No per-frame object allocation is performed in onDraw; shaders and reusable geometry are
- * prepared in onSizeChanged. The public host contract is intentionally unchanged.
+ * The wordmark artwork is dark ink on transparency, so it is deliberately placed on the light
+ * frosted card where it reads at full contrast, in its original colours.
+ *
+ * One deterministic timeline drives everything. Geometry and shaders are prepared in
+ * onSizeChanged; onDraw performs no allocation. The public host contract is unchanged:
+ * [dissolveOnFinish], [start], [skip], [dispose].
  */
 internal class CinematicJarvisIntroView(context: Context) : View(context) {
 
@@ -52,15 +59,26 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         )
     }.getOrNull()
 
+    // ---- paints -------------------------------------------------------------------------------
     private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val atmospherePaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val aperturePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val blobPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val bubbleFill = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val bubbleRim = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val glassFill = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val glassTint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val glassSheen = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val glassRim = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val sweepPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val logoPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
-    private val scanPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val panelFill = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val panelRim = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val pillFill = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val pillRim = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val pillGlow = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val rulePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.SQUARE
-        strokeJoin = Paint.Join.ROUND
+        strokeCap = Paint.Cap.ROUND
     }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
@@ -70,32 +88,42 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create("sans-serif", Typeface.NORMAL)
     }
-    private val accentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND
-    }
-    private val logoRect = RectF()
-    private val frameRect = RectF()
-    private val aperturePath = Path()
-    private val energyGlow = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val energyCore = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val energyRing = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND }
-    private val energyDetail = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
-    private val energyParticle = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val energyRect = RectF()
-    private val starX = FloatArray(36)
-    private val starY = FloatArray(36)
-    private val starSize = FloatArray(36)
-    private var coreRadius = 0f
 
-    private var cx = 0f
-    private var cy = 0f
+    // ---- geometry (all reused; nothing is allocated in onDraw) -----------------------------------
+    private val cardRect = RectF()
+    private val shadowRect = RectF()
+    private val logoRect = RectF()
+    private val panelRect = RectF()
+    private val pillRect = RectF()
+    private val cardPath = Path()
+    private val sweepMatrix = Matrix()
+    private val sheenRect = RectF()
+
+    private val blobColors = intArrayOf(
+        Color.rgb(56, 189, 248),   // cyan
+        Color.rgb(139, 92, 246),   // violet
+        Color.rgb(59, 112, 246),   // blue
+        Color.rgb(236, 72, 153)    // magenta
+    )
+    private val blobShaders = arrayOfNulls<RadialGradient>(4)
+    private val blobRadius = FloatArray(4)
+
+    private val bubbleCount = 16
+    private val bubbleX = FloatArray(bubbleCount)
+    private val bubbleY = FloatArray(bubbleCount)
+    private val bubbleR = FloatArray(bubbleCount)
+    private val bubbleSpeed = FloatArray(bubbleCount)
+    private val bubblePhase = FloatArray(bubbleCount)
+
+    private var cardRadius = 0f
+    private var panelRadius = 0f
     private var logoWidth = 0f
     private var logoHeight = 0f
     private var titleSize = 0f
     private var microSize = 0f
     private var detailSize = 0f
-    private var frameLength = 0f
+    private var shortSideCache = 0f
+
     private var progress = 0f
     private var animator: ValueAnimator? = null
     private var skipAnimator: ValueAnimator? = null
@@ -107,7 +135,7 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         isClickable = true
         isFocusable = true
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
-        contentDescription = "JARVIS cinematic opening animation"
+        contentDescription = "JARVIS opening animation"
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -117,89 +145,138 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         val wf = w.toFloat()
         val hf = h.toFloat()
         val shortSide = min(wf, hf)
+        shortSideCache = shortSide
         val landscape = wf > hf
-        cx = wf * 0.5f
-        cy = if (landscape) hf * 0.365f else hf * 0.365f
 
-        coreRadius = shortSide * if (landscape) 0.105f else 0.125f
-        energyGlow.shader = RadialGradient(0f, 0f, coreRadius * 2.8f,
-            intArrayOf(Color.argb(105, 39, 205, 255), Color.argb(42, 107, 72, 224), Color.TRANSPARENT),
-            floatArrayOf(0f, 0.52f, 1f), Shader.TileMode.CLAMP)
-        energyCore.shader = RadialGradient(-coreRadius * 0.30f, -coreRadius * 0.35f, coreRadius * 1.55f,
-            intArrayOf(Color.rgb(242, 255, 255), Color.rgb(76, 224, 255), Color.rgb(41, 115, 239),
-                Color.rgb(119, 67, 222), Color.rgb(8, 15, 43)),
-            floatArrayOf(0f, 0.23f, 0.52f, 0.79f, 1f), Shader.TileMode.CLAMP)
-        energyRing.strokeWidth = dp(1.2f)
-        energyDetail.strokeWidth = dp(0.8f)
-        for (i in starX.indices) {
-            starX[i] = (((i * 7919) % 997) / 997f) * wf
-            starY[i] = (((i * 104729) % 991) / 991f) * hf
-            starSize[i] = dp(0.6f + ((i * 17) % 9) * 0.16f)
+        // Midnight backdrop.
+        backgroundPaint.shader = LinearGradient(
+            0f, 0f, wf * 0.4f, hf,
+            intArrayOf(Color.rgb(5, 8, 22), Color.rgb(9, 12, 36), Color.rgb(4, 6, 18)),
+            floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP
+        )
+
+        // Aurora lights are built around the origin and positioned with canvas.translate each frame.
+        for (i in blobShaders.indices) {
+            val r = shortSide * (if (i % 2 == 0) 0.82f else 0.68f)
+            blobRadius[i] = r
+            val c = blobColors[i]
+            blobShaders[i] = RadialGradient(
+                0f, 0f, r,
+                intArrayOf(
+                    Color.argb(150, Color.red(c), Color.green(c), Color.blue(c)),
+                    Color.argb(58, Color.red(c), Color.green(c), Color.blue(c)),
+                    Color.TRANSPARENT
+                ),
+                floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
+            )
         }
 
-        backgroundPaint.shader = LinearGradient(
-            0f, 0f, wf, hf,
-            intArrayOf(
-                Color.rgb(2, 7, 15),
-                Color.rgb(4, 13, 25),
-                Color.rgb(2, 5, 12)
-            ),
-            floatArrayOf(0f, 0.52f, 1f),
-            Shader.TileMode.CLAMP
+        // Deterministic glass bubbles.
+        for (i in 0 until bubbleCount) {
+            bubbleX[i] = (((i * 7919) % 997) / 997f) * wf
+            bubbleY[i] = (((i * 104729) % 991) / 991f) * hf
+            bubbleR[i] = dp(5f + ((i * 13) % 11) * 2.4f)
+            bubbleSpeed[i] = 0.05f + (i % 5) * 0.022f
+            bubblePhase[i] = i * 0.9f
+        }
+
+        // Frosted card.
+        val cardW = if (landscape) min(wf * 0.56f, hf * 1.25f) else wf * 0.88f
+        val cardH = if (landscape) hf * 0.40f else min(hf * 0.235f, cardW * 0.58f)
+        val cardCy = if (landscape) hf * 0.33f else hf * 0.335f
+        cardRect.set(wf * 0.5f - cardW * 0.5f, cardCy - cardH * 0.5f, wf * 0.5f + cardW * 0.5f, cardCy + cardH * 0.5f)
+        cardRadius = min(cardH * 0.22f, dp(34f))
+        cardPath.reset()
+        cardPath.addRoundRect(cardRect, cardRadius, cardRadius, Path.Direction.CW)
+
+        glassFill.shader = LinearGradient(
+            cardRect.left, cardRect.top, cardRect.right, cardRect.bottom,
+            intArrayOf(Color.argb(238, 255, 255, 255), Color.argb(214, 238, 242, 255), Color.argb(196, 222, 230, 255)),
+            floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP
         )
-        atmospherePaint.shader = RadialGradient(
-            cx, cy, shortSide * 0.78f,
-            intArrayOf(
-                Color.argb(48, 31, 128, 190),
-                Color.argb(22, 17, 76, 126),
-                Color.TRANSPARENT
-            ),
-            floatArrayOf(0f, 0.48f, 1f),
-            Shader.TileMode.CLAMP
+        glassTint.shader = LinearGradient(
+            cardRect.left, cardRect.bottom, cardRect.right, cardRect.top,
+            intArrayOf(Color.argb(70, 139, 92, 246), Color.argb(0, 255, 255, 255), Color.argb(60, 56, 189, 248)),
+            floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
         )
-        aperturePaint.shader = LinearGradient(
-            0f, 0f, wf, 0f,
-            intArrayOf(
-                Color.TRANSPARENT,
-                Color.argb(35, 70, 180, 235),
-                Color.argb(220, 190, 239, 255),
-                Color.argb(35, 70, 180, 235),
-                Color.TRANSPARENT
-            ),
-            floatArrayOf(0f, 0.38f, 0.5f, 0.62f, 1f),
-            Shader.TileMode.CLAMP
+        glassSheen.shader = LinearGradient(
+            0f, cardRect.top, 0f, cardRect.top + cardH * 0.5f,
+            intArrayOf(Color.argb(120, 255, 255, 255), Color.argb(0, 255, 255, 255)),
+            null, Shader.TileMode.CLAMP
         )
-        scanPaint.shader = LinearGradient(
-            0f, 0f, 0f, shortSide * 0.34f,
-            intArrayOf(
-                Color.TRANSPARENT,
-                Color.argb(0, 115, 211, 255),
-                Color.argb(95, 118, 215, 255),
-                Color.argb(0, 115, 211, 255),
-                Color.TRANSPARENT
-            ),
-            floatArrayOf(0f, 0.30f, 0.50f, 0.70f, 1f),
-            Shader.TileMode.CLAMP
+        glassRim.strokeWidth = dp(1.4f)
+        glassRim.shader = LinearGradient(
+            cardRect.left, cardRect.top, cardRect.right, cardRect.bottom,
+            intArrayOf(Color.argb(255, 255, 255, 255), Color.argb(70, 255, 255, 255), Color.argb(200, 170, 215, 255)),
+            floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP
+        )
+        sweepPaint.shader = LinearGradient(
+            -cardH * 0.45f, 0f, cardH * 0.45f, 0f,
+            intArrayOf(Color.argb(0, 255, 255, 255), Color.argb(190, 255, 255, 255), Color.argb(0, 255, 255, 255)),
+            floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
         )
 
+        // Wordmark.
         val artwork = logo
         if (artwork != null && !artwork.isRecycled) {
-            val maxWidth = if (landscape) wf * 0.62f else wf * 0.84f
-            val maxHeight = if (landscape) hf * 0.29f else hf * 0.235f
-            val scale = min(maxWidth / artwork.width, maxHeight / artwork.height)
+            val maxW = cardW * 0.78f
+            val maxH = cardH * 0.62f
+            val scale = min(maxW / artwork.width, maxH / artwork.height)
             logoWidth = artwork.width * scale
             logoHeight = artwork.height * scale
         } else {
             logoWidth = 0f
             logoHeight = 0f
         }
+        logoRect.set(
+            cardRect.centerX() - logoWidth * 0.5f, cardRect.centerY() - logoHeight * 0.5f,
+            cardRect.centerX() + logoWidth * 0.5f, cardRect.centerY() + logoHeight * 0.5f
+        )
+
+        // Lower frosted panel.
+        val panelW = if (landscape) cardW else wf * 0.82f
+        val panelTop = if (landscape) hf * 0.60f else hf * 0.545f
+        val panelBottom = if (landscape) hf * 0.80f else hf * 0.775f
+        panelRect.set(wf * 0.5f - panelW * 0.5f, panelTop, wf * 0.5f + panelW * 0.5f, panelBottom)
+        panelRadius = min(panelRect.height() * 0.17f, dp(26f))
+        panelFill.shader = LinearGradient(
+            0f, panelRect.top, 0f, panelRect.bottom,
+            intArrayOf(Color.argb(46, 255, 255, 255), Color.argb(18, 255, 255, 255)),
+            null, Shader.TileMode.CLAMP
+        )
+        panelRim.strokeWidth = dp(1f)
+        panelRim.shader = LinearGradient(
+            panelRect.left, panelRect.top, panelRect.right, panelRect.bottom,
+            intArrayOf(Color.argb(150, 255, 255, 255), Color.argb(26, 255, 255, 255), Color.argb(90, 150, 200, 255)),
+            floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP
+        )
+
+        // Welcome pill.
+        val pillW = min(wf * 0.74f, dp(330f))
+        val pillH = dp(52f)
+        val pillCy = if (landscape) hf * 0.905f else hf * 0.865f
+        pillRect.set(wf * 0.5f - pillW * 0.5f, pillCy - pillH * 0.5f, wf * 0.5f + pillW * 0.5f, pillCy + pillH * 0.5f)
+        pillFill.shader = LinearGradient(
+            pillRect.left, 0f, pillRect.right, 0f,
+            intArrayOf(Color.argb(96, 56, 189, 248), Color.argb(70, 139, 92, 246), Color.argb(96, 236, 72, 153)),
+            null, Shader.TileMode.CLAMP
+        )
+        pillRim.strokeWidth = dp(1.2f)
+        pillRim.shader = LinearGradient(
+            pillRect.left, 0f, pillRect.right, 0f,
+            intArrayOf(Color.argb(230, 125, 215, 255), Color.argb(200, 186, 150, 255), Color.argb(230, 255, 140, 200)),
+            null, Shader.TileMode.CLAMP
+        )
+        pillGlow.shader = RadialGradient(
+            0f, 0f, pillW * 0.62f,
+            intArrayOf(Color.argb(90, 120, 130, 255), Color.TRANSPARENT),
+            null, Shader.TileMode.CLAMP
+        )
 
         titleSize = (shortSide * 0.040f).coerceIn(sp(13f), sp(22f))
-        microSize = (shortSide * 0.020f).coerceIn(sp(8f), sp(11f))
-        detailSize = (shortSide * 0.023f).coerceIn(sp(9f), sp(13f))
-        frameLength = (shortSide * 0.035f).coerceIn(dp(12f), dp(26f))
-        framePaint.strokeWidth = dp(1f)
-        accentPaint.strokeWidth = dp(1.15f)
+        microSize = (shortSide * 0.021f).coerceIn(sp(8.5f), sp(11.5f))
+        detailSize = (shortSide * 0.024f).coerceIn(sp(9.5f), sp(13.5f))
+        rulePaint.strokeWidth = dp(1.2f)
     }
 
     fun start(onDone: () -> Unit) {
@@ -225,7 +302,7 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
             addUpdateListener {
                 progress = it.animatedValue as Float
                 if (dissolveOnFinish) {
-                    alpha = 1f - segment(progress, 0.972f, 1f, EASE_IN)
+                    alpha = 1f - segment(progress, 0.968f, 1f, EASE_IN)
                 }
                 invalidate()
             }
@@ -302,242 +379,212 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         super.onDetachedFromWindow()
     }
 
+    // ---- drawing --------------------------------------------------------------------------------
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val w = width.toFloat()
         val h = height.toFloat()
         if (w <= 0f || h <= 0f) return
-
         val p = progress
-        val shortSide = min(w, h)
-        val landscape = w > h
+
         canvas.drawRect(0f, 0f, w, h, backgroundPaint)
 
-        // Deep-space atmosphere and a living energy core establish depth before the logo arrives.
-        val atmosphereIn = segment(p, 0.015f, 0.48f, EASE_OUT)
-        atmospherePaint.alpha = (255f * atmosphereIn).toInt().coerceIn(0, 255)
-        canvas.drawRect(0f, 0f, w, h, atmospherePaint)
-        drawStarfield(canvas, p, atmosphereIn, h)
-        val coreIn = segment(p, 0.075f, 0.47f, EASE_OUT_BACK)
-        if (coreIn > 0f) drawEnergyCore(canvas, p, coreIn)
+        val auroraIn = segment(p, 0f, 0.26f, EASE_OUT)
+        drawAurora(canvas, w, h, p, auroraIn)
+        drawBubbles(canvas, h, p, auroraIn)
 
-        // The aperture opens horizontally from one precise centre point.
-        val apertureIn = segment(p, 0.045f, 0.31f, EASE_OUT)
-        val apertureOut = 1f - segment(p, 0.38f, 0.53f, EASE_IN_OUT)
-        val apertureHalf = w * 0.47f * apertureIn
-        aperturePaint.alpha = (255f * apertureOut).toInt().coerceIn(0, 255)
-        canvas.drawRect(
-            cx - apertureHalf, cy - dp(0.7f),
-            cx + apertureHalf, cy + dp(0.7f), aperturePaint
-        )
+        drawGlassCard(canvas, p)
+        drawInfoPanel(canvas, p)
+        drawWelcomePill(canvas, p)
+    }
 
-        // Fine corner registration marks frame the logo like a precision instrument.
-        val logoIn = segment(p, 0.39f, 0.66f, EASE_OUT)
-        if (logoWidth > 0f && logoIn > 0f) {
-            val logoSettle = segment(p, 0.37f, 0.69f, EASE_OUT_BACK)
-            val scale = 0.965f + 0.035f * logoSettle
-            val drawW = logoWidth * scale
-            val drawH = logoHeight * scale
-            val logoY = cy + coreRadius * 1.92f
-            logoRect.set(
-                cx - drawW * 0.5f, logoY - drawH * 0.5f,
-                cx + drawW * 0.5f, logoY + drawH * 0.5f
-            )
-
-            val reveal = segment(p, 0.39f, 0.66f, EASE_OUT)
-            val clipHalf = (drawW * 0.5f + dp(2f)) * reveal
+    /** Four soft lights drifting on slow Lissajous paths; the colour mix behind the glass is what sells the frost. */
+    private fun drawAurora(canvas: Canvas, w: Float, h: Float, p: Float, reveal: Float) {
+        if (reveal <= 0f) return
+        val t = p * 6.28318f
+        val alphaInt = (255f * reveal).toInt().coerceIn(0, 255)
+        blobPaint.alpha = alphaInt
+        for (i in 0 until 4) {
+            val bx: Float
+            val by: Float
+            when (i) {
+                0 -> { bx = w * (0.18f + 0.10f * sin(t * 0.9f)); by = h * (0.20f + 0.07f * cos(t * 0.7f)) }
+                1 -> { bx = w * (0.86f + 0.08f * cos(t * 0.8f)); by = h * (0.38f + 0.09f * sin(t * 1.1f)) }
+                2 -> { bx = w * (0.30f + 0.12f * cos(t * 0.6f)); by = h * (0.72f + 0.07f * sin(t * 0.9f)) }
+                else -> { bx = w * (0.78f + 0.09f * sin(t * 0.7f)); by = h * (0.90f + 0.05f * cos(t * 1.2f)) }
+            }
             canvas.save()
-            canvas.clipRect(cx - clipHalf, logoRect.top - dp(3f), cx + clipHalf, logoRect.bottom + dp(3f))
-            logoPaint.alpha = (255f * min(1f, reveal * 1.16f)).toInt().coerceIn(0, 255)
-            // Intentionally no colour filter: preserve the supplied JARVIS logo artwork.
+            canvas.translate(bx, by)
+            blobPaint.shader = blobShaders[i]
+            val r = blobRadius[i]
+            canvas.drawCircle(0f, 0f, r, blobPaint)
+            canvas.restore()
+        }
+        blobPaint.shader = null
+    }
+
+    private fun drawBubbles(canvas: Canvas, h: Float, p: Float, reveal: Float) {
+        if (reveal <= 0f) return
+        for (i in 0 until bubbleCount) {
+            val y = ((bubbleY[i] - p * h * bubbleSpeed[i] * 2.2f) % h + h) % h
+            val x = bubbleX[i] + sin(p * 6.28318f + bubblePhase[i]) * dp(9f)
+            val r = bubbleR[i]
+            val pulse = 0.65f + 0.35f * abs(sin(p * 9.42f + bubblePhase[i]))
+            bubbleFill.color = Color.argb((26f * reveal * pulse).toInt().coerceIn(0, 40), 190, 225, 255)
+            canvas.drawCircle(x, y, r, bubbleFill)
+            bubbleRim.strokeWidth = dp(0.8f)
+            bubbleRim.color = Color.argb((70f * reveal * pulse).toInt().coerceIn(0, 90), 215, 235, 255)
+            canvas.drawCircle(x, y, r, bubbleRim)
+        }
+    }
+
+    private fun drawGlassCard(canvas: Canvas, p: Float) {
+        val rise = segment(p, 0.10f, 0.40f, EASE_OUT_BACK)
+        val fade = segment(p, 0.10f, 0.30f, EASE_OUT)
+        if (fade <= 0f) return
+
+        val scale = 0.90f + 0.10f * rise
+        val lift = (1f - rise) * dp(30f)
+        val cxp = cardRect.centerX()
+        val cyp = cardRect.centerY()
+        val a = (255f * fade).toInt().coerceIn(0, 255)
+
+        canvas.save()
+        canvas.translate(0f, lift)
+        canvas.scale(scale, scale, cxp, cyp)
+
+        // Layered depth shadow (shadow layers are unavailable for shapes on older hardware renderers).
+        for (i in 3 downTo 1) {
+            val grow = dp(7f * i)
+            shadowRect.set(cardRect.left - grow, cardRect.top - grow * 0.4f + dp(8f), cardRect.right + grow, cardRect.bottom + grow + dp(8f))
+            shadowPaint.color = Color.argb((34f * fade / i).toInt().coerceIn(0, 40), 2, 4, 20)
+            canvas.drawRoundRect(shadowRect, cardRadius + grow, cardRadius + grow, shadowPaint)
+        }
+
+        glassFill.alpha = a
+        canvas.drawRoundRect(cardRect, cardRadius, cardRadius, glassFill)
+        glassTint.alpha = a
+        canvas.drawRoundRect(cardRect, cardRadius, cardRadius, glassTint)
+
+        canvas.save()
+        canvas.clipPath(cardPath)
+
+        // Top sheen: the soft light edge that makes the surface read as glass.
+        glassSheen.alpha = a
+        sheenRect.set(cardRect.left, cardRect.top, cardRect.right, cardRect.top + cardRect.height() * 0.5f)
+        canvas.drawRect(sheenRect, glassSheen)
+
+        // Wordmark: soft wipe + settle, original colours, full contrast on the light glass.
+        val logoIn = segment(p, 0.30f, 0.56f, EASE_OUT)
+        if (logoWidth > 0f && logoIn > 0f) {
+            val settle = 1.045f - 0.045f * segment(p, 0.30f, 0.60f, EASE_OUT)
+            val dw = logoWidth * settle
+            val dh = logoHeight * settle
+            val lcx = cardRect.centerX()
+            val lcy = cardRect.centerY()
+            val reveal = segment(p, 0.30f, 0.58f, EASE_IN_OUT)
+            val clipHalf = (dw * 0.5f + dp(10f)) * reveal
+            canvas.save()
+            canvas.clipRect(lcx - clipHalf, lcy - dh, lcx + clipHalf, lcy + dh)
+            logoPaint.alpha = (255f * min(1f, logoIn * 1.2f)).toInt().coerceIn(0, 255)
+            logoRect.set(lcx - dw * 0.5f, lcy - dh * 0.5f, lcx + dw * 0.5f, lcy + dh * 0.5f)
             canvas.drawBitmap(logo!!, null, logoRect, logoPaint)
             canvas.restore()
-
-            val frameIn = segment(p, 0.48f, 0.70f, EASE_OUT)
-            frameRect.set(
-                logoRect.left - dp(17f), logoRect.top - dp(13f),
-                logoRect.right + dp(17f), logoRect.bottom + dp(13f)
-            )
-            framePaint.color = Color.argb((145f * frameIn).toInt(), 103, 195, 235)
-            drawCornerFrame(canvas, frameRect, frameLength * frameIn)
-
-            // A narrow scan passes across the artwork once; it never loops or distracts.
-            val scan = segment(p, 0.53f, 0.75f, EASE_IN_OUT)
-            if (scan > 0f && scan < 1f) {
-                val scanX = logoRect.left - dp(12f) + (logoRect.width() + dp(24f)) * scan
-                val bandHalf = dp(13f)
-                canvas.save()
-                canvas.clipRect(logoRect.left, logoRect.top, logoRect.right, logoRect.bottom)
-                scanPaint.alpha = (255f * (1f - kotlin.math.abs(scan - 0.5f) * 0.55f)).toInt()
-                canvas.drawRect(scanX - bandHalf, logoRect.top, scanX + bandHalf, logoRect.bottom, scanPaint)
-                canvas.restore()
-                accentPaint.color = Color.argb(185, 133, 220, 255)
-                accentPaint.alpha = 185
-                canvas.drawLine(scanX, logoRect.top - dp(5f), scanX, logoRect.bottom + dp(5f), accentPaint)
-            }
         }
 
-        // Small uppercase descriptor is introduced only after the logo has settled.
-        val descriptorIn = segment(p, 0.58f, 0.73f, EASE_OUT)
-        if (descriptorIn > 0f) {
+        // A single light sweep crosses the glass once.
+        val sweep = segment(p, 0.54f, 0.74f, EASE_IN_OUT)
+        if (sweep > 0f && sweep < 1f) {
+            val travel = cardRect.width() + cardRect.height()
+            val sx = cardRect.left - cardRect.height() * 0.5f + travel * sweep
+            sweepMatrix.reset()
+            sweepMatrix.setSkew(-0.35f, 0f)
+            sweepMatrix.postTranslate(sx, cardRect.centerY())
+            sweepPaint.shader.setLocalMatrix(sweepMatrix)
+            sweepPaint.alpha = (255f * (1f - abs(sweep - 0.5f) * 0.9f)).toInt().coerceIn(0, 255)
+            canvas.drawRect(cardRect, sweepPaint)
+        }
+        canvas.restore()
+
+        // Rim light drawn last so it sits crisp over the sheen and sweep.
+        glassRim.alpha = a
+        canvas.drawRoundRect(cardRect, cardRadius, cardRadius, glassRim)
+        canvas.restore()
+    }
+
+    private fun drawInfoPanel(canvas: Canvas, p: Float) {
+        val panelIn = segment(p, 0.56f, 0.74f, EASE_OUT)
+        if (panelIn <= 0f) return
+        val a = (255f * panelIn).toInt().coerceIn(0, 255)
+        val lift = (1f - panelIn) * dp(18f)
+
+        canvas.save()
+        canvas.translate(0f, lift)
+        panelFill.alpha = a
+        canvas.drawRoundRect(panelRect, panelRadius, panelRadius, panelFill)
+        panelRim.alpha = a
+        canvas.drawRoundRect(panelRect, panelRadius, panelRadius, panelRim)
+
+        val cx = panelRect.centerX()
+        val top = panelRect.top
+        val hgt = panelRect.height()
+
+        val descIn = segment(p, 0.60f, 0.74f, EASE_OUT)
+        if (descIn > 0f) {
             microPaint.textSize = microSize
-            microPaint.color = Color.argb((150f * descriptorIn).toInt(), 142, 183, 207)
-            drawTrackedText(canvas, "PERSONAL INTELLIGENCE SYSTEM", cx, h * if (landscape) 0.665f else 0.625f, microPaint, 0.16f)
+            microPaint.color = Color.argb((190f * descIn).toInt(), 150, 214, 255)
+            drawTrackedText(canvas, "PERSONAL INTELLIGENCE SYSTEM", cx, top + hgt * 0.20f, microPaint, 0.2f)
+            val ruleHalf = dp(30f) * descIn
+            rulePaint.color = Color.argb((120f * descIn).toInt(), 150, 214, 255)
+            canvas.drawLine(cx - ruleHalf, top + hgt * 0.29f, cx + ruleHalf, top + hgt * 0.29f, rulePaint)
         }
 
-        // Creator signature: restrained hierarchy, no competing panel or decorative card.
-        val creditIn = segment(p, 0.68f, 0.83f, EASE_OUT)
+        val creditIn = segment(p, 0.68f, 0.82f, EASE_OUT)
         if (creditIn > 0f) {
             microPaint.textSize = microSize
-            microPaint.color = Color.argb((170f * creditIn).toInt(), 153, 181, 201)
-            drawTrackedText(
-                canvas, "CREATED AND DESIGNED BY", cx,
-                h * if (landscape) 0.735f else 0.687f,
-                microPaint, 0.19f
-            )
-
+            microPaint.color = Color.argb((175f * creditIn).toInt(), 190, 206, 230)
+            drawTrackedText(canvas, "CREATED AND DESIGNED BY", cx, top + hgt * 0.47f, microPaint, 0.2f)
             textPaint.textSize = titleSize
-            textPaint.color = Color.argb((248f * creditIn).toInt(), 239, 247, 255)
-            textPaint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            drawFittedText(
-                canvas, "SUKANTA BHATTACHARYA", cx,
-                h * if (landscape) 0.795f else 0.738f,
-                textPaint, w * 0.88f
-            )
+            textPaint.color = Color.argb((250f * creditIn).toInt(), 247, 250, 255)
+            drawTrackedText(canvas, "SUKANTA BHATTACHARYA", cx, top + hgt * 0.67f, textPaint, 0.07f)
         }
 
-        val purposeIn = segment(p, 0.80f, 0.91f, EASE_OUT)
+        val purposeIn = segment(p, 0.78f, 0.90f, EASE_OUT)
         if (purposeIn > 0f) {
-            microPaint.textSize = detailSize
-            microPaint.color = Color.argb((172f * purposeIn).toInt(), 151, 179, 201)
-            drawFittedText(
-                canvas, "TO HANDLE ALL YOUR NECESSARY WORKS", cx,
-                h * if (landscape) 0.845f else 0.785f,
-                microPaint, w * 0.88f
-            )
-        }
-
-        // Final lockup is the last thing to arrive and the last thing the viewer reads.
-        val welcomeIn = segment(p, 0.90f, 0.985f, EASE_OUT)
-        if (welcomeIn > 0f) {
-            val baseline = h * if (landscape) 0.925f else 0.875f
-            accentPaint.color = Color.argb((205f * welcomeIn).toInt(), 83, 190, 244)
-            accentPaint.alpha = (205f * welcomeIn).toInt().coerceIn(0, 255)
-            val ruleHalf = dp(27f) * welcomeIn
-            canvas.drawLine(cx - ruleHalf, baseline - dp(27f), cx + ruleHalf, baseline - dp(27f), accentPaint)
-
-            textPaint.textSize = (titleSize * 0.92f).coerceAtLeast(sp(12f))
-            textPaint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            textPaint.color = Color.argb((250f * welcomeIn).toInt(), 226, 243, 255)
-            drawTrackedText(canvas, "WELCOME TO JARVIS", cx, baseline, textPaint, 0.105f)
-        }
-
-        // A subtle edge vignette keeps attention on the mark without a visible frame.
-        val edgeAlpha = (18f * atmosphereIn).toInt().coerceIn(0, 18)
-        framePaint.style = Paint.Style.STROKE
-        framePaint.strokeWidth = dp(1f)
-        framePaint.color = Color.argb(edgeAlpha, 70, 135, 175)
-        val inset = shortSide * 0.035f
-        canvas.drawRoundRect(inset, inset, w - inset, h - inset, dp(9f), dp(9f), framePaint)
-    }
-
-
-    /** Deterministic drifting particles; no per-frame allocations or random flicker. */
-    private fun drawStarfield(canvas: Canvas, p: Float, reveal: Float, h: Float) {
-        for (i in starX.indices) {
-            val y = (starY[i] - p * h * (0.10f + (i % 7) * 0.025f) + h) % h
-            val twinkle = 0.45f + 0.55f * abs(sin(p * 6.28318f * 2f + i * 0.83f))
-            energyParticle.color = Color.argb((112f * reveal * twinkle).toInt().coerceIn(0, 112), 116, 211, 245)
-            canvas.drawCircle(starX[i], y, starSize[i], energyParticle)
-        }
-    }
-
-    /** Layered orb with independently moving elliptical orbits, radial spokes and a breathing core. */
-    private fun drawEnergyCore(canvas: Canvas, p: Float, reveal: Float) {
-        val energy = 0.55f + 0.20f * sin(p * 18.8495f) + 0.10f * sin(p * 43.982f)
-        val breath = 1f + 0.028f * sin(p * 15.708f)
-        canvas.save()
-        canvas.translate(cx, cy)
-        canvas.scale(reveal, reveal)
-        energyGlow.alpha = (190f + 55f * energy).toInt().coerceIn(0, 255)
-        canvas.drawCircle(0f, 0f, coreRadius * 2.8f, energyGlow)
-        energyRing.color = Color.argb((80f + 70f * energy).toInt(), 72, 205, 255)
-        energyRing.strokeWidth = dp(1.2f)
-        canvas.drawCircle(0f, 0f, coreRadius * 1.78f, energyRing)
-        canvas.save()
-        canvas.scale(breath, breath)
-        canvas.drawCircle(0f, 0f, coreRadius, energyCore)
-        canvas.restore()
-
-        drawOrbit(canvas, p, 1.72f, 0.56f, 22f, 1.0f, Color.rgb(70, 222, 255), 0f)
-        drawOrbit(canvas, p, 1.58f, 0.48f, -39f, -1.7f, Color.rgb(158, 111, 255), 1.8f)
-        drawOrbit(canvas, p, 1.42f, 0.40f, 72f, 2.3f, Color.rgb(73, 147, 255), 3.6f)
-
-        energyDetail.strokeWidth = dp(0.8f)
-        for (i in 0 until 48) {
-            val a = i * 6.28318f / 48f + p * 0.35f
-            val inner = coreRadius * 2.08f
-            val outer = inner + dp(if (i % 4 == 0) 7f else 3f)
-            energyDetail.color = Color.argb(if (i % 4 == 0) 100 else 42, 95, 197, 235)
-            canvas.drawLine(cos(a) * inner, sin(a) * inner, cos(a) * outer, sin(a) * outer, energyDetail)
-        }
-        val r = coreRadius * 2.18f
-        energyDetail.color = Color.argb(62, 92, 185, 226)
-        canvas.drawCircle(0f, 0f, r, energyDetail)
-        energyRing.color = Color.argb(170, 75, 205, 255)
-        energyRing.strokeWidth = dp(1.5f)
-        energyRect.set(-r * 1.08f, -r * 1.08f, r * 1.08f, r * 1.08f)
-        canvas.drawArc(energyRect, -90f + p * 45f, 248f, false, energyRing)
-        for (i in 0 until 72) {
-            val a = i * 6.28318f / 72f
-            val major = i % 6 == 0
-            val r1 = r * if (major) 1.12f else 1.16f
-            val r2 = r * if (major) 1.24f else 1.195f
-            energyDetail.color = Color.argb(if (major) 105 else 34, 105, 195, 232)
-            canvas.drawLine(cos(a) * r1, sin(a) * r1, cos(a) * r2, sin(a) * r2, energyDetail)
+            microPaint.textSize = detailSize * 0.92f
+            microPaint.color = Color.argb((185f * purposeIn).toInt(), 178, 196, 222)
+            drawTrackedText(canvas, "TO HANDLE ALL YOUR NECESSARY WORKS", cx, top + hgt * 0.88f, microPaint, 0.09f)
         }
         canvas.restore()
     }
 
-    private fun drawOrbit(canvas: Canvas, p: Float, rx: Float, ry: Float, tilt: Float,
-                          turns: Float, color: Int, offset: Float) {
+    private fun drawWelcomePill(canvas: Canvas, p: Float) {
+        val pillIn = segment(p, 0.88f, 0.975f, EASE_OUT_BACK)
+        val fade = segment(p, 0.88f, 0.95f, EASE_OUT)
+        if (fade <= 0f) return
+        val a = (255f * fade).toInt().coerceIn(0, 255)
+        val scale = 0.88f + 0.12f * pillIn
+        val radius = pillRect.height() * 0.5f
+
         canvas.save()
-        canvas.rotate(tilt)
-        aperturePath.reset()
-        energyRect.set(-coreRadius * rx, -coreRadius * ry, coreRadius * rx, coreRadius * ry)
-        aperturePath.addOval(energyRect, Path.Direction.CW)
-        energyRing.color = Color.argb(128, Color.red(color), Color.green(color), Color.blue(color))
-        energyRing.strokeWidth = dp(1.15f)
-        canvas.drawPath(aperturePath, energyRing)
-        val a = p * 6.28318f * turns + offset
-        val x = coreRadius * rx * cos(a)
-        val y = coreRadius * ry * sin(a)
-        energyParticle.color = Color.argb(85, Color.red(color), Color.green(color), Color.blue(color))
-        canvas.drawCircle(x, y, dp(7f), energyParticle)
-        energyParticle.color = color
-        canvas.drawCircle(x, y, dp(2.6f), energyParticle)
+        canvas.scale(scale, scale, pillRect.centerX(), pillRect.centerY())
+
+        canvas.save()
+        canvas.translate(pillRect.centerX(), pillRect.centerY())
+        pillGlow.alpha = a
+        canvas.drawCircle(0f, 0f, pillRect.width() * 0.62f, pillGlow)
         canvas.restore()
-    }
 
-    private fun drawCornerFrame(canvas: Canvas, rect: RectF, length: Float) {
-        if (length <= 0f) return
-        val l = min(length, min(rect.width(), rect.height()) * 0.24f)
-        canvas.drawLine(rect.left, rect.top, rect.left + l, rect.top, framePaint)
-        canvas.drawLine(rect.left, rect.top, rect.left, rect.top + l, framePaint)
-        canvas.drawLine(rect.right - l, rect.top, rect.right, rect.top, framePaint)
-        canvas.drawLine(rect.right, rect.top, rect.right, rect.top + l, framePaint)
-        canvas.drawLine(rect.left, rect.bottom - l, rect.left, rect.bottom, framePaint)
-        canvas.drawLine(rect.left, rect.bottom, rect.left + l, rect.bottom, framePaint)
-        canvas.drawLine(rect.right - l, rect.bottom, rect.right, rect.bottom, framePaint)
-        canvas.drawLine(rect.right, rect.bottom - l, rect.right, rect.bottom, framePaint)
-    }
+        pillFill.alpha = a
+        canvas.drawRoundRect(pillRect, radius, radius, pillFill)
+        pillRim.alpha = a
+        canvas.drawRoundRect(pillRect, radius, radius, pillRim)
 
-    private fun drawFittedText(canvas: Canvas, value: String, x: Float, baseline: Float, paint: Paint, maxWidth: Float) {
-        val measured = paint.measureText(value)
-        val scale = if (measured > maxWidth && measured > 0f) maxWidth / measured else 1f
-        canvas.save()
-        canvas.scale(scale, 1f, x, baseline)
-        canvas.drawText(value, x, baseline, paint)
+        textPaint.textSize = (titleSize * 0.86f).coerceAtLeast(sp(12f))
+        textPaint.color = Color.argb((252f * fade).toInt(), 255, 255, 255)
+        val baseline = pillRect.centerY() + textPaint.textSize * 0.34f
+        drawTrackedText(canvas, "WELCOME TO JARVIS", pillRect.centerX(), baseline, textPaint, 0.12f)
         canvas.restore()
     }
 
@@ -551,13 +598,14 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
     ) {
         val tracking = paint.textSize * trackingEm
         val total = paint.measureText(value) + tracking * (value.length - 1).coerceAtLeast(0)
+        val maxWidth = width * 0.80f
+        val scale = if (total > maxWidth && total > 0f) maxWidth / total else 1f
         var cursor = x - total * 0.5f
-        val scale = if (total > width * 0.90f && total > 0f) width * 0.90f / total else 1f
         canvas.save()
         canvas.scale(scale, 1f, x, baseline)
-        value.forEach { character ->
-            val glyph = character.toString()
-            canvas.drawText(glyph, cursor, baseline, paint)
+        for (ch in value) {
+            val glyph = ch.toString()
+            canvas.drawText(glyph, cursor + paint.measureText(glyph) * 0.5f, baseline, paint)
             cursor += paint.measureText(glyph) + tracking
         }
         canvas.restore()
@@ -572,7 +620,7 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
     private fun sp(value: Float): Float = value * resources.displayMetrics.scaledDensity
 
     private companion object {
-        const val DURATION_MS = 8200L
+        const val DURATION_MS = 6800L
         const val SKIP_FADE_MS = 220L
         val EASE_OUT: Interpolator = PathInterpolator(0.16f, 1f, 0.3f, 1f)
         val EASE_OUT_BACK: Interpolator = PathInterpolator(0.18f, 1.12f, 0.28f, 1f)
