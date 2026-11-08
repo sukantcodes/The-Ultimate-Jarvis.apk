@@ -26,6 +26,12 @@ elseif(ANDROID_ABI STREQUAL "x86_64")
 else()
  message(FATAL_ERROR "Unsupported Android ABI: ${ANDROID_ABI}")
 endif()
+# CI prefetches KleidiAI with retries because GitHub release assets sometimes answer 504.
+# When KLEIDIAI_SRC points at an extracted copy, llama.cpp/ggml uses it instead of downloading.
+if(DEFINED ENV{KLEIDIAI_SRC} AND IS_DIRECTORY "$ENV{KLEIDIAI_SRC}")
+ set(FETCHCONTENT_SOURCE_DIR_KLEIDIAI "$ENV{KLEIDIAI_SRC}" CACHE PATH "Prefetched KleidiAI sources" FORCE)
+ message(STATUS "Using prefetched KleidiAI from $ENV{KLEIDIAI_SRC}")
+endif()
 FetchContent_MakeAvailable(llama_cpp)
 set(LLAMA_SRC ${llama_cpp_SOURCE_DIR})
 add_library(ai-chat SHARED ai_chat.cpp)

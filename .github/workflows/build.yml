@@ -34,6 +34,32 @@ jobs:
         packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
     - name: Install native build tools
       run: sdkmanager "ndk;27.2.12479018" "cmake;3.31.6"
+    - name: Prefetch KleidiAI with retries
+      # GitHub release assets intermittently return 504, which fails the native build. Keep the
+      # version in sync with the KleidiAI release that the pinned llama.cpp commit downloads.
+      env:
+        KLEIDIAI_VERSION: v1.32.0
+      run: |
+        set +e
+        dest="$RUNNER_TEMP/kleidiai"
+        for url in \
+          "https://github.com/ARM-software/kleidiai/releases/download/${KLEIDIAI_VERSION}/kleidiai-${KLEIDIAI_VERSION}-src.tar.gz" \
+          "https://github.com/ARM-software/kleidiai/archive/refs/tags/${KLEIDIAI_VERSION}.tar.gz"; do
+          for attempt in 1 2 3 4 5; do
+            rm -rf "$dest"; mkdir -p "$dest"
+            if curl -fsSL --connect-timeout 20 --max-time 180 -o "$RUNNER_TEMP/kleidiai.tar.gz" "$url" \
+               && tar -xzf "$RUNNER_TEMP/kleidiai.tar.gz" -C "$dest" --strip-components=1 \
+               && [ -d "$dest/kai" ]; then
+              echo "KLEIDIAI_SRC=$dest" >> "$GITHUB_ENV"
+              echo "Prefetched KleidiAI from $url"
+              exit 0
+            fi
+            echo "Attempt $attempt failed for $url"
+            sleep $((attempt * 8))
+          done
+        done
+        echo "::warning::Could not prefetch KleidiAI; the native build will try its own download."
+        exit 0
     - name: Run unit tests
       env:
         SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
