@@ -35,8 +35,9 @@ import kotlin.random.Random
  *
  * The bundled logo has near-black letterforms, so instead of lighting it from the front on a dark
  * screen the ident *backlights* it: a hairline of light opens into a luminous bloom and the
- * letterforms emerge as crisp silhouettes through a feathered wipe. A specular sheen crosses the
- * glyphs, a ripple leaves the orb of the "i", the credit line resolves letter by letter, and the
+ * letterforms emerge as crisp silhouettes through a feathered wipe. A layered glass chassis and
+ * elliptical orbital highlights establish dimensional depth; a specular sheen crosses the glyphs,
+ * a ripple leaves the orb of the "i", and the credit line resolves letter by letter. The
  * whole scene dissolves into whatever is underneath.
  *
  * Engineering notes
@@ -74,6 +75,10 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
     private val bloomPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val hairlinePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val underlinePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val glassPanelPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val glassEdgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val glassOrbitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val glassGlintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND }
     private val motePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(190, 220, 255) }
     private val logoPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
     private val sheenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -94,6 +99,9 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
 
     // ---- Geometry and shaders: rebuilt only when the size changes -------------------------------
     private val logoRect = RectF()
+    private val glassPanelRect = RectF()
+    private val glassOrbitRect = RectF()
+    private val glassInnerOrbitRect = RectF()
     private val sheenMatrix = Matrix()
     private val maskMatrix = Matrix()
     private var sheenShader: LinearGradient? = null
@@ -231,6 +239,20 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         val startX = centerX - total / 2f
         for (i in tagX.indices) tagX[i] += startX
         taglineBaseline = centerY + baseLogoH / 2f + dp(44f)
+
+        // Glass materials are prepared only when the view size changes. The restrained blue-white
+        // gradients suggest a thick, translucent glass chassis without expensive runtime blur.
+        glassPanelPaint.shader = LinearGradient(
+            0f, 0f, wf, hf,
+            intArrayOf(Color.argb(5, 210, 238, 255), Color.argb(25, 80, 150, 220), Color.argb(8, 190, 220, 255)),
+            floatArrayOf(0f, 0.52f, 1f), Shader.TileMode.CLAMP
+        )
+        glassEdgePaint.color = Color.argb(105, 170, 225, 255)
+        glassEdgePaint.strokeWidth = dp(1f)
+        glassOrbitPaint.color = Color.argb(78, 105, 190, 255)
+        glassOrbitPaint.strokeWidth = dp(1.1f)
+        glassGlintPaint.color = Color.argb(175, 220, 245, 255)
+        glassGlintPaint.strokeWidth = dp(1.6f)
 
         underlineHalfW = wf * 0.15f
         underlinePaint.shader = LinearGradient(
@@ -422,6 +444,31 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
             centerX - logoW / 2f, centerY - logoH / 2f + rise,
             centerX + logoW / 2f, centerY + logoH / 2f + rise
         )
+
+        // Dimensional glass chassis: a softly tinted rounded plate, fine bevel and two tilted
+        // elliptical orbit lines. All geometry is reused; only Canvas transforms change per frame.
+        val glassReveal = seg(p, 0.16f, 0.68f, EASE_OUT_EXPO)
+        if (glassReveal > 0f) {
+            val padX = maxOf(dp(22f), logoW * 0.075f)
+            val padY = maxOf(dp(17f), logoH * 0.30f)
+            glassPanelRect.set(logoRect.left - padX, logoRect.top - padY, logoRect.right + padX, logoRect.bottom + padY)
+            glassOrbitRect.set(glassPanelRect.left - dp(13f), glassPanelRect.top - dp(10f), glassPanelRect.right + dp(13f), glassPanelRect.bottom + dp(10f))
+            glassInnerOrbitRect.set(glassPanelRect.left + dp(5f), glassPanelRect.top - dp(3f), glassPanelRect.right - dp(5f), glassPanelRect.bottom + dp(3f))
+            val glassAlpha = (glassReveal * (1f - 0.18f * exit)).coerceIn(0f, 1f)
+            canvas.save()
+            canvas.rotate(-7.5f + sin(seconds * 0.42f) * 1.2f, centerX, centerY)
+            glassPanelPaint.alpha = (255f * glassAlpha).toInt()
+            glassEdgePaint.alpha = (255f * glassAlpha).toInt()
+            glassOrbitPaint.alpha = (170f * glassAlpha).toInt()
+            glassGlintPaint.alpha = (210f * glassAlpha).toInt()
+            canvas.drawRoundRect(glassPanelRect, dp(24f), dp(24f), glassPanelPaint)
+            canvas.drawRoundRect(glassPanelRect, dp(24f), dp(24f), glassEdgePaint)
+            canvas.drawOval(glassOrbitRect, glassOrbitPaint)
+            canvas.drawOval(glassInnerOrbitRect, glassOrbitPaint)
+            val glintStart = (seconds * 34f) % 300f
+            canvas.drawArc(glassOrbitRect, 205f + glintStart, 48f, false, glassGlintPaint)
+            canvas.restore()
+        }
 
         if (reveal > 0f) {
             val layer = canvas.saveLayer(logoRect, null)
