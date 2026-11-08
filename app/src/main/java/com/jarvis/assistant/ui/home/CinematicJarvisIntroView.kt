@@ -22,6 +22,9 @@ import android.view.animation.Interpolator
 import android.view.animation.LinearInterpolator
 import android.view.animation.PathInterpolator
 import kotlin.math.min
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * Cinematic JARVIS brand reveal.
@@ -74,6 +77,16 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
     private val logoRect = RectF()
     private val frameRect = RectF()
     private val aperturePath = Path()
+    private val energyGlow = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val energyCore = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val energyRing = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND }
+    private val energyDetail = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val energyParticle = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val energyRect = RectF()
+    private val starX = FloatArray(36)
+    private val starY = FloatArray(36)
+    private val starSize = FloatArray(36)
+    private var coreRadius = 0f
 
     private var cx = 0f
     private var cy = 0f
@@ -107,6 +120,22 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         val landscape = wf > hf
         cx = wf * 0.5f
         cy = if (landscape) hf * 0.365f else hf * 0.365f
+
+        coreRadius = shortSide * if (landscape) 0.105f else 0.125f
+        energyGlow.shader = RadialGradient(0f, 0f, coreRadius * 2.8f,
+            intArrayOf(Color.argb(105, 39, 205, 255), Color.argb(42, 107, 72, 224), Color.TRANSPARENT),
+            floatArrayOf(0f, 0.52f, 1f), Shader.TileMode.CLAMP)
+        energyCore.shader = RadialGradient(-coreRadius * 0.30f, -coreRadius * 0.35f, coreRadius * 1.55f,
+            intArrayOf(Color.rgb(242, 255, 255), Color.rgb(76, 224, 255), Color.rgb(41, 115, 239),
+                Color.rgb(119, 67, 222), Color.rgb(8, 15, 43)),
+            floatArrayOf(0f, 0.23f, 0.52f, 0.79f, 1f), Shader.TileMode.CLAMP)
+        energyRing.strokeWidth = dp(1.2f)
+        energyDetail.strokeWidth = dp(0.8f)
+        for (i in starX.indices) {
+            starX[i] = (((i * 7919) % 997) / 997f) * wf
+            starY[i] = (((i * 104729) % 991) / 991f) * hf
+            starSize[i] = dp(0.6f + ((i * 17) % 9) * 0.16f)
+        }
 
         backgroundPaint.shader = LinearGradient(
             0f, 0f, wf, hf,
@@ -284,10 +313,13 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         val landscape = w > h
         canvas.drawRect(0f, 0f, w, h, backgroundPaint)
 
-        // A slow, broad atmospheric arrival gives the black stage depth without visual noise.
+        // Deep-space atmosphere and a living energy core establish depth before the logo arrives.
         val atmosphereIn = segment(p, 0.015f, 0.48f, EASE_OUT)
         atmospherePaint.alpha = (255f * atmosphereIn).toInt().coerceIn(0, 255)
         canvas.drawRect(0f, 0f, w, h, atmospherePaint)
+        drawStarfield(canvas, p, atmosphereIn, h)
+        val coreIn = segment(p, 0.075f, 0.47f, EASE_OUT_BACK)
+        if (coreIn > 0f) drawEnergyCore(canvas, p, coreIn)
 
         // The aperture opens horizontally from one precise centre point.
         val apertureIn = segment(p, 0.045f, 0.31f, EASE_OUT)
@@ -300,9 +332,9 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         )
 
         // Fine corner registration marks frame the logo like a precision instrument.
-        val logoIn = segment(p, 0.20f, 0.57f, EASE_OUT)
+        val logoIn = segment(p, 0.39f, 0.66f, EASE_OUT)
         if (logoWidth > 0f && logoIn > 0f) {
-            val logoSettle = segment(p, 0.18f, 0.64f, EASE_OUT_BACK)
+            val logoSettle = segment(p, 0.37f, 0.69f, EASE_OUT_BACK)
             val scale = 0.965f + 0.035f * logoSettle
             val drawW = logoWidth * scale
             val drawH = logoHeight * scale
@@ -311,7 +343,7 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
                 cx + drawW * 0.5f, cy + drawH * 0.5f
             )
 
-            val reveal = segment(p, 0.20f, 0.57f, EASE_OUT)
+            val reveal = segment(p, 0.39f, 0.66f, EASE_OUT)
             val clipHalf = (drawW * 0.5f + dp(2f)) * reveal
             canvas.save()
             canvas.clipRect(cx - clipHalf, logoRect.top - dp(3f), cx + clipHalf, logoRect.bottom + dp(3f))
@@ -320,7 +352,7 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
             canvas.drawBitmap(logo!!, null, logoRect, logoPaint)
             canvas.restore()
 
-            val frameIn = segment(p, 0.31f, 0.62f, EASE_OUT)
+            val frameIn = segment(p, 0.48f, 0.70f, EASE_OUT)
             frameRect.set(
                 logoRect.left - dp(17f), logoRect.top - dp(13f),
                 logoRect.right + dp(17f), logoRect.bottom + dp(13f)
@@ -329,7 +361,7 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
             drawCornerFrame(canvas, frameRect, frameLength * frameIn)
 
             // A narrow scan passes across the artwork once; it never loops or distracts.
-            val scan = segment(p, 0.39f, 0.69f, EASE_IN_OUT)
+            val scan = segment(p, 0.53f, 0.75f, EASE_IN_OUT)
             if (scan > 0f && scan < 1f) {
                 val scanX = logoRect.left - dp(12f) + (logoRect.width() + dp(24f)) * scan
                 val bandHalf = dp(13f)
@@ -345,7 +377,7 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         }
 
         // Small uppercase descriptor is introduced only after the logo has settled.
-        val descriptorIn = segment(p, 0.48f, 0.65f, EASE_OUT)
+        val descriptorIn = segment(p, 0.58f, 0.73f, EASE_OUT)
         if (descriptorIn > 0f) {
             microPaint.textSize = microSize
             microPaint.color = Color.argb((150f * descriptorIn).toInt(), 142, 183, 207)
@@ -353,7 +385,7 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         }
 
         // Creator signature: restrained hierarchy, no competing panel or decorative card.
-        val creditIn = segment(p, 0.60f, 0.78f, EASE_OUT)
+        val creditIn = segment(p, 0.68f, 0.83f, EASE_OUT)
         if (creditIn > 0f) {
             microPaint.textSize = microSize
             microPaint.color = Color.argb((170f * creditIn).toInt(), 153, 181, 201)
@@ -373,7 +405,7 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
             )
         }
 
-        val purposeIn = segment(p, 0.72f, 0.86f, EASE_OUT)
+        val purposeIn = segment(p, 0.80f, 0.91f, EASE_OUT)
         if (purposeIn > 0f) {
             microPaint.textSize = detailSize
             microPaint.color = Color.argb((172f * purposeIn).toInt(), 151, 179, 201)
@@ -385,7 +417,7 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         }
 
         // Final lockup is the last thing to arrive and the last thing the viewer reads.
-        val welcomeIn = segment(p, 0.85f, 0.965f, EASE_OUT)
+        val welcomeIn = segment(p, 0.90f, 0.985f, EASE_OUT)
         if (welcomeIn > 0f) {
             val baseline = h * if (landscape) 0.925f else 0.875f
             accentPaint.color = Color.argb((205f * welcomeIn).toInt(), 83, 190, 244)
@@ -406,6 +438,83 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         framePaint.color = Color.argb(edgeAlpha, 70, 135, 175)
         val inset = shortSide * 0.035f
         canvas.drawRoundRect(inset, inset, w - inset, h - inset, dp(9f), dp(9f), framePaint)
+    }
+
+
+    /** Deterministic drifting particles; no per-frame allocations or random flicker. */
+    private fun drawStarfield(canvas: Canvas, p: Float, reveal: Float, h: Float) {
+        for (i in starX.indices) {
+            val y = (starY[i] - p * h * (0.10f + (i % 7) * 0.025f) + h) % h
+            val twinkle = 0.45f + 0.55f * abs(sin(p * 6.28318f * 2f + i * 0.83f))
+            energyParticle.color = Color.argb((112f * reveal * twinkle).toInt().coerceIn(0, 112), 116, 211, 245)
+            canvas.drawCircle(starX[i], y, starSize[i], energyParticle)
+        }
+    }
+
+    /** Layered orb with independently moving elliptical orbits, radial spokes and a breathing core. */
+    private fun drawEnergyCore(canvas: Canvas, p: Float, reveal: Float) {
+        val energy = 0.55f + 0.20f * sin(p * 18.8495f) + 0.10f * sin(p * 43.982f)
+        val breath = 1f + 0.028f * sin(p * 15.708f)
+        canvas.save()
+        canvas.translate(cx, cy)
+        canvas.scale(reveal, reveal)
+        energyGlow.alpha = (190f + 55f * energy).toInt().coerceIn(0, 255)
+        canvas.drawCircle(0f, 0f, coreRadius * 2.8f, energyGlow)
+        energyRing.color = Color.argb((80f + 70f * energy).toInt(), 72, 205, 255)
+        energyRing.strokeWidth = dp(1.2f)
+        canvas.drawCircle(0f, 0f, coreRadius * 1.78f, energyRing)
+        canvas.save()
+        canvas.scale(breath, breath)
+        canvas.drawCircle(0f, 0f, coreRadius, energyCore)
+        canvas.restore()
+
+        drawOrbit(canvas, p, 1.72f, 0.56f, 22f, 1.0f, Color.rgb(70, 222, 255), 0f)
+        drawOrbit(canvas, p, 1.58f, 0.48f, -39f, -1.7f, Color.rgb(158, 111, 255), 1.8f)
+        drawOrbit(canvas, p, 1.42f, 0.40f, 72f, 2.3f, Color.rgb(73, 147, 255), 3.6f)
+
+        energyDetail.strokeWidth = dp(0.8f)
+        for (i in 0 until 48) {
+            val a = i * 6.28318f / 48f + p * 0.35f
+            val inner = coreRadius * 2.08f
+            val outer = inner + dp(if (i % 4 == 0) 7f else 3f)
+            energyDetail.color = Color.argb(if (i % 4 == 0) 100 else 42, 95, 197, 235)
+            canvas.drawLine(cos(a) * inner, sin(a) * inner, cos(a) * outer, sin(a) * outer, energyDetail)
+        }
+        val r = coreRadius * 2.18f
+        energyDetail.color = Color.argb(62, 92, 185, 226)
+        canvas.drawCircle(0f, 0f, r, energyDetail)
+        energyRing.color = Color.argb(170, 75, 205, 255)
+        energyRing.strokeWidth = dp(1.5f)
+        energyRect.set(-r * 1.08f, -r * 1.08f, r * 1.08f, r * 1.08f)
+        canvas.drawArc(energyRect, -90f + p * 45f, 248f, false, energyRing)
+        for (i in 0 until 72) {
+            val a = i * 6.28318f / 72f
+            val major = i % 6 == 0
+            val r1 = r * if (major) 1.12f else 1.16f
+            val r2 = r * if (major) 1.24f else 1.195f
+            energyDetail.color = Color.argb(if (major) 105 else 34, 105, 195, 232)
+            canvas.drawLine(cos(a) * r1, sin(a) * r1, cos(a) * r2, sin(a) * r2, energyDetail)
+        }
+        canvas.restore()
+    }
+
+    private fun drawOrbit(canvas: Canvas, p: Float, rx: Float, ry: Float, tilt: Float,
+                          turns: Float, color: Int, offset: Float) {
+        canvas.save()
+        canvas.rotate(tilt)
+        aperturePath.reset()
+        aperturePath.addOval(RectF(-coreRadius * rx, -coreRadius * ry, coreRadius * rx, coreRadius * ry), Path.Direction.CW)
+        energyRing.color = Color.argb(128, Color.red(color), Color.green(color), Color.blue(color))
+        energyRing.strokeWidth = dp(1.15f)
+        canvas.drawPath(aperturePath, energyRing)
+        val a = p * 6.28318f * turns + offset
+        val x = coreRadius * rx * cos(a)
+        val y = coreRadius * ry * sin(a)
+        energyParticle.color = Color.argb(85, Color.red(color), Color.green(color), Color.blue(color))
+        canvas.drawCircle(x, y, dp(7f), energyParticle)
+        energyParticle.color = color
+        canvas.drawCircle(x, y, dp(2.6f), energyParticle)
+        canvas.restore()
     }
 
     private fun drawCornerFrame(canvas: Canvas, rect: RectF, length: Float) {
@@ -461,7 +570,7 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
     private fun sp(value: Float): Float = value * resources.displayMetrics.scaledDensity
 
     private companion object {
-        const val DURATION_MS = 5900L
+        const val DURATION_MS = 8200L
         const val SKIP_FADE_MS = 220L
         val EASE_OUT: Interpolator = PathInterpolator(0.16f, 1f, 0.3f, 1f)
         val EASE_OUT_BACK: Interpolator = PathInterpolator(0.18f, 1.12f, 0.28f, 1f)
