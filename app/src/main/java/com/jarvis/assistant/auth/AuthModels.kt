@@ -11,7 +11,9 @@ data class AuthSession(
     val refreshToken: String,
     val expiresAtEpochSec: Long,
     val userId: String,
-    val email: String
+    val email: String,
+    val displayName: String = "",
+    val avatarUrl: String = ""
 ) {
     /** True when the access token is expired or will expire within [skewSec] seconds. */
     fun isExpired(nowEpochSec: Long, skewSec: Long = 60L): Boolean =
