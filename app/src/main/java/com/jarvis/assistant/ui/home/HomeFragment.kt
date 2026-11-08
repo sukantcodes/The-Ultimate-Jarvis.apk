@@ -309,6 +309,15 @@ class HomeFragment : Fragment() {
      * because all pages live next to it in assets.
      */
     private fun loadOrbPage(style: String) {
+        // Settings can retain a HomeFragment instance after its view has been destroyed.
+        // Keep the requested style in pendingOrbStyle; setupOrbWebView() will load the
+        // persisted selection when a fresh Home view is created.
+        if (!isAdded || _binding == null) {
+            pendingOrbStyle = style
+            isPageLoaded = false
+            return
+        }
+
         val wantsAurora = style == "aurora_orb"
         val wantsEleptical = style == "eleptical_orb"
         loadedAuroraOrb = wantsAurora
@@ -357,7 +366,15 @@ class HomeFragment : Fragment() {
     }
 
     fun setOrbStyle(style: String) {
+        // The settings sheet may find a stale HomeFragment whose view lifecycle has ended.
+        // Persisting the preference is handled by the caller; defer all view work until
+        // setupOrbWebView() runs for the next valid Home view.
         pendingOrbStyle = style
+        if (!isAdded || _binding == null) {
+            isPageLoaded = false
+            return
+        }
+
         applyOrbLook(style)
         val wantsAurora = style == "aurora_orb"
         val wantsEleptical = style == "eleptical_orb"
@@ -368,6 +385,7 @@ class HomeFragment : Fragment() {
         if (!isPageLoaded || wantsAurora || wantsEleptical) return
         val safeStyle = style.filter { it.isLetterOrDigit() || it == '_' }
         activity?.runOnUiThread {
+            if (_binding == null || !isAdded) return@runOnUiThread
             binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setStyle('$safeStyle');", null)
         }
     }
