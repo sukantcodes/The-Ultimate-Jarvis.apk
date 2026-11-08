@@ -9,128 +9,80 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
-import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
+import android.graphics.PorterDuffColorFilter
 import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
-import android.util.TypedValue
 import android.view.View
 import android.view.animation.Interpolator
 import android.view.animation.LinearInterpolator
 import android.view.animation.PathInterpolator
 import com.jarvis.assistant.R
-import kotlin.math.PI
-import kotlin.math.floor
 import kotlin.math.min
-import kotlin.math.pow
-import kotlin.math.sin
-import kotlin.random.Random
 
 /**
- * JARVIS brand ident, played on every cold launch.
+ * Minimal cinematic JARVIS brand ident.
  *
- * The bundled logo has near-black letterforms, so instead of lighting it from the front on a dark
- * screen the ident *backlights* it: a hairline of light opens into a luminous bloom and the
- * letterforms emerge as crisp silhouettes through a feathered wipe. A layered glass chassis and
- * elliptical orbital highlights establish dimensional depth; a specular sheen crosses the glyphs,
- * a ripple leaves the orb of the "i", and the credit line resolves letter by letter. The
- * whole scene dissolves into whatever is underneath.
+ * Art direction: near-black negative space, one controlled horizon light, a centre-out
+ * wordmark reveal and deliberately typeset creator / welcome credits. The logo is treated
+ * as the hero; there are no decorative orbit rings, floating particles or faux-glass panels.
  *
- * Engineering notes
- *  - One linear [ValueAnimator] drives a single 0..1 timeline; every phase is a window on that
- *    timeline with its own cubic-bezier easing, so no phase is distorted by a global interpolator.
- *  - [onDraw] performs no allocation: every shader, paint, matrix and rect is built once in
- *    [onSizeChanged] and only transformed per frame (shader local matrices, canvas transforms).
- *  - The logo is decoded once with `inScaled = false` (no density up-scaling of the bitmap).
- *  - A missing logo never crashes the launch; the ident simply completes immediately.
- *  - The completion callback fires exactly once, whether the ident ends, is skipped or is disposed.
- *  - The timeline pauses while the window is not visible and resumes afterwards.
+ * Rendering is allocation-free in onDraw. All geometry and shaders are prepared when the
+ * view is sized. A single animator drives the complete ident and the existing host contract
+ * (start, skip, dispose and dissolveOnFinish) is preserved.
  */
 internal class CinematicJarvisIntroView(context: Context) : View(context) {
 
-    /**
-     * When true the finished ident dissolves to transparent so the content underneath is revealed
-     * smoothly. Set it to false when the view sits over a blank surface and the host is about to
-     * switch screens, so that nothing flashes through.
-     */
     var dissolveOnFinish: Boolean = true
 
     private val density = resources.displayMetrics.density
-
     private val logo: Bitmap? = runCatching {
-        val options = BitmapFactory.Options().apply {
-            inScaled = false
-            inPreferredConfig = Bitmap.Config.ARGB_8888
-        }
-        BitmapFactory.decodeResource(resources, R.drawable.ic_jarvis_logo, options)
+        BitmapFactory.decodeResource(
+            resources,
+            R.drawable.ic_jarvis_logo,
+            BitmapFactory.Options().apply {
+                inScaled = false
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+        )
     }.getOrNull()
 
-    // ---- Paints: created once, never in onDraw -------------------------------------------------
-    private val backdropPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val hazePaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val bloomPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val hairlinePaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val underlinePaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val glassPanelPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val glassEdgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
-    private val glassOrbitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
-    private val glassGlintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND }
-    private val motePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(190, 220, 255) }
-    private val logoPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG)
-    private val sheenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_ATOP)
+    private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val atmospherePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val horizonPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val logoPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG or Paint.DITHER_FLAG).apply {
+        colorFilter = PorterDuffColorFilter(Color.rgb(232, 245, 255), PorterDuff.Mode.SRC_IN)
     }
-    private val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
-    }
-    private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        color = Color.rgb(150, 215, 255)
-    }
-    private val tagPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(205, 225, 255)
-        textAlign = Paint.Align.LEFT
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        letterSpacingCompat = 0f
+    }
+    private val secondaryPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+    }
+    private val accentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
     }
 
-    // ---- Geometry and shaders: rebuilt only when the size changes -------------------------------
     private val logoRect = RectF()
-    private val glassPanelRect = RectF()
-    private val glassOrbitRect = RectF()
-    private val glassInnerOrbitRect = RectF()
-    private val sheenMatrix = Matrix()
-    private val maskMatrix = Matrix()
-    private var sheenShader: LinearGradient? = null
-    private var maskShader: LinearGradient? = null
-    private var centerX = 0f
-    private var centerY = 0f
-    private var baseLogoW = 0f
-    private var baseLogoH = 0f
-    private var featherPx = 0f
-    private var sheenHalfW = 0f
-    private var bloomRadius = 0f
-    private var hazeRadius = 0f
-    private var taglineBaseline = 0f
-    private var underlineHalfW = 0f
-    private val tagChars = TAGLINE.toCharArray()
-    private val tagX = FloatArray(TAGLINE.length)
-
-    // ---- Ambient motes (deterministic, allocation-free) -----------------------------------------
-    private val moteX = FloatArray(MOTES)
-    private val moteY = FloatArray(MOTES)
-    private val moteSpeed = FloatArray(MOTES)
-    private val moteSize = FloatArray(MOTES)
-    private val motePhase = FloatArray(MOTES)
-
-    // ---- Playback state -------------------------------------------------------------------------
-    private var progress = 0f
+    private var cx = 0f
+    private var cy = 0f
+    private var logoWidth = 0f
+    private var logoHeight = 0f
+    private var horizonHalfWidth = 0f
+    private var titleSize = 0f
+    private var creditSize = 0f
+    private var detailSize = 0f
     private var animator: ValueAnimator? = null
     private var skipAnimator: ValueAnimator? = null
     private var completion: (() -> Unit)? = null
+    private var progress = 0f
     private var completed = false
     private var skipping = false
 
@@ -138,133 +90,65 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         isClickable = true
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
         contentDescription = "JARVIS opening animation"
-        val random = Random(7)
-        for (i in 0 until MOTES) {
-            moteX[i] = random.nextFloat()
-            moteY[i] = random.nextFloat()
-            moteSpeed[i] = 0.012f + random.nextFloat() * 0.03f
-            moteSize[i] = 0.7f + random.nextFloat() * 1.3f
-            motePhase[i] = random.nextFloat() * (2f * PI.toFloat())
-        }
     }
-
-    // =============================================================================================
-    // Layout
-    // =============================================================================================
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         if (w <= 0 || h <= 0) return
+
         val wf = w.toFloat()
         val hf = h.toFloat()
+        cx = wf * 0.5f
+        cy = hf * 0.405f
 
-        backdropPaint.shader = LinearGradient(
+        backgroundPaint.shader = LinearGradient(
             0f, 0f, 0f, hf,
-            intArrayOf(Color.rgb(2, 5, 14), Color.rgb(7, 15, 34), Color.rgb(1, 3, 10)),
-            floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
+            intArrayOf(Color.rgb(1, 3, 8), Color.rgb(4, 9, 18), Color.rgb(1, 2, 6)),
+            floatArrayOf(0f, 0.48f, 1f),
+            Shader.TileMode.CLAMP
         )
-
-        centerX = wf * 0.5f
-        centerY = hf * 0.46f
-
-        val logoBitmap = logo
-        if (logoBitmap != null && !logoBitmap.isRecycled) {
-            val scale = min(wf * 0.74f / logoBitmap.width, hf * 0.30f / logoBitmap.height)
-            baseLogoW = logoBitmap.width * scale
-            baseLogoH = logoBitmap.height * scale
-        }
-        featherPx = baseLogoW * 0.30f
-        sheenHalfW = baseLogoW * 0.20f
-
-        // The backlight. Shaders are defined around the origin; onDraw translates and scales.
-        bloomRadius = wf * 0.62f
-        bloomPaint.shader = RadialGradient(
-            0f, 0f, bloomRadius,
+        val glowRadius = min(wf, hf) * 0.64f
+        atmospherePaint.shader = RadialGradient(
+            cx, cy, glowRadius,
             intArrayOf(
-                Color.argb(235, 222, 236, 255),
-                Color.argb(150, 120, 170, 255),
-                Color.argb(50, 60, 70, 200),
-                Color.argb(0, 40, 40, 160)
+                Color.argb(42, 35, 112, 180),
+                Color.argb(18, 20, 65, 112),
+                Color.TRANSPARENT
             ),
-            floatArrayOf(0f, 0.35f, 0.70f, 1f), Shader.TileMode.CLAMP
+            floatArrayOf(0f, 0.48f, 1f),
+            Shader.TileMode.CLAMP
         )
-        hazeRadius = wf * 0.95f
-        hazePaint.shader = RadialGradient(
-            0f, 0f, hazeRadius,
-            intArrayOf(Color.argb(46, 100, 70, 220), Color.argb(0, 60, 40, 160)),
-            null, Shader.TileMode.CLAMP
-        )
-
-        // Opening hairline (clipped per frame to grow from the centre).
-        hairlinePaint.shader = LinearGradient(
+        horizonPaint.shader = LinearGradient(
             0f, 0f, wf, 0f,
-            intArrayOf(Color.TRANSPARENT, Color.rgb(190, 235, 255), Color.TRANSPARENT),
-            null, Shader.TileMode.CLAMP
-        )
-
-        // Specular sheen: a soft band defined around the origin, rotated and slid per frame.
-        sheenShader = LinearGradient(
-            -sheenHalfW, 0f, sheenHalfW, 0f,
             intArrayOf(
-                Color.argb(0, 255, 255, 255),
-                Color.argb(0, 255, 255, 255),
-                Color.argb(200, 225, 245, 255),
-                Color.argb(0, 255, 255, 255),
-                Color.argb(0, 255, 255, 255)
+                Color.TRANSPARENT,
+                Color.argb(70, 80, 178, 235),
+                Color.argb(235, 190, 232, 255),
+                Color.argb(70, 80, 178, 235),
+                Color.TRANSPARENT
             ),
-            floatArrayOf(0f, 0.22f, 0.5f, 0.78f, 1f), Shader.TileMode.CLAMP
+            floatArrayOf(0f, 0.34f, 0.5f, 0.66f, 1f),
+            Shader.TileMode.CLAMP
         )
 
-        // Feathered reveal mask: opaque to the left of the edge, transparent to the right.
-        maskShader = LinearGradient(
-            0f, 0f, featherPx, 0f,
-            intArrayOf(Color.WHITE, Color.TRANSPARENT),
-            null, Shader.TileMode.CLAMP
-        )
-
-        // Credit line: measured once so the per-letter animation never measures text.
-        val tagSize = min(
-            TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 11f, resources.displayMetrics),
-            dp(15f)
-        )
-        tagPaint.textSize = tagSize
-        val tracking = dp(5.5f)
-        val wordGap = dp(12f)
-        var total = 0f
-        for (i in tagChars.indices) {
-            tagX[i] = total
-            total += if (tagChars[i] == ' ') wordGap else tagPaint.measureText(tagChars, i, 1) + tracking
+        val artwork = logo
+        if (artwork != null && !artwork.isRecycled) {
+            val scale = min(wf * 0.84f / artwork.width, hf * 0.25f / artwork.height)
+            logoWidth = artwork.width * scale
+            logoHeight = artwork.height * scale
+        } else {
+            logoWidth = 0f
+            logoHeight = 0f
         }
-        total -= tracking
-        val startX = centerX - total / 2f
-        for (i in tagX.indices) tagX[i] += startX
-        taglineBaseline = centerY + baseLogoH / 2f + dp(44f)
 
-        // Glass materials are prepared only when the view size changes. The restrained blue-white
-        // gradients suggest a thick, translucent glass chassis without expensive runtime blur.
-        glassPanelPaint.shader = LinearGradient(
-            0f, 0f, wf, hf,
-            intArrayOf(Color.argb(5, 210, 238, 255), Color.argb(25, 80, 150, 220), Color.argb(8, 190, 220, 255)),
-            floatArrayOf(0f, 0.52f, 1f), Shader.TileMode.CLAMP
-        )
-        glassEdgePaint.color = Color.argb(105, 170, 225, 255)
-        glassEdgePaint.strokeWidth = dp(1f)
-        glassOrbitPaint.color = Color.argb(78, 105, 190, 255)
-        glassOrbitPaint.strokeWidth = dp(1.1f)
-        glassGlintPaint.color = Color.argb(175, 220, 245, 255)
-        glassGlintPaint.strokeWidth = dp(1.6f)
-
-        underlineHalfW = wf * 0.15f
-        underlinePaint.shader = LinearGradient(
-            centerX - underlineHalfW, 0f, centerX + underlineHalfW, 0f,
-            intArrayOf(Color.TRANSPARENT, Color.rgb(64, 202, 255), Color.rgb(158, 110, 255), Color.TRANSPARENT),
-            floatArrayOf(0f, 0.35f, 0.65f, 1f), Shader.TileMode.CLAMP
-        )
+        horizonHalfWidth = wf * 0.44f
+        titleSize = sp(15f).coerceAtMost(wf * 0.052f)
+        creditSize = sp(9f).coerceAtMost(wf * 0.032f)
+        detailSize = sp(10f).coerceAtMost(wf * 0.036f)
+        textPaint.textSize = titleSize
+        secondaryPaint.textSize = creditSize
+        accentPaint.strokeWidth = dp(1f)
     }
-
-    // =============================================================================================
-    // Playback
-    // =============================================================================================
 
     fun start(onDone: () -> Unit) {
         completion = onDone
@@ -274,11 +158,11 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         animator?.cancel()
         skipAnimator?.removeAllListeners()
         skipAnimator?.cancel()
+        progress = 0f
         alpha = 1f
 
         val artwork = logo
-        if (artwork == null || artwork.isRecycled) {
-            // Never block or crash the launch because of a decorative element.
+        if (artwork == null || artwork.isRecycled || width <= 0 || height <= 0) {
             finishOnce()
             return
         }
@@ -288,17 +172,12 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
             interpolator = LinearInterpolator()
             addUpdateListener {
                 progress = it.animatedValue as Float
-                if (dissolveOnFinish) {
-                    alpha = 1f - seg(progress, EXIT_START, 1f, EASE_IN_CUBIC)
-                }
+                if (dissolveOnFinish) alpha = 1f - segment(progress, 0.965f, 1f, EASE_IN)
                 invalidate()
             }
             addListener(object : AnimatorListenerAdapter() {
                 private var cancelled = false
-                override fun onAnimationCancel(animation: Animator) {
-                    cancelled = true
-                }
-
+                override fun onAnimationCancel(animation: Animator) { cancelled = true }
                 override fun onAnimationEnd(animation: Animator) {
                     if (!cancelled) finishOnce()
                 }
@@ -307,7 +186,6 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         }
     }
 
-    /** Fast, smooth skip: the scene fades out in a fraction of a second instead of cutting. */
     fun skip() {
         if (completed || skipping) return
         val running = animator
@@ -324,10 +202,7 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
             addUpdateListener { alpha = it.animatedValue as Float }
             addListener(object : AnimatorListenerAdapter() {
                 private var cancelled = false
-                override fun onAnimationCancel(animation: Animator) {
-                    cancelled = true
-                }
-
+                override fun onAnimationCancel(animation: Animator) { cancelled = true }
                 override fun onAnimationEnd(animation: Animator) {
                     if (!cancelled) finishOnce()
                 }
@@ -368,13 +243,7 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
     override fun onDetachedFromWindow() {
         dispose()
         super.onDetachedFromWindow()
-        // The bitmap is intentionally not recycled here: it is small, owned by this view only and
-        // is released with it, which keeps a re-attached view from drawing a recycled bitmap.
     }
-
-    // =============================================================================================
-    // Drawing
-    // =============================================================================================
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -382,197 +251,117 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
         val h = height.toFloat()
         if (w <= 0f || h <= 0f) return
 
-        canvas.drawRect(0f, 0f, w, h, backdropPaint)
-
-        val artwork = logo
-        if (artwork == null || artwork.isRecycled || baseLogoW <= 0f) return
-
         val p = progress
-        val seconds = p * (DURATION_MS / 1000f)
-        val exit = seg(p, EXIT_START, 1f, EASE_IN_CUBIC)
+        canvas.drawRect(0f, 0f, w, h, backgroundPaint)
 
-        // Phase windows on the shared timeline.
-        val lineGrow = seg(p, 0.02f, 0.20f, EASE_OUT_QUINT)
-        val lineFade = 1f - seg(p, 0.20f, 0.36f, EASE_IN_OUT)
-        val bloomOpen = seg(p, 0.10f, 0.52f, EASE_OUT_EXPO)
-        val bloomLevel = bloomOpen * (1f - 0.14f * seg(p, 0.60f, 1f, EASE_IN_OUT))
-        val reveal = seg(p, 0.14f, 0.60f, EASE_OUT_QUINT)
-        val settle = seg(p, 0.12f, 0.62f, EASE_OUT_EXPO)
-        val push = seg(p, 0.12f, 1f, LINEAR)
-        val sheen = seg(p, 0.50f, 0.82f, EASE_IN_OUT)
+        val atmosphere = segment(p, 0.08f, 0.62f, EASE_OUT)
+        atmospherePaint.alpha = (255f * atmosphere).toInt().coerceIn(0, 255)
+        canvas.drawRect(0f, 0f, w, h, atmospherePaint)
 
-        // Everything after the backdrop eases outward slightly as the ident leaves.
-        val exitScale = 1f + 0.035f * exit
+        // A single hairline opens from the centre: the only environmental motion.
+        val lineIn = segment(p, 0.02f, 0.30f, EASE_OUT)
+        val lineOut = 1f - segment(p, 0.36f, 0.52f, EASE_IN_OUT)
+        val lineHalf = horizonHalfWidth * lineIn
+        horizonPaint.alpha = (255f * lineOut).toInt().coerceIn(0, 255)
+        canvas.drawRect(cx - lineHalf, cy - dp(0.65f), cx + lineHalf, cy + dp(0.65f), horizonPaint)
+
+        val logoReveal = segment(p, 0.22f, 0.68f, EASE_OUT)
+        if (logoWidth > 0f && logoReveal > 0f) {
+            val settle = segment(p, 0.20f, 0.72f, EASE_OUT_BACK)
+            val scale = 0.965f + 0.035f * settle
+            val drawW = logoWidth * scale
+            val drawH = logoHeight * scale
+            logoRect.set(
+                cx - drawW * 0.5f,
+                cy - drawH * 0.5f,
+                cx + drawW * 0.5f,
+                cy + drawH * 0.5f
+            )
+            logoPaint.alpha = (255f * min(1f, logoReveal * 1.18f)).toInt().coerceIn(0, 255)
+
+            // Symmetrical reveal keeps the wordmark composed and makes the logo read as one mark.
+            val halfReveal = (drawW * 0.5f + dp(18f)) * logoReveal
+            canvas.save()
+            canvas.clipRect(cx - halfReveal, logoRect.top, cx + halfReveal, logoRect.bottom)
+            canvas.drawBitmap(logo!!, null, logoRect, logoPaint)
+            canvas.restore()
+        }
+
+        // Creator credit resolves below the mark with deliberate hierarchy and generous spacing.
+        val creditIn = segment(p, 0.60f, 0.77f, EASE_OUT)
+        if (creditIn > 0f) {
+            secondaryPaint.textSize = creditSize
+            secondaryPaint.color = Color.argb((150f * creditIn).toInt(), 166, 190, 211)
+            canvas.drawText("CREATED AND DESIGNED BY", cx, h * 0.625f, secondaryPaint)
+
+            textPaint.textSize = titleSize
+            textPaint.color = Color.argb((245f * creditIn).toInt(), 239, 247, 255)
+            drawFittedCentered(canvas, "SUKANTA BHATTACHARYA", cx, h * 0.674f, textPaint, w * 0.86f)
+        }
+
+        val purposeIn = segment(p, 0.70f, 0.84f, EASE_OUT)
+        if (purposeIn > 0f) {
+            secondaryPaint.textSize = detailSize
+            secondaryPaint.color = Color.argb((165f * purposeIn).toInt(), 151, 177, 201)
+            drawFittedCentered(
+                canvas,
+                "TO HANDLE ALL YOUR NECESSARY WORKS",
+                cx,
+                h * 0.735f,
+                secondaryPaint,
+                w * 0.88f
+            )
+        }
+
+        // The welcome is intentionally the final message, not competing with the logo reveal.
+        val welcomeIn = segment(p, 0.82f, 0.94f, EASE_OUT)
+        if (welcomeIn > 0f) {
+            accentPaint.color = Color.argb((190f * welcomeIn).toInt(), 86, 190, 245)
+            accentPaint.alpha = (190f * welcomeIn).toInt().coerceIn(0, 255)
+            val lineW = dp(24f) * welcomeIn
+            canvas.drawLine(cx - lineW, h * 0.815f, cx + lineW, h * 0.815f, accentPaint)
+
+            textPaint.textSize = titleSize * 0.92f
+            textPaint.color = Color.argb((245f * welcomeIn).toInt(), 226, 242, 255)
+            drawFittedCentered(canvas, "WELCOME TO JARVIS", cx, h * 0.865f, textPaint, w * 0.84f)
+        }
+    }
+
+    private fun drawFittedCentered(
+        canvas: Canvas,
+        value: String,
+        x: Float,
+        baseline: Float,
+        paint: Paint,
+        maxWidth: Float
+    ) {
+        val measured = paint.measureText(value)
+        val scale = if (measured > maxWidth && measured > 0f) maxWidth / measured else 1f
         canvas.save()
-        canvas.scale(exitScale, exitScale, centerX, centerY)
-
-        drawMotes(canvas, w, h, seconds, seg(p, 0.05f, 0.35f, EASE_IN_OUT))
-
-        // Wide violet haze, then the bright backlight opening from the hairline.
-        if (bloomOpen > 0f) {
-            canvas.save()
-            canvas.translate(centerX, centerY)
-            canvas.scale(0.6f + 0.4f * bloomOpen, 0.8f * (0.05f + 0.95f * bloomOpen))
-            hazePaint.alpha = (255f * bloomOpen).toInt().coerceIn(0, 255)
-            canvas.drawCircle(0f, 0f, hazeRadius, hazePaint)
-            canvas.restore()
-
-            canvas.save()
-            canvas.translate(centerX, centerY)
-            canvas.scale(0.55f + 0.45f * bloomOpen, 0.5f * (0.04f + 0.96f * bloomOpen))
-            bloomPaint.alpha = (255f * bloomLevel).toInt().coerceIn(0, 255)
-            canvas.drawCircle(0f, 0f, bloomRadius, bloomPaint)
-            canvas.restore()
-        }
-
-        // The opening hairline grows from the centre and gives way to the bloom.
-        if (lineGrow > 0f && lineFade > 0f) {
-            val half = width * 0.46f * lineGrow
-            hairlinePaint.alpha = (255f * lineFade).toInt().coerceIn(0, 255)
-            canvas.save()
-            canvas.clipRect(centerX - half, centerY - dp(0.75f), centerX + half, centerY + dp(0.75f))
-            canvas.drawRect(0f, centerY - dp(0.75f), w, centerY + dp(0.75f), hairlinePaint)
-            canvas.restore()
-        }
-
-        // Logo: scale settles in with a very slow push-in so the end state is never static.
-        val logoScale = 0.94f + 0.06f * settle + 0.016f * push
-        val logoW = baseLogoW * logoScale
-        val logoH = baseLogoH * logoScale
-        val rise = dp(12f) * (1f - settle)
-        logoRect.set(
-            centerX - logoW / 2f, centerY - logoH / 2f + rise,
-            centerX + logoW / 2f, centerY + logoH / 2f + rise
-        )
-
-        // Dimensional glass chassis: a softly tinted rounded plate, fine bevel and two tilted
-        // elliptical orbit lines. All geometry is reused; only Canvas transforms change per frame.
-        val glassReveal = seg(p, 0.16f, 0.68f, EASE_OUT_EXPO)
-        if (glassReveal > 0f) {
-            val padX = maxOf(dp(22f), logoW * 0.075f)
-            val padY = maxOf(dp(17f), logoH * 0.30f)
-            glassPanelRect.set(logoRect.left - padX, logoRect.top - padY, logoRect.right + padX, logoRect.bottom + padY)
-            glassOrbitRect.set(glassPanelRect.left - dp(13f), glassPanelRect.top - dp(10f), glassPanelRect.right + dp(13f), glassPanelRect.bottom + dp(10f))
-            glassInnerOrbitRect.set(glassPanelRect.left + dp(5f), glassPanelRect.top - dp(3f), glassPanelRect.right - dp(5f), glassPanelRect.bottom + dp(3f))
-            val glassAlpha = (glassReveal * (1f - 0.18f * exit)).coerceIn(0f, 1f)
-            canvas.save()
-            canvas.rotate(-7.5f + sin(seconds * 0.42f) * 1.2f, centerX, centerY)
-            glassPanelPaint.alpha = (255f * glassAlpha).toInt()
-            glassEdgePaint.alpha = (255f * glassAlpha).toInt()
-            glassOrbitPaint.alpha = (170f * glassAlpha).toInt()
-            glassGlintPaint.alpha = (210f * glassAlpha).toInt()
-            canvas.drawRoundRect(glassPanelRect, dp(24f), dp(24f), glassPanelPaint)
-            canvas.drawRoundRect(glassPanelRect, dp(24f), dp(24f), glassEdgePaint)
-            canvas.drawOval(glassOrbitRect, glassOrbitPaint)
-            canvas.drawOval(glassInnerOrbitRect, glassOrbitPaint)
-            val glintStart = (seconds * 34f) % 300f
-            canvas.drawArc(glassOrbitRect, 205f + glintStart, 48f, false, glassGlintPaint)
-            canvas.restore()
-        }
-
-        if (reveal > 0f) {
-            val layer = canvas.saveLayer(logoRect, null)
-            canvas.drawBitmap(artwork, null, logoRect, logoPaint)
-
-            if (sheen > 0f && sheen < 1f) {
-                val shader = sheenShader
-                if (shader != null) {
-                    val travel = logoW + 2f * sheenHalfW
-                    val x = logoRect.left - sheenHalfW + travel * sheen
-                    sheenMatrix.setRotate(16f)
-                    sheenMatrix.postTranslate(x, logoRect.centerY())
-                    shader.setLocalMatrix(sheenMatrix)
-                    sheenPaint.shader = shader
-                    sheenPaint.alpha = (255f * sin(PI.toFloat() * sheen)).toInt().coerceIn(0, 255)
-                    canvas.drawRect(logoRect, sheenPaint)
-                }
-            }
-
-            if (reveal < 1f) {
-                val shader = maskShader
-                if (shader != null) {
-                    val edge = logoRect.left + (logoW + featherPx) * reveal
-                    maskMatrix.setTranslate(edge - featherPx, 0f)
-                    shader.setLocalMatrix(maskMatrix)
-                    maskPaint.shader = shader
-                    canvas.drawRect(logoRect, maskPaint)
-                }
-            }
-            canvas.restoreToCount(layer)
-        }
-
-        // Two ripples leave the orb on the "i" once the wipe has passed it.
-        val dotX = logoRect.left + I_DOT_X * logoW
-        val dotY = logoRect.top + I_DOT_Y * logoH
-        drawRipple(canvas, dotX, dotY, seg(p, 0.52f, 0.86f, EASE_OUT_QUINT))
-        drawRipple(canvas, dotX, dotY, seg(p, 0.60f, 0.92f, EASE_OUT_QUINT))
-
-        // Credit line resolving letter by letter.
-        for (i in tagChars.indices) {
-            val c = tagChars[i]
-            if (c == ' ') continue
-            val t = seg(p, 0.60f + i * 0.010f, 0.74f + i * 0.010f, EASE_OUT_QUINT)
-            if (t <= 0f) continue
-            tagPaint.alpha = (215f * t).toInt().coerceIn(0, 255)
-            canvas.drawText(tagChars, i, 1, tagX[i], taglineBaseline + dp(8f) * (1f - t), tagPaint)
-        }
-
-        // Closing light line under the credit.
-        val underline = seg(p, 0.74f, 0.88f, EASE_OUT_QUINT)
-        if (underline > 0f) {
-            val half = underlineHalfW * underline
-            val y = taglineBaseline + dp(16f)
-            canvas.save()
-            canvas.clipRect(centerX - half, y, centerX + half, y + dp(1.5f))
-            canvas.drawRect(centerX - underlineHalfW, y, centerX + underlineHalfW, y + dp(1.5f), underlinePaint)
-            canvas.restore()
-        }
-
+        canvas.scale(scale, 1f, x, baseline)
+        canvas.drawText(value, x, baseline, paint)
         canvas.restore()
     }
 
-    private fun drawRipple(canvas: Canvas, x: Float, y: Float, t: Float) {
-        if (t <= 0f || t >= 1f) return
-        ringPaint.alpha = (190f * (1f - t).pow(1.5f)).toInt().coerceIn(0, 255)
-        ringPaint.strokeWidth = dp(1.4f) * (1f - t) + dp(0.4f)
-        canvas.drawCircle(x, y, dp(5f) + dp(70f) * t, ringPaint)
-    }
-
-    private fun drawMotes(canvas: Canvas, w: Float, h: Float, seconds: Float, level: Float) {
-        if (level <= 0f) return
-        for (i in 0 until MOTES) {
-            var y = moteY[i] - moteSpeed[i] * seconds
-            y -= floor(y)
-            val x = moteX[i] * w + sin(seconds * 1.1f + motePhase[i]) * dp(4f)
-            val twinkle = 0.25f + 0.75f * (0.5f + 0.5f * sin(seconds * 2.2f + motePhase[i]))
-            motePaint.alpha = (110f * twinkle * level).toInt().coerceIn(0, 255)
-            canvas.drawCircle(x, y * h, dp(moteSize[i]), motePaint)
-        }
-    }
-
-    /** Eased progress of [p] through the window [start]..[end] of the shared timeline. */
-    private fun seg(p: Float, start: Float, end: Float, ease: Interpolator): Float {
-        val t = ((p - start) / (end - start)).coerceIn(0f, 1f)
-        return ease.getInterpolation(t)
+    private fun segment(value: Float, start: Float, end: Float, easing: Interpolator): Float {
+        val t = ((value - start) / (end - start)).coerceIn(0f, 1f)
+        return easing.getInterpolation(t)
     }
 
     private fun dp(value: Float): Float = value * density
+    private fun sp(value: Float): Float = value * resources.displayMetrics.scaledDensity
 
     private companion object {
-        const val TAGLINE = "JARVIS BY SUKANT"
-        const val DURATION_MS = 3600L
+        const val DURATION_MS = 4400L
         const val SKIP_FADE_MS = 220L
-        const val EXIT_START = 0.91f
-        const val MOTES = 26
-
-        // Position of the orb on the "i" within the 868x256 master logo.
-        const val I_DOT_X = 0.787f
-        const val I_DOT_Y = 0.234f
-
-        val LINEAR: Interpolator = LinearInterpolator()
-        val EASE_OUT_EXPO: Interpolator = PathInterpolator(0.16f, 1f, 0.3f, 1f)
-        val EASE_OUT_QUINT: Interpolator = PathInterpolator(0.22f, 1f, 0.36f, 1f)
+        val EASE_OUT: Interpolator = PathInterpolator(0.16f, 1f, 0.3f, 1f)
+        val EASE_OUT_BACK: Interpolator = PathInterpolator(0.18f, 1.18f, 0.28f, 1f)
         val EASE_IN_OUT: Interpolator = PathInterpolator(0.65f, 0f, 0.35f, 1f)
-        val EASE_IN_CUBIC: Interpolator = PathInterpolator(0.32f, 0f, 0.67f, 0f)
+        val EASE_IN: Interpolator = PathInterpolator(0.4f, 0f, 1f, 1f)
     }
 }
+
+/** Keeps the Paint API surface compatible with older Android releases. */
+private var Paint.letterSpacingCompat: Float
+    get() = 0f
+    set(@Suppress("UNUSED_PARAMETER") value) = Unit
