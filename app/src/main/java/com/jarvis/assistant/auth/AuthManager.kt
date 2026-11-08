@@ -34,6 +34,7 @@ object AuthManager {
             store = SessionStore(context)
             com.jarvis.assistant.owner.DeviceTelemetry.init(context)
             _session.value = store.loadSession()
+            syncAccountProfile(_session.value)
             initialised = true
         }
     }
@@ -172,6 +173,7 @@ object AuthManager {
         com.jarvis.assistant.owner.OwnerSession.clear()
         store.clearSession()
         _session.value = null
+        clearAccountProfile()
         store.pendingNotice = "Your session expired. Please sign in again, or continue as a guest."
         return SessionCheck.EXPIRED
     }
@@ -183,13 +185,37 @@ object AuthManager {
         val current = _session.value
         store.clearSession()
         _session.value = null
+        clearAccountProfile()
         store.guestChosen = false
         if (current != null) client.signOut(current.accessToken)
     }
 
     private fun adopt(session: AuthSession) {
-        store.saveSession(session)
-        _session.value = session
+        val previous = _session.value
+        val merged = session.copy(
+            displayName = session.displayName.ifBlank {
+                previous?.takeIf { it.userId == session.userId }?.displayName.orEmpty()
+            },
+            avatarUrl = session.avatarUrl.ifBlank {
+                previous?.takeIf { it.userId == session.userId }?.avatarUrl.orEmpty()
+            }
+        )
+        store.saveSession(merged)
+        _session.value = merged
+        syncAccountProfile(merged)
+    }
+
+    private fun syncAccountProfile(session: AuthSession?) {
+        if (session == null || session.userId.isBlank()) return
+        runCatching {
+            com.jarvis.assistant.JarvisApp.instance.preferences.syncAccountProfile(
+                session.userId, session.displayName, session.avatarUrl
+            )
+        }
+    }
+
+    private fun clearAccountProfile() {
+        runCatching { com.jarvis.assistant.JarvisApp.instance.preferences.clearAccountProfile() }
     }
 
     /** A fresh interactive sign-in (not a token refresh): adopt the session and record the sign-in. */
