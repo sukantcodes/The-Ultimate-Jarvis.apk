@@ -38,6 +38,7 @@ import androidx.core.view.ViewCompat
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -150,6 +151,13 @@ class SettingsFragment : Fragment() {
         markSectionHeadings()
         setupSettingsSearch()
         setupProfileCard()
+        // A persisted session is hydrated immediately, then its server profile may arrive asynchronously.
+        // Rebind the User Card when AuthManager publishes the refreshed account claims.
+        viewLifecycleOwner.lifecycleScope.launch {
+            com.jarvis.assistant.auth.AuthManager.session.collect {
+                if (_binding != null && isAdded) loadUserData()
+            }
+        }
         setupAiSection()
         setupVoiceSection()
         setupSecuritySection()
