@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fixed id so the tutorial's fragment container survives rotation and process recreation. -->
+    <item name="onboarding_container" type="id" />
+</resources>

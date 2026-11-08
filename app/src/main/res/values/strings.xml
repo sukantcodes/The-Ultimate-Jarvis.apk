@@ -59,5 +59,7 @@
   
     <string name="get_gemini_api_key">Get your API key</string>
     <string name="get_gemini_api_key_description">Open Google AI Studio to create a Gemini API key</string>
+    <string name="set_replay_tutorial_title">Replay setup tutorial</string>
+    <string name="set_replay_tutorial_subtitle">Walk through permissions, profile, AI, Accessibility and voice again</string>
 </resources>
 

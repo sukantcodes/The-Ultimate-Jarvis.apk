@@ -496,6 +496,9 @@ class SettingsFragment : Fragment() {
 
     private fun setupSecuritySection() {
         binding.rowOwnerVoice.setOnClickListener { open(VoiceEnrollmentActivity::class.java) }
+        binding.rowReplayTutorial.setOnClickListener {
+            startActivity(com.jarvis.assistant.ui.onboarding.OnboardingActivity.intent(requireContext(), replay = true))
+        }
 
         bindSwitchRow(binding.rowVoiceMode, binding.switchOwnerOnly) { checked ->
             VoiceModeStore(requireContext()).ownerOnly = checked
@@ -690,27 +693,6 @@ class SettingsFragment : Fragment() {
             R.string.set_footer_credit,
             BuildConfig.VERSION_NAME,
             BuildConfig.DEVELOPER_NAME
-        )
-
-        // The guided setup can be replayed at any time without resetting saved settings.
-        val replayTutorial = com.google.android.material.button.MaterialButton(
-            requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle
-        ).apply {
-            text = "REPLAY JARVIS SETUP TUTORIAL"
-            isAllCaps = false
-            setOnClickListener {
-                startActivity(Intent(requireContext(), com.jarvis.assistant.ui.onboarding.SetupTutorialActivity::class.java))
-            }
-        }
-        binding.settingsContent.addView(
-            replayTutorial,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(52)
-            ).apply {
-                topMargin = dp(16)
-                bottomMargin = dp(20)
-            }
         )
     }
 

@@ -309,20 +309,26 @@ class MainActivity : AppCompatActivity() {
             intent.getBooleanExtra(EXTRA_SHOW_POST_LOGIN_WELCOME, false) && !prefs.hasSeenWelcomeIntro
         intent.removeExtra(EXTRA_SHOW_POST_LOGIN_WELCOME)
 
-        fun launchSetupTutorial() {
-            if (!prefs.hasCompletedSetupTutorial && !isFinishing && !isDestroyed) {
-                startActivity(Intent(this, com.jarvis.assistant.ui.onboarding.SetupTutorialActivity::class.java))
-            }
-        }
-
+        val launchedFresh = savedInstanceState == null
         fun continueAfterOpeningAnimation() {
-            if (showFirstTimeTextWelcome && !isFinishing && !isDestroyed) {
+            if (isFinishing || isDestroyed) return
+            // The interactive first-launch tutorial replaces the older text-only welcome. It opens once for new
+            // users, resumes where it stopped until finished, and never re-opens for people who had already seen
+            // the earlier welcome (they can replay it from Settings). Only on a fresh launch: after a recreation
+            // Android restores the tutorial itself, so launching again would stack a second copy.
+            val onboardingStore = com.jarvis.assistant.onboarding.OnboardingStore(this)
+            // The previous setup tutorial recorded completion in hasCompletedSetupTutorial; treat that as "already onboarded".
+            val alreadyOnboarded = prefs.hasSeenWelcomeIntro || prefs.hasCompletedSetupTutorial
+            if (launchedFresh && onboardingStore.shouldAutoLaunch(alreadyOnboarded)) {
+                prefs.hasSeenWelcomeIntro = true
+                startActivity(com.jarvis.assistant.ui.onboarding.OnboardingActivity.intent(this))
+                return
+            }
+            if (showFirstTimeTextWelcome) {
                 prefs.hasSeenWelcomeIntro = true
                 WelcomeIntroOverlay.showPostLoginWelcome(this, binding.rootMainLayout) {
-                    launchSetupTutorial()
+                    // The normal Home screen is now ready for the user.
                 }
-            } else {
-                launchSetupTutorial()
             }
         }
 

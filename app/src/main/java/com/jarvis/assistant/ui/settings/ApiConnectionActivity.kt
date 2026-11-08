@@ -135,22 +135,12 @@ class ApiConnectionActivity : AppCompatActivity() {
         binding.viewStatusDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#3B82F6"))
 
         lifecycleScope.launch {
-            val startTime = System.currentTimeMillis()
-            val result = withContext(Dispatchers.IO) {
-                try {
-                    val url = "https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey"
-                    val request = Request.Builder().url(url).build()
-                    testHttpClient.newCall(request).execute().use { response ->
-                        val duration = System.currentTimeMillis() - startTime
-                        if (response.isSuccessful) {
-                            Pair(true, duration)
-                        } else {
-                            Pair(false, response.code)
-                        }
-                    }
-                } catch (e: Exception) {
-                    Pair(false, -1)
-                }
+            // Shared with the first-launch tutorial: one validator, one place that touches the key.
+            val check = com.jarvis.assistant.network.ApiKeyValidator.validate(apiKey)
+            val result: Pair<Boolean, Long> = when (check) {
+                is com.jarvis.assistant.network.ApiKeyCheck.Valid -> Pair(true, check.latencyMs)
+                is com.jarvis.assistant.network.ApiKeyCheck.Rejected -> Pair(false, check.httpCode.toLong())
+                else -> Pair(false, -1L)
             }
 
             binding.btnTestConnection.isEnabled = true
@@ -162,7 +152,7 @@ class ApiConnectionActivity : AppCompatActivity() {
                 Snackbar.make(binding.root, "Connection verified! Ping: ${ping}ms", Snackbar.LENGTH_LONG).show()
             } else {
                 val code = result.second
-                binding.tvPingResult.text = if (code == -1) "Network Timeout" else "HTTP $code Error"
+                binding.tvPingResult.text = if (code == -1L) "Network Timeout" else "HTTP $code Error"
                 binding.tvLiveStatus.text = "FAILED • INVALID KEY OR NETWORK"
                 binding.viewStatusDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#EF4444"))
                 Snackbar.make(binding.root, "Connection failed. Please verify API key.", Snackbar.LENGTH_LONG).show()
