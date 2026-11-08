@@ -20,6 +20,13 @@ data class AuthSession(
         nowEpochSec + skewSec >= expiresAtEpochSec
 }
 
+/** Public account profile returned by Supabase Auth's authenticated /user endpoint. */
+data class AuthProfile(
+    val userId: String,
+    val displayName: String = "",
+    val avatarUrl: String = ""
+)
+
 enum class AuthError {
     INVALID_CREDENTIALS,
     EMAIL_NOT_CONFIRMED,
