@@ -1,5 +1,7 @@
 package com.jarvis.assistant.ui.home
 
+import com.jarvis.assistant.R
+
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
