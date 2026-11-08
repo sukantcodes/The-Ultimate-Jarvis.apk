@@ -79,6 +79,23 @@ private class TouchGlowView(activity: Activity) : View(activity) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val location = IntArray(2)
     private val accent = resolveAccent()
+    // Allocate the radial shader once. Scaling the canvas animates its radius without
+    // allocating a new GPU shader on every frame of every touch.
+    private val maxRadius = 92f * density
+    private val glowShader = RadialGradient(
+        0f,
+        0f,
+        maxRadius,
+        intArrayOf(
+            Color.argb(105, Color.red(accent), Color.green(accent), Color.blue(accent)),
+            Color.argb(42, Color.red(accent), Color.green(accent), Color.blue(accent)),
+            Color.TRANSPARENT
+        ),
+        floatArrayOf(0f, 0.52f, 1f),
+        Shader.TileMode.CLAMP
+    )
+    private var screenOffsetX = 0
+    private var screenOffsetY = 0
     private var centerX = 0f
     private var centerY = 0f
     private var radius = 0f
@@ -101,11 +118,26 @@ private class TouchGlowView(activity: Activity) : View(activity) {
         } else Color.CYAN
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        updateScreenOffset()
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        if (changed) updateScreenOffset()
+    }
+
+    private fun updateScreenOffset() {
+        getLocationOnScreen(location)
+        screenOffsetX = location[0]
+        screenOffsetY = location[1]
+    }
+
     fun observe(event: MotionEvent) {
         if (!isEnabled) return
-        getLocationOnScreen(location)
-        val x = event.rawX - location[0]
-        val y = event.rawY - location[1]
+        val x = event.rawX - screenOffsetX
+        val y = event.rawY - screenOffsetY
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> begin(x, y)
             MotionEvent.ACTION_MOVE -> {
@@ -164,21 +196,13 @@ private class TouchGlowView(activity: Activity) : View(activity) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (glowAlpha <= 0f || radius <= 0f) return
-        val outer = Color.TRANSPARENT
         paint.alpha = (255f * glowAlpha).toInt().coerceIn(0, 255)
-        paint.shader = RadialGradient(
-            centerX,
-            centerY,
-            radius,
-            intArrayOf(
-                Color.argb(105, Color.red(accent), Color.green(accent), Color.blue(accent)),
-                Color.argb(42, Color.red(accent), Color.green(accent), Color.blue(accent)),
-                outer
-            ),
-            floatArrayOf(0f, 0.52f, 1f),
-            Shader.TileMode.CLAMP
-        )
-        canvas.drawCircle(centerX, centerY, radius, paint)
-        paint.shader = null
+        paint.shader = glowShader
+        val scale = (radius / maxRadius).coerceIn(0f, 1.35f)
+        val save = canvas.save()
+        canvas.translate(centerX, centerY)
+        canvas.scale(scale, scale)
+        canvas.drawCircle(0f, 0f, maxRadius, paint)
+        canvas.restoreToCount(save)
     }
 }
