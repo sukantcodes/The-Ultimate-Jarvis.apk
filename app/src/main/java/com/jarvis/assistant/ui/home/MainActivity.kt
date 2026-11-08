@@ -251,28 +251,14 @@ class MainActivity : AppCompatActivity() {
             trans.commitNowAllowingStateLoss()
         }
 
-        // Add all 4 fragments fresh into container
-        val trans = supportFragmentManager.beginTransaction()
-            .add(R.id.fragmentContainer, homeFragment, "TAB_0")
-            .add(R.id.fragmentContainer, chatFragment, "TAB_1")
-            .add(R.id.fragmentContainer, settingsFragment, "TAB_2")
-            .add(R.id.fragmentContainer, updatesFragment, "TAB_3")
-
-        val allTabs = listOf(
-            TAB_HOME to homeFragment,
-            TAB_CHAT to chatFragment,
-            TAB_SETTINGS to settingsFragment,
-            TAB_UPDATES to updatesFragment
-        )
-
-        allTabs.forEach { (tabId, frag) ->
-            if (tabId == currentTab) {
-                trans.show(frag)
-            } else {
-                trans.hide(frag)
-            }
-        }
-        trans.commitNow()
+        // Inflate only the selected tab. The other screens are created on first visit,
+        // avoiding four expensive view trees competing for the first frame on mid-range phones.
+        val initialFragment = fragmentForTab(currentTab)
+        supportFragmentManager.beginTransaction()
+            .setReorderingAllowed(true)
+            .add(R.id.fragmentContainer, initialFragment, "TAB_$currentTab")
+            .setMaxLifecycle(initialFragment, Lifecycle.State.RESUMED)
+            .commitNow()
 
         setupNavigationDock()
         configureNavigationDrawer()
@@ -558,6 +544,13 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun fragmentForTab(tab: Int): Fragment = when (tab) {
+        TAB_CHAT -> chatFragment
+        TAB_SETTINGS -> settingsFragment
+        TAB_UPDATES -> updatesFragment
+        else -> homeFragment
+    }
+
     fun selectTab(tab: Int) {
         val previousTab = currentTab
         currentTab = tab
@@ -569,49 +562,46 @@ class MainActivity : AppCompatActivity() {
         }
         if (::binding.isInitialized) binding.navDrawer.setCheckedItem(drawerItem)
 
-        val tabs = listOf(
-            TAB_HOME to homeFragment,
-            TAB_CHAT to chatFragment,
-            TAB_SETTINGS to settingsFragment,
-            TAB_UPDATES to updatesFragment
-        )
-
-        val trans = supportFragmentManager.beginTransaction()
-        tabs.forEach { (tabId, frag) ->
-            if (frag.isAdded) {
-                if (tabId == tab) {
-                    trans.show(frag)
-                } else {
-                    trans.hide(frag)
-                }
+        val targetFragment = fragmentForTab(tab)
+        val trans = supportFragmentManager.beginTransaction().setReorderingAllowed(true)
+        supportFragmentManager.fragments.toList().forEach { fragment ->
+            if (fragment === targetFragment) {
+                trans.show(fragment)
+                trans.setMaxLifecycle(fragment, Lifecycle.State.RESUMED)
+            } else {
+                trans.hide(fragment)
+                // Hidden tabs keep their view for fast return, but suspend STARTED collectors.
+                trans.setMaxLifecycle(fragment, Lifecycle.State.CREATED)
             }
+        }
+        if (!targetFragment.isAdded) {
+            trans.add(R.id.fragmentContainer, targetFragment, "TAB_$tab")
+                .setMaxLifecycle(targetFragment, Lifecycle.State.RESUMED)
         }
         trans.commitNowAllowingStateLoss()
 
-        tabs.forEach { (tabId, frag) ->
-            val v = frag.view
-            if (v != null) {
-                if (tabId == tab) {
-                    v.visibility = View.VISIBLE
-                    com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(v)
-                    if (previousTab != tab) {
-                        v.alpha = 0f
-                        v.translationX = if (tab > previousTab) 18f else -18f
-                        v.animate().cancel()
-                        v.animate()
-                            .alpha(1f)
-                            .translationX(0f)
-                            .setDuration(190L)
-                            .setInterpolator(android.view.animation.DecelerateInterpolator())
-                            .start()
-                    } else {
-                        v.alpha = 1f
-                        v.translationX = 0f
-                    }
-                } else {
+        supportFragmentManager.fragments.forEach { fragment ->
+            val v = fragment.view ?: return@forEach
+            if (fragment === targetFragment) {
+                v.visibility = View.VISIBLE
+                com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(v)
+                if (previousTab != tab) {
+                    v.alpha = 0f
+                    v.translationX = if (tab > previousTab) 18f else -18f
                     v.animate().cancel()
-                    v.visibility = View.GONE
+                    v.animate()
+                        .alpha(1f)
+                        .translationX(0f)
+                        .setDuration(190L)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator())
+                        .start()
+                } else {
+                    v.alpha = 1f
+                    v.translationX = 0f
                 }
+            } else {
+                v.animate().cancel()
+                v.visibility = View.GONE
             }
         }
 
