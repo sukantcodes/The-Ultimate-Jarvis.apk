@@ -46,6 +46,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.jarvis.assistant.ui.premium.PremiumDialog
+import com.jarvis.assistant.ui.premium.PremiumOptionList
 import com.jarvis.assistant.BuildConfig
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.R
@@ -472,9 +474,6 @@ class SettingsFragment : Fragment() {
         (value * resources.displayMetrics.density).toInt()
 
     /** Applies premium styling locally without changing the Activity theme. */
-    private fun dialogContext(): ContextThemeWrapper =
-        ContextThemeWrapper(requireContext(), R.style.ThemeOverlay_Jarvis_MaterialDialog)
-
     // ------------------------------------------------------------------------------------------
     // 1. AI & Intelligence
     // ------------------------------------------------------------------------------------------
@@ -603,15 +602,14 @@ class SettingsFragment : Fragment() {
         }
 
         binding.rowClearActivityMemory.setOnClickListener {
-            MaterialAlertDialogBuilder(dialogContext())
-                .setTitle("Clear activity memory?")
-                .setMessage("Jarvis will forget everything from the last 2 days. This cannot be undone.")
-                .setPositiveButton("Clear") { _, _ ->
-                    ActivityLog.get(requireContext()).clear()
-                    toast("Activity memory cleared")
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
+            PremiumDialog.confirm(
+                requireContext(), "MEMORY", "Clear activity memory?",
+                "Jarvis will forget everything from the last 2 days. This cannot be undone.",
+                "Clear", destructive = true
+            ) {
+                ActivityLog.get(requireContext()).clear()
+                toast("Activity memory cleared")
+            }
         }
     }
 
@@ -677,17 +675,15 @@ class SettingsFragment : Fragment() {
         }
         val selected = values.indexOf(preferences.uiRefreshRate).coerceAtLeast(0)
 
-        MaterialAlertDialogBuilder(dialogContext())
-            .setTitle("Refresh rate")
-            .setMessage("Maximum uses the highest rate your display supports (120 Hz on 120 Hz screens). Android and ColorOS may still lower it to manage battery or heat, for example in battery saver mode.")
-            .setSingleChoiceItems(labels.toTypedArray(), selected) { dialog, which ->
-                preferences.uiRefreshRate = values[which]
-                ThemeManager.applyPreferredRefreshRate(requireActivity())
-                updateRefreshRateSubtitle()
-                dialog.dismiss()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+        PremiumDialog.choice(
+            requireContext(), "DISPLAY", "Refresh rate",
+            "Maximum uses the highest rate your display supports (120 Hz on 120 Hz screens). Android and ColorOS may still lower it to manage battery or heat, for example in battery saver mode.",
+            labels, selected, instant = true
+        ) { which ->
+            preferences.uiRefreshRate = values[which]
+            ThemeManager.applyPreferredRefreshRate(requireActivity())
+            updateRefreshRateSubtitle()
+        }
     }
 
     private fun updateRefreshRateSubtitle() {
@@ -727,11 +723,10 @@ class SettingsFragment : Fragment() {
         binding.rowPrivacyPolicy.setOnClickListener { open(PrivacyShieldActivity::class.java) }
 
         binding.rowAppIdentity.setOnClickListener {
-            MaterialAlertDialogBuilder(dialogContext())
-                .setTitle("JARVIS App Identity")
-                .setMessage(AppIdentityVerifier.report(requireContext()))
-                .setPositiveButton("Close", null)
-                .show()
+            PremiumDialog.info(
+                requireContext(), "SECURITY", "JARVIS App Identity",
+                AppIdentityVerifier.report(requireContext())
+            )
         }
 
         binding.btnSocialTelegram.setOnClickListener { openUrl("https://t.me/sukantcodesbycreator") }
@@ -913,26 +908,17 @@ class SettingsFragment : Fragment() {
     // ------------------------------------------------------------------------------------------
 
     private fun showEditNameDialog() {
-        val input = EditText(dialogContext()).apply {
-            setText(preferences.profileNameOverride.ifBlank {
-                preferences.accountDisplayName.ifBlank { preferences.userName.ifBlank { "Sukant" } }
-            })
-            setSelection(text.length)
+        val current = preferences.profileNameOverride.ifBlank {
+            preferences.accountDisplayName.ifBlank { preferences.userName.ifBlank { "Sukant" } }
         }
-        MaterialAlertDialogBuilder(dialogContext())
-            .setTitle("Operator Name")
-            .setMessage("Enter the name Jarvis should use to address you:")
-            .setView(input)
-            .setPositiveButton("Save") { _, _ ->
-                val newName = input.text.toString().trim()
-                if (newName.isNotBlank()) {
-                    preferences.userName = newName
-                    preferences.profileNameOverride = newName
-                    loadUserData()
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+        PremiumDialog.input(
+            requireContext(), "OPERATOR PROFILE", "Operator Name",
+            "Enter the name Jarvis should use to address you.", current, "Your name"
+        ) { newName ->
+            preferences.userName = newName
+            preferences.profileNameOverride = newName
+            loadUserData()
+        }
     }
 
     private fun showLanguageDialog() {
@@ -940,58 +926,41 @@ class SettingsFragment : Fragment() {
         val currentIndex = languages.indexOfFirst { it.equals(preferences.language, ignoreCase = true) }
             .let { if (it >= 0) it else 0 }
 
-        MaterialAlertDialogBuilder(dialogContext())
-            .setTitle("Select Conversation Language")
-            .setSingleChoiceItems(languages, currentIndex) { dialog, which ->
-                val chosen = languages[which]
-                preferences.language = chosen
-                binding.tvCurrentLanguage.text = chosen
-                dialog.dismiss()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+        PremiumDialog.choice(
+            requireContext(), "VOICE & LANGUAGE", "Conversation Language",
+            "Jarvis listens and replies in the language you pick.",
+            languages.toList(), currentIndex, instant = true
+        ) { which ->
+            val chosen = languages[which]
+            preferences.language = chosen
+            binding.tvCurrentLanguage.text = chosen
+        }
     }
 
     private fun showAiEngineDialog() {
         val ctx = requireContext()
         val store = AiEngineStore(ctx)
-        val pad = (20 * resources.displayMetrics.density).toInt()
+        val d = PremiumDialog.create(ctx).eyebrow("AI CORE").title("AI Engine")
+            .message("Choose the brain behind Jarvis's voice.")
+        val engines = PremiumOptionList(
+            ctx, d.palette,
+            listOf("Gemini Live (voice to voice)", "Groq (Whisper + Llama, phone voice)"),
+            if (store.useGroq) 1 else 0
+        ) { }
+        val keyInput = PremiumDialog.styledField(
+            ctx, d.palette.accent1,
+            if (store.hasGroqKey()) "Groq key saved. Leave empty to keep it" else "Groq API key (starts with gsk_)",
+            "", password = true
+        )
+        val modelInput = PremiumDialog.styledField(ctx, d.palette.accent1, "Groq chat model", store.groqChatModel, password = false)
 
-        val container = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad / 2, pad, 0)
-        }
-        val group = RadioGroup(ctx)
-        val rbGemini = RadioButton(ctx).apply {
-            id = View.generateViewId()
-            text = "Gemini Live (voice to voice)"
-        }
-        val rbGroq = RadioButton(ctx).apply {
-            id = View.generateViewId()
-            text = "Groq (Whisper + Llama, phone voice)"
-        }
-        group.addView(rbGemini)
-        group.addView(rbGroq)
-        if (store.useGroq) rbGroq.isChecked = true else rbGemini.isChecked = true
-
-        val keyInput = EditText(ctx).apply {
-            hint = if (store.hasGroqKey()) "Groq key saved. Leave empty to keep it" else "Groq API key (starts with gsk_)"
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            setSingleLine()
-        }
-        val modelInput = EditText(ctx).apply {
-            setText(store.groqChatModel)
-            hint = "Groq chat model"
-            setSingleLine()
-        }
-        container.addView(group)
-        container.addView(keyInput)
-        container.addView(modelInput)
-
-        MaterialAlertDialogBuilder(dialogContext())
-            .setTitle("AI Engine")
-            .setView(container)
-            .setPositiveButton("Save") { _, _ ->
+        d.add(engines.view)
+            .add(PremiumDialog.fieldLabel(ctx, "Groq API key", d.palette.accent1))
+            .add(keyInput)
+            .add(PremiumDialog.fieldLabel(ctx, "Groq chat model", d.palette.accent1))
+            .add(modelInput)
+            .negative("Cancel")
+            .positive("Save") {
                 val newKey = keyInput.text.toString().trim()
                 if (newKey.isNotEmpty() && !store.setGroqKey(newKey)) {
                     Toast.makeText(ctx, "Could not store the Groq key securely on this phone", Toast.LENGTH_LONG).show()
@@ -999,7 +968,7 @@ class SettingsFragment : Fragment() {
                 val model = modelInput.text.toString().trim()
                 if (model.isNotEmpty()) store.groqChatModel = model
 
-                val wantGroq = rbGroq.isChecked
+                val wantGroq = engines.selectedIndex == 1
                 if (wantGroq && !store.hasGroqKey()) {
                     store.useGroq = false
                     Toast.makeText(ctx, "Enter your Groq API key first. Staying on Gemini.", Toast.LENGTH_LONG).show()
@@ -1008,91 +977,73 @@ class SettingsFragment : Fragment() {
                     Toast.makeText(ctx, "Saved. It takes effect the next time Jarvis starts listening.", Toast.LENGTH_LONG).show()
                 }
                 updateAiEngineSubtitle()
+                true
             }
-            .setNegativeButton("Cancel", null)
             .show()
     }
 
     private fun showVoiceGenderDialog() {
         val ctx = requireContext()
         val store = VoiceGenderStore(ctx)
-        val pad = (20 * resources.displayMetrics.density).toInt()
 
         var currentGender = store.gender
         var maleChoice = store.maleVoice
         var femaleChoice = store.femaleVoice
 
-        val container = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad / 2, pad, 0)
+        val d = PremiumDialog.create(ctx).eyebrow("VOICE").title("Voice & Gender")
+        val genders = VoiceGender.values()
+        val genderLabels = genders.map {
+            if (it == VoiceGender.UNSPECIFIED) it.label + " (default)" else it.label
         }
-        val group = RadioGroup(ctx)
-        val buttons = HashMap<VoiceGender, RadioButton>()
-        for (option in VoiceGender.values()) {
-            val button = RadioButton(ctx).apply {
-                id = View.generateViewId()
-                text = if (option == VoiceGender.UNSPECIFIED) option.label + " (default)" else option.label
-            }
-            group.addView(button)
-            buttons[option] = button
-        }
-        buttons[currentGender]?.isChecked = true
-
+        val voiceHolder = android.widget.FrameLayout(ctx)
         val note = TextView(ctx).apply {
             text = "Jarvis keeps using the voice you already chose in Settings."
-            textSize = 12f
+            textSize = 12.5f
+            gravity = android.view.Gravity.CENTER
+            setTextColor(Color.rgb(176, 189, 216))
         }
-        val spinner = Spinner(ctx)
 
         fun refreshVoiceList() {
+            voiceHolder.removeAllViews()
             val voices = VoiceCatalog.voicesFor(currentGender)
             if (voices.isEmpty()) {
-                spinner.visibility = View.GONE
-                note.visibility = View.VISIBLE
+                voiceHolder.addView(note)
                 return
             }
-            spinner.visibility = View.VISIBLE
-            note.visibility = View.GONE
-            val labels = voices.map { it.name + " - " + it.style }
-            spinner.adapter = ArrayAdapter(ctx, android.R.layout.simple_spinner_dropdown_item, labels)
             val chosen = if (currentGender == VoiceGender.MALE) maleChoice else femaleChoice
-            spinner.setSelection(voices.indexOfFirst { it.name == chosen }.coerceAtLeast(0))
-        }
-
-        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val voices = VoiceCatalog.voicesFor(currentGender)
-                val picked = voices.getOrNull(position)?.name ?: return
-                if (currentGender == VoiceGender.MALE) maleChoice = picked else femaleChoice = picked
+            val list = PremiumOptionList(
+                ctx, d.palette,
+                voices.map { it.name + " - " + it.style },
+                voices.indexOfFirst { it.name == chosen }.coerceAtLeast(0)
+            ) { index ->
+                val picked = voices.getOrNull(index)?.name
+                if (picked != null) {
+                    if (currentGender == VoiceGender.MALE) maleChoice = picked else femaleChoice = picked
+                }
             }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
+            voiceHolder.addView(list.view)
         }
 
-        group.setOnCheckedChangeListener { _, checkedId ->
-            val selected = buttons.entries.firstOrNull { it.value.id == checkedId }?.key
-            if (selected != null) {
-                currentGender = selected
-                refreshVoiceList()
-            }
+        val genderList = PremiumOptionList(
+            ctx, d.palette, genderLabels, genders.indexOf(currentGender).coerceAtLeast(0)
+        ) { index ->
+            currentGender = genders[index]
+            refreshVoiceList()
         }
-
-        container.addView(group)
-        container.addView(note)
-        container.addView(spinner)
         refreshVoiceList()
 
-        MaterialAlertDialogBuilder(dialogContext())
-            .setTitle("Voice & Gender")
-            .setView(container)
-            .setPositiveButton("Save") { _, _ ->
+        d.add(genderList.view)
+            .add(PremiumDialog.spacer(ctx, 14f))
+            .add(voiceHolder)
+            .negative("Cancel")
+            .positive("Save") {
                 store.gender = currentGender
                 store.maleVoice = maleChoice
                 store.femaleVoice = femaleChoice
                 updateVoiceGenderSubtitle()
                 Toast.makeText(ctx, "Saved. It takes effect the next time Jarvis starts listening.", Toast.LENGTH_LONG).show()
+                true
             }
-            .setNegativeButton("Cancel", null)
             .show()
     }
 
@@ -1100,17 +1051,15 @@ class SettingsFragment : Fragment() {
         val ctx = requireContext()
         val settings = NoiseCancelSettings(ctx)
         val levels = NoiseLevel.values()
-        var selected = levels.indexOf(settings.level).coerceAtLeast(0)
-        MaterialAlertDialogBuilder(dialogContext())
-            .setTitle("Noise Cancellation")
-            .setSingleChoiceItems(levels.map { it.label }.toTypedArray(), selected) { _, which -> selected = which }
-            .setPositiveButton("Save") { _, _ ->
-                settings.level = levels[selected]
-                updateNoiseCancelSubtitle()
-                Toast.makeText(ctx, "Saved. It takes effect the next time Jarvis wakes up.", Toast.LENGTH_LONG).show()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+        val selected = levels.indexOf(settings.level).coerceAtLeast(0)
+        PremiumDialog.choice(
+            ctx, "AUDIO", "Noise Cancellation", null,
+            levels.map { it.label }, selected, instant = false
+        ) { index ->
+            settings.level = levels[index]
+            updateNoiseCancelSubtitle()
+            Toast.makeText(ctx, "Saved. It takes effect the next time Jarvis wakes up.", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun showAutoSleepDialog() {
@@ -1119,45 +1068,29 @@ class SettingsFragment : Fragment() {
         val choices = AutoSleepSettings.CHOICES_SECONDS
         var selected = choices.indexOf(settings.timeoutSeconds).let { if (it < 0) 1 else it }
         var fromWake = settings.countFromWake
-        val pad = (20 * resources.displayMetrics.density).toInt()
 
-        val container = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad / 2, pad, 0)
-        }
-        val group = RadioGroup(ctx)
-        val ids = ArrayList<Int>()
-        for ((index, seconds) in choices.withIndex()) {
-            val button = RadioButton(ctx).apply {
-                id = View.generateViewId()
-                text = AutoSleepSettings.labelFor(seconds) + (if (seconds == 60) " (default)" else "")
-                isChecked = index == selected
-            }
-            ids.add(button.id)
-            group.addView(button)
-        }
-        group.setOnCheckedChangeListener { _, checkedId ->
-            val position = ids.indexOf(checkedId)
-            if (position >= 0) selected = position
-        }
-        val box = CheckBox(ctx).apply {
-            text = "Count from waking up, even if I am still talking"
-            isChecked = fromWake
-            setOnCheckedChangeListener { _, checked -> fromWake = checked }
-        }
-        container.addView(group)
-        container.addView(box)
+        val d = PremiumDialog.create(ctx).eyebrow("POWER").title("Auto-Sleep")
+            .message("How long Jarvis stays awake while it hears nothing.")
+        val list = PremiumOptionList(
+            ctx, d.palette,
+            choices.map { AutoSleepSettings.labelFor(it) + (if (it == 60) " (default)" else "") },
+            selected
+        ) { index -> selected = index }
+        val box = PremiumDialog.checkRow(
+            ctx, d.palette, "Count from waking up, even if I am still talking", fromWake
+        ) { fromWake = it }
 
-        MaterialAlertDialogBuilder(dialogContext())
-            .setTitle("Auto-Sleep")
-            .setView(container)
-            .setPositiveButton("Save") { _, _ ->
+        d.add(list.view)
+            .add(PremiumDialog.spacer(ctx, 12f))
+            .add(box)
+            .negative("Cancel")
+            .positive("Save") {
                 settings.timeoutSeconds = choices[selected]
                 settings.countFromWake = fromWake
                 updateAutoSleepSubtitle()
                 Toast.makeText(ctx, "Saved. Jarvis sleeps after that time, and wakes when you say Jarvis.", Toast.LENGTH_LONG).show()
+                true
             }
-            .setNegativeButton("Cancel", null)
             .show()
     }
 
