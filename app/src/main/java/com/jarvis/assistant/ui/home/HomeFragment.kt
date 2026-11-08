@@ -27,10 +27,8 @@ import com.jarvis.assistant.util.PermissionHelper
 import android.content.res.ColorStateList
 import androidx.core.content.ContextCompat
 import com.jarvis.assistant.R
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class HomeFragment : Fragment() {
 
@@ -307,45 +305,10 @@ class HomeFragment : Fragment() {
      * alive and the user has not switched to another orb in the meantime.
      */
     private fun loadElepticalOrb() {
-        val appContext = requireContext().applicationContext
-        viewLifecycleOwner.lifecycleScope.launch {
-            val html = try {
-                withContext(Dispatchers.IO) {
-                    val originalHtml = appContext.assets.open("eleptical_orb.html.gz").use { compressed ->
-                        java.util.zip.GZIPInputStream(compressed).bufferedReader(Charsets.UTF_8).use { it.readText() }
-                    }
-
-                    // Keep the supplied HTML/Three.js design, but cap its WebGL workload for
-                    // Android phones. The original 36k particles at up to 2x/3x DPR can exhaust
-                    // the WebView GPU process on mid-range devices and take the whole app down.
-                    val particleMarker = "COUNT = 36000"
-                    val qualityMarker = "deviceMemory >= 6 && cores >= 8 ? 3 : 2"
-                    check(originalHtml.contains(particleMarker)) {
-                        "The supplied Eleptical Orb source did not match the expected version."
-                    }
-                    check(originalHtml.contains(qualityMarker)) {
-                        "The supplied Eleptical Orb quality settings were not found."
-                    }
-                    originalHtml
-                        .replace(particleMarker, "COUNT = 24000")
-                        .replace("antialias: true", "antialias: false")
-                        .replace(qualityMarker, "deviceMemory >= 6 && cores >= 8 ? 1.5 : 1.25")
-                }
-            } catch (error: Exception) {
-                android.util.Log.e("JarvisOrb", "Unable to inflate the supplied Eleptical Orb asset", error)
-                android.widget.Toast.makeText(appContext, "Eleptical Orb could not be loaded. Default Orb is still available.", android.widget.Toast.LENGTH_LONG).show()
-                return@launch
-            }
-
-            if (_binding == null || !isAdded || preferences.orbAnimation != "eleptical_orb") return@launch
-
-            // Avoid an extra off-screen hardware layer for the WebGL canvas. The WebView
-            // remains hardware accelerated by the Activity window, which WebGL requires.
-            binding.orbWebView.setLayerType(View.LAYER_TYPE_NONE, null)
-            binding.orbWebView.loadDataWithBaseURL(
-                "file:///android_asset/", html, "text/html", "UTF-8", null
-            )
-        }
+        // The original uploaded HTML is unpacked into the APK's assets at build time.
+        // Load it exactly like Default Orb so its relative three.min.js path resolves.
+        binding.orbWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        binding.orbWebView.loadUrl("file:///android_asset/eleptical_orb.html")
     }
 
     fun setOrbState(state: String) {
@@ -387,8 +350,8 @@ class HomeFragment : Fragment() {
             loadedAuroraOrb = wantsAurora
             loadedElepticalOrb = wantsEleptical
             isPageLoaded = false
-            // Restore the existing renderer setup for the built-in orb variants.
-            if (!wantsEleptical) binding.orbWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            // Use the same hardware-accelerated WebView renderer for every orb variant.
+            binding.orbWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
             when {
                 wantsAurora -> binding.orbWebView.loadUrl("file:///android_asset/aurora_orb.html?hud=0&state=idle")
                 wantsEleptical -> loadElepticalOrb()
