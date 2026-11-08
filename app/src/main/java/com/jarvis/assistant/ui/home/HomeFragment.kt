@@ -353,9 +353,7 @@ class HomeFragment : Fragment() {
         binding.orbWebView.scaleY = size
         binding.orbHaloRing.scaleX = size
         binding.orbHaloRing.scaleY = size
-        // The Elliptical Orb paints its own elliptical halo inside the page; the round native halo
-        // behind it would double the glow and not match its shape.
-        binding.orbHaloRing.alpha = if (style == "eleptical_orb") 0f else (glow / 1.5f).coerceIn(0f, 1f)
+        binding.orbHaloRing.alpha = (glow / 1.5f).coerceIn(0f, 1f)
         if (isPageLoaded) {
             activity?.runOnUiThread {
                 if (_binding != null) {
@@ -405,13 +403,9 @@ class HomeFragment : Fragment() {
         activity?.runOnUiThread {
             if (_binding == null) return@runOnUiThread
             if (loadedElepticalOrb) {
-                // Exact light/dark flag + the app's two accent colours (custom themes included).
-                val (isLight, first, second) = com.jarvis.assistant.util.ThemeManager.getOrbThemeSpec(themeKey)
-                binding.orbWebView.evaluateJavascript(
-                    "window.JarvisOrb && window.JarvisOrb.setAppTheme && window.JarvisOrb.setAppTheme($isLight,'$first','$second');",
-                    null
-                )
-                return@runOnUiThread
+                // Tell the orb whether the app screen is light so its glow blends correctly (additive glow washes out on light).
+                val isLight = com.jarvis.assistant.util.ThemeManager.getOrbThemeSpec(themeKey).first
+                binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setLightUI && window.JarvisOrb.setLightUI($isLight);", null)
             }
             if (themeKey == "custom" && !customHex.isNullOrBlank()) {
                 val second = preferences.customThemeColor2.takeIf { it.isNotBlank() } ?: customHex

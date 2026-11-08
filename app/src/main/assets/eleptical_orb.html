@@ -2,930 +2,1995 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>JARVIS Elliptical Orb</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>JARVIS Ultra-Premium Elliptical Amoeba Particle Orb</title>
 <style>
-html, body {
-  margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
-  background: transparent !important;
+:root {
+  --bg: radial-gradient(125% 90% at 50% 38%, #0d1229 0%, #060919 58%, #02030a 100%);
+  --fg: #eef2ff;
+  --sub: #8f9bc9;
+  --glass: rgba(15, 22, 48, 0.62);
+  --gb: rgba(120, 160, 255, 0.22);
+  --chip: #b4c2f0;
+  --t1: #00f2fe;
+  --t2: #6366f1;
+  --t3: #d946ef;
+  --sh: rgba(0, 210, 255, 0.26);
+}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
   -webkit-tap-highlight-color: transparent;
-  -webkit-user-select: none; user-select: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  text-rendering: geometricPrecision;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+html, body {
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  color: var(--fg);
+}
+/* Hide all HTML panels & controls immediately so only the orb is on screen */
+#hudToggle,
+.hud-ui,
+.hud-bottom,
+#shapePanel,
+#panel,
+#status,
+#toast,
+#err,
+header {
+  display: none !important;
+}
+body.embedded {
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  justify-content: center;
+}
+body.embedded .hud-ui {
+  display: none !important;
+}
+#touchParticles {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+}
+header {
+  text-align: center;
+  padding-top: clamp(10px, 2.2vh, 24px);
+  flex: none;
+  z-index: 10;
+  pointer-events: none;
+}
+h1 {
+  font-size: clamp(18px, 3.2vh, 28px);
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  padding-left: 0.28em;
+  background: linear-gradient(90deg, var(--t1), var(--t2) 55%, var(--t3));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-transform: uppercase;
+}
+header p {
+  margin-top: 4px;
+  font-size: clamp(11px, 1.5vh, 13.5px);
+  color: var(--sub);
+  letter-spacing: 0.06em;
+}
+#stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+#stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
   touch-action: none;
+  cursor: pointer;
 }
-#stage { position: fixed; left: 0; top: 0; right: 0; bottom: 0; }
-#c {
-  position: absolute; left: 0; top: 0; width: 100%; height: 100%;
-  display: block; touch-action: none; outline: none;
+#shadow {
+  position: absolute;
+  left: 50%;
+  height: 26px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--sh), transparent);
+  filter: blur(6px);
+  animation: floatShadow 5s ease-in-out infinite;
+  pointer-events: none;
+  transition: width 0.3s ease, opacity 0.3s ease;
 }
-/* ---- CSS-only fallback, used only if WebGL is missing or a shader fails ---- */
-#fb { display: none; position: absolute; left: 50%; top: 50%; width: 70%; height: 46%;
-  margin: 0; transform: translate(-50%, -50%); border-radius: 50%;
-  background: radial-gradient(ellipse at 50% 45%, var(--fa, #8fb2ff) 0%, var(--fb, #5b6cff) 45%, transparent 72%);
-  filter: blur(6px); opacity: .85; animation: fbpulse 3.2s ease-in-out infinite; }
-body.fb #fb { display: block; }
-body.fb #c { display: none; }
-body.fb.listening #fb { animation-duration: 1.4s; }
-body.fb.thinking #fb { animation-duration: .9s; }
-body.fb.speaking #fb { animation-duration: .6s; }
-@keyframes fbpulse { 50% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; } }
-#dbg { display: none; position: absolute; left: 6px; top: 6px; font: 11px/1.3 monospace; color: #0f0;
-  background: rgba(0,0,0,.55); padding: 3px 6px; border-radius: 4px; pointer-events: none; white-space: pre; }
-body.debug #dbg { display: block; }
+@keyframes floatShadow {
+  50% { opacity: 0.55; transform: translateX(-50%) scaleX(0.88); }
+}
+.hud-bottom {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 820px;
+  padding-bottom: clamp(10px, 2vh, 20px);
+  z-index: 10;
+}
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 18px;
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28), inset 0 0 0 1px var(--gb);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--fg);
+}
+#dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--t1);
+  box-shadow: 0 0 10px var(--t1);
+  animation: ping 1.6s infinite;
+}
+@keyframes ping {
+  70% { box-shadow: 0 0 0 9px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.panel {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px;
+  border-radius: 18px;
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28), inset 0 0 0 1px var(--gb);
+  max-width: 100%;
+}
+.panel-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--sub);
+  padding: 0 6px;
+  text-transform: uppercase;
+}
+button {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  border: 0;
+  border-radius: 11px;
+  padding: 7px 11px;
+  color: var(--chip);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  white-space: nowrap;
+}
+button:hover {
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.08);
+}
+button.on {
+  color: #fff;
+  background: linear-gradient(135deg, var(--t1), var(--t2));
+  box-shadow: 0 4px 14px rgba(0, 210, 255, 0.32);
+}
+button.action-btn {
+  border: 1px solid var(--gb);
+  background: rgba(255, 255, 255, 0.05);
+}
+#bgc {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+#bgc::-webkit-color-swatch-wrapper { padding: 0; }
+#bgc::-webkit-color-swatch { border: 2px solid var(--gb); border-radius: 50%; }
+#hudToggle {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25), inset 0 0 0 1px var(--gb);
+  color: var(--chip);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+#toast {
+  position: fixed;
+  left: 50%;
+  top: 72px;
+  transform: translate(-50%, -12px);
+  opacity: 0;
+  background: rgba(12, 18, 42, 0.9);
+  border: 1px solid var(--gb);
+  color: #fff;
+  font-size: 12.5px;
+  padding: 9px 16px;
+  border-radius: 12px;
+  transition: all 0.3s;
+  pointer-events: none;
+  max-width: 90vw;
+  text-align: center;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+}
+#toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+#err {
+  display: none;
+  padding: 20px;
+  color: #ff6b8b;
+  text-align: center;
+}
+/* CSS-only stand-in, shown only if WebGL cannot start, so the Home screen is never an empty hole */
+#fbOrb {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 74%;
+  height: 48%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 42%, var(--t1) 0%, var(--t2) 48%, transparent 74%);
+  filter: blur(7px);
+  opacity: 0.8;
+  animation: fbPulse 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+body.nogl #fbOrb { display: block; }
+body.nogl #c { display: none; }
+@keyframes fbPulse { 50% { transform: translate(-50%, -50%) scale(1.07); opacity: 1; } }
 </style>
 </head>
-<body>
+<body class="embedded">
+<canvas id="touchParticles" aria-hidden="true"></canvas>
+<button id="hudToggle" title="Toggle Clean Embedded View">HUD: ON</button>
+
+<header class="hud-ui">
+  <h1>JARVIS AMOEBA ORB</h1>
+  <p>Touch or slice the elliptical orb to split it into living lobes &bull; Morphs into any 3D shape</p>
+</header>
+
 <div id="stage">
   <canvas id="c"></canvas>
-  <div id="fb"></div>
+  <div id="fbOrb"></div>
+  <div id="shadow"></div>
 </div>
-<div id="dbg"></div>
+
+<div class="hud-bottom hud-ui">
+  <div id="status" class="status-bar">
+    <span id="dot"></span>
+    <span id="stext">AMOEBA READY</span>
+    <span style="opacity:0.45">|</span>
+    <span id="shapeLabel" style="color:var(--t1)">ELLIPTICAL AMOEBA</span>
+  </div>
+
+  <!-- Shape Morphing Controls -->
+  <div class="panel" id="shapePanel">
+    <span class="panel-label">Morph</span>
+    <button data-shape="amoeba" class="on">Elliptical Amoeba</button>
+    <button data-shape="helix">DNA Helix</button>
+    <button data-shape="torus">Plasma Torus</button>
+    <button data-shape="hypercube">Hypercube</button>
+    <button data-shape="infinity">Infinity</button>
+    <button data-shape="galaxy">Spiral Galaxy</button>
+    <button data-shape="merkaba">Star Merkaba</button>
+    <button data-shape="vortex">Quantum Wave</button>
+    <button id="autoMorphBtn" class="action-btn" title="Automatically morph shapes">AUTO MORPH: OFF</button>
+  </div>
+
+  <!-- State, Split & Theme Controls -->
+  <div class="panel" id="panel">
+    <span class="panel-label">State</span>
+    <button data-s="idle" class="on">IDLE</button>
+    <button data-s="listening">LISTENING</button>
+    <button data-s="thinking">THINKING</button>
+    <button data-s="speaking">SPEAKING</button>
+    <button id="splitBtn" class="action-btn">SPLIT / FISSION</button>
+    <button id="mic" class="action-btn">MIC TEST</button>
+    <span class="panel-label">Theme</span>
+    <button data-t="dark" class="on">Cyber</button>
+    <button data-t="bio">Bio-Lum</button>
+    <button data-t="red">Crimson</button>
+    <button data-t="sunset">Solar</button>
+    <button data-t="light">Light</button>
+    <input type="color" id="bgc" value="#0a1026" title="Custom Orb & Background Theme">
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="err">WebGL is required to view the JARVIS Particle Orb.</div>
 
 <script src="three.min.js"></script>
 <script>
-(function () {
+(function(){
 "use strict";
 
-/* =====================================================================
-   JARVIS Elliptical Orb  -  premium reactive particle orb (three.js r128)
-   Public API: window.JarvisOrb  (see bottom of file)
-   ===================================================================== */
+const isEmbedded = true;
+if (isEmbedded) {
+  document.body.classList.add("embedded");
+  document.documentElement.style.background = "transparent";
+  document.body.style.background = "transparent";
+}
 
-const Q = new URLSearchParams(location.search);
-const DEBUG = Q.get("debug") === "1";
-if (DEBUG) document.body.classList.add("debug");
+const FOV = 45, VIS = 3.35, COUNT = 36000, ORBIT_COUNT = 220, MAX_BLOBS = 5, SYNAPSE_COUNT = 90;
 
-const stage = document.getElementById("stage");
-const canvas = document.getElementById("c");
-const dbg = document.getElementById("dbg");
+const STATES = {
+  idle:      { scale: 1.00, speed: 0.48, cyan: 0.70, purple: 0.68, bright: 1.08, glow: 0.62, ring: 0.35, wob: 0.20, amoebaAmp: 1.12 },
+  listening: { scale: 1.07, speed: 1.05, cyan: 1.00, purple: 0.50, bright: 1.20, glow: 0.92, ring: 0.65, wob: 0.42, amoebaAmp: 1.48 },
+  thinking:  { scale: 1.03, speed: 1.85, cyan: 0.55, purple: 1.00, bright: 1.16, glow: 0.88, ring: 1.10, wob: 1.05, amoebaAmp: 1.78 },
+  speaking:  { scale: 1.09, speed: 1.40, cyan: 0.96, purple: 0.96, bright: 1.26, glow: 1.00, ring: 0.80, wob: 0.55, amoebaAmp: 1.65 }
+};
 
-/* ---------- geometry / tuning constants ---------- */
-const RX = 1.34, RY = 0.92, RZ = 0.92;           // ellipsoid radii (horizontal ellipse)
-const FOV = 40, TAN = Math.tan(FOV * Math.PI / 360);
-const MAX_P = 24000;                              // particle budget at full quality
-const N_SPORE = 150;
-const HALO_W = 2.15, HALO_H = 1.62;               // half-size of the halo quad (world units)
+const LABELS = {
+  idle: "AMOEBA READY",
+  listening: "LISTENING...",
+  thinking: "SYNTHESIZING...",
+  speaking: "SPEAKING"
+};
 
-/* quality ladder: device-pixel-ratio cap + fraction of particles drawn */
-const LEVELS = [
-  { dpr: 2.00, frac: 1.00 },
-  { dpr: 1.75, frac: 0.80 },
-  { dpr: 1.50, frac: 0.62 },
-  { dpr: 1.25, frac: 0.46 },
-  { dpr: 1.00, frac: 0.34 }
+const SHAPE_NAMES = [
+  "amoeba", "helix", "torus", "hypercube",
+  "infinity", "galaxy", "merkaba", "vortex"
 ];
 
-/* ---------- voice / AI state targets ---------- */
-const STATES = {
-  idle:      { scale: 1.00, speed: 0.45, wob: 0.34, bright: 1.00, glow: 0.62, ring: 0.30, spore: 0.55, listen: 0, think: 0, speak: 0 },
-  listening: { scale: 1.035, speed: 0.90, wob: 0.50, bright: 1.12, glow: 0.88, ring: 0.60, spore: 1.00, listen: 1, think: 0, speak: 0 },
-  thinking:  { scale: 1.015, speed: 1.65, wob: 0.85, bright: 1.10, glow: 0.92, ring: 1.00, spore: 1.90, listen: 0, think: 1, speak: 0 },
-  speaking:  { scale: 1.05, speed: 1.15, wob: 0.58, bright: 1.18, glow: 1.00, ring: 0.80, spore: 1.30, listen: 0, think: 0, speak: 1 }
+const SHAPE_LABELS = {
+  amoeba: "ELLIPTICAL AMOEBA",
+  helix: "DNA DOUBLE HELIX",
+  torus: "PLASMA TORUS",
+  hypercube: "QUANTUM HYPERCUBE",
+  infinity: "INFINITY MOBIUS",
+  galaxy: "SPIRAL GALAXY",
+  merkaba: "STAR MERKABA",
+  vortex: "QUANTUM WAVE",
+  custom: "CUSTOM MORPH"
 };
 
-let state = "idle", working = false, glowMul = 1.0;
-const cur = Object.assign({}, STATES.idle);
-const tgt = Object.assign({}, STATES.idle);
+const $ = s => document.querySelector(s);
+const stage = $("#stage"), canvas = $("#c"), shadowEl = $("#shadow");
 
-function effectiveState() { return (working && state === "idle") ? "thinking" : state; }
-function refreshTarget() {
-  const s = effectiveState();
-  Object.assign(tgt, STATES[s]);
-  document.body.classList.remove("idle", "listening", "thinking", "speaking");
-  document.body.classList.add(s);
-}
-
-/* ---------- fallback (no WebGL / shader failure) ---------- */
-let dead = false;
-function useFallback(why) {
-  dead = true;
-  document.body.classList.add("fb");
-  try { console.warn("JarvisOrb fallback: " + why); } catch (e) {}
-}
-
-/* ---------- renderer ---------- */
 let renderer;
 try {
+  /* Everything here is soft point sprites and glows, so MSAA, a depth buffer and a stencil buffer
+     only cost GPU memory and fill-rate on phones. */
   renderer = new THREE.WebGLRenderer({
-    canvas: canvas, alpha: true, antialias: false, depth: false, stencil: false,
-    premultipliedAlpha: true, powerPreference: "high-performance", preserveDrawingBuffer: false
+    canvas,
+    antialias: false,
+    alpha: true,
+    depth: false,
+    stencil: false,
+    premultipliedAlpha: true,
+    powerPreference: "high-performance"
   });
-  if (!renderer.getContext()) throw new Error("no context");
+  if (!renderer.getContext()) throw new Error("no webgl context");
 } catch (e) {
-  renderer = null;
-  useFallback("WebGL unavailable");
+  document.body.classList.add("nogl");
+  return;
+}
+renderer.setClearColor(0x000000, 0);
+
+/* Android WebView can drop the GL context (memory pressure, app switch). Without this the orb
+   freezes forever; reloading the page lets the app re-sync theme/state on onPageFinished. */
+let glLost = false;
+canvas.addEventListener("webglcontextlost", e => { e.preventDefault(); glLost = true; }, false);
+canvas.addEventListener("webglcontextrestored", () => { location.reload(); }, false);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 60);
+camera.position.set(0, 0, 6.2);
+
+/* ---------- Multi-Blob Fission / Coalescence & Spring Physics System ---------- */
+const blobCenters = [];
+for (let i = 0; i < MAX_BLOBS; i++) blobCenters.push(new THREE.Vector3(0, 0, 0));
+
+const blobs = [];
+for (let i = 0; i < MAX_BLOBS; i++) {
+  blobs.push({
+    pos: new THREE.Vector3(0, 0, 0),
+    vel: new THREE.Vector3(0, 0, 0),
+    targetOffset: new THREE.Vector3(0, 0, 0),
+    phase: i * 1.2566
+  });
 }
 
-/* Pre-seed the palette so the fallback gradient matches the theme too */
-const PRESETS = {
-  dark:   { light: false, a: "#5B8CFF", b: "#A78BFA" },
-  red:    { light: false, a: "#FF4D5E", b: "#FB7185" },
-  bio:    { light: false, a: "#00E5A0", b: "#00B4FF" },
-  sunset: { light: true,  a: "#FF6A3D", b: "#E879A8" },
-  light:  { light: true,  a: "#2F6BFF", b: "#8B5CF6" }
-};
+let splitAmount = 0;       /* 0 = unified, 1 = separated amoeba lobes */
+let splitTimer = 0;        /* countdown before lobes coalesce back */
+let activeLobes = 1;
+let touchWorld = new THREE.Vector3(0, 0, 0);
+let swipeVelWorld = new THREE.Vector3(0, 0, 0);
+let touchStrength = 0;
+let shockOrigin = new THREE.Vector3(0, 0, 0);
+let shockWave = 10.0;      /* expanding 3D ripple radius */
+let fusionFlash = 0.0;     /* harmonic pulse when separated lobes rejoin */
+let wasSplit = false;
 
-function derivePalette(isLight, hexA, hexB) {
-  const ca = new THREE.Color(hexA), cb = new THREE.Color(hexB || hexA);
-  const ha = { h: 0, s: 0, l: 0 }, hb = { h: 0, s: 0, l: 0 };
-  ca.getHSL(ha); cb.getHSL(hb);
-  let h1 = ha.h, h2 = hb.h, sat = 1;
-  if (ha.s < 0.08) { h1 = 0.60; }                                   // neutral swatch -> cool blue
-  if (hb.s < 0.08 || Math.abs(h1 - h2) < 0.02) h2 = (h1 + 0.09) % 1; // single colour -> analogous partner
-  const w = x => ((x % 1) + 1) % 1;
-  const mk = (h, s, l) => new THREE.Color().setHSL(w(h), s * sat, l);
-  return isLight
-    ? { deep: mk(h1, 0.80, 0.34), main: mk(h1, 0.86, 0.50), hi1: mk(h2, 0.84, 0.57), hi2: mk(h1 - 0.07, 0.84, 0.63) }
-    : { deep: mk(h1, 0.80, 0.27), main: mk(h1, 0.92, 0.58), hi1: mk(h2, 0.95, 0.68), hi2: mk(h1 + 0.08, 0.95, 0.75) };
-}
-
-let isLightUI = true;
-let palTarget = derivePalette(true, PRESETS.light.a, PRESETS.light.b);
-
-/* =====================================================================
-   Shared uniforms
-   ===================================================================== */
+/* ---------- Shared Shader Uniforms ---------- */
 const U = {
-  uTime: { value: 0 }, uRaw: { value: 0 }, uSpore: { value: 0 },
-  uLevel: { value: 0 }, uBass: { value: 0 }, uHigh: { value: 0 },
-  uBurst: { value: 0 }, uPress: { value: 0 }, uHold: { value: 0 },
-  uThink: { value: 0 }, uListen: { value: 0 }, uSpeak: { value: 0 },
-  uWob: { value: 0.34 }, uBright: { value: 1 }, uStrength: { value: 0.6 },
-  uPx: { value: 600 }, uCamZ: { value: 6 }, uLight: { value: 1 },
-  uAlphaMul: { value: 1 }, uScale: { value: 1 },
-  uRadii: { value: new THREE.Vector3(RX, RY, RZ) },
-  uRot: { value: new THREE.Matrix3() },
-  uTouch: { value: new THREE.Vector3() }, uTouchS: { value: 0 },
-  uSwipe: { value: new THREE.Vector3() },
-  uShockO: { value: new THREE.Vector4(0, 0, 0, -1) }, uShockS: { value: 0 },
-  uRip: { value: [new THREE.Vector4(-1, 0, 0, 0), new THREE.Vector4(-1, 0, 0, 0), new THREE.Vector4(-1, 0, 0, 0), new THREE.Vector4(-1, 0, 0, 0)] },
-  uRipP: { value: [new THREE.Vector2(0.9, 0.7), new THREE.Vector2(0.9, 0.7), new THREE.Vector2(0.9, 0.7), new THREE.Vector2(0.9, 0.7)] },
-  uHalf: { value: new THREE.Vector2(HALO_W, HALO_H) },
-  cDeep: { value: palTarget.deep.clone() }, cMain: { value: palTarget.main.clone() },
-  cHi1: { value: palTarget.hi1.clone() }, cHi2: { value: palTarget.hi2.clone() }
+  uTime: { value: 0 },
+  uRawTime: { value: 0 },
+  uAmp: { value: 0 },
+  uBass: { value: 0 },
+  uHigh: { value: 0 },
+  uCyan: { value: 0.70 },
+  uPurple: { value: 0.68 },
+  uBright: { value: 1.08 },
+  uPx: { value: 300 },
+  uCamZ: { value: 6.2 },
+  uAmoeba: { value: 1.12 },
+  uMorph: { value: 0.0 },
+  uSplit: { value: 0.0 },
+  uTouchPos: { value: new THREE.Vector3(0, 0, 0) },
+  uSwipeVel: { value: new THREE.Vector3(0, 0, 0) },
+  uTouchStrength: { value: 0.0 },
+  uShockOrigin: { value: new THREE.Vector3(0, 0, 0) },
+  uShockWave: { value: 10.0 },
+  uFusionFlash: { value: 0.0 },
+  uRes: { value: new THREE.Vector2(1, 1) },   /* drawing-buffer size in px, for the soft screen-edge fade */
+  uCountComp: { value: 1.0 },                 /* point-size compensation when quality lowers the particle count */
+  uBlobs: { value: blobCenters },
+  DEEP: { value: new THREE.Color() },
+  BLUE: { value: new THREE.Color() },
+  CYAN: { value: new THREE.Color() },
+  PURP: { value: new THREE.Color() }
 };
 
-/* =====================================================================
-   Shaders
-   ===================================================================== */
-const NOISE_GLSL = `
-float wave(vec3 p, float t) {
-  float a = sin(p.x * 2.1 + t * 0.90) * cos(p.y * 2.6 - t * 0.70) * sin(p.z * 2.3 + t * 0.80);
-  float b = sin(p.y * 4.7 - t * 1.40 + p.x * 2.0) * cos(p.z * 4.2 + t * 1.10);
-  float c = cos((p.x - p.y + p.z) * 3.4 + t * 1.60);
-  return a * 0.50 + b * 0.30 + c * 0.20;
-}`;
-
+/* ---------- Ultra-Premium Hyper-Reactive Amoeba Particle Shader ---------- */
 const partV = `
-uniform float uRaw, uTime, uLevel, uBass, uHigh, uBurst, uPress, uHold, uThink, uListen, uWob;
-uniform float uBright, uPx, uCamZ, uLight, uAlphaMul, uTouchS, uShockS;
-uniform vec3 uRadii, uTouch, uSwipe, cDeep, cMain, cHi1, cHi2;
-uniform mat3 uRot;
-uniform vec4 uShockO;
-attribute vec4 aSeed;
-varying vec3 vCol;
+uniform float uTime, uRawTime, uAmp, uBass, uHigh, uCyan, uPurple, uBright, uPx, uCamZ;
+uniform float uAmoeba, uMorph, uSplit, uTouchStrength, uShockWave, uFusionFlash, uCountComp;
+uniform vec3 uTouchPos, uSwipeVel, uShockOrigin;
+uniform vec3 uBlobs[5];
+uniform vec3 DEEP, BLUE, CYAN, PURP;
+
+attribute vec3 aTarget;
+attribute float aRnd;
+attribute float aLayer;
+attribute float aCluster;
+
+varying vec3 vC;
 varying float vA;
 varying float vRim;
 varying float vSpark;
-${NOISE_GLSL}
+
+/* Multi-octave 3D organic harmonic field for fluid amoeba pseudopods */
+float organicWave(vec3 p, float t) {
+  float w1 = sin(p.x * 2.4 + t * 1.15) * cos(p.y * 2.2 - t * 0.95) * sin(p.z * 2.6 + t * 0.85);
+  float w2 = sin(p.y * 4.5 - t * 1.65 + p.x * 2.1) * cos(p.z * 4.1 + t * 1.35);
+  float w3 = cos((p.x - p.y + p.z) * 3.6 + t * 2.0) * sin(p.x * 5.3 - t * 1.25);
+  return w1 * 0.50 + w2 * 0.32 + w3 * 0.18;
+}
+
+/* 3D Curl-Noise style divergence-free flow so particles swirl like ferrofluid */
+vec3 cytoplasmicCurl(vec3 p, float t, float seed) {
+  float sx = sin(p.y * 3.4 + t * 1.35 + seed * 6.28) * cos(p.z * 2.9 - t * 0.95);
+  float sy = sin(p.z * 3.6 - t * 1.15 + seed * 6.28) * cos(p.x * 3.1 + t * 1.05);
+  float sz = sin(p.x * 3.0 + t * 1.45 + seed * 6.28) * cos(p.y * 3.7 - t * 1.20);
+  return vec3(sx, sy, sz);
+}
+
 void main() {
-  vec3 d = uRot * position;                 /* spin the globe, silhouette stays a perfect ellipse */
-  float shell = aSeed.y;
+  /* Smoothly morph between shapes with per-particle phase stagger for liquid feel */
+  float stagger = clamp((uMorph * 1.25) - aRnd * 0.25, 0.0, 1.0);
+  float m = stagger * stagger * (3.0 - 2.0 * stagger);
+  vec3 basePos = mix(position, aTarget, m);
+  /* Swirl arc during shape transformation */
+  float morphArc = sin(m * 3.14159265);
+  basePos += vec3(-basePos.z, basePos.x * 0.4, basePos.x) * (morphArc * 0.22 * (0.5 + aRnd * 0.5));
+
+  float len = max(length(basePos), 0.0001);
+  vec3 dir = basePos / len;
   float t = uTime;
 
-  /* thinking: latitude-dependent twist */
-  float tw = uThink * 0.85 * sin(d.y * 2.4 + uRaw * 1.1);
-  float cs = cos(tw), sn = sin(tw);
-  vec3 dd = vec3(d.x * cs - d.z * sn, d.y, d.x * sn + d.z * cs);
-  float lat = dd.y;
-  float lon = atan(dd.z, dd.x);
+  /* Amoeba pseudopod membrane undulation + internal vortex streaming */
+  float wave = organicWave(dir * 1.4 + basePos * 0.38, t);
+  float pseudopod = organicWave(dir * 0.9, t * 0.78 + aRnd * 1.3);
+  vec3 flow = cytoplasmicCurl(dir * 1.15, t * 0.95, aRnd);
 
-  float w1 = wave(dd * 1.35, t);
-  float w2 = wave(dd * 2.5 + vec3(3.1, 1.7, 2.3), t * 1.35);
+  /* Elliptical breathing & multi-band audio reactivity */
+  float breathe = 1.0
+    + 0.05 * sin(uRawTime * 1.85 + dir.x * 1.6)
+    - 0.04 * cos(uRawTime * 1.45 + dir.y * 1.9)
+    + uFusionFlash * 0.14 * sin(dir.x * 4.0 + dir.y * 4.0);
+  float shellDisplace = (wave * 0.21 + pseudopod * 0.15) * uAmoeba * (0.42 + 0.68 * aLayer);
+  float audioDisplace = uAmp * (0.16 + 0.20 * aRnd)
+    + uBass * 0.14 * sin(dir.y * 5.0 + t * 3.4)
+    + uHigh * 0.08 * cos(dir.x * 9.0 - uRawTime * 6.0);
 
-  float disp = (w1 * 0.055 + w2 * 0.026) * uWob * (0.55 + 0.45 * shell);
-  float belt = 1.0 - 0.55 * lat * lat;                    /* keep the elliptical silhouette clean at the poles/tips */
-  disp += uBass * (0.070 + 0.035 * sin(lat * 4.0 + uRaw * 4.0)) * belt;
-  disp += uLevel * 0.038 * sin(lat * 9.0 - uRaw * 7.0) * belt;
-  disp += uHigh * 0.04 * sin(lon * 9.0 - uRaw * 9.0 + lat * 6.0) * (0.5 + 0.5 * aSeed.x);
-  disp += uListen * 0.022 * sin(lat * 8.0 + uRaw * 5.0);
-  disp += uBurst * (0.22 * (0.4 + aSeed.z) + 0.08 * w2);
-  disp -= uPress * 0.05 + uHold * 0.09;
+  vec3 pos = basePos * (breathe + shellDisplace + audioDisplace)
+    + flow * (0.055 * uAmoeba + 0.055 * uHigh + morphArc * 0.08);
 
-  vec3 pos = dd * uRadii * shell * (1.0 + disp);
+  /* Multi-Blob Fission (Touching splits the orb into living amoeba daughter lobes) */
+  int cIdx = int(clamp(aCluster, 0.0, 4.0));
+  vec3 blobOffset = vec3(0.0);
+  if (cIdx == 0) blobOffset = uBlobs[0];
+  else if (cIdx == 1) blobOffset = uBlobs[1];
+  else if (cIdx == 2) blobOffset = uBlobs[2];
+  else if (cIdx == 3) blobOffset = uBlobs[3];
+  else blobOffset = uBlobs[4];
 
-  /* inner cytoplasm drift */
-  float inner = 1.0 - smoothstep(0.55, 0.95, shell);
-  pos += vec3(sin(dd.y * 3.0 + t * 1.3 + aSeed.x * 6.28),
-              cos(dd.z * 3.2 - t * 1.1 + aSeed.z * 6.28),
-              sin(dd.x * 3.1 + t * 1.2)) * 0.05 * inner;
-
-  /* expanding shockwave (tap / state change / voice peak) */
-  if (uShockO.w >= 0.0) {
-    vec3 so = pos - uShockO.xyz;
-    float dist = length(so);
-    float rr = uShockO.w * 2.6;
-    float ring = exp(-(dist - rr) * (dist - rr) * 10.0) * sin((dist - rr) * 14.0) * (1.0 - uShockO.w) * uShockS;
-    pos += normalize(so + vec3(0.0001)) * ring * 0.16;
+  if (uSplit > 0.001) {
+    /* 12% of particles form elastic liquid plasma filaments stretching between separated lobes */
+    float isFilament = step(0.88, aRnd);
+    float subScale = mix(1.0, 0.58, uSplit * (1.0 - isFilament * 0.70));
+    vec3 localWriggle = cytoplasmicCurl(dir * 1.75, uRawTime * 2.8 + aCluster * 2.1, aRnd) * (0.13 * uSplit);
+    float bridgeLerp = 0.5 + 0.5 * sin(aRnd * 47.0 + uRawTime * 2.8);
+    vec3 effectiveOffset = mix(blobOffset, blobOffset * bridgeLerp, isFilament);
+    pos = pos * subScale + effectiveOffset + localWriggle;
   }
 
-  /* touch: liquid push + swirl + swipe wake */
-  float zone = 0.0;
-  if (uTouchS > 0.001) {
-    vec3 tp = pos - uTouch;
-    float dist = length(tp);
-    zone = exp(-dist * dist * 2.2) * uTouchS;
-    vec3 pd = normalize(tp + vec3(0.0001, 0.0002, 0.0001));
-    pos += (pd * 0.30 + cross(pd, vec3(0.0, 0.0, 1.0)) * 0.13 + uSwipe * 0.45) * zone * (0.6 + 0.7 * aSeed.x);
+  /* 3D Expanding Shockwave Ripple on Touch / Voice Transient */
+  if (uShockWave < 3.8) {
+    float distShock = length(pos - uShockOrigin);
+    float ringDist = distShock - uShockWave;
+    float ripple = exp(-ringDist * ringDist * 14.0) * sin(ringDist * 18.0) * (1.0 - uShockWave / 3.8);
+    pos += normalize(pos - uShockOrigin + vec3(0.0001)) * (ripple * 0.24);
+  }
+
+  /* Direct Touch / Pointer Cleavage, Magnetic Swirl & Swipe Momentum Wake */
+  float touchProximity = 0.0;
+  if (uTouchStrength > 0.001) {
+    vec3 toParticle = pos - uTouchPos;
+    float dist = length(toParticle);
+    float pushZone = exp(-dist * dist * 1.55) * uTouchStrength;
+    touchProximity = pushZone;
+    vec3 pushDir = normalize(toParticle + vec3(0.0001, 0.0002, 0.0001));
+    vec3 swirlDir = cross(pushDir, vec3(0.0, 0.0, 1.0));
+    /* Particles cleave apart and whip along the user's swipe velocity vector */
+    pos += (pushDir * 0.75 + swirlDir * 0.35 + uSwipeVel * 0.65) * pushZone * (0.65 + 0.7 * aRnd);
   }
 
   vec4 mv = modelViewMatrix * vec4(pos, 1.0);
-  float depth = smoothstep(-1.3, 1.3, mv.z + uCamZ);
+  float depth = smoothstep(-1.45, 1.45, mv.z + uCamZ); /* 0 = back, 1 = front */
 
-  vec3 n = normalize(dd / uRadii);
-  vec3 vn = normalize(normalMatrix * n);
-  vRim = pow(1.0 - abs(vn.z), 2.0) * smoothstep(0.55, 0.95, shell);
-  vSpark = 0.5 + 0.5 * sin(uRaw * (3.5 + aSeed.x * 5.0) + aSeed.x * 62.83);
+  /* Fresnel Rim Factor: Grazing edge particles glow with jewel-like chromatic depth */
+  vec3 viewNormal = normalize(normalMatrix * dir);
+  vRim = pow(1.0 - min(1.0, abs(viewNormal.z)), 2.2);
+  vSpark = 0.5 + 0.5 * sin(uRawTime * (4.5 + aRnd * 5.0) + aRnd * 62.83);
 
-  /* colour: flowing multi-stop gradient + fresnel rim + nucleus tint */
-  float g1 = smoothstep(-0.8, 0.9, d.y + w1 * 0.6);
-  float g2 = 0.5 + 0.5 * sin(lon + uRaw * 0.35 + w2 * 2.0);
-  vec3 c = mix(cDeep, cMain, smoothstep(0.0, 1.0, shell * 0.55 + g1 * 0.55));
-  c = mix(c, cHi1, g2 * 0.55 * smoothstep(0.1, 1.0, g1 + 0.25));
-  c = mix(c, cHi2, smoothstep(0.55, 1.0, 0.5 + 0.5 * sin(lon * 3.0 - uRaw * 0.5 + lat * 2.0 + aSeed.x * 1.4)) * 0.5);
-  c = mix(c, mix(cHi1, cHi2, 0.5 + 0.5 * sin(uRaw * 1.2 + lat * 3.0)), vRim * 0.55);
-  c = mix(c, mix(cMain, cHi1, 0.5), (1.0 - shell) * 0.55);
-  float scan = exp(-pow((d.y - sin(uRaw * 1.4) * 0.9) * 6.0, 2.0)) * uThink;
-  c += cHi1 * scan * 0.55;
-  c = mix(c, mix(cHi1, cHi2, 0.5), clamp(zone * 0.6 + uBurst * 0.4, 0.0, 0.7));
+  vA = mix(0.24, 0.90, depth) * mix(0.70, 0.98, aLayer);
 
-  vCol = c * uBright * mix(0.70, 1.10, depth);
-  /* back hemisphere falls away, the silhouette rim lights up: reads as a glass sphere, not a flat disc */
-  vA = (0.12 + 0.80 * depth * depth) * mix(0.55, 1.0, shell) * (0.72 + 0.28 * aSeed.x) * (1.0 + vRim * 1.1) * uAlphaMul;
+  /* Theme-Driven Multicolour Iridescent Palette:
+     Acquires App Theme colours (DEEP, BLUE, CYAN, PURP) and derives harmonious
+     multicolour iridescent shifts (Rose, Teal, Gold) that react to touch, voice & rim angle */
+  vec3 accentRose = mix(PURP, vec3(min(1.0, PURP.b + 0.22), BLUE.r * 0.45, CYAN.g * 0.85), 0.52);
+  vec3 accentTeal = mix(CYAN, vec3(BLUE.g * 0.3, min(1.0, CYAN.b + 0.15), min(1.0, BLUE.r + 0.35)), 0.48);
+  vec3 accentGold = mix(PURP, vec3(min(1.0, PURP.r + 0.38), min(1.0, CYAN.g * 0.82), BLUE.b * 0.35), 0.42);
 
-  float sz = (0.0090 + 0.0150 * aSeed.x * aSeed.x)
-           * (1.0 + uLevel * 0.50 + uBurst * 0.40 + vSpark * 0.18 + zone * 0.40)
-           * mix(0.85, 1.20, depth);
-  gl_PointSize = max(sz * uPx / (-mv.z), 1.5);
+  float angleHue = atan(dir.y, dir.x) + uRawTime * 0.55 + wave * 1.85 + aRnd * 1.2;
+  float band1 = smoothstep(-0.55, 0.88, dir.y + wave * 0.95);
+  float band2 = smoothstep(-0.25, 0.88, dir.x * 0.65 - dir.y * 0.35 + pseudopod * 0.75 + aRnd * 0.35);
+  float band3 = 0.5 + 0.5 * sin(angleHue * 1.6 - dir.z * 2.4);
+
+  vec3 c = mix(BLUE, CYAN, band1 * uCyan);
+  c = mix(c, PURP, band2 * uPurple);
+  c = mix(c, accentRose, smoothstep(0.40, 0.90, band3) * (0.50 + 0.25 * uHigh));
+  c = mix(c, accentTeal, smoothstep(0.48, 0.94, sin(dir.x * 3.0 + dir.z * 2.5 + uRawTime * 0.75)) * 0.45);
+  c = mix(c, accentGold, smoothstep(0.58, 0.95, cos(dir.y * 3.8 - uRawTime * 0.85 + aRnd * 2.8)) * (0.36 + 0.25 * uBass));
+
+  /* Fresnel rim chromatic highlight & touch/fission energy response */
+  c = mix(c, mix(CYAN, accentRose, 0.5 + 0.5 * sin(uRawTime * 2.0 + dir.y * 3.0)), vRim * 0.45);
+  c = mix(c, mix(CYAN, PURP, 0.5), clamp(touchProximity * 0.65 + uFusionFlash * 0.45, 0.0, 0.75));
+
+  /* Anchor with DEEP theme color so particles maintain rich contrast on both light and dark backgrounds */
+  c = mix(DEEP, c, 0.40 + 0.60 * aRnd);
+
+  /* Inner nucleus luminescence using theme CYAN & PURP */
+  vec3 coreTint = mix(CYAN, PURP, 0.38);
+  c = mix(c, coreTint, pow(max(0.0, 1.0 - aLayer * 1.32), 2.0) * 0.48);
+  c += mix(CYAN, accentRose, 0.5 + 0.5 * sin(uRawTime * 3.5 + aCluster)) * (uSplit * 0.18);
+
+  vC = c * uBright * mix(0.62, 1.08, depth);
+
+  /* Dynamic reactive particle size */
+  float ptSize = (0.0082 + aRnd * 0.0165)
+    * mix(1.20, 0.95, aLayer)
+    * (1.0 + uAmp * 0.55 + uBass * 0.25 + uSplit * 0.16 + touchProximity * 0.35 + vSpark * 0.12) * uCountComp;
+  gl_PointSize = max(ptSize * uPx / (-mv.z) * mix(0.85, 1.25, depth), 1.7);
   gl_Position = projectionMatrix * mv;
-}`;
+}
+`;
 
-const partF = `
-uniform float uLight;
-varying vec3 vCol;
+/* Fades anything that would otherwise be hard-cut by the canvas edge (halo, rings, far sparks). */
+const EDGE_GLSL = `
+uniform vec2 uRes;
+float edgeFade(vec2 fc) {
+  float m = min(min(fc.x, uRes.x - fc.x), min(fc.y, uRes.y - fc.y));
+  return smoothstep(0.0, uRes.y * 0.04, m);
+}
+`;
+
+const dotF = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+varying vec3 vC;
 varying float vA;
 varying float vRim;
 varying float vSpark;
+${EDGE_GLSL}
 void main() {
   float d = length(gl_PointCoord - 0.5);
   if (d > 0.5) discard;
-  float body = smoothstep(0.5, 0.02, d);
-  float core = exp(-d * d * 26.0);
-  float a = clamp(body * 0.70 + core * 0.45, 0.0, 1.0) * vA;
-  vec3 col = vCol * (0.92 + (core * 0.70 * (0.8 + 0.2 * vSpark) + vRim * 0.35) * (1.0 - 0.8 * uLight));
-  gl_FragColor = vec4(col, a);
-}`;
+  /* Crisp jewel-toned particle body + soft inner-outer glow without white washout */
+  float body = smoothstep(0.5, 0.05, d);
+  float centerSpark = exp(-d * d * 20.0) * (0.20 + 0.12 * vSpark);
+  float alpha = clamp((body * 0.86 + centerSpark) * vA, 0.0, 0.96) * edgeFade(gl_FragCoord.xy);
+  vec3 col = vC * (0.96 + centerSpark * 0.72 + vRim * 0.14);
+  gl_FragColor = vec4(col, alpha);
+}
+`;
 
-const sporeV = `
-uniform float uRaw, uSpore, uLevel, uBurst, uPx, uCamZ, uStrength;
-uniform vec3 cMain, cHi1, cHi2;
-attribute vec4 aOrb;
-attribute vec4 aOrb2;
-varying vec3 vCol;
-varying float vA;
-void main() {
-  float ang = aOrb.x + uSpore * aOrb.z;
-  float r = aOrb.y * (1.0 + 0.05 * sin(uRaw * 0.9 + aOrb.w)) + uLevel * 0.10 + uBurst * 0.25;
-  vec3 p = vec3(cos(ang) * r * 1.34, aOrb2.y * 0.8 + sin(ang * 1.7 + aOrb.w) * 0.10, sin(ang) * r * 0.74);
-  float c = cos(aOrb2.x), s = sin(aOrb2.x);
-  p.xy = vec2(p.x * c - p.y * s, p.x * s + p.y * c);
-  vec4 mv = modelViewMatrix * vec4(p, 1.0);
-  float depth = smoothstep(-1.2, 1.2, mv.z + uCamZ);
-  float tw = 0.5 + 0.5 * sin(uRaw * (1.5 + abs(aOrb.z) * 2.0) + aOrb.w * 6.28);
-  vA = pow(tw, 1.3) * mix(0.25, 1.0, depth) * uStrength;
-  vCol = mix(mix(cMain, cHi1, aOrb2.w), cHi2, step(0.8, aOrb2.w));
-  gl_PointSize = max(aOrb2.z * uPx / (-mv.z) * (1.0 + uLevel * 0.5), 1.5);
-  gl_Position = projectionMatrix * mv;
-}`;
+/* ---------- Shape Generators (Any Shape Any Time) ---------- */
+function generateShapePositions(shapeName, customFn) {
+  const arr = new Float32Array(COUNT * 3);
+  const golden = Math.PI * (3 - Math.sqrt(5));
 
-const sporeF = `
-uniform float uLight;
-varying vec3 vCol;
-varying float vA;
-void main() {
-  float d = length(gl_PointCoord - 0.5);
-  if (d > 0.5) discard;
-  float core = exp(-d * d * 22.0);
-  float a = clamp(smoothstep(0.5, 0.0, d) * 0.7 + core * 0.5, 0.0, 1.0) * vA;
-  gl_FragColor = vec4(vCol * (0.95 + core * 0.5 * (1.0 - uLight)), a);
-}`;
+  for (let i = 0; i < COUNT; i++) {
+    const frac = (i + 0.5) / COUNT;
+    const yNorm = 1 - 2 * frac;
+    const rSphere = Math.sqrt(Math.max(0, 1 - yNorm * yNorm));
+    const theta = i * golden;
 
-const quadV = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+    const layerSeed = (i * 0.6180339887) % 1;
+    const shell = layerSeed < 0.18
+      ? 0.18 + 0.42 * (layerSeed / 0.18)
+      : layerSeed < 0.45
+        ? 0.60 + 0.28 * ((layerSeed - 0.18) / 0.27)
+        : 0.88 + 0.14 * ((layerSeed - 0.45) / 0.55);
 
-const haloF = `
-varying vec2 vUv;
-uniform float uRaw, uScale, uStrength, uLevel, uPress, uLight;
-uniform vec3 cMain, cHi1, cHi2;
-uniform vec4 uRip[4];
-uniform vec2 uRipP[4];
-uniform vec2 uHalf;
-void main() {
-  vec2 p = (vUv - 0.5) * 2.0 * uHalf;
-  vec2 q = p / (vec2(${RX.toFixed(2)}, ${RY.toFixed(2)}) * uScale);
-  float e = length(q);
-  float ang = atan(q.y, q.x);
-  float outside = max(e - 1.0, 0.0);
-  float halo = exp(-outside * 3.6) * smoothstep(1.62, 1.05, e);
-  /* soft glass body: brighter toward the rim, with a faint centre */
-  float fill = smoothstep(0.30, 1.0, e) * (1.0 - smoothstep(0.92, 1.16, e));
-  float inner = fill * 0.20 * (1.0 + 0.9 * uLight) + smoothstep(1.0, 0.0, e) * 0.05;
-  float edgeFade = smoothstep(1.0, 0.80, max(abs(vUv.x - 0.5), abs(vUv.y - 0.5)) * 2.0);
-  vec3 col = mix(cMain, cHi1, 0.5 + 0.5 * sin(ang + uRaw * 0.45));
-  col = mix(col, cHi2, 0.35 * (0.5 + 0.5 * cos(ang * 2.0 - uRaw * 0.6)));
-  float rimLine = exp(-pow((e - 1.0) * 16.0, 2.0)) * (0.40 + 0.40 * uLevel + 0.30 * uPress) * (0.62 + 0.38 * sin(ang * 3.0 + uRaw * 0.8));
-  float rip = 0.0;
-  for (int i = 0; i < 4; i++) {
-    float age = uRip[i].x;
-    if (age >= 0.0) {
-      float dd = length(q - uRip[i].zw) - (uRipP[i].x + age * uRipP[i].y);
-      rip += exp(-dd * dd * 70.0) * (1.0 - age) * uRip[i].y;
+    const ux = Math.cos(theta) * rSphere;
+    const uy = yNorm;
+    const uz = Math.sin(theta) * rSphere;
+
+    let x = 0, y = 0, z = 0;
+
+    if (typeof customFn === "function") {
+      const res = customFn(frac, (theta % (Math.PI * 2)) / (Math.PI * 2), i, COUNT, shell);
+      if (res && res.length >= 3) {
+        x = res[0]; y = res[1]; z = res[2];
+      }
+    } else if (shapeName === "amoeba") {
+      const lobe = 1.0
+        + 0.13 * Math.sin(ux * 3.0 + uy * 2.0) * Math.cos(uz * 2.5)
+        + 0.09 * Math.cos(uy * 4.0 - uz * 3.0);
+      x = ux * 1.38 * shell * lobe;
+      y = uy * 0.90 * shell * lobe;
+      z = uz * 1.05 * shell * lobe;
+    } else if (shapeName === "helix") {
+      const strand = i % 3;
+      const t = (frac - 0.5) * 3.2;
+      const ang = frac * Math.PI * 7.0;
+      const spread = (1 - shell) * 0.18;
+      if (strand < 2) {
+        const phase = strand * Math.PI;
+        x = Math.cos(ang + phase) * 0.78 + ux * spread;
+        y = t * 0.92 + uy * spread * 0.5;
+        z = Math.sin(ang + phase) * 0.78 + uz * spread;
+      } else {
+        const rungIdx = Math.floor(frac * 26) / 26;
+        const rAng = rungIdx * Math.PI * 7.0;
+        const rT = (rungIdx - 0.5) * 3.2;
+        const bridge = ((i * 0.37) % 1) * 2 - 1;
+        x = Math.cos(rAng) * 0.78 * bridge + ux * 0.06;
+        y = rT * 0.92 + uy * 0.05;
+        z = Math.sin(rAng) * 0.78 * bridge + uz * 0.06;
+      }
+    } else if (shapeName === "torus") {
+      const u = frac * Math.PI * 2 * 37;
+      const v = frac * Math.PI * 2;
+      const R = 1.02;
+      const r = 0.42 * (0.35 + 0.65 * shell) * (1 + 0.15 * Math.sin(v * 3));
+      x = (R + r * Math.cos(u)) * Math.cos(v);
+      y = (R + r * Math.cos(u)) * Math.sin(v) * 0.85;
+      z = r * Math.sin(u) + 0.12 * Math.sin(v * 2);
+    } else if (shapeName === "hypercube") {
+      const isOuter = (i % 10) < 6;
+      const boxScale = isOuter ? 0.92 : 0.46;
+      const maxC = Math.max(Math.abs(ux), Math.abs(uy), Math.abs(uz), 0.001);
+      const cx = (ux / maxC) * boxScale;
+      const cy = (uy / maxC) * boxScale;
+      const cz = (uz / maxC) * boxScale;
+      if ((i % 10) === 9) {
+        const sX = ux >= 0 ? 1 : -1, sY = uy >= 0 ? 1 : -1, sZ = uz >= 0 ? 1 : -1;
+        const lerpF = ((i * 0.19) % 1);
+        const rIn = 0.46, rOut = 0.92;
+        const rCur = rIn + (rOut - rIn) * lerpF;
+        x = sX * rCur + ux * 0.04;
+        y = sY * rCur + uy * 0.04;
+        z = sZ * rCur + uz * 0.04;
+      } else {
+        const edgeSnap = 0.84 + 0.16 * shell;
+        x = cx * edgeSnap;
+        y = cy * edgeSnap;
+        z = cz * edgeSnap;
+      }
+    } else if (shapeName === "infinity") {
+      const t = frac * Math.PI * 2;
+      const denom = 1 + Math.sin(t) * Math.sin(t);
+      const tubeR = 0.28 * shell;
+      const tubeAng = i * 2.39996;
+      const bx = (1.48 * Math.cos(t)) / denom;
+      const by = (1.48 * Math.sin(t) * Math.cos(t)) / denom;
+      const bz = 0.36 * Math.sin(t);
+      x = bx + Math.cos(tubeAng) * tubeR * 0.7;
+      y = by + Math.sin(tubeAng) * tubeR;
+      z = bz + Math.cos(tubeAng + 1.2) * tubeR;
+    } else if (shapeName === "galaxy") {
+      if (frac < 0.25) {
+        const coreR = Math.pow(frac / 0.25, 0.6) * 0.52;
+        x = ux * coreR * 1.25;
+        y = uy * coreR * 0.65;
+        z = uz * coreR * 1.1;
+      } else {
+        const arm = i % 3;
+        const armFrac = (frac - 0.25) / 0.75;
+        const rad = 0.32 + Math.pow(armFrac, 0.82) * 1.18;
+        const spin = rad * 3.4 + (arm * Math.PI * 2) / 3;
+        const scatter = (1 - shell * 0.7) * (0.14 + 0.16 * armFrac);
+        x = Math.cos(spin) * rad + ux * scatter;
+        y = uy * (0.14 * (1 - armFrac * 0.65));
+        z = Math.sin(spin) * rad + uz * scatter;
+      }
+    } else if (shapeName === "merkaba") {
+      const tet = i % 2 === 0 ? 1 : -1;
+      const p1 = Math.abs(ux + uy + uz);
+      const p2 = Math.abs(-ux - uy + uz);
+      const p3 = Math.abs(-ux + uy - uz);
+      const p4 = Math.abs(ux - uy - uz);
+      const d = Math.max(p1, p2, p3, p4, 0.001);
+      const r = (1.28 / Math.pow(d, 0.68)) * shell;
+      x = ux * r;
+      y = uy * r * tet;
+      z = uz * r;
+    } else if (shapeName === "vortex") {
+      const u = frac * Math.PI * 2;
+      const v = (i * golden) % (Math.PI * 2);
+      const r = (0.75 + 0.42 * Math.sin(5 * u) * Math.cos(4 * v)) * shell;
+      x = r * Math.sin(v) * Math.cos(u) * 1.32;
+      y = r * Math.cos(v) * 0.95 + 0.18 * Math.sin(u * 6);
+      z = r * Math.sin(v) * Math.sin(u) * 1.12;
     }
+
+    arr[i * 3]     = x;
+    arr[i * 3 + 1] = y;
+    arr[i * 3 + 2] = z;
   }
-  float a = (halo * uStrength * 0.55 + inner * uStrength + rimLine * 0.55 + rip * 0.55) * edgeFade;
-  a *= mix(1.0, 0.62, uLight);
-  gl_FragColor = vec4(col, clamp(a, 0.0, 0.85));
-}`;
-
-const nucF = `
-varying vec2 vUv;
-uniform vec3 cMain, cHi1;
-uniform float uStrength, uRaw, uLevel, uLight, uPress;
-void main() {
-  vec2 c = (vUv - 0.5) * 2.0;
-  float d = length(c);
-  float g = exp(-d * d * 5.5);
-  float g2 = exp(-d * d * 16.0);
-  vec3 col = mix(cMain, cHi1, 0.35 + 0.35 * sin(uRaw * 0.8));
-  col = mix(col, vec3(1.0), g2 * 0.22 * (1.0 - uLight));
-  float a = (g * 0.30 + g2 * 0.35) * uStrength * (0.70 + 0.60 * uLevel + 0.30 * uPress) * smoothstep(1.0, 0.7, d);
-  gl_FragColor = vec4(col, a * mix(1.0, 0.7, uLight));
-}`;
-
-const ringV = `
-varying vec2 vP; varying float vZ;
-void main() {
-  vP = position.xy;
-  vZ = (modelMatrix * vec4(position, 1.0)).z;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}`;
-
-const ringF = `
-varying vec2 vP; varying float vZ;
-uniform float uAlpha, uPhase, uTail, uWidth, uLight;
-uniform vec3 cA, cB;
-void main() {
-  float r = length(vP);
-  float d = abs(r - 0.86);
-  float line = smoothstep(uWidth, 0.0, d);
-  float glow = exp(-d * 30.0) * 0.30 * smoothstep(1.0, 0.9, r);
-  float ang = atan(vP.y, vP.x);
-  float t = mod(uPhase - ang, 6.2831853);
-  float comet = exp(-t * uTail) * smoothstep(0.0, 0.35, t);   /* soft leading edge, long fading tail */
-  float depthCue = mix(0.30, 1.0, smoothstep(-0.35, 0.45, vZ));
-  vec3 col = mix(cA, cB, 0.5 + 0.5 * sin(ang + uPhase));
-  col = mix(col, vec3(1.0), comet * 0.35 * (1.0 - uLight));
-  float a = (line * (0.20 + comet * 1.10) + glow * (0.25 + comet)) * uAlpha * depthCue;
-  gl_FragColor = vec4(col, clamp(a, 0.0, 0.9));
-}`;
-
-/* =====================================================================
-   Scene
-   ===================================================================== */
-let scene, camera, rig, partMat, sporeMat, haloMat, nucMat, ringMats = [], rings = [], partGeo, halo, nucleus;
-
-function mulberry32(a) {
-  return function () {
-    a |= 0; a = a + 0x6D2B79F5 | 0;
-    let t = Math.imul(a ^ a >>> 15, 1 | a);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
+  return arr;
 }
 
-/* Surface-area weight of the ellipsoid per unit solid angle, for even particle density */
-function areaWeight(x, y, z) {
-  const px = x * RX, py = y * RY, pz = z * RZ;
-  const p2 = px * px + py * py + pz * pz;
-  const nx = x / RX, ny = y / RY, nz = z / RZ;
-  const nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
-  const cosPsi = (px * nx + py * ny + pz * nz) / (Math.sqrt(p2) * nl);
-  return p2 / cosPsi;
-}
+const shapeCache = {};
+SHAPE_NAMES.forEach(name => {
+  shapeCache[name] = generateShapePositions(name);
+});
+
+let currentShape = "amoeba";
+let morphActive = false;
+let morphProgress = 0;
+/* Off by default: this is the *Elliptical* orb. (The page's own button already said "AUTO MORPH: OFF",
+   but the flag started true, so inside the app the orb kept turning into a helix / cube / galaxy.)
+   Still available via JarvisOrb.setAutoMorph(true). */
+let autoMorph = false;
+let autoMorphTimer = 0;
 
 function buildParticles() {
-  const rand = mulberry32(1337);
-  const g = 1.32471795724474602596, a1 = 1 / g, a2 = 1 / (g * g);   // R2 low-discrepancy: any prefix is evenly spread
-  let maxA = 0;
-  for (let i = 0; i < 4000; i++) {
-    const u = (0.5 + a1 * i) % 1, v = (0.5 + a2 * i) % 1;
-    const cy = 1 - 2 * u, sy = Math.sqrt(1 - cy * cy), ph = 6.2831853 * v;
-    maxA = Math.max(maxA, areaWeight(sy * Math.cos(ph), cy, sy * Math.sin(ph)));
-  }
-  maxA *= 1.02;
+  const initialPos = new Float32Array(shapeCache.amoeba);
+  const targetPos = new Float32Array(shapeCache.amoeba);
+  const rnd = new Float32Array(COUNT);
+  const layer = new Float32Array(COUNT);
+  const cluster = new Float32Array(COUNT);
 
-  const dir = new Float32Array(MAX_P * 3), seed = new Float32Array(MAX_P * 4);
-  let k = 0, i = 0;
-  while (k < MAX_P && i < MAX_P * 6) {
-    const u = (0.5 + a1 * i) % 1, v = (0.5 + a2 * i) % 1; i++;
-    const cy = 1 - 2 * u, sy = Math.sqrt(1 - cy * cy), ph = 6.2831853 * v;
-    const x = sy * Math.cos(ph), y = cy, z = sy * Math.sin(ph);
-    if (rand() * maxA > areaWeight(x, y, z)) continue;
-    dir[k * 3] = x; dir[k * 3 + 1] = y; dir[k * 3 + 2] = z;
-    const h = rand();
-    const shell = h < 0.58 ? 0.965 + 0.045 * rand()
-                : h < 0.84 ? 0.80 + 0.15 * rand()
-                :            0.32 + 0.46 * Math.sqrt(rand());
-    seed[k * 4] = rand(); seed[k * 4 + 1] = shell; seed[k * 4 + 2] = rand(); seed[k * 4 + 3] = rand();
-    k++;
+  for (let i = 0; i < COUNT; i++) {
+    rnd[i] = Math.random();
+    const layerSeed = (i * 0.6180339887) % 1;
+    layer[i] = layerSeed < 0.18 ? 0.15 : layerSeed < 0.45 ? 0.55 : 0.95;
+
+    const px = initialPos[i * 3], py = initialPos[i * 3 + 1], pz = initialPos[i * 3 + 2];
+    const ang = Math.atan2(py, px) + (pz * 0.35);
+    const bucket = Math.floor(((ang + Math.PI) / (Math.PI * 2)) * MAX_BLOBS) % MAX_BLOBS;
+    cluster[i] = (bucket + MAX_BLOBS) % MAX_BLOBS;
   }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.BufferAttribute(dir, 3));
-  geo.setAttribute("aSeed", new THREE.BufferAttribute(seed, 4));
-  geo.setDrawRange(0, k);
-  geo.userData.count = k;
-  return geo;
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(initialPos, 3));
+  g.setAttribute("aTarget", new THREE.BufferAttribute(targetPos, 3));
+  g.setAttribute("aRnd", new THREE.BufferAttribute(rnd, 1));
+  g.setAttribute("aLayer", new THREE.BufferAttribute(layer, 1));
+  g.setAttribute("aCluster", new THREE.BufferAttribute(cluster, 1));
+
+  const mat = new THREE.ShaderMaterial({
+    vertexShader: partV,
+    fragmentShader: dotF,
+    uniforms: U,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.NormalBlending
+  });
+
+  const p = new THREE.Points(g, mat);
+  p.frustumCulled = false;
+  p.renderOrder = 2;
+  return p;
 }
 
-function buildSpores() {
-  const rand = mulberry32(4242);
-  const pos = new Float32Array(N_SPORE * 3), o1 = new Float32Array(N_SPORE * 4), o2 = new Float32Array(N_SPORE * 4);
-  for (let i = 0; i < N_SPORE; i++) {
-    const sp = (0.12 + rand() * 0.30) * (rand() < 0.5 ? -1 : 1);
-    o1[i * 4] = rand() * 6.2831853; o1[i * 4 + 1] = 1.14 + rand() * 0.46; o1[i * 4 + 2] = sp; o1[i * 4 + 3] = rand() * 6.2831853;
-    o2[i * 4] = (rand() - 0.5) * 1.1; o2[i * 4 + 1] = (rand() - 0.5) * 1.0; o2[i * 4 + 2] = 0.020 + rand() * 0.036; o2[i * 4 + 3] = rand();
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-  geo.setAttribute("aOrb", new THREE.BufferAttribute(o1, 4));
-  geo.setAttribute("aOrb2", new THREE.BufferAttribute(o2, 4));
-  return geo;
-}
+const orb = new THREE.Group();
+const pointsMesh = buildParticles();
+orb.add(pointsMesh);
+scene.add(orb);
 
-function mat(vs, fs, uniforms, extra) {
-  return new THREE.ShaderMaterial(Object.assign({
-    vertexShader: vs, fragmentShader: fs, uniforms: uniforms,
-    transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide
-  }, extra || {}));
-}
-
-function buildScene() {
-  scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 40);
-  camera.position.set(0, 0, 6);
-
-  /* halo (outside the rig so it never rotates) */
-  haloMat = mat(quadV, haloF, {
-    uRaw: U.uRaw, uScale: U.uScale, uStrength: U.uStrength, uLevel: U.uLevel, uPress: U.uPress, uLight: U.uLight,
-    cMain: U.cMain, cHi1: U.cHi1, cHi2: U.cHi2, uRip: U.uRip, uRipP: U.uRipP, uHalf: U.uHalf
-  });
-  halo = new THREE.Mesh(new THREE.PlaneGeometry(HALO_W * 2, HALO_H * 2), haloMat);
-  halo.position.z = -0.4; halo.renderOrder = 0; halo.frustumCulled = false;
-  scene.add(halo);
-
-  rig = new THREE.Group();
-  scene.add(rig);
-
-  nucMat = mat(quadV, nucF, {
-    cMain: U.cMain, cHi1: U.cHi1, uStrength: U.uStrength, uRaw: U.uRaw, uLevel: U.uLevel, uLight: U.uLight, uPress: U.uPress
-  });
-  nucleus = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 1.45), nucMat);
-  nucleus.renderOrder = 1; nucleus.frustumCulled = false;
-  rig.add(nucleus);
-
-  partGeo = buildParticles();
-  partMat = mat(partV, partF, {
-    uRaw: U.uRaw, uTime: U.uTime, uLevel: U.uLevel, uBass: U.uBass, uHigh: U.uHigh, uBurst: U.uBurst,
-    uPress: U.uPress, uHold: U.uHold, uThink: U.uThink, uListen: U.uListen, uWob: U.uWob,
-    uBright: U.uBright, uPx: U.uPx, uCamZ: U.uCamZ, uLight: U.uLight, uAlphaMul: U.uAlphaMul,
-    uTouchS: U.uTouchS, uShockS: U.uShockS, uRadii: U.uRadii, uTouch: U.uTouch, uSwipe: U.uSwipe,
-    cDeep: U.cDeep, cMain: U.cMain, cHi1: U.cHi1, cHi2: U.cHi2, uRot: U.uRot, uShockO: U.uShockO
-  });
-  const pts = new THREE.Points(partGeo, partMat);
-  pts.renderOrder = 2; pts.frustumCulled = false;
-  rig.add(pts);
-
-  /* three gyroscopic elliptical rings with travelling comets */
-  const ringDefs = [
-    { sx: 1.22, sy: 1.30, seed: 0.0, w: 0.012, tail: 1.7 },
-    { sx: 1.36, sy: 1.48, seed: 2.1, w: 0.010, tail: 2.2 },
-    { sx: 1.10, sy: 1.16, seed: 4.2, w: 0.011, tail: 2.8 }
-  ];
-  ringDefs.forEach(function (d) {
-    const m = mat(ringV, ringF, {
-      uAlpha: { value: 0.4 }, uPhase: { value: d.seed }, uTail: { value: d.tail }, uWidth: { value: d.w },
-      uLight: U.uLight, cA: U.cMain, cB: U.cHi2
+/* ---------- Synaptic Neural / Plasma Filaments (Bridges Lobes & Pulses with Voice) ---------- */
+let synapseLines, synapseData = [];
+function createSynapseFilaments() {
+  const pos = new Float32Array(SYNAPSE_COUNT * 2 * 3);
+  const col = new Float32Array(SYNAPSE_COUNT * 2 * 3);
+  for (let i = 0; i < SYNAPSE_COUNT; i++) {
+    const a1 = Math.random() * Math.PI * 2, p1 = (Math.random() - 0.5) * Math.PI;
+    const a2 = a1 + (Math.random() - 0.5) * 1.4, p2 = p1 + (Math.random() - 0.5) * 1.1;
+    synapseData.push({
+      bA: i % MAX_BLOBS,
+      bB: (i + 1 + (i % 2)) % MAX_BLOBS,
+      u1: new THREE.Vector3(Math.cos(a1) * Math.cos(p1) * 0.75, Math.sin(p1) * 0.52, Math.sin(a1) * Math.cos(p1) * 0.62),
+      u2: new THREE.Vector3(Math.cos(a2) * Math.cos(p2) * 0.75, Math.sin(p2) * 0.52, Math.sin(a2) * Math.cos(p2) * 0.62),
+      speed: 1.5 + Math.random() * 2.5,
+      phase: Math.random() * 6.283
     });
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), m);
-    mesh.scale.set(RX * d.sx, RY * d.sy, 1);
-    mesh.renderOrder = 3; mesh.frustumCulled = false;
-    rig.add(mesh);
-    ringMats.push(m); rings.push({ mesh: mesh, def: d, phase: d.seed });
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  const mat = new THREE.LineBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.42,
+    depthWrite: false,
+    blending: THREE.NormalBlending
   });
+  synapseLines = new THREE.LineSegments(g, mat);
+  synapseLines.frustumCulled = false;
+  synapseLines.renderOrder = 1;
+  orb.add(synapseLines);
+}
+createSynapseFilaments();
 
-  sporeMat = mat(sporeV, sporeF, {
-    uRaw: U.uRaw, uSpore: U.uSpore, uLevel: U.uLevel, uBurst: U.uBurst, uPx: U.uPx, uCamZ: U.uCamZ,
-    uStrength: { value: 0.8 }, cMain: U.cMain, cHi1: U.cHi1, cHi2: U.cHi2, uLight: U.uLight
+/* ---------- Morph Controller: Transform Into Any Shape Any Time ---------- */
+let targetAmoebaFactor = 1.0;
+
+function morphToPositionArray(targetArr, labelText, isAmoebaShape) {
+  const posAttr = pointsMesh.geometry.attributes.position;
+  const tgtAttr = pointsMesh.geometry.attributes.aTarget;
+  const curM = U.uMorph.value;
+
+  if (curM > 0.001) {
+    const smoothM = curM * curM * (3 - 2 * curM);
+    const pArr = posAttr.array;
+    const tArr = tgtAttr.array;
+    for (let i = 0; i < pArr.length; i++) {
+      pArr[i] = pArr[i] + (tArr[i] - pArr[i]) * smoothM;
+    }
+    posAttr.needsUpdate = true;
+  }
+
+  tgtAttr.array.set(targetArr);
+  tgtAttr.needsUpdate = true;
+  U.uMorph.value = 0;
+  morphProgress = 0;
+  morphActive = true;
+  targetAmoebaFactor = isAmoebaShape ? 1.0 : 0.46;
+
+  const lbl = $("#shapeLabel");
+  if (lbl && labelText) lbl.textContent = labelText;
+}
+
+function setOrbShape(name) {
+  const key = (name || "amoeba").toLowerCase();
+  if (!shapeCache[key]) return;
+  currentShape = key;
+  morphToPositionArray(
+    shapeCache[key],
+    SHAPE_LABELS[key] || key.toUpperCase(),
+    key === "amoeba"
+  );
+  document.querySelectorAll("[data-shape]").forEach(b => {
+    b.classList.toggle("on", b.dataset.shape === key);
   });
-  const spores = new THREE.Points(buildSpores(), sporeMat);
-  spores.renderOrder = 4; spores.frustumCulled = false;
-  rig.add(spores);
 }
 
-function setBlendMode(light) {
-  const mode = light ? THREE.NormalBlending : THREE.AdditiveBlending;
-  [partMat, sporeMat, haloMat, nucMat].concat(ringMats).forEach(function (m) { m.blending = mode; m.needsUpdate = true; });
-  U.uLight.value = light ? 1 : 0;
-  U.uAlphaMul.value = light ? 1.05 : 0.62;
+function morphToCustomShape(fn, customLabel) {
+  if (typeof fn !== "function") return;
+  currentShape = "custom";
+  const arr = generateShapePositions("custom", fn);
+  morphToPositionArray(arr, customLabel || "CUSTOM MORPH", false);
+  document.querySelectorAll("[data-shape]").forEach(b => b.classList.remove("on"));
 }
 
-/* =====================================================================
-   Theme
-   ===================================================================== */
-function setAppTheme(isLight, hexA, hexB) {
-  isLightUI = !!isLight;
-  palTarget = derivePalette(isLightUI, hexA || PRESETS.light.a, hexB || hexA || PRESETS.light.b);
-  document.documentElement.style.setProperty("--fa", "#" + palTarget.hi1.getHexString());
-  document.documentElement.style.setProperty("--fb", "#" + palTarget.main.getHexString());
-  if (renderer) setBlendMode(isLightUI);
-}
-function setThemeByName(name) {
-  const p = PRESETS[name] || PRESETS.light;
-  setAppTheme(p.light, p.a, p.b);
-}
-function luminance(hex) { const c = new THREE.Color(hex); return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b; }
+/* ---------- Amoeba Fission (Touch Separation) & Coalescence (Re-Joining) ---------- */
+function triggerAmoebaSplit(worldHitPoint, lobeCount) {
+  activeLobes = lobeCount || (3 + Math.floor(Math.random() * 3));
+  splitTimer = 3.1;
+  splitAmount = Math.max(splitAmount, 0.32);
+  wasSplit = true;
 
-/* =====================================================================
-   Audio (native bridge first, simulated only when no native audio ever arrives)
-   ===================================================================== */
+  const hit = worldHitPoint || new THREE.Vector3(0, 0, 0);
+  shockOrigin.copy(hit);
+  shockWave = 0.0;
+
+  const baseAngle = Math.random() * Math.PI * 2;
+  for (let i = 0; i < MAX_BLOBS; i++) {
+    const b = blobs[i];
+    if (i < activeLobes) {
+      const ang = baseAngle + (i * Math.PI * 2) / activeLobes + (Math.random() - 0.5) * 0.35;
+      const dist = 0.78 + Math.random() * 0.42;
+      const rx = Math.cos(ang) * dist * 1.28;
+      const ry = Math.sin(ang) * dist * 0.94;
+      const rz = (Math.random() - 0.5) * 0.58;
+
+      b.targetOffset.set(rx, ry, rz);
+      const pushX = rx - hit.x * 0.5;
+      const pushY = ry - hit.y * 0.5;
+      b.vel.x += pushX * 3.1;
+      b.vel.y += pushY * 3.1;
+      b.vel.z += rz * 2.4;
+    } else {
+      const ref = blobs[i % activeLobes];
+      b.targetOffset.copy(ref.targetOffset);
+      b.vel.copy(ref.vel);
+    }
+  }
+}
+
+/* ---------- Outer Elliptical Halo Glow, 3D Gyroscopic Rings & Magnetic Spores ---------- */
+let glowMat, glow, ring1, ring2, ring3, orbitPts, ptData = [];
+
+function createGlow() {
+  glowMat = new THREE.ShaderMaterial({
+    vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+    fragmentShader: `
+      varying vec2 vUv;
+      uniform float uTime, uStrength, uMix;
+      uniform vec3 uA, uB, uC;
+      ${EDGE_GLSL}
+      void main() {
+        vec2 c = (vUv - 0.5) * vec2(1.0, 1.30);
+        float d = length(c) * 2.0;
+        float a = atan(c.y, c.x);
+        /* continuous falloff: the old "d > 0.60 ? ... : 0.0" left a hard-edged pale disc behind the orb
+           whenever the particle cloud shifted, most visible on light screens */
+        float g = exp(-max(d - 0.60, 0.0) * 5.6) * 0.72 * smoothstep(0.20, 0.60, d) * smoothstep(1.0, 0.72, d);
+
+        vec3 accent = vec3(uB.b, uA.r * 0.5 + uC.g * 0.5, uC.b);
+        vec3 col = mix(uA, uB, 0.5 + 0.5 * sin(a + uTime * 0.55));
+        col = mix(col, uC, uMix * (0.5 + 0.5 * sin(a * 2.0 - uTime * 0.75)));
+        col = mix(col, accent, 0.30 * (0.5 + 0.5 * cos(a * 3.0 + uTime * 0.6)));
+        gl_FragColor = vec4(col, clamp(g * uStrength * 0.44, 0.0, 0.46) * edgeFade(gl_FragCoord.xy));
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    uniforms: {
+      uTime: { value: 0 },
+      uStrength: { value: 0.58 },
+      uMix: { value: 0.45 },
+      uRes: U.uRes,
+      uA: U.BLUE,
+      uB: U.PURP,
+      uC: U.CYAN
+    }
+  });
+  glow = new THREE.Mesh(new THREE.PlaneGeometry(VIS * 1.28, VIS * 1.06), glowMat);
+  glow.position.z = -0.15;
+  glow.renderOrder = -2;
+  scene.add(glow);
+}
+
+function createRing(r0, r1, segs, seed, alpha) {
+  const m = new THREE.Mesh(
+    new THREE.RingGeometry(r0 - 0.04, r1 + 0.04, 160, 1),   /* padded so the soft edge below has room to fade */
+    new THREE.ShaderMaterial({
+      vertexShader: "varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+      fragmentShader: `
+        varying vec2 vP;
+        uniform float uAlpha, uSeed, uSegs, uMid, uHalf;
+        uniform vec3 uA, uB, uC;
+        ${EDGE_GLSL}
+        void main() {
+          float a = atan(vP.y, vP.x);
+          float m = smoothstep(-0.22, 0.38, sin(a * uSegs + uSeed)) * smoothstep(-0.88, -0.18, sin(a + uSeed * 0.7));
+          vec3 col = mix(mix(uC, uA, 0.5 + 0.5 * sin(a + uSeed)), uB, 0.5 + 0.5 * sin(a * 2.0 - uSeed));
+          /* soft glowing line instead of a hard-edged strip (also removes jaggies now that MSAA is off) */
+          float rr = abs(length(vP) - uMid);
+          float prof = smoothstep(uHalf + 0.014, uHalf * 0.25, rr) + exp(-rr * 34.0) * 0.20;
+          gl_FragColor = vec4(col, clamp(m * uAlpha * prof, 0.0, 1.0) * edgeFade(gl_FragCoord.xy));
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      uniforms: {
+        uAlpha: { value: alpha },
+        uSeed: { value: seed },
+        uSegs: { value: segs },
+        uMid: { value: (r0 + r1) / 2 },
+        uHalf: { value: (r1 - r0) / 2 },
+        uRes: U.uRes,
+        uA: U.BLUE,
+        uB: U.PURP,
+        uC: U.CYAN
+      }
+    })
+  );
+  m.scale.set(1.28, 0.92, 1);
+  m.renderOrder = 0;
+  scene.add(m);
+  return m;
+}
+
+function createOrbitSpores() {
+  const pos = new Float32Array(ORBIT_COUNT * 3);
+  const size = new Float32Array(ORBIT_COUNT);
+  const alpha = new Float32Array(ORBIT_COUNT);
+  const color = new Float32Array(ORBIT_COUNT * 3);
+  const pal = [
+    [0.05, 0.85, 1.0],
+    [0.25, 0.48, 1.0],
+    [0.68, 0.30, 0.98],
+    [0.92, 0.25, 0.68],
+    [0.08, 0.88, 0.72]
+  ];
+
+  for (let i = 0; i < ORBIT_COUNT; i++) {
+    color.set(pal[i % pal.length], i * 3);
+    size[i] = 0.020 + Math.random() * 0.048;
+    ptData.push({
+      a: Math.random() * 6.283,
+      r: 1.40 + Math.random() * 0.72,
+      sp: (0.10 + Math.random() * 0.24) * (Math.random() < 0.5 ? -1 : 1),
+      ph: Math.random() * 6.283,
+      tilt: (Math.random() - 0.5) * 1.25,
+      y: (Math.random() - 0.5) * 1.12,
+      fs: 0.30 + Math.random() * 0.55
+    });
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  g.setAttribute("aSize", new THREE.BufferAttribute(size, 1));
+  g.setAttribute("aAlpha", new THREE.BufferAttribute(alpha, 1));
+  g.setAttribute("aColor", new THREE.BufferAttribute(color, 3));
+
+  orbitPts = new THREE.Points(
+    g,
+    new THREE.ShaderMaterial({
+      vertexShader: "attribute float aSize, aAlpha; attribute vec3 aColor; uniform float uPx; varying float vA; varying vec3 vC; varying float vRim; varying float vSpark; void main(){ vA = aAlpha; vC = aColor; vRim = 0.3; vSpark = 0.5; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = max(aSize * uPx / (-mv.z), 1.3); gl_Position = projectionMatrix * mv; }",
+      fragmentShader: dotF,
+      transparent: true,
+      depthWrite: false,
+      uniforms: { uPx: U.uPx, uRes: U.uRes }
+    })
+  );
+  orbitPts.frustumCulled = false;
+  orbitPts.renderOrder = 3;
+  scene.add(orbitPts);
+}
+
+/* Luminous core: a very soft nucleus glow that swells with the voice (stays put, never edge-on) */
+let coreMat, coreMesh;
+function createCore() {
+  coreMat = new THREE.ShaderMaterial({
+    vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+    fragmentShader: `
+      varying vec2 vUv;
+      uniform float uTime, uStrength;
+      uniform vec3 uA, uB;
+      void main() {
+        vec2 c = (vUv - 0.5) * 2.0;
+        float d = length(c);
+        float g = exp(-d * d * 4.2);
+        float g2 = exp(-d * d * 13.0);
+        vec3 col = mix(uA, uB, 0.5 + 0.5 * sin(uTime * 0.7));
+        gl_FragColor = vec4(col, (g * 0.50 + g2 * 0.45) * uStrength * smoothstep(1.0, 0.55, d));
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    uniforms: { uTime: { value: 0 }, uStrength: { value: 0.1 }, uA: U.CYAN, uB: U.PURP }
+  });
+  coreMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 1.8), coreMat);
+  coreMesh.position.z = -0.05;
+  coreMesh.renderOrder = 1;
+  coreMesh.frustumCulled = false;
+  scene.add(coreMesh);
+}
+
+createGlow();
+createCore();
+ring1 = createRing(1.22, 1.238, 2, 0, 0.45);
+ring2 = createRing(1.34, 1.350, 3, 2.1, 0.30);
+ring3 = createRing(1.14, 1.152, 4, 4.2, 0.25);
+createOrbitSpores();
+
+/* ---------- Themes & Color Palettes ---------- */
+const LIGHTPAL = [[0.04, 0.12, 0.55], [0.12, 0.36, 0.96], [0.05, 0.80, 1.0], [0.58, 0.28, 0.96]];
+const THEMES = {
+  dark: {
+    bg: "radial-gradient(125% 90% at 50% 38%, #13193d 0%, #070a1c 60%, #020309 100%)",
+    fg: "#eef2ff", sub: "#8f9bc9", glass: "rgba(15, 22, 48, 0.62)", gb: "rgba(120, 160, 255, 0.22)", chip: "#b4c2f0",
+    t: ["#00f2fe", "#6366f1", "#d946ef"], add: true, sh: "rgba(0, 210, 255, 0.26)",
+    pal: [[0.08, 0.18, 0.78], [0.22, 0.52, 1.0], [0.18, 0.95, 1.0], [0.75, 0.38, 1.0]]
+  },
+  bio: {
+    bg: "radial-gradient(125% 90% at 50% 38%, #072624 0%, #031214 60%, #010608 100%)",
+    fg: "#e6fff9", sub: "#7bc4b8", glass: "rgba(8, 36, 36, 0.62)", gb: "rgba(50, 255, 200, 0.22)", chip: "#9ce8dc",
+    t: ["#00ffaa", "#00d4ff", "#7c3aed"], add: true, sh: "rgba(0, 255, 170, 0.25)",
+    pal: [[0.02, 0.42, 0.38], [0.05, 0.85, 0.68], [0.25, 1.0, 0.85], [0.45, 0.40, 1.0]]
+  },
+  red: {
+    bg: "radial-gradient(125% 90% at 50% 38%, #2c0912 0%, #120408 60%, #050103 100%)",
+    fg: "#ffe8ea", sub: "#c98a92", glass: "rgba(40, 10, 18, 0.62)", gb: "rgba(255, 110, 130, 0.24)", chip: "#f0a8b0",
+    t: ["#ff4d5e", "#ff2d6f", "#ff9a5c"], add: true, sh: "rgba(255, 60, 80, 0.25)",
+    pal: [[0.55, 0.05, 0.12], [0.96, 0.16, 0.24], [1.0, 0.52, 0.30], [1.0, 0.22, 0.60]]
+  },
+  sunset: {
+    bg: "radial-gradient(125% 90% at 50% 38%, #261433 0%, #12081c 60%, #05020a 100%)",
+    fg: "#fff0f8", sub: "#c49bb8", glass: "rgba(38, 18, 48, 0.62)", gb: "rgba(255, 160, 110, 0.24)", chip: "#f2c2dc",
+    t: ["#ff7b3d", "#ec4899", "#8b5cf6"], add: true, sh: "rgba(236, 72, 153, 0.25)",
+    pal: [[0.48, 0.10, 0.45], [0.95, 0.30, 0.50], [1.0, 0.65, 0.22], [0.65, 0.32, 0.98]]
+  },
+  light: {
+    bg: "radial-gradient(125% 90% at 50% 38%, #ffffff 0%, #f1f5fd 60%, #e4ebf7 100%)",
+    fg: "#1d2340", sub: "#6b7390", glass: "rgba(255, 255, 255, 0.75)", gb: "rgba(255, 255, 255, 0.92)", chip: "#4a527a",
+    t: ["#2f6bff", "#8b5cf6", "#c15de0"], add: false, sh: "rgba(70, 80, 170, 0.22)",
+    pal: LIGHTPAL
+  }
+};
+
+let themeName = "light";
+/* The app tells us whether its screen is light or dark (JarvisOrb.setLightUI). Additive glow on a light
+   screen washes out to nothing (the default "Sunset" app theme is light but the Solar orb palette was
+   additive), so when the app says "light" we always use normal blending, whatever the palette. */
+let lightUI = null;
+
+function setBlend(add) {
+  pointsMesh.material.blending = THREE.NormalBlending;
+  pointsMesh.material.needsUpdate = true;
+  [orbitPts.material, glowMat, coreMat, ring1.material, ring2.material, ring3.material].forEach(m => {
+    m.blending = add ? THREE.AdditiveBlending : THREE.NormalBlending;
+    m.needsUpdate = true;
+  });
+}
+
+function applyTheme(name, custom, custom2) {
+  let t = THEMES[name] || THEMES.light;
+  if (custom) {
+    const c = new THREE.Color(custom);
+    const L = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+    const light = L > 0.55;
+    const hsl = { h: 0, s: 0, l: 0 };
+    c.getHSL(hsl);
+
+    let pal;
+    const c2 = custom2 ? new THREE.Color(custom2) : null;
+    const hsl2 = { h: 0, s: 0, l: 0 };
+    if (c2) c2.getHSL(hsl2);
+
+    if (c2 && hsl.s >= 0.06) {
+      const deep = new THREE.Color().setHSL(hsl.h, Math.min(1, Math.max(0.6, hsl.s * 1.2)), Math.max(0.1, Math.min(0.35, hsl.l * 0.45)));
+      const main = new THREE.Color().setHSL(hsl.h, Math.max(0.85, hsl.s), Math.max(0.45, Math.min(0.65, hsl.l)));
+      const h2 = hsl2.s < 0.06 ? hsl.h : hsl2.h;
+      const hi1 = new THREE.Color().setHSL(h2, Math.max(0.8, hsl2.s), Math.max(0.55, Math.min(0.72, hsl2.l + 0.1)));
+      const hi2 = new THREE.Color().setHSL((h2 + 0.06) % 1.0, 0.95, 0.68);
+      pal = [[deep.r, deep.g, deep.b], [main.r, main.g, main.b], [hi1.r, hi1.g, hi1.b], [hi2.r, hi2.g, hi2.b]];
+    } else if (hsl.s < 0.06) {
+      pal = light ? LIGHTPAL : THEMES.dark.pal;
+    } else {
+      const h = hsl.h;
+      const cDeep = new THREE.Color().setHSL(h, Math.min(1, Math.max(0.6, hsl.s * 1.2)), Math.max(0.1, Math.min(0.35, hsl.l * 0.45)));
+      const cMain = new THREE.Color().setHSL(h, Math.max(0.85, hsl.s), Math.max(0.45, Math.min(0.65, hsl.l)));
+      const cAcc1 = new THREE.Color().setHSL((h + 0.08) % 1.0, 0.95, 0.65);
+      const cAcc2 = new THREE.Color().setHSL((h - 0.08 + 1.0) % 1.0, 0.95, 0.70);
+      pal = [[cDeep.r, cDeep.g, cDeep.b], [cMain.r, cMain.g, cMain.b], [cAcc1.r, cAcc1.g, cAcc1.b], [cAcc2.r, cAcc2.g, cAcc2.b]];
+    }
+
+    const baseTheme = light ? THEMES.light : THEMES.dark;
+    t = Object.assign({}, baseTheme, {
+      bg: custom,
+      fg: light ? "#0f172a" : "#ffffff",
+      sub: light ? "#475569" : "#cbd5e1",
+      glass: light ? "rgba(255,255,255,0.68)" : "rgba(15,22,48,0.62)",
+      gb: light ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.22)",
+      chip: light ? "#1e293b" : "#f1f5f9",
+      pal: pal,
+      add: !light,
+      t: [
+        "#" + new THREE.Color(pal[1][0], pal[1][1], pal[1][2]).getHexString(),
+        "#" + new THREE.Color(pal[2][0], pal[2][1], pal[2][2]).getHexString(),
+        "#" + new THREE.Color(pal[3][0], pal[3][1], pal[3][2]).getHexString()
+      ]
+    });
+    name = null;
+  }
+
+  themeName = name || themeName;
+  const r = document.documentElement.style;
+  if (!isEmbedded) {
+    r.setProperty("--bg", t.bg);
+    document.body.style.background = t.bg;
+  } else {
+    r.setProperty("--bg", "transparent");
+    document.documentElement.style.background = "transparent";
+    document.body.style.background = "transparent";
+  }
+  r.setProperty("--fg", t.fg);
+  r.setProperty("--sub", t.sub);
+  r.setProperty("--glass", t.glass);
+  r.setProperty("--gb", t.gb);
+  r.setProperty("--chip", t.chip);
+  r.setProperty("--t1", t.t[0]);
+  r.setProperty("--t2", t.t[1]);
+  r.setProperty("--t3", t.t[2]);
+  r.setProperty("--sh", t.sh);
+
+  ["DEEP", "BLUE", "CYAN", "PURP"].forEach((k, i) => U[k].value.setRGB(t.pal[i][0], t.pal[i][1], t.pal[i][2]));
+  const oc = orbitPts.geometry.attributes.aColor;
+  const cols = [
+    t.pal[2],
+    t.pal[1],
+    t.pal[3],
+    [t.pal[3][0], t.pal[1][1] * 0.65, t.pal[2][2]],
+    [t.pal[1][0] * 0.6, t.pal[2][1], t.pal[3][2]]
+  ];
+  for (let i = 0; i < ORBIT_COUNT; i++) {
+    const c = cols[i % cols.length];
+    oc.setXYZ(i, c[0], c[1], c[2]);
+  }
+  oc.needsUpdate = true;
+  setBlend(lightUI === null ? t.add : !lightUI);
+  window.__orbSparkColors = t.t.slice();   /* touch sparks pick up the theme colours */
+
+  document.querySelectorAll("[data-t]").forEach(b => b.classList.toggle("on", !custom && b.dataset.t === themeName));
+}
+
+/* ---------- Voice / AI State ---------- */
+let state = "idle", working = false;
+const cur = Object.assign({}, STATES.idle), tgt = Object.assign({}, STATES.idle);
+
+function setOrbState(s) {
+  if (!STATES[s]) return;
+  const changed = s !== state;
+  state = s;
+  Object.assign(tgt, STATES[s]);
+  /* Subtle radial wave when the AI state really changes. (The app re-sends the current state on resume
+     and page load; that must not ripple the orb every time.) */
+  if (changed) {
+    shockOrigin.set(0, 0, 0);
+    shockWave = 0.0;
+    burst = Math.max(burst, 0.35);
+  }
+  const lbl = $("#stext");
+  if (lbl) lbl.textContent = LABELS[s] || "AMOEBA READY";
+  document.querySelectorAll("[data-s]").forEach(b => b.classList.toggle("on", b.dataset.s === s));
+}
+
+/* ---------- Audio (Simulated, Web Mic, or External Native Bridge) ---------- */
 const audio = { level: 0, bass: 0, high: 0 };
-const ext = { level: 0, bass: 0, high: 0, t: -1e9, ever: false };
+let actx = null, analyser = null, micStream = null, freq = null, micOn = false;
+let externalAudioTime = 0;
+const extAudio = { level: 0, bass: 0, high: 0 };
 
 function setExternalAudio(level, bass, high) {
-  const c = v => Math.max(0, Math.min(1, Number(v) || 0));
-  const l = c(level);
-  ext.level = l;
-  ext.bass = (bass === undefined || bass === null) ? l : c(bass);
-  ext.high = (high === undefined || high === null) ? l : c(high);
-  ext.t = performance.now();
-  ext.ever = true;
+  const l = Math.max(0, Math.min(1, Number(level) || 0));
+  extAudio.level = l;
+  extAudio.bass = Math.max(0, Math.min(1, bass !== undefined && bass !== null ? Number(bass) : l));
+  extAudio.high = Math.max(0, Math.min(1, high !== undefined && high !== null ? Number(high) : l));
+  externalAudioTime = performance.now();
 }
-function simAudio(t) {
+
+function toast(m) {
+  const t = $("#toast");
+  if (!t) return;
+  t.textContent = m;
+  t.classList.add("show");
+  clearTimeout(toast.h);
+  toast.h = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+function updateMicUI() {
+  const b = $("#mic");
+  if (b) {
+    b.classList.toggle("on", micOn);
+    b.textContent = micOn ? "MIC ON" : "MIC TEST";
+  }
+}
+
+async function startAudioReactive() {
+  if (micOn) return true;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    actx = new AC();
+    if (actx.state === "suspended") await actx.resume();
+    analyser = actx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.76;
+    actx.createMediaStreamSource(micStream).connect(analyser);
+    freq = new Uint8Array(analyser.frequencyBinCount);
+    micOn = true;
+    updateMicUI();
+    return true;
+  } catch (e) {
+    micOn = false;
+    updateMicUI();
+    toast("Microphone unavailable — using simulated voice harmonics");
+    return false;
+  }
+}
+
+function stopAudioReactive() {
+  if (micStream) micStream.getTracks().forEach(t => t.stop());
+  if (actx && actx.close) actx.close().catch(() => {});
+  micStream = null;
+  actx = null;
+  analyser = null;
+  micOn = false;
+  updateMicUI();
+}
+
+function simulateAudio(t) {
   let l, b, h;
   if (state === "speaking") {
     const syl = Math.pow(Math.abs(Math.sin(t * 7.5) * Math.sin(t * 2.3 + 1)), 0.75);
     const gate = Math.sin(t * 0.95) > -0.68 ? 1 : 0.16;
-    l = (0.30 + 0.50 * syl) * gate; b = l * (0.68 + 0.32 * Math.sin(t * 5.2)); h = l * (0.52 + 0.48 * Math.sin(t * 11.5));
+    l = (0.34 + 0.52 * syl) * gate;
+    b = l * (0.68 + 0.32 * Math.sin(t * 5.2));
+    h = l * (0.52 + 0.48 * Math.sin(t * 11.5));
   } else if (state === "listening") {
-    l = 0.16 + 0.16 * Math.abs(Math.sin(t * 3.3) * Math.sin(t * 1.4)); b = l * 0.85; h = l * 0.55;
+    l = 0.24 + 0.22 * Math.abs(Math.sin(t * 3.3) * Math.sin(t * 1.4));
+    b = l * 0.85;
+    h = l * 0.55;
   } else if (state === "thinking") {
-    l = 0.12 + 0.07 * Math.sin(t * 2.8); b = l * 0.75; h = l * 0.72;
+    l = 0.18 + 0.11 * Math.sin(t * 2.8);
+    b = l * 0.75;
+    h = l * 0.72;
   } else {
-    l = 0.05 + 0.03 * Math.sin(t * 1.35); b = l * 0.9; h = l * 0.55;
+    l = 0.08 + 0.045 * Math.sin(t * 1.35);
+    b = l * 0.9;
+    h = l * 0.55;
   }
   return [l, b, h];
 }
 
-/* =====================================================================
-   Interaction state
-   ===================================================================== */
-let time = 0, flow = 0, sporePhase = 0, yaw = 0, pitch = 0, yawVel = 0;
-let burst = 0, press = 0, pressTarget = 0, hold = 0, touchS = 0;
-let dragging = false, downT = 0, moved = false, px = 0, py = 0;
-let tiltX = 0, tiltY = 0, ptrX = 0, ptrY = 0, gBase = null;
-let lastRipple = -1, prevLevel = 0, ripIdx = 0;
-const ripLife = [0, 0, 0, 0];
-const touchLocal = new THREE.Vector3(), prevLocal = new THREE.Vector3();
-const swipe = new THREE.Vector3();
-const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2(), hitPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), hit = new THREE.Vector3();
-
-function emitRipple(strength, ox, oy) {
-  const i = ripIdx; ripIdx = (ripIdx + 1) % 4;
-  const fromCenter = (ox === undefined);
-  U.uRip.value[i].set(0, Math.max(0.15, Math.min(1, strength)), fromCenter ? 0 : ox, fromCenter ? 0 : oy);
-  U.uRipP.value[i].set(fromCenter ? 0.92 : 0.0, fromCenter ? 0.75 : 1.2);
-  ripLife[i] = fromCenter ? 1.7 : 1.3;
+function readAudio(t, dt) {
+  let l, b, h;
+  if (performance.now() - externalAudioTime < 220) {
+    l = extAudio.level;
+    b = extAudio.bass;
+    h = extAudio.high;
+  } else if (micOn && analyser) {
+    analyser.getByteFrequencyData(freq);
+    const avg = (a, z) => {
+      let s = 0;
+      for (let i = a; i < z; i++) s += freq[i];
+      return s / ((z - a) * 255);
+    };
+    l = Math.min(avg(0, freq.length) * 2.8, 1);
+    b = Math.min(avg(0, 6) * 2.4, 1);
+    h = Math.min(avg(48, 110) * 3.2, 1);
+  } else {
+    [l, b, h] = simulateAudio(t);
+  }
+  const k = 1 - Math.exp(-dt * (l > audio.level ? 22 : 7));
+  audio.level += (l - audio.level) * k;
+  audio.bass += (b - audio.bass) * k;
+  audio.high += (h - audio.high) * k;
 }
 
-function emitShock(x, y, z, strength) {
-  U.uShockO.value.set(x, y, z, 0);
-  U.uShockS.value = strength;
-}
+/* ---------- Hyper-Reactive Touch, Swipe Momentum & Gyroscope Parallax ---------- */
+let dragging = false, px = 0, py = 0, velX = 0, velY = 0;
+let pointerNormX = 0, pointerNormY = 0;
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const hitPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+const intersectPt = new THREE.Vector3();
+const invOrbMatrix = new THREE.Matrix4();
+const prevTouchWorld = new THREE.Vector3();
 
-function toLocal(cx, cy, out) {
-  const r = canvas.getBoundingClientRect();
-  ndc.x = ((cx - r.left) / Math.max(r.width, 1)) * 2 - 1;
-  ndc.y = -((cy - r.top) / Math.max(r.height, 1)) * 2 + 1;
+function screenToOrbLocal(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  ndc.x = ((clientX - rect.left) / Math.max(rect.width, 1)) * 2 - 1;
+  ndc.y = -((clientY - rect.top) / Math.max(rect.height, 1)) * 2 + 1;
+  pointerNormX = ndc.x;
+  pointerNormY = ndc.y;
+  lastPtrT = performance.now();
   raycaster.setFromCamera(ndc, camera);
-  if (!raycaster.ray.intersectPlane(hitPlane, hit)) return out.set(0, 0, 0);
-  const s = Math.max(rig.scale.x, 0.01);
-  const x = hit.x / s, y = hit.y / s;
-  const f = 1 - (x / RX) * (x / RX) - (y / RY) * (y / RY);
-  return out.set(x, y, f > 0 ? RZ * Math.sqrt(f) : 0);
+  raycaster.ray.intersectPlane(hitPlane, intersectPt);
+  invOrbMatrix.copy(orb.matrixWorld).invert();
+  return intersectPt.clone().applyMatrix4(invOrbMatrix);
 }
 
-function onDown(e) {
-  if (dead) return;
-  dragging = true; moved = false; downT = performance.now(); px = e.clientX; py = e.clientY;
-  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
-  toLocal(e.clientX, e.clientY, touchLocal); prevLocal.copy(touchLocal);
-  touchS = 1.0; pressTarget = 1;
-  emitRipple(0.55, touchLocal.x / RX, touchLocal.y / RY);
-  emitShock(touchLocal.x, touchLocal.y, touchLocal.z, 0.8);
-  burst = Math.max(burst, 0.10);
-}
-function onMove(e) {
-  if (dead) return;
-  toLocal(e.clientX, e.clientY, touchLocal);
-  swipe.subVectors(touchLocal, prevLocal).multiplyScalar(10);
-  swipe.clampLength(0, 2.0);
-  prevLocal.copy(touchLocal);
-  ptrX = Math.max(-1, Math.min(1, (e.clientX / Math.max(window.innerWidth, 1)) * 2 - 1));
-  ptrY = Math.max(-1, Math.min(1, (e.clientY / Math.max(window.innerHeight, 1)) * 2 - 1));
+canvas.addEventListener("pointerdown", e => {
+  dragging = true;
+  px = e.clientX;
+  py = e.clientY;
+  canvas.setPointerCapture(e.pointerId);
+
+  const localHit = screenToOrbLocal(e.clientX, e.clientY);
+  prevTouchWorld.copy(localHit);
+  touchWorld.copy(localHit);
+  touchStrength = 1.35;
+
+  if (localHit.length() < 2.35) {
+    triggerAmoebaSplit(localHit);
+  }
+});
+
+canvas.addEventListener("pointermove", e => {
+  const localHit = screenToOrbLocal(e.clientX, e.clientY);
+  /* Calculate 3D swipe velocity for fluid wake advection */
+  swipeVelWorld.subVectors(localHit, prevTouchWorld).multiplyScalar(12.0);
+  swipeVelWorld.clampLength(0, 2.2);
+  prevTouchWorld.copy(localHit);
+  touchWorld.lerp(localHit, 0.55);
+
   if (!dragging) {
-    if (e.pointerType === "mouse") touchS = Math.max(touchS, 0.35);
+    if (localHit.length() < 1.85) {
+      touchStrength = Math.max(touchStrength, 0.52);
+    }
     return;
   }
-  const dx = e.clientX - px, dy = e.clientY - py;
-  if (Math.abs(e.clientX - px) + Math.abs(e.clientY - py) > 0) {
-    yawVel += dx * 0.010;
-    pitch = Math.max(-0.9, Math.min(0.9, pitch + dy * 0.0045));
-  }
-  px = e.clientX; py = e.clientY;
-  moved = true; touchS = 1.2;
-}
-function onUp() {
-  dragging = false; pressTarget = 0;
-}
-canvas.addEventListener("pointerdown", onDown);
-canvas.addEventListener("pointermove", onMove);
-canvas.addEventListener("pointerup", onUp);
-canvas.addEventListener("pointercancel", onUp);
-canvas.addEventListener("pointerleave", function () { if (!dragging) touchS = 0; });
 
-window.addEventListener("deviceorientation", function (e) {
-  if (e.gamma === null || e.beta === null) return;
-  if (!gBase) gBase = { g: e.gamma, b: e.beta };
-  tiltX = Math.max(-1, Math.min(1, (e.gamma - gBase.g) / 30));
-  tiltY = Math.max(-1, Math.min(1, (e.beta - gBase.b) / 30));
+  const dx = e.clientX - px;
+  const dy = e.clientY - py;
+  velY += dx * 0.0095;
+  velX += dy * 0.0095;
+  px = e.clientX;
+  py = e.clientY;
+
+  touchStrength = 1.45;
+  if (localHit.length() < 2.55) {
+    splitTimer = Math.max(splitTimer, 2.3);
+    splitAmount = Math.max(splitAmount, 0.72);
+    wasSplit = true;
+    blobs[0].targetOffset.set(
+      Math.max(-1.45, Math.min(1.45, localHit.x * 0.88)),
+      Math.max(-1.15, Math.min(1.15, localHit.y * 0.88)),
+      blobs[0].targetOffset.z
+    );
+  }
+});
+
+const endDrag = () => {
+  dragging = false;
+};
+canvas.addEventListener("pointerup", endDrag);
+canvas.addEventListener("pointercancel", endDrag);
+
+/* Device tilt parallax. Relative to how the phone was first held (the old absolute "beta - 45" left the
+   orb permanently leaning on an upright phone), smoothed, and yielding to the finger while it is in use. */
+let tiltBase = null;
+window.addEventListener("deviceorientation", e => {
+  if (e.gamma === null || e.beta === null || dragging) return;
+  if (performance.now() - lastPtrT < 1500) return;
+  if (!tiltBase) tiltBase = { g: e.gamma, b: e.beta };
+  const tx = Math.max(-1, Math.min(1, (e.gamma - tiltBase.g) / 30));
+  const ty = Math.max(-1, Math.min(1, (e.beta - tiltBase.b) / 30));
+  pointerNormX += (tx - pointerNormX) * 0.12;
+  pointerNormY += (ty - pointerNormY) * 0.12;
 }, { passive: true });
 
-/* =====================================================================
-   Frame update
-   ===================================================================== */
-function update(dt) {
-  const k = 1 - Math.exp(-dt * 3.6);
+/* ---------- Main Animation Loop ---------- */
+let time = 0, flow = 0, r1a = 0, r2a = 0, r3a = 0, pxPerUnit = 300;
+let glowMul = 0.92;
+let burst = 0, prevLevel = 0, lastPeak = -9, lastShadowW = -9, lastPtrT = -1e9;
+
+function updateSynapseFilaments(dt) {
+  const posAttr = synapseLines.geometry.attributes.position;
+  const colAttr = synapseLines.geometry.attributes.color;
+  const cCyan = U.CYAN.value, cPurp = U.PURP.value, cBlue = U.BLUE.value;
+
+  for (let i = 0; i < SYNAPSE_COUNT; i++) {
+    const d = synapseData[i];
+    const b1 = blobs[d.bA].pos;
+    const b2 = blobs[d.bB].pos;
+    const pulse = 0.5 + 0.5 * Math.sin(time * d.speed + d.phase);
+    const rScale = (0.55 + 0.35 * pulse + audio.level * 0.35) * (1 - splitAmount * 0.25);
+
+    const x1 = b1.x + d.u1.x * rScale + Math.sin(time * 1.8 + d.phase) * 0.08;
+    const y1 = b1.y + d.u1.y * rScale + Math.cos(time * 1.5 + d.phase) * 0.08;
+    const z1 = b1.z + d.u1.z * rScale;
+
+    const x2 = b2.x + d.u2.x * rScale + Math.cos(time * 1.7 - d.phase) * 0.08;
+    const y2 = b2.y + d.u2.y * rScale + Math.sin(time * 1.9 - d.phase) * 0.08;
+    const z2 = b2.z + d.u2.z * rScale;
+
+    posAttr.setXYZ(i * 2, x1, y1, z1);
+    posAttr.setXYZ(i * 2 + 1, x2, y2, z2);
+
+    const mixF = 0.5 + 0.5 * Math.sin(time * 2.2 + i * 0.3);
+    colAttr.setXYZ(
+      i * 2,
+      cCyan.r * mixF + cBlue.r * (1 - mixF),
+      cCyan.g * mixF + cBlue.g * (1 - mixF),
+      cCyan.b * mixF + cBlue.b * (1 - mixF)
+    );
+    colAttr.setXYZ(
+      i * 2 + 1,
+      cPurp.r * mixF + cCyan.r * (1 - mixF),
+      cPurp.g * mixF + cCyan.g * (1 - mixF),
+      cPurp.b * mixF + cCyan.b * (1 - mixF)
+    );
+  }
+  posAttr.needsUpdate = true;
+  colAttr.needsUpdate = true;
+  synapseLines.material.opacity = Math.min(0.68, 0.22 + splitAmount * 0.32 + audio.level * 0.28 + touchStrength * 0.15);
+}
+
+function updateOrb(dt) {
+  const k = 1 - Math.exp(-dt * 4.2);
   for (const key in cur) cur[key] += (tgt[key] - cur[key]) * k;
 
   time += dt;
-  flow += dt * (cur.speed + audio.level * 0.4);
+  flow += dt * (cur.speed + audio.level * 0.45);
+  r1a += dt * (0.16 + cur.ring * 0.65 + audio.bass * 0.3);
+  r2a -= dt * (0.11 + cur.ring * 0.42 + audio.high * 0.25);
+  r3a += dt * (0.22 + cur.ring * 0.50);
 
-  /* audio smoothing: fast attack, slower release */
-  let l, b, h;
-  const live = (performance.now() - ext.t) < 260;
-  if (live) { l = ext.level; b = ext.bass; h = ext.high; }
-  else if (ext.ever) { l = b = h = 0; }
-  else { const s = simAudio(time); l = s[0]; b = s[1]; h = s[2]; }
-  /* soft presence so the orb never looks frozen while Jarvis is talking */
-  if (!live && effectiveState() === "speaking") { const pr = 0.10 + 0.05 * Math.sin(time * 5.1); l = Math.max(l, pr); b = Math.max(b, pr * 0.8); }
-  const ak = 1 - Math.exp(-dt * (l > audio.level ? 22 : 7));
-  audio.level += (l - audio.level) * ak; audio.bass += (b - audio.bass) * ak; audio.high += (h - audio.high) * ak;
+  readAudio(time, dt);
 
-  /* voice peaks emit ripples */
-  if (audio.level > 0.22 && audio.level - prevLevel > 0.035 && time - lastRipple > 0.24) {
-    lastRipple = time; emitRipple(Math.min(1, audio.level * 1.3));
-    emitShock(0, 0, 0, Math.min(1, audio.level));
+  /* Voice transients (a syllable, a beat): ring-wave through the body plus a short brightness/size kick */
+  const rise = audio.level - prevLevel;
+  if (audio.level > 0.26 && rise > 0.04 && time - lastPeak > 0.40 && shockWave > 1.3) {
+    lastPeak = time;
+    shockOrigin.set(0, 0, 0);
+    shockWave = 0.0;
+    burst = Math.min(1, burst + 0.45 + audio.level * 0.4);
   }
-  prevLevel += (audio.level - prevLevel) * Math.min(1, dt * 12);
+  prevLevel += (audio.level - prevLevel) * Math.min(1, dt * 14);
+  burst *= Math.exp(-dt * 3.4);
 
-  /* ripples + shockwave ageing */
-  for (let i = 0; i < 4; i++) {
-    const r = U.uRip.value[i];
-    if (r.x >= 0) { r.x += dt / ripLife[i]; if (r.x >= 1) r.x = -1; }
+  /* Expand 3D shockwave ripple */
+  if (shockWave < 4.0) {
+    shockWave += dt * 2.85;
   }
-  const so = U.uShockO.value;
-  if (so.w >= 0) { so.w += dt * 0.85; if (so.w >= 1) so.w = -1; }
+  U.uShockWave.value = shockWave;
+  U.uShockOrigin.value.copy(shockOrigin);
 
-  /* touch / press / hold */
-  press += (pressTarget - press) * (1 - Math.exp(-dt * 12));
-  if (dragging && !moved && performance.now() - downT > 450) hold += (1 - hold) * (1 - Math.exp(-dt * 4));
-  else hold += (0 - hold) * (1 - Math.exp(-dt * 8));
-  touchS *= Math.exp(-dt * (dragging ? 1.2 : 4.5));
-  swipe.multiplyScalar(Math.exp(-dt * 8));
-  burst *= Math.exp(-dt * 3.2);
-
-  /* globe spin: auto-rotate + drag inertia, pitch recentres */
-  yaw += dt * (0.13 + 0.11 * cur.speed) + yawVel * Math.min(dt * 20, 1) * 0.5;
-  yawVel *= Math.exp(-dt * 4.2);
-  if (!dragging) pitch += (ptrY * 0.10 - pitch) * Math.min(1, dt * 1.6);
-  const cy = Math.cos(yaw), sy = Math.sin(yaw), cx = Math.cos(pitch), sx = Math.sin(pitch);
-  /* R = Rx(pitch) * Ry(yaw), row-major */
-  U.uRot.value.set(
-    cy, 0, sy,
-    sx * sy, cx, -sx * cy,
-    -cx * sy, sx, cx * cy
-  );
-
-  /* scale / breathing */
-  const idlePulse = Math.pow(Math.max(0, Math.sin(time * 0.6)), 8) * 0.10 * (1 - cur.wob);
-  const s = cur.scale * (1 + 0.022 * Math.sin(time * 1.5) + audio.level * 0.07 + audio.bass * 0.05
-            + burst * 0.05 - press * 0.035 - hold * 0.06 + cur.wob * 0.012 * Math.sin(time * 3.8));
-  rig.scale.set(s, s, s);
-  rig.rotation.y += ((tiltX * 0.08 + ptrX * 0.05) - rig.rotation.y) * Math.min(1, dt * 3);
-  rig.rotation.x += ((tiltY * 0.06 - ptrY * 0.04) - rig.rotation.x) * Math.min(1, dt * 3);
-  U.uScale.value = s;
-
-  /* touch uniforms */
-  U.uTouch.value.copy(touchLocal); U.uTouchS.value = touchS; U.uSwipe.value.copy(swipe);
-
-  /* shader drivers */
-  sporePhase += dt * (0.55 + cur.spore * 0.9 + audio.high * 0.7);
-  U.uTime.value = flow; U.uRaw.value = time; U.uSpore.value = sporePhase;
-  U.uLevel.value = audio.level; U.uBass.value = audio.bass; U.uHigh.value = audio.high;
-  U.uBurst.value = burst; U.uPress.value = press; U.uHold.value = hold;
-  U.uThink.value = cur.think; U.uListen.value = cur.listen; U.uSpeak.value = cur.speak;
-  U.uWob.value = cur.wob + audio.level * 0.20;
-  U.uBright.value = cur.bright + idlePulse;
-  U.uStrength.value = (cur.glow + audio.level * 0.55 + idlePulse * 1.5 + burst * 0.25) * glowMul;
-  sporeMat.uniforms.uStrength.value = (0.55 + cur.glow * 0.35) * Math.min(glowMul, 1.4);
-
-  /* rings: slow gyroscopic tilt + comet speed from state/audio */
-  const ringA = Math.min(glowMul, 1.4);
-  for (let i = 0; i < 3; i++) {
-    const r = rings[i], m = ringMats[i], sg = i === 1 ? -1 : 1;
-    r.phase += dt * sg * (0.5 + cur.ring * 1.9 + audio.bass * 1.2 + i * 0.12);
-    m.uniforms.uPhase.value = r.phase;
-    m.uniforms.uAlpha.value = (0.34 + cur.ring * 0.30 + audio.level * 0.35 + (i === 2 ? audio.high * 0.30 : 0)) * ringA;
-    const a = time * (0.45 + i * 0.11);
-    r.mesh.rotation.set(Math.sin(a) * (0.30 + i * 0.06) + ptrY * 0.10,
-                        Math.cos(a * 0.9 + i) * (0.26 + i * 0.05) + ptrX * 0.10,
-                        sg * time * (0.10 + i * 0.05));
-    const pulse = 1 + (cur.ring * 0.5 * (0.5 + 0.5 * Math.sin(time * 4.2)) + audio.bass * 0.85) * 0.04;
-    r.mesh.scale.set(RX * r.def.sx * pulse, RY * r.def.sy * pulse, 1);
+  /* Auto-morph cycle */
+  if (autoMorph) {
+    autoMorphTimer += dt;
+    if (autoMorphTimer > 5.5) {
+      autoMorphTimer = 0;
+      const idx = (SHAPE_NAMES.indexOf(currentShape) + 1) % SHAPE_NAMES.length;
+      setOrbShape(SHAPE_NAMES[idx]);
+    }
   }
 
-  /* palette blend towards target (smooth theme changes) */
-  const pk = 1 - Math.exp(-dt * 6);
-  U.cDeep.value.lerp(palTarget.deep, pk); U.cMain.value.lerp(palTarget.main, pk);
-  U.cHi1.value.lerp(palTarget.hi1, pk); U.cHi2.value.lerp(palTarget.hi2, pk);
+  /* Smooth shape morph transition */
+  if (morphActive) {
+    morphProgress = Math.min(1, morphProgress + dt * 0.92);
+    U.uMorph.value = morphProgress;
+    if (morphProgress >= 1) {
+      const posAttr = pointsMesh.geometry.attributes.position;
+      const tgtAttr = pointsMesh.geometry.attributes.aTarget;
+      posAttr.array.set(tgtAttr.array);
+      posAttr.needsUpdate = true;
+      U.uMorph.value = 0;
+      morphActive = false;
+    }
+  }
+
+  /* Update Amoeba Fission (Separation) & Elastic Coalescence (Joining) Physics */
+  if (splitTimer > 0) {
+    splitTimer -= dt;
+    splitAmount += (1.0 - splitAmount) * (1 - Math.exp(-dt * 7.0));
+  } else {
+    if (wasSplit && splitAmount < 0.35 && splitAmount > 0.08) {
+      /* Trigger harmonic fusion pulse as lobes snap back together */
+      fusionFlash = 1.0;
+      shockOrigin.set(0, 0, 0);
+      shockWave = 0.0;
+      wasSplit = false;
+    }
+    splitAmount += (0.0 - splitAmount) * (1 - Math.exp(-dt * 2.6));
+  }
+
+  fusionFlash *= Math.exp(-dt * 3.8);
+  U.uFusionFlash.value = fusionFlash;
+
+  touchStrength *= Math.exp(-dt * (dragging ? 1.4 : 4.0));
+  swipeVelWorld.multiplyScalar(Math.exp(-dt * 8.0));
+
+  for (let i = 0; i < MAX_BLOBS; i++) {
+    const b = blobs[i];
+    if (splitTimer > 0) {
+      const wobbleX = Math.cos(time * 1.9 + b.phase) * 0.18;
+      const wobbleY = Math.sin(time * 2.3 + b.phase) * 0.16;
+      const desiredX = b.targetOffset.x + wobbleX;
+      const desiredY = b.targetOffset.y + wobbleY;
+      const desiredZ = b.targetOffset.z + Math.sin(time * 1.6 + b.phase) * 0.14;
+
+      b.vel.x += (desiredX - b.pos.x) * 16 * dt;
+      b.vel.y += (desiredY - b.pos.y) * 16 * dt;
+      b.vel.z += (desiredZ - b.pos.z) * 16 * dt;
+    } else {
+      /* Elastic spring snap-back to unified amoeba core */
+      b.vel.x += (0 - b.pos.x) * 22 * dt;
+      b.vel.y += (0 - b.pos.y) * 22 * dt;
+      b.vel.z += (0 - b.pos.z) * 22 * dt;
+    }
+    const damping = Math.exp(-dt * 5.0);
+    b.vel.multiplyScalar(damping);
+    b.pos.addScaledVector(b.vel, dt);
+    blobCenters[i].copy(b.pos);
+  }
+
+  updateSynapseFilaments(dt);
+
+  const idlePulse = Math.pow(Math.max(0, Math.sin(time * 0.6)), 8) * 0.14 * (1 - cur.wob);
+  const s = cur.scale * (1 + 0.022 * Math.sin(time * 1.4) + audio.level * 0.095 + audio.bass * 0.045 + burst * 0.035 + cur.wob * 0.028 * Math.sin(time * 3.8));
+  orb.scale.setScalar(s);
+
+  orb.rotation.y += dt * 0.18 * (0.45 + cur.speed) + velY * Math.min(dt * 20, 1) * 0.55;
+  orb.rotation.x = Math.max(-1.15, Math.min(1.15, orb.rotation.x + velX * Math.min(dt * 20, 1) * 0.55));
+  orb.rotation.z = Math.sin(time * 0.5) * 0.07 + pointerNormX * 0.05;
+  velX *= Math.exp(-dt * 5.2);
+  velY *= Math.exp(-dt * 5.2);
+  if (!dragging && Math.abs(orb.rotation.x) > 0.001) {
+    orb.rotation.x += (pointerNormY * 0.18 - orb.rotation.x) * Math.min(1, dt * 2.2);
+  }
+
+  U.uAmoeba.value += (targetAmoebaFactor * cur.amoebaAmp - U.uAmoeba.value) * k;
+  U.uTime.value = flow;
+  U.uRawTime.value = time;
+  U.uAmp.value = audio.level + cur.wob * 0.24;
+  U.uBass.value = audio.bass;
+  U.uHigh.value = audio.high;
+  U.uCyan.value = cur.cyan;
+  U.uPurple.value = cur.purple;
+  U.uBright.value = cur.bright + idlePulse + fusionFlash * 0.15 + burst * 0.10;
+  U.uSplit.value = splitAmount;
+  U.uTouchPos.value.copy(touchWorld);
+  U.uSwipeVel.value.copy(swipeVelWorld);
+  U.uTouchStrength.value = touchStrength;
+
+  glowMat.uniforms.uTime.value = time;
+  glowMat.uniforms.uMix.value = cur.cyan;
+  glowMat.uniforms.uStrength.value = (cur.glow + audio.level * 0.65 + idlePulse * 1.8 + splitAmount * 0.22 + fusionFlash * 0.3 + burst * 0.28) * glowMul;
+
+  /* luminous core follows the voice; calmer on light screens where it is alpha-blended */
+  coreMat.uniforms.uTime.value = time;
+  coreMat.uniforms.uStrength.value = (0.10 + cur.glow * 0.08 + audio.level * 0.30 + burst * 0.22 + splitAmount * 0.06) * Math.min(glowMul, 1.4) * (lightUI ? 0.55 : 1.0);
+  coreMesh.scale.setScalar(s * (0.95 + audio.level * 0.18));
+
+  /* 3D Gyroscopic Elliptical Energy Rings that tilt with pointer & audio */
+  const pulse = cur.ring * 0.5 * (0.5 + 0.5 * Math.sin(time * 4.2)) + audio.bass * 0.85 + splitAmount * 0.35 + burst * 0.5;
+  ring1.rotation.set(Math.sin(time * 0.6) * 0.22 + pointerNormY * 0.15, Math.cos(time * 0.5) * 0.18 + pointerNormX * 0.15, r1a);
+  ring2.rotation.set(-Math.cos(time * 0.55) * 0.28 - pointerNormY * 0.12, Math.sin(time * 0.65) * 0.24 - pointerNormX * 0.12, r2a);
+  ring3.rotation.set(Math.sin(time * 0.8 + 1.2) * 0.38, -Math.cos(time * 0.7) * 0.32, r3a);
+
+  ring1.scale.set(1.28 * s * (1 + pulse * 0.045), 0.92 * s * (1 + pulse * 0.045), 1);
+  ring2.scale.set(1.33 * s * (1 + pulse * 0.035), 0.95 * s * (1 + pulse * 0.035), 1);
+  ring3.scale.set(1.18 * s * (1 + pulse * 0.050), 0.86 * s * (1 + pulse * 0.050), 1);
+
+  ring1.material.uniforms.uAlpha.value = (0.38 + cur.ring * 0.32 + audio.level * 0.38) * Math.min(glowMul, 1.4);
+  ring2.material.uniforms.uAlpha.value = (0.24 + cur.ring * 0.22 + audio.level * 0.25) * Math.min(glowMul, 1.4);
+  ring3.material.uniforms.uAlpha.value = (0.20 + cur.ring * 0.25 + audio.high * 0.35 + splitAmount * 0.25) * Math.min(glowMul, 1.4);
+
+  /* only touch the DOM when the width really changes: a style write every frame forces a relayout */
+  const sw = Math.round(pxPerUnit * 1.85 * s * (1 + splitAmount * 0.35));
+  if (Math.abs(sw - lastShadowW) > 1) { lastShadowW = sw; shadowEl.style.width = sw + "px"; }
 }
 
-/* =====================================================================
-   Resize + adaptive quality governor
-   ===================================================================== */
-let level = 0, cw = 0, ch = 0;
+function updateOrbitSpores(dt) {
+  const P = orbitPts.geometry.attributes;
+  const boost = 0.65 + cur.speed * 0.9 + (state === "thinking" ? 1.25 : 0) + splitAmount * 0.9 + audio.high * 0.7;
+  for (let i = 0; i < ORBIT_COUNT; i++) {
+    const d = ptData[i];
+    d.a += d.sp * dt * boost;
+    const r = d.r + Math.sin(time * d.fs + d.ph) * 0.15 - (state === "thinking" ? 0.12 : 0) + audio.level * 0.14 + splitAmount * 0.26 + burst * 0.20;
+    let x = Math.cos(d.a) * r * 1.26;
+    let z = Math.sin(d.a) * r * 0.68;
+    let y = d.y * 0.80 + Math.sin(d.a * 1.3 + d.ph) * 0.18 + x * d.tilt * 0.22;
+
+    /* Magnetic attraction toward active touch point */
+    if (touchStrength > 0.05) {
+      const pull = Math.min(0.45, touchStrength * 0.25);
+      x += (touchWorld.x - x) * pull;
+      y += (touchWorld.y - y) * pull;
+    }
+
+    P.position.setXYZ(i, x, y, z);
+    P.aAlpha.setX(i, Math.pow(0.5 + 0.5 * Math.sin(time * d.fs * 1.7 + d.ph), 1.4) * (0.58 + cur.glow * 0.32));
+  }
+  P.position.needsUpdate = true;
+  P.aAlpha.needsUpdate = true;
+}
+
+/* ---------- Responsive Resize & Render Loop ---------- */
+/* Adaptive quality: pixel ratio + share of the 36k particles. The particle order is a Fibonacci sphere, so
+   drawing only the first N is an even thinning (same shape, slightly sparser), never a cut-off patch. */
+const LEVELS = [
+  { dpr: 2.00, frac: 1.00 },
+  { dpr: 1.75, frac: 0.85 },
+  { dpr: 1.50, frac: 0.70 },
+  { dpr: 1.25, frac: 0.55 },
+  { dpr: 1.00, frac: 0.42 }
+];
+let qLevel = 0, qStart = 0, cw = 0, ch = 0;
 const gov = { ema: 16.7, minEma: 1e9, frames: 0, bad: 0, good: 0, sinceChange: 0, sinceReset: 0 };
 
 function applyQuality() {
-  if (!renderer) return;
-  const L = LEVELS[level];
-  partGeo.setDrawRange(0, Math.floor(partGeo.userData.count * L.frac));
-  resize(true);
-}
-function resize(force) {
-  if (!renderer) return;
-  const w = stage.clientWidth, h = stage.clientHeight;
-  if (w < 2 || h < 2) return;
-  if (!force && w === cw && h === ch) return;
-  cw = w; ch = h;
-  const dpr = Math.min(window.devicePixelRatio || 1, LEVELS[level].dpr);
-  renderer.setPixelRatio(dpr);
-  renderer.setSize(w, h, false);
-  const aspect = w / h;
-  camera.aspect = aspect;
-  /* make the whole orb + rings + halo fit both width and height */
-  const halfH = Math.max(HALO_H, HALO_W / aspect);
-  camera.position.z = halfH / TAN;
-  camera.updateProjectionMatrix();
-  U.uCamZ.value = camera.position.z;
-  U.uPx.value = h * dpr / (2 * TAN);
-  /* halo quad is sized in world units, so scale it to cover exactly the visible region it was designed for */
+  const L = LEVELS[qLevel];
+  pointsMesh.geometry.setDrawRange(0, Math.floor(COUNT * L.frac));
+  U.uCountComp.value = Math.pow(L.frac, -0.35);
+  handleResize(true);
 }
 
 function govern(ms) {
-  if (ms > 250 || ms <= 0) return;                 // ignore hitches (tab switch, WebView pause)
+  if (ms > 250 || ms <= 0) return;                     /* ignore hitches: app switch, WebView pause */
   gov.frames++; gov.sinceChange += ms; gov.sinceReset += ms;
   gov.ema += (ms - gov.ema) * 0.06;
-  if (gov.frames < 90) return;                      // warm-up (shader compile, first layout)
+  if (gov.frames < 90) return;                          /* warm-up: shader compile, first layout */
   if (gov.sinceReset > 10000) { gov.minEma = gov.ema; gov.sinceReset = 0; }
   gov.minEma = Math.min(gov.minEma, gov.ema);
-  const base = Math.max(8, Math.min(17, gov.minEma));
+  const base = Math.max(8, Math.min(17, gov.minEma));  /* the display's own best frame time (60/90/120 Hz) */
   const slow = gov.ema > base * 1.5 || gov.ema > 33;
   const fast = gov.ema < base * 1.12;
   gov.bad = slow ? gov.bad + ms : 0;
   gov.good = fast ? gov.good + ms : 0;
-  if (gov.bad > 1500 && level < LEVELS.length - 1) {
-    level++; gov.bad = 0; gov.good = 0; gov.sinceChange = 0; gov.minEma = 1e9; applyQuality();
-  } else if (gov.good > 7000 && level > startLevel && gov.sinceChange > 9000) {
-    level--; gov.bad = 0; gov.good = 0; gov.sinceChange = 0; gov.minEma = 1e9; applyQuality();
+  if (gov.bad > 1500 && qLevel < LEVELS.length - 1) {
+    qLevel++; gov.bad = gov.good = gov.sinceChange = 0; gov.minEma = 1e9; applyQuality();
+  } else if (gov.good > 7000 && qLevel > qStart && gov.sinceChange > 9000) {
+    qLevel--; gov.bad = gov.good = gov.sinceChange = 0; gov.minEma = 1e9; applyQuality();
   }
 }
 
-/* =====================================================================
-   Boot + loop
-   ===================================================================== */
-let startLevel = 0, last = 0, frame = 0;
-
-function boot() {
-  if (!renderer) return;
-  renderer.setClearColor(0x000000, 0);
-  buildScene();
-  const mem = navigator.deviceMemory || 4, cores = navigator.hardwareConcurrency || 4;
-  startLevel = mem >= 6 && cores >= 8 ? 0 : 1;
-  const qp = parseInt(Q.get("q"), 10);
-  if (!isNaN(qp)) startLevel = Math.max(0, Math.min(LEVELS.length - 1, qp));
-  level = startLevel;
-  setBlendMode(isLightUI);
-  setAppTheme(isLightUI, PRESETS.light.a, PRESETS.light.b);
-  /* start with the palette already at target so nothing flashes */
-  U.cDeep.value.copy(palTarget.deep); U.cMain.value.copy(palTarget.main); U.cHi1.value.copy(palTarget.hi1); U.cHi2.value.copy(palTarget.hi2);
-  applyQuality();
-
-  canvas.addEventListener("webglcontextlost", function (e) { e.preventDefault(); dead = true; }, false);
-  canvas.addEventListener("webglcontextrestored", function () { location.reload(); }, false);
-  window.addEventListener("resize", function () { resize(false); });
-  window.addEventListener("orientationchange", function () { setTimeout(function () { resize(true); }, 200); });
-  if (window.ResizeObserver) new ResizeObserver(function () { resize(false); }).observe(stage);
-  document.addEventListener("visibilitychange", function () { last = 0; });
+function handleResize(force) {
+  const w = Math.max(stage.clientWidth, 1), h = Math.max(stage.clientHeight, 1);
+  if (force !== true && w === cw && h === ch) return;
+  cw = w; ch = h;
+  const pr = Math.min(window.devicePixelRatio || 1, LEVELS[qLevel].dpr);
+  renderer.setPixelRatio(pr);
+  renderer.setSize(w, h, false);
+  U.uRes.value.set(w * pr, h * pr);
+  camera.aspect = w / h;
+  const visH = VIS / Math.min(1, (w / h) * 0.92);
+  const tan = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
+  camera.position.z = visH / (2 * tan);
+  U.uCamZ.value = camera.position.z;
+  camera.updateProjectionMatrix();
+  pxPerUnit = h / visH;
+  U.uPx.value = h * pr / (2 * tan);
+  shadowEl.style.top = Math.round(h / 2 + pxPerUnit * 1.05) + "px";
 }
 
-function checkShaders() {
-  try {
-    const progs = renderer.info.programs || [];
-    for (let i = 0; i < progs.length; i++) {
-      const d = progs[i].diagnostics;
-      if (d && d.runnable === false) { useFallback("shader failed: " + (d.fragmentShader && d.fragmentShader.log || d.vertexShader && d.vertexShader.log || "unknown")); return; }
-    }
-  } catch (e) {}
-}
-
+let last = performance.now();
 function animate(now) {
   requestAnimationFrame(animate);
-  if (dead || !renderer) return;
-  if (!last) { last = now; return; }
-  const raw = now - last; last = now;
+  if (glLost) return;
+  const raw = now - last;
   const dt = Math.min(raw / 1000, 0.05);
-  resize(false);
-  if (cw < 2) return;
-  update(dt);
+  last = now;
+  updateOrb(dt);
+  updateOrbitSpores(dt);
   renderer.render(scene, camera);
-  frame++;
-  if (frame === 3) checkShaders();
   govern(raw);
-  if (DEBUG && frame % 20 === 0) {
-    dbg.textContent = "fps " + (1000 / gov.ema).toFixed(0) + "  q" + level + "  n " + Math.floor(partGeo.userData.count * LEVELS[level].frac) +
-      "  dpr " + renderer.getPixelRatio().toFixed(2) + "\nstate " + effectiveState() + "  audio " + audio.level.toFixed(2) + (ext.ever ? " (native)" : " (sim)");
-  }
 }
 
-/* =====================================================================
-   Public API (called from Kotlin / HomeFragment)
-   ===================================================================== */
-function setState(s) {
-  if (!STATES[s]) return;
-  const changed = s !== state;
-  state = s; refreshTarget();
-  if (changed && renderer && !dead) { emitRipple(0.75); emitShock(0, 0, 0, 0.7); burst = Math.max(burst, 0.30); }
+/* ---------- UI & Global JarvisOrb Bridge ---------- */
+document.querySelectorAll("[data-s]").forEach(b => {
+  b.addEventListener("click", () => setOrbState(b.dataset.s));
+});
+document.querySelectorAll("[data-t]").forEach(b => {
+  b.addEventListener("click", () => applyTheme(b.dataset.t));
+});
+document.querySelectorAll("[data-shape]").forEach(b => {
+  b.addEventListener("click", () => setOrbShape(b.dataset.shape));
+});
+
+const splitBtn = $("#splitBtn");
+if (splitBtn) {
+  splitBtn.addEventListener("click", () => {
+    triggerAmoebaSplit(new THREE.Vector3((Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4, 0), 4);
+  });
 }
+
+const autoMorphBtn = $("#autoMorphBtn");
+if (autoMorphBtn) {
+  autoMorphBtn.addEventListener("click", () => {
+    autoMorph = !autoMorph;
+    autoMorphTimer = 0;
+    autoMorphBtn.classList.toggle("on", autoMorph);
+    autoMorphBtn.textContent = autoMorph ? "AUTO MORPH: ON" : "AUTO MORPH: OFF";
+  });
+}
+
+const hudToggle = $("#hudToggle");
+if (hudToggle) {
+  hudToggle.addEventListener("click", () => {
+    document.body.classList.toggle("embedded");
+    setTimeout(() => handleResize(true), 20);
+  });
+}
+
+const bgcInput = $("#bgc");
+if (bgcInput) bgcInput.addEventListener("input", e => applyTheme(null, e.target.value));
+const micBtn = $("#mic");
+if (micBtn) micBtn.addEventListener("click", () => micOn ? stopAudioReactive() : startAudioReactive());
+
+window.addEventListener("resize", () => handleResize());
+window.addEventListener("orientationchange", () => setTimeout(() => handleResize(true), 200));
+if (window.ResizeObserver) new ResizeObserver(() => handleResize()).observe(stage);
 
 window.JarvisOrb = {
-  setState: setState,
-  setWorking: function (b) { working = !!b; refreshTarget(); },
-  setGlow: function (v) { const n = parseFloat(v); if (!isNaN(n)) glowMul = Math.max(0, Math.min(2, n)); },
+  setState: setOrbState,
+  setStyle: style => {
+    if (SHAPE_NAMES.includes(style)) setOrbShape(style);
+    else setOrbShape("amoeba");
+  },
+  setShape: setOrbShape,
+  morphToCustom: morphToCustomShape,
+  triggerSplit: (lobes) => triggerAmoebaSplit(new THREE.Vector3(0, 0, 0), lobes || 4),
+  setAutoMorph: enabled => {
+    autoMorph = !!enabled;
+    if (autoMorphBtn) {
+      autoMorphBtn.classList.toggle("on", autoMorph);
+      autoMorphBtn.textContent = autoMorph ? "AUTO MORPH: ON" : "AUTO MORPH: OFF";
+    }
+  },
+  setEmbedded: embedded => {
+    document.body.classList.toggle("embedded", !!embedded);
+    applyTheme(themeName);
+    handleResize(true);
+  },
+  /* App tells us whether its screen is light or dark: picks normal vs additive blending (see lightUI). */
+  setLightUI: v => {
+    lightUI = (v === null || v === undefined) ? null : !!v;
+    setBlend(lightUI === null ? !!(THEMES[themeName] || THEMES.light).add : !lightUI);
+  },
+  setQuality: q => { const n = parseInt(q, 10); if (!isNaN(n)) { qLevel = qStart = Math.max(0, Math.min(LEVELS.length - 1, n)); applyQuality(); } },
+  getStats: () => ({ fps: 1000 / gov.ema, quality: qLevel, lost: glLost, state: state, lightUI: lightUI, autoMorph: autoMorph }),
+  setTheme: n => applyTheme(n),
+  setBackground: (hex, hex2) => {
+    if (!isEmbedded) document.documentElement.style.setProperty("--bg", hex);
+    applyTheme(null, hex, hex2);
+  },
+  setWorking: b => { working = !!b; if (working) setOrbState("thinking"); },
+  setGlow: v => { const n = parseFloat(v); if (!isNaN(n)) glowMul = Math.max(0, Math.min(2, n)); },
   setExternalAudio: setExternalAudio,
-  /* Preferred: exact light/dark flag + the two theme accent colours from the app */
-  setAppTheme: setAppTheme,
-  setTheme: setThemeByName,
-  /* kept for older callers: custom colours, light/dark guessed from the first colour */
-  setBackground: function (hexA, hexB) { setAppTheme(luminance(hexA) > 0.72, hexA, hexB || hexA); },
-  triggerSplit: function () { burst = 1; emitRipple(1); emitShock(0, 0, 0, 1); },
-  pulse: function (v) { const n = Math.max(0.1, Math.min(1, parseFloat(v) || 0.6)); burst = Math.max(burst, n * 0.4); emitRipple(n); },
-  startListening: function () { setState("listening"); },
-  startThinking: function () { setState("thinking"); },
-  startSpeaking: function () { setState("speaking"); },
-  stopSpeaking: function () { setState("idle"); },
-  setQuality: function (q) { const n = parseInt(q, 10); if (!isNaN(n)) { level = startLevel = Math.max(0, Math.min(LEVELS.length - 1, n)); applyQuality(); } },
-  getStats: function () { return { fps: 1000 / gov.ema, quality: level, dead: dead, state: effectiveState(), nativeAudio: ext.ever }; },
-  /* the old demo morph / HUD API is intentionally inert: the orb stays an ellipse */
-  setStyle: function () {}, setShape: function () {}, morphToCustom: function () {}, setAutoMorph: function () {},
-  setEmbedded: function () {}, startAudioReactive: function () { return false; }, stopAudioReactive: function () {}
+  startListening: () => setOrbState("listening"),
+  startThinking: () => setOrbState("thinking"),
+  startSpeaking: () => setOrbState("speaking"),
+  stopSpeaking: () => setOrbState("idle"),
+  startAudioReactive: startAudioReactive,
+  stopAudioReactive: stopAudioReactive
 };
 
-/* optional URL presets (handy for previews): ?state=listening&theme=dark */
-refreshTarget();
-boot();
-if (Q.get("theme")) setThemeByName(Q.get("theme"));
-if (Q.get("state") && STATES[Q.get("state")]) { state = Q.get("state"); refreshTarget(); Object.assign(cur, STATES[state]); }
-if (Q.get("glow")) window.JarvisOrb.setGlow(Q.get("glow"));
+{
+  const mem = navigator.deviceMemory || 4, cores = navigator.hardwareConcurrency || 4;
+  qStart = qLevel = (mem >= 6 && cores >= 8) ? 0 : 1;
+  const qp = parseInt(new URLSearchParams(location.search).get("q"), 10);
+  if (!isNaN(qp)) qStart = qLevel = Math.max(0, Math.min(LEVELS.length - 1, qp));
+}
+applyQuality();
+applyTheme("light");
+setOrbState("idle");
 requestAnimationFrame(animate);
+})();
+</script>
+<script>
+(() => {
+  /* Touch sparks: same burst as before, but drawn from pre-rendered glow sprites in the theme's colours
+     (the old per-frame shadowBlur is very slow in Android WebView), at a capped pixel ratio, and
+     frame-rate independent. */
+  const c = document.getElementById("touchParticles"), x = c.getContext("2d");
+  let w = 0, h = 0, p = [], raf = 0, last = 0;
+  const sprites = {};
+  const FALLBACK = ["#00f2fe", "#6366f1", "#d946ef"];
+  function sprite(color) {
+    let s = sprites[color];
+    if (s) return s;
+    s = document.createElement("canvas");
+    s.width = s.height = 48;
+    const g = s.getContext("2d"), r = g.createRadialGradient(24, 24, 0, 24, 24, 24);
+    r.addColorStop(0, color);
+    r.addColorStop(0.35, color);
+    r.addColorStop(0.7, color + "55");
+    r.addColorStop(1, color + "00");
+    g.fillStyle = r;
+    g.fillRect(0, 0, 48, 48);
+    return (sprites[color] = s);
+  }
+  function size() {
+    const d = Math.min(devicePixelRatio || 1, 1.5);
+    w = innerWidth; h = innerHeight;
+    c.width = Math.round(w * d); c.height = Math.round(h * d);
+    c.style.width = w + "px"; c.style.height = h + "px";
+    x.setTransform(d, 0, 0, d, 0, 0);
+  }
+  addEventListener("resize", size, { passive: true });
+  size();
+  document.addEventListener("pointerdown", e => {
+    const pal = (window.__orbSparkColors && window.__orbSparkColors.length === 3) ? window.__orbSparkColors : FALLBACK;
+    for (let i = 0; i < 16; i++) {
+      const a = 2 * Math.PI * i / 16 + (Math.random() - 0.5) * 0.3, s = 1.3 + Math.random() * 2.6;
+      p.push({ x: e.clientX, y: e.clientY, vx: Math.cos(a) * s, vy: Math.sin(a) * s, l: 1, r: 1.2 + Math.random() * 2.2, c: pal[i % 3] });
+    }
+    if (!raf) { last = 0; raf = requestAnimationFrame(draw); }
+  }, { passive: true });
+  function draw(now) {
+    raf = 0;
+    const k = Math.min((now - (last || now)) / 16.667, 3);
+    last = now;
+    x.clearRect(0, 0, w, h);
+    const f = Math.pow(0.975, k);
+    for (let i = p.length - 1; i >= 0; i--) {
+      const q = p[i];
+      q.x += q.vx * k; q.y += q.vy * k;
+      q.vx *= f; q.vy = q.vy * f + 0.01 * k;
+      q.l -= 0.032 * k;
+      if (q.l <= 0) { p.splice(i, 1); continue; }
+      const rad = q.r * q.l * 4.2;
+      x.globalAlpha = q.l;
+      x.drawImage(sprite(q.c), q.x - rad, q.y - rad, rad * 2, rad * 2);
+    }
+    x.globalAlpha = 1;
+    if (p.length) raf = requestAnimationFrame(draw);
+  }
 })();
 </script>
 </body>
