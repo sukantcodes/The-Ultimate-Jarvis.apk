@@ -17,7 +17,9 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
+import com.jarvis.assistant.BuildConfig
 import com.jarvis.assistant.databinding.FragmentUpdatesBinding
+import com.jarvis.assistant.updates.ManualUpdateInstaller
 
 class UpdatesFragment : Fragment() {
 
@@ -26,6 +28,7 @@ class UpdatesFragment : Fragment() {
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentUpdatesBinding.inflate(inflater, container, false)
+        renderVersionBadge()
         renderFeatureUpdates()
         return binding.root
     }
@@ -38,14 +41,21 @@ class UpdatesFragment : Fragment() {
         val tag: String = "NEW"
     )
 
-    private fun renderFeatureUpdates() {
-        val cyan = Color.rgb(0, 224, 255)
-        val violet = Color.rgb(174, 91, 255)
-        val pink = Color.rgb(255, 65, 180)
-        val blue = Color.rgb(65, 137, 255)
-        val mint = Color.rgb(55, 255, 190)
-        val amber = Color.rgb(255, 190, 65)
+    // Shared accent palette, kept identical to the previous design.
+    private val cyan = Color.rgb(0, 224, 255)
+    private val violet = Color.rgb(174, 91, 255)
+    private val pink = Color.rgb(255, 65, 180)
+    private val blue = Color.rgb(65, 137, 255)
+    private val mint = Color.rgb(55, 255, 190)
+    private val amber = Color.rgb(255, 190, 65)
 
+    private fun renderVersionBadge() {
+        val badge = binding.tvVersionBadge
+        badge.text = "v" + BuildConfig.VERSION_NAME
+        badge.contentDescription = "JARVIS version " + BuildConfig.VERSION_NAME
+    }
+
+    private fun renderFeatureUpdates() {
         val updates = listOf(
             FeatureNotice("DEVICE CARE", "Junk Clean", "Scan accessible shared phone storage for cleanup candidates. Review the results before confirming deletion.", cyan),
             FeatureNotice("DEVICE CARE", "Boost", "View memory and device status with shortcuts to Android's app-management controls.", violet),
@@ -72,10 +82,47 @@ class UpdatesFragment : Fragment() {
 
         val list = binding.updatesList
         list.removeAllViews()
+        var currentCategory: String? = null
         updates.forEachIndexed { index, item ->
+            if (item.category != currentCategory) {
+                currentCategory = item.category
+                list.addView(createCategoryHeader(item.category, item.accent))
+            }
             list.addView(createUpdateCard(item, index + 1))
         }
         list.addView(createManualUpdateCard())
+    }
+
+    /**
+     * Small chapter label with a hairline rule, shown when the category changes so the
+     * list reads as clear sections.
+     */
+    private fun createCategoryHeader(category: String, accent: Int): View {
+        val context = requireContext()
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(2), 0, dp(6))
+        }
+        val label = TextView(context).apply {
+            text = category
+            textSize = 11f
+            letterSpacing = 0.14f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(accent)
+        }
+        val rule = View(context).apply {
+            background = GradientDrawable().apply {
+                cornerRadius = 1f
+                setColor((accent and 0x00FFFFFF) or (0x40FFFFFF))
+            }
+            layoutParams = LinearLayout.LayoutParams(0, dp(1), 1f).apply {
+                marginStart = dp(10)
+            }
+        }
+        row.addView(label)
+        row.addView(rule)
+        return row
     }
 
     private fun createManualUpdateCard(): View {
@@ -85,10 +132,10 @@ class UpdatesFragment : Fragment() {
             setPadding(dp(18))
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(21, 37, 57), Color.rgb(12, 18, 34))
+                intArrayOf(themeColor(com.jarvis.assistant.R.attr.themeCardGlassStart), themeColor(com.jarvis.assistant.R.attr.themeCardGlassEnd))
             ).apply {
                 cornerRadius = dp(20).toFloat()
-                setStroke(dp(1), Color.rgb(0, 190, 235))
+                setStroke(dp(1), themeColor(com.jarvis.assistant.R.attr.themeAccent))
             }
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -101,31 +148,56 @@ class UpdatesFragment : Fragment() {
             textSize = 10f
             letterSpacing = 0.12f
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.rgb(0, 224, 255))
+            setTextColor(themeColor(com.jarvis.assistant.R.attr.themeAccent))
         }
         val heading = TextView(context).apply {
             text = "Check and install updates"
             textSize = 18f
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.WHITE)
+            setTextColor(themeColor(com.jarvis.assistant.R.attr.themeTextPrimary))
             setPadding(0, dp(8), 0, dp(6))
         }
         val detail = TextView(context).apply {
             text = "Download a newer release from the JARVIS update server. The APK is verified before Android asks you to confirm installation."
             textSize = 13f
-            setTextColor(Color.rgb(190, 199, 218))
+            setTextColor(themeColor(com.jarvis.assistant.R.attr.themeTextSecondary))
             setLineSpacing(dp(3).toFloat(), 1.03f)
         }
+        val installedRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(12), 0, dp(0))
+        }
+        val installedLabel = TextView(context).apply {
+            text = "INSTALLED"
+            textSize = 9f
+            letterSpacing = 0.12f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(themeColor(com.jarvis.assistant.R.attr.themeTextMuted))
+        }
+        val installedValue = TextView(context).apply {
+            text = "v" + BuildConfig.VERSION_NAME + "  ·  code " + BuildConfig.VERSION_CODE
+            textSize = 12f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(themeColor(com.jarvis.assistant.R.attr.themeTextSecondary))
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = dp(12)
+            }
+        }
+        installedRow.addView(installedLabel)
+        installedRow.addView(installedValue)
         val status = TextView(context).apply {
             text = "Ready to check for updates."
             textSize = 12f
-            setTextColor(Color.rgb(0, 224, 255))
-            setPadding(0, dp(12), 0, dp(7))
+            setTextColor(themeColor(com.jarvis.assistant.R.attr.themeAccent))
+            setPadding(0, dp(10), 0, dp(7))
         }
         val progress = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
             progress = 0
             visibility = View.GONE
+            progressTintList = android.content.res.ColorStateList.valueOf(themeColor(com.jarvis.assistant.R.attr.themeAccent))
+            progressBackgroundTintList = android.content.res.ColorStateList.valueOf((themeColor(com.jarvis.assistant.R.attr.themeAccent) and 0x00FFFFFF) or (0x33000000))
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(5)
             ).apply { bottomMargin = dp(10) }
@@ -136,15 +208,17 @@ class UpdatesFragment : Fragment() {
             setTextColor(Color.WHITE)
             background = GradientDrawable().apply {
                 cornerRadius = dp(14).toFloat()
-                setColor(Color.rgb(0, 135, 190))
+                setColor(themeColor(com.jarvis.assistant.R.attr.themeAccent))
             }
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(50)
             )
+            stateListAnimator = null
         }
         card.addView(eyebrow)
         card.addView(heading)
         card.addView(detail)
+        card.addView(installedRow)
         card.addView(status)
         card.addView(progress)
         card.addView(install)
@@ -153,12 +227,12 @@ class UpdatesFragment : Fragment() {
             install.isEnabled = false
             progress.visibility = View.VISIBLE
             progress.isIndeterminate = true
-            status.text = "Starting secure update check…"
+            status.text = "Starting secure update check..."
             viewLifecycleOwner.lifecycleScope.launch {
-                com.jarvis.assistant.updates.ManualUpdateInstaller.install(requireContext()) { state ->
+                ManualUpdateInstaller.install(requireContext()) { state ->
                     if (_binding == null) return@install
                     when (state) {
-                        is com.jarvis.assistant.updates.ManualUpdateInstaller.State.Message -> {
+                        is ManualUpdateInstaller.State.Message -> {
                             status.text = state.text
                             if (state.progress != null) {
                                 progress.isIndeterminate = false
@@ -167,12 +241,12 @@ class UpdatesFragment : Fragment() {
                                 progress.isIndeterminate = true
                             }
                         }
-                        is com.jarvis.assistant.updates.ManualUpdateInstaller.State.Failure -> {
+                        is ManualUpdateInstaller.State.Failure -> {
                             status.text = state.text
                             progress.visibility = View.GONE
                             install.isEnabled = true
                         }
-                        com.jarvis.assistant.updates.ManualUpdateInstaller.State.InstallerLaunched -> {
+                        ManualUpdateInstaller.State.InstallerLaunched -> {
                             status.text = "Android's installer is open. Review the details and confirm if you want to update JARVIS."
                             progress.visibility = View.GONE
                             install.isEnabled = true
@@ -191,7 +265,7 @@ class UpdatesFragment : Fragment() {
             setPadding(dp(17))
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(25, 29, 48), Color.rgb(13, 17, 31))
+                intArrayOf(themeColor(com.jarvis.assistant.R.attr.themeCardGlassStart), themeColor(com.jarvis.assistant.R.attr.themeCardGlassEnd))
             ).apply {
                 cornerRadius = dp(19).toFloat()
                 setStroke(dp(1), (item.accent and 0x00FFFFFF) or (0x66000000))
@@ -201,8 +275,26 @@ class UpdatesFragment : Fragment() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                bottomMargin = dp(13)
+                bottomMargin = dp(12)
             }
+        }
+
+        // Accent edge bar on the left for visual punch.
+        val edge = View(context).apply {
+            background = GradientDrawable().apply {
+                cornerRadius = dp(2).toFloat()
+                setColor(item.accent)
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(4), dp(42)).apply {
+                marginEnd = dp(12)
+                gravity = Gravity.TOP
+            }
+            setPadding(0, 0, 0, 0)
+        }
+
+        val body = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
 
         val topLine = LinearLayout(context).apply {
@@ -233,25 +325,38 @@ class UpdatesFragment : Fragment() {
         }
         topLine.addView(category)
         topLine.addView(tag)
-        card.addView(topLine)
+        body.addView(topLine)
 
         val heading = TextView(context).apply {
             text = item.title
             textSize = 16f
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.WHITE)
+            setTextColor(themeColor(com.jarvis.assistant.R.attr.themeTextPrimary))
             setPadding(0, dp(10), 0, dp(6))
         }
-        card.addView(heading)
+        body.addView(heading)
 
         val description = TextView(context).apply {
             text = item.details
             textSize = 13f
-            setTextColor(Color.rgb(190, 199, 218))
+            setTextColor(themeColor(com.jarvis.assistant.R.attr.themeTextSecondary))
             setLineSpacing(dp(3).toFloat(), 1.04f)
         }
-        card.addView(description)
+        body.addView(description)
+
+        val cardRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        cardRow.addView(edge)
+        cardRow.addView(body)
+        card.addView(cardRow)
         return card
+    }
+
+    private fun themeColor(attribute: Int): Int {
+        val value = TypedValue()
+        requireContext().theme.resolveAttribute(attribute, value, true)
+        return value.data
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
