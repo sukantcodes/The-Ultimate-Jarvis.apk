@@ -47,6 +47,10 @@ class AppPreferences(context: Context) {
         private const val KEY_PERSONALITY = "key_personality"
         private const val KEY_USER_NAME = "key_user_name"
         private const val KEY_PROFILE_PHOTO_URI = "key_profile_photo_uri"
+        private const val KEY_ACCOUNT_PROFILE_USER_ID = "key_account_profile_user_id"
+        private const val KEY_ACCOUNT_DISPLAY_NAME = "key_account_display_name"
+        private const val KEY_ACCOUNT_AVATAR_URL = "key_account_avatar_url"
+        private const val KEY_PROFILE_NAME_OVERRIDE = "key_profile_name_override"
         private const val KEY_MIC_MUTED = "key_mic_muted"
         private const val KEY_AMBIENT_CONTEXT_ENABLED = "key_ambient_context_enabled"
         private const val KEY_CHAT_HISTORY = "key_chat_history"
@@ -259,6 +263,40 @@ class AppPreferences(context: Context) {
     var profilePhotoUri: String
         get() = prefs.getString(KEY_PROFILE_PHOTO_URI, "") ?: ""
         set(value) = prefs.edit().putString(KEY_PROFILE_PHOTO_URI, value).apply()
+
+    /** Account-supplied identity claims are kept separate from manually chosen profile details. */
+    val accountDisplayName: String
+        get() = prefs.getString(KEY_ACCOUNT_DISPLAY_NAME, "").orEmpty()
+
+    val accountAvatarUrl: String
+        get() = prefs.getString(KEY_ACCOUNT_AVATAR_URL, "").orEmpty()
+
+    var profileNameOverride: String
+        get() = prefs.getString(KEY_PROFILE_NAME_OVERRIDE, "").orEmpty()
+        set(value) = prefs.edit().putString(KEY_PROFILE_NAME_OVERRIDE, value.trim()).apply()
+
+    fun syncAccountProfile(userId: String, displayName: String, avatarUrl: String) {
+        val previousUserId = prefs.getString(KEY_ACCOUNT_PROFILE_USER_ID, "").orEmpty()
+        val sameAccount = previousUserId == userId
+        prefs.edit()
+            .putString(KEY_ACCOUNT_PROFILE_USER_ID, userId)
+            .putString(KEY_ACCOUNT_DISPLAY_NAME, displayName.trim().ifBlank {
+                if (sameAccount) accountDisplayName else ""
+            })
+            .putString(KEY_ACCOUNT_AVATAR_URL, avatarUrl.trim().ifBlank {
+                if (sameAccount) accountAvatarUrl else ""
+            })
+            .apply()
+        if (!sameAccount) profileNameOverride = ""
+    }
+
+    fun clearAccountProfile() {
+        prefs.edit()
+            .remove(KEY_ACCOUNT_PROFILE_USER_ID)
+            .remove(KEY_ACCOUNT_DISPLAY_NAME)
+            .remove(KEY_ACCOUNT_AVATAR_URL)
+            .apply()
+    }
 
     var appTheme: String
         get() {
