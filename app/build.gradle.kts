@@ -119,32 +119,6 @@ tasks.matching { it.name == "packageRelease" }.configureEach {
 }
 
 
-/*
- * Preserve the supplied Eleptical Orb source byte-for-byte. The repository keeps the
- * original compressed upload, while the APK receives the exact uncompressed HTML asset.
- * This runs during the build, not at runtime, and leaves three.min.js as the sibling asset.
- */
-val prepareElepticalOrbAsset = tasks.register("prepareElepticalOrbAsset") {
-    val source = layout.projectDirectory.file("src/main/assets/eleptical_orb.html.gz")
-    val output = layout.buildDirectory.file("generated/elepticalOrbAssets/eleptical_orb.html")
-    inputs.file(source)
-    outputs.file(output)
-    doLast {
-        val destination = output.get().asFile
-        destination.parentFile.mkdirs()
-        java.util.zip.GZIPInputStream(source.asFile.inputStream()).use { input ->
-            destination.outputStream().use { target -> input.copyTo(target) }
-        }
-    }
-}
-
-android.sourceSets.getByName("main").assets.srcDir(
-    layout.buildDirectory.dir("generated/elepticalOrbAssets")
-)
-
-tasks.named("preBuild").configure {
-    dependsOn(prepareElepticalOrbAsset)
-}
 
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
