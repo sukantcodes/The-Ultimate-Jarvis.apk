@@ -25,12 +25,15 @@ object SupabaseResponseParser {
         val refresh = obj.str("refresh_token") ?: return null
         val expiresAt = obj.long("expires_at") ?: (nowEpochSec + (obj.long("expires_in") ?: 3600L))
         val user = obj.obj("user")
+        val metadata = user?.obj("user_metadata") ?: user?.obj("raw_user_meta_data")
         return AuthSession(
             accessToken = access,
             refreshToken = refresh,
             expiresAtEpochSec = expiresAt,
             userId = user?.str("id").orEmpty(),
-            email = user?.str("email").orEmpty()
+            email = user?.str("email").orEmpty(),
+            displayName = metadata?.firstString("full_name", "name", "given_name").orEmpty(),
+            avatarUrl = metadata?.firstString("avatar_url", "picture", "photo_url").orEmpty()
         )
     }
 
@@ -116,4 +119,7 @@ object SupabaseResponseParser {
         val element = get(name) ?: return null
         return if (element.isJsonObject) element.asJsonObject else null
     }
+
+    private fun JsonObject.firstString(vararg names: String): String? =
+        names.firstNotNullOfOrNull { name -> str(name) }
 }
