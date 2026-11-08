@@ -2,6 +2,7 @@ package com.jarvis.assistant.auth
 
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import java.net.URI
 
 /**
  * Turns Supabase Auth (GoTrue) responses into typed results. Uses Gson's tree API (no reflection, so it
@@ -25,16 +26,52 @@ object SupabaseResponseParser {
         val refresh = obj.str("refresh_token") ?: return null
         val expiresAt = obj.long("expires_at") ?: (nowEpochSec + (obj.long("expires_in") ?: 3600L))
         val user = obj.obj("user")
-        val metadata = user?.obj("user_metadata") ?: user?.obj("raw_user_meta_data")
+        val profile = user?.let(::profileFromUser)
         return AuthSession(
             accessToken = access,
             refreshToken = refresh,
             expiresAtEpochSec = expiresAt,
             userId = user?.str("id").orEmpty(),
             email = user?.str("email").orEmpty(),
-            displayName = metadata?.firstString("full_name", "name", "given_name").orEmpty(),
-            avatarUrl = metadata?.firstString("avatar_url", "picture", "photo_url").orEmpty()
+            displayName = profile?.displayName.orEmpty(),
+            avatarUrl = profile?.avatarUrl.orEmpty()
         )
+    }
+
+    /** Parses the authenticated GET /auth/v1/user response without requiring session tokens. */
+    fun parseProfile(body: String): AuthProfile? {
+        val user = parseObject(body) ?: return null
+        return profileFromUser(user)
+    }
+
+    private fun profileFromUser(user: JsonObject): AuthProfile? {
+        val userId = user.str("id") ?: return null
+        val sources = ArrayList<JsonObject>(4)
+        user.obj("user_metadata")?.let(sources::add)
+        user.obj("raw_user_meta_data")?.let { if (it !in sources) sources.add(it) }
+        val identities = user.get("identities")
+        if (identities != null && identities.isJsonArray) {
+            identities.asJsonArray.forEach { item ->
+                if (item.isJsonObject) {
+                    item.asJsonObject.obj("identity_data")?.let { if (it !in sources) sources.add(it) }
+                }
+            }
+        }
+        val displayName = sources.firstNotNullOfOrNull {
+            it.firstString("full_name", "name", "display_name", "given_name", "preferred_username")
+        }.orEmpty().trim().take(80)
+        val avatarUrl = sources.firstNotNullOfOrNull {
+            it.firstString("avatar_url", "picture", "photo_url", "picture_url", "profile_image_url")
+                ?.takeIf(::isHttpsUrl)
+        }.orEmpty()
+        return AuthProfile(userId, displayName, avatarUrl)
+    }
+
+    private fun isHttpsUrl(value: String): Boolean = try {
+        val uri = URI(value)
+        uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank()
+    } catch (_: Exception) {
+        false
     }
 
     /**
