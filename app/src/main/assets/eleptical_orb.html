@@ -369,14 +369,18 @@ const STATES = {
   idle:      { scale: 1.00, speed: 0.38, cyan: 0.75, purple: 0.65, bright: 1.12, glow: 0.65, ring: 0.35, wob: 0.14, amoebaAmp: 1.08 },
   listening: { scale: 1.06, speed: 0.78, cyan: 1.00, purple: 0.45, bright: 1.22, glow: 0.90, ring: 0.68, wob: 0.32, amoebaAmp: 1.32 },
   thinking:  { scale: 1.03, speed: 1.18, cyan: 0.55, purple: 1.00, bright: 1.18, glow: 0.85, ring: 1.00, wob: 0.65, amoebaAmp: 1.52 },
-  speaking:  { scale: 1.08, speed: 0.95, cyan: 0.92, purple: 0.90, bright: 1.26, glow: 0.95, ring: 0.80, wob: 0.42, amoebaAmp: 1.42 }
+  speaking:  { scale: 1.08, speed: 0.95, cyan: 0.92, purple: 0.90, bright: 1.26, glow: 0.95, ring: 0.80, wob: 0.42, amoebaAmp: 1.42 },
+  talking:   { scale: 1.10, speed: 1.12, cyan: 0.98, purple: 0.72, bright: 1.30, glow: 1.02, ring: 0.88, wob: 0.50, amoebaAmp: 1.48 },
+  working:   { scale: 1.04, speed: 1.34, cyan: 0.70, purple: 0.82, bright: 1.20, glow: 0.90, ring: 1.08, wob: 0.72, amoebaAmp: 1.58 }
 };
 
 const LABELS = {
   idle: "AMOEBA READY",
   listening: "LISTENING...",
   thinking: "SYNTHESIZING...",
-  speaking: "SPEAKING"
+  speaking: "SPEAKING",
+  talking: "TALKING...",
+  working: "WORKING..."
 };
 
 const SHAPE_NAMES = [
@@ -1666,7 +1670,7 @@ function setOrbState(s, skipDoneTrigger) {
 
   if (!skipDoneTrigger && s === "idle" && (prevState === "speaking" || prevState === "thinking" || prevState === "listening")) {
     showDoneMessage(2.8);
-  } else if (s === "listening" || s === "speaking" || s === "thinking") {
+  } else if (s === "listening" || s === "speaking" || s === "talking" || s === "thinking" || s === "working") {
     if (currentShape === "welcome" || currentShape === "done") {
       messageHoldTimer = 0;
       setOrbShape("amoeba");
@@ -1744,7 +1748,7 @@ function stopAudioReactive() {
 
 function simulateAudio(t) {
   let l, b, h;
-  if (state === "speaking") {
+  if (state === "speaking" || state === "talking") {
     const syl = Math.pow(Math.abs(Math.sin(t * 6.2) * Math.sin(t * 2.0 + 1)), 0.8);
     const gate = Math.sin(t * 0.9) > -0.68 ? 1 : 0.16;
     l = (0.30 + 0.46 * syl) * gate;
@@ -1754,7 +1758,7 @@ function simulateAudio(t) {
     l = 0.22 + 0.18 * Math.abs(Math.sin(t * 2.8) * Math.sin(t * 1.2));
     b = l * 0.85;
     h = l * 0.55;
-  } else if (state === "thinking") {
+  } else if (state === "thinking" || state === "working") {
     l = 0.16 + 0.09 * Math.sin(t * 2.2);
     b = l * 0.75;
     h = l * 0.70;
@@ -2275,8 +2279,10 @@ window.JarvisOrb = {
     const wasWorking = working;
     working = !!b;
     if (working) {
-      setOrbState("thinking", true);
-    } else if (wasWorking) {
+      if (state !== "listening" && state !== "speaking" && state !== "talking") {
+        setOrbState("working", true);
+      }
+    } else if (wasWorking && state === "working") {
       setOrbState("idle", true);
       showDoneMessage(2.8);
     }
@@ -2286,6 +2292,8 @@ window.JarvisOrb = {
   startListening: () => setOrbState("listening", true),
   startThinking: () => setOrbState("thinking", true),
   startSpeaking: () => setOrbState("speaking", true),
+  startTalking: () => setOrbState("talking", true),
+  startWorking: () => { working = true; setOrbState("working", true); },
   stopSpeaking: () => {
     setOrbState("idle", true);
     showDoneMessage(2.8);
