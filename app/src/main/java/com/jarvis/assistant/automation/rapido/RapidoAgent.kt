@@ -625,7 +625,7 @@ class RapidoAgent(
             VehicleCategory.CAB to listOf("cab", "taxi", "mini", "prime", "sedan", "suv", "xl", "economy", "premium")
         )
         fun containsToken(token: String): Boolean =
-            Regex("""\\b${Regex.escape(token)}\\b""", RegexOption.IGNORE_CASE).containsMatchIn(label)
+            Regex("""\b${Regex.escape(token)}\b""", RegexOption.IGNORE_CASE).containsMatchIn(label)
 
         // The Book label is only a fallback signal. It must identify exactly one
         // vehicle category; mixed labels such as "Book Auto or Bike" are ambiguous.
