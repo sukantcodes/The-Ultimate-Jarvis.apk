@@ -19,6 +19,8 @@ import com.jarvis.assistant.R
 import com.jarvis.assistant.util.ContactCaller
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Locale
+import java.util.UUID
 
 /**
  * Small persistent task memory for delayed calls and app-notification watches.
@@ -31,35 +33,43 @@ object ScheduledTaskMemory {
     private const val WATCHES = "app_event_watches"
     private const val CHANNEL = "jarvis_task_alerts"
     private const val ACTION_CALL_DUE = "com.jarvis.assistant.tasks.CALL_DUE"
+    private const val MAX_WATCHES = 100
 
     fun scheduleCall(context: Context, contact: String, delayMillis: Long): String {
+        val cleanContact = contact.trim()
+        if (cleanContact.isBlank()) return "Please tell me who I should call."
         val safeDelay = delayMillis.coerceIn(1_000L, 30L * 24L * 60L * 60L * 1000L)
-        val id = System.currentTimeMillis()
-        val dueAt = System.currentTimeMillis() + safeDelay
+        val now = System.currentTimeMillis()
+        val id = (UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE).coerceAtLeast(1L)
+        val dueAt = now + safeDelay
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val items = readArray(prefs.getString(CALLS, "[]"))
-        items.put(JSONObject().put("id", id).put("contact", contact.trim()).put("dueAt", dueAt))
+        items.put(JSONObject().put("id", id).put("contact", cleanContact).put("dueAt", dueAt))
         prefs.edit().putString(CALLS, items.toString()).apply()
-        scheduleCallAlarm(context, id, dueAt, contact.trim())
+        scheduleCallAlarm(context, id, dueAt, cleanContact)
         val minutes = (safeDelay / 60_000L).coerceAtLeast(1L)
         return "Okay. I saved the task. I will try to call $contact in about $minutes minute(s)."
     }
 
     fun watchAppEvent(context: Context, app: String, keyword: String): String {
-        val cleanApp = app.trim().lowercase()
+        val cleanApp = app.trim().lowercase(Locale.ROOT)
+        val cleanKeyword = keyword.trim().lowercase(Locale.ROOT).ifBlank { "any" }
         if (cleanApp.isBlank()) return "Please tell me which app I should monitor."
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val watches = readArray(prefs.getString(WATCHES, "[]"))
         val duplicate = (0 until watches.length()).any {
             val item = watches.optJSONObject(it)
-            item?.optString("app") == cleanApp && item.optString("keyword") == keyword
+            item?.optString("app") == cleanApp && item.optString("keyword") == cleanKeyword
         }
         if (!duplicate) {
-            watches.put(JSONObject().put("id", System.currentTimeMillis().toString())
-                .put("app", cleanApp).put("keyword", keyword.ifBlank { "any" }))
+            if (watches.length() >= MAX_WATCHES) {
+                return "I already have $MAX_WATCHES active notification watches. Complete or remove one before adding another."
+            }
+            watches.put(JSONObject().put("id", UUID.randomUUID().toString())
+                .put("app", cleanApp).put("keyword", cleanKeyword))
             prefs.edit().putString(WATCHES, watches.toString()).apply()
         }
-        val eventText = if (keyword == "delivered") "delivery notification" else "a new notification"
+        val eventText = if (cleanKeyword == "delivered") "delivery notification" else "a new notification"
         return "Done. I will monitor $app and inform you when $eventText arrives. Keep JARVIS notification access enabled."
     }
 
