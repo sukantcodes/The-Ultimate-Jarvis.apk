@@ -35,10 +35,14 @@ object UniversalTaskMapper {
             .replace(Regex("""(?i)\s+and\s+(?=(?:open|launch|play|skip|like|comment|copy|send|share|search|find|tap|click|turn|set|call|wait|download|install|delete|save|select|choose|subscribe|follow|unfollow|message|type|scroll|navigate|verify)\b)"""), " ; ")
             .replace(Regex("""[.!?]+"""), " ; ")
 
-        val fragments = normalized.split(';', ',', '\n')
+        val fragments = normalized.split(
+            Regex(
+                """;|\n|,\s*(?=(?:open|launch|play|skip|like|comment|copy|send|share|search|find|tap|click|turn|set|call|wait|download|install|delete|save|select|choose|subscribe|follow|unfollow|message|type|scroll|navigate|verify)\b)""",
+                RegexOption.IGNORE_CASE
+            )
+        )
             .map { it.trim().trim('-', ' ') }
             .filter { it.isNotBlank() }
-            .distinctBy { it.lowercase(Locale.ROOT) }
 
         val actions = fragments.flatMap { expandClause(it) }
         return TaskMap(source, actions, trigger)
@@ -57,7 +61,10 @@ object UniversalTaskMapper {
                 listOf("Find the exact requested song or video", "Select one uniquely matching result", "Verify that the requested media is playing")
             Regex("""\b(skip|dismiss)\b.*\b(ad|advertisement)\b|\b(ad|advertisement)\b.*\b(skip|dismiss)\b""").containsMatchIn(text) ->
                 listOf("Wait and observe until the Skip Ad control is actually available", "Activate Skip Ad only when the visible control is present", "Verify that the advertisement was dismissed or playback resumed")
-            Regex("""\b(like|thumbs up)\b""").containsMatchIn(text) ->
+            Regex(
+                """\b(?:thumbs up\b|(?:please\s+)?(?:tap|click|press|hit)\s+(?:the\s+)?like\b|like\s+(?:this|the)\s+(?:video|post|song)\b)""",
+                RegexOption.IGNORE_CASE
+            ).containsMatchIn(fragment) ->
                 listOf("Inspect the current like state", "Activate Like only if the item is not already liked", "Verify the liked state")
             Regex("""\b(comment|write a comment|post a comment)\b""").containsMatchIn(text) ->
                 listOf("Open the correct comment composer", "Enter the exact comment requested by the user", "Submit the comment only when explicitly requested", "Verify that the comment is visibly posted")
@@ -70,12 +77,12 @@ object UniversalTaskMapper {
             else -> listOf(fragment)
         }
 
-        val condition = Regex("""(?i)\b(when|once|after|if)\b""").find(fragment)?.value
+        val condition = Regex("""(?i)\b(?:when|once|after|if)\b\s+.+$""").find(fragment)?.value?.trim()
         return steps.map { title ->
             MappedAction(
                 title = title,
                 description = "Resolve the required app, person, or control from fresh context; perform only this action; inspect the result before advancing." +
-                    (condition?.let { " Condition: $it. Do not act until the condition is observed." } ?: ""),
+                    (condition?.let { " Full condition: $it. Do not act until this condition is observed." } ?: ""),
                 expectedResult = "Observable evidence that this specific action succeeded",
                 condition = condition
             )
