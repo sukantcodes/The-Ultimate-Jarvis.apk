@@ -145,10 +145,10 @@ class OfflineActionExecutor(private val context: Context, private val hooks: Hoo
         am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, key))
         am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, key))
         return when (action) {
-            "pause" -> "Paused."
-            "play" -> "Playing."
-            "next" -> "Next track."
-            else -> "Previous track."
+            "pause" -> "Sent the pause control. The media player did not provide a verifiable playback-state result."
+            "play" -> "Sent the play control. The media player did not provide a verifiable playback-state result."
+            "next" -> "Sent the next-track control. I cannot verify which track is now playing."
+            else -> "Sent the previous-track control. I cannot verify which track is now playing."
         }
     }
 
@@ -353,7 +353,7 @@ class OfflineActionExecutor(private val context: Context, private val hooks: Hoo
             }
             val parts = sms.divideMessage(body)
             sms.sendMultipartTextMessage(number, null, parts, null, null)
-            "Message sent to $contact."
+            "Android accepted the SMS send request for $contact. Sending and delivery have not been independently verified."
         } else {
             // No SMS permission yet: fill in the message and let the person press send.
             val compose = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$number")).putExtra("sms_body", body)
