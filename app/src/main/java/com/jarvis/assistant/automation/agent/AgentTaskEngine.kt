@@ -421,7 +421,8 @@ object AgentTaskEngine {
         val preservedByTitle = preserved.groupBy { it.title }
             .mapValues { (_, steps) -> steps.toMutableList() }
         plan.forEachIndexed { index, title ->
-            val old = preservedByTitle[title]?.removeFirstOrNull()
+            val preservedMatches = preservedByTitle[title]
+            val old = if (preservedMatches.isNullOrEmpty()) null else preservedMatches.removeAt(0)
             val previousId = context.steps.lastOrNull()?.stepId
             context.steps += old ?: TaskPlanStep(
                 title = title,
