@@ -907,6 +907,46 @@ open class GeminiLiveWebSocket(
 
 
 
+                        // 22. schedule_call
+                        put(JSONObject().apply {
+                            put("name", "schedule_call")
+                            put("description", "Schedules a phone call for a future time only when the user explicitly asks for a delayed or scheduled call. Never use for an immediate call. The user must provide a contact and delay in seconds; do not invent either.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("contact_name", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Exact contact name or phone number the user wants to call.")
+                                    })
+                                    put("delay_seconds", JSONObject().apply {
+                                        put("type", "INTEGER")
+                                        put("description", "How many seconds from now the user requested before the call.")
+                                    })
+                                })
+                                put("required", JSONArray().put("contact_name").put("delay_seconds"))
+                            })
+                        })
+
+                        // 22b. watch_app_event
+                        put(JSONObject().apply {
+                            put("name", "watch_app_event")
+                            put("description", "Creates a one-time notification watch for a future app event, such as a Blinkit delivery notification. Use only when the user explicitly asks to be notified when an event happens. Do not claim delivery is confirmed until a matching notification arrives.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("app", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "App to monitor, such as Blinkit, Amazon, or any.")
+                                    })
+                                    put("keyword", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Event keyword such as delivered; use any only if the user requests any notification.")
+                                    })
+                                })
+                                put("required", JSONArray().put("app").put("keyword"))
+                            })
+                        })
+
                         // 23. Amazon App Mastery (search, compare, cart, checkout preparation, confirmed order)
                         com.jarvis.assistant.automation.amazon.AmazonTools.declarations().forEach { put(it) }
 
