@@ -223,6 +223,7 @@ class BlinkitWorld(val catalog: List<Item>) {
     var orderStage = "Order placed"
     var cancelAvailable = true
     var addWorks = true
+    var incrementWorks = true
     var optionsFor: Set<String> = emptySet()
     var linkWorks = true
     var cartNote: String? = null
@@ -279,7 +280,7 @@ class BlinkitWorld(val catalog: List<Item>) {
                     val name = d.removePrefix("add:")
                     if (!loggedIn) { phone.screen = BScreens.login() } else { cart[name] = 1; render() }
                 }
-                d.startsWith("inc:") -> { val name = d.removePrefix("inc:"); cart[name] = (cart[name] ?: 0) + 1; render() }
+                d.startsWith("inc:") -> if (incrementWorks) { val name = d.removePrefix("inc:"); cart[name] = (cart[name] ?: 0) + 1; render() }
                 d.startsWith("dec:") -> { val name = d.removePrefix("dec:"); val q = (cart[name] ?: 0) - 1; if (q <= 0) cart.remove(name) else cart[name] = q; render() }
                 l == "View cart" -> { at = At.CART; render() }
                 l == "Proceed" -> { at = if (requireAddressConfirm) At.PICKER else At.PAYMENT; render() }
