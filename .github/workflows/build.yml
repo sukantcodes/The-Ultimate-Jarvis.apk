@@ -6,6 +6,7 @@ on:
       - Google
       - Chatbox
       - Termux
+      - Fix
     paths-ignore:
       - "*.md"
       - "docs/**"
