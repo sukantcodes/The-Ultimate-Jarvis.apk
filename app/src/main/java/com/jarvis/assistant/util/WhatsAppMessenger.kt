@@ -48,14 +48,12 @@ object WhatsAppMessenger {
         if (matches.isEmpty()) {
             return SendResult.ContactNotFound(recipientName)
         }
-        if (matches.size > 1) {
-            val exactMatch = matches.firstOrNull { it.name.equals(recipientName.trim(), ignoreCase = true) }
-            if (exactMatch == null) {
-                return SendResult.MultipleContactsFound(recipientName, matches.map { "${it.name} (${it.number})" })
-            }
+        val targetContact = if (matches.size == 1) {
+            matches.single()
+        } else {
+            matches.singleOrNull { it.name.equals(recipientName.trim(), ignoreCase = true) }
+                ?: return SendResult.MultipleContactsFound(recipientName, matches.map { "${it.name} (${it.number})" })
         }
-
-        val targetContact = matches.first()
         val rawNumber = targetContact.number.filter { it.isDigit() || it == '+' }
         var phoneDigits = rawNumber.filter { it.isDigit() }
 
@@ -145,14 +143,12 @@ object WhatsAppMessenger {
         if (matches.isEmpty()) {
             return CallResult.ContactNotFound(recipientName)
         }
-        if (matches.size > 1) {
-            val exactMatch = matches.firstOrNull { it.name.equals(recipientName.trim(), ignoreCase = true) }
-            if (exactMatch == null) {
-                return CallResult.MultipleContactsFound(recipientName, matches.map { "${it.name} (${it.number})" })
-            }
+        val targetContact = if (matches.size == 1) {
+            matches.single()
+        } else {
+            matches.singleOrNull { it.name.equals(recipientName.trim(), ignoreCase = true) }
+                ?: return CallResult.MultipleContactsFound(recipientName, matches.map { "${it.name} (${it.number})" })
         }
-
-        val targetContact = matches.first()
         val rawNumber = targetContact.number.filter { it.isDigit() || it == '+' }
         var phoneDigits = rawNumber.filter { it.isDigit() }
 
