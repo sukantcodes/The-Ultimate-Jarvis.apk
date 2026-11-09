@@ -40,6 +40,13 @@ object DeviceTelemetry {
 
     fun init(context: Context) { appContext = context.applicationContext }
 
+    internal fun isAccessAllowedForStatusCode(code: Int): Boolean = when {
+        code in 200..299 -> true
+        code == 401 || code == 403 -> false
+        code == 429 || code in 500..599 -> true
+        else -> false
+    }
+
     /** Random ID created on first use. Not hardware-derived; cleared when app data is cleared. */
     private fun installId(): String {
         val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -71,12 +78,7 @@ object DeviceTelemetry {
                     .header("apikey", SupabaseConfig.publishableKey).header("Authorization", "Bearer " + token)
                     .post(body.toString().toRequestBody(jsonType)).build()
                 http.newCall(req).execute().use { response ->
-                    when {
-                        response.isSuccessful -> true
-                        response.code == 401 || response.code == 403 -> false
-                        response.code == 429 || response.code in 500..599 -> true
-                        else -> false
-                    }
+                    isAccessAllowedForStatusCode(response.code)
                 }
             } catch (_: Exception) { true }
         }
