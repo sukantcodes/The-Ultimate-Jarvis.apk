@@ -137,7 +137,8 @@ data class OrderStatus(
     val itemNotices: List<String>,
     val cancelOffered: Boolean,
     val helpOffered: Boolean,
-    val refundMentioned: Boolean
+    val refundMentioned: Boolean,
+    val orderId: String? = null
 )
 
 data class AddressEntry(val label: String, val text: String, val node: AmazonNode?)
