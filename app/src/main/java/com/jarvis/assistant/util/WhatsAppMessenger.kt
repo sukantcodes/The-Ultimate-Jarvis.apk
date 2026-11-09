@@ -6,6 +6,7 @@ import android.net.Uri
 import android.telephony.PhoneNumberUtils
 import android.provider.ContactsContract
 import com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService
+import java.util.Locale
 
 /**
  * Automates sending WhatsApp messages and placing WhatsApp voice/video calls hands-free,
