@@ -268,11 +268,12 @@ class HomeFragment : Fragment() {
                     applyOrbLook()
 
                     // Sync State
+                    val taskActive = com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value != null
                     val state = pendingOrbState ?: when (viewModel.conversationState.value) {
                         ConversationState.LISTENING -> "listening"
                         ConversationState.SPEAKING -> "speaking"
-                        ConversationState.THINKING -> "thinking"
-                        ConversationState.IDLE -> "idle"
+                        ConversationState.THINKING -> if (taskActive) "working" else "thinking"
+                        ConversationState.IDLE -> if (taskActive) "working" else "idle"
                     }
                     setOrbState(state)
                 }
@@ -670,8 +671,9 @@ class HomeFragment : Fragment() {
                                     )
                                 }
                                 ConversationState.THINKING -> {
-                                    setOrbState("thinking")
-                                    binding.tvListeningStatus.text = "THINKING..."
+                                    val taskActive = com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value != null
+                                    setOrbState(if (taskActive) "working" else "thinking")
+                                    binding.tvListeningStatus.text = if (taskActive) "WORKING..." else "THINKING..."
                                     binding.tvListeningStatus.setTextColor(Color.parseColor("#F59E0B"))
                                     binding.tvHoldHint.text = "Processing request..."
                                     binding.dotStatusGlow.backgroundTintList = ColorStateList.valueOf(
