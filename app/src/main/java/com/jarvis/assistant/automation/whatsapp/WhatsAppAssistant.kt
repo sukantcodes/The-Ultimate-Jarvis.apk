@@ -21,6 +21,23 @@ data class PendingWhatsAppDraft(
     val timestamp: Long = System.currentTimeMillis()
 )
 
+internal fun resolveWhatsAppContactChoice(
+    candidates: List<ContactInfo>,
+    userChoice: String
+): ContactInfo? {
+    val choice = userChoice.trim()
+    if (choice.isBlank()) return null
+    val choiceDigits = choice.filter(Char::isDigit)
+    val exactMatches = candidates.filter {
+        it.name.equals(choice, ignoreCase = true) ||
+            (choiceDigits.length == 4 && it.phoneNumber.filter(Char::isDigit).endsWith(choiceDigits))
+    }
+    val matches = if (exactMatches.isNotEmpty()) exactMatches else candidates.filter {
+        it.name.contains(choice, ignoreCase = true) || choice.contains(it.name, ignoreCase = true)
+    }
+    return matches.singleOrNull()
+}
+
 class WhatsAppAssistant(
     private val context: Context,
     private val contactResolver: ContactResolver
@@ -114,16 +131,7 @@ class WhatsAppAssistant(
                 candidates.take(5).joinToString(", ") { it.name }
         }
 
-        val choiceDigits = choice.filter(Char::isDigit)
-        val exactMatches = candidates.filter {
-            it.name.equals(choice, ignoreCase = true) ||
-                (choiceDigits.length == 4 && it.phoneNumber.filter(Char::isDigit).endsWith(choiceDigits))
-        }
-        val partialMatches = if (exactMatches.isEmpty()) candidates.filter {
-            it.name.contains(choice, ignoreCase = true) || choice.contains(it.name, ignoreCase = true)
-        } else emptyList()
-        val matching = if (exactMatches.isNotEmpty()) exactMatches else partialMatches
-        val chosen = matching.singleOrNull()
+        val chosen = resolveWhatsAppContactChoice(candidates, choice)
         if (chosen == null) {
             return "I couldn't uniquely identify that contact. Please specify the full name. Options: " +
                 candidates.take(5).joinToString(", ") { it.name }
