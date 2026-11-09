@@ -88,17 +88,22 @@ object BlinkitNotificationTracker {
     fun updateLatestStage(context: Context, stage: OrderStage, orderId: String? = null) {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val orders = readOrders(prefs)
-        val activeIds = activeOrderIds(orders)
-        val index = resolveOrderIndex(activeIds, orderId)
-        if (index == null) {
+        val activeIndices = (0 until orders.length()).filter { index ->
+            val current = stageOf(orders.optJSONObject(index))
+            current != OrderStage.DELIVERED && current != OrderStage.CANCELLED && current != OrderStage.UNKNOWN
+        }
+        val activeIds = activeIndices.map { orders.optJSONObject(it)?.optString("id").orEmpty() }
+        val selected = resolveOrderIndex(activeIds, orderId)
+        if (selected == null) {
             if (activeIds.isEmpty() && stage != OrderStage.DELIVERED && stage != OrderStage.CANCELLED && stage != OrderStage.UNKNOWN) {
                 beginTracking(context, stage, orderId)
             }
             return
         }
-        val target = orders.optJSONObject(index) ?: return
-        target.put("stage", stage.name).put("updated_at", System.currentTimeMillis())
-        saveOrders(prefs, orders, System.currentTimeMillis())
+        val target = orders.optJSONObject(activeIndices[selected]) ?: return
+        val now = System.currentTimeMillis()
+        target.put("stage", stage.name).put("updated_at", now)
+        saveOrders(prefs, orders, now)
     }
 
     /** Stops one identified order; without an ID, stops only when exactly one order is active. */
@@ -175,9 +180,12 @@ object BlinkitNotificationTracker {
             }
             .map { it.optString("id") }
 
-    private fun stageOf(item: JSONObject?): OrderStage = runCatching {
-        OrderStage.valueOf(item?.optString("stage", OrderStage.PLACED.name) ?: OrderStage.PLACED.name)
-    }.getOrDefault(OrderStage.PLACED)
+    private fun stageOf(item: JSONObject?): OrderStage {
+        if (item == null) return OrderStage.UNKNOWN
+        return runCatching {
+            OrderStage.valueOf(item.optString("stage", OrderStage.UNKNOWN.name))
+        }.getOrDefault(OrderStage.UNKNOWN)
+    }
 
     private fun readOrders(prefs: android.content.SharedPreferences): JSONArray {
         val raw = prefs.getString(KEY_ORDERS, null)
@@ -226,6 +234,9 @@ object BlinkitNotificationTracker {
     fun lastStage(context: Context): OrderStage {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val orders = readOrders(prefs)
-        return stageOf(orders.optJSONObject(orders.length() - 1))
+        if (orders.length() == 0) return OrderStage.UNKNOWN
+        val latest = (0 until orders.length()).mapNotNull { orders.optJSONObject(it) }
+            .maxByOrNull { it.optLong("updated_at", 0L) }
+        return stageOf(latest)
     }
 }
