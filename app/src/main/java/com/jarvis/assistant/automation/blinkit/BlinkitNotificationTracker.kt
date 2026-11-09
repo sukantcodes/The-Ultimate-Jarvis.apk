@@ -92,7 +92,7 @@ object BlinkitNotificationTracker {
             val current = stageOf(orders.optJSONObject(index))
             current != OrderStage.DELIVERED && current != OrderStage.CANCELLED && current != OrderStage.UNKNOWN
         }
-        val activeIds = activeIndices.map { orders.optJSONObject(it)?.optString("id").orEmpty() }
+        val activeIds = activeIndices.map { orders.optJSONObject(it)?.optString("order_id").orEmpty() }
         val selected = resolveOrderIndex(activeIds, orderId)
         if (selected == null) {
             if (activeIds.isEmpty() && stage != OrderStage.DELIVERED && stage != OrderStage.CANCELLED && stage != OrderStage.UNKNOWN) {
@@ -110,13 +110,13 @@ object BlinkitNotificationTracker {
     fun stopTracking(context: Context, orderId: String? = null) {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val orders = readOrders(prefs)
-        val activeIds = activeOrderIds(orders)
-        val index = resolveOrderIndex(activeIds, orderId) ?: return
-        val targetId = activeIds[index]
-        val removeIndex = (0 until orders.length()).firstOrNull {
-            orders.optJSONObject(it)?.optString("id") == targetId
-        } ?: return
-        orders.remove(removeIndex)
+        val activeIndices = (0 until orders.length()).filter { index ->
+            val stage = stageOf(orders.optJSONObject(index))
+            stage != OrderStage.DELIVERED && stage != OrderStage.CANCELLED && stage != OrderStage.UNKNOWN
+        }
+        val activeOrderIds = activeIndices.map { orders.optJSONObject(it)?.optString("order_id").orEmpty() }
+        val selected = resolveOrderIndex(activeOrderIds, orderId) ?: return
+        orders.remove(activeIndices[selected])
         saveOrders(prefs, orders, System.currentTimeMillis())
     }
 
@@ -130,7 +130,7 @@ object BlinkitNotificationTracker {
             val stage = stageOf(orders.optJSONObject(index))
             stage != OrderStage.DELIVERED && stage != OrderStage.CANCELLED && stage != OrderStage.UNKNOWN
         }
-        val activeIds = activeIndices.map { orders.optJSONObject(it)?.optString("id").orEmpty() }
+        val activeIds = activeIndices.map { orders.optJSONObject(it)?.optString("order_id").orEmpty() }
         val orderId = extractOrderId("$title $body")
         val selected = resolveOrderIndex(activeIds, orderId) ?: return null
         val recordIndex = activeIndices[selected]
@@ -178,7 +178,7 @@ object BlinkitNotificationTracker {
                 val stage = stageOf(it)
                 stage != OrderStage.DELIVERED && stage != OrderStage.CANCELLED && stage != OrderStage.UNKNOWN
             }
-            .map { it.optString("id") }
+            .map { it.optString("order_id") }
 
     private fun stageOf(item: JSONObject?): OrderStage {
         if (item == null) return OrderStage.UNKNOWN
