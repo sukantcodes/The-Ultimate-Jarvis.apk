@@ -1544,7 +1544,7 @@ class JarvisConversationService : Service() {
                                     )
                                 }
                             }
-                            if (returnToStandbyAfterAuthorizedTurn) {
+                            if (returnToStandbyAfterAuthorizedTurn || suppressMicUploadUntilVoiceCommandComplete) {
                                 // Finish the one-shot microphone gate, but do not put JARVIS to sleep.
                                 // Auto-Sleep or an explicit sleep command owns that transition.
                                 returnToStandbyAfterAuthorizedTurn = false
@@ -2284,7 +2284,7 @@ class JarvisConversationService : Service() {
                     try { offlineRecognizer?.reset() } catch (_: Exception) {}
                     if (_isSessionOn.value && offlineLocalMode) {
                         setConversationState(ConversationState.IDLE)
-                        if (returnToStandbyAfterAuthorizedTurn) {
+                        if (returnToStandbyAfterAuthorizedTurn || suppressMicUploadUntilVoiceCommandComplete) {
                             returnToStandbyAfterAuthorizedTurn = false
                             suppressMicUploadUntilVoiceCommandComplete = false
                         }
