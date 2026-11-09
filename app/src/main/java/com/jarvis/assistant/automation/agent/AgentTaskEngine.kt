@@ -345,15 +345,17 @@ object AgentTaskEngine {
             return LoopOutcome(0, false, false, "No active task")
         }
         var iterations = 0
+        if (maxIterations <= 0) {
+            executionLoopMutex.unlock()
+            return LoopOutcome(0, true, false, "Task-loop iteration limit must be greater than zero")
+        }
         try {
-            // No task-length ceiling: continue until the workflow ends, is cancelled,
-            // is replaced, or reaches a genuine blocked/failed state.
-            while (true) {
+            while (iterations < maxIterations) {
                 if (!awaitIfRunnable()) return LoopOutcome(iterations, false, true)
                 val context = active?.takeIf { it.taskId == taskId } ?: return LoopOutcome(iterations, false, true, "Task was replaced")
                 setState(State.OBSERVING)
                 val shouldContinue = step(iterations, context)
-                if (iterations < Int.MAX_VALUE) iterations++
+                iterations++
                 if (isCancelled()) return LoopOutcome(iterations, false, true)
                 if (!shouldContinue) return LoopOutcome(iterations, false, false)
                 if (active?.taskId != taskId) return LoopOutcome(iterations, false, true, "Task was replaced")
@@ -361,6 +363,7 @@ object AgentTaskEngine {
                     return LoopOutcome(iterations, false, false, active?.failureReason)
                 }
             }
+            return LoopOutcome(iterations, true, false, "Task-loop iteration limit reached")
         } catch (cancelled: CancellationException) {
             if (isCancelled()) return LoopOutcome(iterations, false, true)
             throw cancelled
