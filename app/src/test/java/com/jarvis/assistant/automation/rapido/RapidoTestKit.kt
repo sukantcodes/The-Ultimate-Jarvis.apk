@@ -105,6 +105,7 @@ class FakeRapido : RapidoDriver {
     var pinAddress: String? = null
     /** When true, tapping a fare card does not select it. */
     var selectionBroken = false
+    var bookLabelOverride: String? = null
     var farePlus = 0
     var onCancelConfirm: List<RapidoNode> = RScreens.home()
     var snapshotsAfterBook = 0
@@ -117,7 +118,7 @@ class FakeRapido : RapidoDriver {
     fun letTimePass(ms: Long) { clock += ms }
 
     private fun optionsScreen() = RScreens.options(pickupText, dropText,
-        cards.map { Triple(it.first, bump(it.second), it.third) }, selected, payment, extraByCard = extras, unavailable = unavailable)
+        cards.map { Triple(it.first, bump(it.second), it.third) }, selected, payment, bookLabel = bookLabelOverride, extraByCard = extras, unavailable = unavailable)
 
     private fun bump(price: String): String {
         if (farePlus == 0) return price
