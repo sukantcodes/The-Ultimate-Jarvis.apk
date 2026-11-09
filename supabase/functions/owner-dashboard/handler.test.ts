@@ -9,8 +9,14 @@ const USER = "11111111-1111-4111-8111-111111111111";
 const OTHER = "22222222-2222-4222-8222-222222222222";
 const TEST_PASSWORD = "unit-test-only-password"; // throwaway value, unrelated to the real owner password
 
-function fakeDb(clock: { t: number }) {
+function fakeDb(clock: { t: number }, authUserCount = 0) {
   const sessions: Record<string, any>[] = [];
+  const authUsers = Array.from({ length: authUserCount }, (_, index) => ({
+    id: `user-${String(index).padStart(5, "0")}`,
+    email: `user${index}@example.test`,
+    created_at: "2026-01-01T00:00:00Z",
+    last_sign_in_at: null,
+  }));
   const attempts = new Map<string, { n: number; lockedUntil: number }>();
   const settings = { session_ttl_seconds: 900, max_failed_attempts: 3, lockout_seconds: 600 };
   const chain = (table: string) => {
@@ -48,12 +54,24 @@ function fakeDb(clock: { t: number }) {
     if (name === "owner_trends") return Promise.resolve({ data: { days: a.p_days, daily: [] } });
     return Promise.resolve({ data: null });
   };
-  return { from: chain, rpc, sessions };
+  return {
+    from: chain,
+    rpc,
+    sessions,
+    auth: {
+      admin: {
+        listUsers: async ({ page, perPage }: { page: number; perPage: number }) => ({
+          data: { users: authUsers.slice((page - 1) * perPage, page * perPage) },
+          error: null,
+        }),
+      },
+    },
+  };
 }
 
-function setup(env: Record<string, string | undefined> = { OWNER_PASSWORD_HASH: "hash-of-test" }) {
+function setup(env: Record<string, string | undefined> = { OWNER_PASSWORD_HASH: "hash-of-test" }, authUserCount = 0) {
   const clock = { t: Date.parse("2026-11-04T10:00:00Z") };
-  const db = fakeDb(clock);
+  const db = fakeDb(clock, authUserCount);
   let authedUser: string | null = USER;
   const handler = createHandler({
     env: (n) => env[n], admin: db,
@@ -126,6 +144,25 @@ test("correct password issues a session that opens the dashboard, then expires a
   const t2 = setup(); const tok = (await (await t2.call({ action: "verify", password: TEST_PASSWORD })).json()).token;
   assert.equal((await t2.call({ action: "logout" }, { "x-dashboard-session": tok })).status, 200);
   assert.equal((await t2.call({ action: "summary" }, { "x-dashboard-session": tok })).status, 401); // revoked
+});
+
+test("owner users pagination includes accounts beyond the first 1,000", async () => {
+  const t = setup(undefined, 1205);
+  const verified = await t.call({ action: "verify", password: TEST_PASSWORD });
+  assert.equal(verified.status, 200);
+  const { token } = await verified.json();
+  const headers = { "x-dashboard-session": token };
+
+  const first = await t.call({ action: "users", page: 0, page_size: 20 }, headers);
+  const firstBody = await first.json();
+  assert.equal(first.status, 200);
+  assert.equal(firstBody.total, 1205);
+  assert.equal(firstBody.items.length, 20);
+
+  const last = await t.call({ action: "users", page: 60, page_size: 20 }, headers);
+  const lastBody = await last.json();
+  assert.equal(last.status, 200);
+  assert.equal(lastBody.items.length, 5);
 });
 
 test("a session token is bound to the user who verified", async () => {
