@@ -35,6 +35,11 @@ const GENERIC_DENIED = { error: "invalid_credentials", message: "Access denied."
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SAFE_TERM = /^[A-Za-z0-9 ._-]{1,40}$/;
 
+export function isValidBcryptInput(password: string): boolean {
+  const byteLength = new TextEncoder().encode(password).length;
+  return byteLength > 0 && byteLength <= 72;
+}
+
 function pageParams(body: Record<string, unknown>) {
   const page = Math.max(0, Math.min(10_000, Number(body.page) || 0));
   const size = Math.max(1, Math.min(50, Number(body.page_size) || 20));
@@ -78,8 +83,9 @@ export function createHandler(d: Deps) {
     }
 
     const password = typeof body.password === "string" ? body.password : "";
-    // bcrypt only uses the first 72 bytes; refuse absurd inputs instead of hashing them.
-    const ok = password.length > 0 && password.length <= 128 &&
+    // bcrypt truncates at 72 UTF-8 bytes; reject longer inputs to avoid distinct passwords
+    // being treated as the same credential after truncation.
+    const ok = isValidBcryptInput(password) &&
       isAllowedUser(user.id) && await d.verifyPassword(password, hash);
 
     if (!ok) {
@@ -89,7 +95,9 @@ export function createHandler(d: Deps) {
       return json(GENERIC_DENIED, 401);
     }
 
-    await d.admin.rpc("clear_owner_failures", { p_key: `u:${user.id}` });
+    await Promise.all(keys.map((p_key) =>
+      d.admin.rpc("clear_owner_failures", { p_key })
+    ));
     const token = d.randomToken();
     const expires = new Date(d.now().getTime() + s.ttl * 1000);
     const { error } = await d.admin.from("dashboard_sessions").insert({
