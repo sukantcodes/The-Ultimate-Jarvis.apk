@@ -114,7 +114,7 @@ class AgentTaskEngineTest {
         AgentTaskEngine.replacePlan(listOf("Open Spotify", "Like playlist one", "Like playlist two"))
 
         val steps = AgentTaskEngine.taskState.value!!.steps
-        assertEquals(3, steps.size)
+        assertEquals(4, steps.size) // includes the completed internal task-map record
         assertEquals(2, steps.count { it.title.startsWith("Like playlist") })
         assertEquals(steps.size, steps.map { it.stepId }.distinct().size)
         assertEquals(TaskStepStatus.COMPLETED, steps.first { it.title == "Open Spotify" }.status)
