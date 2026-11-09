@@ -43,6 +43,22 @@ class OfflineIntentParserTest {
     }
 
     @Test
+    fun preservesOriginalCasingPunctuationAndMultilineTypingPayload() {
+        assertEquals(
+            OfflineIntent.TypeText("Hello, World! It's 7:30 PM.\\nSee you soon."),
+            parse("Hey Jarvis, please TYPE Hello, World! It's 7:30 PM.\\nSee you soon.")
+        )
+    }
+
+    @Test
+    fun preservesOriginalSmsMessagePayload() {
+        assertEquals(
+            OfflineIntent.SendSms("Rahul", "Meet me at 7:30 PM, near Gate #2!"),
+            parse("Hey Jarvis, please send a text message to Rahul saying Meet me at 7:30 PM, near Gate #2!")
+        )
+    }
+
+    @Test
     fun standbyAndStop() {
         assertEquals(OfflineIntent.GoStandby, parse("go to sleep"))
         assertEquals(OfflineIntent.StopSpeaking, parse("stop"))
