@@ -172,6 +172,16 @@ test("a session token is bound to the user who verified", async () => {
   assert.equal((await t.call({ action: "summary" }, { "x-dashboard-session": token })).status, 401);
 });
 
+test("invalid IPv4 and IPv6 targets are rejected before creating access blocks", async () => {
+  const t = setup();
+  const { token } = await (await t.call({ action: "verify", password: TEST_PASSWORD })).json();
+  const headers = { "x-dashboard-session": token };
+  for (const target_value of ["999.999.999.999", "::::", "2001:db8:::1", "192.0.2"]) {
+    const response = await t.call({ action: "block", block_type: "ip", target_value }, headers);
+    assert.equal(response.status, 400, `expected invalid IP ${target_value} to be rejected`);
+  }
+});
+
 test("OWNER_USER_IDS restricts who may verify", async () => {
   const t = setup({ OWNER_PASSWORD_HASH: "h", OWNER_USER_IDS: OTHER });
   assert.equal((await t.call({ action: "verify", password: TEST_PASSWORD })).status, 401);
