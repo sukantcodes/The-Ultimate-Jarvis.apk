@@ -38,10 +38,13 @@ object ScheduledTaskMemory {
     fun scheduleCall(context: Context, contact: String, delayMillis: Long): String {
         val cleanContact = contact.trim()
         if (cleanContact.isBlank()) return "Please tell me who I should call."
-        val safeDelay = delayMillis.coerceIn(1_000L, 30L * 24L * 60L * 60L * 1000L)
+        val maxDelay = 30L * 24L * 60L * 60L * 1000L
+        if (delayMillis !in 1_000L..maxDelay) {
+            return "I can schedule calls between 1 second and 30 days from now. Please choose a supported delay."
+        }
         val now = System.currentTimeMillis()
         val id = (UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE).coerceAtLeast(1L)
-        val dueAt = now + safeDelay
+        val dueAt = now + delayMillis
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val items = readArray(prefs.getString(CALLS, "[]"))
         items.put(JSONObject().put("id", id).put("contact", cleanContact).put("dueAt", dueAt))
