@@ -664,10 +664,10 @@ class BlinkitAgent(
         val line = lineFor(cart!!, target)
             ?: return BlinkitResult(false, BlinkitStatus.NOT_VERIFIED, "I pressed ADD but the item is not visible in the cart, so I cannot say it was added.")
         val ok = line.quantity == quantity
-        return BlinkitResult(true, if (ok) BlinkitStatus.OK else BlinkitStatus.NOT_VERIFIED,
+        return BlinkitResult(ok, if (ok) BlinkitStatus.OK else BlinkitStatus.NOT_VERIFIED,
             (if (ok) "Verified in the cart: " else "In the cart, but the quantity is ${line.quantity}, not $quantity: ") + "${line.name.take(60)} × ${line.quantity}" +
                 (line.price?.let { " at ${BlinkitMoney.format(it)}" } ?: "") + (cart.bill.total?.let { ". To pay so far ${BlinkitMoney.format(it)}" } ?: ""),
-            verified = true, extra = mapOf("in_cart" to true, "quantity" to line.quantity))
+            verified = ok, extra = mapOf("in_cart" to true, "quantity" to line.quantity))
     }
 
     private suspend fun addPlan(): BlinkitResult {
