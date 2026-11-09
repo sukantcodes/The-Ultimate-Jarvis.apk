@@ -229,8 +229,28 @@ class ChatFragment : Fragment() {
             Toast.makeText(requireContext(), "JARVIS is analyzing ${document.name}…", Toast.LENGTH_LONG).show()
             fileAnalysisJob = viewLifecycleOwner.lifecycleScope.launch {
                 try {
-                    val key = (requireActivity().application as JarvisApp).preferences.apiKey
-                    val answer = DocumentAnalysisClient.analyze(requireContext(), document, prompt, key)
+                    val appContext = requireContext().applicationContext
+                    val configManager = com.jarvis.assistant.network.provider.ProviderConfigManager(appContext)
+                    val customProfile = configManager.activeCustomProfile
+                    val answer: String
+                    if (customProfile != null) {
+                        // Custom providers that advertise file/image input analyze on the provider;
+                        // otherwise attachments are clearly explained as unsupported (no silent Gemini).
+                        val capabilities = configManager.activeCustomCapabilities()
+                        if (!capabilities.imageInput && !capabilities.fileAnalysis) {
+                            throw IllegalStateException(
+                                "The active model ${customProfile.selectedModelId.ifBlank { customProfile.name }} " +
+                                    "does not support file or image analysis, so this attachment cannot be used here. " +
+                                    "Remove the attachment or switch back to Gemini."
+                            )
+                        }
+                        answer = DocumentAnalysisClient.analyzeWithCustomProvider(
+                            appContext, document, prompt, customProfile
+                        )
+                    } else {
+                        val key = (requireActivity().application as JarvisApp).preferences.apiKey
+                        answer = DocumentAnalysisClient.analyze(requireContext(), document, prompt, key)
+                    }
                     JarvisApp.instance.chatRepository.addTurn("📎 ${document.name}\n$prompt", answer, document.savedPath, document.name, document.mimeType)
                     selectedDocument = null
                     if (_binding != null) { updateAttachmentPreview(); binding.etMessageInput.hint = "Message JARVIS…" }
@@ -254,7 +274,13 @@ class ChatFragment : Fragment() {
         if (text.isBlank()) return
         val appContext = requireContext().applicationContext
         val engineStore = com.jarvis.assistant.security.AiEngineStore(appContext)
-        val selectedProviderHasKey = if (engineStore.useGroq) engineStore.hasGroqKey() else JarvisApp.instance.preferences.apiKey.isNotBlank()
+        val configManager = com.jarvis.assistant.network.provider.ProviderConfigManager(appContext)
+        val customActive = configManager.activeCustomProfile != null
+        val selectedProviderHasKey = when {
+            customActive -> configManager.hasActiveCustomKey()
+            engineStore.useGroq -> engineStore.hasGroqKey()
+            else -> JarvisApp.instance.preferences.apiKey.isNotBlank()
+        }
         val forceOffline = selectedChatMode == "offline"
         val forceGemini = selectedChatMode == "gemini"
         if (forceGemini && JarvisApp.instance.preferences.apiKey.isBlank()) {

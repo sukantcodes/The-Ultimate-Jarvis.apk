@@ -11,20 +11,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- Optional gallery browsing. Requested only after the user enables Gallery in Settings. -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
-    <!-- Requested only when the user starts a phone-wide shared-storage scan. -->
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!-- Phone Diagnostics: Boost asks Android to end background processes of other apps (a normal, install-time permission). -->
-    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
-    <!-- Phone Diagnostics: App Uninstaller. Without this Android blocks the uninstall screen on newer versions. -->
-    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
@@ -77,12 +64,6 @@
         android:theme="@style/Theme.JarvisAssistant"
         android:hardwareAccelerated="true"
         android:networkSecurityConfig="@xml/network_security_config">
-
-        <activity android:name=".ui.debug.ActionRouterActivity" android:exported="false" />
-        <activity android:name=".gallery.GalleryActivity" android:exported="false" />
-        <activity android:name=".ui.chat.ChatAttachmentPreviewActivity" android:exported="false" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".ui.diagnostics.DeviceDiagnosticsActivity" android:exported="false" />
-        <activity android:name=".ui.diagnostics.CleanupFeatureActivity" android:exported="false" />
 
         <activity
             android:name=".ui.settings.PocketTtsSetupActivity"
@@ -146,19 +127,6 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
-            android:name=".ui.owner.OwnerPasswordActivity"
-            android:exported="false"
-            android:excludeFromRecents="true"
-            android:screenOrientation="portrait"
-            android:windowSoftInputMode="adjustResize" />
-
-        <activity
-            android:name=".ui.owner.OwnerDashboardActivity"
-            android:exported="false"
-            android:excludeFromRecents="true"
-            android:windowSoftInputMode="adjustResize" />
-
-        <activity
             android:name=".ui.memory.MemoryActivity"
             android:exported="false"
             android:screenOrientation="portrait"
@@ -177,16 +145,15 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
-            android:name=".ui.settings.PersonaActivity"
+            android:name=".ui.settings.CustomProviderActivity"
             android:exported="false"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- First-launch interactive tutorial. Also replayable from Settings. -->
         <activity
-            android:name=".ui.onboarding.OnboardingActivity"
+            android:name=".ui.settings.PersonaActivity"
             android:exported="false"
-            android:theme="@style/Theme.JarvisAssistant.Dark"
+            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
 
         <activity
@@ -271,14 +238,6 @@
             </intent-filter>
         </receiver>
 
-        <receiver android:name=".automation.tasks.ScheduledTaskReceiver" android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="com.jarvis.assistant.tasks.CALL_DUE" />
-            </intent-filter>
-        </receiver>
-
         <activity
             android:name=".studio.ui.AutomationStudioActivity"
             android:exported="false" />
@@ -318,20 +277,6 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
-
-        <receiver
-            android:name=".updates.UpdateInstallReceiver"
-            android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-            </intent-filter>
-        </receiver>
-
-        <receiver
-            android:name=".updates.InstallSessionReceiver"
-            android:enabled="true"
-            android:exported="false" />
 
         <service
             android:name=".background.JarvisConversationService"

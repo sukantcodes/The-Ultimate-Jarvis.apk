@@ -40,6 +40,12 @@ import com.jarvis.assistant.audio.VoiceIntentGate
 import com.jarvis.assistant.audio.OnDeviceVoiceActivityDetector
 import com.jarvis.assistant.data.model.ConversationState
 import com.jarvis.assistant.network.GeminiLiveWebSocket
+import com.jarvis.assistant.network.CustomChatSession
+import com.jarvis.assistant.network.CustomRealtimeSession
+import com.jarvis.assistant.network.provider.ProviderConfigManager
+import com.jarvis.assistant.network.provider.CustomProviderProfile
+import com.jarvis.assistant.network.provider.ProviderModelCapabilities
+import com.jarvis.assistant.network.provider.ProviderProtocol
 import com.jarvis.assistant.ui.home.MainActivity
 import com.jarvis.assistant.util.PermissionHelper
 import com.jarvis.assistant.util.PromptGenerator
@@ -897,10 +903,25 @@ class JarvisConversationService : Service() {
         val app = application as JarvisApp
         val preferences = app.preferences
         val engineStore = com.jarvis.assistant.security.AiEngineStore(applicationContext)
-        val useGroq = engineStore.useGroq
-        val apiKey = if (useGroq) engineStore.groqKey().trim() else preferences.apiKey.trim()
-        offlineLocalMode = apiKey.isBlank() ||
-            !com.jarvis.assistant.offline.OfflineModelDownloader.isInternetAvailable(applicationContext)
+        val configManager = ProviderConfigManager(applicationContext)
+        val activeCustomProfile = configManager.activeCustomProfile
+        val customReady = activeCustomProfile != null && configManager.hasActiveCustomKey() && configManager.hasActiveCustomModel
+        val useGroq = if (activeCustomProfile != null) false else engineStore.useGroq
+        val apiKey = if (activeCustomProfile != null) {
+            ""
+        } else if (useGroq) {
+            engineStore.groqKey().trim()
+        } else {
+            preferences.apiKey.trim()
+        }
+        offlineLocalMode = if (activeCustomProfile != null) {
+            // A custom provider carries its key in the encrypted store, so its readiness
+            // is checked separately (not through the blank apiKey used for Gemini/Groq).
+            !customReady || !com.jarvis.assistant.offline.OfflineModelDownloader.isInternetAvailable(applicationContext)
+        } else {
+            apiKey.isBlank() ||
+                !com.jarvis.assistant.offline.OfflineModelDownloader.isInternetAvailable(applicationContext)
+        }
         if (offlineLocalMode) {
             val localModel = com.jarvis.assistant.offline.OfflineModelDownloader.modelFile(applicationContext)
             if (!com.jarvis.assistant.offline.OfflineModelDownloader.isModelValid(localModel)) {
@@ -1024,7 +1045,8 @@ class JarvisConversationService : Service() {
                             if (offlineLocalMode) return
                             _connectionStatus.value = status
                             updateNotification()
-                            if (status == "LIVE") {
+                            val isLive = status == "LIVE" || status.startsWith("LIVE")
+                            if (isLive) {
                                 _liveError.value = null
                                 // The first text message may have arrived while the
                                 // foreground service or provider handshake was starting.
@@ -2310,6 +2332,10 @@ class JarvisConversationService : Service() {
     // ---------------------------------------------------------------------
 
     private fun hasOnlineProvider(): Boolean {
+        val configManager = ProviderConfigManager(applicationContext)
+        if (configManager.activeEngine != com.jarvis.assistant.network.provider.ProviderConfigManager.ActiveEngine.GEMINI) {
+            return configManager.isAnyEngineReady()
+        }
         val engineStore = com.jarvis.assistant.security.AiEngineStore(applicationContext)
         val key = if (engineStore.useGroq) engineStore.groqKey() else preferences.apiKey
         return key.isNotBlank()
@@ -4725,8 +4751,38 @@ class JarvisConversationService : Service() {
         model: String,
         voiceName: String,
         systemPrompt: String,
-        listener: GeminiLiveWebSocket.Listener
+        listener: GeminiLiveWebSocket.Listener,
+        customProfile: CustomProviderProfile? = null
     ): GeminiLiveWebSocket {
+        val configManager = ProviderConfigManager(applicationContext)
+        val profile = customProfile ?: configManager.activeCustomProfile
+        if (profile != null) {
+            // A custom provider is active. Use the realtime WebSocket session when the
+            // provider speaks the Gemini-Live protocol and the selected model supports it;
+            // otherwise use the turn-based chat pipeline (works in ChatBox too, and speaks
+            // through the phone's text-to-speech for voice turns).
+            val capabilities = configManager.activeCustomCapabilities()
+            val realtime = profile.protocol == ProviderProtocol.GEMINI_REALTIME && capabilities.realtimeVoice
+            if (realtime) {
+                return CustomRealtimeSession(
+                    context = applicationContext,
+                    profile = profile,
+                    voiceName = voiceName,
+                    systemPrompt = systemPrompt,
+                    sessionListener = listener
+                )
+            }
+            return CustomChatSession(
+                context = applicationContext,
+                profile = profile,
+                capabilities = capabilities,
+                voiceName = voiceName,
+                systemPromptText = systemPrompt,
+                sessionListener = listener
+            ).also { session ->
+                session.userTextInterceptor = { text -> tryLocalAutomation(text) }
+            }
+        }
         if (!useGroq) {
             return GeminiLiveWebSocket(
                 apiKey = apiKey,
@@ -4785,9 +4841,12 @@ class JarvisConversationService : Service() {
      * 20 seconds if you do not answer). If that cannot start, or the setting is off, the phone's voice is used.
      */
     fun speakAnnouncement(text: String) {
+        val configManager = ProviderConfigManager(applicationContext)
+        val customActive = configManager.activeCustomProfile != null
         val wantsJarvisVoice = com.jarvis.assistant.notifications.MessageAlertSettings(applicationContext).useJarvisVoice &&
-            !com.jarvis.assistant.security.AiEngineStore(applicationContext).useGroq &&
-            (application as? JarvisApp)?.preferences?.apiKey.orEmpty().isNotBlank()
+            (customActive || !com.jarvis.assistant.security.AiEngineStore(applicationContext).useGroq) &&
+            if (customActive) configManager.isAnyEngineReady()
+            else (application as? JarvisApp)?.preferences?.apiKey.orEmpty().isNotBlank()
         if (!wantsJarvisVoice) {
             batteryAnnouncer?.say(text)
             return
@@ -4844,6 +4903,11 @@ class JarvisConversationService : Service() {
         java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.CompletableDeferred<JSONObject>>()
 
     private fun usingGroqEngine(): Boolean = liveWebSocket is com.jarvis.assistant.network.GroqLiveSession
+
+    /** True when a custom provider session is active (realtime WebSocket or turn-based chat). */
+    private fun usingCustomEngine(): Boolean =
+        liveWebSocket is com.jarvis.assistant.network.CustomRealtimeSession ||
+            liveWebSocket is com.jarvis.assistant.network.CustomChatSession
 
     /** Sends a tool result to the AI session, or to the automation that started the tool. */
     private fun deliverToolResult(callId: String, name: String, result: JSONObject) {

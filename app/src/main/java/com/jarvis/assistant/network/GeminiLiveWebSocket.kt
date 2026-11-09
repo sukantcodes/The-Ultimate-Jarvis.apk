@@ -59,7 +59,17 @@ open class GeminiLiveWebSocket(
     private var reconnectJob: Job? = null
     var promptProvider: (() -> String)? = null
 
+    /**
+     * The WebSocket URL used by [initiateConnection]. The default targets Gemini Live; subclasses
+     * (such as the custom-provider realtime session) override this to point at their own wss endpoint.
+     */
+    protected open fun connectionUrl(apiKey: String): String =
+        "${GeminiConstants.WS_BASE_URL}?key=$apiKey"
+
     open fun isSessionReady(): Boolean = isConnected.get() && isSetupComplete.get()
+
+    /** Human-readable engine name used in error messages. Subclasses override for custom providers. */
+    protected open val providerLabel: String = "Gemini"
 
     open fun connect(scope: CoroutineScope) {
         coroutineScope = scope
@@ -69,8 +79,8 @@ open class GeminiLiveWebSocket(
 
     private fun initiateConnection() {
         if (apiKey.isBlank()) {
-            Log.e(TAG, "Gemini API Key is empty. Aborting connection.")
-            listener.onError("Gemini API Key is missing. Please configure it in Settings.", isFatal = true, errorCode = "API_KEY_MISSING")
+            Log.e(TAG, "API Key is empty. Aborting connection.")
+            listener.onError("$providerLabel API Key is missing. Please configure it in Settings.", isFatal = true, errorCode = "API_KEY_MISSING")
             listener.onConnectionStateChanged("OFFLINE")
             return
         }
@@ -78,7 +88,7 @@ open class GeminiLiveWebSocket(
         listener.onConnectionStateChanged("CONNECTING...")
 
         try {
-            val url = "${GeminiConstants.WS_BASE_URL}?key=$apiKey"
+            val url = connectionUrl(apiKey)
             val request = Request.Builder()
                 .url(url)
                 .build()
@@ -117,8 +127,8 @@ open class GeminiLiveWebSocket(
                                        reason.contains("API key", ignoreCase = true) ||
                                        reason.contains("key invalid", ignoreCase = true)
                     if (isApiKeyError) {
-                        Log.e(TAG, "Gemini rejected session due to invalid API key (code=$code, reason=$reason)")
-                        listener.onError("Invalid API Key: Google rejected the key. Please verify your Gemini API key in Settings.", isFatal = true, errorCode = "API_KEY_INVALID")
+                        Log.e(TAG, "$providerLabel rejected session due to invalid API key (code=$code, reason=$reason)")
+                        listener.onError("Invalid API Key: $providerLabel rejected the key. Please verify your API key in Settings.", isFatal = true, errorCode = "API_KEY_INVALID")
                         listener.onConnectionStateChanged("ERROR • INVALID KEY")
                         return
                     }
@@ -179,7 +189,7 @@ open class GeminiLiveWebSocket(
 
                     if (isApiKeyError) {
                         Log.e(TAG, "Fatal failure: Invalid API Key (HTTP $code: $errorMsg)")
-                        listener.onError("Invalid API Key: Google rejected the key. Please verify your Gemini API key in Settings.", isFatal = true, errorCode = "API_KEY_INVALID")
+                        listener.onError("Invalid API Key: $providerLabel rejected the key. Please verify your API key in Settings.", isFatal = true, errorCode = "API_KEY_INVALID")
                         listener.onConnectionStateChanged("ERROR • INVALID KEY")
                         return
                     }
@@ -959,7 +969,7 @@ open class GeminiLiveWebSocket(
                     listener.onError("API Quota Exceeded: $errMsg", isFatal = true, errorCode = "QUOTA_EXCEEDED")
                     listener.onConnectionStateChanged("ERROR • QUOTA EXCEEDED")
                 } else {
-                    listener.onError("Gemini Error ($errCode): $errMsg", isFatal = false)
+                    listener.onError("$providerLabel Error ($errCode): $errMsg", isFatal = false)
                 }
                 return
             }

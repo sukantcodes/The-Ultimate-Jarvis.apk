@@ -162,6 +162,71 @@ object DocumentAnalysisClient {
             }
         }
 
+    /**
+     * Analyzes an attachment through a custom OpenAI-compatible provider. The file is sent as an
+     * inline base64 part so multimodal models can see it. Only called when the active custom
+     * model advertises image/file input (see ChatFragment capability check).
+     */
+    suspend fun analyzeWithCustomProvider(
+        context: Context,
+        document: SelectedDocument,
+        prompt: String,
+        profile: com.jarvis.assistant.network.provider.CustomProviderProfile
+    ): String = withContext(Dispatchers.IO) {
+        val input = if (document.uri.scheme == "file") {
+            document.uri.path?.let { FileInputStream(File(it)) }
+        } else {
+            context.contentResolver.openInputStream(document.uri)
+        }
+        val bytes = input?.use { readLimited(it) }
+            ?: throw IllegalArgumentException("Jarvis couldn't open this file. Try selecting it again.")
+        val extension = document.name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+        val mime = document.mimeType.lowercase(Locale.ROOT)
+        val inlineMime = when {
+            mime.startsWith("image/") -> mime
+            mime.startsWith("audio/") || mime.startsWith("video/") -> mime
+            extension == "pdf" || mime == "application/pdf" -> "application/pdf"
+            extension in listOf("png", "jpg", "jpeg", "webp", "gif") -> when (extension) {
+                "png" -> "image/png"
+                "webp" -> "image/webp"
+                "gif" -> "image/gif"
+                else -> "image/jpeg"
+            }
+            else -> null // plain text fallback below
+        }
+        val userMessage = JSONObject().put("role", "user").put(
+            "content", JSONArray().apply {
+                put(JSONObject().put("type", "text").put("text",
+                    "You are Jarvis, analyzing a file the user intentionally attached to this chat.\n" +
+                    "File name: ${document.name}\n" +
+                    "User request: ${prompt.ifBlank { "Analyze this file and explain its contents." }}\n" +
+                    "Be accurate, identify limitations, and never claim content that is not present.\n" +
+                    "If asked to edit or rewrite the file, return the complete revised content in a clearly marked section."))
+                if (inlineMime != null) {
+                    put(JSONObject().put("type", "image_url").put("image_url",
+                        JSONObject().put("url", "data:$inlineMime;base64," +
+                            Base64.encodeToString(bytes, Base64.NO_WRAP))))
+                } else {
+                    val text = extractText(bytes, extension, mime)
+                    put(JSONObject().put("type", "text").put("text",
+                        "FILE CONTENT BEGIN\n$text\nFILE CONTENT END"))
+                }
+            }
+        )
+        val client = com.jarvis.assistant.network.provider.OpenAiChatClient()
+        val result = client.chat(
+            profile = profile,
+            credentialStore = com.jarvis.assistant.security.CustomProviderCredentialStore(context),
+            messages = listOf(userMessage),
+            maxTokens = 1400,
+            temperature = 0.2
+        )
+        if (result.content.isBlank()) {
+            throw IllegalStateException("${profile.name} returned an empty answer for this file.")
+        }
+        result.content
+    }
+
     private fun readLimited(input: InputStream): ByteArray {
         val output = ByteArrayOutputStream()
         val buffer = ByteArray(8192)
@@ -175,21 +240,6 @@ object DocumentAnalysisClient {
         }
         return output.toByteArray()
     }
-
-    /** Returns bounded text for the in-app preview of modern Office documents. */
-    suspend fun previewOfficeText(filePath: String, fileName: String, mimeType: String): String =
-        withContext(Dispatchers.IO) {
-            val file = File(filePath)
-            if (!file.isFile || file.length() > MAX_FILE_BYTES) {
-                throw IllegalArgumentException("This attachment is missing or exceeds the 14 MB preview limit.")
-            }
-            val extension = fileName.substringAfterLast('.', "").lowercase(Locale.ROOT)
-            if (extension !in listOf("docx", "xlsx", "pptx", "odt", "ods", "odp")) {
-                throw IllegalArgumentException("In-app preview supports modern Office (.docx, .xlsx, .pptx) and OpenDocument files. Convert legacy .xls/.ppt files to .xlsx/.pptx to preview them.")
-            }
-            val bytes = FileInputStream(file).use { readLimited(it) }
-            extractText(bytes, extension, mimeType.lowercase(Locale.ROOT))
-        }
 
     private fun extractText(bytes: ByteArray, extension: String, mime: String): String {
         val text = if (extension in listOf("docx", "xlsx", "pptx", "odt", "ods", "odp")) {
@@ -211,23 +261,14 @@ object DocumentAnalysisClient {
 
     private fun extractOfficeXml(bytes: ByteArray): String {
         val out = StringBuilder()
-        var expandedBytes = 0
-        var entryCount = 0
         ZipInputStream(bytes.inputStream()).use { zip ->
             var entry = zip.nextEntry
             while (entry != null) {
-                entryCount++
-                if (entryCount > 256) throw IllegalArgumentException("This Office file contains too many internal parts to preview safely.")
                 if (!entry.isDirectory && entry.name.endsWith(".xml", ignoreCase = true) &&
                     (entry.name.contains("document") || entry.name.contains("sharedStrings") ||
                      entry.name.contains("sheet") || entry.name.contains("slides/slide") ||
                      entry.name.contains("content.xml") || entry.name.contains("word/"))) {
-                    val xmlBytes = readZipEntryLimited(zip, 1024 * 1024)
-                    expandedBytes += xmlBytes.size
-                    if (expandedBytes > 8 * 1024 * 1024) {
-                        throw IllegalArgumentException("This Office file expands beyond the safe preview limit.")
-                    }
-                    val xml = xmlBytes.toString(Charsets.UTF_8)
+                    val xml = zip.readBytes().toString(Charsets.UTF_8)
                     Regex("<(?:\\w+:)?t[^>]*>(.*?)</(?:\\w+:)?t>", setOf(RegexOption.DOT_MATCHES_ALL))
                         .findAll(xml).forEach { match ->
                             out.append(match.groupValues[1]
@@ -243,19 +284,5 @@ object DocumentAnalysisClient {
             }
         }
         return out.toString()
-    }
-
-    private fun readZipEntryLimited(input: InputStream, limit: Int): ByteArray {
-        val output = ByteArrayOutputStream()
-        val buffer = ByteArray(8192)
-        var total = 0
-        while (true) {
-            val count = input.read(buffer)
-            if (count < 0) break
-            total += count
-            if (total > limit) throw IllegalArgumentException("An Office document component is too large to preview safely.")
-            output.write(buffer, 0, count)
-        }
-        return output.toByteArray()
     }
 }
