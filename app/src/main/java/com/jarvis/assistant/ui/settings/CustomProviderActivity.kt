@@ -53,7 +53,9 @@ class CustomProviderActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityCustomProviderBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root)
+        // ThemeManager.applyTheme() paints one continuous background on the window.
+        // Keep this root transparent so it cannot cover that canvas with a second layer.
+        binding.root.setBackgroundColor(android.graphics.Color.TRANSPARENT)
 
         setupSpinners()
         setupListeners()
