@@ -22,6 +22,13 @@ class BlinkitNotificationTrackerTest {
         assertEquals(null, BlinkitNotificationTracker.parseStage(""))
     }
 
+    @Test fun notificationsAreNotAssignedToAnArbitraryOrder() {
+        assertEquals(0, BlinkitNotificationTracker.resolveOrderIndex(listOf("local-order-1"), null))
+        assertEquals(null, BlinkitNotificationTracker.resolveOrderIndex(listOf("local-order-1", "local-order-2"), null))
+        assertEquals(1, BlinkitNotificationTracker.resolveOrderIndex(listOf("BLK-12345", "BLK-67890"), "blk-67890"))
+        assertEquals(null, BlinkitNotificationTracker.resolveOrderIndex(listOf("BLK-12345", "BLK-67890"), "BLK-99999"))
+    }
+
     @Test fun stageCannotRegressOrChangeAfterTerminalState() {
         assertTrue(BlinkitNotificationTracker.shouldAdvance(OrderStage.PLACED, OrderStage.ON_THE_WAY))
         assertFalse(BlinkitNotificationTracker.shouldAdvance(OrderStage.ON_THE_WAY, OrderStage.PREPARING))
