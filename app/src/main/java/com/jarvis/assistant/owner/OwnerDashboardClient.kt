@@ -7,6 +7,7 @@ import com.google.gson.JsonParser
 import com.jarvis.assistant.auth.AuthManager
 import com.jarvis.assistant.auth.AuthResult
 import com.jarvis.assistant.auth.SupabaseConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -237,6 +238,8 @@ object OwnerDashboardClient {
                     val obj = runCatching { JsonParser.parseString(text).asJsonObject }.getOrNull()
                     OwnerResult.Ok(Raw(resp.code, obj))
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: IOException) {
                 OwnerResult.Network
             } catch (_: Exception) {
