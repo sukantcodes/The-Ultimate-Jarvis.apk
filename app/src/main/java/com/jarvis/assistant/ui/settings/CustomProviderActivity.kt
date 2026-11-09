@@ -37,6 +37,16 @@ class CustomProviderActivity : AppCompatActivity() {
 
     /** The profile currently being edited, or null when the form is empty (Add). */
     private var editingProfileId: String? = null
+    private var pendingFetchedModels: List<DiscoveredModel> = emptyList()
+    private var pendingFetchSignature: String = ""
+
+    private fun currentProviderSignature(
+        baseUrl: String,
+        protocol: ProviderProtocol,
+        authMethod: AuthMethod,
+        discoveryPath: String
+    ): String = listOf(baseUrl.trim().trimEnd('/'), protocol.name, authMethod.name, discoveryPath.trim())
+        .joinToString("|")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         com.jarvis.assistant.util.ThemeManager.applyTheme(this)
@@ -243,6 +253,10 @@ class CustomProviderActivity : AppCompatActivity() {
     private fun loadIntoForm(profileId: String) {
         val profile = store.profile(profileId) ?: return
         editingProfileId = profile.id
+        pendingFetchedModels = profile.models
+        pendingFetchSignature = currentProviderSignature(
+            profile.baseUrl, profile.protocol, profile.authMethod, profile.discoveryPath
+        )
         binding.tvFormTitle.text = "Edit Provider"
         binding.etName.setText(profile.name)
         binding.etBaseUrl.setText(profile.baseUrl)
@@ -313,13 +327,21 @@ class CustomProviderActivity : AppCompatActivity() {
 
         val old = editingProfileId?.let { store.profile(it) }
         val id = editingProfileId ?: UUID.randomUUID().toString()
-        val models = old?.models ?: emptyList()
-        val selectedModelId = selectedModelFromUi(old?.selectedModelId ?: "")
+        val signature = currentProviderSignature(baseUrl, protocol, selectedAuth(), discoveryPath)
+        val models = if (pendingFetchSignature == signature && pendingFetchedModels.isNotEmpty()) {
+            pendingFetchedModels
+        } else {
+            old?.models ?: emptyList()
+        }
+        val selectedModelId = selectedModelFromUi(
+            old?.selectedModelId?.takeIf { it.isNotBlank() }
+                ?: models.firstOrNull()?.id.orEmpty()
+        )
 
         val profile = CustomProviderProfile(
             id = id,
             name = name,
-            baseUrl = baseUrl,
+            baseUrl = validation.normalizedBase,
             protocol = protocol,
             authMethod = selectedAuth(),
             discoveryPath = discoveryPath,
@@ -337,7 +359,28 @@ class CustomProviderActivity : AppCompatActivity() {
 
         store.save(profile)
         editingProfileId = id
-        Toast.makeText(this, "Provider saved.", Toast.LENGTH_SHORT).show()
+        pendingFetchedModels = models
+        pendingFetchSignature = signature
+
+        val canActivate = credentials.hasKeyFor(id) &&
+            selectedModelId.isNotBlank() &&
+            models.any { it.id == selectedModelId }
+        if (canActivate) {
+            configManager.activateCustom(profile)
+            runCatching {
+                com.jarvis.assistant.background.JarvisConversationService.clearLiveError()
+                com.jarvis.assistant.background.JarvisConversationService.restartSession()
+            }.onFailure {
+                android.util.Log.w("CustomProviderActivity", "Provider saved; live session restart deferred.", it)
+            }
+            Toast.makeText(this, "Provider saved and activated.", Toast.LENGTH_LONG).show()
+        } else {
+            Toast.makeText(
+                this,
+                "Provider saved. Add an API key and fetch/select a model to activate it.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
         refreshList()
         refreshActiveCard()
     }
@@ -418,9 +461,13 @@ class CustomProviderActivity : AppCompatActivity() {
             when (result) {
                 is ProviderModelDiscovery.Result.Success -> {
                     val existing = store.profile(editingProfileId ?: "")?.selectedModelId ?: ""
-                    renderModels(result.models, existing)
-                    binding.tvEndpointResult.text = "Models refreshed."
-                    val updatedProfile = store.profile(editingProfileId ?: "")?.copy(models = result.models)
+                    pendingFetchedModels = result.models
+                    pendingFetchSignature = currentProviderSignature(
+                        baseUrl, protocol, selectedAuth(), binding.etDiscoveryPath.text?.toString().orEmpty()
+                    )
+                    renderModels(result.models, existing.ifBlank { result.models.firstOrNull()?.id.orEmpty() })
+                    binding.tvEndpointResult.text = "Models refreshed (${result.models.size})."
+                    val updatedProfile = editingProfileId?.let { store.profile(it) }?.copy(models = result.models)
                     if (updatedProfile != null) store.save(updatedProfile)
                 }
                 is ProviderModelDiscovery.Result.Error -> {
