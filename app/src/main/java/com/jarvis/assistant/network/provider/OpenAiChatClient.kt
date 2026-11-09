@@ -34,17 +34,20 @@ class OpenAiChatClient(
 
     /** The full OpenAI-style path for a given provider base URL. */
     fun chatCompletionsUrl(baseUrl: String): String =
-        trimBase(baseUrl) + "/v1/chat/completions"
+        ProviderUrlValidator.appendApiPath(baseUrl, "v1/chat/completions")
 
     fun transcriptionsUrl(baseUrl: String): String =
-        trimBase(baseUrl) + "/v1/audio/transcriptions"
+        ProviderUrlValidator.appendApiPath(baseUrl, "v1/audio/transcriptions")
 
     fun modelsUrl(baseUrl: String): String =
-        trimBase(baseUrl) + "/v1/models"
+        ProviderUrlValidator.appendApiPath(baseUrl, "v1/models")
 
-    /** Common URL for discovery, shared with [ProviderModelDiscovery]. */
-    private fun trimBase(baseUrl: String): String =
-        ProviderUrlValidator.httpBase(baseUrl).trimEnd('/')
+    /** Adds query authentication only when explicitly selected in the provider profile. */
+    private fun withQueryKey(url: String, method: AuthMethod, key: String): String {
+        if (method != AuthMethod.QUERY_PARAM) return url
+        val separator = if (url.contains("?")) "&" else "?"
+        return url + separator + "api_key=" + java.net.URLEncoder.encode(key, "UTF-8")
+    }
 
     /**
      * Runs one chat-completions call against the provider. `messages` are OpenAI-style
@@ -74,7 +77,7 @@ class OpenAiChatClient(
         }
 
         val request = Request.Builder()
-            .url(chatCompletionsUrl(profile.baseUrl))
+            .url(withQueryKey(chatCompletionsUrl(profile.baseUrl), profile.authMethod, key))
             .apply {
                 when (profile.authMethod) {
                     AuthMethod.BEARER -> header("Authorization", "Bearer $key")
@@ -142,7 +145,7 @@ class OpenAiChatClient(
             .build()
 
         val request = Request.Builder()
-            .url(transcriptionsUrl(profile.baseUrl))
+            .url(withQueryKey(transcriptionsUrl(profile.baseUrl), profile.authMethod, key))
             .apply {
                 when (profile.authMethod) {
                     AuthMethod.BEARER -> header("Authorization", "Bearer $key")
