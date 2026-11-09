@@ -30,6 +30,7 @@ class WhatsAppAssistant(
 
     private var pendingDraft: PendingWhatsAppDraft? = null
     private var disambiguationCandidates: List<ContactInfo>? = null
+    private var pendingDisambiguationMessage: String? = null
 
     fun hasPendingDraft(): Boolean = pendingDraft != null
 
@@ -50,6 +51,7 @@ class WhatsAppAssistant(
         when (resolution) {
             is ContactResolutionResult.SingleMatch -> {
                 disambiguationCandidates = null
+                pendingDisambiguationMessage = null
                 val contact = resolution.contact
                 pendingDraft = PendingWhatsAppDraft(
                     contactName = contact.name,
@@ -60,12 +62,14 @@ class WhatsAppAssistant(
             }
             is ContactResolutionResult.MultipleMatches -> {
                 disambiguationCandidates = resolution.candidates
+                pendingDisambiguationMessage = cleanMessage
                 val names = resolution.candidates.take(3).map { it.name }.joinToString(" and ")
                 return "Which $cleanContact? I found $names."
             }
             is ContactResolutionResult.NoMatch -> {
                 // If contact was entered as a raw phone number or not found in contacts
                 disambiguationCandidates = null
+                pendingDisambiguationMessage = null
                 val isPhoneNumber = cleanContact.replace(Regex("[^0-9+]"), "").length >= 7
                 val phone = if (isPhoneNumber) cleanContact.replace(Regex("[^0-9+]"), "") else null
                 pendingDraft = PendingWhatsAppDraft(
@@ -77,6 +81,7 @@ class WhatsAppAssistant(
             }
             is ContactResolutionResult.PermissionDenied -> {
                 disambiguationCandidates = null
+                pendingDisambiguationMessage = null
                 pendingDraft = PendingWhatsAppDraft(
                     contactName = cleanContact,
                     phoneNumber = null,
@@ -107,7 +112,9 @@ class WhatsAppAssistant(
         }
 
         disambiguationCandidates = null
-        val msg = if (pendingMessage.isNotBlank()) pendingMessage else "Hello"
+        val msg = pendingMessage.takeIf { it.isNotBlank() } ?: pendingDisambiguationMessage.orEmpty()
+        if (msg.isBlank()) return "Which message would you like to send to ${chosen.name}?"
+        pendingDisambiguationMessage = null
         pendingDraft = PendingWhatsAppDraft(
             contactName = chosen.name,
             phoneNumber = chosen.phoneNumber,
@@ -194,6 +201,8 @@ class WhatsAppAssistant(
         return if (pendingDraft != null) {
             val name = pendingDraft?.contactName
             pendingDraft = null
+            disambiguationCandidates = null
+            pendingDisambiguationMessage = null
             "Draft cancelled for $name. I did not send it."
         } else {
             "No active draft to cancel."
