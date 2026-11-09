@@ -184,6 +184,14 @@ class CustomProviderActivity : AppCompatActivity() {
             strokeWidth = 1
         }
         activateBtn.setOnClickListener {
+            if (profile.protocol == ProviderProtocol.GEMINI_COMPATIBLE) {
+                Toast.makeText(
+                    this,
+                    "Gemini-compatible REST chat is not connected yet. Use OpenAI-compatible or Gemini Live.",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@setOnClickListener
+            }
             if (credentials.hasKeyFor(profile.id) && profile.selectedModel() != null) {
                 configManager.activateCustom(profile)
                 com.jarvis.assistant.background.JarvisConversationService.clearLiveError()
@@ -374,7 +382,8 @@ class CustomProviderActivity : AppCompatActivity() {
         pendingFetchedModels = models
         pendingFetchSignature = signature
 
-        val canActivate = credentials.hasKeyFor(id) &&
+        val canActivate = protocol != ProviderProtocol.GEMINI_COMPATIBLE &&
+            credentials.hasKeyFor(id) &&
             selectedModelId.isNotBlank() &&
             models.any { it.id == selectedModelId }
         if (canActivate) {
@@ -392,11 +401,12 @@ class CustomProviderActivity : AppCompatActivity() {
                 com.jarvis.assistant.background.JarvisConversationService.clearLiveError()
                 com.jarvis.assistant.background.JarvisConversationService.restartSession()
             }
-            Toast.makeText(
-                this,
-                "Provider saved. Add an API key and fetch/select a model to activate it.",
-                Toast.LENGTH_LONG
-            ).show()
+            val nextStep = if (protocol == ProviderProtocol.GEMINI_COMPATIBLE) {
+                "Gemini-compatible REST chat is not connected yet. Use OpenAI-compatible or Gemini Live."
+            } else {
+                "Provider saved. Add an API key and fetch/select a model to activate it."
+            }
+            Toast.makeText(this, nextStep, Toast.LENGTH_LONG).show()
         }
         refreshList()
         refreshActiveCard()
@@ -545,6 +555,14 @@ class CustomProviderActivity : AppCompatActivity() {
         val profile = editingProfileId?.let { store.profile(it) }
         if (profile == null) {
             Toast.makeText(this, "Save the provider first, then activate it.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (profile.protocol == ProviderProtocol.GEMINI_COMPATIBLE) {
+            Toast.makeText(
+                this,
+                "Gemini-compatible REST chat is not connected yet. Use OpenAI-compatible or Gemini Live.",
+                Toast.LENGTH_LONG
+            ).show()
             return
         }
         if (!credentials.hasKeyFor(profile.id)) {
