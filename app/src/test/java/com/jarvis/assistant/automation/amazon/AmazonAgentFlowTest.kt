@@ -198,6 +198,18 @@ class AmazonAgentFlowTest {
         assertTrue(r.message.contains("Verified in the cart"))
     }
 
+    @Test fun addToCartWithUnverifiedRequestedQuantityIsNotSuccess() {
+        val w = world()
+        run { w.agent.search(AmazonSearchRequest("headphones")) }
+        val result = run { w.agent.addToCart(2, 2, emptyList()) }
+
+        assertFalse(result.success)
+        assertFalse(result.verified)
+        assertEquals(AmazonStatus.NOT_VERIFIED, result.status)
+        assertTrue(result.extra["in_cart"] == true)
+        assertTrue(result.message.contains("requested quantity 2 was not verified"))
+    }
+
     @Test fun addToCartWithoutCartEvidenceIsNotClaimed() {
         val w = world()
         w.addWorks = false
