@@ -7,8 +7,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.ByteArrayInputStream
-import javax.imageio.ImageIO
 
 class CapabilityTest {
 
@@ -60,9 +58,13 @@ class CapabilityTest {
             .asJsonObject["image_url"].asJsonObject["url"].asString
         assertTrue(dataUrl.startsWith("data:image/png;base64,"))
         val png = java.util.Base64.getDecoder().decode(dataUrl.removePrefix("data:image/png;base64,"))
-        val decoded = ImageIO.read(ByteArrayInputStream(png))
-        assertNotNull("probe image must be a decodable PNG", decoded)
-        assertEquals(64, decoded.width)
+        // PNG signature, then the IHDR chunk carries width and height as big-endian ints.
+        assertEquals(listOf(0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A), png.take(8).map { it.toInt() and 0xFF })
+        assertEquals("IHDR", String(png, 12, 4, Charsets.US_ASCII))
+        fun int(o: Int) = ((png[o].toInt() and 0xFF) shl 24) or ((png[o + 1].toInt() and 0xFF) shl 16) or
+            ((png[o + 2].toInt() and 0xFF) shl 8) or (png[o + 3].toInt() and 0xFF)
+        assertEquals(64, int(16))
+        assertEquals(64, int(20))
     }
 
     @Test fun rejected_credentials_stop_probing_and_claim_nothing() {
