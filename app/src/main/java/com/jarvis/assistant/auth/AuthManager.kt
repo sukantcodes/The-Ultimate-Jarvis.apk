@@ -152,8 +152,13 @@ object AuthManager {
         if (!current.isExpired(nowSec())) return AuthResult.Success(current.accessToken)
         val invalid = AuthResult.Failure(AuthError.SESSION_INVALID, SupabaseResponseParser.messageFor(AuthError.SESSION_INVALID, ""))
         return when (refreshLocked()) {
-            SessionCheck.SIGNED_IN, SessionCheck.OFFLINE_KEPT ->
-                _session.value?.let { AuthResult.Success(it.accessToken) } ?: invalid
+            SessionCheck.SIGNED_IN -> {
+                val refreshed = _session.value?.takeIf { !it.isExpired(nowSec()) }
+                refreshed?.let { AuthResult.Success(it.accessToken) } ?: invalid
+            }
+            // Keeping an expired session locally is useful for offline account display,
+            // but an expired bearer token must never be returned as valid credentials.
+            SessionCheck.OFFLINE_KEPT -> invalid
             else -> invalid
         }
     }
