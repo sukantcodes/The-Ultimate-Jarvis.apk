@@ -23,8 +23,27 @@ export async function authenticate(req: Request, admin: SupabaseClient): Promise
   return error || !data.user ? null : data.user;
 }
 
-const IPV4 = /^(\d{1,3})(\.\d{1,3}){3}$/;
-const IPV6 = /^[0-9a-fA-F:]+$/;
+const IPV4 = /^(\\d{1,3})(\\.\\d{1,3}){3}$/;
+
+/** Returns a canonical IP string, or null for malformed IPv4/IPv6 input. */
+export function normalizeIp(raw: string): string | null {
+  const ip = raw.trim();
+  if (!ip || ip.length > 45 || ip.includes("%")) return null;
+  if (ip.includes(":")) {
+    try {
+      const host = new URL(`http://[${ip}]/`).hostname;
+      return host.startsWith("[") && host.endsWith("]")
+        ? host.slice(1, -1).toLowerCase()
+        : null;
+    } catch {
+      return null;
+    }
+  }
+  if (!IPV4.test(ip)) return null;
+  const parts = ip.split(".");
+  if (parts.length !== 4 || parts.some((part) => part.length === 0 || Number(part) > 255)) return null;
+  return parts.map((part) => String(Number(part))).join(".");
+}
 
 /**
  * Public IP as seen by Supabase's edge, never a value supplied in the request body. Falls back to
@@ -33,8 +52,5 @@ const IPV6 = /^[0-9a-fA-F:]+$/;
 export function clientIp(req: Request): string | null {
   const raw = req.headers.get("cf-connecting-ip") ??
     req.headers.get("x-forwarded-for")?.split(",")[0] ?? "";
-  const ip = raw.trim();
-  if (IPV4.test(ip) && ip.split(".").every((p) => Number(p) <= 255)) return ip;
-  if (ip.includes(":") && ip.length <= 45 && IPV6.test(ip)) return ip;
-  return null;
+  return normalizeIp(raw);
 }
