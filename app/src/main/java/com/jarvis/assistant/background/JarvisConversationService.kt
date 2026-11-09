@@ -3480,6 +3480,18 @@ class JarvisConversationService : Service() {
                         } else {
                         val goalObj = com.jarvis.assistant.automation.agent.TaskGoal.fromUserUtterance(autonomousTaskGoal)
                         val localCompletionCheck = verifyTaskCompletionLocally(autonomousTaskGoal)
+                        val engineContext = com.jarvis.assistant.automation.agent.AgentTaskEngine.current()
+                        val allMappedStepsVerified = engineContext != null &&
+                            engineContext.steps.isNotEmpty() &&
+                            engineContext.steps.all { it.status == com.jarvis.assistant.automation.agent.TaskStepStatus.COMPLETED }
+                        val verifiedStepFallback = !finalCompletionCheck.first &&
+                            finalCompletionCheck.second == "No local verifier is available for this goal type" &&
+                            allMappedStepsVerified &&
+                            engineContext?.lastActionVerified == true &&
+                            !engineContext.lastObservation.isNullOrBlank()
+                        val finalCompletionCheck = if (verifiedStepFallback) {
+                            true to "Every mapped action was individually verified and a fresh final screen observation was captured"
+                        } else localCompletionCheck
                         if (isGoogleFlowCreationTask && (!flowPromptVerified || !flowGenerationVerified)) {
                             Log.w("JarvisService", "Rejected Google Flow completion without verified prompt and submission (prompt=$flowPromptVerified, generation=$flowGenerationVerified)")
                             result.put("success", false)
@@ -3490,18 +3502,18 @@ class JarvisConversationService : Service() {
                             result.put("success", false)
                             result.put("message", "Bulk task completion rejected: no end-of-list evidence yet. Continue processing matching visible items, then scroll and re-observe until two consecutive screen signatures show no further list content.")
                             result.put("system_directive", "COMPLETION REJECTED: The request explicitly applies to ALL matching items. Do not claim completion. Inspect the fresh screen, process each visible matching target once, then scroll and observe again. Repeat until the app shows no further content; do not scroll past a visible target before processing it.")
-                        } else if (!isAutonomousTaskRunning || !localCompletionCheck.first) {
+                        } else if (!isAutonomousTaskRunning || !finalCompletionCheck.first) {
                             com.jarvis.assistant.automation.agent.AgentTaskEngine.recordCompletionEvidence(
                                 com.jarvis.assistant.automation.agent.AgentTaskEngine.CompletionEvidence.UNKNOWN,
-                                if (isAutonomousTaskRunning) localCompletionCheck.second else "There is no active autonomous task to complete"
+                                if (isAutonomousTaskRunning) finalCompletionCheck.second else "There is no active autonomous task to complete"
                             )
                             result.put("success", false)
-                            result.put("message", "Completion is unverified: ${if (isAutonomousTaskRunning) localCompletionCheck.second else "There is no active autonomous task to complete"}")
+                            result.put("message", "Completion is unverified: ${if (isAutonomousTaskRunning) finalCompletionCheck.second else "There is no active autonomous task to complete"}")
                             result.put("system_directive", "COMPLETION REJECTED: Do not claim the task is done. The app has not verified the requested final state. Re-observe, continue only with a clear safe action, or report the blocker honestly.")
                         } else {
                             com.jarvis.assistant.automation.agent.AgentTaskEngine.recordCompletionEvidence(
                                 com.jarvis.assistant.automation.agent.AgentTaskEngine.CompletionEvidence.VERIFIED_GOAL,
-                                localCompletionCheck.second
+                                finalCompletionCheck.second
                             )
                             val engineCompleted = com.jarvis.assistant.automation.agent.AgentTaskEngine.finish(
                                 com.jarvis.assistant.automation.agent.AgentTaskEngine.State.COMPLETED
@@ -3509,14 +3521,28 @@ class JarvisConversationService : Service() {
                             if (!engineCompleted) {
                                 // Completion is transactional: do not stop the loop or announce success
                                 // until both local verification and every mapped step are accepted.
-                                val unfinishedSteps = com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value
-                                    ?.steps
+                                val rejectedSnapshot = com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value
+                                val unfinishedStepTitles = rejectedSnapshot?.steps
                                     ?.filter { it.status != com.jarvis.assistant.automation.agent.TaskStepStatus.COMPLETED }
-                                    ?.joinToString(" → ") { it.title }
+                                    ?.map { it.title }
                                     .orEmpty()
+                                val unfinishedSteps = unfinishedStepTitles.joinToString(" → ")
+                                val rejectedTaskMap = org.json.JSONArray()
+                                rejectedSnapshot?.steps?.forEach { step ->
+                                    rejectedTaskMap.put(JSONObject().apply {
+                                        put("step_id", step.stepId)
+                                        put("title", step.title)
+                                        put("status", step.status.name)
+                                        put("expected_result", step.expectedResult)
+                                        step.actualResult?.let { put("actual_result", it) }
+                                    })
+                                }
                                 result.put("success", false)
                                 result.put("message", "The screen-level goal check passed, but the task engine rejected completion. Remaining mapped steps: ${unfinishedSteps.ifBlank { "task state unavailable" }}")
-                                result.put("pending_task_steps", unfinishedSteps)
+                                result.put("task_map", rejectedTaskMap)
+                                result.put("task_map_progress", rejectedSnapshot?.progressPercentage ?: 0)
+                                result.put("current_task_step", rejectedSnapshot?.steps?.firstOrNull { it.stepId == rejectedSnapshot.currentStepId }?.title ?: "Verify remaining actions")
+                                result.put("pending_task_steps", org.json.JSONArray(unfinishedStepTitles))
                                 result.put("system_directive", "COMPLETION REJECTED BY TASK ENGINE: Do NOT announce success. The autonomous task is still active. Read the pending_task_steps and current task_map, inspect the current screen, complete each remaining step in order, verify each result, then retry final verification. If a step is already done, gather fresh evidence and update its verified status; do not repeat a destructive or externally visible action.")
                                 Log.w("JarvisService", "Task completion rejected by AgentTaskEngine; autonomous execution remains active. Pending: $unfinishedSteps")
                             } else {
