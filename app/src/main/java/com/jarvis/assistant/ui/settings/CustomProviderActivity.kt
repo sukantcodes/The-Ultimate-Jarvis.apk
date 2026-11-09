@@ -184,7 +184,7 @@ class CustomProviderActivity : AppCompatActivity() {
             strokeWidth = 1
         }
         activateBtn.setOnClickListener {
-            if (credentials.hasKeyFor(profile.id) && profile.selectedModelId.isNotBlank()) {
+            if (credentials.hasKeyFor(profile.id) && profile.selectedModel() != null) {
                 configManager.activateCustom(profile)
                 com.jarvis.assistant.background.JarvisConversationService.clearLiveError()
                 com.jarvis.assistant.background.JarvisConversationService.restartSession()
@@ -302,11 +302,18 @@ class CustomProviderActivity : AppCompatActivity() {
 
     /** Selected model id from the radio list, or the previously selected one. */
     private fun selectedModelFromUi(fallback: String): String {
+        val available = ArrayList<String>(binding.layoutModelsList.childCount)
+        var selected = ""
         for (i in 0 until binding.layoutModelsList.childCount) {
             val rb = binding.layoutModelsList.getChildAt(i) as? RadioButton ?: continue
-            if (rb.isChecked) return rb.text.toString().substringBefore("  —  ").trim()
+            val id = rb.text.toString().substringBefore("  —  ").trim()
+            if (id.isBlank()) continue
+            available.add(id)
+            if (rb.isChecked) selected = id
         }
-        return fallback
+        return selected.ifBlank {
+            fallback.takeIf { it in available } ?: available.firstOrNull().orEmpty()
+        }
     }
 
     // ------------------------------------------------------------------ actions
@@ -377,6 +384,11 @@ class CustomProviderActivity : AppCompatActivity() {
             }
             Toast.makeText(this, "Provider saved and activated.", Toast.LENGTH_LONG).show()
         } else {
+            if (store.isActive(id)) {
+                configManager.deactivateCustom()
+                com.jarvis.assistant.background.JarvisConversationService.clearLiveError()
+                com.jarvis.assistant.background.JarvisConversationService.restartSession()
+            }
             Toast.makeText(
                 this,
                 "Provider saved. Add an API key and fetch/select a model to activate it.",
@@ -385,6 +397,42 @@ class CustomProviderActivity : AppCompatActivity() {
         }
         refreshList()
         refreshActiveCard()
+    }
+
+    /**
+     * Test/fetch with an isolated encrypted credential. Typing a replacement key must not
+     * overwrite the saved key until the user explicitly presses Save Provider.
+     */
+    private suspend fun discoverForForm(
+        baseUrl: String,
+        protocol: ProviderProtocol,
+        enteredKey: String
+    ): ProviderModelDiscovery.Result {
+        val key = enteredKey.ifBlank {
+            editingProfileId?.let { credentials.keyFor(it) }.orEmpty()
+        }
+        if (key.isBlank()) {
+            return ProviderModelDiscovery.Result.Error(
+                ProviderModelDiscovery.ErrorKind.AUTH_FAILED,
+                "Enter an API key to test or fetch models."
+            )
+        }
+
+        val temporaryId = "provider-probe-${UUID.randomUUID()}"
+        if (!credentials.saveKey(temporaryId, key)) {
+            return ProviderModelDiscovery.Result.Error(
+                ProviderModelDiscovery.ErrorKind.AUTH_FAILED,
+                "Could not store the test credential securely. Check Android Keystore availability."
+            )
+        }
+        return try {
+            val profile = editedProfileOrTemp(baseUrl, protocol).copy(id = temporaryId)
+            withContext(Dispatchers.IO) {
+                ProviderModelDiscovery().discover(profile, credentials)
+            }
+        } finally {
+            credentials.clearKey(temporaryId)
+        }
     }
 
     private fun testConnection() {
@@ -405,14 +453,7 @@ class CustomProviderActivity : AppCompatActivity() {
         binding.tvEndpointResult.text = "Testing ${validation.host} ..."
 
         lifecycleScope.launch {
-            val profile = editedProfileOrTemp(baseUrl, protocol)
-            val tempId = editingProfileId == null
-            // Make sure discovery sees the key the user entered (encrypted, never logged).
-            if (enteredKey.isNotBlank()) credentials.saveKey(profile.id, enteredKey)
-            val result = withContext(Dispatchers.IO) {
-                ProviderModelDiscovery().discover(profile, credentials)
-            }
-            if (tempId) credentials.clearKey(profile.id)
+            val result = discoverForForm(baseUrl, protocol, enteredKey)
             binding.btnTestConnection.isEnabled = true
             when (result) {
                 is ProviderModelDiscovery.Result.Success -> {
@@ -451,14 +492,7 @@ class CustomProviderActivity : AppCompatActivity() {
         binding.tvEndpointResult.text = "Fetching models from ${validation.host} ..."
 
         lifecycleScope.launch {
-            val profile = editedProfileOrTemp(baseUrl, protocol)
-            val tempId = editingProfileId == null
-            // Make sure discovery sees the key the user entered (encrypted, never logged).
-            if (enteredKey.isNotBlank()) credentials.saveKey(profile.id, enteredKey)
-            val result = withContext(Dispatchers.IO) {
-                ProviderModelDiscovery().discover(profile, credentials)
-            }
-            if (tempId) credentials.clearKey(profile.id)
+            val result = discoverForForm(baseUrl, protocol, enteredKey)
             binding.btnFetchModels.isEnabled = true
             when (result) {
                 is ProviderModelDiscovery.Result.Success -> {
@@ -507,6 +541,10 @@ class CustomProviderActivity : AppCompatActivity() {
             Toast.makeText(this, "Add an API key for this provider first.", Toast.LENGTH_LONG).show()
             return
         }
+        if (profile.selectedModel() == null) {
+            Toast.makeText(this, "Fetch models and select a valid model before activating.", Toast.LENGTH_LONG).show()
+            return
+        }
         configManager.activateCustom(profile)
         com.jarvis.assistant.background.JarvisConversationService.clearLiveError()
         com.jarvis.assistant.background.JarvisConversationService.restartSession()
@@ -520,8 +558,13 @@ class CustomProviderActivity : AppCompatActivity() {
             .setTitle("Delete ${profile.name}?")
             .setMessage("This removes the saved endpoint and its encrypted API key.")
             .setPositiveButton("Delete") { _, _ ->
+                val wasActive = store.isActive(profile.id)
                 credentials.clearKey(profile.id)
                 store.delete(profile.id)
+                if (wasActive) {
+                    com.jarvis.assistant.background.JarvisConversationService.clearLiveError()
+                    com.jarvis.assistant.background.JarvisConversationService.restartSession()
+                }
                 if (editingProfileId == profile.id) {
                     editingProfileId = null
                     binding.tvFormTitle.text = "Add Provider"
