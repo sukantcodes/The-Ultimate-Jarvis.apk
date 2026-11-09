@@ -1,5 +1,7 @@
 // Helpers shared by the JARVIS Edge Functions (identical copy lives in owner-dashboard/common.ts).
 import { createClient, type SupabaseClient, type User } from "npm:@supabase/supabase-js@2.45.4";
+import { normalizeIp } from "../owner-dashboard/ip.ts";
+export { normalizeIp } from "../owner-dashboard/ip.ts";
 
 export const json = (body: unknown, status = 200, extra: Record<string, string> = {}): Response =>
   new Response(JSON.stringify(body), {
@@ -23,9 +25,6 @@ export async function authenticate(req: Request, admin: SupabaseClient): Promise
   return error || !data.user ? null : data.user;
 }
 
-const IPV4 = /^(\d{1,3})(\.\d{1,3}){3}$/;
-const IPV6 = /^[0-9a-fA-F:]+$/;
-
 /**
  * Public IP as seen by Supabase's edge, never a value supplied in the request body. Falls back to
  * null (not stored) when no valid address is present.
@@ -33,8 +32,5 @@ const IPV6 = /^[0-9a-fA-F:]+$/;
 export function clientIp(req: Request): string | null {
   const raw = req.headers.get("cf-connecting-ip") ??
     req.headers.get("x-forwarded-for")?.split(",")[0] ?? "";
-  const ip = raw.trim();
-  if (IPV4.test(ip) && ip.split(".").every((p) => Number(p) <= 255)) return ip;
-  if (ip.includes(":") && ip.length <= 45 && IPV6.test(ip)) return ip;
-  return null;
+  return normalizeIp(raw);
 }
