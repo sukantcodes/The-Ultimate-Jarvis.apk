@@ -243,6 +243,18 @@ class RapidoAgentFlowTest {
         assertNull(gate.pending)
     }
 
+    @Test fun mixedVehicleCategoriesInBookLabelDoNotVerifySelection() {
+        find()
+        phone.selectionBroken = true
+        phone.bookLabelOverride = "Book Auto or Bike"
+        val result = prepare()
+
+        assertEquals(RapidoStatus.NOT_VERIFIED, result.status)
+        assertFalse(result.verified)
+        assertNull(gate.pending)
+        assertEquals(0, phone.bookClicks)
+    }
+
     @Test fun routeThatDoesNotMatchTheScreenBlocksPreparation() {
         find()
         phone.dropText = "Whitefield"
