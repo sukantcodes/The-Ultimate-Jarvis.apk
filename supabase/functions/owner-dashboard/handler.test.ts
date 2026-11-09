@@ -4,6 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
 import { createHandler } from "./handler.ts";
+import { normalizeIp } from "./ip.ts";
 
 const USER = "11111111-1111-4111-8111-111111111111";
 const OTHER = "22222222-2222-4222-8222-222222222222";
@@ -86,6 +87,15 @@ function setup(env: Record<string, string | undefined> = { OWNER_PASSWORD_HASH: 
     handler(new Request("https://x/f", { method: "POST", headers, body: JSON.stringify(body) }));
   return { call, clock, db, setUser: (u: string | null) => { authedUser = u; } };
 }
+
+test("IP normalization accepts valid IPv4 and IPv6 and rejects malformed values", () => {
+  assert.equal(normalizeIp("203.0.113.9"), "203.0.113.9");
+  assert.equal(normalizeIp("001.002.003.004"), "1.2.3.4");
+  assert.equal(normalizeIp("2001:0DB8:0:0:0:0:0:1"), "2001:db8::1");
+  assert.equal(normalizeIp("999.999.999.999"), null);
+  assert.equal(normalizeIp("::::"), null);
+  assert.equal(normalizeIp("2001:db8:::1"), null);
+});
 
 test("no signed-in user -> 401 for every action", async () => {
   const t = setup(); t.setUser(null);
