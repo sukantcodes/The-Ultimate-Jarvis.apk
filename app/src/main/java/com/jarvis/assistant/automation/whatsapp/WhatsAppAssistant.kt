@@ -30,9 +30,15 @@ class WhatsAppAssistant(
         private const val WHATSAPP_PACKAGE = "com.whatsapp"
     }
 
+    private sealed class PendingContactAction {
+        data class Message(val text: String) : PendingContactAction()
+        data class Call(val isVideo: Boolean) : PendingContactAction()
+    }
+
     private var pendingDraft: PendingWhatsAppDraft? = null
     private var disambiguationCandidates: List<ContactInfo>? = null
     private var pendingDisambiguationMessage: String? = null
+    private var pendingDisambiguationAction: PendingContactAction? = null
 
     fun hasPendingDraft(): Boolean = pendingDraft != null
 
@@ -49,11 +55,16 @@ class WhatsAppAssistant(
             return "What message would you like to send to $cleanContact?"
         }
 
+        pendingDraft = null
+        disambiguationCandidates = null
+        pendingDisambiguationMessage = null
+        pendingDisambiguationAction = null
         val resolution = contactResolver.resolveContact(cleanContact)
         when (resolution) {
             is ContactResolutionResult.SingleMatch -> {
                 disambiguationCandidates = null
                 pendingDisambiguationMessage = null
+                pendingDisambiguationAction = null
                 val contact = resolution.contact
                 pendingDraft = PendingWhatsAppDraft(
                     contactName = contact.name,
@@ -65,6 +76,7 @@ class WhatsAppAssistant(
             is ContactResolutionResult.MultipleMatches -> {
                 disambiguationCandidates = resolution.candidates
                 pendingDisambiguationMessage = cleanMessage
+                pendingDisambiguationAction = PendingContactAction.Message(cleanMessage)
                 val names = resolution.candidates.take(3).map { it.name }.joinToString(" and ")
                 return "Which $cleanContact? I found $names."
             }
@@ -113,16 +125,23 @@ class WhatsAppAssistant(
                 candidates.take(5).joinToString(", ") { it.name }
         }
 
+        val action = pendingDisambiguationAction
         disambiguationCandidates = null
-        val msg = pendingMessage.takeIf { it.isNotBlank() } ?: pendingDisambiguationMessage.orEmpty()
-        if (msg.isBlank()) return "Which message would you like to send to ${chosen.name}?"
         pendingDisambiguationMessage = null
-        pendingDraft = PendingWhatsAppDraft(
-            contactName = chosen.name,
-            phoneNumber = chosen.phoneNumber,
-            message = msg
-        )
-        return "Draft ready for ${chosen.name}. Please review it. Should I send it?"
+        pendingDisambiguationAction = null
+        return when (action) {
+            is PendingContactAction.Message -> {
+                val msg = pendingMessage.takeIf { it.isNotBlank() } ?: action.text
+                pendingDraft = PendingWhatsAppDraft(
+                    contactName = chosen.name,
+                    phoneNumber = chosen.phoneNumber,
+                    message = msg
+                )
+                "Draft ready for ${chosen.name}. Please review it. Should I send it?"
+            }
+            is PendingContactAction.Call -> makeCallForContact(chosen, action.isVideo)
+            null -> "The contact choice is no longer attached to an active message or call. Please repeat the request."
+        }
     }
 
     fun sendMessageDirectly(targetContact: String, messageText: String): String {
@@ -206,12 +225,13 @@ class WhatsAppAssistant(
     fun cancelDraft(): String {
         val draft = pendingDraft
         val wasResolvingContact = !disambiguationCandidates.isNullOrEmpty()
-        if (draft == null && !wasResolvingContact) return "No active draft to cancel."
+        if (draft == null && !wasResolvingContact && pendingDisambiguationAction == null) return "No active draft to cancel."
 
         val name = draft?.contactName
         pendingDraft = null
         disambiguationCandidates = null
         pendingDisambiguationMessage = null
+        pendingDisambiguationAction = null
         return if (name != null) {
             "Draft cancelled for $name. I did not send it."
         } else {
@@ -221,63 +241,62 @@ class WhatsAppAssistant(
 
     fun makeCall(targetContact: String, isVideo: Boolean): String {
         val cleanContact = targetContact.trim()
-        if (cleanContact.isBlank()) {
-            return "Who would you like to call on WhatsApp?"
-        }
+        if (cleanContact.isBlank()) return "Who would you like to call on WhatsApp?"
 
-        val resolution = contactResolver.resolveContact(cleanContact)
-        val contact = when (resolution) {
-            is ContactResolutionResult.SingleMatch -> resolution.contact
+        pendingDraft = null
+        pendingDisambiguationMessage = null
+        pendingDisambiguationAction = null
+        disambiguationCandidates = null
+        return when (val resolution = contactResolver.resolveContact(cleanContact)) {
+            is ContactResolutionResult.SingleMatch -> makeCallForContact(resolution.contact, isVideo)
             is ContactResolutionResult.MultipleMatches -> {
                 disambiguationCandidates = resolution.candidates
-                val names = resolution.candidates.take(3).map { it.name }.joinToString(" and ")
-                return "Which $cleanContact? I found $names."
+                pendingDisambiguationAction = PendingContactAction.Call(isVideo)
+                val names = resolution.candidates.take(3).map { "${it.name} (ending ${it.phoneNumber.takeLast(4)})" }.joinToString(" and ")
+                "Which $cleanContact? I found $names. Please specify the contact."
             }
-            else -> null
+            else -> "I couldn't find a phone number for $cleanContact to initiate a WhatsApp ${if (isVideo) "video call" else "voice call"}."
         }
+    }
 
+    private fun makeCallForContact(contact: ContactInfo, isVideo: Boolean): String {
         val callType = if (isVideo) "video call" else "voice call"
-
-        if (contact == null || contact.phoneNumber.isBlank()) {
-            return "I couldn't find a phone number for $cleanContact to initiate a WhatsApp $callType."
-        }
-
-        val rawDigits = contact.phoneNumber.replace(Regex("[^0-9]"), "")
-        val cleanPhone = when {
-            rawDigits.length == 10 -> "91$rawDigits"
-            rawDigits.length == 11 && rawDigits.startsWith("0") -> "91${rawDigits.substring(1)}"
-            else -> rawDigits
+        val cleanPhone = normalizeWhatsAppNumber(contact.phoneNumber)
+            ?: return "I couldn't determine a valid international phone number for ${contact.name}. Please check the contact's country code."
+        val targetPackage = when {
+            isPackageInstalled(WHATSAPP_PACKAGE) -> WHATSAPP_PACKAGE
+            isPackageInstalled("com.whatsapp.w4b") -> "com.whatsapp.w4b"
+            else -> return "WhatsApp is not installed."
         }
 
         return try {
-            // Arm accessibility service to click top action bar call icon & confirm prompt
-            JarvisAccessibilityService.triggerWhatsAppCall(isVideo)
-
             val mimeType = if (isVideo) {
                 "vnd.android.cursor.item/vnd.com.whatsapp.video.call"
             } else {
                 "vnd.android.cursor.item/vnd.com.whatsapp.voip.call"
             }
-
             val callDataUri = getWhatsAppCallDataUri(contact.id, mimeType)
-            val intent = if (callDataUri != null) {
+            val directIntent = callDataUri?.let {
                 Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(callDataUri, mimeType)
-                    setPackage(WHATSAPP_PACKAGE)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            } else {
-                Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone")).apply {
-                    setPackage(WHATSAPP_PACKAGE)
+                    setDataAndType(it, mimeType)
+                    setPackage(targetPackage)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
             }
-
-            ActivityLauncherHelper.startActivitySafely(context, intent)
-            "Starting WhatsApp $callType to ${contact.name}."
+            val launched = directIntent?.let { ActivityLauncherHelper.startActivitySafely(context, it) } == true
+            val fallbackLaunched = if (launched) true else {
+                val fallback = Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone")).apply {
+                    setPackage(targetPackage)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                ActivityLauncherHelper.startActivitySafely(context, fallback)
+            }
+            if (!fallbackLaunched) return "WhatsApp could not be opened for the call."
+            JarvisAccessibilityService.triggerWhatsAppCall(isVideo)
+            "Opened WhatsApp to start a $callType with ${contact.name}. The call connection is not verified."
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start WhatsApp call: ${e.message}", e)
-            "Could not initiate WhatsApp call."
+            Log.e(TAG, "Failed to open WhatsApp call screen", e)
+            "Could not open WhatsApp call screen."
         }
     }
 
