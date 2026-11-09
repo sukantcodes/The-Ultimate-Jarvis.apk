@@ -222,6 +222,20 @@ class ChatFragment : Fragment() {
         val document = selectedDocument
         if (document != null) {
             val prompt = text.ifBlank { "Analyze this file and explain what it contains. Highlight key points and any issues." }
+            val appContext = requireContext().applicationContext
+            val engineStore = com.jarvis.assistant.security.AiEngineStore(appContext)
+            if (selectedChatMode == "offline") {
+                Toast.makeText(requireContext(), "Document analysis is not available in Offline Brain yet. Choose Gemini or Groq to analyze this attachment.", Toast.LENGTH_LONG).show()
+                return
+            }
+            val useGroqForDocument = selectedChatMode != "gemini" && engineStore.useGroq
+            val documentProvider = if (useGroqForDocument) "groq" else "gemini"
+            val documentKey = if (useGroqForDocument) engineStore.groqKey() else JarvisApp.instance.preferences.apiKey
+            val documentModel = if (useGroqForDocument) engineStore.groqChatModel else "gemini-2.5-flash"
+            if (documentKey.isBlank()) {
+                Toast.makeText(requireContext(), "Add the selected $documentProvider API key in JARVIS Settings before analyzing this file.", Toast.LENGTH_LONG).show()
+                return
+            }
             binding.etMessageInput.text?.clear()
             binding.btnSendMessage.isEnabled = false
             binding.btnStopChat.visibility = View.VISIBLE
@@ -229,15 +243,16 @@ class ChatFragment : Fragment() {
             Toast.makeText(requireContext(), "JARVIS is analyzing ${document.name}…", Toast.LENGTH_LONG).show()
             fileAnalysisJob = viewLifecycleOwner.lifecycleScope.launch {
                 try {
-                    val key = (requireActivity().application as JarvisApp).preferences.apiKey
-                    val answer = DocumentAnalysisClient.analyze(requireContext(), document, prompt, key)
+                    val answer = DocumentAnalysisClient.analyze(
+                        requireContext(), document, prompt, documentKey, documentProvider, documentModel
+                    )
                     JarvisApp.instance.chatRepository.addTurn("📎 ${document.name}\n$prompt", answer, document.savedPath, document.name, document.mimeType)
                     selectedDocument = null
                     if (_binding != null) { updateAttachmentPreview(); binding.etMessageInput.hint = "Message JARVIS…" }
                 } catch (error: kotlinx.coroutines.CancellationException) {
                     throw error
                 } catch (error: Exception) {
-                    val message = "I couldn't analyze ${document.name}. ${error.message ?: "Please check your Gemini API key, connection, and file format."} Your attachment remains selected so you can retry or choose another file."
+                    val message = "I couldn't analyze ${document.name} with $documentProvider. ${error.message ?: "Please check the selected provider, model, connection, and file format."} Your attachment remains selected so you can retry or choose another file."
                     JarvisApp.instance.chatRepository.addTurn("📎 ${document.name}\n$prompt", message, document.savedPath, document.name, document.mimeType)
                 } finally {
                     fileAnalysisJob = null
