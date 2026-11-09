@@ -530,7 +530,7 @@ class GroqLiveSession(
         } catch (_: Exception) { "" }
         // Keep the complete instruction body: silent character truncation can remove safety,
         // confirmation, or tool-use rules. The activity log remains separately bounded above.
-        return base + com.jarvis.assistant.util.ConfirmationPolicy.promptSection() + genderStore.promptSection() + skills + "\n\n" + log + "\n\n"
+        return base + com.jarvis.assistant.util.ConfirmationPolicy.promptSection() + genderStore.promptSection() + skills + "\n\n" + log + "\n\n" +
             "ENGINE NOTES: You are running on the Groq engine. Reply in one to three short, natural spoken sentences in the " +
             "user's language (English, Hindi or Hinglish). Never use markdown, lists, emojis or asterisks. When the user asks " +
             "you to do something on the phone, call the matching tool instead of describing it. Say a task is done only after " +
