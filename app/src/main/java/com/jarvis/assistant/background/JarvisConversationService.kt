@@ -4526,15 +4526,8 @@ class JarvisConversationService : Service() {
         }
         beginActiveConversation(wakeTriggered = commandText.isNullOrBlank())
         if (!_isSessionOn.value || commandText.isNullOrBlank()) {
-            if (commandText.isNullOrBlank()) {
-                serviceScope.launch {
-                    delay(15_000L)
-                    if (_isSessionOn.value && wakeAuthorizationArmed &&
-                        currentTurnUserText.isEmpty() && !isAutonomousTaskRunning) {
-                        enterStandby(announce = false)
-                    }
-                }
-            }
+            // A wake word alone does not start a short hidden sleep countdown.
+            // The session remains active until the configured Auto-Sleep timer or an explicit sleep command.
             return
         }
 
