@@ -52,11 +52,10 @@ class ProviderModelDiscovery(
             return Result.Error(ErrorKind.AUTH_FAILED, "No API key is saved for this provider.")
         }
 
-        val base = ProviderUrlValidator.httpBase(profile.baseUrl)
         val url = if (profile.authMethod == AuthMethod.QUERY_PARAM) {
-            appendQueryKey(buildDiscoveryUrl(base, profile), key)
+            appendQueryKey(buildDiscoveryUrl(profile), key)
         } else {
-            buildDiscoveryUrl(base, profile)
+            buildDiscoveryUrl(profile)
         }
         val request = Request.Builder()
             .url(url)
@@ -94,31 +93,42 @@ class ProviderModelDiscovery(
         return Result.Success(models)
     }
 
-    private fun buildDiscoveryUrl(base: String, profile: CustomProviderProfile): String {
+    private fun buildDiscoveryUrl(profile: CustomProviderProfile): String {
         // Explicitly configured discovery path wins.
         val customPath = profile.discoveryPath.trim().trimStart('/')
         if (customPath.isNotEmpty()) {
             return if (customPath.startsWith("http://") || customPath.startsWith("https://")) customPath
-            else "$base/$customPath"
+            else ProviderUrlValidator.appendApiPath(profile.baseUrl, customPath)
         }
         return when (profile.protocol) {
             ProviderProtocol.GEMINI_COMPATIBLE, ProviderProtocol.GEMINI_REALTIME -> {
                 // The Gemini REST list endpoint. Realtime endpoints use the same REST surface.
-                "$base/v1beta/models"
+                ProviderUrlValidator.appendApiPath(profile.baseUrl, "v1beta/models")
             }
-            ProviderProtocol.OPENAI_COMPATIBLE -> "$base/v1/models"
+            ProviderProtocol.OPENAI_COMPATIBLE -> ProviderUrlValidator.appendApiPath(profile.baseUrl, "v1/models")
         }
     }
 
     private fun parseModels(raw: String, protocol: ProviderProtocol): List<DiscoveredModel> {
         return try {
             val root = JSONObject(raw)
-            val array = root.optJSONArray("data") ?: root.optJSONArray("models") ?: JSONArray()
+            val nested = root.optJSONObject("result")
+            val array = root.optJSONArray("data")
+                ?: root.optJSONArray("models")
+                ?: root.optJSONArray("items")
+                ?: root.optJSONArray("model_list")
+                ?: nested?.optJSONArray("models")
+                ?: JSONArray()
             val out = ArrayList<DiscoveredModel>(array.length())
             for (i in 0 until array.length()) {
-                val entry = array.optJSONObject(i) ?: continue
+                val item = array.opt(i)
+                val entry = when (item) {
+                    is JSONObject -> item
+                    is String -> JSONObject().put("id", item)
+                    else -> continue
+                }
                 val model = modelFromEntry(entry, protocol) ?: continue
-                out.add(model)
+                if (out.none { it.id == model.id }) out.add(model)
             }
             out
         } catch (e: Exception) {
@@ -164,6 +174,6 @@ class ProviderModelDiscovery(
 
     private fun appendQueryKey(url: String, key: String): String {
         val separator = if (url.contains("?")) "&" else "?"
-        return "$url${separator}key=$key"
+        return "$url${separator}api_key=${java.net.URLEncoder.encode(key, "UTF-8")}"
     }
 }
