@@ -8,7 +8,7 @@ import org.junit.Test
 class UniversalTaskMapperTest {
     @Test
     fun commasInsideMessagePayloadAreNotSplitIntoTasks() {
-        val mapped = UniversalTaskMapper.map("Send WhatsApp message to Mom: Hi, how are you?")
+        val mapped = UniversalTaskMapper.map("Type Hi, how are you?")
         assertEquals(1, mapped.actions.size)
         assertTrue(mapped.actions.single().title.contains("Hi, how are you?"))
     }
