@@ -108,7 +108,8 @@ object WhatsAppMessenger {
         }
 
         return try {
-            ActivityLauncherHelper.startActivitySafely(context, intent)
+            val launched = ActivityLauncherHelper.startActivitySafely(context, intent)
+            if (!launched) return SendResult.Error("WhatsApp could not be opened. The message was not sent.")
             JarvisAccessibilityService.instance?.scheduleWhatsAppAutoSend()
             val targetAppName = targetApp?.label ?: if (chosenPackage.contains("w4b")) "WhatsApp Business" else "WhatsApp"
             SendResult.Success(targetContact.name, phoneDigits, targetAppName)
@@ -117,7 +118,8 @@ object WhatsAppMessenger {
                 val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLinkUrl)).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 }
-                ActivityLauncherHelper.startActivitySafely(context, fallbackIntent)
+                val fallbackLaunched = ActivityLauncherHelper.startActivitySafely(context, fallbackIntent)
+                if (!fallbackLaunched) return SendResult.Error("WhatsApp could not be opened. The message was not sent.")
                 JarvisAccessibilityService.instance?.scheduleWhatsAppAutoSend()
                 SendResult.Success(targetContact.name, phoneDigits, "WhatsApp")
             } catch (e2: Exception) {
@@ -201,10 +203,12 @@ object WhatsAppMessenger {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
             try {
-                ActivityLauncherHelper.startActivitySafely(context, directIntent)
-                return CallResult.Success(targetContact.name, normalizedType, targetAppName)
+                if (ActivityLauncherHelper.startActivitySafely(context, directIntent)) {
+                    return CallResult.Success(targetContact.name, normalizedType, targetAppName)
+                }
+                // A false launcher result is not a successful call handoff; try the deep link below.
             } catch (e: Exception) {
-                // Fallback below
+                // Fallback below.
             }
         }
 
@@ -216,7 +220,9 @@ object WhatsAppMessenger {
         }
 
         return try {
-            ActivityLauncherHelper.startActivitySafely(context, fallbackIntent)
+            if (!ActivityLauncherHelper.startActivitySafely(context, fallbackIntent)) {
+                return CallResult.Error("WhatsApp could not be opened for the call.")
+            }
             JarvisAccessibilityService.instance?.scheduleWhatsAppCallAutoTap(normalizedType)
             CallResult.Success(targetContact.name, normalizedType, targetAppName)
         } catch (e: Exception) {
