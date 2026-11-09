@@ -234,6 +234,11 @@ class ChatFragment : Fragment() {
                     val customProfile = configManager.activeCustomProfile
                     val answer: String
                     if (customProfile != null) {
+                        if (customProfile.protocol == com.jarvis.assistant.network.provider.ProviderProtocol.GEMINI_COMPATIBLE) {
+                            throw IllegalStateException(
+                                "Gemini-compatible REST file analysis is not connected yet. Switch to an OpenAI-compatible provider or Gemini."
+                            )
+                        }
                         // Custom providers that advertise file/image input analyze on the provider;
                         // otherwise attachments are clearly explained as unsupported (no silent Gemini).
                         val capabilities = configManager.activeCustomCapabilities()
