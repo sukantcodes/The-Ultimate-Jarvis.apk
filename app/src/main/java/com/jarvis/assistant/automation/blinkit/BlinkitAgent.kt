@@ -1115,7 +1115,8 @@ class BlinkitAgent(
                     val st = BlinkitScreenReader.orderStatus(nodes)
                     return BlinkitResult(true, BlinkitStatus.PLACED,
                         "Order placed — Blinkit's order screen is showing (${st.stage.name.lowercase(Locale.ROOT).replace('_', ' ')}). Total ${BlinkitMoney.format(order.summary.total)}." +
-                            (st.etaText?.let { " Arriving in $it." } ?: ""), verified = true)
+                            (st.etaText?.let { " Arriving in $it." } ?: ""), verified = true,
+                        extra = mapOf("order_id" to (st.orderId ?: "")))
                 }
                 BlinkitScreen.CHALLENGE -> return BlinkitResult(false, BlinkitStatus.NEEDS_PAYMENT_AUTH,
                     "Blinkit needs ${BlinkitScreenReader.challengeKind(nodes)} to finish paying. Please complete it yourself. The order is NOT confirmed yet; ask me to check the order status afterwards.")
@@ -1225,7 +1226,8 @@ class BlinkitAgent(
                     if (st.stage != OrderStage.CANCELLED) gate.pending?.let { gate.markPlaced(it) }
                 }
                 return BlinkitResult(st.stage != OrderStage.UNKNOWN, if (st.stage == OrderStage.UNKNOWN) BlinkitStatus.NOT_VERIFIED else BlinkitStatus.OK, describeStatus(st), verified = st.stage != OrderStage.UNKNOWN,
-                    extra = mapOf("stage" to st.stage.name, "eta" to st.etaText, "delay" to st.delayNotice, "cancel_offered" to st.cancelOffered))
+                    extra = mapOf("stage" to st.stage.name, "eta" to st.etaText, "delay" to st.delayNotice,
+                        "cancel_offered" to st.cancelOffered, "order_id" to (st.orderId ?: "")))
             }
         }
     }
