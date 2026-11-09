@@ -207,20 +207,58 @@ export function createHandler(d: Deps) {
     return json({ ok: true });
   }
 
+  async function fetchAllRows(buildQuery: () => any, label: string): Promise<Record<string, unknown>[]> {
+    const rows: Record<string, unknown>[] = [];
+    const pageSize = 1000;
+    const maxPages = 100;
+    for (let page = 0; page < maxPages; page++) {
+      const { data, error } = await buildQuery().range(page * pageSize, (page + 1) * pageSize - 1);
+      if (error) throw new Error(label);
+      const batch = (data ?? []) as Record<string, unknown>[];
+      rows.push(...batch);
+      if (batch.length < pageSize) return rows;
+    }
+    throw new Error(label + "_pagination_limit");
+  }
+
   async function users(body: Record<string, unknown>) {
     const { from, to, page, size } = pageParams(body);
-    const { data: devices } = await d.admin.from("app_devices")
-      .select("user_id,install_id,device_model,android_version,app_version,last_seen_at")
-      .order("last_seen_at", { ascending: false });
-    const [{ data: blocks }, { data: ipRows }] = await Promise.all([
-      d.admin.from("access_blocks").select("block_type,target_value"),
-      d.admin.from("ip_observations").select("user_id,ip"),
+    const [deviceRows, blockRows, ipRows] = await Promise.all([
+      fetchAllRows(
+        () => d.admin.from("app_devices")
+          .select("user_id,install_id,device_model,android_version,app_version,last_seen_at")
+          .order("last_seen_at", { ascending: false }),
+        "users_devices"
+      ),
+      fetchAllRows(
+        () => d.admin.from("access_blocks").select("block_type,target_value"),
+        "users_blocks"
+      ),
+      fetchAllRows(
+        () => d.admin.from("ip_observations").select("user_id,ip"),
+        "users_ips"
+      ),
     ]);
-    const { data: authPage, error } = await d.admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    if (error) throw new Error("users");
-    const deviceRows = devices ?? [];
-    const blockRows = blocks ?? [];
-    const items = (authPage?.users ?? []).map((u: Record<string, unknown>) => {
+
+    // Supabase Auth Admin caps each page at 1,000 users. Fetch every page so
+    // owner search and pagination never silently omit accounts after the first page.
+    const authUsers: Record<string, unknown>[] = [];
+    const authPageSize = 1000;
+    const maxAuthPages = 100;
+    let authComplete = false;
+    for (let authPage = 1; authPage <= maxAuthPages; authPage++) {
+      const { data, error } = await d.admin.auth.admin.listUsers({ page: authPage, perPage: authPageSize });
+      if (error) throw new Error("users");
+      const batch = (data?.users ?? []) as Record<string, unknown>[];
+      authUsers.push(...batch);
+      if (batch.length < authPageSize) {
+        authComplete = true;
+        break;
+      }
+    }
+    if (!authComplete) throw new Error("users_pagination_limit");
+
+    const items = authUsers.map((u: Record<string, unknown>) => {
       const id = String(u.id ?? "");
       const ownDevices = deviceRows.filter((x: Record<string, unknown>) => x.user_id === id);
       const ips = [...new Set((ipRows ?? []).filter((x: Record<string, unknown>) => x.user_id === id).map((x: Record<string, unknown>) => String(x.ip)))];
