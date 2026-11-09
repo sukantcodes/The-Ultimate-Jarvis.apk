@@ -3588,16 +3588,17 @@ class JarvisConversationService : Service() {
                     "schedule_call" -> {
                         val contact = args.optString("contact_name", "").trim()
                         val delaySeconds = args.optLong("delay_seconds", 0L)
-                        if (contact.isBlank() || delaySeconds <= 0L) {
+                        if (contact.isBlank() || delaySeconds !in 1L..(30L * 24L * 60L * 60L)) {
                             result.put("success", false)
-                            result.put("message", "A contact and a positive delay are required before I can schedule the call.")
+                            result.put("message", "A contact and a delay between 1 second and 30 days are required before I can schedule the call.")
                         } else {
-                            val delayMillis = delaySeconds.coerceAtMost(30L * 24L * 60L * 60L) * 1_000L
+                            val delayMillis = delaySeconds * 1_000L
                             val message = com.jarvis.assistant.automation.tasks.ScheduledTaskMemory
                                 .scheduleCall(applicationContext, contact, delayMillis)
-                            result.put("success", true)
+                            val scheduled = !message.startsWith("Please tell me") && !message.startsWith("I can schedule")
+                            result.put("success", scheduled)
                             result.put("message", message)
-                            result.put("scheduled", true)
+                            result.put("scheduled", scheduled)
                         }
                     }
 
@@ -3610,9 +3611,10 @@ class JarvisConversationService : Service() {
                         } else {
                             val message = com.jarvis.assistant.automation.tasks.ScheduledTaskMemory
                                 .watchAppEvent(applicationContext, watchedApp, keyword)
-                            result.put("success", true)
+                            val watchCreated = !message.startsWith("I already have")
+                            result.put("success", watchCreated)
                             result.put("message", message)
-                            result.put("watch_created", true)
+                            result.put("watch_created", watchCreated)
                         }
                     }
 
