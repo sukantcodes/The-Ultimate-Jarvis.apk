@@ -198,14 +198,18 @@ class WhatsAppAssistant(
     }
 
     fun cancelDraft(): String {
-        return if (pendingDraft != null) {
-            val name = pendingDraft?.contactName
-            pendingDraft = null
-            disambiguationCandidates = null
-            pendingDisambiguationMessage = null
+        val draft = pendingDraft
+        val wasResolvingContact = !disambiguationCandidates.isNullOrEmpty()
+        if (draft == null && !wasResolvingContact) return "No active draft to cancel."
+
+        val name = draft?.contactName
+        pendingDraft = null
+        disambiguationCandidates = null
+        pendingDisambiguationMessage = null
+        return if (name != null) {
             "Draft cancelled for $name. I did not send it."
         } else {
-            "No active draft to cancel."
+            "Contact selection cancelled. I did not send a message."
         }
     }
 
