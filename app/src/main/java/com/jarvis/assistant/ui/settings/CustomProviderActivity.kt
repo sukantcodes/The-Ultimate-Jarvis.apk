@@ -337,15 +337,18 @@ class CustomProviderActivity : AppCompatActivity() {
         val old = editingProfileId?.let { store.profile(it) }
         val id = editingProfileId ?: UUID.randomUUID().toString()
         val signature = currentProviderSignature(baseUrl, protocol, selectedAuth(), discoveryPath)
-        val models = if (pendingFetchSignature == signature && pendingFetchedModels.isNotEmpty()) {
-            pendingFetchedModels
-        } else {
-            old?.models ?: emptyList()
+        // Never carry model IDs across a changed endpoint/protocol/auth/discovery path.
+        // A model list belongs to the exact provider configuration that returned it.
+        val models = when {
+            pendingFetchSignature == signature && pendingFetchedModels.isNotEmpty() -> pendingFetchedModels
+            old != null && pendingFetchSignature == signature -> old.models
+            else -> emptyList()
         }
-        val selectedModelId = selectedModelFromUi(
-            old?.selectedModelId?.takeIf { it.isNotBlank() }
+        val uiSelectedModelId = selectedModelFromUi(
+            old?.selectedModelId?.takeIf { candidate -> models.any { it.id == candidate } }
                 ?: models.firstOrNull()?.id.orEmpty()
         )
+        val selectedModelId = uiSelectedModelId.takeIf { candidate -> models.any { it.id == candidate } }.orEmpty()
 
         val profile = CustomProviderProfile(
             id = id,
