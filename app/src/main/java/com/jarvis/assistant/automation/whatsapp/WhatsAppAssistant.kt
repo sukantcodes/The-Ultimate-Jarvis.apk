@@ -11,6 +11,7 @@ import com.jarvis.assistant.automation.contacts.ContactResolutionResult
 import com.jarvis.assistant.automation.contacts.ContactResolver
 import com.jarvis.assistant.util.ActivityLauncherHelper
 import java.net.URLEncoder
+import java.util.Locale
 
 data class PendingWhatsAppDraft(
     val contactName: String,
@@ -140,53 +141,57 @@ class WhatsAppAssistant(
         val phone = draft.phoneNumber
 
         return try {
+            val rawPhone = phone?.takeIf { it.isNotBlank() }
+                ?: return "I couldn't send this message because the contact has no saved phone number."
+            val cleanPhone = normalizeWhatsAppNumber(rawPhone)
+                ?: return "I couldn't determine a valid international phone number for ${draft.contactName}. Please check the contact's country code."
+            val targetPkg = when {
+                isPackageInstalled(WHATSAPP_PACKAGE) -> WHATSAPP_PACKAGE
+                isPackageInstalled("com.whatsapp.w4b") -> "com.whatsapp.w4b"
+                else -> return "WhatsApp is not installed. Your draft is still saved."
+            }
             val encodedMessage = URLEncoder.encode(message, "UTF-8")
-            val rawDigits = phone?.replace(Regex("[^0-9]"), "") ?: ""
-            val cleanPhone = when {
-                rawDigits.length == 10 -> "91$rawDigits"
-                rawDigits.length == 11 && rawDigits.startsWith("0") -> "91${rawDigits.substring(1)}"
-                else -> rawDigits
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(
+                "https://api.whatsapp.com/send?phone=$cleanPhone&text=$encodedMessage"
+            )).apply {
+                setPackage(targetPkg)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-
-            val targetPkg = if (isPackageInstalled(WHATSAPP_PACKAGE)) {
-                WHATSAPP_PACKAGE
-            } else if (isPackageInstalled("com.whatsapp.w4b")) {
-                "com.whatsapp.w4b"
-            } else {
-                WHATSAPP_PACKAGE
-            }
-
-            val intent = if (cleanPhone.isNotBlank()) {
-                Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone&text=$encodedMessage")).apply {
-                    setPackage(targetPkg)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            } else {
-                Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, message)
-                    setPackage(targetPkg)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            }
-
-            // Arm accessibility service BEFORE launching WhatsApp so it's ready to click immediately
-            JarvisAccessibilityService.triggerWhatsAppSend(message)
 
             val launched = ActivityLauncherHelper.startActivitySafely(context, intent)
             if (!launched) {
                 return "I couldn't open WhatsApp. Your draft is still saved; nothing was confirmed as sent."
             }
+            // Arm the accessibility send only after WhatsApp actually opened.
+            JarvisAccessibilityService.triggerWhatsAppSend(message)
 
             val recipient = draft.contactName
-            // The external app owns the final send result. Clear this in-flight draft to
-            // prevent a second confirmation from accidentally dispatching a duplicate.
+            // Clear the in-flight draft after handoff to prevent duplicate confirmations.
             pendingDraft = null
             "Opened WhatsApp for $recipient with the approved message. I cannot verify from here whether WhatsApp completed sending it."
         } catch (e: Exception) {
             Log.e(TAG, "Failed to open WhatsApp for the approved draft", e)
             "Failed to open WhatsApp. Your draft is still saved and no send was verified."
         }
+    }
+
+    private fun normalizeWhatsAppNumber(rawNumber: String): String? {
+        val cleaned = rawNumber.trim()
+        if (cleaned.isBlank()) return null
+        val region = if (android.os.Build.VERSION.SDK_INT >= 24) {
+            context.resources.configuration.locales[0]?.country.orEmpty()
+        } else {
+            @Suppress("DEPRECATION")
+            context.resources.configuration.locale?.country.orEmpty()
+        }.ifBlank { Locale.getDefault().country }
+        val e164 = region.takeIf { it.isNotBlank() }?.let {
+            PhoneNumberUtils.formatNumberToE164(cleaned, it)
+        }
+        if (!e164.isNullOrBlank()) return e164.filter(Char::isDigit).takeIf { it.length in 8..15 }
+        if (cleaned.startsWith("+")) {
+            return cleaned.filter(Char::isDigit).takeIf { it.length in 8..15 }
+        }
+        return null
     }
 
     private fun isPackageInstalled(pkgName: String): Boolean {
