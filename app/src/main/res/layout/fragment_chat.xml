@@ -59,6 +59,18 @@
                 android:textColor="#DDEBFF"
                 android:textSize="11sp"
                 android:fontFamily="sans-serif" />
+
+            <TextView
+                android:id="@+id/tvProviderModel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:visibility="gone"
+                android:textColor="#9FE8FF"
+                android:textSize="10sp"
+                android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
         <TextView

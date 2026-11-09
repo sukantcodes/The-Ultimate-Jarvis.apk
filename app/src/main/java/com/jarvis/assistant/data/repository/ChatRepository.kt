@@ -12,9 +12,65 @@ class ChatRepository(private val preferences: AppPreferences) {
     private val _turns = MutableStateFlow<List<ChatTurn>>(emptyList())
     val turns: StateFlow<List<ChatTurn>> = _turns.asStateFlow()
 
+    /** Turns whose answer is still streaming. They live in memory only and are never written to disk. */
+    private val pendingIds = HashSet<String>()
+
     init {
-        _turns.value = preferences.loadChatHistory()
+        // A turn saved without an answer can only come from a process that died mid-answer; show it as
+        // interrupted instead of leaving the chat waiting forever.
+        _turns.value = preferences.loadChatHistory().map {
+            if (it.jarvisResponse.isBlank()) it.copy(jarvisResponse = "⚠ This answer was interrupted. Tap Retry to ask again.") else it
+        }
     }
+
+    private fun persist(list: List<ChatTurn>) {
+        preferences.saveChatHistory(list.filter { it.id !in pendingIds })
+    }
+
+    /** Starts a text-chat turn whose answer will stream in. Returns its id. Not persisted until [finishPending]. */
+    @Synchronized
+    fun beginPending(userText: String, attachmentPath: String?, attachmentName: String?, attachmentMimeType: String?): String {
+        val turn = ChatTurn(
+            userTranscript = userText.trim().ifEmpty { "(Message)" },
+            jarvisResponse = "",
+            attachmentPath = attachmentPath,
+            attachmentName = attachmentName,
+            attachmentMimeType = attachmentMimeType
+        )
+        pendingIds.add(turn.id)
+        _turns.value = _turns.value + turn
+        return turn.id
+    }
+
+    /** Updates the streaming text of a pending turn (memory only). */
+    @Synchronized
+    fun updatePending(id: String, text: String) {
+        if (id !in pendingIds) return
+        _turns.value = _turns.value.map { if (it.id == id) it.copy(jarvisResponse = text) else it }
+    }
+
+    /** Stores the final answer (or an error notice) of a turn and saves the history. */
+    @Synchronized
+    fun finishPending(id: String, text: String) {
+        val clean = text.trim().ifEmpty { "⚠ The provider returned an empty answer. Tap Retry to ask again." }
+        pendingIds.remove(id)
+        val list = _turns.value.map { if (it.id == id) it.copy(jarvisResponse = clean) else it }
+        _turns.value = list
+        persist(list)
+    }
+
+    /** Clears a failed answer so the same turn can be asked again without adding a duplicate message. */
+    @Synchronized
+    fun resetPending(id: String): Boolean {
+        if (_turns.value.none { it.id == id }) return false
+        pendingIds.add(id)
+        _turns.value = _turns.value.map { if (it.id == id) it.copy(jarvisResponse = "") else it }
+        return true
+    }
+
+    fun userTextOf(id: String): String? = _turns.value.firstOrNull { it.id == id }?.userTranscript
+
+    fun turnById(id: String): ChatTurn? = _turns.value.firstOrNull { it.id == id }
 
     @Synchronized
     fun addTurn(
@@ -46,7 +102,7 @@ class ChatRepository(private val preferences: AppPreferences) {
         )
         // Chat history is persisted locally; don't silently discard older conversations at 100 turns.
         _turns.value = currentList
-        preferences.saveChatHistory(currentList)
+        persist(currentList)
     }
 
     /** Completes the most recent pending text-chat turn with its written assistant response. */
@@ -65,7 +121,7 @@ class ChatRepository(private val preferences: AppPreferences) {
 
         currentList[index] = currentList[index].copy(jarvisResponse = cleanResponse)
         _turns.value = currentList
-        preferences.saveChatHistory(currentList)
+        persist(currentList)
     }
 
     @Synchronized

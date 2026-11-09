@@ -162,6 +162,75 @@ object DocumentAnalysisClient {
             }
         }
 
+    /** A picked file turned into what a custom provider can be sent, or the reason it can't be. */
+    class ProviderPayload(
+        val attachments: List<com.jarvis.assistant.provider.ChatAttachment>,
+        /** Extra text for the model (extracted document text). Empty for images and PDFs. */
+        val inlineText: String,
+        val unsupportedReason: String?
+    )
+
+    /**
+     * Reads the attachment for a custom provider. Images and PDFs travel as attachments (the caller checks that the
+     * selected model accepts them); text-like documents are sent as extracted text; anything else is reported as
+     * unsupported instead of being guessed at.
+     */
+    suspend fun prepareForProvider(context: Context, document: SelectedDocument): ProviderPayload =
+        withContext(Dispatchers.IO) {
+            val input = if (document.uri.scheme == "file") {
+                document.uri.path?.let { FileInputStream(File(it)) }
+            } else {
+                context.contentResolver.openInputStream(document.uri)
+            }
+            val bytes = input?.use { readLimited(it) }
+                ?: throw IllegalArgumentException("Jarvis couldn't open this file. Try selecting it again.")
+            val extension = document.name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+            val mime = document.mimeType.lowercase(Locale.ROOT)
+            when {
+                extension == "pdf" || mime == "application/pdf" -> ProviderPayload(
+                    listOf(com.jarvis.assistant.provider.ChatAttachment.Pdf(document.name, Base64.encodeToString(bytes, Base64.NO_WRAP))),
+                    "", null
+                )
+                mime.startsWith("image/") || extension in listOf("png", "jpg", "jpeg", "webp", "gif") -> {
+                    val outMime = if (mime.startsWith("image/")) mime else when (extension) {
+                        "png" -> "image/png"; "webp" -> "image/webp"; "gif" -> "image/gif"; else -> "image/jpeg"
+                    }
+                    val (finalBytes, finalMime) = downscaleIfLarge(bytes, outMime)
+                    ProviderPayload(
+                        listOf(com.jarvis.assistant.provider.ChatAttachment.Image(finalMime, Base64.encodeToString(finalBytes, Base64.NO_WRAP))),
+                        "", null
+                    )
+                }
+                mime.startsWith("audio/") || mime.startsWith("video/") ||
+                    extension in listOf("mp3", "wav", "m4a", "aac", "ogg", "flac", "mp4", "mov", "webm") ->
+                    ProviderPayload(emptyList(), "",
+                        "Audio and video files can't be analysed through a custom provider yet. Switch to a Gemini engine for that, or attach a document, image or PDF.")
+                else -> try {
+                    ProviderPayload(emptyList(), "FILE CONTENT BEGIN\n${extractText(bytes, extension, mime)}\nFILE CONTENT END", null)
+                } catch (e: IllegalArgumentException) {
+                    ProviderPayload(emptyList(), "", e.message)
+                }
+            }
+        }
+
+    private fun downscaleIfLarge(bytes: ByteArray, mime: String): Pair<ByteArray, String> {
+        if (bytes.size <= 1_500_000) return bytes to mime
+        return try {
+            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            var sample = 1
+            while (maxOf(bounds.outWidth, bounds.outHeight) / sample > 2000) sample *= 2
+            val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+            val bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts) ?: return bytes to mime
+            val out = ByteArrayOutputStream()
+            bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, out)
+            bmp.recycle()
+            out.toByteArray() to "image/jpeg"
+        } catch (_: Throwable) {
+            bytes to mime
+        }
+    }
+
     private fun readLimited(input: InputStream): ByteArray {
         val output = ByteArrayOutputStream()
         val buffer = ByteArray(8192)

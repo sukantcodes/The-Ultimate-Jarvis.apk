@@ -17,7 +17,12 @@ open class GeminiLiveWebSocket(
     private val model: String,
     private val voiceName: String,
     private val systemPrompt: String,
-    private val listener: Listener
+    private val listener: Listener,
+    /**
+     * A user-configured Gemini-Live-compatible endpoint. When set, the connection goes to that endpoint with its
+     * own credentials and model id, and nothing falls back to Google's defaults.
+     */
+    private val custom: com.jarvis.assistant.provider.ResolvedProvider? = null
 ) {
     interface Listener {
         fun onConnectionStateChanged(status: String)
@@ -43,7 +48,7 @@ open class GeminiLiveWebSocket(
 
     private val client = sharedClient
 
-    private var activeModel: String = when (model) {
+    private var activeModel: String = if (custom != null) com.jarvis.assistant.provider.ProviderUrl.geminiModelName(custom.modelId) else when (model) {
         GeminiConstants.MODEL_3_8_LIVE -> GeminiConstants.MODEL_3_8_LIVE
         GeminiConstants.MODEL_3_1_FLASH_AGENT -> GeminiConstants.MODEL_3_1_FLASH
         else -> if (model.isNotBlank() && !model.contains("2.5")) model else GeminiConstants.DEFAULT_MODEL
@@ -67,8 +72,17 @@ open class GeminiLiveWebSocket(
         initiateConnection()
     }
 
+    private val providerName: String get() = custom?.name ?: "Google"
+
     private fun initiateConnection() {
-        if (apiKey.isBlank()) {
+        if (custom != null) {
+            val needsKey = custom.auth.method != com.jarvis.assistant.provider.AuthMethod.NONE
+            if (needsKey && (custom.auth.secret == null || custom.auth.secret.isBlank)) {
+                listener.onError("No API key is saved for ${custom.name}. Add it in API Key & Model Settings.", isFatal = true, errorCode = "API_KEY_MISSING")
+                listener.onConnectionStateChanged("OFFLINE")
+                return
+            }
+        } else if (apiKey.isBlank()) {
             Log.e(TAG, "Gemini API Key is empty. Aborting connection.")
             listener.onError("Gemini API Key is missing. Please configure it in Settings.", isFatal = true, errorCode = "API_KEY_MISSING")
             listener.onConnectionStateChanged("OFFLINE")
@@ -78,9 +92,8 @@ open class GeminiLiveWebSocket(
         listener.onConnectionStateChanged("CONNECTING...")
 
         try {
-            val url = "${GeminiConstants.WS_BASE_URL}?key=$apiKey"
-            val request = Request.Builder()
-                .url(url)
+            val request = if (custom != null) buildCustomRequest(custom) else Request.Builder()
+                .url("${GeminiConstants.WS_BASE_URL}?key=$apiKey")
                 .build()
 
             webSocket = client.newWebSocket(request, object : WebSocketListener() {
@@ -117,8 +130,8 @@ open class GeminiLiveWebSocket(
                                        reason.contains("API key", ignoreCase = true) ||
                                        reason.contains("key invalid", ignoreCase = true)
                     if (isApiKeyError) {
-                        Log.e(TAG, "Gemini rejected session due to invalid API key (code=$code, reason=$reason)")
-                        listener.onError("Invalid API Key: Google rejected the key. Please verify your Gemini API key in Settings.", isFatal = true, errorCode = "API_KEY_INVALID")
+                        Log.e(TAG, "$providerName rejected session due to invalid API key (code=$code)")
+                        listener.onError("Invalid API Key: $providerName rejected the key. Please verify the key for $providerName in Settings.", isFatal = true, errorCode = "API_KEY_INVALID")
                         listener.onConnectionStateChanged("ERROR • INVALID KEY")
                         return
                     }
@@ -137,7 +150,7 @@ open class GeminiLiveWebSocket(
                                            reason.contains("not found", ignoreCase = true) ||
                                            reason.contains("not supported", ignoreCase = true)
                         if (isModelError) {
-                            if (activeModel != GeminiConstants.MODEL_3_8_LIVE) {
+                            if (custom == null && activeModel != GeminiConstants.MODEL_3_8_LIVE) {
                                 Log.w(TAG, "Model $activeModel rejected by Gemini ($reason). Auto-falling back to ${GeminiConstants.MODEL_3_8_LIVE}")
                                 activeModel = GeminiConstants.MODEL_3_8_LIVE
                                 listener.onConnectionStateChanged("RECONNECTING...")
@@ -145,7 +158,11 @@ open class GeminiLiveWebSocket(
                                 return
                             }
                         }
-                        listener.onError("Gemini setup was rejected: $reason", isFatal = true, errorCode = "SETUP_REJECTED")
+                        listener.onError(
+                            if (custom != null) "${custom.name} rejected model ${custom.modelId} for real-time voice. JARVIS did not switch to another model. ($reason)"
+                            else "Gemini setup was rejected: $reason",
+                            isFatal = true, errorCode = "SETUP_REJECTED"
+                        )
                         listener.onConnectionStateChanged("OFFLINE")
                     } else if (!isManuallyStopped.get()) {
                         listener.onConnectionStateChanged("RECONNECTING...")
@@ -159,7 +176,8 @@ open class GeminiLiveWebSocket(
                     val code = response?.code ?: 0
                     val responseBody = try { response?.body?.string() } catch (_: Exception) { null }
                     val errorMsg = t.message ?: "WebSocket connection failure"
-                    Log.e(TAG, "WebSocket failure: code=$code, errorMsg=$errorMsg, body=$responseBody", t)
+                    if (custom == null) Log.e(TAG, "WebSocket failure: code=$code, errorMsg=$errorMsg, body=$responseBody", t)
+                    else Log.e(TAG, "WebSocket failure for custom provider: code=$code")
                     isConnected.set(false)
                     isSetupComplete.set(false)
                     stopTimers()
@@ -178,8 +196,8 @@ open class GeminiLiveWebSocket(
                             (responseBody?.contains("RESOURCE_EXHAUSTED", ignoreCase = true) == true)
 
                     if (isApiKeyError) {
-                        Log.e(TAG, "Fatal failure: Invalid API Key (HTTP $code: $errorMsg)")
-                        listener.onError("Invalid API Key: Google rejected the key. Please verify your Gemini API key in Settings.", isFatal = true, errorCode = "API_KEY_INVALID")
+                        Log.e(TAG, "Fatal failure: Invalid API Key (HTTP $code)")
+                        listener.onError("Invalid API Key: $providerName rejected the key. Please verify the key for $providerName in Settings.", isFatal = true, errorCode = "API_KEY_INVALID")
                         listener.onConnectionStateChanged("ERROR • INVALID KEY")
                         return
                     }
@@ -204,6 +222,21 @@ open class GeminiLiveWebSocket(
             listener.onError("Connection failed: ${e.message}", isFatal = true, errorCode = "CONNECTION_FAILED")
             listener.onConnectionStateChanged("OFFLINE")
         }
+    }
+
+    /** Builds the WebSocket request for a custom endpoint. The key goes only where the configured auth method says. */
+    private fun buildCustomRequest(p: com.jarvis.assistant.provider.ResolvedProvider): Request {
+        val url = (com.jarvis.assistant.provider.ProviderUrl.geminiLiveUrl(p.baseUrl, p.realtimeUrl)
+            as? com.jarvis.assistant.provider.ProviderUrl.Check.Ok)?.url
+            ?: throw IllegalStateException("The real-time address for ${p.name} is not valid.")
+        val spec = com.jarvis.assistant.provider.ProviderAuth.withExtraHeaders(
+            com.jarvis.assistant.provider.ProviderAuth.apply(
+                com.jarvis.assistant.provider.HttpRequestSpec("GET", url, emptyMap()), p.auth
+            ), p.extraHeaders
+        )
+        val builder = Request.Builder().url(spec.url)
+        spec.headers.forEach { (k, v) -> builder.header(k, v) }
+        return builder.build()
     }
 
     private fun buildSetupJson(): JSONObject {

@@ -177,6 +177,12 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.settings.CustomProviderEditorActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".ui.settings.PersonaActivity"
             android:exported="false"
             android:screenOrientation="portrait"

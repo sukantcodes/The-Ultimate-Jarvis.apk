@@ -899,7 +899,26 @@ class JarvisConversationService : Service() {
         val engineStore = com.jarvis.assistant.security.AiEngineStore(applicationContext)
         val useGroq = engineStore.useGroq
         val apiKey = if (useGroq) engineStore.groqKey().trim() else preferences.apiKey.trim()
-        offlineLocalMode = apiKey.isBlank() ||
+
+        // A custom provider wins only when the user explicitly activated one. If it cannot run voice, say so and
+        // stop: JARVIS never quietly falls back to Gemini, Groq or another provider.
+        var customVoice: com.jarvis.assistant.provider.VoiceResolution.Ready? = null
+        when (val resolution = com.jarvis.assistant.provider.ProviderRuntime.manager(applicationContext).resolveVoice()) {
+            com.jarvis.assistant.provider.VoiceResolution.NotActive -> Unit
+            is com.jarvis.assistant.provider.VoiceResolution.Ready -> customVoice = resolution
+            is com.jarvis.assistant.provider.VoiceResolution.Blocked -> {
+                _liveError.value = JarvisLiveError(
+                    title = "MODEL CAN'T RUN VOICE",
+                    message = "${resolution.providerName}: ${resolution.reason}\n\nJARVIS did not switch to another provider. You can still use this model in ChatBox if it supports text, or pick a different model in API Key & Model Settings.",
+                    errorCode = "CUSTOM_PROVIDER_BLOCKED",
+                    actionText = "OPEN SETTINGS"
+                )
+                serviceScope.launch { _events.emit("${resolution.providerName} can't run real-time voice with the selected model.") }
+                fullStop()
+                return
+            }
+        }
+        offlineLocalMode = (customVoice == null && apiKey.isBlank()) ||
             !com.jarvis.assistant.offline.OfflineModelDownloader.isInternetAvailable(applicationContext)
         if (offlineLocalMode) {
             val localModel = com.jarvis.assistant.offline.OfflineModelDownloader.modelFile(applicationContext)
@@ -1016,6 +1035,7 @@ class JarvisConversationService : Service() {
                 liveWebSocket = createLiveSession(
                     useGroq = useGroq,
                     apiKey = apiKey,
+                    custom = customVoice,
                     model = preferences.aiModel,
                     voiceName = com.jarvis.assistant.voice.VoiceGenderStore(applicationContext).voiceFor(preferences.voice),
                     systemPrompt = systemPrompt,
@@ -2311,6 +2331,10 @@ class JarvisConversationService : Service() {
     // ---------------------------------------------------------------------
 
     private fun hasOnlineProvider(): Boolean {
+        val providerManager = com.jarvis.assistant.provider.ProviderRuntime.manager(applicationContext)
+        if (providerManager.activeProfile() != null) {
+            return providerManager.resolveVoice() is com.jarvis.assistant.provider.VoiceResolution.Ready
+        }
         val engineStore = com.jarvis.assistant.security.AiEngineStore(applicationContext)
         val key = if (engineStore.useGroq) engineStore.groqKey() else preferences.apiKey
         return key.isNotBlank()
@@ -4787,8 +4811,34 @@ class JarvisConversationService : Service() {
         model: String,
         voiceName: String,
         systemPrompt: String,
-        listener: GeminiLiveWebSocket.Listener
+        listener: GeminiLiveWebSocket.Listener,
+        custom: com.jarvis.assistant.provider.VoiceResolution.Ready? = null
     ): GeminiLiveWebSocket {
+        if (custom != null) {
+            val provider = custom.provider
+            return if (custom.mode == com.jarvis.assistant.provider.VoiceMode.REALTIME_GEMINI_LIVE) {
+                GeminiLiveWebSocket(
+                    apiKey = "",
+                    model = provider.modelId,
+                    voiceName = voiceName,
+                    systemPrompt = systemPrompt,
+                    listener = listener,
+                    custom = provider
+                )
+            } else {
+                com.jarvis.assistant.network.GroqLiveSession(
+                    context = applicationContext,
+                    groqKey = "",
+                    chatModel = provider.modelId,
+                    voiceName = voiceName,
+                    systemPromptText = systemPrompt,
+                    groqListener = listener,
+                    custom = provider
+                ).also { session ->
+                    session.userTextInterceptor = { text -> tryLocalAutomation(text) }
+                }
+            }
+        }
         if (!useGroq) {
             return GeminiLiveWebSocket(
                 apiKey = apiKey,
