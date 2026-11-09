@@ -57,9 +57,12 @@ object ProviderUrlValidator {
             return Result.Error("Endpoint URL has an invalid port.")
         }
 
-        // Normalise to scheme://host[:port], no trailing slash.
+        // Retain any reverse-proxy/API prefix, e.g. /openai/v1.
         val portPart = if (port != -1) ":$port" else ""
-        val normalized = "${scheme.lowercase()}://$loweredHost$portPart"
+        val path = (uri.encodedPath ?: "").trimEnd('/').let {
+            if (it.isBlank() || it == "/") "" else if (it.startsWith("/")) it else "/$it"
+        }
+        val normalized = "${scheme.lowercase()}://$loweredHost$portPart$path"
         return Result.Ok(normalized, loweredHost, scheme.lowercase())
     }
 
@@ -82,6 +85,19 @@ object ProviderUrlValidator {
             trimmed.startsWith("wss://") -> trimmed
             trimmed.startsWith("https://") -> "wss://" + trimmed.removePrefix("https://")
             else -> trimmed
+        }
+    }
+
+    /** Append an API path without duplicating a version segment already present in the base URL. */
+    fun appendApiPath(baseUrl: String, apiPath: String): String {
+        val base = httpBase(baseUrl).trimEnd('/')
+        val path = "/" + apiPath.trim().trimStart('/')
+        val lowerBase = base.lowercase()
+        val lowerPath = path.lowercase()
+        return when {
+            lowerBase.endsWith("/v1") && lowerPath.startsWith("/v1/") -> base + path.substring(3)
+            lowerBase.endsWith("/v1beta") && lowerPath.startsWith("/v1beta/") -> base + path.substring(7)
+            else -> base + path
         }
     }
 }
