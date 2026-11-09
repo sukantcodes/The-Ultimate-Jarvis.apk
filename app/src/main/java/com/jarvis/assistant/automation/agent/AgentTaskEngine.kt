@@ -399,13 +399,29 @@ object AgentTaskEngine {
     fun replacePlan(titles: List<String>) {
         val context = active ?: return
         val preserved = context.steps.filter { it.status == TaskStepStatus.COMPLETED }
-        val completedTitles = preserved.map { it.title }.toSet()
-        val plan = (preserved.map { it.title } + titles.filterNot { it in completedTitles }).distinct()
+
+        // Consume completed title occurrences one-for-one. Do not use distinct(): a
+        // user may intentionally request the same action more than once.
+        val completedByTitle = preserved.groupBy { it.title }
+            .mapValues { (_, steps) -> steps.toMutableList() }
+        val remainingTitles = titles.filter { title ->
+            val completedMatches = completedByTitle[title]
+            if (completedMatches.isNullOrEmpty()) {
+                true
+            } else {
+                completedMatches.removeAt(0)
+                false
+            }
+        }
+        val plan = preserved.map { it.title } + remainingTitles
+
         context.plan.clear()
         context.plan.addAll(plan)
         context.steps.clear()
+        val preservedByTitle = preserved.groupBy { it.title }
+            .mapValues { (_, steps) -> steps.toMutableList() }
         plan.forEachIndexed { index, title ->
-            val old = preserved.firstOrNull { it.title == title }
+            val old = preservedByTitle[title]?.removeFirstOrNull()
             val previousId = context.steps.lastOrNull()?.stepId
             context.steps += old ?: TaskPlanStep(
                 title = title,
