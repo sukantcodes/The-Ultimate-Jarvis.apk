@@ -255,14 +255,17 @@ object BlinkitTools {
             BlinkitResult(false, BlinkitStatus.ERROR, "Blinkit automation hit an unexpected problem: ${e.message ?: "unknown"}. Nothing was ordered or cancelled.")
         }
         if (name == "blinkit_place_order" && result.success && result.verified && result.status == BlinkitStatus.PLACED) {
-            BlinkitNotificationTracker.beginTracking(context, OrderStage.PLACED)
+            val orderId = (result.extra["order_id"] as? String)?.takeIf { it.isNotBlank() }
+            BlinkitNotificationTracker.beginTracking(context, OrderStage.PLACED, orderId)
             Log.i(TAG, "Blinkit notification monitoring enabled after verified order placement.")
         } else if (name == "blinkit_order_status" && result.success && result.verified) {
             val stage = (result.extra["stage"] as? String)?.let { runCatching { OrderStage.valueOf(it) }.getOrNull() }
-            if (stage != null && stage != OrderStage.DELIVERED && stage != OrderStage.CANCELLED && stage != OrderStage.UNKNOWN) {
-                BlinkitNotificationTracker.beginTracking(context, stage)
-            } else if (stage == OrderStage.DELIVERED || stage == OrderStage.CANCELLED) {
-                BlinkitNotificationTracker.stopTracking(context)
+            val orderId = (result.extra["order_id"] as? String)?.takeIf { it.isNotBlank() }
+            if (stage != null && stage != OrderStage.UNKNOWN) {
+                BlinkitNotificationTracker.updateLatestStage(context, stage, orderId)
+                if (stage == OrderStage.DELIVERED || stage == OrderStage.CANCELLED) {
+                    BlinkitNotificationTracker.stopTracking(context, orderId)
+                }
             }
         }
         finishTask(result)
