@@ -374,14 +374,18 @@ const STATES = {
   idle:      { scale: 1.00, speed: 0.52, cyan: 0.76, purple: 0.72, bright: 1.10, glow: 0.62, ring: 0.38, wob: 0.20, amoebaAmp: 1.15 },
   listening: { scale: 1.07, speed: 1.18, cyan: 1.00, purple: 0.52, bright: 1.22, glow: 0.92, ring: 0.78, wob: 0.45, amoebaAmp: 1.48 },
   thinking:  { scale: 1.03, speed: 1.95, cyan: 0.58, purple: 1.00, bright: 1.18, glow: 0.88, ring: 1.15, wob: 1.05, amoebaAmp: 1.78 },
-  speaking:  { scale: 1.09, speed: 1.50, cyan: 0.96, purple: 0.96, bright: 1.28, glow: 1.02, ring: 0.90, wob: 0.58, amoebaAmp: 1.62 }
+  speaking:  { scale: 1.09, speed: 1.50, cyan: 0.96, purple: 0.96, bright: 1.28, glow: 1.02, ring: 0.90, wob: 0.58, amoebaAmp: 1.62 },
+  talking:   { scale: 1.10, speed: 1.12, cyan: 0.98, purple: 0.72, bright: 1.30, glow: 1.02, ring: 0.88, wob: 0.50, amoebaAmp: 1.48 },
+  working:   { scale: 1.04, speed: 1.34, cyan: 0.70, purple: 0.82, bright: 1.20, glow: 0.90, ring: 1.08, wob: 0.72, amoebaAmp: 1.58 }
 };
 
 const LABELS = {
   idle: "AMOEBA READY",
   listening: "LISTENING...",
   thinking: "SYNTHESIZING...",
-  speaking: "SPEAKING"
+  speaking: "SPEAKING",
+  talking: "TALKING...",
+  working: "WORKING..."
 };
 
 const SHAPE_NAMES = [
@@ -1470,12 +1474,12 @@ function setBlend(add) {
   });
 }
 
-function applyTheme(name, custom, custom2) {
+function applyTheme(name, custom, custom2, lightOverride) {
   let t = THEMES[name] || THEMES.light;
   if (custom) {
     const c = new THREE.Color(custom);
     const L = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
-    const light = L > 0.55;
+    const light = typeof lightOverride === "boolean" ? lightOverride : L > 0.55;
     const hsl = { h: 0, s: 0, l: 0 };
     c.getHSL(hsl);
 
@@ -1579,7 +1583,7 @@ function setOrbState(s, skipDoneTrigger) {
      automatically form the 3D "DONE" particle sculpture! */
   if (!skipDoneTrigger && s === "idle" && (prevState === "speaking" || prevState === "thinking" || prevState === "listening")) {
     showDoneMessage(2.8);
-  } else if (s === "listening" || s === "speaking" || s === "thinking") {
+  } else if (s === "listening" || s === "speaking" || s === "talking" || s === "thinking" || s === "working") {
     /* If user starts speaking or Jarvis starts thinking while WELCOME/DONE is up, morph to Amoeba */
     if (currentShape === "welcome" || currentShape === "done") {
       messageHoldTimer = 0;
@@ -1658,7 +1662,7 @@ function stopAudioReactive() {
 
 function simulateAudio(t) {
   let l, b, h;
-  if (state === "speaking") {
+  if (state === "speaking" || state === "talking") {
     const syl = Math.pow(Math.abs(Math.sin(t * 7.5) * Math.sin(t * 2.3 + 1)), 0.75);
     const gate = Math.sin(t * 0.95) > -0.68 ? 1 : 0.16;
     l = (0.34 + 0.52 * syl) * gate;
@@ -1668,7 +1672,7 @@ function simulateAudio(t) {
     l = 0.24 + 0.22 * Math.abs(Math.sin(t * 3.3) * Math.sin(t * 1.4));
     b = l * 0.85;
     h = l * 0.55;
-  } else if (state === "thinking") {
+  } else if (state === "thinking" || state === "working") {
     l = 0.18 + 0.11 * Math.sin(t * 2.8);
     b = l * 0.75;
     h = l * 0.72;
@@ -2050,11 +2054,11 @@ function updateOrb(dt) {
 
 function updateOrbitSpores(dt) {
   const P = orbitPts.geometry.attributes;
-  const boost = 0.72 + cur.speed * 0.95 + (state === "thinking" ? 1.35 : 0) + splitAmount * 1.0 + audio.high * 0.8;
+  const boost = 0.72 + cur.speed * 0.95 + ((state === "thinking" || state === "working") ? 1.35 : 0) + splitAmount * 1.0 + audio.high * 0.8;
   for (let i = 0; i < ORBIT_COUNT; i++) {
     const d = ptData[i];
     d.a += d.sp * dt * boost;
-    const r = d.r + Math.sin(time * d.fs + d.ph) * 0.16 - (state === "thinking" ? 0.12 : 0) + audio.level * 0.15 + splitAmount * 0.30;
+    const r = d.r + Math.sin(time * d.fs + d.ph) * 0.16 - ((state === "thinking" || state === "working") ? 0.12 : 0) + audio.level * 0.15 + splitAmount * 0.30;
     let x = Math.cos(d.a) * r * 1.30;
     let z = Math.sin(d.a) * r * 0.70;
     let y = d.y * 0.84 + Math.sin(d.a * 1.3 + d.ph) * 0.20 + x * d.tilt * 0.22;
@@ -2174,6 +2178,8 @@ window.JarvisOrb = {
     handleResize();
   },
   setTheme: n => applyTheme(n),
+  // Native host supplies the exact app accent palette and light/dark mode.
+  setAppTheme: (isLight, primary, secondary) => applyTheme(null, primary, secondary, !!isLight),
   setBackground: (hex, hex2) => {
     if (!isEmbedded) document.documentElement.style.setProperty("--bg", hex);
     applyTheme(null, hex, hex2);
@@ -2182,7 +2188,7 @@ window.JarvisOrb = {
     const wasWorking = working;
     working = !!b;
     if (working) {
-      setOrbState("thinking", true);
+      setOrbState("working", true);
     } else if (wasWorking) {
       /* Work is Done! Form "DONE ✓" out of the particles! */
       setOrbState("idle", true);
@@ -2194,6 +2200,8 @@ window.JarvisOrb = {
   startListening: () => setOrbState("listening", true),
   startThinking: () => setOrbState("thinking", true),
   startSpeaking: () => setOrbState("speaking", true),
+  startTalking: () => setOrbState("talking", true),
+  startWorking: () => { working = true; setOrbState("working", true); },
   stopSpeaking: () => {
     /* Jarvis finished answering! Form "DONE ✓" out of the particles! */
     setOrbState("idle", true);
