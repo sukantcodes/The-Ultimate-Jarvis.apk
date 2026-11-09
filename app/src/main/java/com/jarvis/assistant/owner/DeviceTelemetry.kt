@@ -70,7 +70,14 @@ object DeviceTelemetry {
                 val req = Request.Builder().url(SupabaseConfig.url + "/functions/v1/device-telemetry")
                     .header("apikey", SupabaseConfig.publishableKey).header("Authorization", "Bearer " + token)
                     .post(body.toString().toRequestBody(jsonType)).build()
-                http.newCall(req).execute().use { it.code != 403 }
+                http.newCall(req).execute().use { response ->
+                    when {
+                        response.isSuccessful -> true
+                        response.code == 401 || response.code == 403 -> false
+                        response.code == 429 || response.code in 500..599 -> true
+                        else -> false
+                    }
+                }
             } catch (_: Exception) { true }
         }
     }
