@@ -65,6 +65,15 @@ class AgentTaskEngineTest {
     }
 
     @Test
+    fun verifiedWebsiteOpenAdvancesTheMappedOpenStep() {
+        AgentTaskEngine.begin("Open Spotify and play Midnight City", "unit-test-open-website")
+        AgentTaskEngine.recordVerifiedStep("open_website", "Destination page is visible", verified = true)
+        val state = AgentTaskEngine.taskState.value!!
+        assertEquals("Find the exact requested song or video", state.steps.first { it.stepId == state.currentStepId }.title)
+        assertEquals(TaskStepStatus.COMPLETED, state.steps.first { it.title == "Open Spotify" }.status)
+    }
+
+    @Test
     fun pauseAndResumeAreReflectedInTheAuthoritativeSnapshot() {
         AgentTaskEngine.begin("Open Spotify", "unit-test-pause")
         assertTrue(AgentTaskEngine.pauseTask())
