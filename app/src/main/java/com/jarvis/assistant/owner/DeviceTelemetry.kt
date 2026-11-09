@@ -7,6 +7,7 @@ import com.jarvis.assistant.BuildConfig
 import com.jarvis.assistant.auth.AuthManager
 import com.jarvis.assistant.auth.AuthResult
 import com.jarvis.assistant.auth.SupabaseConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -80,7 +81,11 @@ object DeviceTelemetry {
                 http.newCall(req).execute().use { response ->
                     isAccessAllowedForStatusCode(response.code)
                 }
-            } catch (_: Exception) { true }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                true
+            }
         }
     }
     private fun report(event: String): Boolean {
