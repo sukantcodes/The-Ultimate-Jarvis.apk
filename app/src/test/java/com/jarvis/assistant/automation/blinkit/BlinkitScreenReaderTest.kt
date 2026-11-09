@@ -223,6 +223,13 @@ class BlinkitScreenReaderTest {
         assertEquals(OrderStage.DELIVERED, BlinkitScreenReader.orderStatus(BScreens.tracking("Order delivered", null)).stage)
     }
 
+    @Test fun `order identifier is extracted from the tracking screen`() {
+        val status = BlinkitScreenReader.orderStatus(
+            BScreens.tracking("Order placed", null, extra = listOf("Order ID: BLK-123456"))
+        )
+        assertEquals("BLK-123456", status.orderId)
+    }
+
     @Test fun `delivery partner, estimate and delay are read, never invented`() {
         val st = BlinkitScreenReader.orderStatus(BScreens.tracking("Rahul Kumar is on the way", "Arriving in 6 mins", extra = listOf("Sorry, your order is running late")))
         assertEquals(OrderStage.ON_THE_WAY, st.stage)
