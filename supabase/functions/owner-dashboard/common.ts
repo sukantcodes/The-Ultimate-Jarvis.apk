@@ -1,5 +1,6 @@
 // Helpers shared by the JARVIS Edge Functions (identical copy lives in owner-dashboard/common.ts).
 import { createClient, type SupabaseClient, type User } from "npm:@supabase/supabase-js@2.45.4";
+import { normalizeIp } from "./ip.ts";
 
 export const json = (body: unknown, status = 200, extra: Record<string, string> = {}): Response =>
   new Response(JSON.stringify(body), {
@@ -24,7 +25,6 @@ export async function authenticate(req: Request, admin: SupabaseClient): Promise
 }
 
 export { normalizeIp } from "./ip.ts";
-import { normalizeIp } from "./ip.ts";
 
 /**
  * Public IP as seen by Supabase's edge, never a value supplied in the request body. Falls back to
