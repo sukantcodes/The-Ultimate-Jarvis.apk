@@ -272,8 +272,8 @@ class HomeFragment : Fragment() {
                     val state = pendingOrbState ?: when (viewModel.conversationState.value) {
                         ConversationState.LISTENING -> "listening"
                         ConversationState.SPEAKING -> "speaking"
-                        ConversationState.THINKING -> if (taskActive) "working" else "thinking"
-                        ConversationState.IDLE -> if (taskActive) "working" else "idle"
+                        ConversationState.THINKING -> if (loadedElepticalOrb && taskActive) "working" else "thinking"
+                        ConversationState.IDLE -> if (loadedElepticalOrb && taskActive) "working" else "idle"
                     }
                     setOrbState(state)
                 }
@@ -672,7 +672,7 @@ class HomeFragment : Fragment() {
                                 }
                                 ConversationState.THINKING -> {
                                     val taskActive = com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value != null
-                                    setOrbState(if (taskActive) "working" else "thinking")
+                                    setOrbState(if (loadedElepticalOrb && taskActive) "working" else "thinking")
                                     binding.tvListeningStatus.text = if (taskActive) "WORKING..." else "THINKING..."
                                     binding.tvListeningStatus.setTextColor(Color.parseColor("#F59E0B"))
                                     binding.tvHoldHint.text = "Processing request..."
@@ -682,7 +682,7 @@ class HomeFragment : Fragment() {
                                 }
                                 ConversationState.IDLE -> {
                                     val taskActive = com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value != null
-                                    setOrbState(if (taskActive) "working" else "idle")
+                                    setOrbState(if (loadedElepticalOrb && taskActive) "working" else "idle")
                                     binding.tvListeningStatus.text = if (taskActive) "WORKING..." else "MIC ON • READY"
                                     binding.tvListeningStatus.setTextColor(Color.parseColor("#10B981"))
                                     binding.tvHoldHint.text = "Tap to mute • Hold to power off"
