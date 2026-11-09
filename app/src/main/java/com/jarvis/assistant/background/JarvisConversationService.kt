@@ -1059,16 +1059,20 @@ class JarvisConversationService : Service() {
                                         liveWebSocket?.sendAudioChunk(chunk)
                                     }
                                 }
-                                // Reset autonomous task state on fresh connection
-                                isAutonomousTaskRunning = false
-                                isAutonomousContinuationTurn = false
-                                synchronized(autonomousAudioLock) {
-                                    autonomousAudioBuffer.clear()
-                                    autonomousAudioBufferBytes = 0
+                                // A transient provider reconnect must never discard an unfinished task.
+                                val engineTaskActive = com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value != null
+                                if (!isAutonomousTaskRunning && !engineTaskActive) {
+                                    isAutonomousContinuationTurn = false
+                                    synchronized(autonomousAudioLock) {
+                                        autonomousAudioBuffer.clear()
+                                        autonomousAudioBufferBytes = 0
+                                    }
+                                    autonomousStepCount = 0
+                                    autonomousLoopJob?.cancel()
+                                    autonomousLoopJob = null
+                                } else {
+                                    Log.i("JarvisService", "Preserving active autonomous task across provider reconnect.")
                                 }
-                                autonomousStepCount = 0
-                                autonomousLoopJob?.cancel()
-                                autonomousLoopJob = null
                                 if (_conversationState.value != ConversationState.SPEAKING && _conversationState.value != ConversationState.THINKING) {
                                     setConversationState(ConversationState.IDLE)
                                 }
@@ -1177,8 +1181,8 @@ class JarvisConversationService : Service() {
                                     wakeAuthorizationArmed = false
                                     if (VoiceIntentGate.isWakeOnly(trimmed)) wakeAuthorizationArmed = true
                                     if (currentTurnWakeAuthorized) {
-                                        returnToStandbyAfterAuthorizedTurn = true
-                                        suppressMicUploadUntilVoiceCommandComplete = true
+                                        returnToStandbyAfterAuthorizedTurn = false
+                                        suppressMicUploadUntilVoiceCommandComplete = false
                                     }
                                 }
                                 val answeringTaskBlocker = startsNewUserTurn && isAutonomousTaskRunning && autonomousWaitingForUser
@@ -1187,14 +1191,10 @@ class JarvisConversationService : Service() {
                                     com.jarvis.assistant.automation.agent.AgentTaskEngine.resumeAfterUserInput()
                                 }
                                 if (startsNewUserTurn && isAutonomousTaskRunning && !isExplicitContinuationUtterance(trimmed) && !answeringTaskBlocker) {
-                                    Log.i("JarvisService", "New user request superseded the previous automation task; cancelling stale actions.")
-                                    cancelAllActiveTools()
-                                    autonomousTaskGoal = ""
-                                    autonomousContinuationAttempts = 0
-                                    bulkEndOfListVerified = false
-                                    bulkNoProgressScrollCount = 0
-                                    lastBulkScreenSignature = null
-                                    autoResumeAwaitingResponse = false
+                                    // Ordinary speech is not a cancellation command. Preserve verified progress.
+                                    // Only an explicit stop/cancel command or a genuine user-decision blocker
+                                    // may suspend an unfinished task.
+                                    Log.i("JarvisService", "Preserving the active task after an unrelated user utterance; explicit cancellation is required to stop it.")
                                 }
                                 if (startsNewUserTurn && autonomousHardStop) {
                                     val resumeExistingTask = isExplicitContinuationUtterance(trimmed) && autonomousTaskGoal.isNotBlank() &&
@@ -1549,7 +1549,7 @@ class JarvisConversationService : Service() {
                                     // A requested clarification is an authorized continuation of this task.
                                     suppressMicUploadUntilVoiceCommandComplete = false
                                 } else {
-                                    suppressMicUploadUntilVoiceCommandComplete = true
+                                    suppressMicUploadUntilVoiceCommandComplete = false
                                     if (!isAutonomousTaskRunning && pendingToolCalls.isEmpty() &&
                                         activeToolJobs.isEmpty() && !isExecutingTool && macroJob?.isActive != true) {
                                         scheduleStandbyAfterAuthorizedVoiceTurn()
@@ -1903,8 +1903,12 @@ class JarvisConversationService : Service() {
                                     thinkingTimeoutJob?.cancel()
                                     thinkingTimeoutJob = serviceScope.launch {
                                         delay(15000)
-                                        if (_conversationState.value == ConversationState.THINKING && (audioPlayer == null || !audioPlayer!!.isPlaying())) {
-                                            Log.i("JarvisService", "Thinking timeout safety; returning to IDLE")
+                                        val taskStillRunning = isAutonomousTaskRunning ||
+                                            com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value != null ||
+                                            activeToolJobs.any { it.isActive } || isExecutingTool || macroJob?.isActive == true
+                                        if (!taskStillRunning && _conversationState.value == ConversationState.THINKING &&
+                                            (audioPlayer == null || !audioPlayer!!.isPlaying())) {
+                                            Log.i("JarvisService", "Thinking timeout safety; returning to IDLE (no task is active)")
                                             setConversationState(ConversationState.IDLE)
                                             lastResponseTimedOut = true
                                             updateNotification()
@@ -4260,14 +4264,16 @@ class JarvisConversationService : Service() {
                 delay(5_000)
                 val sleepSettings = com.jarvis.assistant.audio.AutoSleepSettings(applicationContext)
                 val configuredMs = sleepSettings.timeoutSeconds * 1000L
-                val timeoutMs = if (announcementOnlySession) {
-                    if (configuredMs > 0L) minOf(configuredMs, 20_000L) else 20_000L
-                } else {
-                    configuredMs
-                }
+                // All automatic standby transitions follow the user's configured Auto-Sleep timer.
+                val timeoutMs = configuredMs
                 if (timeoutMs <= 0L) continue
-                val busy = isAutonomousTaskRunning || macroJob?.isActive == true || pendingToolCalls.isNotEmpty() ||
-                    audioPlayer?.isPlaying() == true || _conversationState.value == ConversationState.SPEAKING
+                val busy = isAutonomousTaskRunning ||
+                    com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value != null ||
+                    autonomousLoopJob?.isActive == true || autonomousWaitingForUser ||
+                    activeToolJobs.any { it.isActive } || isExecutingTool ||
+                    macroJob?.isActive == true || pendingToolCalls.isNotEmpty() ||
+                    audioPlayer?.isPlaying() == true || tts?.isSpeaking == true ||
+                    _conversationState.value == ConversationState.SPEAKING
                 if (busy) continue
                 val reference = if (sleepSettings.countFromWake) activationTime else lastRealInteractionTime
                 if (System.currentTimeMillis() - reference >= timeoutMs) {
@@ -4515,8 +4521,8 @@ class JarvisConversationService : Service() {
         serviceScope.launch { _wakeEvents.emit(Unit) }
         // A full wake-prefixed request is already present; do not send an extra wake greeting.
         if (!commandText.isNullOrBlank()) {
-            suppressMicUploadUntilVoiceCommandComplete = true
-            returnToStandbyAfterAuthorizedTurn = true
+            suppressMicUploadUntilVoiceCommandComplete = false
+            returnToStandbyAfterAuthorizedTurn = false
         }
         beginActiveConversation(wakeTriggered = commandText.isNullOrBlank())
         if (!_isSessionOn.value || commandText.isNullOrBlank()) {
@@ -4654,12 +4660,10 @@ class JarvisConversationService : Service() {
 
     private fun isExplicitStandbyCommand(text: String): Boolean {
         val clean = text.lowercase(Locale.ROOT).trim()
+        // Only explicit sleep/standby wording may put JARVIS to sleep.
         val patterns = listOf(
-            "go to background", "go background", "go in background", "go in the background",
-            "background me jao", "background mein jao", "send to background", "move to background",
-            "minimize", "go home", "go to home", "go to home screen",
-            "go to sleep", "sleep jarvis", "enter standby", "standby mode", "go to standby",
-            "take a break", "so jao"
+            "go to sleep", "sleep jarvis", "enter standby", "standby mode",
+            "go to standby", "so jao", "so ja", "sleep now"
         )
         return patterns.any { containsPhrase(clean, it) }
     }
