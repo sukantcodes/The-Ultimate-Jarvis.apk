@@ -1560,7 +1560,7 @@ function readHostCssThemeColor() {
   return null;
 }
 
-function applyTheme(name, custom, custom2) {
+function applyTheme(name, custom, custom2, lightOverride) {
   if (name && THEMES[name.toLowerCase()]) {
     name = name.toLowerCase();
   } else if (name && !custom) {
@@ -1581,7 +1581,7 @@ function applyTheme(name, custom, custom2) {
 
     const bgCol = c1 || c2;
     const L = 0.299 * bgCol.r + 0.587 * bgCol.g + 0.114 * bgCol.b;
-    const light = L > 0.55;
+    const light = typeof lightOverride === "boolean" ? lightOverride : L > 0.55;
 
     /* Choose the active App Theme Colour:
        1. If custom2 (theme accent) is provided and has saturation, use custom2.
@@ -2266,6 +2266,8 @@ window.JarvisOrb = {
     handleResize();
   },
   setTheme: n => applyTheme(n),
+  // Native host supplies both the exact app accent palette and its light/dark mode.
+  setAppTheme: (isLight, primary, secondary) => applyTheme(null, primary, secondary, !!isLight),
   setColor: (hex, hex2) => applyTheme(null, hex, hex2),
   setThemeColor: (hex, hex2) => applyTheme(null, hex, hex2),
   setAppColor: (hex, hex2) => applyTheme(null, hex, hex2),
