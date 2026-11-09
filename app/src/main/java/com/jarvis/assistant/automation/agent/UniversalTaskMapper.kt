@@ -33,7 +33,13 @@ object UniversalTaskMapper {
         val normalized = actionSource
             .replace(Regex("""(?i)\b(?:and then|then|after that|next)\b"""), " ; ")
             .replace(Regex("""(?i)\s+and\s+(?=(?:open|launch|play|skip|like|comment|copy|send|share|search|find|tap|click|turn|set|call|wait|download|install|delete|save|select|choose|subscribe|follow|unfollow|message|type|scroll|navigate|verify)\b)"""), " ; ")
-            .replace(Regex("""[.!?]+"""), " ; ")
+            .replace(
+                Regex(
+                    """[.!?]+\s*(?=(?:open|launch|play|skip|like|comment|copy|send|share|search|find|tap|click|turn|set|call|wait|download|install|delete|save|select|choose|subscribe|follow|unfollow|message|type|scroll|navigate|verify)\b)""",
+                    RegexOption.IGNORE_CASE
+                ),
+                " ; "
+            )
 
         val fragments = normalized.split(
             Regex(
