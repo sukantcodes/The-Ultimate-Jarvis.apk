@@ -114,7 +114,11 @@ class WhatsAppAssistant(
                 candidates.take(5).joinToString(", ") { it.name }
         }
 
-        val exactMatches = candidates.filter { it.name.equals(choice, ignoreCase = true) }
+        val choiceDigits = choice.filter(Char::isDigit)
+        val exactMatches = candidates.filter {
+            it.name.equals(choice, ignoreCase = true) ||
+                (choiceDigits.length == 4 && it.phoneNumber.filter(Char::isDigit).endsWith(choiceDigits))
+        }
         val partialMatches = if (exactMatches.isEmpty()) candidates.filter {
             it.name.contains(choice, ignoreCase = true) || choice.contains(it.name, ignoreCase = true)
         } else emptyList()
