@@ -3585,6 +3585,37 @@ class JarvisConversationService : Service() {
                         }
                     }
 
+                    "schedule_call" -> {
+                        val contact = args.optString("contact_name", "").trim()
+                        val delaySeconds = args.optLong("delay_seconds", 0L)
+                        if (contact.isBlank() || delaySeconds <= 0L) {
+                            result.put("success", false)
+                            result.put("message", "A contact and a positive delay are required before I can schedule the call.")
+                        } else {
+                            val delayMillis = delaySeconds.coerceAtMost(30L * 24L * 60L * 60L) * 1_000L
+                            val message = com.jarvis.assistant.automation.tasks.ScheduledTaskMemory
+                                .scheduleCall(applicationContext, contact, delayMillis)
+                            result.put("success", true)
+                            result.put("message", message)
+                            result.put("scheduled", true)
+                        }
+                    }
+
+                    "watch_app_event" -> {
+                        val watchedApp = args.optString("app", "").trim()
+                        val keyword = args.optString("keyword", "any").trim().lowercase(Locale.ROOT)
+                        if (watchedApp.isBlank() || keyword.isBlank()) {
+                            result.put("success", false)
+                            result.put("message", "Tell me which app and event I should monitor.")
+                        } else {
+                            val message = com.jarvis.assistant.automation.tasks.ScheduledTaskMemory
+                                .watchAppEvent(applicationContext, watchedApp, keyword)
+                            result.put("success", true)
+                            result.put("message", message)
+                            result.put("watch_created", true)
+                        }
+                    }
+
                     "inspect_screen" -> {
                         val orchestrator = com.jarvis.assistant.vision.VisualTaskOrchestrator.getInstance()
                         val summary = orchestrator.inspectScreen(waitForContent = true)
