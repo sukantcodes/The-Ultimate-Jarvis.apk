@@ -464,9 +464,9 @@ class AmazonAgent(
         if (quantity > 1 && inCart.quantity != quantity) {
             val q = setQuantity(title, quantity, deadline)
             if (q.first != null) {
-                return AmazonResult(true, AmazonStatus.NOT_VERIFIED,
-                    "Added to the cart (verified), but the quantity could not be set to $quantity: ${q.first!!.message}",
-                    verified = true, extra = mapOf("in_cart" to true))
+                return AmazonResult(false, AmazonStatus.NOT_VERIFIED,
+                    "The item is visible in the cart, but the requested quantity $quantity was not verified: ${q.first!!.message}",
+                    verified = false, extra = mapOf("in_cart" to true, "requested_quantity" to quantity))
             }
             finalItem = q.second ?: finalItem
         }
