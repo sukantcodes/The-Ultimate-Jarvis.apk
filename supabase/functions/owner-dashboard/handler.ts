@@ -1,4 +1,4 @@
-import { normalizeIp } from "./common.ts";
+import { normalizeIp } from "./ip.ts";
 
 // Owner dashboard request handler. All authorization happens here, server-side.
 //
