@@ -171,8 +171,7 @@ export function createHandler(d: Deps) {
         const normalizedIp = normalizeIp(term);
         if (normalizedIp) q = q.eq("ip", normalizedIp);
         else return { items: [], total: 0, page, page_size: size };
-      };
-      else return { items: [], total: 0, page, page_size: size };
+      }
     }
     const { data, count } = await q.order("last_seen_at", { ascending: false }).range(from, to);
     return { items: data ?? [], total: count ?? 0, page, page_size: size,
