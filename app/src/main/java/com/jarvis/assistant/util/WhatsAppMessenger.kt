@@ -3,6 +3,7 @@ package com.jarvis.assistant.util
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.telephony.PhoneNumberUtils
 import android.provider.ContactsContract
 import com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService
 
@@ -54,18 +55,8 @@ object WhatsAppMessenger {
             matches.singleOrNull { it.name.equals(recipientName.trim(), ignoreCase = true) }
                 ?: return SendResult.MultipleContactsFound(recipientName, matches.map { "${it.name} (${it.number})" })
         }
-        val rawNumber = targetContact.number.filter { it.isDigit() || it == '+' }
-        var phoneDigits = rawNumber.filter { it.isDigit() }
-
-        if (phoneDigits.isEmpty()) {
-            return SendResult.Error("No valid phone number digits for ${targetContact.name}.")
-        }
-
-        if (phoneDigits.length == 10) {
-            phoneDigits = "91$phoneDigits"
-        } else if (phoneDigits.startsWith("0") && phoneDigits.length == 11) {
-            phoneDigits = "91" + phoneDigits.substring(1)
-        }
+        val phoneDigits = normalizeWhatsAppNumber(context, targetContact.number)
+            ?: return SendResult.Error("I couldn't determine a valid international phone number for ${targetContact.name}. Please check the contact's country code.")
 
         // 2. Check WhatsApp dual app availability
         val appMatches = AppLauncher.findMatchingApps(context, "WhatsApp")
@@ -151,18 +142,8 @@ object WhatsAppMessenger {
             matches.singleOrNull { it.name.equals(recipientName.trim(), ignoreCase = true) }
                 ?: return CallResult.MultipleContactsFound(recipientName, matches.map { "${it.name} (${it.number})" })
         }
-        val rawNumber = targetContact.number.filter { it.isDigit() || it == '+' }
-        var phoneDigits = rawNumber.filter { it.isDigit() }
-
-        if (phoneDigits.isEmpty()) {
-            return CallResult.Error("No valid phone number digits for ${targetContact.name}.")
-        }
-
-        if (phoneDigits.length == 10) {
-            phoneDigits = "91$phoneDigits"
-        } else if (phoneDigits.startsWith("0") && phoneDigits.length == 11) {
-            phoneDigits = "91" + phoneDigits.substring(1)
-        }
+        val phoneDigits = normalizeWhatsAppNumber(context, targetContact.number)
+            ?: return CallResult.Error("I couldn't determine a valid international phone number for ${targetContact.name}. Please check the contact's country code.")
 
         // 2. Check WhatsApp dual app availability
         val appMatches = AppLauncher.findMatchingApps(context, "WhatsApp")
@@ -228,6 +209,32 @@ object WhatsAppMessenger {
         } catch (e: Exception) {
             CallResult.Error("Could not connect WhatsApp $normalizedType call to ${targetContact.name}.")
         }
+    }
+
+    private fun normalizeWhatsAppNumber(context: Context, rawNumber: String): String? {
+        val cleaned = rawNumber.trim()
+        if (cleaned.isBlank()) return null
+        val region = if (android.os.Build.VERSION.SDK_INT >= 24) {
+            context.resources.configuration.locales[0]?.country.orEmpty()
+        } else {
+            @Suppress("DEPRECATION")
+            context.resources.configuration.locale?.country.orEmpty()
+        }.ifBlank { Locale.getDefault().country }
+
+        val e164 = region.takeIf { it.isNotBlank() }?.let {
+            PhoneNumberUtils.formatNumberToE164(cleaned, it)
+        }
+        if (!e164.isNullOrBlank()) {
+            val digits = e164.filter(Char::isDigit)
+            return digits.takeIf { it.length in 8..15 }
+        }
+
+        // An explicitly international number can still be used when the device has no region set.
+        if (cleaned.startsWith("+")) {
+            val digits = cleaned.filter(Char::isDigit)
+            return digits.takeIf { it.length in 8..15 }
+        }
+        return null
     }
 
     private fun findWhatsAppContactDataId(context: Context, phoneDigits: String, mimeType: String): Long? {
