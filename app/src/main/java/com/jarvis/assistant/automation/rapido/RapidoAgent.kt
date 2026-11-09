@@ -614,21 +614,23 @@ class RapidoAgent(
     }
 
     private fun selectionConfirmed(nodes: List<RapidoNode>, option: FareOption): Boolean {
+        // An explicit selected-state from the fare card is the strongest available evidence.
         if (option.selected) return true
+
         val button = RapidoScreenReader.bookButton(nodes) ?: return false
         val label = button.label.lowercase(Locale.ROOT)
-        // The Book button names the ride type it will book ("Book Auto"); it must name this one and no other.
-        val cat = option.category
-        val words = when (cat) {
-            VehicleCategory.BIKE -> listOf("bike")
-            VehicleCategory.AUTO -> listOf("auto", "rickshaw")
-            VehicleCategory.CAB -> listOf("cab", "taxi", "mini", "prime", "sedan", "suv", "xl", "economy", "premium")
-            VehicleCategory.OTHER -> emptyList()
-        }
-        val others = VehicleCategory.values().filter { it != cat && it != VehicleCategory.OTHER }
-            .flatMap { c -> when (c) { VehicleCategory.BIKE -> listOf("bike"); VehicleCategory.AUTO -> listOf("auto", "rickshaw"); else -> listOf("cab", "taxi") } }
-        if (RideText.containment(option.name, label) >= 0.99 && option.name.isNotBlank()) return true
-        return words.any { label.contains(it) } && others.none { label.contains(it) && !words.any { w -> label.contains(w) } }
+        val categoryTokens = linkedMapOf(
+            VehicleCategory.BIKE to listOf("bike"),
+            VehicleCategory.AUTO to listOf("auto", "rickshaw"),
+            VehicleCategory.CAB to listOf("cab", "taxi", "mini", "prime", "sedan", "suv", "xl", "economy", "premium")
+        )
+        fun containsToken(token: String): Boolean =
+            Regex("""\\b${Regex.escape(token)}\\b""", RegexOption.IGNORE_CASE).containsMatchIn(label)
+
+        // The Book label is only a fallback signal. It must identify exactly one
+        // vehicle category; mixed labels such as "Book Auto or Bike" are ambiguous.
+        val matchedCategories = categoryTokens.filterValues { tokens -> tokens.any(::containsToken) }.keys
+        return matchedCategories.size == 1 && matchedCategories.single() == option.category
     }
 
     private class PaymentSet(val nodes: List<RapidoNode>, val error: RapidoResult?)
