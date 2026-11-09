@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
 
 class AgentTaskEngineTest {
 
@@ -71,6 +72,38 @@ class AgentTaskEngineTest {
         val state = AgentTaskEngine.taskState.value!!
         assertEquals("Find the exact requested song or video", state.steps.first { it.stepId == state.currentStepId }.title)
         assertEquals(TaskStepStatus.COMPLETED, state.steps.first { it.title == "Open Spotify" }.status)
+    }
+
+    @Test
+    fun autonomousLoopStopsAtConfiguredIterationLimit() = runBlocking {
+        AgentTaskEngine.begin("Run bounded autonomous loop", "unit-test-loop-limit")
+        var calls = 0
+
+        val outcome = AgentTaskEngine.runAutonomousLoop(maxIterations = 2) { _, _ ->
+            calls++
+            true
+        }
+
+        assertEquals(2, calls)
+        assertEquals(2, outcome.iterations)
+        assertTrue(outcome.reachedLimit)
+        assertFalse(outcome.cancelled)
+    }
+
+    @Test
+    fun autonomousLoopCanFinishBeforeConfiguredIterationLimit() = runBlocking {
+        AgentTaskEngine.begin("Run early stopping autonomous loop", "unit-test-loop-early-stop")
+        var calls = 0
+
+        val outcome = AgentTaskEngine.runAutonomousLoop(maxIterations = 5) { _, _ ->
+            calls++
+            false
+        }
+
+        assertEquals(1, calls)
+        assertEquals(1, outcome.iterations)
+        assertFalse(outcome.reachedLimit)
+        assertFalse(outcome.cancelled)
     }
 
     @Test
