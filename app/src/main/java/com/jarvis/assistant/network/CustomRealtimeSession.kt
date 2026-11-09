@@ -33,7 +33,8 @@ class CustomRealtimeSession(
 
     /** Point the Gemini-Live protocol at the custom provider's WebSocket endpoint. */
     override fun connectionUrl(apiKey: String): String {
-        val base = ProviderUrlValidator.wsBase(profile.baseUrl)
-        return "$base?key=$apiKey"
+        val base = ProviderUrlValidator.wsBase(profile.baseUrl).trimEnd('/')
+        val encodedKey = java.net.URLEncoder.encode(apiKey, Charsets.UTF_8.name())
+        return "$base?key=$encodedKey"
     }
 }
