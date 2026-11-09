@@ -3,7 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
-import { createHandler } from "./handler.ts";
+import { createHandler, isValidBcryptInput } from "./handler.ts";
 import { normalizeIp } from "./ip.ts";
 
 const USER = "11111111-1111-4111-8111-111111111111";
@@ -95,6 +95,24 @@ test("IP normalization accepts valid IPv4 and IPv6 and rejects malformed values"
   assert.equal(normalizeIp("999.999.999.999"), null);
   assert.equal(normalizeIp("::::"), null);
   assert.equal(normalizeIp("2001:db8:::1"), null);
+});
+
+test("bcrypt password validation uses UTF-8 bytes rather than JavaScript character count", () => {
+  assert.equal(isValidBcryptInput("a".repeat(72)), true);
+  assert.equal(isValidBcryptInput("a".repeat(73)), false);
+  assert.equal(isValidBcryptInput("😀".repeat(18)), true);
+  assert.equal(isValidBcryptInput("😀".repeat(19)), false);
+  assert.equal(isValidBcryptInput(""), false);
+});
+
+test("successful owner verification clears both user and IP failure counters", async () => {
+  const t = setup();
+  assert.equal((await t.call({ action: "verify", password: "bad" })).status, 401);
+  assert.equal((await t.call({ action: "verify", password: "bad" })).status, 401);
+  assert.equal((await t.call({ action: "verify", password: TEST_PASSWORD })).status, 200);
+  assert.equal((await t.call({ action: "verify", password: "bad" })).status, 401);
+  assert.equal((await t.call({ action: "verify", password: "bad" })).status, 401);
+  assert.equal((await t.call({ action: "verify", password: "bad" })).status, 429);
 });
 
 test("no signed-in user -> 401 for every action", async () => {
