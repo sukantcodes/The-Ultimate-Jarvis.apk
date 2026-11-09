@@ -3484,10 +3484,11 @@ class JarvisConversationService : Service() {
                         val allMappedStepsVerified = engineContext != null &&
                             engineContext.steps.isNotEmpty() &&
                             engineContext.steps.all { it.status == com.jarvis.assistant.automation.agent.TaskStepStatus.COMPLETED }
-                        val verifiedStepFallback = !finalCompletionCheck.first &&
-                            finalCompletionCheck.second == "No local verifier is available for this goal type" &&
+                        val verifiedStepFallback = !localCompletionCheck.first &&
+                            localCompletionCheck.second == "No local verifier is available for this goal type" &&
                             allMappedStepsVerified &&
-                            engineContext?.lastActionVerified == true &&
+                            engineContext != null &&
+                            engineContext.lastActionVerified &&
                             !engineContext.lastObservation.isNullOrBlank()
                         val finalCompletionCheck = if (verifiedStepFallback) {
                             true to "Every mapped action was individually verified and a fresh final screen observation was captured"
