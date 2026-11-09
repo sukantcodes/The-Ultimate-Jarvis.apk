@@ -89,23 +89,31 @@ class WhatsAppAssistant(
 
     fun handleDisambiguationChoice(userChoice: String, pendingMessage: String = ""): String {
         val candidates = disambiguationCandidates ?: return "No contact disambiguation in progress."
-        val chosen = candidates.find {
-            it.name.contains(userChoice, ignoreCase = true) || userChoice.contains(it.name, ignoreCase = true)
-        } ?: candidates.firstOrNull()
+        val choice = userChoice.trim()
+        if (choice.isBlank()) {
+            return "Please specify the contact's name. Options: " +
+                candidates.take(5).joinToString(", ") { it.name }
+        }
+
+        val exactMatches = candidates.filter { it.name.equals(choice, ignoreCase = true) }
+        val partialMatches = if (exactMatches.isEmpty()) candidates.filter {
+            it.name.contains(choice, ignoreCase = true) || choice.contains(it.name, ignoreCase = true)
+        } else emptyList()
+        val matching = if (exactMatches.isNotEmpty()) exactMatches else partialMatches
+        val chosen = matching.singleOrNull()
+        if (chosen == null) {
+            return "I couldn't uniquely identify that contact. Please specify the full name. Options: " +
+                candidates.take(5).joinToString(", ") { it.name }
+        }
 
         disambiguationCandidates = null
-
-        return if (chosen != null) {
-            val msg = if (pendingMessage.isNotBlank()) pendingMessage else "Hello"
-            pendingDraft = PendingWhatsAppDraft(
-                contactName = chosen.name,
-                phoneNumber = chosen.phoneNumber,
-                message = msg
-            )
-            "Draft ready for ${chosen.name}. Should I send it?"
-        } else {
-            "I couldn't identify which contact you meant, sir."
-        }
+        val msg = if (pendingMessage.isNotBlank()) pendingMessage else "Hello"
+        pendingDraft = PendingWhatsAppDraft(
+            contactName = chosen.name,
+            phoneNumber = chosen.phoneNumber,
+            message = msg
+        )
+        return "Draft ready for ${chosen.name}. Please review it. Should I send it?"
     }
 
     fun sendMessageDirectly(targetContact: String, messageText: String): String {
@@ -114,12 +122,9 @@ class WhatsAppAssistant(
         if (cleanContact.isBlank()) return "Who would you like to message on WhatsApp, sir?"
         if (cleanMessage.isBlank()) return "What message would you like to send to $cleanContact?"
 
-        val draftResult = createDraft(cleanContact, cleanMessage)
-        return if (hasPendingDraft()) {
-            confirmAndSend()
-        } else {
-            draftResult
-        }
+        // Creating a draft must never dispatch an external message. The separate
+        // ConfirmAction command is the only path that may launch the send workflow.
+        return createDraft(cleanContact, cleanMessage)
     }
 
     fun confirmAndSend(): String {
@@ -161,15 +166,19 @@ class WhatsAppAssistant(
             // Arm accessibility service BEFORE launching WhatsApp so it's ready to click immediately
             JarvisAccessibilityService.triggerWhatsAppSend(message)
 
-            ActivityLauncherHelper.startActivitySafely(context, intent)
+            val launched = ActivityLauncherHelper.startActivitySafely(context, intent)
+            if (!launched) {
+                return "I couldn't open WhatsApp. Your draft is still saved; nothing was confirmed as sent."
+            }
 
             val recipient = draft.contactName
+            // The external app owns the final send result. Clear this in-flight draft to
+            // prevent a second confirmation from accidentally dispatching a duplicate.
             pendingDraft = null
-            "Sending WhatsApp message to $recipient."
+            "Opened WhatsApp for $recipient with the approved message. I cannot verify from here whether WhatsApp completed sending it."
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to send WhatsApp message: ${e.message}", e)
-            pendingDraft = null
-            "Failed to open WhatsApp. Please ensure WhatsApp is installed."
+            Log.e(TAG, "Failed to open WhatsApp for the approved draft", e)
+            "Failed to open WhatsApp. Your draft is still saved and no send was verified."
         }
     }
 
