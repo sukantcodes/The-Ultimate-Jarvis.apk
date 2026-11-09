@@ -1,3 +1,5 @@
+import { normalizeIp } from "./common.ts";
+
 // Owner dashboard request handler. All authorization happens here, server-side.
 //
 //   POST { action: "verify", password }      -> { token, expires_at }   (needs a signed-in user)
@@ -31,7 +33,6 @@ const json = (body: unknown, status = 200, extra: Record<string, string> = {}): 
 
 const GENERIC_DENIED = { error: "invalid_credentials", message: "Access denied." };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const IP_LIKE = /^[0-9a-fA-F:.]{2,45}$/;
 const SAFE_TERM = /^[A-Za-z0-9 ._-]{1,40}$/;
 
 function pageParams(body: Record<string, unknown>) {
@@ -166,7 +167,11 @@ export function createHandler(d: Deps) {
     const term = typeof body.search === "string" ? body.search.trim() : "";
     if (term) {
       if (UUID.test(term)) q = q.or(`user_id.eq.${term},device_id.eq.${term}`);
-      else if (IP_LIKE.test(term) && (term.includes(".") || term.includes(":"))) q = q.eq("ip", term);
+      else {
+        const normalizedIp = normalizeIp(term);
+        if (normalizedIp) q = q.eq("ip", normalizedIp);
+        else return { items: [], total: 0, page, page_size: size };
+      };
       else return { items: [], total: 0, page, page_size: size };
     }
     const { data, count } = await q.order("last_seen_at", { ascending: false }).range(from, to);
@@ -185,14 +190,18 @@ export function createHandler(d: Deps) {
 
   async function mutateBlock(body: Record<string, unknown>, user: AuthedUser, remove: boolean) {
     const type = typeof body.block_type === "string" ? body.block_type : "";
-    const target = typeof body.target_value === "string" ? body.target_value.trim() : "";
+    let target = typeof body.target_value === "string" ? body.target_value.trim() : "";
     if (!["user", "device", "ip"].includes(type) || target.length < 2 || target.length > 128)
       return json({ error: "bad_request" }, 400);
     if (type === "user" && !UUID.test(target)) return json({ error: "bad_request" }, 400);
     if (type === "device" && !UUID.test(target)) return json({ error: "bad_request" }, 400);
-    if (type === "ip" && (!IP_LIKE.test(target) || !(target.includes(".") || target.includes(":"))))
-      return json({ error: "bad_request" }, 400);
-    if (type === "user" && (target.toLowerCase() === user.id.toLowerCase() || ownerIds()?.includes(target.toLowerCase()))) return json({ error: "protected_owner" }, 403);
+    if (type === "user" || type === "device") target = target.toLowerCase();
+    if (type === "ip") {
+      const normalizedIp = normalizeIp(target);
+      if (!normalizedIp) return json({ error: "bad_request" }, 400);
+      target = normalizedIp;
+    }
+    if (type === "user" && (target === user.id.toLowerCase() || ownerIds()?.includes(target))) return json({ error: "protected_owner" }, 403);
     if (remove) {
       const { error } = await d.admin.from("access_blocks").delete()
         .eq("block_type", type).eq("target_value", target);
