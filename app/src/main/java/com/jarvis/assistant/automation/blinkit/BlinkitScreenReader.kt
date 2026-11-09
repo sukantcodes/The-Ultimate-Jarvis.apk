@@ -566,7 +566,7 @@ object BlinkitScreenReader {
         }
         val delay = ls.firstOrNull { Regex("""delay|running late|taking longer|longer than usual|bit late|sorry for the wait""", RegexOption.IGNORE_CASE).containsMatchIn(it) }?.take(120)
         val itemNotices = ls.filter { Regex("""unavailable|out of stock|replaced|substitut|missing|removed from your order|could not be delivered""", RegexOption.IGNORE_CASE).containsMatchIn(it) }.map { it.take(120) }.distinct().take(4)
-        val orderId = Regex("""\\border\\s*(?:id|number|no\\.?|#)\\s*[:#-]?\\s*([A-Z0-9-]{4,})\\b""", RegexOption.IGNORE_CASE)
+        val orderId = Regex("""\border\s*(?:id|number|no\.?|#)\s*[:#-]?\s*([A-Z0-9-]{4,})\b""", RegexOption.IGNORE_CASE)
             .find(t)?.groupValues?.get(1)?.uppercase(Locale.ROOT)
         return OrderStatus(
             stage = stage,
