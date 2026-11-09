@@ -151,6 +151,19 @@ class ProviderModelDiscovery(
         val capabilities = when {
             protocol == ProviderProtocol.GEMINI_REALTIME || explicitRealtime ->
                 ProviderModelCapabilities.realtimeVoiceCapable
+            protocol == ProviderProtocol.OPENAI_COMPATIBLE ->
+                // OpenAI-compatible chat-completions endpoints commonly support function
+                // calling, but many model-list endpoints omit capability metadata. Enable
+                // tool calls optimistically; CustomChatSession already retries without tools
+                // when a provider/model explicitly rejects the tool schema.
+                ProviderModelCapabilities.textOnly.copy(
+                    tools = entry.optBoolean("tools", true),
+                    streaming = entry.optBoolean("streaming", false),
+                    imageInput = entry.optBoolean("imageInput", false),
+                    fileAnalysis = entry.optBoolean("fileAnalysis", false),
+                    audioInput = entry.optBoolean("audioInput", false),
+                    audioOutput = entry.optBoolean("audioOutput", false)
+                )
             else -> ProviderModelCapabilities.textOnly
         }
         val display = entry.optString("displayName", "")
