@@ -390,7 +390,8 @@ const LABELS = {
 
 const SHAPE_NAMES = [
   "amoeba", "helix", "torus", "hypercube",
-  "infinity", "galaxy", "merkaba", "vortex"
+  "infinity", "galaxy", "merkaba", "vortex",
+  "chakra", "trishul", "lotus", "conch"
 ];
 
 const SHAPE_LABELS = {
@@ -404,6 +405,12 @@ const SHAPE_LABELS = {
   merkaba: "3D STAR CORE",
   welcome: "WELCOME",
   done: "DONE",
+  krishna: "SHREE KRISHNA · FLUTE",
+  ram: "श्री राम",
+  chakra: "SUDARSHAN CHAKRA",
+  trishul: "TRISHUL",
+  lotus: "LOTUS",
+  conch: "SHANKH",
   custom: "CUSTOM 3D SHAPE"
 };
 
@@ -500,7 +507,7 @@ function computeNormal(x, y, z) {
 
 /* Rasterizes any text string (+ optional subtitle/icon) onto a high-res canvas and
    extrudes it into a realistic 3D volumetric particle sculpture with bevel normals! */
-function generate3DTextSculpture(mainText, subText, withCheckmark) {
+function generate3DTextSculpture(mainText, subText, withCheckmark, solidOnly) {
   const pos = new Float32Array(COUNT * 3);
   const norm = new Float32Array(COUNT * 3);
 
@@ -535,8 +542,9 @@ function generate3DTextSculpture(mainText, subText, withCheckmark) {
     ctx.font = "700 34px Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif";
     ctx.fillText(subText, cw / 2, 232);
   } else {
-    const fontSize = mainText.length > 8 ? 82 : 112;
-    ctx.font = "900 " + fontSize + "px Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif";
+    const devanagari = /[\u0900-\u097F]/.test(mainText);
+    const fontSize = devanagari ? 172 : (mainText.length > 8 ? 82 : 112);
+    ctx.font = "900 " + fontSize + "px " + (devanagari ? "'Noto Sans Devanagari', 'Nirmala UI', sans-serif" : "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif");
     ctx.fillText(mainText, cw / 2, ch / 2);
   }
 
@@ -561,7 +569,7 @@ function generate3DTextSculpture(mainText, subText, withCheckmark) {
   }
 
   const pLen = pixels.length || 1;
-  const textParticles = Math.floor(COUNT * 0.88); /* 88% in crisp 3D letters, 12% in holographic frame/aura */
+  const textParticles = solidOnly ? COUNT : Math.floor(COUNT * 0.88); /* Sacred text is glyph-only: no frame or outline */
 
   for (let i = 0; i < COUNT; i++) {
     if (i < textParticles && pixels.length > 0) {
@@ -602,10 +610,94 @@ function generate3DTextSculpture(mainText, subText, withCheckmark) {
   return { pos, norm };
 }
 
+
+/* The invisible canvas is only a sampling mask; the final render contains particles only. */
+function generateCanvasParticleSculpture(drawShape, featherEnabled) {
+  const cw=720,ch=760,cv=document.createElement("canvas"),fc=document.createElement("canvas");
+  cv.width=fc.width=cw;cv.height=fc.height=ch;
+  const ctx=cv.getContext("2d",{willReadFrequently:true}),fctx=fc.getContext("2d",{willReadFrequently:true});
+  ctx.fillStyle=fctx.fillStyle="#fff";drawShape(ctx,fctx);
+  const data=ctx.getImageData(0,0,cw,ch).data,fd=featherEnabled?fctx.getImageData(0,0,cw,ch).data:null,pixels=[];
+  for(let y=2;y<ch-2;y++)for(let x=2;x<cw-2;x++){
+    const k=(y*cw+x)*4+3;if(data[k]<72)continue;
+    pixels.push({x,y,gx:(data[k-4]-data[k+4])/255,gy:(data[k+cw*4]-data[k-cw*4])/255,
+      feather:fd&&fd[k]>72?Math.min(1,Math.hypot(x-326,y-108)/118):0});
+  }
+  const pos=new Float32Array(COUNT*3),norm=new Float32Array(COUNT*3),feather=new Float32Array(COUNT),total=Math.max(1,pixels.length);
+  for(let i=0;i<COUNT;i++){
+    const p=pixels[(Math.floor(i*0.6180339887)+Math.floor(i/COUNT*total))%total],d=((i*0.3819660113)%1)*2-1;
+    const x=((p.x-cw/2)/(cw*.5))*1.78+(Math.random()-.5)*.004;
+    const y=-((p.y-ch/2)/(cw*.5))*1.78+(Math.random()-.5)*.004,z=d*.085,n=computeNormal(p.gx*1.7,p.gy*1.7,d>=0?.88:-.88);
+    pos.set([x,y,z],i*3);norm.set(n,i*3);feather[i]=p.feather;
+  }
+  return {pos,norm,feather};
+}
+function generateKrishnaParticleSculpture(){
+  return generateCanvasParticleSculpture((c,f)=>{
+    const fill=(fn)=>{c.beginPath();fn(c);c.closePath();c.fill();};
+    const dot=(x,y,rx,ry,rot)=>{c.beginPath();c.ellipse(x,y,rx,ry,rot||0,0,Math.PI*2);c.fill();};
+    /* Peacock feather plume and eye are separately tagged for gentle wind animation. */
+    f.beginPath();f.moveTo(326,112);f.bezierCurveTo(286,78,260,44,286,20);f.bezierCurveTo(326,6,352,45,340,86);f.bezierCurveTo(337,100,333,108,326,112);f.fill();
+    f.beginPath();f.ellipse(307,53,14,25,-.55,0,Math.PI*2);f.fill();
+    c.beginPath();c.moveTo(326,112);c.bezierCurveTo(286,78,260,44,286,20);c.bezierCurveTo(326,6,352,45,340,86);c.bezierCurveTo(337,100,333,108,326,112);c.fill();
+    dot(307,53,12,21,-.55);dot(307,53,5,10,-.55);
+    /* Hair, topknot, crown and face in profile, facing the flute. */
+    fill(p=>{p.moveTo(282,166);p.bezierCurveTo(266,111,301,91,344,103);p.bezierCurveTo(391,92,423,126,414,170);p.bezierCurveTo(393,143,371,135,347,145);p.bezierCurveTo(323,130,302,151,282,166);});
+    dot(348,104,29,25,-.3);dot(349,83,8,8,0);dot(330,115,5,5,0);dot(365,117,5,5,0);
+    fill(p=>{p.moveTo(300,143);p.bezierCurveTo(328,119,376,119,397,147);p.bezierCurveTo(408,160,407,174,420,184);p.lineTo(438,194);p.lineTo(418,203);p.bezierCurveTo(417,221,405,235,386,241);p.bezierCurveTo(356,252,326,234,311,211);p.bezierCurveTo(295,190,291,164,300,143);});
+    dot(390,174,3.8,3.2,0);fill(p=>{p.moveTo(407,211);p.quadraticCurveTo(418,214,426,210);p.quadraticCurveTo(417,222,407,211);});
+    /* Neck, shoulders and curved torso. */
+    fill(p=>{p.moveTo(333,225);p.lineTo(378,226);p.lineTo(390,255);p.bezierCurveTo(414,278,407,321,381,356);p.bezierCurveTo(368,382,372,408,393,433);p.lineTo(310,433);p.bezierCurveTo(328,398,327,373,309,346);p.bezierCurveTo(288,315,292,272,319,249);});
+    /* Raised arms and hands holding the flute at the lips. */
+    fill(p=>{p.moveTo(374,252);p.bezierCurveTo(398,234,416,216,439,207);p.lineTo(461,207);p.bezierCurveTo(468,213,464,224,454,226);p.lineTo(418,250);p.bezierCurveTo(409,270,394,281,380,278);});
+    dot(457,207,15,8,-.12);
+    fill(p=>{p.moveTo(322,257);p.bezierCurveTo(300,237,292,216,306,198);p.lineTo(328,184);p.bezierCurveTo(337,178,347,187,340,197);p.lineTo(325,216);p.lineTo(349,239);p.lineTo(365,260);p.bezierCurveTo(355,280,337,280,322,257);});
+    dot(310,190,12,8,-.55);
+    /* Flute, finger holes and bands are filled particle forms, not line art. */
+    fill(p=>{p.moveTo(397,198);p.lineTo(568,193);p.lineTo(571,202);p.lineTo(399,207);});
+    for(let i=0;i<6;i++)dot(425+i*22,200,2.4,2.4,0);
+    /* Flowing dhoti and pleats. */
+    fill(p=>{p.moveTo(310,405);p.bezierCurveTo(345,421,373,420,398,405);p.bezierCurveTo(421,445,451,487,468,527);p.bezierCurveTo(444,548,420,548,394,526);p.bezierCurveTo(376,493,360,473,347,463);p.bezierCurveTo(328,505,302,541,267,560);p.bezierCurveTo(242,541,230,520,226,499);p.bezierCurveTo(263,470,287,439,310,405);});
+    fill(p=>{p.moveTo(331,429);p.quadraticCurveTo(355,473,386,511);p.quadraticCurveTo(366,527,347,543);p.quadraticCurveTo(329,489,331,429);});
+    /* Bent legs and feet create the classical tribhanga dance stance. */
+    fill(p=>{p.moveTo(265,543);p.bezierCurveTo(286,559,316,566,342,553);p.lineTo(326,631);p.bezierCurveTo(319,658,289,670,259,662);p.lineTo(232,650);p.bezierCurveTo(249,624,255,582,265,543);});
+    fill(p=>{p.moveTo(397,526);p.bezierCurveTo(424,538,452,547,472,535);p.lineTo(449,597);p.bezierCurveTo(435,618,454,633,493,641);p.bezierCurveTo(510,647,507,664,489,668);p.lineTo(421,665);p.bezierCurveTo(394,653,383,630,395,602);p.lineTo(374,556);});
+    fill(p=>{p.moveTo(232,650);p.bezierCurveTo(205,655,194,670,206,681);p.bezierCurveTo(230,690,265,684,281,672);p.lineTo(259,662);});
+    fill(p=>{p.moveTo(421,665);p.bezierCurveTo(449,681,487,688,516,676);p.bezierCurveTo(525,665,509,652,493,641);p.lineTo(489,668);});
+    /* Necklaces, armlets, waist ornaments and jewellery highlights. */
+    dot(351,252,34,5,.12);dot(348,278,39,4,.18);dot(351,302,31,4,.1);dot(306,270,9,5,-.5);dot(392,276,9,5,.5);
+    dot(352,421,27,9,0);dot(352,421,9,9,0);for(let i=0;i<5;i++)dot(331+i*10,244+Math.sin(i*.7)*4,2.6,2.6,0);
+  },true);
+}
+function generateSymbolParticleSculpture(name){
+  return generateCanvasParticleSculpture(c=>{
+    const cx=360,cy=380;
+    if(name==="chakra"){
+      c.beginPath();c.arc(cx,cy,218,0,Math.PI*2);c.arc(cx,cy,151,0,Math.PI*2,true);c.fill("evenodd");
+      c.beginPath();c.arc(cx,cy,82,0,Math.PI*2);c.fill();
+      for(let i=0;i<24;i++){c.save();c.translate(cx,cy);c.rotate(i*Math.PI/12);c.beginPath();c.moveTo(142,-12);c.quadraticCurveTo(196,-17,260,0);c.quadraticCurveTo(196,17,142,12);c.closePath();c.fill();c.restore();}
+    }else if(name==="trishul"){
+      c.fillRect(348,265,24,385);c.beginPath();c.moveTo(360,54);c.lineTo(322,154);c.quadraticCurveTo(356,140,360,185);c.quadraticCurveTo(365,140,399,154);c.closePath();c.fill();
+      c.beginPath();c.moveTo(346,250);c.bezierCurveTo(286,246,274,188,286,142);c.bezierCurveTo(298,182,320,199,348,203);c.closePath();c.fill();
+      c.beginPath();c.moveTo(374,250);c.bezierCurveTo(434,246,446,188,434,142);c.bezierCurveTo(422,182,400,199,372,203);c.closePath();c.fill();
+    }else if(name==="lotus"){
+      for(let i=0;i<12;i++){c.save();c.translate(cx,cy+40);c.rotate(i*Math.PI/6);c.beginPath();c.moveTo(0,0);c.bezierCurveTo(-54,-76,-45,-180,0,-220);c.bezierCurveTo(45,-180,54,-76,0,0);c.closePath();c.fill();c.restore();}
+      c.beginPath();c.arc(cx,cy+40,68,0,Math.PI*2);c.fill();
+    }else if(name==="conch"){
+      c.beginPath();c.moveTo(220,420);c.bezierCurveTo(175,315,250,202,373,210);c.bezierCurveTo(502,218,551,344,486,453);c.bezierCurveTo(447,521,350,557,279,511);c.bezierCurveTo(230,480,214,443,220,420);c.closePath();c.fill();
+      c.beginPath();c.moveTo(438,340);c.bezierCurveTo(510,325,572,357,590,407);c.lineTo(514,461);c.bezierCurveTo(485,424,458,393,438,340);c.closePath();c.fill();
+      for(let i=0;i<5;i++){c.beginPath();c.ellipse(342+i*16,302+i*23,62-i*7,13,.55,0,Math.PI*2);c.fill();}
+    }
+  },false);
+}
+
 /* Generates realistic 3D geometries with accurate 3D surface normals */
 function generateRealistic3DShape(shapeName, customFn) {
+  if (shapeName === "krishna") return generateKrishnaParticleSculpture();
+  if (shapeName === "ram") return generate3DTextSculpture("राम", null, false, true);
+  if (shapeName === "chakra" || shapeName === "trishul" || shapeName === "lotus" || shapeName === "conch") return generateSymbolParticleSculpture(shapeName);
   if (shapeName === "welcome") {
-    return generate3DTextSculpture("WELCOME", "J . A . R . V . I . S", false);
+    return generate3DTextSculpture("WELCOME", "TO JARVIS BY SUKANT", false);
   }
   if (shapeName === "done") {
     return generate3DTextSculpture("DONE", null, true);
@@ -928,6 +1020,7 @@ attribute vec3 aTargetNormal;
 attribute float aRnd;
 attribute float aLayer;
 attribute float aCluster;
+attribute float aFeather;
 
 varying vec3 vC;
 varying vec3 vDeep;
@@ -961,7 +1054,7 @@ void main() {
 
   /* Mid-flight nanotech swarm dispersion & spiral arc */
   float flightArc = sin(m * 3.14159265);
-  vec3 swarmOffset = fluidCurl(basePos * 1.4, uRawTime * 2.2, aRnd) * (flightArc * 0.38);
+  vec3 swarmOffset = fluidCurl(basePos * 1.4, uRawTime * 2.2, aRnd) * (flightArc * 0.19);
   float swirlAng = flightArc * (0.95 + aRnd * 0.85);
   float ca = cos(swirlAng), sa = sin(swirlAng);
   basePos.xz = mat2(ca, -sa, sa, ca) * basePos.xz;
@@ -1000,6 +1093,11 @@ void main() {
   vec3 pos = basePos * (beat + shellDisplace + audioDisplace)
     + curl * (0.06 * uAmoeba + 0.04 * uHigh * (1.0 - uIsText))
     + textShimmer;
+  float plume = aFeather * aFeather;
+  float plumePhase = uRawTime * 2.15 - aFeather * 4.2;
+  pos.x += sin(plumePhase) * plume * 0.105;
+  pos.y += cos(plumePhase * 0.82) * plume * 0.045;
+  pos.z += sin(plumePhase * 0.70) * plume * 0.060;
 
   /* 5-Node Amoeba Fission (Touching splits the orb into 5 living sub-orbs & later joins) */
   int cIdx = int(clamp(aCluster, 0.0, 4.0));
@@ -1049,7 +1147,7 @@ void main() {
     touchEnergy = field;
     vec3 radDir = normalize(toP + vec3(0.0001, 0.0002, 0.0001));
     vec3 orbitSwirl = cross(radDir, vec3(0.0, 0.0, 1.0));
-    pos += (radDir * 0.82 + orbitSwirl * 0.65 + uSwipeVel * 0.75) * field * (0.65 + 0.75 * aRnd);
+    pos += (radDir * 0.34 + orbitSwirl * 0.22 + uSwipeVel * 0.28) * field * (0.55 + 0.42 * aRnd);
   }
 
   vec4 mv = modelViewMatrix * vec4(pos, 1.0);
@@ -1133,6 +1231,7 @@ function buildParticles() {
   const rnd = new Float32Array(COUNT);
   const layer = new Float32Array(COUNT);
   const cluster = new Float32Array(COUNT);
+  const feather = new Float32Array(COUNT);
 
   const amoebaPos = shapeCache.amoeba.pos;
   for (let i = 0; i < COUNT; i++) {
@@ -1154,6 +1253,7 @@ function buildParticles() {
   g.setAttribute("aRnd", new THREE.BufferAttribute(rnd, 1));
   g.setAttribute("aLayer", new THREE.BufferAttribute(layer, 1));
   g.setAttribute("aCluster", new THREE.BufferAttribute(cluster, 1));
+  g.setAttribute("aFeather", new THREE.BufferAttribute(feather, 1));
 
   const mat = new THREE.ShaderMaterial({
     vertexShader: partV,
@@ -1212,7 +1312,7 @@ createPlasmaArcs();
 
 /* ---------- 4. Outer Halo & Orbital Spores ---------- */
 let glowMat, glow, orbitPts, ptData = [];
-const ORBIT_COUNT = 220;
+const ORBIT_COUNT = 96;
 
 function createGlow() {
   glowMat = new THREE.ShaderMaterial({
@@ -1231,7 +1331,7 @@ function createGlow() {
         vec3 col = mix(uA, uB, 0.5 + 0.5 * sin(a + uTime * 0.6));
         col = mix(col, uC, uMix * (0.5 + 0.5 * sin(a * 2.0 - uTime * 0.8)));
         col = mix(col, accent, 0.30 * (0.5 + 0.5 * cos(a * 3.0 + uTime * 0.7)));
-        gl_FragColor = vec4(col, clamp(g * uStrength * 0.42, 0.0, 0.45));
+        gl_FragColor = vec4(col, clamp(g * uStrength * 0.58, 0.0, 0.62));
       }
     `,
     transparent: true,
@@ -1302,6 +1402,27 @@ function createOrbitSpores() {
 createGlow();
 createOrbitSpores();
 
+/* Sparse floating glass bubbles, kept separate from the main particle cloud. */
+let bubbleMesh, bubbleData=[];
+const BUBBLE_COUNT=28;
+function createBubbleEffect(){
+  const p=new Float32Array(BUBBLE_COUNT*3),sz=new Float32Array(BUBBLE_COUNT),al=new Float32Array(BUBBLE_COUNT);
+  for(let i=0;i<BUBBLE_COUNT;i++){bubbleData.push({a:i*2.399963,r:1.48+(i%7)*.105,y:((i%9)-4)*.34,s:.10+(i%5)*.025,ph:i*.73});sz[i]=.030+(i%4)*.008;al[i]=.42+(i%3)*.12;}
+  const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.BufferAttribute(p,3));g.setAttribute("aSize",new THREE.BufferAttribute(sz,1));g.setAttribute("aAlpha",new THREE.BufferAttribute(al,1));
+  const m=new THREE.ShaderMaterial({
+    vertexShader:"attribute float aSize,aAlpha;uniform float uPx;varying float vA;void main(){vA=aAlpha;vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=max(aSize*uPx/max(1.0,-mv.z),2.0);gl_Position=projectionMatrix*mv;}",
+    fragmentShader:"precision highp float;varying float vA;void main(){vec2 p=gl_PointCoord-.5;float d=length(p);if(d>.5)discard;float rim=smoothstep(.50,.39,d)*(1.0-smoothstep(.31,.23,d));float shine=exp(-dot((p-vec2(-.16,-.18))*vec2(5.0,7.0),(p-vec2(-.16,-.18))*vec2(5.0,7.0)));float a=clamp((rim*.72+shine*.16)*vA,0.0,.62);gl_FragColor=vec4(.48,.83,1.0,a);}",
+    transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:{uPx:U.uPx}
+  });
+  bubbleMesh=new THREE.Points(g,m);bubbleMesh.frustumCulled=false;bubbleMesh.renderOrder=5;scene.add(bubbleMesh);
+}
+function updateBubbleEffect(dt){
+  if(!bubbleMesh)return;const a=bubbleMesh.geometry.attributes.position;
+  for(let i=0;i<BUBBLE_COUNT;i++){const b=bubbleData[i];b.y+=b.s*dt;if(b.y>1.75)b.y=-1.75;const ang=b.a+time*.055,r=b.r+Math.sin(time*.7+b.ph)*.035;a.setXYZ(i,Math.cos(ang)*r,b.y,Math.sin(ang)*r*.48);}
+  a.needsUpdate=true;
+}
+createBubbleEffect();
+
 /* ---------- Realistic 3D Morph & Text Sculpture Controller ---------- */
 let targetAmoebaFactor = 0.04; /* Start sharp on WELCOME */
 let targetIsText = 1.0;
@@ -1330,6 +1451,12 @@ function morphToShapeData(shapeObj, labelText, shapeKey) {
   tgtAttr.needsUpdate = true;
   tgtNormAttr.array.set(shapeObj.norm);
   tgtNormAttr.needsUpdate = true;
+  const featherAttr = pointsMesh.geometry.attributes.aFeather;
+  if (featherAttr) {
+    if (shapeObj.feather) featherAttr.array.set(shapeObj.feather);
+    else featherAttr.array.fill(0);
+    featherAttr.needsUpdate = true;
+  }
 
   U.uMorph.value = 0;
   morphProgress = 0;
@@ -1360,11 +1487,22 @@ function setOrbShape(name) {
 
 function showWelcomeMessage(holdSeconds) {
   splitTimer = 0;
-  messageHoldTimer = holdSeconds !== undefined ? holdSeconds : 3.4;
+  messageHoldTimer = holdSeconds !== undefined ? holdSeconds : 3.5;
   autoMorphTimer = 0;
   setOrbShape("welcome");
 }
-
+function showKrishnaMessage(holdSeconds) {
+  splitTimer = 0; autoMorphTimer = 0;
+  if (!shapeCache.krishna) shapeCache.krishna = generateRealistic3DShape("krishna");
+  messageHoldTimer = holdSeconds !== undefined ? holdSeconds : 10;
+  setOrbShape("krishna");
+}
+function showRamMessage(holdSeconds) {
+  splitTimer = 0; autoMorphTimer = 0;
+  if (!shapeCache.ram) shapeCache.ram = generateRealistic3DShape("ram");
+  messageHoldTimer = holdSeconds !== undefined ? holdSeconds : 10;
+  setOrbShape("ram");
+}
 function showDoneMessage(holdSeconds) {
   splitTimer = 0;
   messageHoldTimer = holdSeconds !== undefined ? holdSeconds : 2.8;
@@ -1394,7 +1532,10 @@ function morphToCustomShape(fn, customLabel) {
 }
 
 /* ---------- Quantum Swarm Fission (Touch Separation) & Recombination ---------- */
+function isTouchProtectedShape() { return currentShape === "krishna" || currentShape === "ram"; }
+
 function triggerAmoebaSplit(worldHitPoint, lobeCount) {
+  if (isTouchProtectedShape()) return;
   /* If currently displaying WELCOME or DONE, morph into the Elliptical Amoeba as it splits! */
   if (currentShape === "welcome" || currentShape === "done" || currentShape === "custom_text") {
     messageHoldTimer = 0;
@@ -1749,6 +1890,7 @@ function screenToOrbLocal(clientX, clientY) {
 }
 
 canvas.addEventListener("pointerdown", e => {
+  if (isTouchProtectedShape()) return;
   dragging = true;
   px = e.clientX;
   py = e.clientY;
@@ -1758,7 +1900,7 @@ canvas.addEventListener("pointerdown", e => {
   const localHit = screenToOrbLocal(e.clientX, e.clientY);
   prevTouchWorld.copy(localHit);
   touchWorld.copy(localHit);
-  touchStrength = 1.55;
+  touchStrength = 0.82;
 
   /* Double-tap cycles through realistic 3D shapes AND "DONE" preview */
   if (now - lastTapTime < 340) {
@@ -1779,6 +1921,7 @@ canvas.addEventListener("pointerdown", e => {
 });
 
 canvas.addEventListener("pointermove", e => {
+  if (isTouchProtectedShape()) return;
   const localHit = screenToOrbLocal(e.clientX, e.clientY);
   swipeVelWorld.subVectors(localHit, prevTouchWorld).multiplyScalar(14.0);
   swipeVelWorld.clampLength(0, 2.5);
@@ -1787,7 +1930,7 @@ canvas.addEventListener("pointermove", e => {
 
   if (!dragging) {
     if (localHit.length() < 1.9) {
-      touchStrength = Math.max(touchStrength, 0.55);
+      touchStrength = Math.max(touchStrength, 0.24);
     }
     return;
   }
@@ -1799,7 +1942,7 @@ canvas.addEventListener("pointermove", e => {
   px = e.clientX;
   py = e.clientY;
 
-  touchStrength = 1.65;
+  touchStrength = 0.88;
   if (localHit.length() < 2.75) {
     splitTimer = Math.max(splitTimer, 2.4);
     splitAmount = Math.max(splitAmount, 0.85);
@@ -1827,7 +1970,7 @@ window.addEventListener("deviceorientation", e => {
 
 /* ---------- Main Animation Loop ---------- */
 let time = 0, flow = 0, pxPerUnit = 300;
-let glowMul = 0.95;
+let glowMul = 1.28;
 
 function updatePlasmaArcs() {
   /* Hide arcs while showing crisp 3D WELCOME or DONE text so letters are 100% clean */
@@ -1920,8 +2063,10 @@ function updateOrb(dt) {
     messageHoldTimer -= dt;
     if (messageHoldTimer <= 0) {
       messageHoldTimer = 0;
-      setOrbShape("amoeba");
-      autoMorphTimer = 0;
+      if (currentShape === "welcome") showKrishnaMessage(10);
+      else if (currentShape === "krishna") showRamMessage(10);
+      else if (currentShape === "ram") { setOrbShape("amoeba"); autoMorphTimer = 0; }
+      else { setOrbShape("amoeba"); autoMorphTimer = 0; }
     }
   } else if (autoMorph && splitTimer <= 0) {
     autoMorphTimer += dt;
@@ -1933,7 +2078,7 @@ function updateOrb(dt) {
   }
 
   if (morphActive) {
-    morphProgress = Math.min(1, morphProgress + dt * 0.88);
+    morphProgress = Math.min(1, morphProgress + dt * 1.02);
     U.uMorph.value = morphProgress;
     if (morphProgress >= 1) {
       const posAttr = pointsMesh.geometry.attributes.position;
@@ -2102,6 +2247,7 @@ function animate(now) {
   last = now;
   updateOrb(dt);
   updateOrbitSpores(dt);
+  updateBubbleEffect(dt);
   renderer.render(scene, camera);
 }
 
@@ -2160,6 +2306,9 @@ window.JarvisOrb = {
   },
   setShape: setOrbShape,
   showWelcome: showWelcomeMessage,
+  showKrishna: showKrishnaMessage,
+  showRam: showRamMessage,
+  isTouchProtected: isTouchProtectedShape,
   showDone: showDoneMessage,
   completeTask: showDoneMessage,
   showMessage: showCustomTextMessage,
@@ -2256,14 +2405,15 @@ requestAnimationFrame(animate);
   document.addEventListener("pointerdown", e => {
     down = true;
     trail.push({ x: e.clientX, y: e.clientY, l: 1 });
-    spawnBurst(e.clientX, e.clientY, 18);
+    if (window.JarvisOrb && window.JarvisOrb.isTouchProtected && window.JarvisOrb.isTouchProtected()) return;
+    spawnBurst(e.clientX, e.clientY, 8);
   }, { passive: true });
 
   document.addEventListener("pointermove", e => {
-    if (!down) return;
+    if (!down || (window.JarvisOrb && window.JarvisOrb.isTouchProtected && window.JarvisOrb.isTouchProtected())) return;
     trail.push({ x: e.clientX, y: e.clientY, l: 1 });
-    if (trail.length > 24) trail.shift();
-    for (let i = 0; i < 2; i++) {
+    if (trail.length > 12) trail.shift();
+    for (let i = 0; i < 1; i++) {
       let a = Math.random() * Math.PI * 2, s = 0.8 + Math.random() * 1.8;
       sparks.push({
         x: e.clientX, y: e.clientY,
