@@ -528,7 +528,9 @@ class GroqLiveSession(
         val skills = try {
             com.jarvis.assistant.skills.SkillStore.get(context).promptSection()
         } catch (_: Exception) { "" }
-        return base.take(3_500) + com.jarvis.assistant.util.ConfirmationPolicy.promptSection() + genderStore.promptSection() + skills + "\n\n" + log + "\n\n" +
+        // Keep the complete instruction body: silent character truncation can remove safety,
+        // confirmation, or tool-use rules. The activity log remains separately bounded above.
+        return base + com.jarvis.assistant.util.ConfirmationPolicy.promptSection() + genderStore.promptSection() + skills + "\n\n" + log + "\n\n"
             "ENGINE NOTES: You are running on the Groq engine. Reply in one to three short, natural spoken sentences in the " +
             "user's language (English, Hindi or Hinglish). Never use markdown, lists, emojis or asterisks. When the user asks " +
             "you to do something on the phone, call the matching tool instead of describing it. Say a task is done only after " +
@@ -551,8 +553,8 @@ class GroqLiveSession(
                 ?: JSONObject().put("type", "OBJECT").put("properties", JSONObject())
             val function = JSONObject()
                 .put("name", name)
-                .put("description", firstSentence(d.optString("description", ""), 140))
-                .put("parameters", convertSchema(params, 70))
+                .put("description", d.optString("description", ""))
+                .put("parameters", convertSchema(params, Int.MAX_VALUE))
             out.put(JSONObject().put("type", "function").put("function", function))
         }
         return out
@@ -566,7 +568,7 @@ class GroqLiveSession(
             val value = src.get(key)
             when {
                 key == "type" && value is String -> out.put(key, value.lowercase(Locale.ROOT))
-                key == "description" && value is String -> out.put(key, firstSentence(value, descMax))
+                key == "description" && value is String -> out.put(key, value)
                 key == "items" && value is JSONObject -> out.put(key, convertSchema(value, descMax))
                 key == "properties" && value is JSONObject -> {
                     val props = JSONObject()
