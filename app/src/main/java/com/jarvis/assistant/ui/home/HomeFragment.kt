@@ -673,7 +673,7 @@ class HomeFragment : Fragment() {
                                 ConversationState.THINKING -> {
                                     val taskActive = com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value != null
                                     setOrbState(if (loadedElepticalOrb && taskActive) "working" else "thinking")
-                                    binding.tvListeningStatus.text = if (taskActive) "WORKING..." else "THINKING..."
+                                    binding.tvListeningStatus.text = if (loadedElepticalOrb && taskActive) "WORKING..." else "THINKING..."
                                     binding.tvListeningStatus.setTextColor(Color.parseColor("#F59E0B"))
                                     binding.tvHoldHint.text = "Processing request..."
                                     binding.dotStatusGlow.backgroundTintList = ColorStateList.valueOf(
@@ -683,7 +683,7 @@ class HomeFragment : Fragment() {
                                 ConversationState.IDLE -> {
                                     val taskActive = com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value != null
                                     setOrbState(if (loadedElepticalOrb && taskActive) "working" else "idle")
-                                    binding.tvListeningStatus.text = if (taskActive) "WORKING..." else "MIC ON • READY"
+                                    binding.tvListeningStatus.text = if (loadedElepticalOrb && taskActive) "WORKING..." else "MIC ON • READY"
                                     binding.tvListeningStatus.setTextColor(Color.parseColor("#10B981"))
                                     binding.tvHoldHint.text = "Tap to mute • Hold to power off"
                                     binding.dotStatusGlow.backgroundTintList = ColorStateList.valueOf(
