@@ -23,7 +23,7 @@ enum class AuthMethod(val label: String) {
     BEARER("Authorization: Bearer"),
     X_API_KEY("x-api-key"),
     X_GOOGLE_API_KEY("x-goog-api-key"),
-    QUERY_PARAM("Query parameter (api_key)");
+    QUERY_PARAM("Query parameter (key / api_key)");
 
     companion object {
         fun fromId(id: String?): AuthMethod =
