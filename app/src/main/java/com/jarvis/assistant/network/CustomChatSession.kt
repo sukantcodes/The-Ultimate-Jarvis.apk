@@ -10,6 +10,7 @@ import android.util.Log
 import com.jarvis.assistant.network.provider.CustomProviderProfile
 import com.jarvis.assistant.network.provider.OpenAiChatClient
 import com.jarvis.assistant.network.provider.ProviderModelCapabilities
+import com.jarvis.assistant.network.provider.ProviderProtocol
 import com.jarvis.assistant.security.CustomProviderCredentialStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -113,6 +114,17 @@ class CustomChatSession(
     override fun isSessionReady(): Boolean = ready.get()
 
     override fun connect(scope: CoroutineScope) {
+        if (profile.protocol == ProviderProtocol.GEMINI_COMPATIBLE) {
+            // This session currently implements the OpenAI chat-completions wire format.
+            // Never send Gemini REST profiles to /v1/chat/completions by mistake.
+            sessionListener.onError(
+                "Gemini-compatible REST chat is not wired to this session yet. Use an OpenAI-compatible endpoint or the Gemini Live WebSocket protocol.",
+                true,
+                "CUSTOM_PROTOCOL_UNSUPPORTED"
+            )
+            sessionListener.onConnectionStateChanged("OFFLINE")
+            return
+        }
         val job = SupervisorJob(scope.coroutineContext[Job])
         sessionJob = job
         sessionScope = CoroutineScope(scope.coroutineContext + job)
