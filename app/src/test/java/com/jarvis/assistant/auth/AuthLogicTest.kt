@@ -254,7 +254,9 @@ class AuthSessionTest {
 
 
 class AuthTokenFreshnessTest {
-    private val session = AuthSession("fresh-access-token", "refresh-token", 1_000L, userId = "user")
+    private val session = AuthSession(
+        "fresh-access-token", "refresh-token", 1_000L, userId = "user", email = "test@example.test"
+    )
 
     @Test
     fun onlyNonExpiredSessionsExposeAnAccessToken() {
