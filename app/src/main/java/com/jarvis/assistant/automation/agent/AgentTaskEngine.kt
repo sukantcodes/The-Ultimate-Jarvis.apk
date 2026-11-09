@@ -484,7 +484,7 @@ object AgentTaskEngine {
         val normalizedAction = action.lowercase()
         val title = step.title.lowercase()
         val relevant = when {
-            normalizedAction.contains("open_app") -> title.contains("open") || title.contains("foreground")
+            normalizedAction.contains("open_app") || normalizedAction.contains("open_website") -> title.contains("open") || title.contains("foreground")
             normalizedAction.contains("search") -> title.contains("search") || title.contains("find") || title.contains("resolve")
             normalizedAction.contains("type_text") -> title.contains("enter") || title.contains("type") || title.contains("comment")
             normalizedAction.contains("scroll") -> title.contains("scroll") || title.contains("load") || title.contains("process")
@@ -497,6 +497,7 @@ object AgentTaskEngine {
                 title.contains("activate") || title.contains("perform") || title.contains("unlike") || title.contains("like") ||
                 title.contains("submit") || title.contains("skip") || title.contains("dismiss") || title.contains("composer") ||
                 title.contains("conversation")
+            normalizedAction.contains("press_key") -> title.contains("navigate") || title.contains("back") || title.contains("return")
             normalizedAction.contains("task_completed") -> title.contains("verify") || title.contains("finish")
             else -> false
         }
