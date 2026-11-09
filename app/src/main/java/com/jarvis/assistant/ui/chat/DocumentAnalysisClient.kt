@@ -135,7 +135,7 @@ object DocumentAnalysisClient {
                     .put("model", model.ifBlank { "llama-3.3-70b-versatile" })
                     .put("messages", JSONArray()
                         .put(JSONObject().put("role", "system").put("content", basePrompt))
-                        .put(JSONObject().put("role", "user").put("content", "FILE CONTENT BEGIN\\n$fileText\\nFILE CONTENT END")))
+                        .put(JSONObject().put("role", "user").put("content", "FILE CONTENT BEGIN\n$fileText\nFILE CONTENT END")))
                     .put("temperature", 0.2)
                     .put("max_tokens", 4096)
                 val request = Request.Builder()
