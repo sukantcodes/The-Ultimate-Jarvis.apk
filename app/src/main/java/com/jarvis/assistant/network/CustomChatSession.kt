@@ -324,7 +324,16 @@ class CustomChatSession(
             try {
                 turnMutex.withLock {
                     val text = chatClient.transcribe(profile, credentialStore, pcm)
-                    if (!text.isNullOrBlank() && !isNoiseText(text)) {
+                    if (text.isNullOrBlank()) {
+                        // Do not leave the UI stuck in THINKING when this provider has no
+                        // compatible speech-to-text model or transcription endpoint.
+                        sessionListener.onError(
+                            "${profile.name} could not transcribe this voice input. Check its /v1/audio/transcriptions support and transcriptionModel setting.",
+                            false,
+                            "CUSTOM_STT_UNAVAILABLE"
+                        )
+                        sessionListener.onTurnCompleted()
+                    } else if (!isNoiseText(text)) {
                         sessionListener.onUserTextReceived(text)
                         val handledLocally = try {
                             userTextInterceptor?.invoke(text) ?: false
