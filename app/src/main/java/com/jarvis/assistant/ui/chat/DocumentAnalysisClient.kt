@@ -71,7 +71,14 @@ object DocumentAnalysisClient {
         return SelectedDocument(uri, name, mime)
     }
 
-    suspend fun analyze(context: Context, document: SelectedDocument, prompt: String, apiKey: String): String =
+    suspend fun analyze(
+        context: Context,
+        document: SelectedDocument,
+        prompt: String,
+        apiKey: String,
+        provider: String = "gemini",
+        model: String = "gemini-2.5-flash"
+    ): String =
         withContext(Dispatchers.IO) {
             val input = if (document.uri.scheme == "file") {
                 document.uri.path?.let { FileInputStream(File(it)) }
@@ -114,6 +121,43 @@ object DocumentAnalysisClient {
                         else -> "video/mp4"
                     }
                 else -> null
+            }
+            if (provider.equals("groq", ignoreCase = true)) {
+                if (inlineMime != null) {
+                    throw IllegalArgumentException(
+                        "The selected Groq model is configured for text-only attachment analysis here. " +
+                            "Choose a text-extractable file or switch the Chat engine to Gemini for PDF, image, audio, or video analysis."
+                    )
+                }
+                if (apiKey.isBlank()) throw IllegalStateException("Add your Groq API key in Jarvis Settings first.")
+                val fileText = extractText(bytes, extension, mime)
+                val payload = JSONObject()
+                    .put("model", model.ifBlank { "llama-3.3-70b-versatile" })
+                    .put("messages", JSONArray()
+                        .put(JSONObject().put("role", "system").put("content", basePrompt))
+                        .put(JSONObject().put("role", "user").put("content", "FILE CONTENT BEGIN\\n$fileText\\nFILE CONTENT END")))
+                    .put("temperature", 0.2)
+                    .put("max_tokens", 4096)
+                val request = Request.Builder()
+                    .url("https://api.groq.com/openai/v1/chat/completions")
+                    .header("Authorization", "Bearer $apiKey")
+                    .post(payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
+                    .build()
+                return@withContext try {
+                    http.newCall(request).execute().use { response ->
+                        val body = response.body?.string().orEmpty()
+                        if (!response.isSuccessful) {
+                            throw IllegalStateException("Groq couldn't analyze this file (HTTP ${response.code}). Check the selected model and API access.")
+                        }
+                        val choices = JSONObject(body).optJSONArray("choices") ?: JSONArray()
+                        val answer = choices.optJSONObject(0)?.optJSONObject("message")
+                            ?.optString("content").orEmpty().trim()
+                        if (answer.isBlank()) throw IllegalStateException("Groq returned an empty answer.")
+                        answer
+                    }
+                } catch (error: Exception) {
+                    throw IllegalStateException("Jarvis couldn't finish analyzing this file with Groq. ${error.message.orEmpty()}", error)
+                }
             }
             if (apiKey.isBlank()) {
                 throw IllegalStateException("Add your Gemini API key in Jarvis Settings first.")
