@@ -157,6 +157,7 @@ object OfflineIntentParser {
     fun parse(raw: String): OfflineIntent? {
         val t = normalize(raw)
         if (t.isEmpty()) return null
+        val rawCommand = stripLeadingCommandFiller(raw)
         return parseStandby(t)
             ?: parseStop(t)
             ?: parseLock(t)
@@ -168,10 +169,39 @@ object OfflineIntentParser {
             ?: parsePower(t)
             ?: parseSettings(t)
             ?: parseTimerOrAlarm(t)
-            ?: parseSms(t)
+            ?: parseSms(t)?.let { parseSms(rawCommand) ?: it }
             ?: parseCall(t)
-            ?: parseTypeOrTap(t)
+            ?: parseTypeOrTap(t)?.let { normalizedIntent ->
+                if (normalizedIntent is OfflineIntent.TypeText) {
+                    parseTypeOrTap(rawCommand) as? OfflineIntent.TypeText ?: normalizedIntent
+                } else normalizedIntent
+            }
             ?: parseOpenApp(t)
+    }
+
+    /** Removes only leading addressing/filler words; the user's payload remains untouched. */
+    private fun stripLeadingCommandFiller(raw: String): String {
+        var value = raw.trim().replaceFirst(
+            Regex("(?i)^(?:(?:hey|hi|hello|ok|okay)\\s+)?jarvis\\b\\s*[,;:!?]?\\s*"),
+            ""
+        )
+        val prefixes = listOf(
+            Regex("(?i)^(?:please|kindly|just|so|then|now|hey|ok|okay)\\s+"),
+            Regex("(?i)^(?:can|could|would|will)\\s+you\\s+"),
+            Regex("(?i)^(?:i want you to|i need you to|i would like you to|i want to|i would like to|i wanna|go ahead and)\\s+")
+        )
+        var changed = true
+        while (changed) {
+            changed = false
+            for (prefix in prefixes) {
+                val stripped = value.replaceFirst(prefix, "")
+                if (stripped != value) {
+                    value = stripped.trimStart()
+                    changed = true
+                }
+            }
+        }
+        return value
     }
 
     private val standbyRegex = Regex(
@@ -564,13 +594,13 @@ object OfflineIntentParser {
 
     // ---- Messaging and calls -------------------------------------------------------------------
 
-    private val otherMessengers = Regex("\\b(?:whatsapp|telegram|instagram|email|mail|gmail|facebook|messenger|signal)\\b")
+    private val otherMessengers = Regex("\\b(?:whatsapp|telegram|instagram|email|mail|gmail|facebook|messenger|signal)\\b", RegexOption.IGNORE_CASE)
 
     private val smsRegexes = listOf(
-        Regex("^(?:send|write|compose)(?: a| an)? (?:text message|text|sms|message)(?: to| for)? (.+?) (?:saying|says|that says|and say|and tell (?:him|her|them)|with message|with the message|that) (.+)$"),
-        Regex("^(?:text|sms) (?:to )?(.+?) (?:saying|says|that says|that|and say) (.+)$"),
-        Regex("^(?:text|sms) (?:to )?(\\S+) (.+)$"),
-        Regex("^(?:send|write|compose)(?: a| an)? (?:text message|text|sms|message) (?:to |for )?(\\S+) (.+)$")
+        Regex("^(?:send|write|compose)(?: a| an)? (?:text message|text|sms|message)(?: to| for)? (.+?) (?:saying|says|that says|and say|and tell (?:him|her|them)|with message|with the message|that) (.+)$", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+        Regex("^(?:text|sms) (?:to )?(.+?) (?:saying|says|that says|that|and say) (.+)$", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+        Regex("^(?:text|sms) (?:to )?(\\S+) (.+)$", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+        Regex("^(?:send|write|compose)(?: a| an)? (?:text message|text|sms|message) (?:to |for )?(\\S+) (.+)$", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
     )
 
     private fun parseSms(t: String): OfflineIntent? {
@@ -600,8 +630,8 @@ object OfflineIntentParser {
     // ---- Typing, tapping, opening apps ----------------------------------------------------------
 
     private val typeRegexes = listOf(
-        Regex("^type (.+)$"),
-        Regex("^(?:write|enter) (.+?) (?:in|into|on) (?:the |this )?(?:box|field|text box|search bar|search box|text field)$")
+        Regex("^type (.+)$", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+        Regex("^(?:write|enter) (.+?) (?:in|into|on) (?:the |this )?(?:box|field|text box|search bar|search box|text field)$", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
     )
     private val tapRegex = Regex("^(?:tap|click|press|touch|select|hit)(?: on)?(?: the)? (.+?)(?: button| icon| option| tab| link)?$")
 
