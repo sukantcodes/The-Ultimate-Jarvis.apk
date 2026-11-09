@@ -78,7 +78,7 @@ class JarvisNotificationListener : NotificationListenerService() {
             val seen = lastContent[contentKey]
             if (seen != null && now - seen < CONTENT_WINDOW_MS) return
             lastContent[contentKey] = now
-            if (lastContent.size > 200) lastContent.entries.removeAll { now - it.value > CONTENT_WINDOW_MS }
+            pruneCache(lastContent, now, CONTENT_WINDOW_MS, 500)
         }
 
         val senderKey = message.app.name + "|" + message.sender + "|" + (message.group ?: "")
@@ -90,6 +90,7 @@ class JarvisNotificationListener : NotificationListenerService() {
                 false
             } else {
                 lastEventDispatch[senderKey] = now
+                pruneCache(lastEventDispatch, now, 10_000L, 500)
                 true
             }
         }
@@ -112,6 +113,7 @@ class JarvisNotificationListener : NotificationListenerService() {
                 false
             } else {
                 lastLogged[senderKey] = now
+                pruneCache(lastLogged, now, LOG_WINDOW_MS, 500)
                 true
             }
         }
@@ -143,6 +145,7 @@ class JarvisNotificationListener : NotificationListenerService() {
                 false
             } else {
                 lastAnnounced[senderKey] = now
+                pruneCache(lastAnnounced, now, ANNOUNCE_WINDOW_MS, 500)
                 true
             }
         }
@@ -160,6 +163,20 @@ class JarvisNotificationListener : NotificationListenerService() {
         if (!JarvisConversationService.announceMessage(text)) {
             val announcer = fallbackAnnouncer ?: SpeechAnnouncer(applicationContext).also { fallbackAnnouncer = it }
             announcer.say(text)
+        }
+    }
+
+    /** Keeps per-notification deduplication state bounded during long-running service sessions. */
+    private fun pruneCache(
+        cache: MutableMap<String, Long>,
+        now: Long,
+        retentionMs: Long,
+        maxEntries: Int
+    ) {
+        cache.entries.removeAll { now - it.value > retentionMs }
+        if (cache.size > maxEntries) {
+            val excess = cache.size - maxEntries
+            cache.entries.sortedBy { it.value }.take(excess).forEach { cache.remove(it.key) }
         }
     }
 
