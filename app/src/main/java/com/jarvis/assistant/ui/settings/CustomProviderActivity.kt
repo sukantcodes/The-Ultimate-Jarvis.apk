@@ -3,6 +3,8 @@ package com.jarvis.assistant.ui.settings
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
+import android.view.View
+import android.widget.ArrayAdapter
 import android.widget.RadioButton
 import android.widget.TextView
 import android.widget.Toast
@@ -304,7 +306,8 @@ class CustomProviderActivity : AppCompatActivity() {
         val protocol = selectedProtocol()
         val validation = ProviderUrlValidator.validate(baseUrl, protocol)
         if (validation !is ProviderUrlValidator.Result.Ok) {
-            Toast.makeText(this, "Invalid URL: ${validation.reason}", Toast.LENGTH_LONG).show()
+            val validationError = validation as ProviderUrlValidator.Result.Error
+            Toast.makeText(this, "Invalid URL: ${validationError.reason}", Toast.LENGTH_LONG).show()
             return
         }
 
@@ -344,7 +347,8 @@ class CustomProviderActivity : AppCompatActivity() {
         val protocol = selectedProtocol()
         val validation = ProviderUrlValidator.validate(baseUrl, protocol)
         if (validation !is ProviderUrlValidator.Result.Ok) {
-            binding.tvEndpointResult.text = "Invalid URL: ${validation.reason}"
+            val validationError = validation as ProviderUrlValidator.Result.Error
+            binding.tvEndpointResult.text = "Invalid URL: ${validationError.reason}"
             return
         }
         val enteredKey = binding.etApiKey.text?.toString()?.trim().orEmpty()
@@ -389,7 +393,8 @@ class CustomProviderActivity : AppCompatActivity() {
         val protocol = selectedProtocol()
         val validation = ProviderUrlValidator.validate(baseUrl, protocol)
         if (validation !is ProviderUrlValidator.Result.Ok) {
-            binding.tvEndpointResult.text = "Invalid URL: ${validation.reason}"
+            val validationError = validation as ProviderUrlValidator.Result.Error
+            binding.tvEndpointResult.text = "Invalid URL: ${validationError.reason}"
             return
         }
         val enteredKey = binding.etApiKey.text?.toString()?.trim().orEmpty()

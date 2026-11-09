@@ -43,7 +43,8 @@ class ProviderModelDiscovery(
     ): Result {
         val validation = ProviderUrlValidator.validate(profile.baseUrl, profile.protocol)
         if (validation !is ProviderUrlValidator.Result.Ok) {
-            return Result.Error(ErrorKind.INVALID_ENDPOINT, validation.reason)
+            val validationError = validation as ProviderUrlValidator.Result.Error
+            return Result.Error(ErrorKind.INVALID_ENDPOINT, validationError.reason)
         }
 
         val key = credentialStore.keyFor(profile.id)

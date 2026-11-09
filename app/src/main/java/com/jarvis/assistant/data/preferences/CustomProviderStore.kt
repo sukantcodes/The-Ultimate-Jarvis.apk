@@ -43,7 +43,7 @@ class CustomProviderStore(context: Context) {
     fun delete(id: String) {
         val current = profiles.filterNot { it.id == id }
         persist(current)
-        if (activeProfileId == id) setActiveProfileId("")
+        if (activeProfileId == id) activeProfileId = ""
     }
 
     /** Returns the active profile, or null when no custom provider is active. */
@@ -61,11 +61,11 @@ class CustomProviderStore(context: Context) {
     fun isActive(id: String): Boolean = activeProfileId == id
 
     fun setActive(profile: CustomProviderProfile) {
-        setActiveProfileId(profile.id)
+        activeProfileId = profile.id
     }
 
     fun clearActive() {
-        setActiveProfileId("")
+        activeProfileId = ""
     }
 
     private fun persist(profiles: List<CustomProviderProfile>) {

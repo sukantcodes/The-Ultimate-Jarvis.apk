@@ -241,6 +241,21 @@ object DocumentAnalysisClient {
         return output.toByteArray()
     }
 
+    /** Returns bounded text for the in-app preview of modern Office documents. */
+    suspend fun previewOfficeText(filePath: String, fileName: String, mimeType: String): String =
+        withContext(Dispatchers.IO) {
+            val file = File(filePath)
+            if (!file.isFile || file.length() > MAX_FILE_BYTES) {
+                throw IllegalArgumentException("This attachment is missing or exceeds the 14 MB preview limit.")
+            }
+            val extension = fileName.substringAfterLast('.', "").lowercase(Locale.ROOT)
+            if (extension !in listOf("docx", "xlsx", "pptx", "odt", "ods", "odp")) {
+                throw IllegalArgumentException("In-app preview supports modern Office (.docx, .xlsx, .pptx) and OpenDocument files. Convert legacy .xls/.ppt files to .xlsx/.pptx to preview them.")
+            }
+            val bytes = FileInputStream(file).use { readLimited(it) }
+            extractText(bytes, extension, mimeType.lowercase(Locale.ROOT))
+        }
+
     private fun extractText(bytes: ByteArray, extension: String, mime: String): String {
         val text = if (extension in listOf("docx", "xlsx", "pptx", "odt", "ods", "odp")) {
             extractOfficeXml(bytes)
@@ -261,14 +276,23 @@ object DocumentAnalysisClient {
 
     private fun extractOfficeXml(bytes: ByteArray): String {
         val out = StringBuilder()
+        var expandedBytes = 0
+        var entryCount = 0
         ZipInputStream(bytes.inputStream()).use { zip ->
             var entry = zip.nextEntry
             while (entry != null) {
+                entryCount++
+                if (entryCount > 256) throw IllegalArgumentException("This Office file contains too many internal parts to preview safely.")
                 if (!entry.isDirectory && entry.name.endsWith(".xml", ignoreCase = true) &&
                     (entry.name.contains("document") || entry.name.contains("sharedStrings") ||
                      entry.name.contains("sheet") || entry.name.contains("slides/slide") ||
                      entry.name.contains("content.xml") || entry.name.contains("word/"))) {
-                    val xml = zip.readBytes().toString(Charsets.UTF_8)
+                    val xmlBytes = readZipEntryLimited(zip, 1024 * 1024)
+                    expandedBytes += xmlBytes.size
+                    if (expandedBytes > 8 * 1024 * 1024) {
+                        throw IllegalArgumentException("This Office file expands beyond the safe preview limit.")
+                    }
+                    val xml = xmlBytes.toString(Charsets.UTF_8)
                     Regex("<(?:\\w+:)?t[^>]*>(.*?)</(?:\\w+:)?t>", setOf(RegexOption.DOT_MATCHES_ALL))
                         .findAll(xml).forEach { match ->
                             out.append(match.groupValues[1]
@@ -284,5 +308,19 @@ object DocumentAnalysisClient {
             }
         }
         return out.toString()
+    }
+
+    private fun readZipEntryLimited(input: InputStream, limit: Int): ByteArray {
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        var total = 0
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            total += count
+            if (total > limit) throw IllegalArgumentException("An Office document component is too large to preview safely.")
+            output.write(buffer, 0, count)
+        }
+        return output.toByteArray()
     }
 }

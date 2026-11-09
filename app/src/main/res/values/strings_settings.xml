@@ -3,13 +3,13 @@
 <resources>
     <string name="set_screen_title">Settings</string>
     <string name="set_screen_subtitle">Customize how Jarvis listens, speaks and works</string>
+    <string name="set_search_hint">Search settings</string>
+    <string name="set_search_empty">No settings found. Try another keyword.</string>
     <string name="set_section_ai">AI &amp; Intelligence</string>
     <string name="set_aiengine_title">AI Engine</string>
     <string name="set_aiengine_subtitle">Choose Gemini Live or Groq</string>
     <string name="set_apiconnection_title">API Key &amp; Model</string>
     <string name="set_apiconnection_subtitle">Gemini key, model and connection test</string>
-    <string name="set_customproviders_title">Custom Providers</string>
-    <string name="set_customproviders_subtitle">Bring your own AI endpoint &amp; key</string>
     <string name="set_language_title">Conversation Language</string>
     <string name="set_language_subtitle">Auto (all Indian languages)</string>
     <string name="set_personavoice_title">AI Persona</string>
@@ -67,6 +67,10 @@
     <string name="set_apptheme_subtitle">Light Theme</string>
     <string name="set_overlayavatars_title">Overlay Avatars</string>
     <string name="set_overlayavatars_subtitle">Choose a floating avatar or turn the overlay off</string>
+    <string name="set_refreshrate_title">Motion &amp; Refresh Rate</string>
+    <string name="set_refreshrate_subtitle">Maximum available • system may adapt</string>
+    <string name="set_touchglow_title">Touch Glow Effect</string>
+    <string name="set_touchglow_subtitle">Show a soft theme-coloured halo around every touch</string>
         <string name="set_orbstyle_title">Orb Appearance</string>
     <string name="set_orbstyle_subtitle">Choose an orb, including Aurora Orb</string>
 <string name="set_section_about">Privacy &amp; About</string>
@@ -77,4 +81,6 @@
     <string name="set_footer_credit" formatted="true">JARVIS INTELLIGENCE OS • v%1$s\nEngineered by %2$s</string>
     <string name="set_pockettts_title">Offline Neural Voice (Pocket TTS)</string>
     <string name="set_pockettts_subtitle">Set up offline speech in Android text-to-speech settings</string>
+    <string name="set_customproviders_title">Custom Providers</string>
+    <string name="set_customproviders_subtitle">Bring your own AI endpoint &amp; key</string>
 </resources>

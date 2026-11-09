@@ -25,7 +25,9 @@ object ProviderUrlValidator {
         } catch (e: Exception) {
             return Result.Error("Endpoint URL is not a valid address.")
         }
-        if (uri.scheme == null || uri.host == null || uri.host.isBlank()) {
+        val scheme = uri.scheme
+        val host = uri.host
+        if (scheme == null || host == null || host.isBlank()) {
             return Result.Error("Endpoint URL must include a scheme and a host (for example https://api.example.com).")
         }
 
@@ -33,7 +35,7 @@ object ProviderUrlValidator {
             ProviderProtocol.GEMINI_REALTIME -> "wss"
             else -> "https"
         }
-        if (uri.scheme.lowercase() != requiredScheme) {
+        if (scheme.lowercase() != requiredScheme) {
             return Result.Error(
                 if (requiredScheme == "wss") "The realtime protocol needs a secure wss:// WebSocket endpoint."
                 else "Only secure https:// endpoints are accepted."
@@ -46,8 +48,8 @@ object ProviderUrlValidator {
             return Result.Error("Endpoint URL must not contain a query string or fragment.")
         }
 
-        val host = uri.host.lowercase()
-        if (host.startsWith("localhost") || host.endsWith(".local") || host.endsWith(".internal")) {
+        val loweredHost = host.lowercase()
+        if (loweredHost.startsWith("localhost") || loweredHost.endsWith(".local") || loweredHost.endsWith(".internal")) {
             return Result.Error("This endpoint is not reachable from a phone.")
         }
         val port = uri.port
@@ -57,8 +59,8 @@ object ProviderUrlValidator {
 
         // Normalise to scheme://host[:port], no trailing slash.
         val portPart = if (port != -1) ":$port" else ""
-        val normalized = "${uri.scheme.lowercase()}://$host$portPart"
-        return Result.Ok(normalized, host, uri.scheme.lowercase())
+        val normalized = "${scheme.lowercase()}://$loweredHost$portPart"
+        return Result.Ok(normalized, loweredHost, scheme.lowercase())
     }
 
     /** Whether a stored endpoint is valid for the given protocol (used on app restart). */
