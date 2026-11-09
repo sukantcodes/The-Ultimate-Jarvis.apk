@@ -1545,16 +1545,10 @@ class JarvisConversationService : Service() {
                                 }
                             }
                             if (returnToStandbyAfterAuthorizedTurn) {
-                                if (autonomousWaitingForUser) {
-                                    // A requested clarification is an authorized continuation of this task.
-                                    suppressMicUploadUntilVoiceCommandComplete = false
-                                } else {
-                                    suppressMicUploadUntilVoiceCommandComplete = true
-                                    if (!isAutonomousTaskRunning && pendingToolCalls.isEmpty() &&
-                                        activeToolJobs.isEmpty() && !isExecutingTool && macroJob?.isActive != true) {
-                                        scheduleStandbyAfterAuthorizedVoiceTurn()
-                                    }
-                                }
+                                // Finish the one-shot microphone gate, but do not put JARVIS to sleep.
+                                // Auto-Sleep or an explicit sleep command owns that transition.
+                                returnToStandbyAfterAuthorizedTurn = false
+                                suppressMicUploadUntilVoiceCommandComplete = false
                             }
                         }
 
@@ -2290,10 +2284,9 @@ class JarvisConversationService : Service() {
                     try { offlineRecognizer?.reset() } catch (_: Exception) {}
                     if (_isSessionOn.value && offlineLocalMode) {
                         setConversationState(ConversationState.IDLE)
-                        if (returnToStandbyAfterAuthorizedTurn && !isAutonomousTaskRunning && !autonomousWaitingForUser) {
+                        if (returnToStandbyAfterAuthorizedTurn) {
                             returnToStandbyAfterAuthorizedTurn = false
                             suppressMicUploadUntilVoiceCommandComplete = false
-                            enterStandby(announce = false)
                         }
                     }
                 }
