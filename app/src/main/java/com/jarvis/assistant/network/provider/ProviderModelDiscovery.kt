@@ -53,7 +53,11 @@ class ProviderModelDiscovery(
         }
 
         val url = if (profile.authMethod == AuthMethod.QUERY_PARAM) {
-            appendQueryKey(buildDiscoveryUrl(profile), key)
+            val parameter = if (
+                profile.protocol == ProviderProtocol.GEMINI_COMPATIBLE ||
+                profile.protocol == ProviderProtocol.GEMINI_REALTIME
+            ) "key" else "api_key"
+            appendQueryKey(buildDiscoveryUrl(profile), key, parameter)
         } else {
             buildDiscoveryUrl(profile)
         }
@@ -185,8 +189,8 @@ class ProviderModelDiscovery(
         }
     }
 
-    private fun appendQueryKey(url: String, key: String): String {
+    private fun appendQueryKey(url: String, key: String, parameter: String): String {
         val separator = if (url.contains("?")) "&" else "?"
-        return "$url${separator}api_key=${java.net.URLEncoder.encode(key, "UTF-8")}"
+        return "$url${separator}$parameter=${java.net.URLEncoder.encode(key, "UTF-8")}"
     }
 }
