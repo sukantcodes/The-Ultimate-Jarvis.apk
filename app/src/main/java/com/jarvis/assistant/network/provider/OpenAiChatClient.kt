@@ -137,44 +137,57 @@ class OpenAiChatClient(
         val key = credentialStore.keyFor(profile.id)
         if (key.isBlank()) return null
         val wav = pcmToWav(pcm16k, 16_000)
-        val body = MultipartBody.Builder()
-            .setType(MultipartBody.FORM)
-            .addFormDataPart("model", DEFAULT_STT_MODEL)
-            .addFormDataPart("response_format", "json")
-            .addFormDataPart("file", "speech.wav", wav.toRequestBody(WAV_MEDIA))
-            .build()
+        // Providers expose different transcription model names: OpenAI uses whisper-1,
+        // while Groq-compatible endpoints commonly use whisper-large-v3-turbo. Allow an
+        // explicit per-profile override, then try the two common compatible names.
+        val preferredModel = profile.providerSettings["transcriptionModel"]?.trim().orEmpty()
+        val models = listOf(preferredModel, "whisper-1", "whisper-large-v3-turbo")
+            .filter { it.isNotBlank() }
+            .distinct()
 
-        val request = Request.Builder()
-            .url(withQueryKey(transcriptionsUrl(profile.baseUrl), profile.authMethod, key))
-            .apply {
-                when (profile.authMethod) {
-                    AuthMethod.BEARER -> header("Authorization", "Bearer $key")
-                    AuthMethod.X_API_KEY -> header("x-api-key", key)
-                    AuthMethod.X_GOOGLE_API_KEY -> header("x-goog-api-key", key)
-                    AuthMethod.QUERY_PARAM -> {}
+        for (model in models) {
+            val body = MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("model", model)
+                .addFormDataPart("response_format", "json")
+                .addFormDataPart("file", "speech.wav", wav.toRequestBody(WAV_MEDIA))
+                .build()
+
+            val request = Request.Builder()
+                .url(withQueryKey(transcriptionsUrl(profile.baseUrl), profile.authMethod, key))
+                .apply {
+                    when (profile.authMethod) {
+                        AuthMethod.BEARER -> header("Authorization", "Bearer $key")
+                        AuthMethod.X_API_KEY -> header("x-api-key", key)
+                        AuthMethod.X_GOOGLE_API_KEY -> header("x-goog-api-key", key)
+                        AuthMethod.QUERY_PARAM -> {}
+                    }
                 }
-            }
-            .header("User-Agent", "JarvisAndroid/1.0")
-            .post(body)
-            .build()
+                .header("User-Agent", "JarvisAndroid/1.0")
+                .post(body)
+                .build()
 
-        val (code, raw) = try {
-            httpClient.newCall(request).execute().use { response ->
-                Pair(response.code, response.body?.string().orEmpty())
+            val response = try {
+                httpClient.newCall(request).execute().use { it.code to it.body?.string().orEmpty() }
+            } catch (e: IOException) {
+                return null
             }
-        } catch (e: IOException) {
-            return null
+            val (code, raw) = response
+            if (code in 200..299) {
+                val transcript = try {
+                    JSONObject(raw).optString("text", "").trim()
+                } catch (e: Exception) {
+                    ""
+                }
+                if (transcript.isNotBlank()) return transcript
+            }
+            // Authentication/rate-limit/network failures are not model-name failures.
+            if (code == 401 || code == 403 || code == 429 || code == 0 || code >= 500) return null
         }
-        if (code !in 200..299) return null
-        return try {
-            JSONObject(raw).optString("text", "").trim().ifBlank { null }
-        } catch (e: Exception) {
-            null
-        }
+        return null
     }
 
     companion object {
-        private const val DEFAULT_STT_MODEL = "whisper-large-v3-turbo"
         private val JSON_MEDIA = "application/json".toMediaType()
         private val WAV_MEDIA = "audio/wav".toMediaType()
 
