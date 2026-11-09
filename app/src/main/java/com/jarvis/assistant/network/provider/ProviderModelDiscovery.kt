@@ -105,9 +105,16 @@ class ProviderModelDiscovery(
             else ProviderUrlValidator.appendApiPath(profile.baseUrl, customPath)
         }
         return when (profile.protocol) {
-            ProviderProtocol.GEMINI_COMPATIBLE, ProviderProtocol.GEMINI_REALTIME -> {
-                // The Gemini REST list endpoint. Realtime endpoints use the same REST surface.
+            ProviderProtocol.GEMINI_COMPATIBLE -> {
                 ProviderUrlValidator.appendApiPath(profile.baseUrl, "v1beta/models")
+            }
+            ProviderProtocol.GEMINI_REALTIME -> {
+                // A realtime profile stores a full WSS endpoint path. Model discovery is a
+                // separate REST request on the same origin, not /v1beta/models appended to
+                // the WebSocket service path. Reverse proxies can override this with discoveryPath.
+                val httpUri = java.net.URI(ProviderUrlValidator.httpBase(profile.baseUrl))
+                val restOrigin = "https://${httpUri.rawAuthority}"
+                ProviderUrlValidator.appendApiPath(restOrigin, "v1beta/models")
             }
             ProviderProtocol.OPENAI_COMPATIBLE -> ProviderUrlValidator.appendApiPath(profile.baseUrl, "v1/models")
         }
