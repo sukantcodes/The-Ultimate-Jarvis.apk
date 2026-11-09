@@ -234,7 +234,7 @@ class BlinkitAgentFlowTest {
 
     @Test fun `quantity mismatch in cart is not reported as verified success`() = runBlocking {
         val w = world()
-        w.phone.incrementWorks = false
+        w.incrementWorks = false
         w.agent.search(BlinkitQueryParser.parse("milk"))
         val result = w.agent.cartAction("add", 1, null, 3, null, null)
 
