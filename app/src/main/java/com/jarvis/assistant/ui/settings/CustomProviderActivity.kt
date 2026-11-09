@@ -433,6 +433,13 @@ class CustomProviderActivity : AppCompatActivity() {
             withContext(Dispatchers.IO) {
                 ProviderModelDiscovery().discover(profile, credentials)
             }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            ProviderModelDiscovery.Result.Error(
+                ProviderModelDiscovery.ErrorKind.UNAVAILABLE,
+                "Model discovery failed unexpectedly: ${error.message ?: error.javaClass.simpleName}"
+            )
         } finally {
             credentials.clearKey(temporaryId)
         }
