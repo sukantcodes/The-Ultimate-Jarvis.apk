@@ -1549,7 +1549,7 @@ class JarvisConversationService : Service() {
                                     // A requested clarification is an authorized continuation of this task.
                                     suppressMicUploadUntilVoiceCommandComplete = false
                                 } else {
-                                    suppressMicUploadUntilVoiceCommandComplete = false
+                                    suppressMicUploadUntilVoiceCommandComplete = true
                                     if (!isAutonomousTaskRunning && pendingToolCalls.isEmpty() &&
                                         activeToolJobs.isEmpty() && !isExecutingTool && macroJob?.isActive != true) {
                                         scheduleStandbyAfterAuthorizedVoiceTurn()
@@ -4521,7 +4521,7 @@ class JarvisConversationService : Service() {
         serviceScope.launch { _wakeEvents.emit(Unit) }
         // A full wake-prefixed request is already present; do not send an extra wake greeting.
         if (!commandText.isNullOrBlank()) {
-            suppressMicUploadUntilVoiceCommandComplete = false
+            suppressMicUploadUntilVoiceCommandComplete = true
             returnToStandbyAfterAuthorizedTurn = false
         }
         beginActiveConversation(wakeTriggered = commandText.isNullOrBlank())
