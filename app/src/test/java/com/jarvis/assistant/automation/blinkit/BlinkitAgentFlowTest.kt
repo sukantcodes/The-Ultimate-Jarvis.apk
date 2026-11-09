@@ -232,6 +232,19 @@ class BlinkitAgentFlowTest {
         assertEquals(2, w.clicked("+"))
     }
 
+    @Test fun `quantity mismatch in cart is not reported as verified success`() = runBlocking {
+        val w = world()
+        w.phone.incrementWorks = false
+        w.agent.search(BlinkitQueryParser.parse("milk"))
+        val result = w.agent.cartAction("add", 1, null, 3, null, null)
+
+        assertFalse(result.success)
+        assertFalse(result.verified)
+        assertEquals(BlinkitStatus.NOT_VERIFIED, result.status)
+        assertEquals(1, w.cart["Amul Taaza Toned Milk"])
+        assertTrue(result.message.contains("quantity is 1, not 3"))
+    }
+
     @Test fun `asking twice never doubles the item`() = runBlocking {
         val w = world()
         w.agent.search(BlinkitQueryParser.parse("milk"))
