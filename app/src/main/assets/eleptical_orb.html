@@ -2140,11 +2140,11 @@ function updateOrb(dt) {
 
 function updateOrbitSpores(dt) {
   const P = orbitPts.geometry.attributes;
-  const boost = 0.58 + cur.speed * 0.75 + (state === "thinking" ? 0.95 : 0) + splitAmount * 0.75 + audio.high * 0.55;
+  const boost = 0.58 + cur.speed * 0.75 + ((state === "thinking" || state === "working") ? 0.95 : 0) + splitAmount * 0.75 + audio.high * 0.55;
   for (let i = 0; i < ORBIT_COUNT; i++) {
     const d = ptData[i];
     d.a += d.sp * dt * boost;
-    const r = d.r + Math.sin(time * d.fs + d.ph) * 0.14 - (state === "thinking" ? 0.10 : 0) + audio.level * 0.12 + splitAmount * 0.24;
+    const r = d.r + Math.sin(time * d.fs + d.ph) * 0.14 - ((state === "thinking" || state === "working") ? 0.10 : 0) + audio.level * 0.12 + splitAmount * 0.24;
     let x = Math.cos(d.a) * r * 1.28;
     let z = Math.sin(d.a) * r * 0.68;
     let y = d.y * 0.82 + Math.sin(d.a * 1.2 + d.ph) * 0.16 + x * d.tilt * 0.20;
