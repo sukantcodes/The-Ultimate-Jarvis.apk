@@ -3503,40 +3503,55 @@ class JarvisConversationService : Service() {
                                 com.jarvis.assistant.automation.agent.AgentTaskEngine.CompletionEvidence.VERIFIED_GOAL,
                                 localCompletionCheck.second
                             )
-                            Log.i("JarvisService", "task_completed received: Autonomous task marked COMPLETE.")
-                            lastVerifiedCompletionAt = System.currentTimeMillis()
-                            isAutonomousTaskRunning = false
                             val engineCompleted = com.jarvis.assistant.automation.agent.AgentTaskEngine.finish(
                                 com.jarvis.assistant.automation.agent.AgentTaskEngine.State.COMPLETED
                             )
-                            autonomousStepCount = 0
-                            bulkEndOfListVerified = false
-                            bulkNoProgressScrollCount = 0
-                            lastBulkScreenSignature = null
-                            isGoogleFlowCreationTask = false
-                            flowPromptVerified = false
-                            flowGenerationVerified = false
-                            lastVerifiedFlowPrompt = ""
-                            autonomousLoopJob?.cancel()
-                            autonomousLoopJob = null
-                            result.put("success", engineCompleted)
-                            result.put("message", if (engineCompleted) "Task completed and locally verified: $summary" else "Task completion was rejected because local verification did not pass.")
-                            lastCompletedTaskSummary = summary
-                            if (preferences.isSilentExecutionMode) {
-                                result.put("system_directive", "SILENT EXECUTION: Do NOT speak or play audio. Task completed silently.")
+                            if (!engineCompleted) {
+                                // Completion is transactional: do not stop the loop or announce success
+                                // until both local verification and every mapped step are accepted.
+                                val unfinishedSteps = com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value
+                                    ?.steps
+                                    ?.filter { it.status != com.jarvis.assistant.automation.agent.TaskStepStatus.COMPLETED }
+                                    ?.joinToString(" → ") { it.title }
+                                    .orEmpty()
+                                result.put("success", false)
+                                result.put("message", "The screen-level goal check passed, but the task engine rejected completion. Remaining mapped steps: ${unfinishedSteps.ifBlank { "task state unavailable" }}")
+                                result.put("pending_task_steps", unfinishedSteps)
+                                result.put("system_directive", "COMPLETION REJECTED BY TASK ENGINE: Do NOT announce success. The autonomous task is still active. Read the pending_task_steps and current task_map, inspect the current screen, complete each remaining step in order, verify each result, then retry final verification. If a step is already done, gather fresh evidence and update its verified status; do not repeat a destructive or externally visible action.")
+                                Log.w("JarvisService", "Task completion rejected by AgentTaskEngine; autonomous execution remains active. Pending: $unfinishedSteps")
                             } else {
-                                val alreadySpoke = synchronized(currentTurnAssistantText) {
-                                    currentTurnAssistantText.isNotBlank()
-                                }
-                                if (alreadySpoke) {
-                                    result.put("system_directive", "TASK RECORDED: You already confirmed completion aloud to the user. Do NOT repeat yourself. Remain completely silent.")
+                                Log.i("JarvisService", "task_completed received: Autonomous task marked COMPLETE.")
+                                lastVerifiedCompletionAt = System.currentTimeMillis()
+                                isAutonomousTaskRunning = false
+                                autonomousStepCount = 0
+                                bulkEndOfListVerified = false
+                                bulkNoProgressScrollCount = 0
+                                lastBulkScreenSignature = null
+                                isGoogleFlowCreationTask = false
+                                flowPromptVerified = false
+                                flowGenerationVerified = false
+                                lastVerifiedFlowPrompt = ""
+                                autonomousLoopJob?.cancel()
+                                autonomousLoopJob = null
+                                result.put("success", true)
+                                result.put("message", "Task completed and locally verified: $summary")
+                                lastCompletedTaskSummary = summary
+                                if (preferences.isSilentExecutionMode) {
+                                    result.put("system_directive", "SILENT EXECUTION: Do NOT speak or play audio. Task completed silently.")
                                 } else {
-                                    result.put("system_directive", "TASK COMPLETED: Speak ONE short confirmation sentence to the user in your natural voice: '$summary'. Do NOT repeat if already spoken.")
-                                }
-                                if (!alreadySpoke && liveWebSocket?.isSessionReady() != true) {
-                                    // Offline fallback: speak via TTS only when Gemini Live is offline
-                                    lastCompletedTaskSummary = null
-                                    tts?.speak(summary, TextToSpeech.QUEUE_FLUSH, null, "task_done")
+                                    val alreadySpoke = synchronized(currentTurnAssistantText) {
+                                        currentTurnAssistantText.isNotBlank()
+                                    }
+                                    if (alreadySpoke) {
+                                        result.put("system_directive", "TASK RECORDED: You already confirmed completion aloud to the user. Do NOT repeat yourself. Remain completely silent.")
+                                    } else {
+                                        result.put("system_directive", "TASK COMPLETED: Speak ONE short confirmation sentence to the user in your natural voice: '$summary'. Do NOT repeat if already spoken.")
+                                    }
+                                    if (!alreadySpoke && liveWebSocket?.isSessionReady() != true) {
+                                        // Offline fallback: speak via TTS only when Gemini Live is offline
+                                        lastCompletedTaskSummary = null
+                                        tts?.speak(summary, TextToSpeech.QUEUE_FLUSH, null, "task_done")
+                                    }
                                 }
                             }
                         }
@@ -3626,6 +3641,32 @@ class JarvisConversationService : Service() {
                     val bulkNotice = if (goalObj.isBulkAction) " [PERSISTENT BULK ACTION MODE: Goal involves '${goalObj.bulkKeywords.joinToString()}'. Process ALL matching items by scrolling down iteratively! Do NOT declare completion after only one screen.]" else ""
                     result.put("step_number", autonomousStepCount)
                     result.put("autonomous_goal", autonomousTaskGoal)
+
+                    // Give the model the authoritative plan after every automation action.
+                    // Previously the plan lived only in the overlay; the continuation prompt
+                    // asked for the next action without supplying the actual pending steps.
+                    val taskContext = com.jarvis.assistant.automation.agent.AgentTaskEngine.current()
+                    if (taskContext != null) {
+                        val taskMapJson = org.json.JSONArray()
+                        taskContext.steps.forEach { step ->
+                            taskMapJson.put(JSONObject().apply {
+                                put("step_id", step.stepId)
+                                put("title", step.title)
+                                put("status", step.status.name)
+                                put("expected_result", step.expectedResult)
+                                step.actualResult?.let { put("actual_result", it) }
+                                if (step.dependencies.isNotEmpty()) put("dependencies", org.json.JSONArray(step.dependencies))
+                            })
+                        }
+                        val currentMappedStep = taskContext.steps.firstOrNull { it.stepId == taskContext.currentStepId }
+                        result.put("task_map", taskMapJson)
+                        result.put("task_map_progress", com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value?.progressPercentage ?: 0)
+                        result.put("current_task_step", currentMappedStep?.title ?: "Verify the overall goal using fresh screen evidence")
+                        result.put("current_task_step_expected_result", currentMappedStep?.expectedResult ?: "The complete requested outcome is visibly confirmed")
+                        result.put("pending_task_steps", org.json.JSONArray(
+                            taskContext.steps.filter { it.status != com.jarvis.assistant.automation.agent.TaskStepStatus.COMPLETED }.map { it.title }
+                        ))
+                    }
                     if (toolSuccess) consecutiveToolFailures = 0 else consecutiveToolFailures++
                     val toolSig = name + ":" + normalizedArgsSignature(args)
                     if (name != "scroll_screen" && toolSig == lastToolSignature) sameToolRepeatCount++
@@ -3641,7 +3682,7 @@ class JarvisConversationService : Service() {
                         result.put("system_directive", "RECOVERY REQUIRED: Do not repeat the same tool call or target blindly. Inspect the current screen and task map, determine whether the previous action already took effect, then choose a different safe route or wait for the required UI condition. Continue the original task from its last verified checkpoint. If a real permission, login, or user decision is required, pause at that exact step.")
                     } else if (toolSuccess) {
                         result.put("autonomous_status", "EXECUTED")
-                        result.put("system_directive", "AUTONOMOUS STEP $autonomousStepCount EXECUTED. OVERARCHING GOAL: '$autonomousTaskGoal'$otpNotice$bulkNotice. MANDATE: Inspect the screen. If the OVERARCHING GOAL is not yet 100% finished on screen, you MUST IMMEDIATELY take the next concrete action (click, type, scroll, wait for install/open). NEVER ABANDON THE TASK MID-WAY! NEVER call task_completed until the ultimate goal is fully achieved on screen!")
+                        result.put("system_directive", "AUTONOMOUS STEP $autonomousStepCount EXECUTED. OVERARCHING GOAL: '$autonomousTaskGoal'$otpNotice$bulkNotice. The authoritative ordered task_map, current_task_step, expected result, and pending_task_steps are included in this tool result. Follow that map in order: complete the CURRENT step with fresh observable evidence before advancing; do not skip pending steps or repeat completed ones. If a step needs several UI actions, continue those actions until its expected result is verified. If the map is incomplete, re-plan by adding missing steps while preserving completed steps. Inspect the screen after every action. Continue until the entire original goal is achieved; call task_completed only after final verification.")
                     } else {
                         result.put("autonomous_status", "FAILED")
                         val failMsg = result.optString("message", "Action failed")
