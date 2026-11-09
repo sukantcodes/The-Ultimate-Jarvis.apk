@@ -19,6 +19,7 @@ import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService
 import com.jarvis.assistant.util.AppLauncher
 import com.jarvis.assistant.util.SimCallHelper
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -87,9 +88,12 @@ class OfflineActionExecutor(private val context: Context, private val hooks: Hoo
                 is OfflineIntent.CallControl -> callControl(intent.action)
                 is OfflineIntent.SendSms -> sendSms(intent.contact, intent.body)
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (error: Exception) {
-            Log.e(TAG, "Offline action failed: $intent", error)
-            "Sorry, that didn't work: ${error.message ?: "unknown error"}."
+            // Never stringify OfflineIntent here: SendSms and TypeText contain private user content.
+            Log.e(TAG, "Offline action failed for ${intent::class.java.simpleName}", error)
+            "Sorry, that didn't work. Please try again."
         }
     }
 
@@ -291,8 +295,13 @@ class OfflineActionExecutor(private val context: Context, private val hooks: Hoo
 
     private fun batterySaver(on: Boolean): String {
         return try {
-            Settings.Global.putInt(app.contentResolver, "low_power", if (on) 1 else 0)
-            if (on) "Battery saver is on." else "Battery saver is off."
+            val applied = Settings.Global.putInt(app.contentResolver, "low_power", if (on) 1 else 0)
+            if (applied) {
+                if (on) "Battery saver is on." else "Battery saver is off."
+            } else {
+                startActivity(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
+                "Android did not confirm the battery-saver change. Opening battery-saver settings so you can check it."
+            }
         } catch (_: SecurityException) {
             // Needs a permission only adb can grant, so open the page instead.
             startActivity(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
