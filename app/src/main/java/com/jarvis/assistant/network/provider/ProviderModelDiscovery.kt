@@ -155,12 +155,13 @@ class ProviderModelDiscovery(
         }
         if (id.isBlank()) return null
 
-        // Capabilities are derived conservatively from the protocol and any explicit fields the
-        // provider returned. They are never invented from the model name alone.
-        val explicitRealtime = entry.optBoolean("realtime", false) ||
-            entry.optString("modality", "").contains("audio", ignoreCase = true)
+        // Audio input is not the same as bidirectional realtime voice. Only the explicitly
+        // selected Gemini Live WebSocket protocol is allowed to advertise realtimeVoice.
+        val modality = entry.optString("modality", "")
+        val explicitAudioInput = entry.optBoolean("audioInput", false) ||
+            modality.contains("audio", ignoreCase = true)
         val capabilities = when {
-            protocol == ProviderProtocol.GEMINI_REALTIME || explicitRealtime ->
+            protocol == ProviderProtocol.GEMINI_REALTIME ->
                 ProviderModelCapabilities.realtimeVoiceCapable
             protocol == ProviderProtocol.OPENAI_COMPATIBLE ->
                 // OpenAI-compatible chat-completions endpoints commonly support function
@@ -172,8 +173,9 @@ class ProviderModelDiscovery(
                     streaming = entry.optBoolean("streaming", false),
                     imageInput = entry.optBoolean("imageInput", false),
                     fileAnalysis = entry.optBoolean("fileAnalysis", false),
-                    audioInput = entry.optBoolean("audioInput", false),
-                    audioOutput = entry.optBoolean("audioOutput", false)
+                    audioInput = explicitAudioInput,
+                    audioOutput = entry.optBoolean("audioOutput", false),
+                    realtimeVoice = false
                 )
             else -> ProviderModelCapabilities.textOnly
         }
