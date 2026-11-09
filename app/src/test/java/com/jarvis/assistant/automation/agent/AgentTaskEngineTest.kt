@@ -107,6 +107,20 @@ class AgentTaskEngineTest {
     }
 
     @Test
+    fun replacingPlanPreservesIntentionallyRepeatedSteps() {
+        AgentTaskEngine.begin("Open Spotify and like two separate playlists", "unit-test-repeated-plan")
+        assertTrue(AgentTaskEngine.completeStepByTitle("Open Spotify", "foreground verified", verified = true))
+
+        AgentTaskEngine.replacePlan(listOf("Open Spotify", "Like playlist one", "Like playlist two"))
+
+        val steps = AgentTaskEngine.taskState.value!!.steps
+        assertEquals(3, steps.size)
+        assertEquals(2, steps.count { it.title.startsWith("Like playlist") })
+        assertEquals(steps.size, steps.map { it.stepId }.distinct().size)
+        assertEquals(TaskStepStatus.COMPLETED, steps.first { it.title == "Open Spotify" }.status)
+    }
+
+    @Test
     fun pauseAndResumeAreReflectedInTheAuthoritativeSnapshot() {
         AgentTaskEngine.begin("Open Spotify", "unit-test-pause")
         assertTrue(AgentTaskEngine.pauseTask())
