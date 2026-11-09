@@ -12,6 +12,12 @@ on:
       - "docs/**"
   workflow_dispatch:
 
+# Keep only the newest validation run per branch; rapid fix commits must not queue
+# dozens of redundant native Android builds against older snapshots.
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
