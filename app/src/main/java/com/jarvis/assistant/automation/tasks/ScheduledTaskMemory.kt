@@ -50,7 +50,7 @@ object ScheduledTaskMemory {
         items.put(JSONObject().put("id", id).put("contact", cleanContact).put("dueAt", dueAt))
         prefs.edit().putString(CALLS, items.toString()).apply()
         scheduleCallAlarm(context, id, dueAt, cleanContact)
-        val minutes = (safeDelay / 60_000L).coerceAtLeast(1L)
+        val minutes = (delayMillis / 60_000L).coerceAtLeast(1L)
         return "Okay. I saved the task. I will try to call $contact in about $minutes minute(s)."
     }
 
