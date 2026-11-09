@@ -251,3 +251,15 @@ class AuthSessionTest {
         assertNotNull(AuthFlow.fromKey("google"))
     }
 }
+
+
+class AuthTokenFreshnessTest {
+    private val session = AuthSession("fresh-access-token", "refresh-token", 1_000L, userId = "user")
+
+    @Test
+    fun onlyNonExpiredSessionsExposeAnAccessToken() {
+        assertEquals("fresh-access-token", AuthManager.freshAccessToken(session, 900L))
+        assertNull(AuthManager.freshAccessToken(session, 945L))
+        assertNull(AuthManager.freshAccessToken(null, 900L))
+    }
+}
