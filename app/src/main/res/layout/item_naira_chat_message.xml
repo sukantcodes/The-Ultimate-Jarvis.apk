@@ -123,6 +123,64 @@
             android:breakStrategy="high_quality"
             android:hyphenationFrequency="normal" />
 
+        <TextView
+            android:id="@+id/tvCodingReasoningToggle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="7dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:paddingTop="7dp"
+            android:paddingBottom="7dp"
+            android:text="THINKING · TAP TO EXPAND"
+            android:textColor="?attr/themeAccent"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/tvCodingReasoningDetails"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="18dp"
+            android:background="@drawable/bg_chat_attachment"
+            android:padding="12dp"
+            android:textColor="?attr/themeTextSecondary"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tvCodingToolsToggle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="7dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:paddingTop="7dp"
+            android:paddingBottom="7dp"
+            android:text="TOOL ACTIVITY · TAP TO EXPAND"
+            android:textColor="?attr/themeAccent"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/tvCodingToolsDetails"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="18dp"
+            android:background="@drawable/bg_chat_attachment"
+            android:padding="12dp"
+            android:textColor="?attr/themeTextSecondary"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:visibility="gone" />
+
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
