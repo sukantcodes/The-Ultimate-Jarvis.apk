@@ -39,6 +39,18 @@ object GitHubWriteTools {
             value.split('/').all { it.isNotBlank() && !it.startsWith(".") && !it.endsWith(".lock") }
     }
 
+    /** Conservative content-level secret guard; path checks alone cannot catch credentials copied into source files. */
+    internal fun containsCredentialMaterial(bytes: ByteArray): Boolean {
+        val text = bytes.toString(Charsets.UTF_8)
+        if (text.contains("-----BEGIN ") && text.contains("PRIVATE KEY-----")) return true
+        val patterns = listOf(
+            Regex("\\bgh[pousr]_[A-Za-z0-9_]{20,}\\b"),
+            Regex("\\bgithub_pat_[A-Za-z0-9_]{20,}\\b"),
+            Regex("\\bAKIA[0-9A-Z]{16}\\b")
+        )
+        return patterns.any { it.containsMatchIn(text) }
+    }
+
     private fun arg(args: JsonObject, name: String): String =
         args.get(name)?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString?.trim().orEmpty()
 
@@ -142,6 +154,7 @@ object GitHubWriteTools {
             if (file.length() !in 1..MAX_FILE) return ToolResult.Error("Only files from 1 byte to 1 MB can be committed.")
             val bytes = file.readBytes()
             if (bytes.any { it == 0.toByte() }) return ToolResult.Error("Binary files are not supported.")
+            if (containsCredentialMaterial(bytes)) return ToolResult.Error("The file appears to contain a private key or recognizable access token. Remove credentials before committing.")
             val repository = repo(context, owner, name)
             if (repository.get("archived")?.asBoolean == true) return ToolResult.Error("Archived repositories cannot be changed.")
             val defaultBranch = repository.get("default_branch")?.asString.orEmpty()
