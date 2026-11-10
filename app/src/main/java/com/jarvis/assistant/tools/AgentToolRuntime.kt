@@ -42,6 +42,10 @@ object AgentToolRuntime {
         val app = context.applicationContext
         val root = workspaceRoot.canonicalFile
         val key = root.path
+        val sharedRegistry = registry(app).also { active ->
+            active.register(McpRefreshTool(McpManager.get(app)))
+            McpTools.all(app).forEach(active::register)
+        }
         return codingExecutors[key] ?: synchronized(codingExecutors) {
             codingExecutors[key] ?: run {
                 val prefs = app.getSharedPreferences("jarvis_agent_permissions", Context.MODE_PRIVATE)
@@ -51,12 +55,10 @@ object AgentToolRuntime {
                 }
                 val redactor = SecretRedactor()
                 val audit = AuditLog(File(app.filesDir, "agent-tool-audit.jsonl"), redactor)
-                val activeRegistry = registry(app).also { registry ->
-                    registry.register(ConnectorTools(app))
-                    registry.register(CodingShellTool())
-                    registry.register(RestoreSnapshotTool())
-                    registry.register(McpRefreshTool(McpManager.get(app)))
-                    McpTools.all(app).forEach(registry::register)
+                val activeRegistry = sharedRegistry.also { active ->
+                    active.register(ConnectorTools(app))
+                    active.register(CodingShellTool())
+                    active.register(RestoreSnapshotTool())
                 }
                 val policy = PermissionPolicy(settings)
                 if (settings.get("mode.mcp.NETWORK") == null && settings.get("mode.NETWORK") == null) policy.setMode(Risk.NETWORK, Mode.ASK, "mcp")
