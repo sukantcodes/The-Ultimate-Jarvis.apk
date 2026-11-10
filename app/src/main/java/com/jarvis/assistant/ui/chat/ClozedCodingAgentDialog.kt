@@ -68,7 +68,7 @@ internal object ClozedCodingAgentDialog {
         val status = TextView(context).apply {
             text = "● READY"
             textSize = 10f
-            setTextColor(color(com.jarvis.assistant.R.attr.themeSuccess, 0xff55d69e.toInt()))
+            setTextColor(color(com.jarvis.assistant.R.attr.themeAccent1, 0xff55d69e.toInt()))
             setPadding(dp(8), dp(5), dp(8), dp(5))
         }
         top.addView(heading, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
