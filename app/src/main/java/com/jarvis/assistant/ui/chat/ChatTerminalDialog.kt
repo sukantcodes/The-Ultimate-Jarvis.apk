@@ -84,7 +84,7 @@ object ChatTerminalDialog {
 
         fun append(value: String) {
             output.append(value.take(MAX_OUTPUT_CHARS))
-            if (output.length() > MAX_OUTPUT_CHARS) output.text = output.text.takeLast(MAX_OUTPUT_CHARS)
+            if (output.text.length > MAX_OUTPUT_CHARS) output.text = output.text.takeLast(MAX_OUTPUT_CHARS)
             scroll.post { scroll.fullScroll(android.view.View.FOCUS_DOWN) }
         }
         fun refreshPath() { path.text = "workspace: /" + workspace.relative(cwd) }
