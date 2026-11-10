@@ -115,7 +115,7 @@ object ChatTerminalDialog {
                     need(0, 1)
                     val next = when {
                         a.size == 1 || a[1] == "/" -> workspace.root
-                        a[1] == ".." -> cwd.parentFile ?: workspace.root
+                        a[1] == ".." -> if (cwd == workspace.root) workspace.root else cwd.parentFile ?: workspace.root
                         else -> resolve(a[1])
                     }
                     if (!next.isDirectory || (next != workspace.root && !next.canonicalPath.startsWith(workspace.root.canonicalPath + File.separator))) {
