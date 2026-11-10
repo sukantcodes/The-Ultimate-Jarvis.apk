@@ -45,7 +45,10 @@ internal data class ClozedSession(
     var model: String,
     var provider: String,
     var updated: Long,
-    val messages: MutableList<ClozedSessionRecord> = mutableListOf()
+    val messages: MutableList<ClozedSessionRecord> = mutableListOf(),
+    var modelOverride: String? = null,
+    var reasoningEffort: String? = null,
+    var todos: List<String>? = null
 )
 
 internal class ClozedCodingAgentEngine(
@@ -64,7 +67,7 @@ internal class ClozedCodingAgentEngine(
     private var session = loadLatestSession() ?: createSession()
     private var lastSignature = ""
     private var repeatedSignatureCount = 0
-    private var todos: List<String> = emptyList()
+    private var todos: List<String> = session.todos.orEmpty()
 
     data class SessionSummary(val id: String, val title: String, val updated: Long, val model: String, val provider: String)
 
@@ -127,7 +130,7 @@ internal class ClozedCodingAgentEngine(
         }
         interrupted = false
         val resolution = ProviderRuntime.manager(app).resolveChat(WorkCategory.CODING)
-        val provider = when (resolution) {
+        val resolvedProvider = when (resolution) {
             is ChatResolution.Ready -> resolution.provider
             is ChatResolution.Blocked -> {
                 emit(ClozedAgentEvent("notice", text = resolution.providerName + ": " + resolution.reason))
@@ -139,6 +142,11 @@ internal class ClozedCodingAgentEngine(
                 return
             }
         }
+        val modelOverride = session.modelOverride.orEmpty().trim()
+        val provider = if (modelOverride.isBlank()) resolvedProvider else resolvedProvider.copy(
+            modelId = modelOverride,
+            model = resolvedProvider.model.copy(id = modelOverride, manual = true)
+        )
         if (provider.protocol.name == "GEMINI") {
             emit(ClozedAgentEvent("notice", text = "The coding agent requires an OpenAI-compatible or Anthropic endpoint. Change the Coding route in Work Routing."))
             return
@@ -159,7 +167,7 @@ internal class ClozedCodingAgentEngine(
             }
         }.toMutableList()
         val tools = buildTools()
-        val system = buildSystemPrompt(provider.modelId)
+        val system = withContext(Dispatchers.IO) { buildSystemPrompt(provider.modelId) }
         try {
             emit(ClozedAgentEvent("state", text = "thinking"))
             var step = 0
@@ -172,7 +180,8 @@ internal class ClozedCodingAgentEngine(
                     completeWithKeyRotation(
                         provider, system, history, tools,
                         { emit(ClozedAgentEvent("text", text = it)) },
-                        { emit(ClozedAgentEvent("reasoning", text = it)) }
+                        { emit(ClozedAgentEvent("reasoning", text = it)) },
+                        session.reasoningEffort
                     )
                 } catch (error: ClozedLlmException) {
                     emit(ClozedAgentEvent("notice", text = error.message))
@@ -218,17 +227,18 @@ internal class ClozedCodingAgentEngine(
         messages: List<ClozedMessage>,
         tools: List<ClozedToolDefinition>,
         onText: (String) -> Unit,
-        onReasoning: (String) -> Unit
+        onReasoning: (String) -> Unit,
+        reasoningEffort: String? = session.reasoningEffort
     ): ClozedCompletion {
         val rotation = ProviderRuntime.keyRotation(app)
         if (!rotation.hasKeys(provider.profileId)) {
-            return llm.complete(provider, system, messages, tools, onText, onReasoning)
+            return llm.complete(provider, system, messages, tools, onText, onReasoning, reasoningEffort)
         }
         val excluded = linkedSetOf<String>()
         while (true) {
             val lease = rotation.lease(provider.profileId, excluded) ?: run {
                 if (excluded.isEmpty() && provider.auth.secret?.isBlank == false) {
-                    return llm.complete(provider, system, messages, tools, onText, onReasoning)
+                    return llm.complete(provider, system, messages, tools, onText, onReasoning, reasoningEffort)
                 }
                 throw ClozedLlmException(rotation.unavailableSummary(provider.profileId), 401)
             }
@@ -239,7 +249,7 @@ internal class ClozedCodingAgentEngine(
                 model = provider.model.copy(id = modelId)
             )
             try {
-                val completion = llm.complete(requestProvider, system, messages, tools, onText, onReasoning)
+                val completion = llm.complete(requestProvider, system, messages, tools, onText, onReasoning, reasoningEffort)
                 rotation.reportSuccess(lease.keyId)
                 return completion
             } catch (error: ClozedLlmException) {
@@ -285,9 +295,9 @@ internal class ClozedCodingAgentEngine(
             ClozedToolDefinition("delete", "Delete a project file or folder.", schema("path" to "string", required = listOf("path"))),
             ClozedToolDefinition("glob", "Find project paths matching a glob pattern.", schema("pattern" to "string", "path" to "string", required = listOf("pattern"))),
             ClozedToolDefinition("grep", "Search project file contents.", schema("pattern" to "string", "path" to "string", "include" to "string", "literal" to "boolean", "caseSensitive" to "boolean", "limit" to "integer", required = listOf("pattern"))),
-            ClozedToolDefinition("shell", "Run a restricted Android shell command in the project directory.", schema("command" to "string", "workdir" to "string", "timeout" to "integer", required = listOf("command"))),
+            ClozedToolDefinition("shell", "Run a user-approved Android shell command in the project directory.", schema("command" to "string", "workdir" to "string", "timeout" to "integer", "background" to "boolean", required = listOf("command"))),
             ClozedToolDefinition("todowrite", "Replace the current task plan.", schema("todos" to "array", required = listOf("todos"))),
-            ClozedToolDefinition("task", "Spawn a one-shot subagent for a focused investigation.", schema("description" to "string", "prompt" to "string", "agent" to "string", required = listOf("description", "prompt"))),
+            ClozedToolDefinition("task", "Spawn an explore or general subagent with its own multi-step tool loop.", schema("description" to "string", "prompt" to "string", "agent" to "string", required = listOf("description", "prompt"))),
             ClozedToolDefinition("skill", "Load an installed JARVIS skill.", schema("id" to "string", required = listOf("id"))),
             ClozedToolDefinition("question", "Ask the user a question and wait for the answer.", schema("question" to "string", "options" to "array", required = listOf("question"))),
             ClozedToolDefinition("diagnostics", "Check JSON/XML validity and balanced brackets in files.", schema("paths" to "array", required = listOf("paths"))),
@@ -296,9 +306,13 @@ internal class ClozedCodingAgentEngine(
         )
     }
 
-    private suspend fun dispatch(call: ClozedToolCall, provider: com.jarvis.assistant.provider.ResolvedProvider): Pair<String, Boolean> {
+    private suspend fun dispatch(
+        call: ClozedToolCall,
+        provider: com.jarvis.assistant.provider.ResolvedProvider,
+        agentMode: String = session.agent
+    ): Pair<String, Boolean> {
         val args = parseToolArgs(call.arguments)
-        if (session.agent == "plan" && call.name in setOf("write", "edit", "patch", "delete", "shell")) {
+        if (agentMode == "plan" && call.name in setOf("write", "edit", "patch", "delete", "shell")) {
             return "Denied: plan mode is read-only. No files or project state may be changed." to false
         }
         val signature = call.name + ":" + args.entrySet().sortedBy { it.key }.joinToString("&") { it.key + "=" + it.value.toString() }
@@ -309,6 +323,8 @@ internal class ClozedCodingAgentEngine(
             when (call.name) {
                 "todowrite" -> {
                     todos = args.getAsJsonArray("todos")?.mapNotNull { if (it.isJsonPrimitive) it.asString else if (it.isJsonObject) it.asJsonObject.get("content")?.asString else null }.orEmpty()
+                    session.todos = todos
+                    saveSession()
                     emit(ClozedAgentEvent("todos", text = todos.joinToString("\n")))
                     ("Updated task plan with " + todos.size + " step(s).") to true
                 }
@@ -320,8 +336,9 @@ internal class ClozedCodingAgentEngine(
                 "task" -> {
                     val prompt = args.get("prompt")?.asString.orEmpty()
                     val description = args.get("description")?.asString.orEmpty()
-                    val result = llm.complete(provider, system = "You are a one-shot subagent. Do not call tools. Report concise findings for: " + description, messages = listOf(ClozedMessage.User(prompt)), tools = emptyList(), onText = {}, onReasoning = {})
-                    result.text to result.text.isNotBlank()
+                    val requestedAgent = args.get("agent")?.asString.orEmpty().lowercase()
+                    val subagent = if (requestedAgent == "explore") "explore" else "general"
+                    runSubagent(provider, description, prompt, subagent)
                 }
                 "skill" -> {
                     val name = args.get("id")?.asString.orEmpty()
@@ -334,6 +351,54 @@ internal class ClozedCodingAgentEngine(
         } catch (error: Exception) {
             ("Error: " + error.javaClass.simpleName + ": " + (error.message ?: "tool failed")) to false
         }
+    }
+
+
+    private suspend fun runSubagent(
+        provider: com.jarvis.assistant.provider.ResolvedProvider,
+        description: String,
+        prompt: String,
+        agent: String
+    ): Pair<String, Boolean> {
+        if (prompt.isBlank()) return "Error: subagent prompt is empty." to false
+        val mode = if (agent == "explore") "plan" else "build"
+        val allowed = if (agent == "explore") {
+            setOf("read", "glob", "grep", "diagnostics", "webfetch", "websearch", "skill")
+        } else {
+            buildTools().map { it.name }.filterNot { it == "task" || it == "question" }.toSet()
+        }
+        val subTools = buildTools().filter { it.name in allowed }
+        val subHistory = mutableListOf<ClozedMessage>(ClozedMessage.User(prompt))
+        val report = StringBuilder()
+        val subSystem = buildSystemPrompt(provider.modelId) +
+            "\n\n# Subagent: ${agent.uppercase()}\nTask: ${description.take(500)}\n" +
+            if (agent == "explore") "\nYou are read-only. Never attempt to modify files or execute shell commands." else
+                "\nYou may use the supplied tools, but do not ask the user questions or spawn more subagents."
+        repeat(12) { step ->
+            if (interrupted) return "Subagent interrupted." to false
+            val completion = completeWithKeyRotation(
+                provider, subSystem, subHistory, subTools,
+                { report.append(it) }, {}, session.reasoningEffort
+            )
+            if (completion.calls.isEmpty()) {
+                val finalText = completion.text.ifBlank { report.toString() }
+                return finalText to finalText.isNotBlank()
+            }
+            subHistory += ClozedMessage.Assistant(completion.text, completion.calls)
+            for (call in completion.calls) {
+                if (interrupted) return "Subagent interrupted." to false
+                if (call.name !in allowed) {
+                    subHistory += ClozedMessage.ToolResult(call.id, call.name, "Denied: this tool is not available to the $agent subagent.")
+                    continue
+                }
+                val before = snapshotBefore(call)
+                val result = dispatch(call, provider, mode)
+                if (before.isNotEmpty()) undo.addLast(before)
+                subHistory += ClozedMessage.ToolResult(call.id, call.name, result.first)
+            }
+            if (step == 11) report.append("\nSubagent reached its 12-step tool limit.")
+        }
+        return report.toString().ifBlank { "Subagent finished without a report." } to true
     }
 
     private suspend fun runMappedTool(call: ClozedToolCall, args: JsonObject): Pair<String, Boolean> {
