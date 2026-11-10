@@ -586,7 +586,7 @@ internal class ClozedCodingAgentEngine(
         val end = raw.lastIndexOf('}')
         if (start >= 0 && end > start) {
             var candidate = raw.substring(start, end + 1)
-            candidate = candidate.replace(Regex(",\\s*([}\\]])"), "$1")
+            candidate = candidate.replace(Regex(",\\s*([}\\]])"), "\\$1")
             runCatching { JsonParser.parseString(candidate).asJsonObject }.getOrNull()?.let { return it }
         }
         return JsonObject()
