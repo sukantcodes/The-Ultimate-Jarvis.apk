@@ -143,6 +143,7 @@ class McpServersActivity : AppCompatActivity() {
             if (server.enabled) "Disable" else "Enable",
             "Login with OAuth (PKCE)",
             "Set bearer token",
+            "Clear saved credentials",
             "Refresh this server",
             "Edit",
             "Delete"
@@ -158,9 +159,14 @@ class McpServersActivity : AppCompatActivity() {
                         render()
                     }
                     2 -> setBearerToken(id)
-                    3 -> refreshTools()
-                    4 -> addServer(server)
-                    5 -> MaterialAlertDialogBuilder(this)
+                    3 -> {
+                        manager.clearBearerToken(id)
+                        render()
+                        Toast.makeText(this, "Saved credentials cleared.", Toast.LENGTH_SHORT).show()
+                    }
+                    4 -> refreshTools()
+                    5 -> addServer(server)
+                    6 -> MaterialAlertDialogBuilder(this)
                         .setTitle("Delete MCP server?")
                         .setMessage("This removes the server and its encrypted tokens.")
                         .setNegativeButton("Cancel", null)
