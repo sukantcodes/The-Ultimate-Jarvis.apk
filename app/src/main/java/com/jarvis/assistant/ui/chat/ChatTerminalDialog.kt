@@ -21,12 +21,27 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.net.InetAddress
+import java.net.URI
+import java.util.concurrent.TimeUnit
+import okhttp3.OkHttpClient
+import okhttp3.Request
 
 /** Workspace-only command console. It never starts a system shell or arbitrary executable. */
 object ChatTerminalDialog {
     private const val MAX_READ_BYTES = 512 * 1024L
     private const val MAX_OUTPUT_CHARS = 24000
     private const val MAX_WORKSPACE_BYTES = 50L * 1024L * 1024L
+    private const val MAX_NETWORK_BYTES = 5L * 1024L * 1024L
+    private val networkClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(12, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .build()
+    }
 
     fun show(context: Context) {
         val workspace = Workspace(File(context.applicationContext.filesDir, "chatbox-workspace"))
@@ -45,7 +60,7 @@ object ChatTerminalDialog {
             setTypeface(typeface, Typeface.BOLD)
         })
         root.addView(TextView(context).apply {
-            text = "Private ChatBox workspace only. No system shell or phone-file access."
+            text = "Workspace sandbox + HTTPS internet tools. No root, system shell, or unrestricted phone-file access."
             textSize = 12f
             setPadding(0, dp(4), 0, dp(8))
         })
@@ -101,7 +116,45 @@ object ChatTerminalDialog {
                 if (a.size < min + 1 || a.size > max + 1) throw IllegalArgumentException("Invalid arguments. Type help.")
             }
             when (cmd) {
-                "help" -> "Commands: pwd, ls [path], cd [folder], cat <file>, head <file> [lines], tail <file> [lines], wc <file>, grep <text> <file>, tree [path], mkdir <folder>, touch <file>, write <file> <text>, rm <file>, clear, exit.\nNo shell, external commands, pipes, scripts, redirects, or paths outside this workspace."
+                "help" -> "Commands: pwd, ls [path], cd [folder], cat <file>, head <file> [lines], tail <file> [lines], wc <file>, grep <text> <file>, tree [path], mkdir <folder>, touch <file>, write <file> <text>, rm <file>, curl <https-url>, wget <https-url> [filename], netcheck, clear, exit.\nHTTPS internet access is available through curl/wget. This is a safe workspace command console, not a full Termux/Linux shell: arbitrary binaries, package installation, scripts, pipes, root, and phone-system commands are not enabled."
+                "curl", "wget" -> {
+                    need(1, if (cmd == "wget") 2 else 1)
+                    val uri = validatePublicHttpsUrl(a[1])
+                    val request = Request.Builder().url(uri.toASCIIString()).header("User-Agent", "JARVIS-ChatBox-Terminal/1.0").get().build()
+                    networkClient.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) throw IllegalStateException("HTTP ${response.code} ${response.message}. Redirects are not followed; use the final HTTPS URL.")
+                        val body = response.body ?: throw IllegalStateException("The server returned an empty response.")
+                        if (body.contentLength() > MAX_NETWORK_BYTES) throw IllegalStateException("Response exceeds the 5 MB terminal transfer limit.")
+                        val bytes = body.byteStream().use { it.readNBytes((MAX_NETWORK_BYTES + 1).toInt()) }
+                        if (bytes.size > MAX_NETWORK_BYTES) throw IllegalStateException("Response exceeds the 5 MB terminal transfer limit.")
+                        if (cmd == "curl") {
+                            val type = body.contentType()?.toString().orEmpty()
+                            if (type.startsWith("text/") || type.contains("json") || type.contains("xml") || type.contains("javascript")) {
+                                String(bytes, Charsets.UTF_8).take(16000) + if (bytes.size > 16000) "\\n… output truncated …" else ""
+                            } else {
+                                "Downloaded ${bytes.size} bytes (content-type: ${type.ifBlank { "unknown" }}). Use wget to save binary files."
+                            }
+                        } else {
+                            val name = a.getOrNull(2) ?: uri.path.substringAfterLast('/').takeIf { it.isNotBlank() } ?: "download.bin"
+                            if (name in listOf(".", "..") || name.contains('/') || name.contains('\\\\') || name.any { it.isISOControl() }) {
+                                throw IllegalArgumentException("Use a simple filename without folder paths.")
+                            }
+                            val target = resolve(name)
+                            val old = if (target.isFile) target.length() else 0L
+                            if (workspace.sizeOf() - old + bytes.size > MAX_WORKSPACE_BYTES) throw IllegalStateException("Workspace quota (50 MB) exceeded.")
+                            target.parentFile?.mkdirs()
+                            target.writeBytes(bytes)
+                            "Saved ${bytes.size} bytes to /" + workspace.relative(target)
+                        }
+                    }
+                }
+                "netcheck" -> {
+                    need(0)
+                    val request = Request.Builder().url("https://example.com/").head().build()
+                    networkClient.newCall(request).execute().use { response ->
+                        "Internet reachable: HTTP ${response.code} from example.com"
+                    }
+                }
                 "pwd" -> "/" + workspace.relative(cwd)
                 "ls" -> {
                     need(0, 1)
@@ -247,6 +300,27 @@ object ChatTerminalDialog {
         refreshPath()
         dialog.show()
         dialog.window?.setLayout((context.resources.displayMetrics.widthPixels * 0.94f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
+    }
+
+    private fun validatePublicHttpsUrl(raw: String): URI {
+        val uri = runCatching { URI(raw) }.getOrElse { throw IllegalArgumentException("Invalid URL.") }
+        if (!uri.scheme.equals("https", true) || uri.host.isNullOrBlank() || uri.userInfo != null) {
+            throw IllegalArgumentException("Only public HTTPS URLs are supported.")
+        }
+        val host = uri.host.lowercase()
+        if (host == "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) {
+            throw IllegalArgumentException("Local and private network addresses are blocked.")
+        }
+        val addresses = runCatching { InetAddress.getAllByName(host) }
+            .getOrElse { throw IllegalArgumentException("Could not resolve the internet host.") }
+        if (addresses.isEmpty() || addresses.any {
+                it.isAnyLocalAddress || it.isLoopbackAddress || it.isLinkLocalAddress ||
+                    it.isSiteLocalAddress || it.hostAddress.startsWith("fc", true) ||
+                    it.hostAddress.startsWith("fd", true)
+            }) {
+            throw IllegalArgumentException("Local and private network addresses are blocked.")
+        }
+        return uri
     }
 
     private fun tokenize(raw: String): List<String> {
