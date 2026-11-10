@@ -186,7 +186,14 @@ class McpManager private constructor(context: Context) {
                     addProperty("version", "1.0")
                 })
             }
-            val initialized = requestOnce(server, "initialize", initParams)
+            val initialized = try {
+                requestOnce(server, "initialize", initParams)
+            } catch (error: Exception) {
+                val message = error.message.orEmpty().lowercase()
+                if ("protocol" !in message && "version" !in message) throw error
+                initParams.addProperty("protocolVersion", "2024-11-05")
+                requestOnce(server, "initialize", initParams)
+            }
             val negotiated = initialized.get("protocolVersion")?.asString.orEmpty()
             if (negotiated.isBlank()) throw IllegalStateException("MCP initialize response did not include a protocolVersion.")
             protocolVersions[server.id] = negotiated
