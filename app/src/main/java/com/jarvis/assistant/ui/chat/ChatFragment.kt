@@ -209,7 +209,31 @@ class ChatFragment : Fragment() {
         }
         binding.chipMode.setOnClickListener { showChatModePicker() }
         binding.btnAttach.setOnClickListener {
-            documentPicker.launch(arrayOf("*/*"))
+            ChatComposerMenu.show(requireContext(), listOf(
+                ChatComposerMenu.Action("Add files", "Attach a document, image or code file", "＋") {
+                    documentPicker.launch(arrayOf("*/*"))
+                },
+                ChatComposerMenu.Action("Connectors & GitHub", "Connect accounts and manage integrations", "⌘") {
+                    startActivity(Intent(requireContext(), ConnectorHubActivity::class.java))
+                },
+                ChatComposerMenu.Action("Workspace", "Browse, preview and export files created by JARVIS", "▤") {
+                    startActivity(Intent(requireContext(), WorkspaceActivity::class.java))
+                },
+                ChatComposerMenu.Action("Terminal", "Work with files in the private ChatBox workspace", ">_") {
+                    ChatTerminalDialog.show(requireContext())
+                },
+                ChatComposerMenu.Action("Local website preview", "Start or stop the private loopback preview server", "↗") {
+                    LocalServerDialog.show(requireContext())
+                },
+                ChatComposerMenu.Action("Chat tools", "Writing, formatting, export and conversation utilities", "✦") {
+                    ChatboxTools.show(requireContext(), binding.etMessageInput, chatAdapter.currentList) { text ->
+                        showExportFormatPicker(text, "Jarvis-Conversation")
+                    }
+                },
+                ChatComposerMenu.Action("Conversation history", "Review previous messages in this chat", "◷") {
+                    ChatHistoryBottomSheet.newInstance().show(parentFragmentManager, ChatHistoryBottomSheet.TAG)
+                }
+            ))
         }
         binding.btnChatTools.setOnClickListener {
             ChatboxTools.show(requireContext(), binding.etMessageInput, chatAdapter.currentList) { text ->
