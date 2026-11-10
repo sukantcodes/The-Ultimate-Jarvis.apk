@@ -30,6 +30,14 @@ class GitHubToolsTest {
         assertFalse(GitHubWriteTools.validBranchName("feature name"))
     }
 
+    @Test fun githubWritesRejectRecognizableCredentialMaterial() {
+        assertTrue(GitHubWriteTools.containsCredentialMaterial("ghp_abcdefghijklmnopqrstuvwxyz1234567890".toByteArray()))
+        assertTrue(GitHubWriteTools.containsCredentialMaterial("github_pat_abcdefghijklmnopqrstuvwxyz1234567890".toByteArray()))
+        assertTrue(GitHubWriteTools.containsCredentialMaterial("-----BEGIN RSA PRIVATE KEY-----".toByteArray()))
+        assertTrue(GitHubWriteTools.containsCredentialMaterial("AKIA1234567890ABCDEF".toByteArray()))
+        assertFalse(GitHubWriteTools.containsCredentialMaterial("fun main() = println(\"hello\")".toByteArray()))
+    }
+
     @Test fun repositoryImportSkipsCredentialAndPrivateKeyFiles() {
         assertTrue(GitHubTools.isSensitiveRepositoryPath(".env"))
         assertTrue(GitHubTools.isSensitiveRepositoryPath("config/.env.production"))
