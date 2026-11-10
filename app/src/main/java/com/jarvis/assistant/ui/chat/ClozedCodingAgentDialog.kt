@@ -29,8 +29,7 @@ import kotlin.coroutines.resume
 /** Hosts the separate coding-agent session inside the existing JARVIS ChatBox surface. */
 internal object ClozedCodingAgentDialog {
     fun show(context: Context) {
-        val appContext = context
-        val density = context.resources.displayMetrics.density
+                val density = context.resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()
         fun color(attr: Int, fallback: Int): Int {
             val value = android.util.TypedValue()
@@ -50,7 +49,7 @@ internal object ClozedCodingAgentDialog {
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(12), dp(16), dp(12))
-            setBackgroundColor(color(com.jarvis.assistant.R.attr.themeBackground, 0xff0b111a.toInt()))
+            setBackgroundColor(0xff0b111a.toInt())
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
         val header = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
@@ -78,9 +77,9 @@ internal object ClozedCodingAgentDialog {
             setPadding(0, dp(4), 0, dp(8))
         }
         header.addView(pathLabel)
-        lateinit var engineRef: ClozedCodingAgentEngine
-        lateinit var renderSession: () -> Unit
-        lateinit var submitInput: () -> Unit
+        var engineRef: ClozedCodingAgentEngine? = null
+        var renderSession: () -> Unit = {}
+        var submitInput: () -> Unit = {}
         val actions = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
         fun action(label: String, click: () -> Unit): TextView = TextView(context).apply {
             text = label
@@ -94,9 +93,9 @@ internal object ClozedCodingAgentDialog {
             setOnClickListener { click() }
         }
         val modeButton = action("BUILD", {})
-        val sessionsButton = action("SESSIONS") { showSessions(context, engineRef, renderSession) }
-        val newButton = action("NEW") { engineRef.newSession() }
-        val undoButton = action("UNDO") { engineRef.undo() }
+        val sessionsButton = action("SESSIONS") { engineRef?.let { showSessions(context, it, renderSession) } }
+        val newButton = action("NEW") { engineRef?.newSession() }
+        val undoButton = action("UNDO") { engineRef?.undo() }
         val folderButton = action("PROJECT") {
             runCatching { context.startActivity(Intent(context, WorkspaceActivity::class.java)) }
         }
@@ -149,7 +148,7 @@ internal object ClozedCodingAgentDialog {
         }
         composer.addView(input, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         val controls = LinearLayout(context).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
-        val stop = action("STOP") { engineRef.interrupt() }.apply { visibility = View.GONE }
+        val stop = action("STOP") { engineRef?.interrupt() }.apply { visibility = View.GONE }
         val send = action("SEND  ↑") { submitInput() }
         controls.addView(stop)
         controls.addView(send, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(8) })
@@ -195,7 +194,7 @@ internal object ClozedCodingAgentDialog {
             transcript.removeAllViews()
             toolViews.clear()
             activeAssistant = null
-            engineRef.currentSession().messages.forEach { item ->
+            engineRef?.currentSession()?.messages?.forEach { item ->
                 when (item.role) {
                     "user" -> addUser(item.text)
                     "assistant" -> if (item.text.isNotBlank()) addAssistant(item.text)
@@ -213,7 +212,7 @@ internal object ClozedCodingAgentDialog {
                     }
                 }
             }
-            pathLabel.text = "PROJECT  " + engineRef.projectPath()
+            pathLabel.text = "PROJECT  " + engineRef?.projectPath().orEmpty()
             scrollBottom()
         }
 
@@ -273,7 +272,7 @@ internal object ClozedCodingAgentDialog {
                         plan.text = if (event.text.isBlank()) "" else "PLAN\n" + event.text
                         plan.visibility = if (event.text.isBlank()) View.GONE else View.VISIBLE
                     }
-                    "sessions" -> showSessions(context, engineRef, renderSession)
+                    "sessions" -> engineRef?.let { showSessions(context, it, renderSession) }
                 }
             } },
             askQuestion = { question, options -> askQuestion(context, question, options) },
@@ -285,7 +284,7 @@ internal object ClozedCodingAgentDialog {
         modeButton.setOnClickListener {
             currentMode = if (currentMode == "build") "plan" else "build"
             modeButton.text = currentMode.uppercase()
-            engineRef.setAgent(currentMode)
+            engineRef?.setAgent(currentMode)
         }
         sessionsButton.setOnClickListener { showSessions(context, engineRef, ::renderSession) }
         newButton.setOnClickListener { engineRef.newSession() }
@@ -299,7 +298,7 @@ internal object ClozedCodingAgentDialog {
             val value = input.text?.toString().orEmpty()
             if (value.isBlank() || running) return
             input.setText("")
-            scope.launch { engineRef.submit(value) }
+            engineRef?.let { agent -> scope.launch { agent.submit(value) } }
         }
         dialog.setContentView(root)
         dialog.setOnDismissListener { scope.cancel() }
