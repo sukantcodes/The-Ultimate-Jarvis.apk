@@ -40,3 +40,13 @@
 
 # JNI method names are referenced by native llama.cpp symbols.
 -keep class com.arm.aichat.internal.InferenceEngineImpl { *; }
+
+
+# Coding-agent runtime and Gson-backed session snapshots must survive minification.
+-keep class com.jarvis.assistant.ui.chat.ClozedCodingAgentEngine { *; }
+-keep class com.jarvis.assistant.ui.chat.ClozedCodingAgentService { *; }
+-keep class com.jarvis.assistant.ui.chat.ClozedSession { *; }
+-keep class com.jarvis.assistant.ui.chat.ClozedSessionRecord { *; }
+-keep class com.jarvis.assistant.ui.chat.ClozedFileSnapshot { *; }
+-keep class com.jarvis.assistant.provider.Clozed* { *; }
+-keepattributes InnerClasses,EnclosingMethod
