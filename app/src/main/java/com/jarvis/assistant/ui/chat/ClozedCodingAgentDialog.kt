@@ -280,15 +280,15 @@ internal object ClozedCodingAgentDialog {
                 runCatching { context.startActivity(Intent(context, com.jarvis.assistant.ui.settings.ApiConnectionActivity::class.java)) }
             }
         )
-        pathLabel.text = "PROJECT  " + engineRef.projectPath()
+        pathLabel.text = "PROJECT  " + engineRef?.projectPath().orEmpty()
         modeButton.setOnClickListener {
             currentMode = if (currentMode == "build") "plan" else "build"
             modeButton.text = currentMode.uppercase()
             engineRef?.setAgent(currentMode)
         }
-        sessionsButton.setOnClickListener { showSessions(context, engineRef, ::renderSession) }
-        newButton.setOnClickListener { engineRef.newSession() }
-        undoButton.setOnClickListener { engineRef.undo() }
+        sessionsButton.setOnClickListener { engineRef?.let { showSessions(context, it, renderSession) } }
+        newButton.setOnClickListener { engineRef?.newSession() }
+        undoButton.setOnClickListener { engineRef?.undo() }
         providerButton.setOnClickListener { runCatching { context.startActivity(Intent(context, com.jarvis.assistant.ui.settings.ApiConnectionActivity::class.java)) } }
         send.setOnClickListener { submitInput() }
         input.setOnEditorActionListener { _, actionId, _ ->
