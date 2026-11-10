@@ -183,17 +183,18 @@ class McpManager private constructor(context: Context) {
             val code = connection.responseCode
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
             val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+            val safeResponse = token?.takeIf { it.isNotBlank() }?.let { response.replace(it, "[REDACTED]") } ?: response
             if (code !in 200..299) {
                 val message = when (code) {
                     401 -> "HTTP 401: login required (tap Login under this server in Settings)"
                     403 -> "The server refused to register this app (403: approved clients only)"
                     404 -> "HTTP 404: MCP endpoint not found at ${server.url}"
-                    else -> "HTTP $code: ${response.take(300)}"
+                    else -> "HTTP $code: ${safeResponse.take(300)}"
                 }
                 throw IllegalStateException(message)
             }
-            val jsonText = if (response.trimStart().startsWith("{")) response else {
-                response.lineSequence().firstOrNull { it.trimStart().startsWith("data:") }
+            val jsonText = if (safeResponse.trimStart().startsWith("{")) safeResponse else {
+                safeResponse.lineSequence().firstOrNull { it.trimStart().startsWith("data:") }
                     ?.trim()?.removePrefix("data:")?.trim()
                     ?: throw IllegalStateException("MCP server returned neither JSON nor an SSE data event.")
             }
