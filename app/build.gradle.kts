@@ -153,6 +153,7 @@ dependencies {
 
     // Security Crypto for EncryptedSharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("androidx.browser:browser:1.8.0")
 
     testImplementation("junit:junit:4.13.2")
     // Real org.json for JVM unit tests (the Android stub throws); used by the task ledger codec tests.
