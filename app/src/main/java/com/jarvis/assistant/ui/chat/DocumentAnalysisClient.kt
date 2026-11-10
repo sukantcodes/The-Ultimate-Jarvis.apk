@@ -297,8 +297,8 @@ object DocumentAnalysisClient {
                 throw IllegalArgumentException("This attachment is missing or exceeds the 14 MB preview limit.")
             }
             val extension = fileName.substringAfterLast('.', "").lowercase(Locale.ROOT)
-            if (extension !in listOf("docx", "xlsx", "pptx", "odt", "ods", "odp")) {
-                throw IllegalArgumentException("In-app preview supports modern Office (.docx, .xlsx, .pptx) and OpenDocument files. Convert legacy .xls/.ppt files to .xlsx/.pptx to preview them.")
+            if (extension !in listOf("docx", "xlsx", "pptx", "odt", "ods", "odp", "zip")) {
+                throw IllegalArgumentException("In-app preview supports modern Office/OpenDocument files and safe text extraction from ZIP archives. Convert legacy .xls/.ppt files to .xlsx/.pptx to preview them.")
             }
             val bytes = FileInputStream(file).use { readLimited(it) }
             extractText(bytes, extension, mimeType.lowercase(Locale.ROOT))
@@ -307,6 +307,8 @@ object DocumentAnalysisClient {
     private fun extractText(bytes: ByteArray, extension: String, mime: String): String {
         val text = if (extension in listOf("docx", "xlsx", "pptx", "odt", "ods", "odp")) {
             extractOfficeXml(bytes)
+        } else if (extension == "zip") {
+            extractArchiveText(bytes)
         } else if (mime.startsWith("text/") || extension in listOf(
                 "txt", "md", "csv", "tsv", "json", "xml", "html", "htm", "kt", "java", "py",
                 "js", "ts", "css", "sql", "log", "yaml", "yml", "properties", "gradle", "kts",
@@ -356,6 +358,42 @@ object DocumentAnalysisClient {
             }
         }
         return out.toString()
+    }
+
+    /** Reads ZIP content without extracting to disk; paths are labels only and expanded data is bounded. */
+    private fun extractArchiveText(bytes: ByteArray): String {
+        val out = StringBuilder()
+        var expandedBytes = 0
+        var entryCount = 0
+        val textExtensions = setOf("txt", "md", "csv", "tsv", "json", "xml", "html", "htm", "kt", "java", "py", "js", "ts", "css", "sql", "log", "yaml", "yml", "properties", "gradle", "kts", "sh", "c", "cpp", "h", "hpp", "rs", "go", "rb", "php", "ini", "conf", "svg", "toml")
+        ZipInputStream(bytes.inputStream()).use { zip ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                entryCount++
+                if (entryCount > 200) throw IllegalArgumentException("This ZIP contains more than 200 entries.")
+                val label = entry.name.replace('\\\\', '/').take(240)
+                val data = if (entry.isDirectory) ByteArray(0) else readZipEntryLimited(zip, 1024 * 1024)
+                expandedBytes += data.size
+                if (expandedBytes > 8 * 1024 * 1024) throw IllegalArgumentException("This ZIP expands beyond the 8 MB inspection limit.")
+                if (!entry.isDirectory) {
+                    out.append("\\n--- ").append(label).append(" (").append(data.size).append(" bytes) ---\\n")
+                    val ext = label.substringAfterLast('.', "").lowercase(Locale.ROOT)
+                    if (ext in textExtensions) {
+                        val decoded = runCatching {
+                            Charsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                                .decode(java.nio.ByteBuffer.wrap(data)).toString()
+                        }.getOrNull()
+                        out.append(decoded?.take(12000) ?: "[Binary or invalid UTF-8 entry; content skipped.]")
+                    } else out.append("[Binary or unsupported entry; content not extracted.]")
+                    out.append('\\n')
+                }
+                zip.closeEntry()
+                if (out.length > MAX_TEXT_CHARS) break
+            }
+        }
+        if (entryCount == 0) throw IllegalArgumentException("This ZIP archive is empty or invalid.")
+        return out.toString().take(MAX_TEXT_CHARS)
     }
 
     private fun readZipEntryLimited(input: InputStream, limit: Int): ByteArray {
