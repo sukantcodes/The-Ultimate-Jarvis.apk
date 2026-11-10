@@ -69,7 +69,7 @@ class McpManager private constructor(context: Context) {
         val uri = runCatching { URI(config.url.trim()) }.getOrNull()
             ?: return "Enter a valid MCP server URL."
         if (uri.scheme !in setOf("https", "http") || uri.host.isNullOrBlank()) return "MCP server URL must use HTTPS, or HTTP on localhost."
-        if (uri.scheme == "http" && uri.host !in setOf("127.0.0.1", "localhost", "::1")) return "Unencrypted HTTP is allowed only for a local MCP server."
+        if (uri.scheme == "http" && uri.host !in setOf("127.0.0.1", "localhost")) return "Unencrypted HTTP is allowed only for a local MCP server."
         val clean = config.copy(name = config.name.trim().ifBlank { uri.host }, url = config.url.trim().trimEnd('/'))
         val all = servers().toMutableList()
         val index = all.indexOfFirst { it.id == clean.id }
