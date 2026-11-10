@@ -85,7 +85,7 @@ internal class ClozedCodingAgentEngine(
     }
     fun todos(): List<String> = todos
     fun setAgent(mode: String) { session.agent = if (mode == "plan") "plan" else "build"; saveSession(); emit(ClozedAgentEvent("notice", text = "Coding agent mode: " + session.agent.uppercase())) }
-    fun undo() = undoLast()
+    fun undo() = emit(ClozedAgentEvent("notice", text = "Use /undo in the active JARVIS ChatBox so the permission gate can approve the restore."))
     fun interrupt() { interrupted = true }
 
     fun sessions(): List<SessionSummary> = sessionsDir.listFiles()?.filter { it.isFile && it.extension == "json" }
@@ -447,7 +447,11 @@ internal class ClozedCodingAgentEngine(
                 }
                 val before = snapshotBefore(call)
                 val result = dispatch(call, provider, mode)
-                if (before.isNotEmpty()) undo.addLast(before)
+                if (before.isNotEmpty()) {
+                    undo.addLast(before)
+                    session.undoHistory = undo.toMutableList()
+                    saveSession()
+                }
                 subHistory += ClozedMessage.ToolResult(call.id, call.name, result.first)
             }
             if (step == 11) report.append("\nSubagent reached its 12-step tool limit.")
@@ -1013,21 +1017,5 @@ internal class ClozedCodingAgentEngine(
             }
         }
         result
-    }
-    fun undoLast() {
-        val changes = if (undo.isEmpty()) null else undo.removeLast()
-        if (changes == null) { emit(ClozedAgentEvent("notice", text = "There are no file changes to undo.")); return }
-        changes.asReversed().forEach { snap ->
-            val file = runCatching { workspace.resolve(snap.path) }.getOrNull() ?: return@forEach
-            if (snap.isDirectory) {
-                file.mkdirs()
-            } else if (snap.content == null) {
-                file.deleteRecursively()
-            } else {
-                file.parentFile?.mkdirs()
-                file.writeBytes(android.util.Base64.decode(snap.content, android.util.Base64.NO_WRAP))
-            }
-        }
-        emit(ClozedAgentEvent("notice", text = "Restored the previous contents for the last recorded file change."))
     }
 }
