@@ -7,7 +7,14 @@ import org.json.JSONObject
 /** Durable checkpoints for multi-round ChatBox work; stores tool names and outcomes, never prompts or arguments. */
 class ChatBoxTaskJournal(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("chatbox_task_journal", Context.MODE_PRIVATE)
-    init { markInterruptedAfterProcessRestart() }
+    init {
+        synchronized(ChatBoxTaskJournal::class.java) {
+            if (!processInitialized) {
+                markInterruptedAfterProcessRestart()
+                processInitialized = true
+            }
+        }
+    }
 
     @Synchronized fun begin(turnId: String) {
         markRunningAsInterrupted()
@@ -83,5 +90,9 @@ class ChatBoxTaskJournal(context: Context) {
             save(record)
         }
     }
-    private companion object { const val KEY_CURRENT = "current"; const val MAX_AGE_MS = 24L * 60L * 60L * 1000L }
+    private companion object {
+        @Volatile private var processInitialized = false
+        const val KEY_CURRENT = "current"
+        const val MAX_AGE_MS = 24L * 60L * 60L * 1000L
+    }
 }
