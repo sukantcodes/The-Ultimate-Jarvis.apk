@@ -348,15 +348,15 @@ internal class ClozedCodingAgentEngine(
         if (agentMode == "plan" && call.name in setOf("write", "edit", "patch", "delete", "shell")) {
             return "Denied: plan mode is read-only. No files or project state may be changed." to false
         }
-        if (call.name.startsWith("mcp_")) {
-            val result = AgentToolRuntime.codingExecutor(app, workspace.root).execute(ToolCall(call.id, call.name, args, "Clozed coding agent"))
-            return result.text to result.isOk
-        }
         val signature = call.name + ":" + args.entrySet().sortedBy { it.key }.joinToString("&") { it.key + "=" + it.value.toString() }
         if (signature == lastSignature) repeatedSignatureCount++ else { lastSignature = signature; repeatedSignatureCount = 1 }
         if (repeatedSignatureCount >= 3) return ("CRITICAL - REPEATED TOOL CALLS DETECTED\nYou have issued the same " + call.name + " call three times in a row with identical arguments. Stop repeating it. Change approach, or finish and report your findings.") to false
 
         return try {
+            if (call.name.startsWith("mcp_")) {
+                val result = AgentToolRuntime.codingExecutor(app, workspace.root).execute(ToolCall(call.id, call.name, args, "Clozed coding agent"))
+                return toolResultPair(result)
+            }
             when (call.name) {
                 "todowrite" -> {
                     todos = args.getAsJsonArray("todos")?.mapNotNull { if (it.isJsonPrimitive) it.asString else if (it.isJsonObject) it.asJsonObject.get("content")?.asString else null }.orEmpty()
@@ -504,7 +504,7 @@ internal class ClozedCodingAgentEngine(
             "websearch" -> mappedArgs.addProperty("query", args.get("query")?.asString.orEmpty())
         }
         val result: ToolResult = AgentToolRuntime.codingExecutor(app, workspace.root).execute(ToolCall(call.id, mapped, mappedArgs, "Clozed coding agent"))
-        return result.text to result.isOk
+        return toolResultPair(result)
     }
 
 
@@ -573,7 +573,7 @@ internal class ClozedCodingAgentEngine(
             if (change.content == null) {
                 val deleteArgs = JsonObject().apply { addProperty("path", change.path) }
                 val result = AgentToolRuntime.codingExecutor(app, workspace.root).execute(ToolCall(call.id + "_delete_" + index, "delete_path", deleteArgs, "Clozed coding agent"))
-                if (!result.isOk) return result.text to false
+                if (!result.isOk) return toolResultPair(result)
             } else {
                 val result = writeThroughTool(change.path, change.content, call.id + "_patch_" + index)
                 if (!result.second) return result.first to false
@@ -589,7 +589,7 @@ internal class ClozedCodingAgentEngine(
             addProperty("overwrite", true)
         }
         val result = AgentToolRuntime.codingExecutor(app, workspace.root).execute(ToolCall(callId + "_write", "write_file", args, "Clozed coding agent"))
-        return result.text to result.isOk
+        return toolResultPair(result)
     }
 
     private fun runGrep(args: JsonObject): Pair<String, Boolean> {
