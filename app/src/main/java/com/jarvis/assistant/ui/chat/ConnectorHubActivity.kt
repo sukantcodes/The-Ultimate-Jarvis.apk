@@ -59,6 +59,12 @@ class ConnectorHubActivity : AppCompatActivity() {
         setContentView(scroll)
     }
 
+    private fun themeColor(attribute: Int): Int {
+        val value = android.util.TypedValue()
+        theme.resolveAttribute(attribute, value, true)
+        return if (value.resourceId != 0) getColor(value.resourceId) else value.data
+    }
+
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
     private fun action(title: String, subtitle: String, click: () -> Unit) = LinearLayout(this).apply {

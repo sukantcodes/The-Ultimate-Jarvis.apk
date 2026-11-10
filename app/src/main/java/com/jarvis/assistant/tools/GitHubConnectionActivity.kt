@@ -218,6 +218,12 @@ class GitHubConnectionActivity : AppCompatActivity() {
             .onFailure { Toast.makeText(this, "Could not open GitHub. Visit https://github.com/login/device manually.", Toast.LENGTH_LONG).show() }
     }
 
+    private fun themeColor(attribute: Int): Int {
+        val value = android.util.TypedValue()
+        theme.resolveAttribute(attribute, value, true)
+        return if (value.resourceId != 0) getColor(value.resourceId) else value.data
+    }
+
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     override fun onDestroy() {
