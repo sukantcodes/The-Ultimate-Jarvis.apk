@@ -12,6 +12,14 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.data.model.CodingToolBlock
+import com.jarvis.assistant.tools.AgentToolApproval
+import com.jarvis.assistant.tools.Confirmer
+import com.jarvis.assistant.tools.ConfirmRequest
+import com.jarvis.assistant.tools.Decision
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,9 +37,66 @@ internal object ClozedCodingEngineHolder {
     val bus = MutableSharedFlow<ClozedAgentEvent>(extraBufferCapacity = 256)
 }
 
+internal object CodingAgentPermissionBridge {
+    @Volatile private var responder: Confirmer? = null
+    private val waiters = CopyOnWriteArrayList<CompletableDeferred<Unit>>()
+    val confirmer: Confirmer = object : Confirmer {
+        override suspend fun confirm(request: ConfirmRequest): Decision {
+            var active = responder
+            if (active == null) {
+                val signal = CompletableDeferred<Unit>()
+                waiters += signal
+                if (responder != null) signal.complete(Unit)
+                try {
+                    withTimeout(300_000L) { signal.await() }
+                } catch (_: TimeoutCancellationException) {
+                    return Decision.DENY
+                } finally {
+                    waiters.remove(signal)
+                }
+                active = responder
+            }
+            return active?.confirm(request) ?: Decision.DENY
+        }
+    }
+    fun attach(value: Confirmer) {
+        responder = value
+        waiters.forEach { it.complete(Unit) }
+    }
+    fun detach(value: Confirmer) {
+        if (responder === value) responder = null
+    }
+}
+
 internal object CodingAgentUiBridge {
-    @Volatile var askQuestion: (suspend (String, List<String>) -> String?)? = null
+    @Volatile private var questionHandler: (suspend (String, List<String>) -> String?)? = null
     @Volatile var openProviderSettings: (() -> Unit)? = null
+    private val waiters = CopyOnWriteArrayList<CompletableDeferred<Unit>>()
+
+    fun attachQuestion(handler: suspend (String, List<String>) -> String?) {
+        questionHandler = handler
+        waiters.forEach { it.complete(Unit) }
+    }
+
+    fun detachQuestion() { questionHandler = null }
+
+    suspend fun ask(question: String, options: List<String>): String? {
+        var handler = questionHandler
+        if (handler == null) {
+            val signal = CompletableDeferred<Unit>()
+            waiters += signal
+            if (questionHandler != null) signal.complete(Unit)
+            try {
+                withTimeout(300_000L) { signal.await() }
+            } catch (_: TimeoutCancellationException) {
+                return null
+            } finally {
+                waiters.remove(signal)
+            }
+            handler = questionHandler
+        }
+        return handler?.invoke(question, options)
+    }
 }
 
 class ClozedCodingAgentService : Service() {
@@ -47,11 +112,12 @@ class ClozedCodingAgentService : Service() {
     override fun onCreate() {
         super.onCreate()
         createChannel()
+        AgentToolApproval.confirmer = CodingAgentPermissionBridge.confirmer
         startAgentForeground("Preparing coding workspace…")
         val backend = ClozedCodingAgentEngine(
             applicationContext,
             ::onAgentEvent,
-            { question, options -> CodingAgentUiBridge.askQuestion?.invoke(question, options) },
+            { question, options -> CodingAgentUiBridge.ask(question, options) },
             { CodingAgentUiBridge.openProviderSettings?.invoke() }
         )
         engine = backend
