@@ -22,4 +22,12 @@ class GitHubToolsTest {
         assertFalse(GitHubTools.validRepoPath("src\\\\file.kt"))
         assertFalse(GitHubTools.validRepoPath("src//file.kt"))
     }
+    @Test fun repositoryImportSkipsCredentialAndPrivateKeyFiles() {
+        assertTrue(GitHubTools.isSensitiveRepositoryPath(".env"))
+        assertTrue(GitHubTools.isSensitiveRepositoryPath("config/.env.production"))
+        assertTrue(GitHubTools.isSensitiveRepositoryPath("keys/release.jks"))
+        assertTrue(GitHubTools.isSensitiveRepositoryPath("secrets/service-account.json"))
+        assertFalse(GitHubTools.isSensitiveRepositoryPath("app/src/MainActivity.kt"))
+        assertFalse(GitHubTools.isSensitiveRepositoryPath("README.md"))
+    }
 }

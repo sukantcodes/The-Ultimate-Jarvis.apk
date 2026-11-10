@@ -8,6 +8,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.IOException
+import java.io.File
 import java.util.Base64
 import java.util.concurrent.TimeUnit
 
@@ -35,7 +36,7 @@ object GitHubTools {
 
     fun all(context: Context): List<Tool> {
         credentialContext = context.applicationContext
-        return listOf(RepositoryInfo, ListBranches, ListDirectory, ReadFile, ImportFile)
+        return listOf(RepositoryInfo, ListBranches, ListDirectory, ReadFile, ImportFile, ImportRepository)
     }
 
     internal fun validRepositoryPart(value: String): Boolean =
@@ -237,5 +238,117 @@ object GitHubTools {
             })
         } catch (e: Exception) { error(e) }
     }
+
+
+    internal fun isSensitiveRepositoryPath(path: String): Boolean {
+        val parts = path.lowercase().split('/')
+        val name = parts.lastOrNull().orEmpty()
+        return parts.any { it == ".git" || it == ".ssh" } ||
+            name == ".env" || name.startsWith(".env.") ||
+            name in setOf("id_rsa", "id_ed25519", "credentials", "credentials.json", "secrets.json", "service-account.json") ||
+            name.endsWith(".pem") || name.endsWith(".key") || name.endsWith(".p12") ||
+            name.endsWith(".pfx") || name.endsWith(".jks") || name.endsWith(".keystore")
+    }
+
+    object ImportRepository : Tool {
+        override val spec = ToolSpec("github_import_repository",
+            "Import a bounded snapshot of a GitHub repository branch into a new isolated ChatBox workspace folder. Skips secrets, binary files and oversized files. It does not run imported code.",
+            listOf(ToolParam("owner", required = true), ToolParam("repo", required = true),
+                ToolParam("ref", description = "Branch or tag; defaults to the repository default branch."),
+                ToolParam("destination", required = true, description = "New workspace folder, for example repos/my-project."),
+                ToolParam("max_files", "integer", "Maximum files to import, 1 to 100; defaults to 40.")),
+            Risk.DESTRUCTIVE, "github")
+        override fun describe(args: JsonObject) =
+            "Import a repository snapshot from ${arg(args, "owner")}/${arg(args, "repo")} into ChatBox workspace folder ${arg(args, "destination")}"
+        override fun isDestructive(args: JsonObject, ctx: ToolContext) = true
+
+        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
+            val owner = arg(args, "owner")
+            val repo = arg(args, "repo")
+            val destination = arg(args, "destination")
+            if (!validRepositoryPart(owner) || !validRepositoryPart(repo)) return ToolResult.Error("Invalid GitHub owner or repository.")
+            if (!validRepoPath(destination)) return ToolResult.Error("Choose a new relative destination folder inside the ChatBox workspace.")
+            val maxFiles = (args.get("max_files")?.let { runCatching { it.asInt }.getOrNull() } ?: 40).coerceIn(1, 100)
+            var targetDir: File? = null
+            val written = ArrayList<File>()
+            try {
+                val repository = JsonParser.parseString(get(repoUrl(owner, repo, "") ?: return ToolResult.Error("Invalid repository."))).asJsonObject
+                val ref = arg(args, "ref").ifBlank { repository.get("default_branch")?.asString.orEmpty() }
+                if (ref.isBlank()) return ToolResult.Error("GitHub did not provide a default branch.")
+                val branchUrl = "https://api.github.com".toHttpUrlOrNull()!!.newBuilder()
+                    .addPathSegment("repos").addPathSegment(owner).addPathSegment(repo)
+                    .addPathSegment("branches").addPathSegment(ref).build()
+                val commitSha = JsonParser.parseString(get(branchUrl)).asJsonObject
+                    .getAsJsonObject("commit")?.get("sha")?.asString
+                    ?: return ToolResult.Error("Could not resolve the selected branch.")
+                val treeUrl = "https://api.github.com".toHttpUrlOrNull()!!.newBuilder()
+                    .addPathSegment("repos").addPathSegment(owner).addPathSegment(repo)
+                    .addPathSegment("git").addPathSegment("trees").addPathSegment(commitSha)
+                    .addQueryParameter("recursive", "1").build()
+                val tree = JsonParser.parseString(get(treeUrl)).asJsonObject
+                if (tree.get("truncated")?.asBoolean == true) return ToolResult.Error("GitHub truncated this repository tree. Choose a smaller repository or import individual files.")
+                val entries = tree.getAsJsonArray("tree") ?: return ToolResult.Error("GitHub returned no repository tree.")
+                val candidates = entries.mapNotNull { item ->
+                    if (!item.isJsonObject) return@mapNotNull null
+                    val obj = item.asJsonObject
+                    val path = obj.get("path")?.asString ?: return@mapNotNull null
+                    if (obj.get("type")?.asString != "blob" || !validRepoPath(path) || isSensitiveRepositoryPath(path)) return@mapNotNull null
+                    val size = obj.get("size")?.takeIf { !it.isJsonNull }?.asLong ?: return@mapNotNull null
+                    if (size !in 1L..MAX_FILE_BYTES) return@mapNotNull null
+                    Triple(path, size, obj.get("sha")?.asString.orEmpty())
+                }.take(maxFiles)
+                if (candidates.isEmpty()) return ToolResult.Error("No eligible text-sized files were found in this repository snapshot.")
+                val dir = ctx.workspace.resolve(destination)
+                if (dir.exists()) return ToolResult.Error("The destination already exists. Choose a new folder to avoid overwriting existing work.")
+                if (ctx.workspace.sizeOf() + candidates.sumOf { it.second } > MAX_IMPORT_BYTES + ctx.workspace.sizeOf()) {
+                    return ToolResult.Error("The selected files exceed the 20 MB import budget. Lower max_files or import selected files individually.")
+                }
+                dir.mkdirs()
+                targetDir = dir
+                var totalBytes = 0L
+                var imported = 0
+                var skippedBinary = 0
+                for ((path, declaredSize, _) in candidates) {
+                    if (ctx.cancelled) throw kotlinx.coroutines.CancellationException("Repository import cancelled.")
+                    val urlBuilder = "https://api.github.com".toHttpUrlOrNull()!!.newBuilder()
+                        .addPathSegment("repos").addPathSegment(owner).addPathSegment(repo).addPathSegment("contents")
+                    path.split('/').forEach { urlBuilder.addPathSegment(it) }
+                    urlBuilder.addQueryParameter("ref", commitSha)
+                    val obj = JsonParser.parseString(get(urlBuilder.build())).asJsonObject
+                    if (obj.get("type")?.asString != "file" || obj.get("encoding")?.asString != "base64") {
+                        skippedBinary++
+                        continue
+                    }
+                    val bytes = Base64.getDecoder().decode(obj.get("content")?.asString.orEmpty().replace("\n", "").replace("\r", ""))
+                    if (bytes.size.toLong() != declaredSize || bytes.size.toLong() > MAX_FILE_BYTES || bytes.any { it == 0.toByte() }) {
+                        skippedBinary++
+                        continue
+                    }
+                    if (totalBytes + bytes.size > MAX_IMPORT_BYTES) break
+                    val target = ctx.workspace.resolve("$destination/$path")
+                    if (target.exists()) continue
+                    target.parentFile?.mkdirs()
+                    target.writeBytes(bytes)
+                    written += target
+                    totalBytes += bytes.size
+                    imported++
+                    ctx.progress("Imported $imported/$maxFiles files from $owner/$repo")
+                }
+                if (imported == 0) {
+                    dir.deleteRecursively()
+                    return ToolResult.Error("No supported text files could be imported.")
+                }
+                ToolResult.Ok("Imported $imported files ($totalBytes bytes) from $owner/$repo at ref $ref into ${ctx.workspace.relative(dir)}. Skipped $skippedBinary binary or unsupported files. Imported code was not executed.")
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                targetDir?.deleteRecursively()
+                throw e
+            } catch (e: Exception) {
+                targetDir?.deleteRecursively()
+                error(e)
+            }
+        }
+    }
+
+    private const val MAX_IMPORT_BYTES = 20L * 1024L * 1024L
 
 }
