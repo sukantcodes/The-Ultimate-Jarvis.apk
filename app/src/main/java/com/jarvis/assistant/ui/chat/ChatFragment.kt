@@ -594,13 +594,16 @@ class ChatFragment : Fragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.chatTurns.collect { turns ->
                     if (_binding != null) {
+                        val shouldFollowLatest = !binding.rvChatMessages.canScrollVertically(1)
                         binding.layoutChatWelcome.visibility = if (turns.isEmpty()) View.VISIBLE else View.GONE
                         val latestResponse = turns.lastOrNull()?.jarvisResponse.orEmpty()
                         if (latestResponse.isNotBlank() && latestResponse != lastObservedAssistantResponse) {
                             lastObservedAssistantResponse = latestResponse
                             setChatActivity("ANSWERING")
                         }
-                        val pending = turns.lastOrNull()?.jarvisResponse.isNullOrBlank() || providerEngine.isBusy
+                        // An empty conversation is idle, not a pending assistant response.
+                        val pending = turns.isNotEmpty() &&
+                            (turns.lastOrNull()?.jarvisResponse.isNullOrBlank() || providerEngine.isBusy)
                         if (!pending && offlineGenerationJob == null && fileAnalysisJob == null && selectedDocument == null) {
                             binding.btnStopChat.visibility = View.GONE
                             binding.btnSendMessage.isEnabled = true
@@ -610,9 +613,12 @@ class ChatFragment : Fragment() {
                             binding.btnSendMessage.isEnabled = false
                             setChatActivity("THINKING")
                         }
-                    }
-                    chatAdapter.submitList(turns) {
-                        if (turns.isNotEmpty()) binding.rvChatMessages.smoothScrollToPosition(turns.size - 1)
+                        chatAdapter.submitList(turns) {
+                            // Keep the newest answer visible without pulling users away from older messages.
+                            if (turns.isNotEmpty() && shouldFollowLatest) {
+                                binding.rvChatMessages.scrollToPosition(turns.size - 1)
+                            }
+                        }
                     }
                 }
             }
