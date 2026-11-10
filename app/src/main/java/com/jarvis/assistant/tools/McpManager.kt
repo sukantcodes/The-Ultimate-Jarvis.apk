@@ -38,7 +38,8 @@ data class McpToolRef(
     val originalName: String,
     val exposedName: String,
     val description: String,
-    val inputSchema: JsonObject
+    val inputSchema: JsonObject,
+    val readOnly: Boolean = false
 )
 
 /** Streamable-HTTP JSON-RPC client and dynamic tool registry for configured MCP servers. */
@@ -131,7 +132,8 @@ class McpManager private constructor(context: Context) {
                         original,
                         exposed,
                         tool.get("description")?.asString.orEmpty().ifBlank { "MCP tool from ${server.name}." },
-                        schema
+                        schema,
+                        tool.getAsJsonObject("annotations")?.get("readOnlyHint")?.asBoolean == true
                     )
                 }
                 update(server.id) { it.copy(status = "${list.size()} tools available") }
