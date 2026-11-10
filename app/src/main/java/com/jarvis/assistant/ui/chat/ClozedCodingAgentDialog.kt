@@ -294,9 +294,9 @@ internal object ClozedCodingAgentDialog {
         input.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEND) { submitInput(); true } else false
         }
-        submitInput = {
+        submitInput = submit@ {
             val value = input.text?.toString().orEmpty()
-            if (value.isBlank() || running) return
+            if (value.isBlank() || running) return@submit
             input.setText("")
             engineRef?.let { agent -> scope.launch { agent.submit(value) } }
         }
