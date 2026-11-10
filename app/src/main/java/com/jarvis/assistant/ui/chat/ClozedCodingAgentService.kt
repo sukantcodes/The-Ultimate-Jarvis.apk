@@ -110,6 +110,7 @@ class ClozedCodingAgentService : Service() {
         return START_NOT_STICKY
     }
 
+    @Synchronized
     private fun onAgentEvent(event: ClozedAgentEvent) {
         ClozedCodingEngineHolder.bus.tryEmit(event)
         when (event.type) {
@@ -141,6 +142,7 @@ class ClozedCodingAgentService : Service() {
         }
     }
 
+    @Synchronized
     private fun appendNotice(text: String) {
         if (text.isBlank() || pendingTurnId.isBlank()) return
         if (response.isNotEmpty()) response.append("\n\n")
