@@ -4,7 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/themeBg"
+    android:background="@android:color/transparent"
     android:paddingStart="12dp"
     android:paddingEnd="12dp"
     android:paddingTop="10dp"
@@ -30,7 +30,7 @@
             android:layout_height="42dp"
             android:background="@drawable/bg_chat_header_icon"
             android:src="@drawable/ic_menu"
-            app:tint="#FFFFFF"
+            app:tint="?attr/themeTextPrimary"
             android:contentDescription="Open navigation" />
 
         <LinearLayout
@@ -46,7 +46,7 @@
                 android:layout_height="wrap_content"
                 android:text="JARVIS AI"
                 android:letterSpacing="0.10"
-                android:textColor="#FFFFFF"
+                android:textColor="?attr/themeTextPrimary"
                 android:textSize="18sp"
                 android:textStyle="bold"
                 android:fontFamily="sans-serif-medium" />
@@ -56,7 +56,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Your intelligent workspace  ·  Ready"
-                android:textColor="#DDEBFF"
+                android:textColor="?attr/themeTextSecondary"
                 android:textSize="11sp"
                 android:fontFamily="sans-serif" />
 
@@ -68,7 +68,7 @@
                 android:maxLines="1"
                 android:ellipsize="end"
                 android:visibility="gone"
-                android:textColor="#9FE8FF"
+                android:textColor="?attr/themeAccent"
                 android:textSize="10sp"
                 android:fontFamily="sans-serif-medium" />
         </LinearLayout>
@@ -82,7 +82,7 @@
             android:paddingEnd="10dp"
             android:background="@drawable/bg_chat_status"
             android:text="● READY"
-            android:textColor="#D9FFF7"
+            android:textColor="?attr/themeSuccess"
             android:textSize="9sp"
             android:textStyle="bold"
             android:letterSpacing="0.06" />
