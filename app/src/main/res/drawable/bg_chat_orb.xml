@@ -1,2 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#66FFFFFF"><item><shape android:shape="oval"><gradient android:type="sweep" android:startColor="#12C7D9" android:centerColor="#5368F6" android:endColor="#A34CF2"/><stroke android:width="2dp" android:color="#77FFFFFF"/></shape></item></ripple>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="?attr/themeAccentLight">
+    <item>
+        <shape android:shape="oval">
+            <gradient android:type="sweep"
+                android:startColor="?attr/themeAccent1"
+                android:centerColor="?attr/themeAccent2"
+                android:endColor="?attr/themeAccent3" />
+            <stroke android:width="2dp" android:color="?attr/themeCardBorder" />
+        </shape>
+    </item>
+</ripple>
