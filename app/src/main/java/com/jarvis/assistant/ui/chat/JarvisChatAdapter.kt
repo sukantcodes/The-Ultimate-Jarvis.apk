@@ -134,6 +134,17 @@ class JarvisChatAdapter(
                     binding.tvCodingReasoningToggle.text = (if (expand) "▾" else "▸") + " THINKING · " + if (expand) "COLLAPSE" else "EXPAND"
                 }
 
+                val plan = turn.codingPlan.orEmpty()
+                binding.tvCodingPlanToggle.visibility = if (plan.isBlank()) View.GONE else View.VISIBLE
+                binding.tvCodingPlanDetails.visibility = View.GONE
+                binding.tvCodingPlanToggle.text = "▸ TASK PLAN · TAP TO EXPAND"
+                binding.tvCodingPlanDetails.text = plan
+                binding.tvCodingPlanToggle.setOnClickListener {
+                    val expand = binding.tvCodingPlanDetails.visibility != View.VISIBLE
+                    binding.tvCodingPlanDetails.visibility = if (expand) View.VISIBLE else View.GONE
+                    binding.tvCodingPlanToggle.text = (if (expand) "▾" else "▸") + " TASK PLAN · " + if (expand) "COLLAPSE" else "EXPAND"
+                }
+
                 val codingTools = turn.codingTools.orEmpty()
                 binding.tvCodingToolsToggle.visibility = if (codingTools.isEmpty()) View.GONE else View.VISIBLE
                 binding.tvCodingToolsDetails.visibility = View.GONE
