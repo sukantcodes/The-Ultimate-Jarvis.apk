@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
 /**
  * GitHub repository tools. Requests are pinned to api.github.com (never model-supplied hosts),
  * redirects are disabled and responses are bounded. Optional encrypted credentials allow access to private repos.
- * Remote writes are deliberately not exposed in this first integration layer.
+ * Remote repository changes are not exposed in this read/import integration layer yet.
  */
 object GitHubTools {
     private const val MAX_API_BYTES = 2_000_000L
@@ -31,7 +31,12 @@ object GitHubTools {
             .build()
     }
 
-    @Volatile private var credentialContext: Context? = null\n\n    fun all(context: Context): List<Tool> { credentialContext = context.applicationContext; return listOf(RepositoryInfo, ListBranches, ReadFile, ImportFile) }
+    @Volatile private var credentialContext: Context? = null
+
+    fun all(context: Context): List<Tool> {
+        credentialContext = context.applicationContext
+        return listOf(RepositoryInfo, ListBranches, ReadFile, ImportFile)
+    }
 
     internal fun validRepositoryPart(value: String): Boolean =
         value.matches(Regex("[A-Za-z0-9_.-]{1,100}")) && value != "." && value != ".."
