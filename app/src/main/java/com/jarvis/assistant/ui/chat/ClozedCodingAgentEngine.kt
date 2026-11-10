@@ -370,8 +370,12 @@ internal class ClozedCodingAgentEngine(
         agentMode: String = session.agent
     ): Pair<String, Boolean> {
         val args = parseToolArgs(call.arguments)
-        if (agentMode == "plan" && call.name in setOf("write", "edit", "patch", "delete", "shell")) {
-            return "Denied: plan mode is read-only. No files or project state may be changed." to false
+        if (agentMode == "plan" && call.name in setOf("write", "edit", "patch", "delete", "shell", "task")) {
+            return "Denied: plan mode is read-only. No files, external systems or project state may be changed; use the explore subagent only after switching to a mode that permits it." to false
+        }
+        if (agentMode == "plan" && call.name.startsWith("mcp_")) {
+            val ref = com.jarvis.assistant.tools.McpManager.get(app).tools().firstOrNull { it.exposedName == call.name }
+            if (ref?.readOnly != true) return "Denied: plan mode permits only MCP tools explicitly annotated readOnlyHint=true." to false
         }
         val signature = call.name + ":" + args.entrySet().sortedBy { it.key }.joinToString("&") { it.key + "=" + it.value.toString() }
         if (signature == lastSignature) repeatedSignatureCount++ else { lastSignature = signature; repeatedSignatureCount = 1 }
