@@ -5,7 +5,7 @@ import java.io.File
 
 enum class Mode { ALLOW, ASK, DENY }
 
-enum class Decision { ALLOW_ONCE, ALLOW_SESSION, DENY }
+enum class Decision { ALLOW_ONCE, ALLOW_NEXT, ALLOW_SESSION, ALLOW_ALWAYS, DENY }
 
 /** What the user is shown before something consequential happens. */
 data class ConfirmRequest(
@@ -41,6 +41,7 @@ class PermissionPolicy(private val store: SettingsStore) {
     }
 
     private val sessionGrants = HashSet<String>()
+    private val nextGrants = HashSet<String>()
 
     fun modeFor(risk: Risk, group: String): Mode {
         store.get("mode.$group.${risk.name}")?.let { v -> Mode.values().firstOrNull { it.name == v }?.let { return enforce(risk, it) } }
@@ -54,7 +55,9 @@ class PermissionPolicy(private val store: SettingsStore) {
 
     @Synchronized fun grantForSession(tool: String) { sessionGrants += tool }
     @Synchronized fun hasSessionGrant(tool: String): Boolean = tool in sessionGrants
-    @Synchronized fun endSession() { sessionGrants.clear() }
+    @Synchronized fun grantNext(exactRequest: String) { nextGrants += exactRequest }
+    @Synchronized fun consumeNext(exactRequest: String): Boolean = nextGrants.remove(exactRequest)
+    @Synchronized fun endSession() { sessionGrants.clear(); nextGrants.clear() }
 
     private fun defaultFor(risk: Risk) = when (risk) {
         Risk.READ, Risk.NETWORK -> Mode.ALLOW
