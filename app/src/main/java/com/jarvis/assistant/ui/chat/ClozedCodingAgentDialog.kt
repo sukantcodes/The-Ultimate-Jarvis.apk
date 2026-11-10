@@ -14,7 +14,6 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-import androidx.core.view.setPadding
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.jarvis.assistant.R
@@ -79,6 +78,7 @@ internal object ClozedCodingAgentDialog {
             setPadding(0, dp(4), 0, dp(8))
         }
         header.addView(pathLabel)
+        lateinit var engineRef: ClozedCodingAgentEngine
         val actions = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
         fun action(label: String, click: () -> Unit): TextView = TextView(context).apply {
             text = label
@@ -154,7 +154,6 @@ internal object ClozedCodingAgentDialog {
         composer.addView(controls)
         root.addView(composer, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
 
-        lateinit var engineRef: ClozedCodingAgentEngine
         var activeAssistant: TextView? = null
         val toolViews = LinkedHashMap<String, TextView>()
         var running = false
@@ -306,7 +305,6 @@ internal object ClozedCodingAgentDialog {
         dialog.setOnShowListener {
             dialog.behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
             dialog.behavior.skipCollapsed = true
-            dialog.behavior.maxHeight = (context.resources.displayMetrics.heightPixels * 0.96f).toInt()
         }
         dialog.show()
         dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, (context.resources.displayMetrics.heightPixels * 0.94f).toInt())
@@ -343,7 +341,7 @@ internal object ClozedCodingAgentDialog {
                 continuation.invokeOnCancellation { dialog.dismiss() }
                 dialog.show()
             }
-            if (Looper.myLooper() == Looper.getMainLooper()) show() else Handler(Looper.getMainLooper()).post(show)
+            if (Looper.myLooper() == Looper.getMainLooper()) show() else Handler(Looper.getMainLooper()).post { show() }
         }
 
     private fun rounded(fill: Int, stroke: Int, radius: Int): GradientDrawable =
