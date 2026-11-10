@@ -212,6 +212,7 @@ class ChatFragment : Fragment() {
                     providerEngine.cancel()
                     retrySnackbar?.dismiss()
                     JarvisConversationService.stopCurrentResponseImmediately()
+                    if (selectedChatMode == "coding") ClozedCodingAgentService.newSession(requireContext())
                     selectedDocument?.savedPath?.let { path -> runCatching { java.io.File(path).delete() } }
                     JarvisApp.instance.chatRepository.clearHistory()
                     lastObservedAssistantResponse = ""
