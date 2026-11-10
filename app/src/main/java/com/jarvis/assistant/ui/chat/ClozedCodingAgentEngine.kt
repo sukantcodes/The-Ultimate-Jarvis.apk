@@ -731,20 +731,88 @@ internal class ClozedCodingAgentEngine(
 
     private suspend fun runCommand(command: String) {
         when {
-            command == "/help" -> emit(ClozedAgentEvent("notice", text = "/new /clear /sessions /connect /folder /model /models /undo /compact /port /init"))
+            command == "/help" -> emit(ClozedAgentEvent("notice", text = "/new /clear /sessions /open <id> /connect /folder /model [id] /models /effort [low|medium|high] /undo /compact /port [stop] /init"))
             command == "/new" -> { newSession(); emit(ClozedAgentEvent("notice", text = "Started a new coding session.")) }
             command == "/clear" -> { session.messages.clear(); saveSession(); emit(ClozedAgentEvent("reload")); emit(ClozedAgentEvent("notice", text = "Cleared this coding session.")) }
             command == "/undo" -> undoLast()
             command == "/sessions" -> emit(ClozedAgentEvent("sessions", text = sessions().joinToString("\n") { it.id + " | " + it.title }))
             command == "/connect" -> openProviderSettings()
-            command == "/folder" -> emit(ClozedAgentEvent("notice", text = "Current project folder: " + workspace.root.absolutePath))
-            command == "/models" -> emit(ClozedAgentEvent("notice", text = ProviderRuntime.manager(app).profiles().joinToString("\n") { it.displayName + ": " + it.models.joinToString { m -> m.id } }))
-            command.startsWith("/model") -> emit(ClozedAgentEvent("notice", text = "Choose the Coding provider/model under Settings > Work Routing."))
-            command.startsWith("/effort") -> emit(ClozedAgentEvent("notice", text = "Reasoning effort is controlled by the selected provider/model."))
-            command == "/compact" -> { if (session.messages.size > 12) { val keep = session.messages.takeLast(12); session.messages.clear(); session.messages.addAll(keep); saveSession() }; emit(ClozedAgentEvent("notice", text = "Session history compacted to the most recent 12 records.")) }
-            command == "/port" -> {
+            command == "/folder" || command.startsWith("/folder ") -> {
+                val requested = command.substringAfter(' ', "").trim()
+                if (requested.isNotBlank()) {
+                    selectProjectFolder(requested)
+                    emit(ClozedAgentEvent("notice", text = "Project folder: " + workspace.root.absolutePath))
+                } else {
+                    val choices = projectFolders() + "Create new project…"
+                    val selected = askQuestion("Choose the project folder for this coding session.", choices)
+                    when {
+                        selected == null -> emit(ClozedAgentEvent("notice", text = "Project folder selection cancelled."))
+                        selected == "Create new project…" -> {
+                            val name = askQuestion("Enter a name for the new project folder.", emptyList())?.trim().orEmpty()
+                            if (name.isNotBlank()) {
+                                selectProjectFolder(name)
+                                emit(ClozedAgentEvent("notice", text = "Created project folder: " + workspace.root.absolutePath))
+                            }
+                        }
+                        else -> {
+                            selectProjectFolder(selected)
+                            emit(ClozedAgentEvent("notice", text = "Project folder: " + workspace.root.absolutePath))
+                        }
+                    }
+                }
+            }
+            command == "/models" -> {
+                val manager = ProviderRuntime.manager(app)
+                val resolution = manager.resolveChat(WorkCategory.CODING)
+                val profileId = (resolution as? ChatResolution.Ready)?.provider?.profileId
+                val profile = profileId?.let(manager::profile)
+                emit(ClozedAgentEvent("notice", text = profile?.models?.joinToString("\n") { model ->
+                    (if (model.id == session.modelOverride) "✓ " else "") + model.id + (if (model.displayName.isNotBlank()) " · " + model.displayName else "")
+                } ?: "No Coding provider is configured. Use /connect first."))
+            }
+            command == "/model" || command.startsWith("/model ") -> {
+                val requested = command.substringAfter(' ', "").trim()
+                if (requested.isBlank()) {
+                    val manager = ProviderRuntime.manager(app)
+                    val resolution = manager.resolveChat(WorkCategory.CODING)
+                    val profile = (resolution as? ChatResolution.Ready)?.provider?.let { manager.profile(it.profileId) }
+                    emit(ClozedAgentEvent("notice", text = "Current model: " + session.modelOverride.orEmpty().ifBlank { session.model.ifBlank { "provider default" } } +
+                        "\nAvailable: " + (profile?.models?.joinToString { it.id } ?: "connect a Coding provider first") +
+                        "\nUse /model default to clear a session override."))
+                } else if (requested.equals("default", true)) {
+                    session.modelOverride = null
+                    saveSession()
+                    emit(ClozedAgentEvent("notice", text = "Using the model selected in Work Routing."))
+                } else {
+                    session.modelOverride = requested
+                    saveSession()
+                    emit(ClozedAgentEvent("notice", text = "Coding model override set to $requested."))
+                }
+            }
+            command == "/effort" || command.startsWith("/effort ") -> {
+                val requested = command.substringAfter(' ', "").trim().lowercase()
+                if (requested.isBlank()) {
+                    emit(ClozedAgentEvent("notice", text = "Reasoning effort: " + session.reasoningEffort.orEmpty().ifBlank { "provider default" } + ". Use /effort low, medium, high or /effort default."))
+                } else if (requested == "default" || requested == "off") {
+                    session.reasoningEffort = null
+                    saveSession()
+                    emit(ClozedAgentEvent("notice", text = "Reasoning effort returned to provider default."))
+                } else if (requested in setOf("low", "medium", "high")) {
+                    session.reasoningEffort = requested
+                    saveSession()
+                    emit(ClozedAgentEvent("notice", text = "Reasoning effort set to $requested. OpenAI-compatible reasoning models receive this setting; other endpoints may ignore it."))
+                } else {
+                    emit(ClozedAgentEvent("notice", text = "Choose low, medium, high or default."))
+                }
+            }
+            command == "/compact" -> emit(ClozedAgentEvent("notice", text = compactSession()))
+            command == "/port" || command == "/port start" -> {
                 val url = withContext(Dispatchers.IO) { LocalWorkspaceServer.start(workspace.root) }
                 emit(ClozedAgentEvent("notice", text = "Local project preview is available at $url"))
+            }
+            command == "/port stop" -> {
+                LocalWorkspaceServer.stop()
+                emit(ClozedAgentEvent("notice", text = "Local project preview stopped."))
             }
             command == "/init" -> {
                 val file = workspace.resolve("AGENTS.md")
@@ -785,6 +853,47 @@ internal class ClozedCodingAgentEngine(
                 }
             }
         }
+    }
+
+
+    private suspend fun compactSession(): String {
+        if (session.messages.size <= 12) return "This session already has 12 or fewer records; nothing needed compaction."
+        val manager = ProviderRuntime.manager(app)
+        val resolution = manager.resolveChat(WorkCategory.CODING)
+        val base = (resolution as? ChatResolution.Ready)?.provider
+            ?: run {
+                val keep = session.messages.takeLast(12)
+                session.messages.clear()
+                session.messages.addAll(keep)
+                saveSession()
+                return "No Coding provider was available for summarization. Kept the most recent 12 records."
+            }
+        val modelId = session.modelOverride.orEmpty().ifBlank { base.modelId }
+        val provider = if (modelId == base.modelId) base else base.copy(modelId = modelId, model = base.model.copy(id = modelId, manual = true))
+        val split = (session.messages.size - 8).coerceAtLeast(1)
+        val older = session.messages.take(split).joinToString("\n\n") { record ->
+            val role = when (record.role) { "user" -> "USER"; "assistant" -> "ASSISTANT"; else -> "TOOL " + record.toolName }
+            "[$role] " + record.text.take(1800) +
+                (if (record.calls.isNotEmpty()) "\nTool calls: " + record.calls.joinToString { it.name } else "")
+        }.take(24000)
+        val summary = try {
+            completeWithKeyRotation(
+                provider,
+                "Summarize the earlier coding conversation into durable project facts, decisions, files changed, commands run, errors, and remaining tasks. Preserve exact paths and unresolved issues. Do not invent anything.",
+                listOf(ClozedMessage.User(older)),
+                emptyList(), {}, {}, session.reasoningEffort
+            ).text.trim()
+        } catch (error: Exception) {
+            ""
+        }
+        if (summary.isBlank()) return "Could not summarize the earlier records; the session was left unchanged."
+        val recent = session.messages.takeLast(8)
+        session.messages.clear()
+        session.messages += ClozedSessionRecord("user", "Earlier session summary (compacted)")
+        session.messages += ClozedSessionRecord("assistant", summary)
+        session.messages += recent
+        saveSession()
+        return "Compacted the earlier conversation into a summary and retained the latest 8 records."
     }
 
     private fun parseToolArgs(raw: String): JsonObject {
