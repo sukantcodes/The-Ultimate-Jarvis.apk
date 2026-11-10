@@ -59,12 +59,14 @@ internal class ClozedCodingAgentEngine(
 ) {
     private val app = context.applicationContext
     private val llm = ClozedLlm()
-    private val workspace = Workspace(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) File(Environment.getExternalStorageDirectory(), "ClozedProjects") else File(app.filesDir, "chatbox-workspace"))
+    private val projectsRoot = Workspace(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) File(Environment.getExternalStorageDirectory(), "ClozedProjects") else File(app.filesDir, "chatbox-workspace"))
+    private var workspace: Workspace = projectsRoot
     private val sessionsDir = File(app.filesDir, "clozed-sessions").apply { mkdirs() }
     private val gson = com.google.gson.Gson()
     private val undo = ArrayDeque<List<FileSnapshot>>()
     private var interrupted = false
     private var session = loadLatestSession() ?: createSession()
+    init { restoreSessionWorkspace() }
     private var lastSignature = ""
     private var repeatedSignatureCount = 0
     private var todos: List<String> = session.todos.orEmpty()
@@ -73,6 +75,13 @@ internal class ClozedCodingAgentEngine(
 
     fun currentSession(): ClozedSession = session
     fun projectPath(): String = workspace.root.absolutePath
+    fun projectFolders(): List<String> = listOf("ClozedProjects root") + (projectsRoot.root.listFiles()?.filter { it.isDirectory && !it.isHidden }?.sortedBy { it.name.lowercase() }?.map { it.name }.orEmpty())
+    fun selectProjectFolder(name: String): Boolean {
+        workspace = if (name == "ClozedProjects root" || name == ".") projectsRoot else Workspace(projectsRoot.project(name))
+        session.directory = workspace.root.absolutePath
+        saveSession()
+        return true
+    }
     fun todos(): List<String> = todos
     fun setAgent(mode: String) { session.agent = if (mode == "plan") "plan" else "build"; saveSession(); emit(ClozedAgentEvent("notice", text = "Coding agent mode: " + session.agent.uppercase())) }
     fun undo() = undoLast()
@@ -87,6 +96,7 @@ internal class ClozedCodingAgentEngine(
         val file = File(sessionsDir, "$id.json")
         val loaded = runCatching { gson.fromJson(file.readText(), ClozedSession::class.java) }.getOrNull() ?: return false
         session = loaded
+        restoreSessionWorkspace()
         undo.clear()
         emit(ClozedAgentEvent("reload"))
         return true
@@ -98,6 +108,19 @@ internal class ClozedCodingAgentEngine(
         lastSignature = ""
         repeatedSignatureCount = 0
         emit(ClozedAgentEvent("reload"))
+    }
+
+    private fun restoreSessionWorkspace() {
+        val root = projectsRoot.root.canonicalFile
+        val saved = runCatching { File(session.directory).canonicalFile }.getOrNull() ?: return
+        if (saved == root) {
+            workspace = projectsRoot
+        } else if (saved.path.startsWith(root.path + File.separator) && saved.isDirectory) {
+            workspace = Workspace(saved)
+        } else {
+            workspace = projectsRoot
+            session.directory = workspace.root.absolutePath
+        }
     }
 
     private fun loadLatestSession(): ClozedSession? =
@@ -196,17 +219,19 @@ internal class ClozedCodingAgentEngine(
                 }
                 history += ClozedMessage.Assistant(completion.text, completion.calls)
                 emit(ClozedAgentEvent("state", text = "working"))
+                val stepSnapshots = ArrayList<FileSnapshot>()
                 for (call in completion.calls) {
                     if (interrupted) break
                     emit(ClozedAgentEvent("tool_start", id = call.id, name = call.name, input = call.arguments, running = true))
                     val before = snapshotBefore(call)
                     val result = withContext(Dispatchers.IO) { dispatch(call, provider) }
-                    if (result.second && before.isNotEmpty()) undo.addLast(before)
+                    if (before.isNotEmpty()) stepSnapshots.addAll(before)
                     history += ClozedMessage.ToolResult(call.id, call.name, result.first)
                     session.messages += ClozedSessionRecord("tool", result.first, callId = call.id, toolName = call.name)
                     saveSession()
                     emit(ClozedAgentEvent("tool_end", id = call.id, name = call.name, output = result.first, running = false, ok = result.second))
                 }
+                if (stepSnapshots.isNotEmpty()) undo.addLast(stepSnapshots)
             }
             if (step > 40) emit(ClozedAgentEvent("notice", text = "Stopped after 40 steps.", ok = false))
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
@@ -774,7 +799,7 @@ internal class ClozedCodingAgentEngine(
         return JsonObject()
     }
 
-    private data class FileSnapshot(val path: String, val content: String?)
+    private data class FileSnapshot(val path: String, val content: String?, val isDirectory: Boolean = false)
 
     private suspend fun snapshotBefore(call: ClozedToolCall): List<FileSnapshot> = withContext(Dispatchers.IO) {
         val args = runCatching { parseToolArgs(call.arguments) }.getOrNull() ?: return@withContext emptyList()
@@ -787,11 +812,18 @@ internal class ClozedCodingAgentEngine(
         var total = 0L
         paths.forEach pathLoop@ { path ->
             val file = runCatching { workspace.resolve(path) }.getOrNull() ?: return@pathLoop
-            val files = if (file.isDirectory) file.walkTopDown().filter { it.isFile }.toList() else listOf(file)
-            if (files.isEmpty() && !file.exists()) result += FileSnapshot(path, null)
-            files.forEach fileLoop@ { child ->
-                if (total > 5L * 1024L * 1024L) return@fileLoop
+            if (!file.exists()) {
+                result += FileSnapshot(path, null)
+                return@pathLoop
+            }
+            val entries = if (file.isDirectory) file.walkTopDown().toList() else listOf(file)
+            entries.forEach fileLoop@ { child ->
                 val relative = workspace.relative(child)
+                if (child.isDirectory) {
+                    result += FileSnapshot(relative, null, true)
+                    return@fileLoop
+                }
+                if (total > 5L * 1024L * 1024L) return@fileLoop
                 val bytes = runCatching { child.readBytes() }.getOrNull() ?: return@fileLoop
                 if (bytes.size > 2_000_000) return@fileLoop
                 total += bytes.size
@@ -805,8 +837,11 @@ internal class ClozedCodingAgentEngine(
         if (changes == null) { emit(ClozedAgentEvent("notice", text = "There are no file changes to undo.")); return }
         changes.asReversed().forEach { snap ->
             val file = runCatching { workspace.resolve(snap.path) }.getOrNull() ?: return@forEach
-            if (snap.content == null) file.deleteRecursively()
-            else {
+            if (snap.isDirectory) {
+                file.mkdirs()
+            } else if (snap.content == null) {
+                file.deleteRecursively()
+            } else {
                 file.parentFile?.mkdirs()
                 val value = snap.content
                 if (value.startsWith("b64:")) file.writeBytes(android.util.Base64.decode(value.removePrefix("b64:"), android.util.Base64.NO_WRAP))
