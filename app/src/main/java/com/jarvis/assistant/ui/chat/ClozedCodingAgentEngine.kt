@@ -180,7 +180,7 @@ internal class ClozedCodingAgentEngine(
                 return
             }
             ChatResolution.NotActive -> {
-                emit(ClozedAgentEvent("notice", text = "No custom coding provider is configured. Connect an OpenAI-compatible or Anthropic provider in AI & models first."))
+                emit(ClozedAgentEvent("notice", text = "No provider is configured for the CODING work category. Open AI & models → Work Routing → Coding and select a provider and model. This route is independent of normal chat."))
                 openProviderSettings()
                 return
             }
