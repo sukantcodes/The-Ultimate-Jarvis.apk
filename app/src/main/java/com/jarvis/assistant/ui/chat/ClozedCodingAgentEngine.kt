@@ -97,6 +97,7 @@ internal class ClozedCodingAgentEngine(
         val file = File(sessionsDir, "$id.json")
         val loaded = runCatching { gson.fromJson(file.readText(), ClozedSession::class.java) }.getOrNull() ?: return false
         session = loaded
+        todos = session.todos.orEmpty()
         restoreSessionWorkspace()
         undo.clear()
         emit(ClozedAgentEvent("reload"))
@@ -105,6 +106,7 @@ internal class ClozedCodingAgentEngine(
 
     fun newSession() {
         session = createSession()
+        todos = emptyList()
         undo.clear()
         lastSignature = ""
         repeatedSignatureCount = 0
@@ -677,9 +679,14 @@ internal class ClozedCodingAgentEngine(
         val segments = relative.split('/').filter { it.isNotBlank() }
         if (segments.any { it in setOf(".git", ".gradle", ".idea", ".kotlin", "node_modules", "build") }) return true
         if (file.name == ".DS_Store" || file.extension.lowercase() in setOf("apk", "aab")) return true
-        val ancestors = generateSequence(file.parentFile) { it.parentFile }
-            .takeWhile { it != null && (it == base || it.path.startsWith(base.path + File.separator)) }
-            .filterNotNull().toList().asReversed()
+        val ancestors = ArrayList<File>()
+        var parent = file.parentFile
+        while (parent != null && (parent == base || parent.path.startsWith(base.path + File.separator))) {
+            ancestors += parent
+            if (parent == base) break
+            parent = parent.parentFile
+        }
+        ancestors.reverse()
         var ignored = false
         for (directory in ancestors) {
             val ignore = File(directory, ".gitignore")
@@ -936,6 +943,8 @@ internal class ClozedCodingAgentEngine(
                 listOf(ClozedMessage.User(older)),
                 emptyList(), {}, {}, session.reasoningEffort
             ).text.trim()
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (error: Exception) {
             ""
         }
