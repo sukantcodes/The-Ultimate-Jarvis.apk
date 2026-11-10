@@ -51,10 +51,18 @@ object AgentToolRuntime {
                 }
                 val redactor = SecretRedactor()
                 val audit = AuditLog(File(app.filesDir, "agent-tool-audit.jsonl"), redactor)
-                val activeRegistry = registry(app).also { registry -> registry.register(ConnectorTools(app)); McpTools.all(app).forEach(registry::register) }
+                val activeRegistry = registry(app).also { registry ->
+                    registry.register(ConnectorTools(app))
+                    registry.register(CodingShellTool())
+                    registry.register(RestoreSnapshotTool())
+                    registry.register(McpRefreshTool(McpManager.get(app)))
+                    McpTools.all(app).forEach(registry::register)
+                }
+                val policy = PermissionPolicy(settings)
+                if (settings.get("mode.mcp.NETWORK") == null) policy.setMode(Risk.NETWORK, Mode.ASK, "mcp")
                 ToolExecutor(
                     registry = activeRegistry,
-                    policy = PermissionPolicy(settings),
+                    policy = policy,
                     audit = audit,
                     confirmer = { AgentToolApproval.confirmer ?: DenyingConfirmer },
                     redactor = redactor,
