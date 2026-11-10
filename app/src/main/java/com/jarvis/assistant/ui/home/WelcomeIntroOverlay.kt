@@ -8,11 +8,6 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
-import android.text.SpannableStringBuilder
-import android.text.Spanned
-import android.text.style.AbsoluteSizeSpan
-import android.text.style.ForegroundColorSpan
-import android.text.style.TypefaceSpan
 import android.os.Handler
 import android.os.Looper
 import android.util.TypedValue
@@ -25,21 +20,10 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.core.widget.TextViewCompat
 import com.jarvis.assistant.R
 
 /** First-run cinematic welcome sequence followed by creator links and timed entry to JARVIS. */
 object WelcomeIntroOverlay {
-    private data class Slide(
-        val eyebrow: String,
-        val title: String,
-        val subtitle: String,
-        val color: Int,
-        val accent: Int,
-        val sizeSp: Float,
-        val font: String
-    )
-
     fun show(activity: Activity, parent: ViewGroup, onFinished: () -> Unit) {
         // The first-run intro includes this same logo ident, so do not replay it again
         // when authentication returns to MainActivity in the same app session.
@@ -50,18 +34,18 @@ object WelcomeIntroOverlay {
             themeColor(activity, R.attr.themeAccent2, Color.rgb(167, 112, 255)),
             themeColor(activity, R.attr.themeAccent3, Color.rgb(28, 196, 190))
         )
-        val slides = listOf(
-            Slide(
-                "INTRODUCING", "J.A.R.V.I.S.", "Your intelligent voice assistant",
-                Color.rgb(15, 38, 78), Color.rgb(30, 112, 238), 44f, "sans-serif-black"
+        val introSlides = listOf(
+            IntroTextSequenceView.Slide(
+                "INTRODUCING", listOf("J.A.R.V.I.S."),
+                "Your intelligent voice assistant", Color.rgb(64, 160, 255)
             ),
-            Slide(
-                "CRAFTED WITH PASSION BY", "SUKANTA\nBHATTACHARYA", "Designed and engineered by one creator",
-                Color.rgb(0, 83, 155), Color.rgb(124, 77, 255), 36f, "sans-serif-condensed"
+            IntroTextSequenceView.Slide(
+                "CRAFTED WITH PASSION BY", listOf("SUKANTA", "BHATTACHARYA"),
+                "Designed and engineered by one creator", Color.rgb(150, 112, 255)
             ),
-            Slide(
-                "BUILT TO SERVE YOU", "SPEAK.\nJARVIS ACTS.", "Hands-free help in Hindi, Bengali and English",
-                Color.rgb(0, 105, 94), Color.rgb(0, 150, 136), 40f, "sans-serif-black"
+            IntroTextSequenceView.Slide(
+                "BUILT TO SERVE YOU", listOf("SPEAK.", "JARVIS ACTS."),
+                "Hands-free help in Hindi, Bengali and English", Color.rgb(28, 214, 200)
             )
         )
         val backgroundColor = themeColor(activity, R.attr.themeBg, Color.rgb(7, 12, 25))
@@ -73,59 +57,13 @@ object WelcomeIntroOverlay {
             isClickable = true
             isFocusable = true
             contentDescription = "JARVIS welcome and creator support"
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.WHITE, Color.rgb(248, 251, 255), Color.WHITE)
-            )
+            // Midnight base matches the ident and text sequence, so skipping never flashes white.
+            setBackgroundColor(Color.rgb(3, 6, 14))
             // The dock and its curved accent are elevated siblings of this root overlay.
             // Raise the overlay above them so no home controls show during the intro.
             elevation = dp(activity, 32).toFloat()
             alpha = 0f
         }
-        val messageView = TextView(activity).apply {
-            gravity = Gravity.CENTER
-            textAlignment = View.TEXT_ALIGNMENT_CENTER
-            includeFontPadding = true
-            setPadding(dp(activity, 20), dp(activity, 22), dp(activity, 20), dp(activity, 22))
-            letterSpacing = 0.02f
-            maxLines = 6
-            ellipsize = null
-            setLineSpacing(dp(activity, 8).toFloat(), 1.0f)
-            breakStrategy = android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY
-            hyphenationFrequency = android.text.Layout.HYPHENATION_FREQUENCY_NONE
-            TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
-                this, 22, 36, 1, TypedValue.COMPLEX_UNIT_SP
-            )
-            alpha = 0f
-            scaleX = 0.88f
-            scaleY = 0.88f
-        }
-        val accentBar = View(activity).apply {
-            alpha = 0f
-            scaleX = 0.2f
-        }
-        val stage = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-        }
-        stage.addView(
-            messageView,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        )
-        stage.addView(accentBar, LinearLayout.LayoutParams(dp(activity, 72), dp(activity, 4)).apply {
-            topMargin = dp(activity, 6)
-        })
-        overlay.addView(
-            stage,
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.CENTER
-            )
-        )
         parent.addView(
             overlay,
             ViewGroup.LayoutParams(
@@ -136,6 +74,7 @@ object WelcomeIntroOverlay {
         overlay.bringToFront()
 
         var finished = false
+        var sequence: IntroTextSequenceView? = null
         var countdown = 10
         lateinit var countdownView: TextView
         lateinit var countdownTick: Runnable
@@ -144,8 +83,7 @@ object WelcomeIntroOverlay {
             if (finished) return
             finished = true
             handler.removeCallbacksAndMessages(null)
-            messageView.animate().cancel()
-            accentBar.animate().cancel()
+            sequence?.stop()
             overlay.animate().cancel()
             overlay.animate()
                 .alpha(0f)
@@ -252,10 +190,6 @@ object WelcomeIntroOverlay {
         fun revealCreatorPanel() {
             if (finished) return
             overlay.background = creatorBackground
-            messageView.animate().cancel()
-            accentBar.animate().cancel()
-            messageView.visibility = View.GONE
-            accentBar.visibility = View.GONE
 
             val panel = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
@@ -377,88 +311,44 @@ object WelcomeIntroOverlay {
             handler.post(countdownTick)
         }
 
-        fun showSlide(index: Int) {
+        fun playTextSequence() {
             if (finished) return
-            if (index >= slides.size) {
-                revealCreatorPanel()
-                return
+            val seq = IntroTextSequenceView(activity).apply { this.slides = introSlides }
+            sequence = seq
+            overlay.addView(seq, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            ))
+            overlay.setOnClickListener { seq.next() }
+            seq.start {
+                if (finished) return@start
+                overlay.setOnClickListener(null)
+                // Light creator panel sits underneath; the dark sequence dissolves into it.
+                overlay.background = creatorBackground
+                seq.animate().alpha(0f).setDuration(320L).withEndAction {
+                    (seq.parent as? ViewGroup)?.removeView(seq)
+                    sequence = null
+                    revealCreatorPanel()
+                }.start()
             }
-            val slide = slides[index]
-            messageView.text = composeSlide(activity, slide)
-            accentBar.background = GradientDrawable(
-                GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(Color.TRANSPARENT, slide.accent, Color.TRANSPARENT)
-            ).apply { cornerRadius = dp(activity, 2).toFloat() }
-            accentBar.alpha = 0f
-            accentBar.scaleX = 0.2f
-            accentBar.animate().alpha(1f).scaleX(1f).setStartDelay(260L).setDuration(620L).start()
-            messageView.textSize = slide.sizeSp
-            TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
-                messageView, 22, slide.sizeSp.toInt().coerceAtLeast(22), 1, TypedValue.COMPLEX_UNIT_SP
-            )
-            messageView.typeface = Typeface.create(slide.font, Typeface.BOLD)
-            messageView.setTextColor(slide.color)
-            messageView.setShadowLayer(dp(activity, 8).toFloat(), 0f, dp(activity, 2).toFloat(), Color.argb(35, 20, 45, 80))
-            messageView.alpha = 0f
-            messageView.rotation = 0f
-            messageView.translationX = 0f
-            messageView.translationY = 0f
-            messageView.scaleX = 1f
-            messageView.scaleY = 1f
-            val entrance = messageView.animate().alpha(1f).setDuration(760L)
-            when (index) {
-                0 -> entrance.scaleX(1f).scaleY(1f).withStartAction {
-                    messageView.scaleX = 0.68f
-                    messageView.scaleY = 0.68f
-                }
-                1 -> {
-                    messageView.translationX = dp(activity, 90).toFloat()
-                    entrance.translationX(0f).setInterpolator(android.view.animation.OvershootInterpolator(0.8f))
-                }
-                else -> {
-                    messageView.scaleX = 1.28f
-                    messageView.scaleY = 1.28f
-                    messageView.rotation = -7f
-                    entrance.scaleX(1f).scaleY(1f).rotation(0f)
-                        .setInterpolator(android.view.animation.DecelerateInterpolator(1.8f))
-                }
-            }
-            entrance.withEndAction {
-                    handler.postDelayed({
-                        if (finished) return@postDelayed
-                        accentBar.animate().alpha(0f).setStartDelay(0L).setDuration(300L).start()
-                        val exit = messageView.animate().alpha(0f).setDuration(420L)
-                        when (index) {
-                            0 -> exit.scaleX(1.22f).scaleY(1.22f)
-                            1 -> exit.translationX(-dp(activity, 90).toFloat())
-                            else -> exit.rotation(7f).scaleX(0.82f).scaleY(0.82f)
-                        }
-                        exit
-                            .withEndAction {
-                                handler.postDelayed({ showSlide(index + 1) }, 1000L)
-                            }
-                            .start()
-                    }, 850L)
-                }
-                .start()
         }
 
-        val cinematicReveal = CinematicJarvisIntroView(activity)
+        val cinematicReveal = CinematicJarvisIntroView(activity).apply {
+            // Hold the dark ident until the text sequence (same midnight backdrop) takes over: no white flash.
+            dissolveOnFinish = false
+        }
         overlay.addView(cinematicReveal, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         ))
-        stage.visibility = View.INVISIBLE
         cinematicReveal.setOnClickListener { cinematicReveal.skip() }
         overlay.setOnClickListener { cinematicReveal.skip() }
         overlay.post {
             overlay.animate().alpha(1f).setDuration(420L).start()
             cinematicReveal.start {
                 if (finished) return@start
-                overlay.setOnClickListener(null)
                 (cinematicReveal.parent as? ViewGroup)?.removeView(cinematicReveal)
-                stage.visibility = View.VISIBLE
-                showSlide(0)
+                playTextSequence()
             }
         }
     }
@@ -553,28 +443,6 @@ object WelcomeIntroOverlay {
             overlay.animate().alpha(1f).setDuration(260L).start()
             sequence.start { finish() }
         }
-    }
-
-    /** Eyebrow + title + subtitle, with the small lines kept at a fixed readable size. */
-    private fun composeSlide(activity: Activity, slide: Slide): CharSequence {
-        fun px(sp: Float) = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_SP, sp, activity.resources.displayMetrics
-        ).toInt()
-        // Hair spaces give the small caps line a tracked, premium look.
-        val eyebrow = slide.eyebrow.map { it.toString() }.joinToString("\u200A")
-        val builder = SpannableStringBuilder()
-        val eyebrowStart = builder.length
-        builder.append(eyebrow).append('\n')
-        builder.setSpan(AbsoluteSizeSpan(px(12f)), eyebrowStart, builder.length - 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        builder.setSpan(ForegroundColorSpan(slide.accent), eyebrowStart, builder.length - 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        builder.setSpan(TypefaceSpan("sans-serif-medium"), eyebrowStart, builder.length - 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        builder.append(slide.title).append('\n')
-        val subStart = builder.length
-        builder.append(slide.subtitle)
-        builder.setSpan(AbsoluteSizeSpan(px(14f)), subStart, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        builder.setSpan(ForegroundColorSpan(Color.rgb(75, 91, 112)), subStart, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        builder.setSpan(TypefaceSpan("sans-serif-light"), subStart, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        return builder
     }
 
     private fun themeColor(activity: Activity, attribute: Int, fallback: Int): Int {
