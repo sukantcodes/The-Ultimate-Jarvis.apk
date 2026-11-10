@@ -45,6 +45,7 @@ internal class ClozedLlm {
         onText: (String) -> Unit,
         onReasoning: (String) -> Unit
     ): ClozedCompletion = withContext(Dispatchers.IO) {
+        try {
         val anthropic = provider.baseUrl.contains("api.anthropic.com", ignoreCase = true)
         val url = endpoint(provider.baseUrl, anthropic)
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
@@ -84,6 +85,13 @@ internal class ClozedLlm {
             } ?: ClozedCompletion("", "", emptyList())
         } finally {
             connection.disconnect()
+        }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (error: ClozedLlmException) {
+            throw error
+        } catch (error: Exception) {
+            throw ClozedLlmException(error.message ?: "Network request failed.", 0)
         }
     }
 
