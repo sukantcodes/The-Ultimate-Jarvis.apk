@@ -292,6 +292,7 @@ internal class ClozedCodingAgentEngine(
                 return writeThroughTool(path, updated, call.id)
             }
             "patch" -> return applyPatch(call, args)
+            "grep" -> return runGrep(args)
             "glob" -> {
                 val pattern = args.get("pattern")?.asString.orEmpty()
                 if (pattern.isBlank()) return "Error: pattern is required." to false
@@ -307,7 +308,6 @@ internal class ClozedCodingAgentEngine(
         val mapped = when (call.name) {
             "write" -> "write_file"
             "delete" -> "delete_path"
-            "grep" -> "search_files"
             "webfetch" -> "fetch_url"
             "websearch" -> "web_search"
             else -> return ("Unknown tool '" + call.name + "'. Available tools: read, write, edit, patch, delete, glob, grep, shell, todowrite, task, skill, question, diagnostics, webfetch, websearch") to false
@@ -414,6 +414,31 @@ internal class ClozedCodingAgentEngine(
         }
         val result = AgentToolRuntime.executor(app).execute(ToolCall(callId + "_write", "write_file", args, "Clozed coding agent"))
         return result.text to result.isOk
+    }
+
+    private fun runGrep(args: JsonObject): Pair<String, Boolean> {
+        val pattern = args.get("pattern")?.asString.orEmpty()
+        if (pattern.isBlank()) return "Error: pattern is required." to false
+        val base = workspace.resolve(args.get("path")?.asString ?: ".")
+        if (!base.exists()) return "Error: search path does not exist." to false
+        val caseSensitive = args.get("caseSensitive")?.let { runCatching { it.asBoolean }.getOrNull() } == true
+        val literal = args.get("literal")?.let { runCatching { it.asBoolean }.getOrNull() } == true
+        val regex = if (literal) Regex(Regex.escape(pattern), if (caseSensitive) emptySet() else setOf(RegexOption.IGNORE_CASE))
+            else runCatching { Regex(pattern, if (caseSensitive) emptySet() else setOf(RegexOption.IGNORE_CASE)) }.getOrElse { return ("Error: invalid regex: " + it.message) to false }
+        val include = args.get("include")?.asString.orEmpty()
+        val matcher = include.takeIf { it.isNotBlank() }?.let { java.nio.file.FileSystems.getDefault().getPathMatcher("glob:" + it) }
+        val limit = args.get("limit")?.let { runCatching { it.asInt }.getOrNull() }?.coerceIn(1, 1000) ?: 200
+        val files = if (base.isFile) sequenceOf(base) else base.walkTopDown().filter { it.isFile }
+        val hits = ArrayList<String>()
+        for (file in files) {
+            if (hits.size >= limit || file.length() > 2_000_000) continue
+            if (matcher != null && !matcher.matches(file.toPath().fileName)) continue
+            val lines = runCatching { file.readLines(Charsets.UTF_8) }.getOrNull() ?: continue
+            lines.forEachIndexed { index, line ->
+                if (hits.size < limit && regex.containsMatchIn(line)) hits += workspace.relative(file) + ":" + (index + 1) + ": " + line.take(300)
+            }
+        }
+        return hits.joinToString("\n").ifBlank { "No matches." } to true
     }
 
     private suspend fun runShell(args: JsonObject): Pair<String, Boolean> {
