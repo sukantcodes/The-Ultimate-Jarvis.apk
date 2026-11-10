@@ -66,6 +66,7 @@ internal object CodingAgentPermissionBridge {
     fun detach(value: Confirmer) {
         if (responder === value) responder = null
     }
+    fun hasResponder(): Boolean = responder != null
 }
 
 internal object CodingAgentUiBridge {
@@ -283,6 +284,9 @@ class ClozedCodingAgentService : Service() {
         engine = null
         ClozedCodingEngineHolder.backend = null
         ClozedCodingEngineHolder.running = false
+        if (!CodingAgentPermissionBridge.hasResponder() && AgentToolApproval.confirmer === CodingAgentPermissionBridge.confirmer) {
+            AgentToolApproval.confirmer = null
+        }
         scope.cancel()
         super.onDestroy()
     }
