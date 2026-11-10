@@ -881,7 +881,7 @@ internal class ClozedCodingAgentEngine(
                 } else {
                     val args = JsonObject().apply {
                         addProperty("path", "AGENTS.md")
-                        addProperty("content", "# Project instructions\\n\\nDescribe the purpose of this project, its architecture, build and test commands, coding conventions, and any important constraints.\\n")
+                        addProperty("content", "# Project instructions\n\nDescribe the purpose of this project, its architecture, build and test commands, coding conventions, and any important constraints.\n")
                         addProperty("overwrite", false)
                     }
                     val result = AgentToolRuntime.codingExecutor(app, workspace.root).execute(ToolCall("init_" + session.id, "write_file", args, "Clozed coding agent /init"))
