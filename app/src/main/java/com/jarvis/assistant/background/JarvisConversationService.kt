@@ -3892,6 +3892,23 @@ class JarvisConversationService : Service() {
         if (openIntent && expectedPackage != null) {
             return false to "The app is foreground, but the requested destination is not verified"
         }
+
+        // Verify settings actions against the live accessibility tree, not the model's claim.
+        val toggleVerification = com.jarvis.assistant.automation.agent.LocalTaskVerifier.verifyToggle(
+            goal,
+            elements.map { element ->
+                com.jarvis.assistant.automation.agent.LocalTaskVerifier.ObservedElement(
+                    label = element.primaryLabel,
+                    isToggle = element.isSwitchOrToggle(),
+                    isChecked = element.isChecked,
+                    centerX = element.bounds.centerX(),
+                    centerY = element.bounds.centerY()
+                )
+            }
+        )
+        if (toggleVerification.applicable) {
+            return toggleVerification.verified to toggleVerification.reason
+        }
         return false to "No local verifier is available for this goal type"
     }
 
