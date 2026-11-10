@@ -3,7 +3,10 @@ package com.jarvis.assistant.provider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -69,8 +72,13 @@ class ProviderChatEngine(
     private val store: ChatTurnStore,
     private val scope: CoroutineScope,
     private val systemPrompt: () -> String,
-    private val uiThrottleMs: Long = 60L
+    private val uiThrottleMs: Long = 60L,
+    private val keyRotation: KeyRotationSource? = null
 ) {
+    /** Plain-language notices such as "Switched to key 'Backup' because 'Main' hit its limit." Shown by ChatBox. */
+    private val _keyNotices = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val keyNotices: SharedFlow<String> = _keyNotices.asSharedFlow()
+
     private val _state = MutableStateFlow<EngineState>(EngineState.Idle)
     val state: StateFlow<EngineState> = _state.asStateFlow()
 
@@ -158,17 +166,54 @@ class ProviderChatEngine(
                 val history = store.completedTurns(excludingId = id).map { it.copy(user = sentText[it.id] ?: it.user) }
                 val messages = ChatContext.build(history, text, attachments)
                 val client = ChatClientFactory.create(provider.protocol, transport)
-                client.stream(ChatRequest(provider, systemPrompt(), messages)).collect { event ->
-                    when (event) {
-                        is ChatEvent.Delta -> {
-                            partial.append(event.text)
-                            val now = System.nanoTime() / 1_000_000L
-                            if (now - lastUi >= uiThrottleMs) {
-                                lastUi = now
-                                store.updatePartial(id, partial.toString())
+                val pool = keyRotation?.takeIf { it.hasKeys(provider.profileId) }
+                val tried = HashSet<String>()
+                var previousLabel: String? = null
+                while (true) {
+                    var lease: KeyLease? = null
+                    val active = if (pool == null) provider else {
+                        lease = pool.lease(provider.profileId, tried) ?: throw ProviderException(
+                            ProviderError(ProviderErrorKind.RATE_LIMITED, pool.unavailableSummary(provider.profileId))
+                        )
+                        if (previousLabel != null) {
+                            _keyNotices.tryEmit("Switched to API key \"${lease.label}\" because \"$previousLabel\" could not be used. Your conversation continues.")
+                        }
+                        provider.copy(
+                            auth = AuthSpec(provider.auth.method, provider.auth.name, lease.secret),
+                            modelId = lease.modelId.ifBlank { provider.modelId },
+                            model = if (lease.modelId.isBlank()) provider.model else (provider.model.takeIf { it.id == lease.modelId } ?: ModelInfo(id = lease.modelId, manual = true))
+                        )
+                    }
+                    try {
+                        client.stream(ChatRequest(active, systemPrompt(), messages)).collect { event ->
+                            when (event) {
+                                is ChatEvent.Delta -> {
+                                    partial.append(event.text)
+                                    val now = System.nanoTime() / 1_000_000L
+                                    if (now - lastUi >= uiThrottleMs) {
+                                        lastUi = now
+                                        store.updatePartial(id, partial.toString())
+                                    }
+                                }
+                                ChatEvent.Done -> Unit
                             }
                         }
-                        ChatEvent.Done -> Unit
+                        lease?.let { pool?.reportSuccess(it.keyId) }
+                        break
+                    } catch (e: ProviderException) {
+                        val used = lease
+                        if (used != null && pool != null) {
+                            val failure = pool.reportFailure(used.keyId, e.error)
+                            tried += used.keyId
+                            // Only retry when nothing reached the user yet: re-asking after partial text would duplicate it.
+                            if (failure.rotates && partial.isEmpty() && tried.size < MAX_KEY_ATTEMPTS) {
+                                previousLabel = used.label
+                                continue
+                            }
+                        }
+                        throw e
+                    } finally {
+                        lease?.secret?.wipe()
                     }
                 }
                 store.finish(id, partial.toString())
@@ -203,6 +248,9 @@ class ProviderChatEngine(
     companion object {
         /** Marks an answer slot that holds an error notice so it is never sent back to the model as history. */
         const val ERROR_PREFIX = "⚠ "
+
+        /** Upper bound on keys tried for a single message, so rotation can never loop. */
+        const val MAX_KEY_ATTEMPTS = 8
     }
 }
 

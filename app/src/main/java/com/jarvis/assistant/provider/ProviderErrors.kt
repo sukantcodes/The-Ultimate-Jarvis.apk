@@ -27,7 +27,9 @@ enum class ProviderErrorKind {
 data class ProviderError(
     val kind: ProviderErrorKind,
     val message: String,
-    val httpCode: Int? = null
+    val httpCode: Int? = null,
+    /** How long the provider asked us to wait (`Retry-After`), when it said. Used to rest an API key precisely. */
+    val retryAfterMs: Long? = null
 ) {
     /** Failures that say nothing about whether a model supports a feature (the provider was just unreachable or busy). */
     val isTransient: Boolean
@@ -76,7 +78,7 @@ object ProviderErrors {
         return if (v.isJsonPrimitive) v.asString else null
     }
 
-    fun fromHttp(code: Int, body: String, secret: String?, context: ErrorContext): ProviderError {
+    fun fromHttp(code: Int, body: String, secret: String?, context: ErrorContext, retryAfterHeader: String? = null): ProviderError {
         val detail = providerMessage(body, secret)
         fun withDetail(base: String) = if (detail.isBlank()) base else "$base Provider said: $detail"
         return when {
@@ -113,12 +115,14 @@ object ProviderErrors {
             code == 429 -> ProviderError(
                 ProviderErrorKind.RATE_LIMITED,
                 withDetail("The provider's rate limit was reached (HTTP 429). Wait a moment and try again."),
-                code
+                code,
+                RetryAfter.parse(retryAfterHeader, System.currentTimeMillis())
             )
             code in 500..599 -> ProviderError(
                 ProviderErrorKind.UNAVAILABLE,
                 withDetail("The provider is unavailable right now (HTTP $code). Try again shortly."),
-                code
+                code,
+                RetryAfter.parse(retryAfterHeader, System.currentTimeMillis())
             )
             code == 400 || code == 413 || code == 415 || code == 422 -> ProviderError(
                 if (looksLikeModelMissing(detail)) ProviderErrorKind.MODEL_NOT_FOUND else ProviderErrorKind.BAD_REQUEST,

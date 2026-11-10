@@ -41,7 +41,9 @@ interface ChatConfigSource {
 class ProviderConfigManager(
     private val repository: ProviderRepository,
     private val transport: HttpTransport,
-    private val clock: () -> Long = System::currentTimeMillis
+    private val clock: () -> Long = System::currentTimeMillis,
+    /** Multi-key pool. When keys are saved for the active provider, the chat engine leases one per request. */
+    private val keyRotation: KeyRotationSource? = null
 ) : ChatConfigSource {
 
     val discovery = ModelDiscoveryService(transport)
@@ -243,7 +245,13 @@ class ProviderConfigManager(
         validate(profile)?.let { return ChatResolution.Blocked(name, it) }
         val model = profile.chatModel ?: return ChatResolution.Blocked(name, "No model is selected for $name.")
         CapabilityPolicy.chat(model).let { if (!it.ok) return ChatResolution.Blocked(name, it.reason) }
-        val secret = keyFor(profile) ?: return ChatResolution.Blocked(name, "No API key is saved for $name.")
+        val secret = keyFor(profile) ?: run {
+            // No single key, but the key manager holds a pool: the engine fills in a real key for each request.
+            if (keyRotation?.hasKeys(profile.id) == true) {
+                return ChatResolution.Ready(ProviderResolver.resolve(profile, ApiKeySecret(CharArray(0)), model.id))
+            }
+            return ChatResolution.Blocked(name, "No API key is saved for $name.")
+        }
         return ChatResolution.Ready(ProviderResolver.resolve(profile, secret.takeIf { profile.authMethod != AuthMethod.NONE }, model.id))
     }
 

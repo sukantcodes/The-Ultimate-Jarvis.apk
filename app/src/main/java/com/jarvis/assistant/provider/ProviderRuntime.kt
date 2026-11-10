@@ -15,11 +15,23 @@ object ProviderRuntime {
         transportInstance ?: OkHttpTransport().also { transportInstance = it }
     }
 
+    @Volatile private var poolInstance: ApiKeyPool? = null
+    @Volatile private var rotationInstance: PoolKeyRotation? = null
+
+    /** The saved multi-key pool (metadata only). Key text lives in [AndroidKeyVault] under each key's id. */
+    fun keyPool(context: Context): ApiKeyPool = poolInstance ?: synchronized(this) {
+        poolInstance ?: ApiKeyPool(SharedPrefsKeyValueStore(context.applicationContext)).also { poolInstance = it }
+    }
+
+    fun keyRotation(context: Context): PoolKeyRotation = rotationInstance ?: synchronized(this) {
+        rotationInstance ?: PoolKeyRotation(keyPool(context), AndroidKeyVault(context.applicationContext)).also { rotationInstance = it }
+    }
+
     fun manager(context: Context): ProviderConfigManager = instance ?: synchronized(this) {
         instance ?: run {
             val app = context.applicationContext
             val repo = ProviderRepository(SharedPrefsKeyValueStore(app), AndroidKeyVault(app))
-            ProviderConfigManager(repo, transport()).also { instance = it }
+            ProviderConfigManager(repo, transport(), keyRotation = keyRotation(app)).also { instance = it }
         }
     }
 
@@ -34,7 +46,8 @@ object ProviderRuntime {
                 transport = transport(),
                 store = ProviderChatBridge(app.chatRepository),
                 scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate),
-                systemPrompt = { ChatContext.systemPrompt(app.preferences.userName) }
+                systemPrompt = { ChatContext.systemPrompt(app.preferences.userName) },
+                keyRotation = keyRotation(context)
             ).also { engine = it }
         }
     }

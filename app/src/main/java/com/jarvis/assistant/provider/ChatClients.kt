@@ -152,7 +152,7 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
             tokenParam = "max_completion_tokens"
             response = send(request, tokenParam)
         }
-        if (!response.isSuccessful) throw ProviderException(ProviderErrors.fromHttp(response.code, response.body, secret, ErrorContext.CHAT))
+        if (!response.isSuccessful) throw ProviderException(ProviderErrors.fromHttp(response.code, response.body, secret, ErrorContext.CHAT, response.headers.entries.firstOrNull { it.key.equals("retry-after", true) }?.value))
         return parseCompletion(response.body)
     }
 
@@ -219,7 +219,7 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
                     tokenParam = "max_completion_tokens"
                     continue
                 }
-                throw ProviderException(ProviderErrors.fromHttp(e.code, e.body, secret, ErrorContext.CHAT))
+                throw ProviderException(ProviderErrors.fromHttp(e.code, e.body, secret, ErrorContext.CHAT, e.retryAfter))
             } catch (e: TransportException) {
                 throw if (emitted) interrupted() else ProviderException(ProviderErrors.fromTransport(e))
             }
@@ -323,7 +323,7 @@ class GeminiChatClient(private val transport: HttpTransport) : ChatProviderClien
         } catch (e: TransportException) {
             throw ProviderException(ProviderErrors.fromTransport(e))
         }
-        if (!response.isSuccessful) throw ProviderException(ProviderErrors.fromHttp(response.code, response.body, secret, ErrorContext.CHAT))
+        if (!response.isSuccessful) throw ProviderException(ProviderErrors.fromHttp(response.code, response.body, secret, ErrorContext.CHAT, response.headers.entries.firstOrNull { it.key.equals("retry-after", true) }?.value))
         val root = parseObject(response.body) ?: throw ProviderException(ProviderErrors.invalidResponse("Expected a JSON answer."))
         val (text, tool) = extract(root)
         if (text.isBlank() && !tool) throw ProviderException(blockedOrEmpty(root))
@@ -353,7 +353,7 @@ class GeminiChatClient(private val transport: HttpTransport) : ChatProviderClien
                 }
             }
         } catch (e: HttpStatusException) {
-            throw ProviderException(ProviderErrors.fromHttp(e.code, e.body, secret, ErrorContext.CHAT))
+            throw ProviderException(ProviderErrors.fromHttp(e.code, e.body, secret, ErrorContext.CHAT, e.retryAfter))
         } catch (e: TransportException) {
             throw if (emitted) interrupted() else ProviderException(ProviderErrors.fromTransport(e))
         }
