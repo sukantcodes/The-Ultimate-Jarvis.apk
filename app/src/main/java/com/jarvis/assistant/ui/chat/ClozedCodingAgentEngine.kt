@@ -96,10 +96,10 @@ internal class ClozedCodingAgentEngine(
     fun openSession(id: String): Boolean {
         val file = File(sessionsDir, "$id.json")
         val loaded = runCatching { gson.fromJson(file.readText(), ClozedSession::class.java) }.getOrNull() ?: return false
-        AgentToolRuntime.codingExecutor(app, workspace.root).endSession()
         session = loaded
         todos = session.todos.orEmpty()
         restoreSessionWorkspace()
+        AgentToolRuntime.codingExecutor(app, workspace.root).endSession()
         undo.clear()
         undo.addAll(session.undoHistory.orEmpty())
         emit(ClozedAgentEvent("reload"))
