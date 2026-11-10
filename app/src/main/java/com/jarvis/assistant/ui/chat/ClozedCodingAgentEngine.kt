@@ -6,6 +6,12 @@ import android.os.Environment
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.jarvis.assistant.provider.ChatResolution
+import com.jarvis.assistant.provider.ClozedCompletion
+import com.jarvis.assistant.provider.ClozedLlm
+import com.jarvis.assistant.provider.ClozedLlmException
+import com.jarvis.assistant.provider.ClozedMessage
+import com.jarvis.assistant.provider.ClozedToolCall
+import com.jarvis.assistant.provider.ClozedToolDefinition
 import com.jarvis.assistant.provider.ProviderRuntime
 import com.jarvis.assistant.provider.WorkCategory
 import com.jarvis.assistant.tools.AgentToolRuntime
@@ -65,7 +71,7 @@ internal class ClozedCodingAgentEngine(
     private val openProviderSettings: () -> Unit
 ) {
     private val app = context.applicationContext
-    private val llm = ClozedLlm()
+    private val llm = ClozedLlm(ProviderRuntime.transport())
     private val projectsRoot = Workspace(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) File(Environment.getExternalStorageDirectory(), "ClozedProjects") else File(app.filesDir, "chatbox-workspace"))
     private var workspace: Workspace = projectsRoot
     private val sessionsDir = File(app.filesDir, "clozed-sessions").apply { mkdirs() }
