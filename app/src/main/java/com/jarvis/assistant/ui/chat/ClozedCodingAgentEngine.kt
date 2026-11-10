@@ -86,13 +86,6 @@ internal class ClozedCodingAgentEngine(
         session = loaded
         undo.clear()
         emit(ClozedAgentEvent("reload"))
-        loaded.messages.forEach { record ->
-            when (record.role) {
-                "user" -> emit(ClozedAgentEvent("user", text = record.text))
-                "assistant" -> if (record.text.isNotBlank()) emit(ClozedAgentEvent("assistant", text = record.text))
-                "tool" -> emit(ClozedAgentEvent("tool", id = record.callId, name = record.toolName, output = record.text, running = false))
-            }
-        }
         return true
     }
 
