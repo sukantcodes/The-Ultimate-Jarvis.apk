@@ -9,6 +9,7 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.Semaphore
 
 /** Static preview server for ChatBox workspace projects. Loopback only; never executes uploaded code. */
 object LocalWorkspaceServer {
@@ -16,6 +17,8 @@ object LocalWorkspaceServer {
     private const val MAX_HEADER_BYTES = 8192
     private const val MAX_FILE_BYTES = 20L * 1024L * 1024L
     private val running = AtomicBoolean(false)
+    // Bound concurrent clients so browser reconnects cannot spawn unlimited threads.
+    private val clientSlots = Semaphore(8)
     @Volatile private var serverSocket: ServerSocket? = null
     @Volatile private var activePort = -1
 
@@ -38,9 +41,24 @@ object LocalWorkspaceServer {
             while (running.get()) {
                 try {
                     val client = socket.accept()
-                    Thread({ handleClient(client, canonicalRoot) }, "JarvisLocalHttpClient").apply {
-                        isDaemon = true
-                        start()
+                    if (!clientSlots.tryAcquire()) {
+                        runCatching { client.close() }
+                        continue
+                    }
+                    try {
+                        Thread({
+                            try {
+                                handleClient(client, canonicalRoot)
+                            } finally {
+                                clientSlots.release()
+                            }
+                        }, "JarvisLocalHttpClient").apply {
+                            isDaemon = true
+                            start()
+                        }
+                    } catch (error: Exception) {
+                        clientSlots.release()
+                        runCatching { client.close() }
                     }
                 } catch (_: Exception) {
                     if (running.get()) stop()
