@@ -39,6 +39,10 @@ object GitHubTools {
         return listOf(RepositoryInfo, ListBranches, ListDirectory, ReadFile, CompareBranches, ImportFile, ImportRepository)
     }
 
+    internal fun validComparisonRequest(owner: String, repo: String, base: String, head: String): Boolean =
+        validRepositoryPart(owner) && validRepositoryPart(repo) &&
+            GitHubWriteTools.validBranchName(base) && GitHubWriteTools.validBranchName(head) && base != head
+
     internal fun validRepositoryPart(value: String): Boolean =
         value.matches(Regex("[A-Za-z0-9_.-]{1,100}")) && value != "." && value != ".."
 
@@ -293,8 +297,7 @@ object GitHubTools {
                 val repo = arg(args, "repo")
                 val base = arg(args, "base_branch")
                 val head = arg(args, "head_branch")
-                if (!validRepositoryPart(owner) || !validRepositoryPart(repo) ||
-                    !GitHubWriteTools.validBranchName(base) || !GitHubWriteTools.validBranchName(head) || base == head) {
+                if (!validComparisonRequest(owner, repo, base, head)) {
                     return ToolResult.Error("Choose a valid repository and two different branch names.")
                 }
                 val endpoint = "https://api.github.com".toHttpUrlOrNull()!!.newBuilder()
