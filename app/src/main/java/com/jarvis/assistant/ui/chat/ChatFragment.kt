@@ -29,6 +29,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import com.jarvis.assistant.tools.AgentToolApproval
+import com.jarvis.assistant.tools.ConfirmRequest
+import com.jarvis.assistant.tools.Confirmer
+import com.jarvis.assistant.tools.Decision
 import com.jarvis.assistant.provider.AttachmentRef
 import com.jarvis.assistant.provider.EngineState
 import com.jarvis.assistant.provider.ProviderRuntime
@@ -48,6 +54,24 @@ class ChatFragment : Fragment() {
     private val providerManager by lazy { ProviderRuntime.manager(requireContext()) }
     private val providerEngine by lazy { ProviderRuntime.chatEngine(requireContext()) }
     private var retrySnackbar: com.google.android.material.snackbar.Snackbar? = null
+
+    private val chatToolConfirmer = object : Confirmer {
+        override suspend fun confirm(request: ConfirmRequest): Decision = withContext(Dispatchers.Main.immediate) {
+            if (!isAdded || _binding == null) return@withContext Decision.DENY
+            suspendCancellableCoroutine { continuation ->
+                val dialog = MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+                    .setTitle("JARVIS permission request")
+                    .setMessage("${request.summary}\n\nTool: ${request.tool}\nCategory: ${request.group}\nRisk: ${request.risk.label}\n\nAllow this action?")
+                    .setNegativeButton("Deny") { _, _ -> if (continuation.isActive) continuation.resume(Decision.DENY) }
+                    .setNeutralButton("Allow once") { _, _ -> if (continuation.isActive) continuation.resume(Decision.ALLOW_ONCE) }
+                    .setPositiveButton("Allow this session") { _, _ -> if (continuation.isActive) continuation.resume(Decision.ALLOW_SESSION) }
+                    .create()
+                dialog.setOnCancelListener { if (continuation.isActive) continuation.resume(Decision.DENY) }
+                continuation.invokeOnCancellation { dialog.dismiss() }
+                dialog.show()
+            }
+        }
+    }
 
     private val documentPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri == null || _binding == null) return@registerForActivityResult
@@ -115,6 +139,7 @@ class ChatFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        AgentToolApproval.confirmer = chatToolConfirmer
         com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
 
         binding.rvChatMessages.layoutManager = LinearLayoutManager(requireContext()).apply {
@@ -345,6 +370,11 @@ class ChatFragment : Fragment() {
                         if (_binding != null) com.google.android.material.snackbar.Snackbar.make(binding.root, notice, com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show()
                     }
                 }
+                launch {
+                    providerEngine.toolActivity.collect { activity ->
+                        if (_binding != null && providerEngine.isBusy) binding.tvChatStatus.text = "● ${activity.uppercase()}"
+                    }
+                }
                 providerEngine.state.collect { state ->
                     if (_binding == null) return@collect
                     when (state) {
@@ -538,6 +568,7 @@ class ChatFragment : Fragment() {
 
     override fun onDestroyView() {
         retrySnackbar?.dismiss()
+        if (AgentToolApproval.confirmer === chatToolConfirmer) AgentToolApproval.confirmer = null
         chatAdapter.release()
         super.onDestroyView()
         _binding = null

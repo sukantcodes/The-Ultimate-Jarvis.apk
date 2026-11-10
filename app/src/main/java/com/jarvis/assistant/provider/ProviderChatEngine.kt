@@ -1,5 +1,8 @@
 package com.jarvis.assistant.provider
 
+import com.jarvis.assistant.tools.ToolCall
+import com.jarvis.assistant.tools.ToolResult
+import com.jarvis.assistant.tools.ToolSpec
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -73,7 +76,9 @@ class ProviderChatEngine(
     private val scope: CoroutineScope,
     private val systemPrompt: () -> String,
     private val uiThrottleMs: Long = 60L,
-    private val keyRotation: KeyRotationSource? = null
+    private val keyRotation: KeyRotationSource? = null,
+    private val toolSpecs: () -> List<ToolSpec> = { emptyList() },
+    private val toolExecutor: (suspend (ToolCall) -> ToolResult)? = null
 ) {
     /** Plain-language notices such as "Switched to key 'Backup' because 'Main' hit its limit." Shown by ChatBox. */
     private val _keyNotices = MutableSharedFlow<String>(extraBufferCapacity = 16)
@@ -81,6 +86,9 @@ class ProviderChatEngine(
 
     private val _state = MutableStateFlow<EngineState>(EngineState.Idle)
     val state: StateFlow<EngineState> = _state.asStateFlow()
+
+    private val _toolActivity = MutableSharedFlow<String>(extraBufferCapacity = 32)
+    val toolActivity: SharedFlow<String> = _toolActivity.asSharedFlow()
 
     private var job: Job? = null
     private val lock = Any()
@@ -167,8 +175,9 @@ class ProviderChatEngine(
             var lastUi = 0L
             try {
                 val history = store.completedTurns(excludingId = id).map { it.copy(user = sentText[it.id] ?: it.user) }
-                val messages = ChatContext.build(history, text, attachments)
+                val messages = ChatContext.build(history, text, attachments).toMutableList()
                 val client = ChatClientFactory.create(provider.protocol, transport)
+                val availableTools = toolSpecs()
                 val pool = keyRotation?.takeIf { it.hasKeys(provider.profileId) }
                 val tried = HashSet<String>()
                 var previousLabel: String? = null
@@ -188,18 +197,56 @@ class ProviderChatEngine(
                         )
                     }
                     try {
-                        client.stream(ChatRequest(active, systemPrompt(), messages)).collect { event ->
-                            when (event) {
-                                is ChatEvent.Delta -> {
-                                    partial.append(event.text)
-                                    val now = System.nanoTime() / 1_000_000L
-                                    if (now - lastUi >= uiThrottleMs) {
-                                        lastUi = now
-                                        store.updatePartial(id, partial.toString())
+                        if (availableTools.isEmpty()) {
+                            client.stream(ChatRequest(active, systemPrompt(), messages)).collect { event ->
+                                when (event) {
+                                    is ChatEvent.Delta -> {
+                                        partial.append(event.text)
+                                        val now = System.nanoTime() / 1_000_000L
+                                        if (now - lastUi >= uiThrottleMs) {
+                                            lastUi = now
+                                            store.updatePartial(id, partial.toString())
+                                        }
                                     }
+                                    ChatEvent.Done -> Unit
                                 }
-                                ChatEvent.Done -> Unit
                             }
+                        } else {
+                            var toolRounds = 0
+                            while (true) {
+                                val completion = client.complete(
+                                ChatRequest(active, systemPrompt(), messages, tools = availableTools)
+                            )
+                            if (completion.toolCalls.isEmpty()) {
+                                partial.append(completion.text)
+                                val now = System.nanoTime() / 1_000_000L
+                                if (now - lastUi >= uiThrottleMs || partial.isNotEmpty()) {
+                                    lastUi = now
+                                    store.updatePartial(id, partial.toString())
+                                }
+                                break
+                            }
+                            if (toolRounds >= MAX_TOOL_ROUNDS) {
+                                throw IllegalStateException("JARVIS stopped because the tool-call limit was reached. Ask it to continue the remaining work.")
+                            }
+                            if (toolExecutor == null || availableTools.isEmpty()) {
+                                if (completion.text.isNotBlank()) partial.append(completion.text)
+                                else throw IllegalStateException("The model requested tools, but no tool executor is connected.")
+                                break
+                            }
+                            toolRounds++
+                            messages += ChatMessage(ChatRole.ASSISTANT, completion.text, toolCalls = completion.toolCalls)
+                            for (call in completion.toolCalls) {
+                                _toolActivity.tryEmit("Running ${call.name.replace('_', ' ')}…")
+                                val result = toolExecutor.invoke(ToolCall(call.id, call.name, call.args, provider.label))
+                                messages += ChatMessage(
+                                    ChatRole.TOOL, result.text,
+                                    toolCallId = call.id,
+                                    toolName = call.name
+                                )
+                                _toolActivity.tryEmit("${call.name.replace('_', ' ')}: ${if (result.isOk) "completed" else "needs attention"}")
+                            }
+                        }
                         }
                         lease?.let { pool?.reportSuccess(it.keyId) }
                         break
@@ -254,6 +301,7 @@ class ProviderChatEngine(
 
         /** Upper bound on keys tried for a single message, so rotation can never loop. */
         const val MAX_KEY_ATTEMPTS = 8
+        const val MAX_TOOL_ROUNDS = 8
     }
 }
 
@@ -303,7 +351,8 @@ object ChatContext {
         append("You are JARVIS, a helpful, accurate assistant inside the user's ChatBox. ")
         append("Reply in the language the user writes in. Be clear and concise; use short paragraphs or simple lists when they help. ")
         append("If you don't know something or can't see a file or image, say so instead of guessing. ")
-        append("Never claim to have run actions on the phone; this chat can only answer in text.")
+        append("Use available tools when they are needed to inspect or change the user's ChatBox workspace. ")
+        append("Never claim an action succeeded unless its tool result confirms it; ask permission when a tool requires approval.")
         if (userName.isNotBlank()) append(" The user's name is ").append(userName.trim()).append('.')
     }
 }

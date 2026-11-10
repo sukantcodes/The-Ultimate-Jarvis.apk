@@ -5,17 +5,28 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParseException
 import com.google.gson.JsonParser
+import com.jarvis.assistant.tools.ToolSchemas
+import com.jarvis.assistant.tools.ToolSpec
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
-enum class ChatRole { USER, ASSISTANT }
+enum class ChatRole { USER, ASSISTANT, TOOL }
+
+data class ProviderToolCall(val id: String, val name: String, val args: JsonObject)
 
 sealed class ChatAttachment {
     class Image(val mimeType: String, val base64: String) : ChatAttachment()
     class Pdf(val fileName: String, val base64: String) : ChatAttachment()
 }
 
-class ChatMessage(val role: ChatRole, val text: String, val attachments: List<ChatAttachment> = emptyList())
+class ChatMessage(
+    val role: ChatRole,
+    val text: String,
+    val attachments: List<ChatAttachment> = emptyList(),
+    val toolCalls: List<ProviderToolCall> = emptyList(),
+    val toolCallId: String? = null,
+    val toolName: String? = null
+)
 
 sealed class ChatEvent {
     class Delta(val text: String) : ChatEvent()
@@ -28,10 +39,11 @@ class ChatRequest(
     val messages: List<ChatMessage>,
     val maxTokens: Int? = null,
     /** Adds a harmless dummy tool so a probe can learn whether the model accepts tool definitions. */
-    val includeProbeTool: Boolean = false
+    val includeProbeTool: Boolean = false,
+    val tools: List<ToolSpec> = emptyList()
 )
 
-class ChatCompletion(val text: String, val hadToolCall: Boolean)
+class ChatCompletion(val text: String, val hadToolCall: Boolean, val toolCalls: List<ProviderToolCall> = emptyList())
 
 /** One implementation per wire protocol. Neither knows about screens or services. */
 interface ChatProviderClient {
@@ -79,9 +91,30 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
             messages.add(JsonObject().apply { addProperty("role", "system"); addProperty("content", request.system) })
         }
         for (m in request.messages) {
+            if (m.role == ChatRole.TOOL) {
+                messages.add(JsonObject().apply {
+                    addProperty("role", "tool")
+                    addProperty("tool_call_id", m.toolCallId.orEmpty())
+                    m.toolName?.let { addProperty("name", it) }
+                    addProperty("content", m.text)
+                })
+                continue
+            }
             val role = if (m.role == ChatRole.USER) "user" else "assistant"
             val obj = JsonObject().apply { addProperty("role", role) }
-            if (m.attachments.isEmpty()) {
+            if (m.role == ChatRole.ASSISTANT && m.toolCalls.isNotEmpty()) {
+                if (m.text.isBlank()) add("content", com.google.gson.JsonNull.INSTANCE) else addProperty("content", m.text)
+                obj.add("tool_calls", JsonArray().apply {
+                    m.toolCalls.forEach { call ->
+                        add(JsonObject().apply {
+                            addProperty("id", call.id); addProperty("type", "function")
+                            add("function", JsonObject().apply {
+                                addProperty("name", call.name); addProperty("arguments", call.args.toString())
+                            })
+                        })
+                    }
+                })
+            } else if (m.attachments.isEmpty()) {
                 obj.addProperty("content", m.text)
             } else {
                 val parts = JsonArray()
@@ -111,7 +144,10 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
         if (stream) root.addProperty("stream", true)
         p.temperature?.let { root.addProperty("temperature", it) }
         (request.maxTokens ?: p.maxTokens)?.let { root.addProperty(tokenParam, it) }
-        if (request.includeProbeTool) {
+        if (request.tools.isNotEmpty()) {
+            root.add("tools", ToolSchemas.toOpenAi(request.tools))
+            root.addProperty("tool_choice", "auto")
+        } else if (request.includeProbeTool) {
             root.add("tools", JsonArray().apply {
                 add(JsonObject().apply {
                     addProperty("type", "function")
@@ -172,11 +208,12 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
             ?.getAsJsonObjectOrNull("message")
             ?: throw ProviderException(ProviderErrors.invalidResponse("The answer had no choices."))
         val text = contentText(message.get("content"))
-        val hadTool = message.getAsJsonArrayOrNull("tool_calls")?.size()?.let { it > 0 } == true
+        val calls = ToolSchemas.parseOpenAiCalls(message, "provider").map { ProviderToolCall(it.id, it.name, it.args) }
+        val hadTool = calls.isNotEmpty()
         if (text.isBlank() && !hadTool) {
             throw ProviderException(ProviderErrors.invalidResponse("The model returned an empty answer."))
         }
-        return ChatCompletion(text, hadTool)
+        return ChatCompletion(text, hadTool, calls)
     }
 
     override fun stream(request: ChatRequest): Flow<ChatEvent> = flow {
@@ -261,6 +298,25 @@ class GeminiChatClient(private val transport: HttpTransport) : ChatProviderClien
         val contents = JsonArray()
         for (m in request.messages) {
             val parts = JsonArray()
+            if (m.role == ChatRole.TOOL) {
+                parts.add(JsonObject().apply {
+                    add("functionResponse", JsonObject().apply {
+                        addProperty("name", m.toolName.orEmpty())
+                        add("response", JsonObject().apply { addProperty("content", m.text) })
+                    })
+                })
+                contents.add(JsonObject().apply { addProperty("role", "user"); add("parts", parts) })
+                continue
+            }
+            if (m.role == ChatRole.ASSISTANT && m.toolCalls.isNotEmpty()) {
+                m.toolCalls.forEach { call ->
+                    parts.add(JsonObject().apply {
+                        add("functionCall", JsonObject().apply { addProperty("name", call.name); add("args", call.args) })
+                    })
+                }
+                contents.add(JsonObject().apply { addProperty("role", "model"); add("parts", parts) })
+                continue
+            }
             if (m.text.isNotBlank()) parts.add(JsonObject().apply { addProperty("text", m.text) })
             for (a in m.attachments) {
                 when (a) {
@@ -285,7 +341,11 @@ class GeminiChatClient(private val transport: HttpTransport) : ChatProviderClien
         p.temperature?.let { generation.addProperty("temperature", it) }
         (request.maxTokens ?: p.maxTokens)?.let { generation.addProperty("maxOutputTokens", it) }
         if (generation.size() > 0) root.add("generationConfig", generation)
-        if (request.includeProbeTool) {
+        if (request.tools.isNotEmpty()) {
+            root.add("tools", JsonArray().apply {
+                add(JsonObject().apply { add("functionDeclarations", ToolSchemas.toGemini(request.tools)) })
+            })
+        } else if (request.includeProbeTool) {
             root.add("tools", JsonArray().apply {
                 add(JsonObject().apply {
                     add("functionDeclarations", JsonArray().apply {
@@ -325,9 +385,9 @@ class GeminiChatClient(private val transport: HttpTransport) : ChatProviderClien
         }
         if (!response.isSuccessful) throw ProviderException(ProviderErrors.fromHttp(response.code, response.body, secret, ErrorContext.CHAT, response.headers.entries.firstOrNull { it.key.equals("retry-after", true) }?.value))
         val root = parseObject(response.body) ?: throw ProviderException(ProviderErrors.invalidResponse("Expected a JSON answer."))
-        val (text, tool) = extract(root)
+        val (text, tool, calls) = extract(root)
         if (text.isBlank() && !tool) throw ProviderException(blockedOrEmpty(root))
-        return ChatCompletion(text, tool)
+        return ChatCompletion(text, tool, calls)
     }
 
     override fun stream(request: ChatRequest): Flow<ChatEvent> = flow {
@@ -344,7 +404,7 @@ class GeminiChatClient(private val transport: HttpTransport) : ChatProviderClien
                 if (obj.has("error") && !obj.get("error").isJsonNull) {
                     throw ProviderException(ProviderErrors.fromHttp(400, payload, secret, ErrorContext.CHAT))
                 }
-                val (text, _) = extract(obj)
+                val (text, _, _) = extract(obj)
                 if (text.isNotEmpty()) {
                     emitted = true
                     emit(ChatEvent.Delta(text))
@@ -362,20 +422,29 @@ class GeminiChatClient(private val transport: HttpTransport) : ChatProviderClien
     }
 
     /** Returns the visible text (skipping "thought" parts) and whether the model asked to call a function. */
-    private fun extract(root: JsonObject): Pair<String, Boolean> {
+    private fun extract(root: JsonObject): Triple<String, Boolean, List<ProviderToolCall>> {
         val candidate = root.getAsJsonArrayOrNull("candidates")?.firstOrNull()?.takeIf { it.isJsonObject }?.asJsonObject
-            ?: return "" to false
-        val parts = candidate.getAsJsonObjectOrNull("content")?.getAsJsonArrayOrNull("parts") ?: return "" to false
+            ?: return Triple("", false, emptyList())
+        val parts = candidate.getAsJsonObjectOrNull("content")?.getAsJsonArrayOrNull("parts") ?: return Triple("", false, emptyList())
         val sb = StringBuilder()
         var tool = false
+        val calls = ArrayList<ProviderToolCall>()
         for (part in parts) {
             if (!part.isJsonObject) continue
             val o = part.asJsonObject
             if (o.boolOrNull("thought") == true) continue
             o.stringOrNull("text")?.let { sb.append(it) }
-            if (o.has("functionCall")) tool = true
+            if (o.has("functionCall") && o.get("functionCall").isJsonObject) {
+                val fn = o.getAsJsonObject("functionCall")
+                val name = fn.stringOrNull("name")
+                if (!name.isNullOrBlank()) {
+                    val args = fn.get("args")?.takeIf { it.isJsonObject }?.asJsonObject ?: JsonObject()
+                    calls += ProviderToolCall("gemini_${System.nanoTime()}", name, args)
+                    tool = true
+                }
+            }
         }
-        return sb.toString() to tool
+        return Triple(sb.toString(), tool, calls)
     }
 
     private fun blockedOrEmpty(root: JsonObject): ProviderError {

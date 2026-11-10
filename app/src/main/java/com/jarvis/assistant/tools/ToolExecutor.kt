@@ -4,6 +4,8 @@ import com.google.gson.JsonObject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -63,7 +65,7 @@ class ToolExecutor(
         }
 
         val result = try {
-            withTimeout(timeoutMs) { tool.run(call.args, ctx) }
+            withTimeout(timeoutMs) { withContext(Dispatchers.IO) { tool.run(call.args, ctx) } }
         } catch (e: TimeoutCancellationException) {
             ToolResult.Error("The tool took longer than ${timeoutMs / 1000} seconds and was stopped.")
         } catch (e: CancellationException) {

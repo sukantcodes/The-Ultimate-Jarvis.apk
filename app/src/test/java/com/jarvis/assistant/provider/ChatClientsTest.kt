@@ -149,12 +149,32 @@ class ChatClientsTest {
         t.on({ true }, 200, """{"choices":[{"message":{"role":"assistant","content":null,"tool_calls":[{"id":"1","type":"function","function":{"name":"get_time","arguments":"{}"}}]}}]}""")
         val out = runBlocking { OpenAiChatClient(t).complete(ChatRequest(Fixtures.resolved(), "", listOf(user("hi")), includeProbeTool = true)) }
         assertTrue(out.hadToolCall)
+        assertEquals("get_time", out.toolCalls.single().name)
         val body = JsonParser.parseString(t.bodyOf(t.requests.single())).asJsonObject
         assertEquals("get_time", body["tools"].asJsonArray[0].asJsonObject["function"].asJsonObject["name"].asString)
 
         val t2 = FakeTransport()
         t2.on({ true }, 200, "<html>nope</html>")
         assertEquals(ProviderErrorKind.INVALID_RESPONSE, errorOf { runBlocking { OpenAiChatClient(t2).complete(ChatRequest(Fixtures.resolved(), "", listOf(user("hi")))) } }.kind)
+    }
+
+    @Test fun openai_followup_encodes_assistant_tool_calls_and_tool_results() {
+        val t = FakeTransport()
+        t.on({ true }, 200, Fixtures.completion("Finished"))
+        val call = ProviderToolCall("call-1", "read_file", JsonParser.parseString("""{"path":"notes.txt"}""").asJsonObject)
+        runBlocking {
+            OpenAiChatClient(t).complete(ChatRequest(
+                Fixtures.resolved(), "", listOf(
+                    user("Read my notes"),
+                    ChatMessage(ChatRole.ASSISTANT, "", toolCalls = listOf(call)),
+                    ChatMessage(ChatRole.TOOL, "The file says hello.", toolCallId = "call-1", toolName = "read_file")
+                )
+            ))
+        }
+        val messages = JsonParser.parseString(t.bodyOf(t.requests.single())).asJsonObject.getAsJsonArray("messages")
+        assertEquals(listOf("user", "assistant", "tool"), messages.map { it.asJsonObject.get("role").asString })
+        assertEquals("call-1", messages[1].asJsonObject.getAsJsonArray("tool_calls")[0].asJsonObject.get("id").asString)
+        assertEquals("The file says hello.", messages[2].asJsonObject.get("content").asString)
     }
 
     @Test fun network_failure_during_complete_is_mapped_not_thrown_raw() {
@@ -214,7 +234,27 @@ class ChatClientsTest {
         t.on({ it.url.contains(":generateContent") }, 200, """{"candidates":[{"content":{"parts":[{"functionCall":{"name":"get_time","args":{}}}]}}]}""")
         val out = runBlocking { GeminiChatClient(t).complete(ChatRequest(Fixtures.resolved(protocol = ProviderProtocol.GEMINI), "", listOf(user("hi")), includeProbeTool = true)) }
         assertTrue(out.hadToolCall)
+        assertEquals("get_time", out.toolCalls.single().name)
         assertTrue(t.bodyOf(t.requests.single()).contains("functionDeclarations"))
+    }
+
+    @Test fun gemini_followup_encodes_function_call_and_response_parts() {
+        val t = FakeTransport()
+        t.on({ true }, 200, """{"candidates":[{"content":{"parts":[{"text":"Finished"}]}}]}""")
+        val call = ProviderToolCall("g1", "read_file", JsonParser.parseString("""{"path":"notes.txt"}""").asJsonObject)
+        runBlocking {
+            GeminiChatClient(t).complete(ChatRequest(
+                Fixtures.resolved(protocol = ProviderProtocol.GEMINI), "", listOf(
+                    user("Read my notes"),
+                    ChatMessage(ChatRole.ASSISTANT, "", toolCalls = listOf(call)),
+                    ChatMessage(ChatRole.TOOL, "The file says hello.", toolCallId = "g1", toolName = "read_file")
+                )
+            ))
+        }
+        val contents = JsonParser.parseString(t.bodyOf(t.requests.single())).asJsonObject.getAsJsonArray("contents")
+        assertEquals(listOf("user", "model", "user"), contents.map { it.asJsonObject.get("role").asString })
+        assertTrue(contents[1].asJsonObject.getAsJsonArray("parts")[0].asJsonObject.has("functionCall"))
+        assertEquals("read_file", contents[2].asJsonObject.getAsJsonArray("parts")[0].asJsonObject.getAsJsonObject("functionResponse").get("name").asString)
     }
 
     @Test fun gemini_stream_http_failure_is_mapped() {
