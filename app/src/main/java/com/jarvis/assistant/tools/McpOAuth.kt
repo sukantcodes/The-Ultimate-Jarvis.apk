@@ -33,6 +33,7 @@ object McpOAuth {
         if (authorizationEndpoint.isBlank() || tokenEndpoint.isBlank() || registrationEndpoint.isBlank()) {
             throw IllegalStateException("This MCP server does not publish OAuth authorization, token and dynamic-registration endpoints. You can add a bearer token manually instead.")
         }
+        listOf(authorizationEndpoint, tokenEndpoint, registrationEndpoint).forEach(::requireSecureEndpoint)
         val registration = JsonObject().apply {
             addProperty("client_name", "JARVIS Coding Agent")
             add("redirect_uris", JsonArray().apply { add(REDIRECT_URI) })
@@ -107,6 +108,14 @@ object McpOAuth {
         McpManager.get(context).storeOAuthTokens(serverId, access, refresh, expires)
         AndroidKeyVault(context.applicationContext).delete("mcp_pending_pkce_verifier")
         prefs.edit().clear().commit()
+    }
+
+
+    private fun requireSecureEndpoint(value: String) {
+        val uri = java.net.URI(value)
+        val secure = uri.scheme == "https"
+        val localHttp = uri.scheme == "http" && uri.host in setOf("127.0.0.1", "localhost", "::1")
+        if (!secure && !localHttp) throw IllegalStateException("OAuth endpoints must use HTTPS, except for localhost development servers.")
     }
 
     private fun randomUrlToken(bytes: Int): String {
