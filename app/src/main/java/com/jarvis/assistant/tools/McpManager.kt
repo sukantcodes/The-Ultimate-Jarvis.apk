@@ -225,6 +225,7 @@ class McpManager private constructor(context: Context) {
                 doOutput = true
                 connectTimeout = 15000
                 readTimeout = 30000
+                instanceFollowRedirects = false
                 setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
                 setRequestProperty("Accept", "application/json")
             }
