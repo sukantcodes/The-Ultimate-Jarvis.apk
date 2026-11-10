@@ -42,6 +42,7 @@ class ClozedCodingAgentService : Service() {
     private val response = StringBuilder()
     private val reasoning = StringBuilder()
     private val tools = ArrayList<CodingToolBlock>()
+    private var plan = ""
 
     override fun onCreate() {
         super.onCreate()
@@ -91,6 +92,7 @@ class ClozedCodingAgentService : Service() {
                 response.setLength(0)
                 reasoning.setLength(0)
                 tools.clear()
+                plan = ""
                 ClozedCodingEngineHolder.running = true
                 updateNotification("Working in /storage/emulated/0/ClozedProjects")
                 val backend = engine ?: return START_NOT_STICKY
@@ -131,7 +133,7 @@ class ClozedCodingAgentService : Service() {
             }
             "reasoning" -> {
                 reasoning.append(event.text)
-                JarvisApp.instance.chatRepository.updatePendingCoding(pendingTurnId, reasoning.toString(), tools)
+                JarvisApp.instance.chatRepository.updatePendingCoding(pendingTurnId, reasoning.toString(), tools, plan)
             }
             "tool_start" -> {
                 tools += CodingToolBlock(event.id, event.name, event.input, "", true, false)
@@ -141,6 +143,15 @@ class ClozedCodingAgentService : Service() {
                 val index = tools.indexOfLast { it.id == event.id }
                 if (index >= 0) tools[index] = tools[index].copy(output = event.output, running = false, ok = event.ok)
                 JarvisApp.instance.chatRepository.updatePendingCoding(pendingTurnId, reasoning.toString(), tools)
+            }
+            "todos" -> {
+                plan = event.text
+                JarvisApp.instance.chatRepository.updatePendingCoding(pendingTurnId, reasoning.toString(), tools, plan)
+            }
+            "session_transcript" -> {
+                if (response.isNotEmpty()) response.append("\n\n")
+                response.append(event.text)
+                JarvisApp.instance.chatRepository.updatePending(pendingTurnId, response.toString())
             }
             "notice", "sessions" -> appendNotice(event.text)
             "state" -> updateNotification(
