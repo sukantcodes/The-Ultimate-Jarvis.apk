@@ -242,6 +242,23 @@
                 android:textStyle="bold"
                 android:contentDescription="Open chat tools" />
 
+            <TextView
+                android:id="@+id/btnChatTerminal"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                android:layout_marginStart="7dp"
+                android:background="@drawable/bg_chat_tool_chip"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:paddingStart="11dp"
+                android:paddingEnd="11dp"
+                android:text="&gt;_ TERMINAL"
+                android:textColor="?attr/themeTextPrimary"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:contentDescription="Open workspace terminal" />
+
             <View
                 android:layout_width="0dp"
                 android:layout_height="1dp"
