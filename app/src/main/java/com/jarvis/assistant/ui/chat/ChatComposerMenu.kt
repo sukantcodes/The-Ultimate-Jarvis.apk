@@ -44,14 +44,14 @@ object ChatComposerMenu {
         root.addView(TextView(context).apply {
             text = "ChatBox tools"
             textSize = 19f
-            setTextColor(resolveColor(context, android.R.attr.textColorPrimary))
+            setTextColor(resolveColor(context, R.attr.themeTextPrimary))
             setTypeface(typeface, Typeface.BOLD)
             setPadding(dp(context, 2), 0, 0, dp(context, 3))
         })
         root.addView(TextView(context).apply {
             text = "Open a tool or jump into its full workspace."
             textSize = 12f
-            setTextColor(resolveColor(context, android.R.attr.textColorSecondary))
+            setTextColor(resolveColor(context, R.attr.themeTextSecondary))
             setPadding(dp(context, 2), 0, 0, dp(context, 14))
         })
 
@@ -78,10 +78,10 @@ object ChatComposerMenu {
                     text = action.glyph
                     textSize = 23f
                     gravity = Gravity.CENTER
-                    setTextColor(resolveColor(context, android.R.attr.colorAccent))
+                    setTextColor(resolveColor(context, R.attr.themeAccent))
                     background = GradientDrawable().apply {
                         shape = GradientDrawable.OVAL
-                        setColor(resolveColor(context, android.R.attr.colorBackground))
+                        setColor(resolveColor(context, R.attr.themeCardBg))
                         setStroke(dp(context, 1), resolveColor(context, android.R.attr.colorAccent))
                     }
                     layoutParams = LinearLayout.LayoutParams(dp(context, 48), dp(context, 48)).apply {
