@@ -109,6 +109,16 @@ class ClozedCodingAgentService : Service() {
     private val reasoning = StringBuilder()
     private val tools = ArrayList<CodingToolBlock>()
     private var plan = ""
+    private var voiceAnnouncer: com.jarvis.assistant.util.SpeechAnnouncer? = null
+
+    private fun announceIfEnabled(message: String) {
+        val enabled = getSharedPreferences("clozed_agent_settings", MODE_PRIVATE)
+            .getBoolean("voice_alerts", false)
+        if (!enabled) return
+        val announcer = voiceAnnouncer ?: com.jarvis.assistant.util.SpeechAnnouncer(applicationContext)
+            .also { voiceAnnouncer = it }
+        announcer.say(message)
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -161,6 +171,7 @@ class ClozedCodingAgentService : Service() {
                 tools.clear()
                 plan = ""
                 ClozedCodingEngineHolder.running = true
+                announceIfEnabled("JARVIS coding task started.")
                 updateNotification("Working in /storage/emulated/0/ClozedProjects")
                 val backend = engine ?: return START_NOT_STICKY
                 work = scope.launch {
@@ -176,6 +187,7 @@ class ClozedCodingAgentService : Service() {
                             ClozedCodingEngineHolder.newSessionAfterCurrent = false
                         }
                         ClozedCodingEngineHolder.running = false
+                        announceIfEnabled("JARVIS coding task finished.")
                         if (pendingTurnId == turnId) {
                             JarvisApp.instance.chatRepository.finishPending(turnId, response.toString())
                             pendingTurnId = ""
@@ -288,6 +300,8 @@ class ClozedCodingAgentService : Service() {
             AgentToolApproval.confirmer = null
         }
         scope.cancel()
+        voiceAnnouncer?.shutdown()
+        voiceAnnouncer = null
         super.onDestroy()
     }
 

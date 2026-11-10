@@ -268,6 +268,12 @@ class ChatFragment : Fragment() {
                 ChatComposerMenu.Action("Coding Agent + Terminal", "Use the JARVIS ChatBox with project-aware coding tools and a real terminal", ">_") {
                     activateCodingAgentMode()
                 },
+                ChatComposerMenu.Action("Coding Agent voice alerts", "Toggle spoken status announcements while a coding task runs", "♫") {
+                    val prefs = requireContext().getSharedPreferences("clozed_agent_settings", android.content.Context.MODE_PRIVATE)
+                    val enabled = !prefs.getBoolean("voice_alerts", false)
+                    prefs.edit().putBoolean("voice_alerts", enabled).apply()
+                    Toast.makeText(requireContext(), if (enabled) "Coding agent voice alerts enabled." else "Coding agent voice alerts disabled.", Toast.LENGTH_SHORT).show()
+                },
                 ChatComposerMenu.Action("MCP servers", "Add Streamable HTTP tools and manage OAuth logins", "⌘") {
                     startActivity(Intent(requireContext(), McpServersActivity::class.java))
                 },
