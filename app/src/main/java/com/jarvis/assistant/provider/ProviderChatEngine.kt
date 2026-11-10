@@ -297,7 +297,7 @@ class ProviderChatEngine(
             } catch (e: Exception) {
                 // This catch also covers local tool/UI/runtime failures. Do not misreport them as malformed
                 // provider output: only protocol clients should classify response parsing as INVALID_RESPONSE.
-                Log.e(TAG, "Unexpected local ChatBox failure for turn $id (provider=${provider.label})", e)
+                Log.e("ProviderChatEngine", "Unexpected local ChatBox failure for turn $id (provider=${provider.label})", e)
                 val detail = e.message?.takeIf { it.isNotBlank() }?.take(180)
                 val message = buildString {
                     append("JARVIS hit an internal ChatBox error (")
