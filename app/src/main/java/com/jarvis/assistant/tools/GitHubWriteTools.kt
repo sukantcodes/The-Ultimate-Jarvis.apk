@@ -92,6 +92,7 @@ object GitHubWriteTools {
             val user = request(context, "GET", url("user"))
             ToolResult.Ok("GitHub token is valid. Connected account: " + (user.get("login")?.asString ?: "unknown") + ". Token value was not exposed.")
         } catch (e: Exception) { failure(e) }
+        }
     }
 
     private class CreateBranch(private val context: Context) : Tool {
@@ -116,6 +117,7 @@ object GitHubWriteTools {
             request(context, "POST", url("repos", owner, name, "git", "refs"), payload)
             ToolResult.Ok("Created feature branch " + branch + " from " + base + ".")
         } catch (e: Exception) { failure(e) }
+        }
     }
 
     private class CommitWorkspaceFile(private val context: Context) : Tool {
@@ -175,6 +177,7 @@ object GitHubWriteTools {
             ToolResult.Ok("Committed " + bytes.size + " bytes from workspace/" + localPath + " to " +
                 owner + "/" + name + ":" + branch + "/" + remotePath + ". Commit: " + newSha)
         } catch (e: Exception) { failure(e) }
+        }
     }
 
     private class CreatePullRequest(private val context: Context) : Tool {
@@ -202,5 +205,6 @@ object GitHubWriteTools {
             ToolResult.Ok("Pull request #" + (created.get("number")?.asInt ?: 0) + " created: " +
                 (created.get("html_url")?.asString ?: "URL unavailable") + ". It has not been merged.")
         } catch (e: Exception) { failure(e) }
+        }
     }
 }

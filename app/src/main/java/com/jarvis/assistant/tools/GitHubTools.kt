@@ -100,6 +100,7 @@ object GitHubTools {
                 append("URL: ${obj.get("html_url")?.asString.orEmpty()}")
             })
         } catch (e: Exception) { error(e) }
+        }
     }
 
     object ListBranches : Tool {
@@ -115,6 +116,7 @@ object GitHubTools {
             ToolResult.Ok(arr.mapNotNull { it.takeIf { v -> v.isJsonObject }?.asJsonObject?.get("name")?.asString }
                 .joinToString("\n").ifBlank { "No branches were returned." })
         } catch (e: Exception) { error(e) }
+        }
     }
 
     object ReadFile : Tool {
@@ -144,6 +146,7 @@ object GitHubTools {
             if (text.contains('\u0000')) return ToolResult.Error("Binary files are not supported by this tool.")
             ToolResult.Ok("File: ${owner}/${repo}/${path} @ ${arg(args, "ref").ifBlank { "default branch" }}\n\n${text.take(MAX_TEXT_OUTPUT)}${if (text.length > MAX_TEXT_OUTPUT) "\n\n[Output truncated; file is available through GitHub.] " else ""}")
         } catch (e: Exception) { error(e) }
+        }
     }
 
     object ImportFile : Tool {
@@ -179,6 +182,7 @@ object GitHubTools {
             target.writeBytes(bytes)
             ToolResult.Ok("Imported ${owner}/${repo}/${path} into workspace at ${ctx.workspace.relative(target)} (${bytes.size} bytes).")
         } catch (e: Exception) { error(e) }
+        }
     }
 
     object ListDirectory : Tool {
@@ -237,6 +241,7 @@ object GitHubTools {
                 if (tree.get("truncated")?.asBoolean == true) appendLine("\n[GitHub marked this repository tree as truncated]")
             })
         } catch (e: Exception) { error(e) }
+        }
     }
 
 
