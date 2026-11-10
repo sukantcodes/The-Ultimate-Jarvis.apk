@@ -105,7 +105,7 @@ class ConnectorHubActivity : AppCompatActivity() {
                     uri?.scheme == "https" && !uri.host.isNullOrBlank() &&
                     uri.userInfo == null && uri.query == null && uri.fragment == null &&
                     endpoint.startsWith("/") && !endpoint.contains("..") &&
-                    !endpoint.contains('\\\\') && verb in setOf("GET", "POST")
+                    !endpoint.contains('\\') && verb in setOf("GET", "POST")
                 if (!valid) {
                     Toast.makeText(this, "Check the name, description, HTTPS URL, path and method.", Toast.LENGTH_LONG).show()
                     return@setPositiveButton
