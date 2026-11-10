@@ -54,17 +54,32 @@ class ToolExecutor(
         val effectiveRisk = if (destructive) Risk.DESTRUCTIVE else spec.risk
         val mode = policy.modeFor(effectiveRisk, spec.group)
 
+        val exactRequest = spec.name + ":" + call.args.toString()
         val decision: String = when {
             mode == Mode.DENY -> return deny(call, effectiveRisk, summary, "This kind of action is switched off in Permissions.")
-            mode == Mode.ASK && !(policy.hasSessionGrant(spec.name) && !destructive) -> {
+            mode == Mode.ASK && policy.consumeNext(exactRequest) && !destructive -> "allowed (next identical call)"
+            mode == Mode.ASK && policy.hasSessionGrant(spec.name) && !destructive -> "allowed (session grant)"
+            mode == Mode.ASK -> {
                 val d = confirmer().confirm(ConfirmRequest(spec.name, spec.group, effectiveRisk, redactor.redact(summary), destructive, call.source))
                 when (d) {
                     Decision.DENY -> return deny(call, effectiveRisk, summary, "You declined this action.")
-                    Decision.ALLOW_SESSION -> { if (!destructive) policy.grantForSession(spec.name); "allowed (session)" }
                     Decision.ALLOW_ONCE -> "allowed (once)"
+                    Decision.ALLOW_NEXT -> {
+                        if (!destructive) policy.grantNext(exactRequest)
+                        "allowed (next identical call)"
+                    }
+                    Decision.ALLOW_SESSION -> {
+                        if (!destructive) policy.grantForSession(spec.name)
+                        "allowed (session)"
+                    }
+                    Decision.ALLOW_ALWAYS -> {
+                        if (!destructive) {
+                            policy.setMode(effectiveRisk, Mode.ALLOW, spec.group)
+                            "allowed (always)"
+                        } else "allowed (once)"
+                    }
                 }
             }
-            mode == Mode.ASK -> "allowed (session grant)"
             else -> "allowed (policy)"
         }
 
