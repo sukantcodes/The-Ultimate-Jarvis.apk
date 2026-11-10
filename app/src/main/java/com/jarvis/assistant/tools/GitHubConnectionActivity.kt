@@ -29,7 +29,7 @@ class GitHubConnectionActivity : AppCompatActivity() {
         val token = EditText(this).apply {
             hint = "GitHub personal access token"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            singleLine = true
+            setSingleLine(true)
         }
         val status = TextView(this).apply {
             text = if (GitHubCredentialStore.isConfigured(this@GitHubConnectionActivity)) "An encrypted token is saved on this device." else "No GitHub token saved. Public repositories can still be read."
