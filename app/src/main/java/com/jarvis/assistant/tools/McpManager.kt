@@ -49,6 +49,9 @@ class McpManager private constructor(context: Context) {
     private val gson = Gson()
     private val vault = AndroidKeyVault(app)
     private val requestIds = AtomicLong(1L)
+    private val initializedServers = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val sessionIds = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val protocolVersions = java.util.concurrent.ConcurrentHashMap<String, String>()
     @Volatile private var cachedTools: List<McpToolRef> = emptyList()
     @Volatile private var refreshRequired: Boolean = true
 
@@ -162,7 +165,27 @@ class McpManager private constructor(context: Context) {
         }.ifBlank { "(MCP tool returned no text content.)" }
     }
 
-    private suspend fun request(server: McpServerConfig, method: String, params: JsonObject): JsonObject = withContext(Dispatchers.IO) {
+    private suspend fun request(server: McpServerConfig, method: String, params: JsonObject): JsonObject {
+        if (method != "initialize" && server.id !in initializedServers) {
+            val initParams = JsonObject().apply {
+                addProperty("protocolVersion", "2025-03-26")
+                add("capabilities", JsonObject())
+                add("clientInfo", JsonObject().apply {
+                    addProperty("name", "JARVIS")
+                    addProperty("version", "1.0")
+                })
+            }
+            val initialized = requestOnce(server, "initialize", initParams)
+            val negotiated = initialized.get("protocolVersion")?.asString.orEmpty()
+            if (negotiated.isBlank()) throw IllegalStateException("MCP initialize response did not include a protocolVersion.")
+            protocolVersions[server.id] = negotiated
+            requestOnce(server, "notifications/initialized", JsonObject())
+            initializedServers += server.id
+        }
+        return requestOnce(server, method, params)
+    }
+
+    private suspend fun requestOnce(server: McpServerConfig, method: String, params: JsonObject): JsonObject = withContext(Dispatchers.IO) {
         val token = accessToken(server)
         val connection = (URL(server.url).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
@@ -172,17 +195,21 @@ class McpManager private constructor(context: Context) {
             instanceFollowRedirects = false
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "application/json, text/event-stream")
+            protocolVersions[server.id]?.let { setRequestProperty("MCP-Protocol-Version", it) }
+            sessionIds[server.id]?.let { setRequestProperty("MCP-Session-Id", it) }
             token?.takeIf { it.isNotBlank() }?.let { setRequestProperty("Authorization", "Bearer $it") }
         }
         try {
             val body = JsonObject().apply {
                 addProperty("jsonrpc", "2.0")
-                addProperty("id", requestIds.getAndIncrement())
+                if (method != "notifications/initialized") addProperty("id", requestIds.getAndIncrement())
                 addProperty("method", method)
                 add("params", params)
             }
             connection.outputStream.bufferedWriter(Charsets.UTF_8).use { it.write(body.toString()) }
             val code = connection.responseCode
+            connection.getHeaderField("Mcp-Session-Id")?.takeIf { it.isNotBlank() }?.let { sessionIds[server.id] = it }
+            if (code == 202 || (method == "notifications/initialized" && code in 200..299)) return@withContext JsonObject()
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
             val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
             val safeResponse = token?.takeIf { it.isNotBlank() }?.let { response.replace(it, "[REDACTED]") } ?: response
@@ -196,9 +223,12 @@ class McpManager private constructor(context: Context) {
                 throw IllegalStateException(message)
             }
             val jsonText = if (safeResponse.trimStart().startsWith("{")) safeResponse else {
-                safeResponse.lineSequence().firstOrNull { it.trimStart().startsWith("data:") }
-                    ?.trim()?.removePrefix("data:")?.trim()
-                    ?: throw IllegalStateException("MCP server returned neither JSON nor an SSE data event.")
+                val eventData = safeResponse.lineSequence()
+                    .filter { it.startsWith("data:") }
+                    .joinToString("\n") { it.removePrefix("data:").trimStart() }
+                    .trim()
+                eventData.takeIf { it.startsWith("{") }
+                    ?: throw IllegalStateException("MCP server returned neither a JSON-RPC response nor an SSE data event.")
             }
             val root = JsonParser.parseString(jsonText).asJsonObject
             if (root.has("error")) {
