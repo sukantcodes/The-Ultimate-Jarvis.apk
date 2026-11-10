@@ -73,11 +73,15 @@ internal class ClozedLlm {
             connection.outputStream.bufferedWriter(Charsets.UTF_8).use { it.write(body.toString()) }
             val code = connection.responseCode
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-            val responseText = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-            if (code !in 200..299) throw ClozedLlmException(errorMessage(code, responseText), code)
-
-            if (anthropic) parseAnthropic(responseText, onText, onReasoning)
-            else parseOpenAi(responseText, onText, onReasoning)
+            if (code !in 200..299) {
+                val responseText = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                throw ClozedLlmException(errorMessage(code, responseText), code)
+            }
+            stream?.bufferedReader(Charsets.UTF_8)?.use { reader ->
+                val lines = generateSequence { reader.readLine() }
+                if (anthropic) parseAnthropic(lines, onText, onReasoning)
+                else parseOpenAi(lines, onText, onReasoning)
+            } ?: ClozedCompletion("", "", emptyList())
         } finally {
             connection.disconnect()
         }
@@ -240,7 +244,7 @@ internal class ClozedLlm {
     }
 
     private fun parseOpenAi(
-        response: String,
+        lines: Sequence<String>,
         onText: (String) -> Unit,
         onReasoning: (String) -> Unit
     ): ClozedCompletion {
@@ -248,7 +252,7 @@ internal class ClozedLlm {
         val reasoning = StringBuilder()
         data class Acc(var id: String = "", var name: String = "", val args: StringBuilder = StringBuilder())
         val calls = linkedMapOf<Int, Acc>()
-        response.lineSequence().forEach { raw ->
+        lines.forEach { raw ->
             val line = raw.trim()
             if (!line.startsWith("data:")) return@forEach
             val data = line.removePrefix("data:").trim()
@@ -281,7 +285,7 @@ internal class ClozedLlm {
     }
 
     private fun parseAnthropic(
-        response: String,
+        lines: Sequence<String>,
         onText: (String) -> Unit,
         onReasoning: (String) -> Unit
     ): ClozedCompletion {
@@ -289,7 +293,7 @@ internal class ClozedLlm {
         val reasoning = StringBuilder()
         val calls = mutableListOf<ClozedToolCall>()
         var activeIndex = -1
-        response.lineSequence().forEach { raw ->
+        lines.forEach { raw ->
             val line = raw.trim()
             if (!line.startsWith("data:")) return@forEach
             val data = line.removePrefix("data:").trim()
