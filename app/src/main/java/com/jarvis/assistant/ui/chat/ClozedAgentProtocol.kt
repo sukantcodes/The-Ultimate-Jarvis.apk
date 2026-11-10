@@ -43,7 +43,8 @@ internal class ClozedLlm {
         messages: List<ClozedMessage>,
         tools: List<ClozedToolDefinition>,
         onText: (String) -> Unit,
-        onReasoning: (String) -> Unit
+        onReasoning: (String) -> Unit,
+        reasoningEffort: String? = null
     ): ClozedCompletion = withContext(Dispatchers.IO) {
         try {
         val anthropic = provider.baseUrl.contains("api.anthropic.com", ignoreCase = true)
@@ -70,7 +71,7 @@ internal class ClozedLlm {
             }
         }
         try {
-            val body = if (anthropic) anthropicBody(provider, system, messages, tools) else openAiBody(provider, system, messages, tools)
+            val body = if (anthropic) anthropicBody(provider, system, messages, tools) else openAiBody(provider, system, messages, tools, reasoningEffort)
             connection.outputStream.bufferedWriter(Charsets.UTF_8).use { it.write(body.toString()) }
             val code = connection.responseCode
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
@@ -140,10 +141,12 @@ internal class ClozedLlm {
         provider: ResolvedProvider,
         system: String,
         messages: List<ClozedMessage>,
-        tools: List<ClozedToolDefinition>
+        tools: List<ClozedToolDefinition>,
+        reasoningEffort: String?
     ): JsonObject {
         val body = JsonObject()
         body.addProperty("model", provider.modelId)
+        reasoningEffort?.takeIf { it in setOf("low", "medium", "high") }?.let { body.addProperty("reasoning_effort", it) }
         body.addProperty("stream", true)
         body.addProperty("max_tokens", provider.maxTokens ?: 8192)
         val all = JsonArray()
