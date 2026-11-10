@@ -53,10 +53,15 @@ class ChatRepository(private val preferences: AppPreferences) {
 
     /** Updates structured reasoning and tool activity while a coding-agent turn is running. */
     @Synchronized
-    fun updatePendingCoding(id: String, reasoning: String, tools: List<com.jarvis.assistant.data.model.CodingToolBlock>) {
+    fun updatePendingCoding(
+        id: String,
+        reasoning: String,
+        tools: List<com.jarvis.assistant.data.model.CodingToolBlock>,
+        plan: String = ""
+    ) {
         if (id !in pendingIds) return
         _turns.value = _turns.value.map {
-            if (it.id == id) it.copy(codingReasoning = reasoning, codingTools = tools.toList()) else it
+            if (it.id == id) it.copy(codingReasoning = reasoning, codingTools = tools.toList(), codingPlan = plan) else it
         }
     }
 
