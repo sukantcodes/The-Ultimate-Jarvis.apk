@@ -16,7 +16,7 @@ class ClozedAgentProtocolTest {
 
     @Test fun anthropic_consecutive_tool_results_are_grouped_into_one_user_message() = runBlocking {
         val transport = FakeTransport().apply {
-            stream(StreamRule({ true }, listOf("data: {\"type\":\"message_stop\"}")))
+            stream(FakeTransport.StreamRule({ true }, listOf("data: {\"type\":\"message_stop\"}")))
         }
         val call = ClozedToolCall("c1", "read", "{\"path\":\"a.txt\"}")
         val completion = ClozedLlm(transport).complete(
