@@ -284,7 +284,7 @@ object GitHubTools {
                 ToolParam("repo", required = true),
                 ToolParam("base_branch", required = true),
                 ToolParam("head_branch", required = true)
-            ), Risk.READ_ONLY, "github"
+            ), Risk.READ, "github"
         )
 
         override fun describe(args: JsonObject) =
