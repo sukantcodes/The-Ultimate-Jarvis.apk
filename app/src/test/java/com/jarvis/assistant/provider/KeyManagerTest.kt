@@ -1,0 +1,106 @@
+package com.jarvis.assistant.provider
+
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class KeyManagerTest {
+    private var now = 5_000_000L
+    private val store = MemoryStore()
+    private val vault = MemoryVault()
+    private val pool = ApiKeyPool(store) { now }
+    private val transport = FakeTransport()
+    private val providers = ProviderConfigManager(ProviderRepository(store, vault), transport, clock = { now })
+    private val keys = KeyManager(pool, vault, providers)
+
+    @Test fun keys_can_be_added_renamed_edited_disabled_and_deleted() {
+        assertNull(keys.add("p1", "Main", "sk-main-0000000000", priority = 1))
+        assertNull(keys.add("p1", "", "sk-second-0000000000"))
+        val list = keys.keys("p1")
+        assertEquals(2, list.size)
+        assertEquals("Key 2", list[1].label)
+        pool.rename(list[1].id, "Backup"); pool.setPriority(list[1].id, 5); pool.setEnabled(list[1].id, false)
+        val b = pool.get(list[1].id)!!
+        assertEquals("Backup", b.label); assertEquals(5, b.priority); assertFalse(b.enabled)
+        assertTrue(keys.remove(list[0].id))
+        assertNull(vault.keys[list[0].id])
+        assertEquals(1, keys.keys("p1").size)
+    }
+
+    @Test fun duplicates_and_bad_text_are_refused_with_a_reason() {
+        assertNull(keys.add("p1", "A", "sk-same-0000000000"))
+        assertEquals("This key is already saved for this provider.", keys.add("p1", "B", "  sk-same-0000000000 "))
+        assertNull(keys.add("p2", "C", "sk-same-0000000000")) // same text under another provider is a different key
+        assertNotNull(keys.add("p1", "D", "bad\nkey"))
+        assertNotNull(keys.add("p1", "E", ""))
+        assertEquals(1, keys.keys("p1").size)
+    }
+
+    @Test fun nothing_is_saved_without_secure_storage() {
+        val locked = KeyManager(pool, MemoryVault(available = false), providers)
+        assertTrue(locked.add("p1", "A", "sk-aaaa-0000000000")!!.contains("never stored as plain text"))
+        assertTrue(pool.list().isEmpty())
+    }
+
+    @Test fun only_a_masked_hint_is_ever_shown() {
+        keys.add("p1", "A", "sk-SECRETKEY-abcd1234")
+        val id = keys.keys("p1")[0].id
+        assertEquals("••••••••1234", keys.mask(id))
+        assertFalse(keys.statusLine(pool.get(id)!!, now).contains("SECRETKEY"))
+        assertTrue(store.map.values.none { it.contains("SECRETKEY") })
+    }
+
+    @Test fun replacing_a_rejected_key_makes_it_usable_again() {
+        keys.add("p1", "A", "sk-old-00000000000")
+        val id = keys.keys("p1")[0].id
+        pool.reportFailure(id, KeyFailure.AUTH, null)
+        assertNull(pool.acquire("p1"))
+        assertNull(keys.replaceKey(id, "sk-new-00000000000"))
+        assertEquals("sk-new-00000000000", vault.keys[id])
+        assertEquals(id, pool.acquire("p1")!!.id)
+    }
+
+    @Test fun a_cooldown_can_be_reset_by_hand() {
+        keys.add("p1", "A", "sk-aaaa-0000000000")
+        val id = keys.keys("p1")[0].id
+        pool.reportFailure(id, KeyFailure.QUOTA, 3_600_000L)
+        assertNull(pool.acquire("p1"))
+        pool.resetCooldown(id)
+        assertEquals(id, pool.acquire("p1")!!.id)
+    }
+
+    @Test fun the_status_line_shows_time_left_and_limit_hits() {
+        keys.add("p1", "A", "sk-aaaa-0000000000")
+        val id = keys.keys("p1")[0].id
+        pool.reportFailure(id, KeyFailure.QUOTA, 90 * 60_000L)
+        val line = keys.statusLine(pool.get(id)!!, now)
+        assertTrue(line, line.contains("Quota used up") && line.contains("90 min") && line.contains("1 limit hit"))
+        pool.setEnabled(id, false)
+        assertTrue(keys.statusLine(pool.get(id)!!, now).startsWith("Switched off"))
+    }
+
+    @Test fun testing_a_key_uses_that_key_against_its_own_provider_and_a_pass_clears_a_stale_rejection() {
+        val p = Fixtures.profile(id = "p1", models = listOf(ModelInfo("m1")))
+        assertNull(providers.save(p, "provider-level-key-000"))
+        keys.add("p1", "A", "sk-testing-0000000000")
+        val id = keys.keys("p1")[0].id
+        pool.reportFailure(id, KeyFailure.AUTH, null)
+        transport.onUrl("/models", 200, Fixtures.openAiModels("m1"))
+        transport.onUrl("/chat/completions", 200, Fixtures.completion("ok"))
+        val report = runBlocking { keys.test(id) }!!
+        assertTrue(report.summary, report.ok)
+        assertTrue(transport.requests.all { r -> r.headers.values.any { it.contains("sk-testing-0000000000") } })
+        assertEquals(KeyHealth.AVAILABLE, pool.get(id)!!.health)
+    }
+
+    @Test fun deleting_a_provider_s_keys_removes_their_secrets() {
+        keys.add("p1", "A", "sk-aaaa-0000000000"); keys.add("p1", "B", "sk-bbbb-0000000000"); keys.add("p2", "C", "sk-cccc-0000000000")
+        keys.removeAllFor("p1")
+        assertTrue(keys.keys("p1").isEmpty())
+        assertEquals(1, vault.keys.size)
+    }
+}
