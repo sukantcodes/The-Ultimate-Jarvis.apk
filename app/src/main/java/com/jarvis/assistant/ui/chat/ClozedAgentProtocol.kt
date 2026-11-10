@@ -47,7 +47,7 @@ internal class ClozedLlm {
     ): ClozedCompletion = withContext(Dispatchers.IO) {
         try {
         val anthropic = provider.baseUrl.contains("api.anthropic.com", ignoreCase = true)
-        val url = endpoint(provider.baseUrl, anthropic)
+        val url = authenticatedEndpoint(provider, endpoint(provider.baseUrl, anthropic))
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             doOutput = true
@@ -76,7 +76,12 @@ internal class ClozedLlm {
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
             if (code !in 200..299) {
                 val responseText = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-                throw ClozedLlmException(errorMessage(code, responseText), code)
+                throw ClozedLlmException(
+                    errorMessage(code, responseText),
+                    code,
+                    connection.getHeaderField("Retry-After"),
+                    responseText
+                )
             }
             stream?.bufferedReader(Charsets.UTF_8)?.use { reader ->
                 val lines = generateSequence { reader.readLine() }
@@ -108,6 +113,17 @@ internal class ClozedLlm {
         }
     }
 
+    private fun authenticatedEndpoint(provider: ResolvedProvider, endpoint: String): String {
+        if (provider.auth.method != AuthMethod.QUERY_PARAM) return endpoint
+        val name = provider.auth.name.trim()
+        val key = provider.auth.secret?.reveal().orEmpty()
+        if (name.isBlank() || key.isBlank()) return endpoint
+        val separator = if (endpoint.contains("?")) "&" else "?"
+        return endpoint + separator +
+            java.net.URLEncoder.encode(name, "UTF-8") + "=" +
+            java.net.URLEncoder.encode(key, "UTF-8")
+    }
+
     private fun HttpURLConnection.applyOpenAiAuth(provider: ResolvedProvider) {
         val key = provider.auth.secret?.reveal().orEmpty()
         when (provider.auth.method) {
@@ -116,7 +132,7 @@ internal class ClozedLlm {
             AuthMethod.X_API_KEY -> if (key.isNotBlank()) setRequestProperty("x-api-key", key)
             AuthMethod.X_GOOG_API_KEY -> if (key.isNotBlank()) setRequestProperty("x-goog-api-key", key)
             AuthMethod.CUSTOM_HEADER -> if (key.isNotBlank() && provider.auth.name.isNotBlank()) setRequestProperty(provider.auth.name, key)
-            AuthMethod.QUERY_PARAM -> Unit // Query-parameter credentials are intentionally not exposed by the coding agent.
+            AuthMethod.QUERY_PARAM -> Unit // Added to the endpoint URL before opening the connection.
         }
     }
 
@@ -349,7 +365,9 @@ internal class ClozedLlm {
 
 internal class ClozedLlmException(
     override val message: String,
-    val statusCode: Int
+    val statusCode: Int,
+    val retryAfterHeader: String? = null,
+    val responseBody: String = ""
 ) : Exception(message) {
     val retryable: Boolean get() = statusCode == 429 || statusCode in 500..599 || statusCode == 0
 }
