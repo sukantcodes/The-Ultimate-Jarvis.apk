@@ -36,7 +36,7 @@ object GitHubTools {
 
     fun all(context: Context): List<Tool> {
         credentialContext = context.applicationContext
-        return listOf(RepositoryInfo, ListBranches, ListDirectory, ReadFile, ImportFile, ImportRepository)
+        return listOf(RepositoryInfo, ListBranches, ListDirectory, ReadFile, CompareBranches, ImportFile, ImportRepository)
     }
 
     internal fun validRepositoryPart(value: String): Boolean =
@@ -269,6 +269,69 @@ object GitHubTools {
             name in setOf("id_rsa", "id_ed25519", "credentials", "credentials.json", "secrets.json", "service-account.json") ||
             name.endsWith(".pem") || name.endsWith(".key") || name.endsWith(".p12") ||
             name.endsWith(".pfx") || name.endsWith(".jks") || name.endsWith(".keystore")
+    }
+
+    object CompareBranches : Tool {
+        override val spec = ToolSpec(
+            "github_compare_branches",
+            "Read-only comparison of two branches in the same GitHub repository. Reports ahead/behind counts and a bounded changed-file summary. Does not modify the repository.",
+            listOf(
+                ToolParam("owner", required = true),
+                ToolParam("repo", required = true),
+                ToolParam("base_branch", required = true),
+                ToolParam("head_branch", required = true)
+            ), Risk.READ_ONLY, "github"
+        )
+
+        override fun describe(args: JsonObject) =
+            "Compare " + arg(args, "head_branch") + " against " + arg(args, "base_branch") +
+                " in " + arg(args, "owner") + "/" + arg(args, "repo")
+
+        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
+            return try {
+                val owner = arg(args, "owner")
+                val repo = arg(args, "repo")
+                val base = arg(args, "base_branch")
+                val head = arg(args, "head_branch")
+                if (!validRepositoryPart(owner) || !validRepositoryPart(repo) ||
+                    !GitHubWriteTools.validBranchName(base) || !GitHubWriteTools.validBranchName(head) || base == head) {
+                    return ToolResult.Error("Choose a valid repository and two different branch names.")
+                }
+                val endpoint = "https://api.github.com".toHttpUrlOrNull()!!.newBuilder()
+                    .addPathSegment("repos").addPathSegment(owner).addPathSegment(repo)
+                    .addPathSegment("compare").addPathSegment("$base...$head")
+                    .addQueryParameter("per_page", "100")
+                    .build()
+                val comparison = JsonParser.parseString(get(endpoint)).asJsonObject
+                val status = comparison.get("status")?.asString ?: "unknown"
+                val ahead = comparison.get("ahead_by")?.asInt ?: 0
+                val behind = comparison.get("behind_by")?.asInt ?: 0
+                val total = comparison.get("total_commits")?.asInt ?: ahead
+                val files = comparison.getAsJsonArray("files")
+                val fileLines = files?.mapNotNull { item ->
+                    if (!item.isJsonObject) return@mapNotNull null
+                    val file = item.asJsonObject
+                    val path = file.get("filename")?.asString ?: return@mapNotNull null
+                    val state = file.get("status")?.asString ?: "modified"
+                    val additions = file.get("additions")?.asInt ?: 0
+                    val deletions = file.get("deletions")?.asInt ?: 0
+                    "$state  $path  (+$additions / -$deletions)"
+                }.orEmpty()
+                ToolResult.Ok(buildString {
+                    appendLine("Repository: $owner/$repo")
+                    appendLine("Comparison: $head → $base")
+                    appendLine("Status: $status")
+                    appendLine("Head ahead: $ahead commit(s); base ahead: $behind commit(s)")
+                    appendLine("Commits in comparison: $total")
+                    appendLine("Changed files returned by GitHub: " + fileLines.size)
+                    if (fileLines.isEmpty()) append("No changed-file list was returned.")
+                    else append(fileLines.take(100).joinToString("\n"))
+                    if (files == null) appendLine("\nGitHub did not include a changed-file list in this response.")
+                })
+            } catch (e: Exception) {
+                error(e)
+            }
+        }
     }
 
     object ImportRepository : Tool {
