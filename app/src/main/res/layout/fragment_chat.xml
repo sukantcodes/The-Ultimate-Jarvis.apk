@@ -433,6 +433,16 @@
                 android:contentDescription="Stop JARVIS response" />
 
             <ImageButton
+                android:id="@+id/btnChatVoiceInput"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="@drawable/bg_chat_attach_button"
+                android:src="@drawable/ic_chat_mic"
+                app:tint="?attr/themeTextPrimary"
+                android:layout_marginEnd="6dp"
+                android:contentDescription="Dictate a message to JARVIS" />
+
+            <ImageButton
                 android:id="@+id/btnAttach"
                 android:layout_width="42dp"
                 android:layout_height="42dp"
