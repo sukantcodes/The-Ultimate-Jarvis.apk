@@ -266,12 +266,47 @@ internal class ClozedCodingAgentEngine(
     }
 
     private suspend fun runMappedTool(call: ClozedToolCall, args: JsonObject): Pair<String, Boolean> {
+        val path = args.get("path")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+        when (call.name) {
+            "read" -> {
+                val file = workspace.resolve(path)
+                if (file.isDirectory) return (file.listFiles()?.sortedBy { it.name.lowercase() }?.joinToString("\n") { if (it.isDirectory) it.name + "/" else it.name } ?: "(empty)") to true
+                if (!file.isFile) return ("Error: file not found: " + path) to false
+                if (file.length() > 2_000_000) return "Error: file exceeds the 2 MB read limit." to false
+                val offset = args.get("offset")?.let { runCatching { it.asInt }.getOrNull() }?.coerceAtLeast(0) ?: 0
+                val limit = args.get("limit")?.let { runCatching { it.asInt }.getOrNull() }?.coerceIn(1, 2000) ?: 2000
+                return file.readLines(Charsets.UTF_8).drop(offset).take(limit).mapIndexed { i, line -> (offset + i + 1).toString() + ": " + line }.joinToString("\n") to true
+            }
+            "edit" -> {
+                val file = workspace.resolve(path)
+                if (!file.isFile || file.length() > 2_000_000) return "Error: edit target is missing or too large." to false
+                val old = args.get("oldString")?.asString.orEmpty()
+                val new = args.get("newString")?.asString.orEmpty()
+                if (old.isEmpty()) return "Error: oldString cannot be empty." to false
+                val original = file.readText(Charsets.UTF_8)
+                val count = Regex.escape(old).toRegex().findAll(original).count()
+                if (count == 0) return "Error: exact oldString was not found." to false
+                val all = args.get("replaceAll")?.let { runCatching { it.asBoolean }.getOrNull() } == true
+                if (count > 1 && !all) return ("Error: found " + count + " matches; set replaceAll=true.") to false
+                val updated = if (all) original.replace(old, new) else original.replaceFirst(old, new)
+                return writeThroughTool(path, updated, call.id)
+            }
+            "patch" -> return "Error: patch application is not yet connected; use edit for exact replacements." to false
+            "glob" -> {
+                val pattern = args.get("pattern")?.asString.orEmpty()
+                if (pattern.isBlank()) return "Error: pattern is required." to false
+                val base = workspace.resolve(args.get("path")?.asString ?: ".")
+                val matcher = java.nio.file.FileSystems.getDefault().getPathMatcher("glob:" + pattern)
+                val found = base.walkTopDown().take(5001).filter { file ->
+                    val relative = base.toPath().relativize(file.toPath())
+                    matcher.matches(relative) || matcher.matches(relative.fileName ?: relative)
+                }.take(500).map { workspace.relative(it) + if (it.isDirectory) "/" else "" }.toList()
+                return found.joinToString("\n").ifBlank { "No paths matched." } to true
+            }
+        }
         val mapped = when (call.name) {
-            "read" -> if (workspace.resolve(args.get("path")?.asString.orEmpty()).isDirectory) "list_files" else "read_file"
             "write" -> "write_file"
-            "edit", "patch" -> "apply_patch"
             "delete" -> "delete_path"
-            "glob" -> "list_files"
             "grep" -> "search_files"
             "webfetch" -> "fetch_url"
             "websearch" -> "web_search"
@@ -279,26 +314,12 @@ internal class ClozedCodingAgentEngine(
         }
         val mappedArgs = JsonObject()
         when (call.name) {
-            "read" -> {
-                mappedArgs.addProperty("path", args.get("path")?.asString.orEmpty())
-                mappedArgs.addProperty("max_chars", ((args.get("limit")?.asInt ?: 2000).coerceIn(1, 2000) * 160))
-            }
             "write" -> {
-                mappedArgs.addProperty("path", args.get("path")?.asString.orEmpty())
+                mappedArgs.addProperty("path", path)
                 mappedArgs.addProperty("content", args.get("content")?.asString.orEmpty())
                 mappedArgs.addProperty("overwrite", true)
             }
-            "edit" -> {
-                mappedArgs.addProperty("path", args.get("path")?.asString.orEmpty())
-                mappedArgs.addProperty("find", args.get("oldString")?.asString.orEmpty())
-                mappedArgs.addProperty("replace", args.get("newString")?.asString.orEmpty())
-            }
-            "patch" -> return ("Error: multi-file patch parser is not connected yet; use edit for exact single-file replacements.") to false
-            "delete" -> mappedArgs.addProperty("path", args.get("path")?.asString.orEmpty())
-            "glob" -> {
-                mappedArgs.addProperty("path", args.get("path")?.asString ?: ".")
-                mappedArgs.addProperty("recursive", true)
-            }
+            "delete" -> mappedArgs.addProperty("path", path)
             "grep" -> {
                 mappedArgs.addProperty("query", args.get("pattern")?.asString.orEmpty())
                 mappedArgs.addProperty("path", args.get("path")?.asString ?: ".")
@@ -307,6 +328,16 @@ internal class ClozedCodingAgentEngine(
             "websearch" -> mappedArgs.addProperty("query", args.get("query")?.asString.orEmpty())
         }
         val result: ToolResult = AgentToolRuntime.executor(app).execute(ToolCall(call.id, mapped, mappedArgs, "Clozed coding agent"))
+        return result.text to result.isOk
+    }
+
+    private suspend fun writeThroughTool(path: String, content: String, callId: String): Pair<String, Boolean> {
+        val args = JsonObject().apply {
+            addProperty("path", path)
+            addProperty("content", content)
+            addProperty("overwrite", true)
+        }
+        val result = AgentToolRuntime.executor(app).execute(ToolCall(callId + "_write", "write_file", args, "Clozed coding agent"))
         return result.text to result.isOk
     }
 
