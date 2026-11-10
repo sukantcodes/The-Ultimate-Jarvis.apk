@@ -20,6 +20,7 @@ object AgentToolRuntime {
             SkillTools.all(SkillStore.get(context.applicationContext)).forEach(registry::register)
             WorkspaceTools.all().forEach(registry::register)
             WebTools.all().forEach(registry::register)
+            GitHubTools.all().forEach(registry::register)
             ScheduledTaskTools.all(context.applicationContext).forEach(registry::register)
             registryInstance = registry
         }
