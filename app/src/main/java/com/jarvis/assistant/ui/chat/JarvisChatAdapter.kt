@@ -120,8 +120,11 @@ class JarvisChatAdapter(
             if (turn.jarvisResponse.isNotBlank()) {
                 binding.layoutAssistantContainer.visibility = View.VISIBLE
                 binding.tvAssistantMessage.text = MarkdownMessageRenderer.render(context, turn.jarvisResponse)
-            binding.tvAssistantMessage.movementMethod = android.text.method.LinkMovementMethod.getInstance()
-            binding.tvAssistantMessage.highlightColor = android.graphics.Color.TRANSPARENT
+                binding.tvAssistantMessage.movementMethod = android.text.method.LinkMovementMethod.getInstance()
+                binding.tvAssistantMessage.highlightColor = android.graphics.Color.TRANSPARENT
+                binding.tvAssistantMessage.setTextIsSelectable(true)
+                binding.tvAssistantMessage.typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
+                binding.tvAssistantMessage.setLineSpacing((binding.tvAssistantMessage.textSize * 0.16f), 1.0f)
 
                 val reasoning = turn.codingReasoning.orEmpty()
                 binding.tvCodingReasoningToggle.visibility = if (reasoning.isBlank()) View.GONE else View.VISIBLE

@@ -118,8 +118,10 @@
             android:text="Hey! I'm doing great, aap. How are you feeling today? 😊"
             android:textColor="?attr/themeTextPrimary"
             android:fontFamily="sans-serif"
-            android:textSize="15sp"
-            android:lineSpacingExtra="4dp"
+            android:textSize="15.5sp"
+            android:lineSpacingExtra="5dp"
+            android:letterSpacing="0.005"
+            android:includeFontPadding="true"
             android:breakStrategy="high_quality"
             android:hyphenationFrequency="normal" />
 

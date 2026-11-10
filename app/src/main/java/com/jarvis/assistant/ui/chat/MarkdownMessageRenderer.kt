@@ -58,9 +58,9 @@ object MarkdownMessageRenderer {
                 trimmed.isBlank() -> {
                     if (out.isNotEmpty() && !out.endsWith("\n\n")) out.append("\n\n")
                 }
-                trimmed.startsWith("### ") -> appendHeading(out, trimmed.substring(4), 1.08f)
-                trimmed.startsWith("## ") -> appendHeading(out, trimmed.substring(3), 1.16f)
-                trimmed.startsWith("# ") -> appendHeading(out, trimmed.substring(2), 1.28f)
+                trimmed.startsWith("### ") -> appendHeading(out, decorateHeading(trimmed.substring(4)), 1.08f)
+                trimmed.startsWith("## ") -> appendHeading(out, decorateHeading(trimmed.substring(3)), 1.16f)
+                trimmed.startsWith("# ") -> appendHeading(out, decorateHeading(trimmed.substring(2)), 1.28f)
                 trimmed.startsWith("> ") -> appendQuote(out, trimmed.substring(2))
                 trimmed.matches(Regex("^[-*+]\\s+.*")) -> appendBullet(out, trimmed.drop(2))
                 trimmed.matches(Regex("^\\d+[.)]\\s+.*")) -> appendNumbered(out, trimmed)
@@ -75,6 +75,26 @@ object MarkdownMessageRenderer {
         applyInlineFormatting(out)
         Linkify.addLinks(out, Linkify.WEB_URLS or Linkify.EMAIL_ADDRESSES)
         return out
+    }
+
+    private fun decorateHeading(value: String): String {
+        val clean = value.trim()
+        if (clean.isEmpty() || clean.startsWith("📌") || clean.startsWith("✨") ||
+            clean.startsWith("🧭") || clean.startsWith("⚠️") || clean.startsWith("✅") ||
+            clean.startsWith("💡") || clean.startsWith("🧪") || clean.startsWith("📊")) return clean
+        val key = clean.lowercase()
+        val icon = when {
+            key.contains("warning") || key.contains("caution") || key.contains("risk") || key.contains("important") -> "⚠️"
+            key.contains("summary") || key.contains("overview") || key.contains("tldr") -> "📌"
+            key.contains("step") || key.contains("procedure") || key.contains("how to") -> "🧭"
+            key.contains("example") || key.contains("sample") -> "💡"
+            key.contains("result") || key.contains("complete") || key.contains("success") -> "✅"
+            key.contains("data") || key.contains("statistics") || key.contains("comparison") -> "📊"
+            key.contains("test") || key.contains("experiment") -> "🧪"
+            key.contains("conclusion") || key.contains("takeaway") -> "✨"
+            else -> ""
+        }
+        return if (icon.isEmpty()) clean else "$icon  $clean"
     }
 
     private fun appendHeading(out: SpannableStringBuilder, value: String, size: Float) {

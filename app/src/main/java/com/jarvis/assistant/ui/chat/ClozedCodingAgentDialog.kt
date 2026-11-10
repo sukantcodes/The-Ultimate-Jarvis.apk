@@ -169,6 +169,7 @@ internal object ClozedCodingAgentDialog {
         root.addView(composer, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
 
         var activeAssistant: TextView? = null
+        val activeAssistantSource = StringBuilder()
         val toolViews = LinkedHashMap<String, TextView>()
         var running = false
         var currentMode = "build"
@@ -198,6 +199,14 @@ internal object ClozedCodingAgentDialog {
             val rendered = MarkdownMessageRenderer.render(context, text)
             addText(rendered, rounded(card, border, dp(14)), Gravity.START, primary)
             activeAssistant = transcript.getChildAt(transcript.childCount - 1) as? TextView
+            activeAssistant?.apply {
+                typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+                setLineSpacing((textSize * 0.16f), 1.0f)
+                movementMethod = android.text.method.LinkMovementMethod.getInstance()
+                highlightColor = android.graphics.Color.TRANSPARENT
+            }
+            activeAssistantSource.setLength(0)
+            activeAssistantSource.append(text)
         }
         fun addNotice(text: String) {
             addText(text, rounded(0xff25303d.toInt(), border, dp(10)), Gravity.CENTER, secondary)
@@ -207,6 +216,7 @@ internal object ClozedCodingAgentDialog {
             transcript.removeAllViews()
             toolViews.clear()
             activeAssistant = null
+            activeAssistantSource.setLength(0)
             engineRef?.currentSession()?.messages?.forEach { item ->
                 when (item.role) {
                     "user" -> addUser(item.text)
@@ -236,11 +246,9 @@ internal object ClozedCodingAgentDialog {
                     "reload" -> renderSession()
                     "user" -> addUser(event.text)
                     "text" -> {
-                        val view = activeAssistant ?: run {
-                            addAssistant("")
-                            activeAssistant
-                        }
-                        view?.append(event.text)
+                        if (activeAssistant == null) addAssistant("")
+                        activeAssistantSource.append(event.text)
+                        activeAssistant?.text = MarkdownMessageRenderer.render(context, activeAssistantSource.toString())
                         scrollBottom()
                     }
                     "reasoning" -> {
