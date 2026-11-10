@@ -6,6 +6,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.content.Context
@@ -54,6 +56,7 @@ class ChatFragment : Fragment() {
     private val providerManager by lazy { ProviderRuntime.manager(requireContext()) }
     private val providerEngine by lazy { ProviderRuntime.chatEngine(requireContext()) }
     private var retrySnackbar: com.google.android.material.snackbar.Snackbar? = null
+    private var chatStatusAnimator: ObjectAnimator? = null
 
     private val chatToolConfirmer = object : Confirmer {
         override suspend fun confirm(request: ConfirmRequest): Decision = withContext(Dispatchers.Main.immediate) {
@@ -169,7 +172,7 @@ class ChatFragment : Fragment() {
             fileAnalysisJob = null
             providerEngine.cancel()
             binding.btnStopChat.visibility = View.GONE
-            binding.tvChatStatus.text = "● READY"
+            setChatActivity("READY")
             binding.btnSendMessage.isEnabled = true
             com.jarvis.assistant.background.JarvisConversationService.stopCurrentResponseImmediately()
             Toast.makeText(requireContext(), "JARVIS response stopped.", Toast.LENGTH_SHORT).show()
@@ -214,6 +217,9 @@ class ChatFragment : Fragment() {
 
         binding.btnChatTerminal.setOnClickListener {
             ChatTerminalDialog.show(requireContext())
+        }
+        binding.btnChatServer.setOnClickListener {
+            LocalServerDialog.show(requireContext())
         }
 
         observeChatTurns()
@@ -393,7 +399,7 @@ class ChatFragment : Fragment() {
                 }
                 launch {
                     providerEngine.toolActivity.collect { activity ->
-                        if (_binding != null && providerEngine.isBusy) binding.tvChatStatus.text = "● ${activity.uppercase()}"
+                        if (_binding != null && providerEngine.isBusy) setChatActivity("PROCESSING · ${activity.uppercase()}")
                     }
                 }
                 providerEngine.state.collect { state ->
@@ -402,12 +408,12 @@ class ChatFragment : Fragment() {
                         is EngineState.Streaming -> {
                             binding.btnStopChat.visibility = View.VISIBLE
                             binding.btnSendMessage.isEnabled = false
-                            binding.tvChatStatus.text = "● ANSWERING"
+                            setChatActivity("ANSWERING")
                         }
                         is EngineState.Failed -> {
                             binding.btnStopChat.visibility = View.GONE
                             binding.btnSendMessage.isEnabled = true
-                            binding.tvChatStatus.text = "● ERROR"
+                            setChatActivity("ERROR")
                             retrySnackbar = com.google.android.material.snackbar.Snackbar
                                 .make(binding.root, state.error.message, com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE)
                                 .setAction("Retry") {
@@ -422,7 +428,7 @@ class ChatFragment : Fragment() {
                         EngineState.Idle -> if (offlineGenerationJob == null && fileAnalysisJob == null) {
                             binding.btnStopChat.visibility = View.GONE
                             binding.btnSendMessage.isEnabled = true
-                            binding.tvChatStatus.text = "● READY"
+                            setChatActivity("READY")
                         }
                     }
                 }
@@ -432,6 +438,11 @@ class ChatFragment : Fragment() {
 
     private fun sendMessage() {
         val text = binding.etMessageInput.text?.toString()?.trim().orEmpty()
+        if (isLocalServerRequest(text)) {
+            binding.etMessageInput.text?.clear()
+            LocalServerDialog.show(requireContext())
+            return
+        }
         if (customProviderActive()) {
             sendViaProvider(text)
             return
@@ -456,7 +467,7 @@ class ChatFragment : Fragment() {
             binding.etMessageInput.text?.clear()
             binding.btnSendMessage.isEnabled = false
             binding.btnStopChat.visibility = View.VISIBLE
-            binding.tvChatStatus.text = "● ANALYZING"
+            setChatActivity("PROCESSING")
             Toast.makeText(requireContext(), "JARVIS is analyzing ${document.name}…", Toast.LENGTH_LONG).show()
             fileAnalysisJob = viewLifecycleOwner.lifecycleScope.launch {
                 try {
@@ -476,7 +487,7 @@ class ChatFragment : Fragment() {
                     if (_binding != null) {
                         binding.btnSendMessage.isEnabled = true
                         binding.btnStopChat.visibility = View.GONE
-                        binding.tvChatStatus.text = "● READY"
+                        setChatActivity("READY")
                     }
                 }
             }
@@ -503,7 +514,7 @@ class ChatFragment : Fragment() {
             binding.etMessageInput.text?.clear()
             binding.btnSendMessage.isEnabled = false
             binding.btnStopChat.visibility = View.VISIBLE
-            binding.tvChatStatus.text = "● THINKING"
+            setChatActivity("THINKING")
             offlineGenerationJob = viewLifecycleOwner.lifecycleScope.launch {
                 try {
                     val answer = OfflineLlm.generate(appContext, text)
@@ -517,7 +528,7 @@ class ChatFragment : Fragment() {
                     if (_binding != null) {
                         binding.btnSendMessage.isEnabled = true
                         binding.btnStopChat.visibility = View.GONE
-                        binding.tvChatStatus.text = "● READY"
+                        setChatActivity("READY")
                     }
                 }
             }
@@ -528,8 +539,38 @@ class ChatFragment : Fragment() {
         binding.etMessageInput.text?.clear()
         binding.btnSendMessage.isEnabled = false
         binding.btnStopChat.visibility = View.VISIBLE
-        binding.tvChatStatus.text = "● THINKING"
+        setChatActivity("THINKING")
     }
+    private fun isLocalServerRequest(text: String): Boolean {
+        val normalized = text.lowercase()
+        val serverMention = normalized.contains("local server") ||
+            normalized.contains("local website") ||
+            normalized.contains("website locally") ||
+            normalized.contains("web server")
+        val actionMention = listOf("host", "start", "run", "serve", "preview", "launch").any { normalized.contains(it) }
+        return text.length <= 240 && serverMention && actionMention
+    }
+
+    private fun setChatActivity(stage: String) {
+        if (_binding == null) return
+        val view = binding.tvChatStatus
+        view.text = "● $stage"
+        chatStatusAnimator?.cancel()
+        chatStatusAnimator = null
+        if (stage == "READY" || stage == "ERROR") {
+            view.alpha = 1f
+            view.scaleX = 1f
+            view.scaleY = 1f
+        } else {
+            chatStatusAnimator = ObjectAnimator.ofFloat(view, View.ALPHA, 0.62f, 1f).apply {
+                duration = 720L
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+                start()
+            }
+        }
+    }
+
     private fun setPrompt(prompt: String) {
         binding.etMessageInput.setText(prompt)
         binding.etMessageInput.setSelection(prompt.length)
@@ -554,11 +595,11 @@ class ChatFragment : Fragment() {
                         if (!pending && offlineGenerationJob == null && fileAnalysisJob == null && selectedDocument == null) {
                             binding.btnStopChat.visibility = View.GONE
                             binding.btnSendMessage.isEnabled = true
-                            binding.tvChatStatus.text = "● READY"
+                            setChatActivity("READY")
                         } else if (pending) {
                             binding.btnStopChat.visibility = View.VISIBLE
                             binding.btnSendMessage.isEnabled = false
-                            binding.tvChatStatus.text = "● THINKING"
+                            setChatActivity("THINKING")
                         }
                     }
                     chatAdapter.submitList(turns) {
@@ -588,6 +629,8 @@ class ChatFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        chatStatusAnimator?.cancel()
+        chatStatusAnimator = null
         retrySnackbar?.dismiss()
         if (AgentToolApproval.confirmer === chatToolConfirmer) AgentToolApproval.confirmer = null
         chatAdapter.release()
