@@ -185,6 +185,7 @@ class McpServersActivity : AppCompatActivity() {
                 val error = manager.setBearerToken(id, input.text.toString())
                 if (error != null) Toast.makeText(this, error, Toast.LENGTH_LONG).show()
                 render()
+                if (error == null) refreshTools()
             }
             .show()
     }
