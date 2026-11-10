@@ -42,6 +42,22 @@ object GitHubTools {
     internal fun validRepositoryPart(value: String): Boolean =
         value.matches(Regex("[A-Za-z0-9_.-]{1,100}")) && value != "." && value != ".."
 
+    internal fun isUtf8Text(bytes: ByteArray): Boolean {
+        if (bytes.any { it == 0.toByte() }) return false
+        return runCatching {
+            Charsets.UTF_8.newDecoder()
+                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                .decode(java.nio.ByteBuffer.wrap(bytes))
+        }.isSuccess
+    }
+
+    internal fun fitsWorkspaceBudget(existingBytes: Long, incomingBytes: Long): Boolean =
+        existingBytes >= 0L && incomingBytes >= 0L &&
+            incomingBytes <= MAX_IMPORT_BYTES &&
+            existingBytes <= MAX_WORKSPACE_BYTES &&
+            incomingBytes <= MAX_WORKSPACE_BYTES - existingBytes
+
     internal fun validRepoPath(value: String): Boolean {
         if (value.isBlank() || value.startsWith("/") || value.contains('\\') || value.contains('\u0000')) return false
         return value.split('/').all { it.isNotBlank() && it != "." && it != ".." && it.length <= 180 }
@@ -143,7 +159,7 @@ object GitHubTools {
             val bytes = Base64.getDecoder().decode(encoded)
             if (bytes.size > MAX_FILE_BYTES) return ToolResult.Error("File exceeds the 1 MB read limit.")
             val text = bytes.toString(Charsets.UTF_8)
-            if (text.contains('\u0000')) return ToolResult.Error("Binary files are not supported by this tool.")
+            if (!isUtf8Text(bytes)) return ToolResult.Error("Binary or invalid UTF-8 files are not supported by this tool.")
             ToolResult.Ok("File: ${owner}/${repo}/${path} @ ${arg(args, "ref").ifBlank { "default branch" }}\n\n${text.take(MAX_TEXT_OUTPUT)}${if (text.length > MAX_TEXT_OUTPUT) "\n\n[Output truncated; file is available through GitHub.] " else ""}")
         } catch (e: Exception) { error(e) }
         }
@@ -174,7 +190,7 @@ object GitHubTools {
             if ((obj.get("size")?.asLong ?: 0L) > MAX_FILE_BYTES) return ToolResult.Error("File exceeds the 1 MB import limit.")
             if (obj.get("encoding")?.asString != "base64") return ToolResult.Error("Only base64 text files can be imported.")
             val bytes = Base64.getDecoder().decode(obj.get("content")?.asString.orEmpty().replace("\n", "").replace("\r", ""))
-            if (bytes.size > MAX_FILE_BYTES || bytes.any { it == 0.toByte() }) return ToolResult.Error("Binary or oversized files are not supported.")
+            if (bytes.size > MAX_FILE_BYTES || !isUtf8Text(bytes)) return ToolResult.Error("Binary, invalid UTF-8 or oversized files are not supported.")
             val target = ctx.workspace.resolve(destination)
             if (target.exists()) return ToolResult.Error("Destination already exists. Choose another path or explicitly approve an overwrite.")
             if (ctx.workspace.sizeOf() + bytes.size > 50L * 1024L * 1024L) return ToolResult.Error("ChatBox workspace quota (50 MB) would be exceeded.")
@@ -305,8 +321,13 @@ object GitHubTools {
                 if (candidates.isEmpty()) return ToolResult.Error("No eligible text-sized files were found in this repository snapshot.")
                 val dir = ctx.workspace.resolve(destination)
                 if (dir.exists()) return ToolResult.Error("The destination already exists. Choose a new folder to avoid overwriting existing work.")
-                if (ctx.workspace.sizeOf() + candidates.sumOf { it.second } > MAX_IMPORT_BYTES + ctx.workspace.sizeOf()) {
+                val existingWorkspaceBytes = ctx.workspace.sizeOf()
+                val estimatedImportBytes = candidates.sumOf { it.second }
+                if (estimatedImportBytes > MAX_IMPORT_BYTES) {
                     return ToolResult.Error("The selected files exceed the 20 MB import budget. Lower max_files or import selected files individually.")
+                }
+                if (!fitsWorkspaceBudget(existingWorkspaceBytes, estimatedImportBytes)) {
+                    return ToolResult.Error("The import would exceed the ChatBox workspace's 50 MB total storage limit. Free workspace space or import fewer files.")
                 }
                 dir.mkdirs()
                 targetDir = dir
@@ -325,11 +346,14 @@ object GitHubTools {
                         continue
                     }
                     val bytes = Base64.getDecoder().decode(obj.get("content")?.asString.orEmpty().replace("\n", "").replace("\r", ""))
-                    if (bytes.size.toLong() != declaredSize || bytes.size.toLong() > MAX_FILE_BYTES || bytes.any { it == 0.toByte() }) {
+                    if (bytes.size.toLong() != declaredSize || bytes.size.toLong() > MAX_FILE_BYTES || !isUtf8Text(bytes)) {
                         skippedBinary++
                         continue
                     }
                     if (totalBytes + bytes.size > MAX_IMPORT_BYTES) break
+                    if (!fitsWorkspaceBudget(existingWorkspaceBytes, totalBytes + bytes.size)) {
+                        throw IOException("The workspace reached its 50 MB storage limit during import; the partial import was rolled back.")
+                    }
                     val target = ctx.workspace.resolve("$destination/$path")
                     if (target.exists()) continue
                     target.parentFile?.mkdirs()
@@ -355,5 +379,6 @@ object GitHubTools {
     }
 
     private const val MAX_IMPORT_BYTES = 20L * 1024L * 1024L
+    private const val MAX_WORKSPACE_BYTES = 50L * 1024L * 1024L
 
 }
