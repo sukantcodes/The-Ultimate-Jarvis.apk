@@ -132,7 +132,7 @@ internal object ClozedCodingAgentDialog {
             setPadding(0, dp(4), 0, dp(12))
         }
         val transcript = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        transcriptScroll.addView(transcript, ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        transcriptScroll.addView(transcript, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(transcriptScroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
         val plan = TextView(context).apply {
@@ -191,7 +191,7 @@ internal object ClozedCodingAgentDialog {
             scrollBottom()
         }
         fun addUser(text: String) {
-            addText(text, rounded(color(com.jarvis.assistant.R.attr.colorPrimary, 0xff205e9b.toInt()), border, dp(14)), Gravity.END, color(com.jarvis.assistant.R.attr.colorOnPrimary, 0xffffffff.toInt()))
+            addText(text, rounded(color(com.jarvis.assistant.R.attr.themeAccent, 0xff205e9b.toInt()), border, dp(14)), Gravity.END, color(com.jarvis.assistant.R.attr.themeTextPrimary, 0xffffffff.toInt()))
             activeAssistant = null
         }
         fun addAssistant(text: String) {
