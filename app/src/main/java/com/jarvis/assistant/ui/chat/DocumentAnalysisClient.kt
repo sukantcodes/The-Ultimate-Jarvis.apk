@@ -371,12 +371,12 @@ object DocumentAnalysisClient {
                 val entry = zip.nextEntry ?: break
                 entryCount++
                 if (entryCount > 200) throw IllegalArgumentException("This ZIP contains more than 200 entries.")
-                val label = entry.name.replace('\\\\', '/').take(240)
+                val label = entry.name.replace('\\', '/').take(240)
                 val data = if (entry.isDirectory) ByteArray(0) else readZipEntryLimited(zip, 1024 * 1024)
                 expandedBytes += data.size
                 if (expandedBytes > 8 * 1024 * 1024) throw IllegalArgumentException("This ZIP expands beyond the 8 MB inspection limit.")
                 if (!entry.isDirectory) {
-                    out.append("\\n--- ").append(label).append(" (").append(data.size).append(" bytes) ---\\n")
+                    out.append("\n--- ").append(label).append(" (").append(data.size).append(" bytes) ---\n")
                     val ext = label.substringAfterLast('.', "").lowercase(Locale.ROOT)
                     if (ext in textExtensions) {
                         val decoded = runCatching {
@@ -386,7 +386,7 @@ object DocumentAnalysisClient {
                         }.getOrNull()
                         out.append(decoded?.take(12000) ?: "[Binary or invalid UTF-8 entry; content skipped.]")
                     } else out.append("[Binary or unsupported entry; content not extracted.]")
-                    out.append('\\n')
+                    out.append('\n')
                 }
                 zip.closeEntry()
                 if (out.length > MAX_TEXT_CHARS) break
