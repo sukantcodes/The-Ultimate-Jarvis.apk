@@ -11,7 +11,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 
-/** Explicit local setup for optional GitHub private-repository read access. */
+/** Explicit local setup for optional GitHub repository access. */
 class GitHubConnectionActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,7 +22,7 @@ class GitHubConnectionActivity : AppCompatActivity() {
         }
         val title = TextView(this).apply { text = "GitHub connection"; textSize = 24f; setPadding(0, 0, 0, pad) }
         val intro = TextView(this).apply {
-            text = "Connect an optional GitHub fine-grained personal access token. Create it on GitHub with access only to the repositories you choose and read-only Contents + Metadata permissions. JARVIS stores it encrypted on this device and sends it only to api.github.com. It is never added to chat prompts or tool results. Remote commits and pushes are not enabled yet."
+            text = "Connect an optional GitHub fine-grained personal access token and restrict it to only the repositories JARVIS needs. For browsing and importing, grant Metadata (read) and Contents (read). To create feature branches or commit approved workspace files, also grant Contents (read and write). To open pull requests, grant Pull requests (read and write). JARVIS stores the token encrypted on this device and sends it only to api.github.com; it is never added to chat prompts or tool results. Repository writes require a separate in-app approval. JARVIS blocks direct commits to the repository default branch and does not merge pull requests."
             textSize = 14f
             setPadding(0, 0, 0, pad)
         }
