@@ -203,7 +203,7 @@ internal class ClozedCodingAgentEngine(
     private fun buildTools(): List<ClozedToolDefinition> {
         fun schema(vararg fields: Pair<String, String>, required: List<String> = emptyList()): JsonObject {
             val properties = JsonObject()
-            fields.forEach { (name, type) -> properties.add(name, JsonObject().apply { addProperty("type", type) }) }
+            fields.forEach { (name, type) -> properties.add(name, JsonObject().apply { addProperty("type", type); if (type == "array") add("items", JsonObject().apply { addProperty("type", "string") }) }) }
             val req = com.google.gson.JsonArray()
             required.forEach(req::add)
             return JsonObject().apply { addProperty("type", "object"); add("properties", properties); add("required", req); addProperty("additionalProperties", false) }
