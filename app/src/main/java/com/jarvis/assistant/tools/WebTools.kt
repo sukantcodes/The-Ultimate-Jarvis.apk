@@ -157,7 +157,7 @@ object WebTools {
                     val lines = item.split("\n", limit = 2)
                     val title = lines.firstOrNull().orEmpty()
                     val sourceUrl = lines.getOrNull(1).orEmpty()
-                    "[S${i + 1}] [${title}]($sourceUrl)\\nSource URL: $sourceUrl"
+                    "[S${i + 1}] [${title}]($sourceUrl)\nSource URL: $sourceUrl"
                 }.joinToString("\n\n"))
             } catch (e: Exception) {
                 ToolResult.Error(e.message ?: "Web search failed.")
