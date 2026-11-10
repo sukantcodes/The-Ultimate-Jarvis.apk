@@ -63,7 +63,7 @@ internal class ClozedCodingAgentEngine(
     private var workspace: Workspace = projectsRoot
     private val sessionsDir = File(app.filesDir, "clozed-sessions").apply { mkdirs() }
     private val gson = com.google.gson.Gson()
-    private val undo = ArrayDeque<List<FileSnapshot>>()
+    private val undo = ArrayDeque<List<ClozedFileSnapshot>>().apply { addAll(session.undoHistory.orEmpty()) }
     private var interrupted = false
     private var session = loadLatestSession() ?: createSession()
     init { restoreSessionWorkspace() }
@@ -100,6 +100,7 @@ internal class ClozedCodingAgentEngine(
         todos = session.todos.orEmpty()
         restoreSessionWorkspace()
         undo.clear()
+        undo.addAll(session.undoHistory.orEmpty())
         emit(ClozedAgentEvent("reload"))
         return true
     }
@@ -108,6 +109,7 @@ internal class ClozedCodingAgentEngine(
         session = createSession()
         todos = emptyList()
         undo.clear()
+        session.undoHistory = mutableListOf()
         lastSignature = ""
         repeatedSignatureCount = 0
         emit(ClozedAgentEvent("reload"))
@@ -223,19 +225,34 @@ internal class ClozedCodingAgentEngine(
                 }
                 history += ClozedMessage.Assistant(completion.text, completion.calls)
                 emit(ClozedAgentEvent("state", text = "working"))
-                val stepSnapshots = ArrayList<FileSnapshot>()
+                val stepSnapshots = ArrayList<ClozedFileSnapshot>()
+                var stepUndoEntries = 0
                 for (call in completion.calls) {
                     if (interrupted) break
                     emit(ClozedAgentEvent("tool_start", id = call.id, name = call.name, input = call.arguments, running = true))
                     val before = snapshotBefore(call)
                     val result = withContext(Dispatchers.IO) { dispatch(call, provider) }
-                    if (before.isNotEmpty()) stepSnapshots.addAll(before)
+                    if (before.isNotEmpty()) {
+                        stepSnapshots.addAll(before)
+                        undo.addLast(before)
+                        stepUndoEntries++
+                        session.undoHistory = undo.toMutableList()
+                        saveSession()
+                    }
                     history += ClozedMessage.ToolResult(call.id, call.name, result.first)
                     session.messages += ClozedSessionRecord("tool", result.first, callId = call.id, toolName = call.name)
                     saveSession()
                     emit(ClozedAgentEvent("tool_end", id = call.id, name = call.name, output = result.first, running = false, ok = result.second))
                 }
-                if (stepSnapshots.isNotEmpty()) undo.addLast(stepSnapshots)
+                if (stepUndoEntries > 1) {
+                    val combined = ArrayList<ClozedFileSnapshot>()
+                    repeat(stepUndoEntries) { if (undo.isNotEmpty()) combined.addAll(undo.removeLast()) }
+                    undo.addLast(combined)
+                }
+                if (stepSnapshots.isNotEmpty()) {
+                    session.undoHistory = undo.toMutableList()
+                    saveSession()
+                }
             }
             if (step > 40) emit(ClozedAgentEvent("notice", text = "Stopped after 40 steps.", ok = false))
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
@@ -760,7 +777,7 @@ internal class ClozedCodingAgentEngine(
             command == "/help" -> emit(ClozedAgentEvent("notice", text = "/new /clear /sessions /open <id> /connect /folder /model [id] /models /effort [low|medium|high] /undo /compact /port [stop] /init"))
             command == "/new" -> { newSession(); emit(ClozedAgentEvent("notice", text = "Started a new coding session.")) }
             command == "/clear" -> { session.messages.clear(); saveSession(); emit(ClozedAgentEvent("reload")); emit(ClozedAgentEvent("notice", text = "Cleared this coding session.")) }
-            command == "/undo" -> undoLast()
+            command == "/undo" -> undoLastGuarded()
             command == "/sessions" -> emit(ClozedAgentEvent("sessions", text = sessions().joinToString("\n") { it.id + " | " + it.title }))
             command == "/connect" -> openProviderSettings()
             command == "/folder" || command.startsWith("/folder ") -> {
@@ -924,6 +941,36 @@ internal class ClozedCodingAgentEngine(
         return "Compacted the earlier conversation into a summary and retained the latest 8 records."
     }
 
+
+    private suspend fun undoLastGuarded() {
+        if (undo.isEmpty()) {
+            emit(ClozedAgentEvent("notice", text = "There are no file changes to undo."))
+            return
+        }
+        val changes = undo.removeLast()
+        for (snapshot in changes.asReversed()) {
+            val args = JsonObject().apply {
+                addProperty("path", snapshot.path)
+                addProperty("directory", snapshot.isDirectory)
+                addProperty("delete", !snapshot.isDirectory && snapshot.content == null)
+                snapshot.content?.let { addProperty("contentBase64", it) }
+            }
+            val result = AgentToolRuntime.codingExecutor(app, workspace.root).execute(
+                ToolCall("undo_${session.id}_${System.nanoTime()}", "restore_snapshot", args, "Clozed coding agent /undo")
+            )
+            if (!result.isOk) {
+                undo.addLast(changes)
+                session.undoHistory = undo.toMutableList()
+                saveSession()
+                emit(ClozedAgentEvent("notice", text = toolResultPair(result).first, ok = false))
+                return
+            }
+        }
+        session.undoHistory = undo.toMutableList()
+        saveSession()
+        emit(ClozedAgentEvent("notice", text = "Restored the previous contents for the last coding-agent change set."))
+    }
+
     private fun parseToolArgs(raw: String): JsonObject {
         runCatching { JsonParser.parseString(raw).asJsonObject }.getOrNull()?.let { return it }
         val start = raw.indexOf('{')
@@ -936,35 +983,33 @@ internal class ClozedCodingAgentEngine(
         return JsonObject()
     }
 
-    private data class FileSnapshot(val path: String, val content: String?, val isDirectory: Boolean = false)
-
-    private suspend fun snapshotBefore(call: ClozedToolCall): List<FileSnapshot> = withContext(Dispatchers.IO) {
+    private suspend fun snapshotBefore(call: ClozedToolCall): List<ClozedFileSnapshot> = withContext(Dispatchers.IO) {
         val args = runCatching { parseToolArgs(call.arguments) }.getOrNull() ?: return@withContext emptyList()
         val paths = when (call.name) {
             "write", "edit", "delete" -> listOfNotNull(args.get("path")?.takeIf { it.isJsonPrimitive }?.asString)
             "patch" -> (Regex("(?m)^\\+\\+\\+ b/(.+)$").findAll(args.get("patchText")?.asString.orEmpty()).map { it.groupValues[1].trim() } + Regex("(?m)^--- a/(.+)$").findAll(args.get("patchText")?.asString.orEmpty()).map { it.groupValues[1].trim() }).toList()
             else -> emptyList()
         }.distinct()
-        val result = ArrayList<FileSnapshot>()
+        val result = ArrayList<ClozedFileSnapshot>()
         var total = 0L
         paths.forEach pathLoop@ { path ->
             val file = runCatching { workspace.resolve(path) }.getOrNull() ?: return@pathLoop
             if (!file.exists()) {
-                result += FileSnapshot(path, null)
+                result += ClozedFileSnapshot(path, null)
                 return@pathLoop
             }
             val entries = if (file.isDirectory) file.walkTopDown().toList() else listOf(file)
             entries.forEach fileLoop@ { child ->
                 val relative = workspace.relative(child)
                 if (child.isDirectory) {
-                    result += FileSnapshot(relative, null, true)
+                    result += ClozedFileSnapshot(relative, null, true)
                     return@fileLoop
                 }
                 if (total > 5L * 1024L * 1024L) return@fileLoop
                 val bytes = runCatching { child.readBytes() }.getOrNull() ?: return@fileLoop
                 if (bytes.size > 2_000_000) return@fileLoop
                 total += bytes.size
-                result += FileSnapshot(relative, "b64:" + android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))
+                result += ClozedFileSnapshot(relative, android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))
             }
         }
         result
@@ -980,9 +1025,7 @@ internal class ClozedCodingAgentEngine(
                 file.deleteRecursively()
             } else {
                 file.parentFile?.mkdirs()
-                val value = snap.content
-                if (value.startsWith("b64:")) file.writeBytes(android.util.Base64.decode(value.removePrefix("b64:"), android.util.Base64.NO_WRAP))
-                else file.writeText(value, Charsets.UTF_8)
+                file.writeBytes(android.util.Base64.decode(snap.content, android.util.Base64.NO_WRAP))
             }
         }
         emit(ClozedAgentEvent("notice", text = "Restored the previous contents for the last recorded file change."))
