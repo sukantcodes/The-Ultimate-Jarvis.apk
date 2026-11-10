@@ -119,7 +119,12 @@ class JarvisChatAdapter(
 
             if (turn.jarvisResponse.isNotBlank()) {
                 binding.layoutAssistantContainer.visibility = View.VISIBLE
-                binding.tvAssistantMessage.text = MarkdownMessageRenderer.render(context, turn.jarvisResponse)
+                binding.tvAssistantMessage.text = runCatching {
+                    MarkdownMessageRenderer.render(context, turn.jarvisResponse)
+                }.getOrElse {
+                    // Never hide a provider response if rich-text rendering fails.
+                    turn.jarvisResponse
+                }
                 binding.tvAssistantMessage.movementMethod = android.text.method.LinkMovementMethod.getInstance()
                 binding.tvAssistantMessage.highlightColor = android.graphics.Color.TRANSPARENT
                 binding.tvAssistantMessage.setTextIsSelectable(true)
