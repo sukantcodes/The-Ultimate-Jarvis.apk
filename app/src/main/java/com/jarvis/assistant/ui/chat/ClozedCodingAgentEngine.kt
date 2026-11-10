@@ -68,6 +68,8 @@ internal class ClozedCodingAgentEngine(
     fun currentSession(): ClozedSession = session
     fun projectPath(): String = workspace.root.absolutePath
     fun todos(): List<String> = todos
+    fun setAgent(mode: String) { session.agent = if (mode == "plan") "plan" else "build"; saveSession(); emit(ClozedAgentEvent("notice", text = "Coding agent mode: " + session.agent.uppercase())) }
+    fun undo() = undoLast()
     fun interrupt() { interrupted = true }
 
     fun sessions(): List<SessionSummary> = sessionsDir.listFiles()?.filter { it.isFile && it.extension == "json" }
@@ -428,7 +430,7 @@ internal class ClozedCodingAgentEngine(
         }
         return result
     }
-    private fun undoLast() {
+    fun undoLast() {
         val changes = undo.removeLastOrNull()
         if (changes == null) { emit(ClozedAgentEvent("notice", text = "There are no file changes to undo.")); return }
         changes.asReversed().forEach { snap ->
