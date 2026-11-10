@@ -216,7 +216,7 @@ class ChatFragment : Fragment() {
         }
 
         binding.chipPersona.setOnClickListener {
-            Toast.makeText(requireContext(), "Persona: Jarvis Active", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(requireContext(), com.jarvis.assistant.ui.settings.PersonaActivity::class.java))
         }
         binding.chipMode.setOnClickListener { showChatModePicker() }
         binding.btnAttach.setOnClickListener {
