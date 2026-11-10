@@ -1,6 +1,6 @@
 package com.jarvis.assistant.tools
 
-import com.google.gson.JsonArray
+import android.content.Context
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import okhttp3.HttpUrl
@@ -58,6 +58,7 @@ object GitHubTools {
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28")
             .header("User-Agent", "JARVIS-ChatBox")
+            .apply { credentialContext?.let { app -> GitHubCredentialStore.get(app)?.let { header("Authorization", "Bearer $it") } } }
             .get().build()
         client.newCall(request).execute().use { response ->
             if (response.code in 300..399) throw IOException("GitHub returned a redirect; it was not followed.")
