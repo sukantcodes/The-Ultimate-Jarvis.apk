@@ -12,8 +12,8 @@ import java.util.Base64
 import java.util.concurrent.TimeUnit
 
 /**
- * Public GitHub repository tools. Requests are pinned to api.github.com (never model-supplied hosts),
- * redirects are disabled, responses are bounded, and private repositories are not accessed.
+ * GitHub repository tools. Requests are pinned to api.github.com (never model-supplied hosts),
+ * redirects are disabled and responses are bounded. Optional encrypted credentials allow access to private repos.
  * Remote writes are deliberately not exposed in this first integration layer.
  */
 object GitHubTools {
@@ -77,7 +77,7 @@ object GitHubTools {
 
     object RepositoryInfo : Tool {
         override val spec = ToolSpec("github_repository_info",
-            "Read metadata for a public GitHub repository: description, default branch, visibility, archive status and stars.",
+            "Read metadata for a GitHub repository the user can access: description, default branch, visibility, archive status and stars.",
             listOf(ToolParam("owner", required = true, description = "Repository owner or organisation."),
                 ToolParam("repo", required = true, description = "Repository name.")),
             Risk.NETWORK, "github")
@@ -124,7 +124,7 @@ object GitHubTools {
             if (!validRepositoryPart(owner) || !validRepositoryPart(repo)) return ToolResult.Error("Invalid GitHub owner or repository name.")
             val urlBuilder = "https://api.github.com".toHttpUrlOrNull()!!.newBuilder()
                 .addPathSegment("repos").addPathSegment(owner).addPathSegment(repo).addPathSegment("contents")
-            path.split('/').forEach(urlBuilder::addPathSegment)
+            path.split('/').forEach { urlBuilder.addPathSegment(it) }
             if (arg(args, "ref").isNotBlank()) urlBuilder.addQueryParameter("ref", arg(args, "ref").take(200))
             val obj = JsonParser.parseString(get(urlBuilder.build())).asJsonObject
             if (obj.get("type")?.asString != "file") return ToolResult.Error("The requested path is not a file.")
