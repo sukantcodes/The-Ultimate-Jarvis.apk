@@ -88,7 +88,7 @@ object GitHubWriteTools {
         override val spec = ToolSpec("github_connection_status",
             "Verify the saved GitHub token and report the authenticated account. Never reveals the token.",
             emptyList(), Risk.NETWORK, "github")
-        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = try {
+        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult { return try {
             val user = request(context, "GET", url("user"))
             ToolResult.Ok("GitHub token is valid. Connected account: " + (user.get("login")?.asString ?: "unknown") + ". Token value was not exposed.")
         } catch (e: Exception) { failure(e) }
@@ -102,7 +102,7 @@ object GitHubWriteTools {
             Risk.DESTRUCTIVE, "github")
         override fun describe(args: JsonObject) = "Create branch " + arg(args, "new_branch") + " in " + arg(args, "owner") + "/" + arg(args, "repo")
         override fun isDestructive(args: JsonObject, ctx: ToolContext) = true
-        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = try {
+        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult { return try {
             val owner = arg(args, "owner"); val name = arg(args, "repo")
             val branch = arg(args, "new_branch")
             if (!GitHubWriteTools.validBranchName(branch)) return ToolResult.Error("Invalid new branch name.")
@@ -128,7 +128,7 @@ object GitHubWriteTools {
         override fun describe(args: JsonObject) = "Commit workspace/" + arg(args, "workspace_path") + " to " +
             arg(args, "owner") + "/" + arg(args, "repo") + ":" + arg(args, "branch") + "/" + arg(args, "repository_path")
         override fun isDestructive(args: JsonObject, ctx: ToolContext) = true
-        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = try {
+        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult { return try {
             val owner = arg(args, "owner"); val name = arg(args, "repo"); val branch = arg(args, "branch")
             val localPath = arg(args, "workspace_path"); val remotePath = arg(args, "repository_path")
             val message = arg(args, "message")
@@ -187,7 +187,7 @@ object GitHubWriteTools {
         override fun describe(args: JsonObject) = "Open pull request " + arg(args, "head_branch") + " → " +
             arg(args, "base_branch") + " in " + arg(args, "owner") + "/" + arg(args, "repo")
         override fun isDestructive(args: JsonObject, ctx: ToolContext) = true
-        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = try {
+        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult { return try {
             val owner = arg(args, "owner"); val name = arg(args, "repo")
             val head = arg(args, "head_branch"); val base = arg(args, "base_branch")
             val title = arg(args, "title"); val body = arg(args, "body")

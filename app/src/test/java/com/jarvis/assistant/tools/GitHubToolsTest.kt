@@ -22,6 +22,14 @@ class GitHubToolsTest {
         assertFalse(GitHubTools.validRepoPath("src\\\\file.kt"))
         assertFalse(GitHubTools.validRepoPath("src//file.kt"))
     }
+    @Test fun branchNamesRejectInvalidGitRefs() {
+        assertTrue(GitHubWriteTools.validBranchName("feature/chatbox-agent"))
+        assertFalse(GitHubWriteTools.validBranchName("../main"))
+        assertFalse(GitHubWriteTools.validBranchName("feature//bad"))
+        assertFalse(GitHubWriteTools.validBranchName("main.lock"))
+        assertFalse(GitHubWriteTools.validBranchName("feature name"))
+    }
+
     @Test fun repositoryImportSkipsCredentialAndPrivateKeyFiles() {
         assertTrue(GitHubTools.isSensitiveRepositoryPath(".env"))
         assertTrue(GitHubTools.isSensitiveRepositoryPath("config/.env.production"))
