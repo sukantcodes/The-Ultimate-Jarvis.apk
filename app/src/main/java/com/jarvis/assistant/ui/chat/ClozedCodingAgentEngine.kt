@@ -169,7 +169,11 @@ internal class ClozedCodingAgentEngine(
                     break
                 }
                 val completion = try {
-                    llm.complete(provider, system, history, tools, { emit(ClozedAgentEvent("text", text = it)) }, { emit(ClozedAgentEvent("reasoning", text = it)) })
+                    completeWithKeyRotation(
+                        provider, system, history, tools,
+                        { emit(ClozedAgentEvent("text", text = it)) },
+                        { emit(ClozedAgentEvent("reasoning", text = it)) }
+                    )
                 } catch (error: ClozedLlmException) {
                     emit(ClozedAgentEvent("notice", text = error.message))
                     if (error.retryable) { delay(1500); continue }
@@ -204,6 +208,61 @@ internal class ClozedCodingAgentEngine(
             provider.auth.secret?.wipe()
             emit(ClozedAgentEvent("state", text = ""))
             saveSession()
+        }
+    }
+
+
+    private suspend fun completeWithKeyRotation(
+        provider: com.jarvis.assistant.provider.ResolvedProvider,
+        system: String,
+        messages: List<ClozedMessage>,
+        tools: List<ClozedToolDefinition>,
+        onText: (String) -> Unit,
+        onReasoning: (String) -> Unit
+    ): ClozedCompletion {
+        val rotation = ProviderRuntime.keyRotation(app)
+        if (!rotation.hasKeys(provider.profileId)) {
+            return llm.complete(provider, system, messages, tools, onText, onReasoning)
+        }
+        provider.auth.secret?.wipe()
+        val excluded = linkedSetOf<String>()
+        while (true) {
+            val lease = rotation.lease(provider.profileId, excluded)
+                ?: throw ClozedLlmException(rotation.unavailableSummary(provider.profileId), 401)
+            val modelId = lease.modelId.ifBlank { provider.modelId }
+            val requestProvider = provider.copy(
+                auth = provider.auth.copy(secret = lease.secret),
+                modelId = modelId,
+                model = provider.model.copy(id = modelId)
+            )
+            try {
+                val completion = llm.complete(requestProvider, system, messages, tools, onText, onReasoning)
+                rotation.reportSuccess(lease.keyId)
+                return completion
+            } catch (error: ClozedLlmException) {
+                val providerError = com.jarvis.assistant.provider.ProviderErrors.fromHttp(
+                    error.statusCode,
+                    error.responseBody,
+                    lease.secret.reveal(),
+                    com.jarvis.assistant.provider.ErrorContext.CHAT,
+                    error.retryAfterHeader
+                )
+                val failure = rotation.reportFailure(lease.keyId, providerError)
+                if (failure in setOf(
+                        com.jarvis.assistant.provider.KeyFailure.AUTH,
+                        com.jarvis.assistant.provider.KeyFailure.BILLING,
+                        com.jarvis.assistant.provider.KeyFailure.QUOTA,
+                        com.jarvis.assistant.provider.KeyFailure.RATE_LIMIT
+                    )
+                ) {
+                    excluded += lease.keyId
+                    emit(ClozedAgentEvent("notice", text = "Key ${lease.label} failed (${failure.name.lowercase()}). Trying the next key."))
+                    continue
+                }
+                throw error
+            } finally {
+                lease.secret.wipe()
+            }
         }
     }
 
