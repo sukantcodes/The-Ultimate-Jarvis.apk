@@ -728,18 +728,31 @@ internal class ClozedCodingAgentEngine(
             "meta" in lower || "llama" in lower -> readAsset("prompts/meta.txt")
             else -> ""
         }
-        val mode = if (session.agent == "plan") "# Working mode: plan (read-only). Do not modify files. Return a concrete ordered plan." else "# Working mode: build. You may inspect and modify project files using the permission-gated tools. Verify changes."
+        val mode = if (session.agent == "plan") {
+            "# Working mode: plan (read-only) — reason and inspect, do NOT modify anything. Writes, edits, patches and mutating shell commands are refused. Produce a concrete, ordered plan with the exact files and changes you would make."
+        } else {
+            "# Working mode: build — you may read, create, modify and delete files and run commands inside the project. Keep changes small and in scope. Prefer the dedicated tools over shell commands. After a larger edit, run the diagnostics tool to confirm the syntax is intact. Finish with evidence: say what you verified and what you could not verify."
+        }
         val contextText = buildString {
             append("# Project\nWorking directory: ").append(workspace.root.absolutePath)
             val agents = File(workspace.root, "AGENTS.md").takeIf { it.isFile } ?: File(workspace.root, "CLAUDE.md").takeIf { it.isFile }
-            if (agents != null) append("\n\n").append(agents.readText().take(8000))
+            if (agents != null) runCatching { agents.readText(Charsets.UTF_8).take(8000) }.getOrNull()?.let { append("\n\n").append(it) }
             val config = File(workspace.root, "clozed.json").takeIf { it.isFile } ?: File(workspace.root, "opencode.json").takeIf { it.isFile }
-            if (config != null) append("\n\n# Project config\n").append(config.readText().take(8000))
+            if (config != null) runCatching { config.readText(Charsets.UTF_8).take(8000) }.getOrNull()?.let { append("\n\n# Project config\n").append(it) }
         }
-        return listOf(base, addendum, mode, contextText).filter { it.isNotBlank() }.joinToString("\n\n")
+        val skillIndex = runCatching { com.jarvis.assistant.skills.SkillStore.get(app).promptSection() }.getOrDefault("")
+        return listOf(base, addendum, mode, contextText, skillIndex).filter { it.isNotBlank() }.joinToString("\n\n")
     }
 
-    private fun toolGuidance(): String = buildTools().joinToString("\n\n") { "## " + it.name + "\n" + it.description }
+    private fun toolGuidance(): String = buildTools().joinToString("\n\n") { tool ->
+        val properties = tool.schema.getAsJsonObject("properties") ?: JsonObject()
+        val required = tool.schema.getAsJsonArray("required")?.mapNotNull { if (it.isJsonPrimitive) it.asString else null }.orEmpty().toSet()
+        val arguments = properties.entrySet().joinToString("\n") { (name, value) ->
+            val property = value.takeIf { it.isJsonObject }?.asJsonObject
+            "- $name (${property?.get("type")?.asString ?: "string"}${if (name in required) ", required" else ""}): ${property?.get("description")?.asString.orEmpty()}"
+        }
+        "## " + tool.name + "\n" + tool.description + if (arguments.isBlank()) "" else "\nArguments:\n" + arguments
+    }
     private fun readAsset(path: String): String = runCatching { app.assets.open(path).bufferedReader().use { it.readText() } }.getOrDefault("")
 
     private suspend fun runCommand(command: String) {
