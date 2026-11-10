@@ -252,6 +252,9 @@ class ChatFragment : Fragment() {
                 ChatComposerMenu.Action("Coding Agent + Terminal", "Use the JARVIS ChatBox with project-aware coding tools and a real terminal", ">_") {
                     activateCodingAgentMode()
                 },
+                ChatComposerMenu.Action("MCP servers", "Add Streamable HTTP tools and manage OAuth logins", "⌘") {
+                    startActivity(Intent(requireContext(), McpServersActivity::class.java))
+                },
                 ChatComposerMenu.Action("Website preview", "Start or stop the private local preview server", "↗") {
                     LocalServerDialog.show(requireContext())
                 },
