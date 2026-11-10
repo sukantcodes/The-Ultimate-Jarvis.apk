@@ -402,7 +402,7 @@ internal class ClozedCodingAgentEngine(
         changes.forEachIndexed { index, change ->
             if (change.content == null) {
                 val deleteArgs = JsonObject().apply { addProperty("path", change.path) }
-                val result = AgentToolRuntime.executor(app).execute(ToolCall(call.id + "_delete_" + index, "delete_path", deleteArgs, "Clozed coding agent"))
+                val result = AgentToolRuntime.codingExecutor(app, workspace.root).execute(ToolCall(call.id + "_delete_" + index, "delete_path", deleteArgs, "Clozed coding agent"))
                 if (!result.isOk) return result.text to false
             } else {
                 val result = writeThroughTool(change.path, change.content, call.id + "_patch_" + index)
@@ -418,7 +418,7 @@ internal class ClozedCodingAgentEngine(
             addProperty("content", content)
             addProperty("overwrite", true)
         }
-        val result = AgentToolRuntime.executor(app).execute(ToolCall(callId + "_write", "write_file", args, "Clozed coding agent"))
+        val result = AgentToolRuntime.codingExecutor(app, workspace.root).execute(ToolCall(callId + "_write", "write_file", args, "Clozed coding agent"))
         return result.text to result.isOk
     }
 
