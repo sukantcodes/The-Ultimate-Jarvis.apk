@@ -10,6 +10,8 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -251,7 +253,12 @@ class HomeFragment : Fragment() {
                 cacheMode = WebSettings.LOAD_DEFAULT
             }
 
+            // Captured now: shouldInterceptRequest runs on a WebView thread where requireContext() could throw.
+            val orbAppContext = requireContext().applicationContext
             webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? =
+                    OrbPerformanceGovernor.intercept(orbAppContext, request) ?: super.shouldInterceptRequest(view, request)
+
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     isPageLoaded = true

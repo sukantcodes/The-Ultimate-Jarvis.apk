@@ -10,7 +10,7 @@
     </style>
     <style name="TextAppearance.Jarvis.Display" parent="">
         <item name="android:fontFamily">@font/orbitron</item>
-        <item name="android:fontVariationSettings">'wght' 800</item>
+        <item name="android:fontVariationSettings">\'wght\' 800</item>
         <item name="android:textSize">32sp</item>
         <item name="android:textStyle">normal</item>
         <item name="android:letterSpacing">-0.025</item>

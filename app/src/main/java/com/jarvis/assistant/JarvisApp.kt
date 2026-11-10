@@ -103,6 +103,11 @@ class JarvisApp : Application() {
 
         VoskModelManager.init(this, CoroutineScope(Dispatchers.Default))
 
+        // Open the Keystore-backed provider store off the main thread so the first Chatbox open doesn't stall.
+        Thread({
+            try { com.jarvis.assistant.provider.ProviderRuntime.manager(this) } catch (_: Throwable) { }
+        }, "provider-prewarm").start()
+
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             private var startedActivities = 0
             override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) {

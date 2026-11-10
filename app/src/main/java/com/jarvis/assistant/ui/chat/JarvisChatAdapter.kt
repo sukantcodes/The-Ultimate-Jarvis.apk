@@ -174,11 +174,17 @@ class JarvisChatAdapter(
                     turn.jarvisResponse.length > 1 && animationsEnabled(context)
                 revealed.add(turn.id)
                 awaiting.remove(turn.id)
-                val rendered = MarkdownRenderer.render(turn.jarvisResponse, context.resources.displayMetrics.density)
+                val rendered: CharSequence = try {
+                    MarkdownRenderer.render(turn.jarvisResponse, context.resources.displayMetrics.density)
+                } catch (_: Throwable) {
+                    turn.jarvisResponse // never let odd markdown take the chat down
+                }
                 if (shouldReveal) playReveal(rendered) else binding.tvAssistantMessage.text = rendered
                 binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", turn.jarvisResponse) }
                 binding.btnAssistantPlay.setOnClickListener {
-                    speak(context, turn.jarvisResponse)
+                    try { speak(context, turn.jarvisResponse) } catch (_: Exception) {
+                        Toast.makeText(context, "Couldn't read this aloud", Toast.LENGTH_SHORT).show()
+                    }
                 }
                 binding.btnAssistantSave.setOnClickListener { onSaveAssistantMessage?.invoke(turn.jarvisResponse) }
             } else {
@@ -187,9 +193,13 @@ class JarvisChatAdapter(
         }
 
         private fun copyToClipboard(context: Context, label: String, text: String) {
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
-            Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+            try {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
+                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+            } catch (_: Exception) {
+                Toast.makeText(context, "Couldn't copy this message", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }

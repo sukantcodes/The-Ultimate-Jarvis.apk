@@ -38,6 +38,23 @@ class ChatFragment : Fragment() {
 
     private var _binding: FragmentChatBinding? = null
     private val binding get() = _binding!!
+
+    /**
+     * Runs a chat control only while the screen exists, and turns an unexpected error into a toast with the
+     * reason instead of crashing the whole app.
+     */
+    private fun View.onSafeClick(action: () -> Unit) {
+        setOnClickListener {
+            if (_binding == null || !isAdded) return@setOnClickListener
+            try {
+                action()
+            } catch (e: Exception) {
+                android.util.Log.e("ChatFragment", "Chat action failed", e)
+                val ctx = context ?: return@setOnClickListener
+                Toast.makeText(ctx, "Something went wrong: ${e.message ?: e.javaClass.simpleName}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     private val viewModel: MainViewModel get() = (requireActivity() as MainActivity).viewModel
     private var selectedDocument: DocumentAnalysisClient.SelectedDocument? = null
     private var pendingExportText: String = ""
@@ -124,21 +141,21 @@ class ChatFragment : Fragment() {
 
         selectedChatMode = chatModePrefs.getString("chat_mode", "auto") ?: "auto"
         refreshChatModeLabel()
-        binding.btnSendMessage.setOnClickListener { sendMessage() }
+        binding.btnSendMessage.onSafeClick { sendMessage() }
         binding.etMessageInput.setOnEditorActionListener { _, actionId, event ->
             val enterPressed = event?.keyCode == android.view.KeyEvent.KEYCODE_ENTER && event?.action == android.view.KeyEvent.ACTION_DOWN
             if (actionId == EditorInfo.IME_ACTION_SEND || enterPressed) { sendMessage(); true } else false
         }
-        binding.chipSuggestionExplain.setOnClickListener { setPrompt("Explain a difficult topic to me in simple language, step by step, with examples.") }
-        binding.chipSuggestionWrite.setOnClickListener { setPrompt("Help me write something. Ask me what I want to create.") }
-        binding.chipSuggestionAnalyze.setOnClickListener { documentPicker.launch(arrayOf("*/*")) }
-        binding.btnRemoveAttachment.setOnClickListener {
+        binding.chipSuggestionExplain.onSafeClick { setPrompt("Explain a difficult topic to me in simple language, step by step, with examples.") }
+        binding.chipSuggestionWrite.onSafeClick { setPrompt("Help me write something. Ask me what I want to create.") }
+        binding.chipSuggestionAnalyze.onSafeClick { documentPicker.launch(arrayOf("*/*")) }
+        binding.btnRemoveAttachment.onSafeClick {
             selectedDocument?.savedPath?.let { path -> runCatching { java.io.File(path).delete() } }
             selectedDocument = null
             updateAttachmentPreview()
             binding.etMessageInput.hint = "Message JARVIS…"
         }
-        binding.btnStopChat.setOnClickListener {
+        binding.btnStopChat.onSafeClick {
             offlineGenerationJob?.cancel()
             offlineGenerationJob = null
             fileAnalysisJob?.cancel()
@@ -151,11 +168,12 @@ class ChatFragment : Fragment() {
             Toast.makeText(requireContext(), "JARVIS response stopped.", Toast.LENGTH_SHORT).show()
         }
 
-        binding.btnChatNew.setOnClickListener {
+        binding.btnChatNew.onSafeClick {
             MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
                 .setTitle("New Conversation")
                 .setMessage("Start a new conversation and clear current history?")
                 .setPositiveButton("New Chat") { _, _ ->
+                    if (_binding == null) return@setPositiveButton
                     offlineGenerationJob?.cancel()
                     fileAnalysisJob?.cancel()
                     providerEngine.cancel()
@@ -171,18 +189,18 @@ class ChatFragment : Fragment() {
                 .show()
         }
 
-        binding.btnChatMenu.setOnClickListener {
+        binding.btnChatMenu.onSafeClick {
             (activity as? MainActivity)?.openNavigationDrawer()
         }
 
-        binding.chipPersona.setOnClickListener {
+        binding.chipPersona.onSafeClick {
             Toast.makeText(requireContext(), "Persona: Jarvis Active", Toast.LENGTH_SHORT).show()
         }
-        binding.chipMode.setOnClickListener { showChatModePicker() }
-        binding.btnAttach.setOnClickListener {
+        binding.chipMode.onSafeClick { showChatModePicker() }
+        binding.btnAttach.onSafeClick {
             documentPicker.launch(arrayOf("*/*"))
         }
-        binding.btnChatTools.setOnClickListener {
+        binding.btnChatTools.onSafeClick {
             ChatboxTools.show(requireContext(), binding.etMessageInput, chatAdapter.currentList) { text ->
                 pendingExportText = text
                 exportLauncher.launch("Jarvis-Conversation.txt")
@@ -205,6 +223,7 @@ class ChatFragment : Fragment() {
         MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("Choose chat engine")
             .setSingleChoiceItems(labels, selected) { dialog, which ->
+                if (_binding == null || !isAdded) { dialog.dismiss(); return@setSingleChoiceItems }
                 selectedChatMode = values[which]
                 chatModePrefs.edit().putString("chat_mode", selectedChatMode).apply()
                 refreshChatModeLabel()
