@@ -381,7 +381,7 @@ internal class ClozedCodingAgentEngine(
                     val name = args.get("id")?.asString.orEmpty()
                     com.jarvis.assistant.skills.SkillStore.get(app).useSkill(name) to true
                 }
-                "shell" -> runShell(args)
+                "shell" -> runMappedTool(call, args)
                 "diagnostics" -> runDiagnostics(args)
                 else -> runMappedTool(call, args)
             }
@@ -486,6 +486,7 @@ internal class ClozedCodingAgentEngine(
             "delete" -> "delete_path"
             "webfetch" -> "fetch_url"
             "websearch" -> "web_search"
+            "shell" -> "shell"
             else -> return ("Unknown tool '" + call.name + "'. Available tools: read, write, edit, patch, delete, glob, grep, shell, todowrite, task, skill, question, diagnostics, webfetch, websearch") to false
         }
         val mappedArgs = JsonObject()
@@ -502,6 +503,12 @@ internal class ClozedCodingAgentEngine(
             }
             "webfetch" -> mappedArgs.addProperty("url", args.get("url")?.asString.orEmpty())
             "websearch" -> mappedArgs.addProperty("query", args.get("query")?.asString.orEmpty())
+            "shell" -> {
+                mappedArgs.addProperty("command", args.get("command")?.asString.orEmpty())
+                args.get("workdir")?.takeIf { it.isJsonPrimitive }?.asString?.let { mappedArgs.addProperty("workdir", it) }
+                args.get("timeout")?.takeIf { it.isJsonPrimitive }?.let { mappedArgs.add("timeout", it) }
+                args.get("background")?.takeIf { it.isJsonPrimitive }?.let { mappedArgs.add("background", it) }
+            }
         }
         val result: ToolResult = AgentToolRuntime.codingExecutor(app, workspace.root).execute(ToolCall(call.id, mapped, mappedArgs, "Clozed coding agent"))
         return toolResultPair(result)
@@ -619,70 +626,7 @@ internal class ClozedCodingAgentEngine(
         return hits.joinToString("\n").ifBlank { "No matches." } to true
     }
 
-    private suspend fun runShell(args: JsonObject): Pair<String, Boolean> {
-        val command = args.get("command")?.asString.orEmpty().trim()
-        if (command.isBlank() || command.length > 4000) return "Error: command is empty or exceeds 4000 characters." to false
-        val workdir = runCatching { workspace.resolve(args.get("workdir")?.asString ?: ".") }.getOrNull()
-            ?: return "Error: invalid working directory." to false
-        if (!workdir.isDirectory) return "Error: working directory does not exist." to false
-        val confirmer = com.jarvis.assistant.tools.AgentToolApproval.confirmer
-            ?: return "Denied: no permission dialog is available." to false
-        val decision = confirmer.confirm(
-            com.jarvis.assistant.tools.ConfirmRequest(
-                "shell", "terminal", com.jarvis.assistant.tools.Risk.EXECUTE,
-                "Run terminal command in \${workspace.relative(workdir)}:\n$command",
-                false, "Clozed coding agent"
-            )
-        )
-        if (decision == com.jarvis.assistant.tools.Decision.DENY) return "Denied: user declined shell execution." to false
-        val timeoutMs = args.get("timeout")?.let { runCatching { it.asLong }.getOrNull() }?.coerceIn(1000L, 120000L) ?: 120000L
-        val background = args.get("background")?.let { runCatching { it.asBoolean }.getOrNull() } == true
-        return withContext(Dispatchers.IO) {
-            try {
-                if (background) {
-                    val logDir = workspace.resolve(".clozed/background").apply { mkdirs() }
-                    val logFile = File(logDir, "shell-${System.currentTimeMillis()}.log")
-                    ProcessBuilder("/system/bin/sh", "-c", command)
-                        .directory(workdir)
-                        .redirectErrorStream(true)
-                        .redirectOutput(logFile)
-                        .start()
-                    return@withContext ("Started background command. Output log: " + workspace.relative(logFile)) to true
-                }
-                val process = ProcessBuilder("/system/bin/sh", "-c", command)
-                    .directory(workdir)
-                    .redirectErrorStream(true)
-                    .start()
-                val capture = java.io.ByteArrayOutputStream()
-                val reader = Thread {
-                    process.inputStream.use { input ->
-                        val buffer = ByteArray(4096)
-                        while (true) {
-                            val count = input.read(buffer)
-                            if (count < 0) break
-                            synchronized(capture) {
-                                if (capture.size() < 64000) capture.write(buffer, 0, minOf(count, 64000 - capture.size()))
-                            }
-                        }
-                    }
-                }.apply { isDaemon = true; start() }
-                if (!process.waitFor(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)) {
-                    process.destroyForcibly()
-                    reader.join(1500)
-                    "Error: command timed out after \${timeoutMs} ms." to false
-                } else {
-                    reader.join(1500)
-                    val output = synchronized(capture) { capture.toString(Charsets.UTF_8.name()) }
-                    ("exit=" + process.exitValue() + "\n" + output) to (process.exitValue() == 0)
-                }
-            } catch (error: Exception) {
-                ("Error: terminal execution failed: " + (error.message ?: error.javaClass.simpleName)) to false
-            }
-        }
-    }
 
-
-    /** Common .gitignore semantics plus build-output defaults; nested ignore files override parent rules. */
     private fun isIgnored(file: File, base: File): Boolean {
         val relative = runCatching { base.toPath().relativize(file.toPath()).toString().replace(File.separatorChar, '/') }.getOrDefault("")
         val segments = relative.split('/').filter { it.isNotBlank() }
