@@ -127,7 +127,7 @@ object ChatboxTools {
             }
         )
         val conversation=listOf(
-            Action("Open ChatBox workspace"){ context.startActivity(Intent(context, WorkspaceActivity::class.java)) },
+            Action("Open ChatBox workspace"){ context.startActivity(Intent(context, WorkspaceActivity::class.java)) },\n            Action("GitHub connection & access"){ context.startActivity(Intent(context, com.jarvis.assistant.tools.GitHubConnectionActivity::class.java)) },
             Action("Copy full conversation"){copy("Conversation",transcript())},
             Action("Share full conversation"){share("JARVIS conversation",transcript())},
             Action("Export full conversation"){val s=transcript();if(s.isBlank())toast("No conversation")else onExport(s)},
@@ -152,7 +152,7 @@ object ChatboxTools {
                 }.setNegativeButton("Cancel",null).show()
             }
         )
-        val groups=linkedMapOf("Writing & AI prompts (30)" to writing,"Text formatting (15)" to formatting,"Composer & drafts (12)" to composer,"Conversation & workspace tools (11)" to conversation)
+        val groups=linkedMapOf("Writing & AI prompts (30)" to writing,"Text formatting (15)" to formatting,"Composer & drafts (12)" to composer,"Conversation & workspace tools (11)" to conversation,\n            "GitHub connection (1)" to listOf(Action("GitHub connection & access"){ context.startActivity(Intent(context, com.jarvis.assistant.tools.GitHubConnectionActivity::class.java)) }))
         AlertDialog.Builder(context).setTitle("JARVIS Chatbox · 67 tools").setItems(groups.keys.toTypedArray()){_,index->
             val title=groups.keys.elementAt(index);val actions=groups.values.elementAt(index)
             AlertDialog.Builder(context).setTitle(title).setItems(actions.map{it.title}.toTypedArray()){_,i->

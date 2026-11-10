@@ -31,7 +31,7 @@ object GitHubTools {
             .build()
     }
 
-    fun all(): List<Tool> = listOf(RepositoryInfo, ListBranches, ReadFile, ImportFile)
+    @Volatile private var credentialContext: Context? = null\n\n    fun all(context: Context): List<Tool> { credentialContext = context.applicationContext; return listOf(RepositoryInfo, ListBranches, ReadFile, ImportFile) }
 
     internal fun validRepositoryPart(value: String): Boolean =
         value.matches(Regex("[A-Za-z0-9_.-]{1,100}")) && value != "." && value != ".."
@@ -61,7 +61,7 @@ object GitHubTools {
             .get().build()
         client.newCall(request).execute().use { response ->
             if (response.code in 300..399) throw IOException("GitHub returned a redirect; it was not followed.")
-            if (response.code == 404) throw IOException("Repository or file not found. This first integration supports public repositories only.")
+            if (response.code == 404) throw IOException("Repository or file not found, or the saved token does not have access.")
             if (response.code == 403 || response.code == 429) throw IOException("GitHub API rate limit or access restriction reached. Try again later.")
             if (!response.isSuccessful) throw IOException("GitHub API returned HTTP ${response.code}.")
             val body = response.body ?: throw IOException("GitHub returned an empty response.")
