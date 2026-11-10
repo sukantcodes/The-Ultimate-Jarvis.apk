@@ -47,8 +47,13 @@ object ScheduledTaskTools {
                     "Read the latest JARVIS long-running task progress, completed steps, blockers and next step.",
                     emptyList(), Risk.READ, "task")
                 override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
-                    val latest = PrefsTaskStore(app).latest() ?: return ToolResult.Ok("There is no saved long-running task yet.")
-                    return ToolResult.Ok(latest.promptSummary())
+                    val taskLedger = PrefsTaskStore(app).latest()?.promptSummary()
+                    val chatWork = com.jarvis.assistant.provider.ChatBoxTaskJournal(app).summary()
+                    val parts = listOfNotNull(
+                        chatWork?.let { "CHATBOX WORK:\n$it" },
+                        taskLedger?.let { "DEVICE TASK LEDGER:\n$it" }
+                    )
+                    return ToolResult.Ok(parts.joinToString("\n\n").ifBlank { "There is no saved long-running task yet." })
                 }
             }
         )

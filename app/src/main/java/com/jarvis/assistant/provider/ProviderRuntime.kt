@@ -69,7 +69,8 @@ object ProviderRuntime {
                 },
                 keyRotation = keyRotation(context),
                 toolSpecs = { com.jarvis.assistant.tools.AgentToolRuntime.specs(app) },
-                toolExecutor = { call -> com.jarvis.assistant.tools.AgentToolRuntime.executor(app).execute(call) }
+                toolExecutor = { call -> com.jarvis.assistant.tools.AgentToolRuntime.executor(app).execute(call) },
+                taskJournal = ChatBoxTaskJournal(app)
             ).also { engine = it }
         }
     }

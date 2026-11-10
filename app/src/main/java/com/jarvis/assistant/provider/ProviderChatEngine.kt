@@ -78,7 +78,8 @@ class ProviderChatEngine(
     private val uiThrottleMs: Long = 60L,
     private val keyRotation: KeyRotationSource? = null,
     private val toolSpecs: () -> List<ToolSpec> = { emptyList() },
-    private val toolExecutor: (suspend (ToolCall) -> ToolResult)? = null
+    private val toolExecutor: (suspend (ToolCall) -> ToolResult)? = null,
+    private val taskJournal: ChatBoxTaskJournal? = null
 ) {
     /** Plain-language notices such as "Switched to key 'Backup' because 'Main' hit its limit." Shown by ChatBox. */
     private val _keyNotices = MutableSharedFlow<String>(extraBufferCapacity = 16)
@@ -173,6 +174,8 @@ class ProviderChatEngine(
         job = scope.launch {
             val partial = StringBuilder()
             var lastUi = 0L
+            taskJournal?.begin(id)
+            var totalToolCalls = 0
             try {
                 val history = store.completedTurns(excludingId = id).map { it.copy(user = sentText[it.id] ?: it.user) }
                 val messages = ChatContext.build(history, text, attachments).toMutableList()
@@ -227,7 +230,10 @@ class ProviderChatEngine(
                                 break
                             }
                             if (toolRounds >= MAX_TOOL_ROUNDS) {
-                                throw IllegalStateException("JARVIS stopped because the tool-call limit was reached. Ask it to continue the remaining work.")
+                                throw IllegalStateException("JARVIS reached the safe tool-round limit. Completed tool steps are saved; ask it to continue.")
+                            }
+                            if (totalToolCalls + completion.toolCalls.size > MAX_TOOL_CALLS) {
+                                throw IllegalStateException("JARVIS reached the safe tool-call limit. Completed steps are saved; ask it to continue.")
                             }
                             if (toolExecutor == null || availableTools.isEmpty()) {
                                 if (completion.text.isNotBlank()) partial.append(completion.text)
@@ -237,8 +243,11 @@ class ProviderChatEngine(
                             toolRounds++
                             messages += ChatMessage(ChatRole.ASSISTANT, completion.text, toolCalls = completion.toolCalls)
                             for (call in completion.toolCalls) {
+                                totalToolCalls++
                                 _toolActivity.tryEmit("Running ${call.name.replace('_', ' ')}…")
+                                taskJournal?.toolStarted(id, call.name)
                                 val result = toolExecutor.invoke(ToolCall(call.id, call.name, call.args, "${provider.label} turn=${id}"))
+                                taskJournal?.toolFinished(id, call.name, result.isOk)
                                 messages += ChatMessage(
                                     ChatRole.TOOL, result.text,
                                     toolCallId = call.id,
@@ -267,6 +276,7 @@ class ProviderChatEngine(
                     }
                 }
                 store.finish(id, partial.toString())
+                taskJournal?.finish(id, "COMPLETED")
                 _state.value = EngineState.Idle
             } catch (e: CancellationException) {
                 val kept = partial.toString().trim()
@@ -276,6 +286,7 @@ class ProviderChatEngine(
                     failedTurns.add(id)
                     store.fail(id, "", ERROR_PREFIX + "Stopped before an answer arrived. Tap Retry to ask again.")
                 }
+                taskJournal?.finish(id, "STOPPED")
                 _state.value = EngineState.Idle
                 throw e
             } catch (e: ProviderException) {
@@ -292,6 +303,7 @@ class ProviderChatEngine(
     private fun fail(id: String, partial: String, error: ProviderError) {
         failedTurns.add(id)
         store.fail(id, partial, ERROR_PREFIX + error.message)
+        taskJournal?.finish(id, "FAILED")
         _state.value = EngineState.Failed(id, error)
     }
 
@@ -301,7 +313,8 @@ class ProviderChatEngine(
 
         /** Upper bound on keys tried for a single message, so rotation can never loop. */
         const val MAX_KEY_ATTEMPTS = 8
-        const val MAX_TOOL_ROUNDS = 8
+        const val MAX_TOOL_ROUNDS = 24
+        const val MAX_TOOL_CALLS = 96
     }
 }
 
