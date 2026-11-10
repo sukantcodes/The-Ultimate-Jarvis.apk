@@ -48,7 +48,19 @@ object DocumentAnalysisClient {
             val destination = File(directory, "${System.currentTimeMillis()}_${safeName}")
             try {
                 context.contentResolver.openInputStream(document.uri)?.use { input ->
-                    FileOutputStream(destination).use { output -> input.copyTo(output) }
+                    FileOutputStream(destination).use { output ->
+                        val buffer = ByteArray(8192)
+                        var total = 0
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            total += count
+                            if (total > MAX_FILE_BYTES) {
+                                throw IllegalArgumentException("This attachment is larger than 14 MB. Choose a smaller file.")
+                            }
+                            output.write(buffer, 0, count)
+                        }
+                    }
                 } ?: throw IllegalStateException("Android couldn't reopen this attachment. Please select it again.")
                 document.copy(uri = Uri.fromFile(destination), savedPath = destination.absolutePath)
             } catch (error: Exception) {
