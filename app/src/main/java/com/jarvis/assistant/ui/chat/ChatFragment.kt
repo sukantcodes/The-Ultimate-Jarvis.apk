@@ -92,7 +92,7 @@ class ChatFragment : Fragment() {
         }
     }
 
-    private val exportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri: Uri? ->
+    private val exportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri: Uri? ->
         val text = pendingExportText
         if (uri == null || text.isBlank()) return@registerForActivityResult
         viewLifecycleOwner.lifecycleScope.launch {
@@ -116,8 +116,7 @@ class ChatFragment : Fragment() {
             binding.etMessageInput.requestFocus()
         },
         onSaveAssistantMessage = { text ->
-            pendingExportText = text
-            exportLauncher.launch("Jarvis-Edited-File.txt")
+            showExportFormatPicker(text, "Jarvis-Edited-File")
         },
         onOpenAttachment = { path, name, mime ->
             startActivity(Intent(requireContext(), ChatAttachmentPreviewActivity::class.java).apply {
@@ -209,8 +208,7 @@ class ChatFragment : Fragment() {
         }
         binding.btnChatTools.setOnClickListener {
             ChatboxTools.show(requireContext(), binding.etMessageInput, chatAdapter.currentList) { text ->
-                pendingExportText = text
-                exportLauncher.launch("Jarvis-Conversation.txt")
+                showExportFormatPicker(text, "Jarvis-Conversation")
             }
         }
 
@@ -220,6 +218,25 @@ class ChatFragment : Fragment() {
 
         observeChatTurns()
         observeProviderEngine()
+    }
+
+    private fun showExportFormatPicker(text: String, baseName: String) {
+        val labels = arrayOf(
+            "Plain text (.txt)", "Markdown (.md)", "JSON (.json)", "CSV (.csv)",
+            "HTML (.html)", "XML (.xml)", "YAML (.yml)", "Kotlin (.kt)",
+            "Java (.java)", "Python (.py)", "JavaScript (.js)", "TypeScript (.ts)",
+            "CSS (.css)", "SQL (.sql)", "Shell script text (.sh)"
+        )
+        val extensions = arrayOf("txt", "md", "json", "csv", "html", "xml", "yml", "kt", "java", "py", "js", "ts", "css", "sql", "sh")
+        MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+            .setTitle("Export response as")
+            .setMessage("Choose the text format that matches the response content. JARVIS preserves the response exactly; it does not convert plain text into a binary Office, PDF, image, or audio file.")
+            .setItems(labels) { _, which ->
+                pendingExportText = text
+                exportLauncher.launch(baseName + "." + extensions[which])
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun showChatModePicker() {
