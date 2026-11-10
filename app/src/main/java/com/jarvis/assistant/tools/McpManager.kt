@@ -200,7 +200,15 @@ class McpManager private constructor(context: Context) {
             requestOnce(server, "notifications/initialized", JsonObject())
             initializedServers += server.id
         }
-        return requestOnce(server, method, params)
+        val hadSession = sessionIds.containsKey(server.id)
+        return try {
+            requestOnce(server, method, params)
+        } catch (error: IllegalStateException) {
+            if (hadSession && error.message.orEmpty().startsWith("HTTP 404")) {
+                resetProtocolSession(server.id)
+                request(server, method, params)
+            } else throw error
+        }
     }
 
     private suspend fun requestOnce(server: McpServerConfig, method: String, params: JsonObject): JsonObject = withContext(Dispatchers.IO) {
@@ -241,7 +249,9 @@ class McpManager private constructor(context: Context) {
                 throw IllegalStateException(message)
             }
             val jsonText = if (safeResponse.trimStart().startsWith("{")) safeResponse else {
-                val eventData = safeResponse.lineSequence()
+                val firstEvent = safeResponse.split(Regex("\\r?\\n\\r?\\n"))
+                    .firstOrNull { event -> event.lineSequence().any { it.startsWith("data:") } }.orEmpty()
+                val eventData = firstEvent.lineSequence()
                     .filter { it.startsWith("data:") }
                     .joinToString("\n") { it.removePrefix("data:").trimStart() }
                     .trim()
