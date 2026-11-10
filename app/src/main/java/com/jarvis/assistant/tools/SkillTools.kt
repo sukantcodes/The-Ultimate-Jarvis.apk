@@ -42,10 +42,7 @@ object SkillTools {
                 listOf(ToolParam("name", required = true, description = "Skill name from refresh_skill_catalog.")),
                 Risk.WRITE, "skills")
             override fun describe(args: JsonObject) = "Download and install skill '${args.get("name")?.asString.orEmpty()}' from the configured skill store"
-            override fun isDestructive(args: JsonObject, ctx: ToolContext): Boolean {
-                val name = args.get("name")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
-                return store.find(name)?.builtIn == false
-            }
+            override fun isDestructive(args: JsonObject, ctx: ToolContext): Boolean = true
             override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
                 val name = args.get("name")?.takeIf { it.isJsonPrimitive }?.asString?.trim().orEmpty()
                 if (name.isBlank()) return ToolResult.Error("Give the skill name.")

@@ -139,7 +139,7 @@ jobs:
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
-        name: Jarvis-App-Debug-Termux
+        name: Jarvis-App-Debug-${{ github.ref_name }}
         path: app/build/outputs/apk/debug/*.apk
 
 # Rebuild trigger: restored Termux branch
