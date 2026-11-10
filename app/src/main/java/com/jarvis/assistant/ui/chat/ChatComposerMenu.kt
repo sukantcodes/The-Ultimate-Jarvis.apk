@@ -24,7 +24,7 @@ object ChatComposerMenu {
     )
 
     fun show(context: Context, actions: List<Action>) {
-        val dialog = BottomSheetDialog(context, R.style.ThemeOverlay_Jarvis_BottomSheet)
+        val dialog = BottomSheetDialog(context)
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(context, 18), dp(context, 12), dp(context, 18), dp(context, 28))
