@@ -554,15 +554,15 @@ internal class ClozedCodingAgentEngine(
         }.distinct()
         val result = ArrayList<FileSnapshot>()
         var total = 0L
-        paths.forEach { path ->
-            val file = runCatching { workspace.resolve(path) }.getOrNull() ?: return@forEach
+        paths.forEach pathLoop@ { path ->
+            val file = runCatching { workspace.resolve(path) }.getOrNull() ?: return@pathLoop
             val files = if (file.isDirectory) file.walkTopDown().filter { it.isFile }.toList() else listOf(file)
             if (files.isEmpty() && !file.exists()) result += FileSnapshot(path, null)
-            files.forEach { child ->
-                if (total > 5L * 1024L * 1024L) return@forEach
+            files.forEach fileLoop@ { child ->
+                if (total > 5L * 1024L * 1024L) return@fileLoop
                 val relative = workspace.relative(child)
-                val bytes = runCatching { child.readBytes() }.getOrNull() ?: return@forEach
-                if (bytes.size > 2_000_000) return@forEach
+                val bytes = runCatching { child.readBytes() }.getOrNull() ?: return@fileLoop
+                if (bytes.size > 2_000_000) return@fileLoop
                 total += bytes.size
                 result += FileSnapshot(relative, "b64:" + android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))
             }
