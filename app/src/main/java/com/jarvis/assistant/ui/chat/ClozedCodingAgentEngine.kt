@@ -1,6 +1,8 @@
 package com.jarvis.assistant.ui.chat
 
 import android.content.Context
+import android.os.Build
+import android.os.Environment
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.jarvis.assistant.provider.ChatResolution
@@ -54,7 +56,7 @@ internal class ClozedCodingAgentEngine(
 ) {
     private val app = context.applicationContext
     private val llm = ClozedLlm()
-    private val workspace = Workspace(File(app.filesDir, "chatbox-workspace"))
+    private val workspace = Workspace(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) File(Environment.getExternalStorageDirectory(), "ClozedProjects") else File(app.filesDir, "chatbox-workspace"))
     private val sessionsDir = File(app.filesDir, "clozed-sessions").apply { mkdirs() }
     private val gson = com.google.gson.Gson()
     private val undo = ArrayDeque<List<FileSnapshot>>()
@@ -119,6 +121,10 @@ internal class ClozedCodingAgentEngine(
         if (text.isBlank()) return
         if (text.startsWith("/")) {
             runCommand(text)
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+            emit(ClozedAgentEvent("notice", text = "Grant All files access before starting a coding-agent turn."))
             return
         }
         interrupted = false
@@ -327,7 +333,7 @@ internal class ClozedCodingAgentEngine(
             "webfetch" -> mappedArgs.addProperty("url", args.get("url")?.asString.orEmpty())
             "websearch" -> mappedArgs.addProperty("query", args.get("query")?.asString.orEmpty())
         }
-        val result: ToolResult = AgentToolRuntime.executor(app).execute(ToolCall(call.id, mapped, mappedArgs, "Clozed coding agent"))
+        val result: ToolResult = AgentToolRuntime.codingExecutor(app, workspace.root).execute(ToolCall(call.id, mapped, mappedArgs, "Clozed coding agent"))
         return result.text to result.isOk
     }
 
