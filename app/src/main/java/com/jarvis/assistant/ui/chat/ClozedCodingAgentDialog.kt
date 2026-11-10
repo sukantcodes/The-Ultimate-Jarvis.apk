@@ -270,7 +270,7 @@ internal object ClozedCodingAgentDialog {
                     }
                     "tool_end" -> {
                         val view = toolViews[event.id]
-                        val collapsed = (if (event.ok) "✓  " else "⚠  ") + event.name + "  ·  " + if (event.ok) "DONE" else "FAILED" + "  ·  Tap to expand"
+                        val collapsed = (if (event.ok) "✓  " else "⚠  ") + event.name + "  ·  " + (if (event.ok) "DONE" else "FAILED") + "  ·  Tap to expand"
                         val expanded = event.name + "\n" + event.output.take(5000)
                         view?.text = collapsed
                         view?.tag = expanded
