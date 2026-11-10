@@ -41,6 +41,14 @@ object GitHubWriteTools {
         return listOf(ConnectionStatus(app), CreateBranch(app), CommitWorkspaceFile(app), CommitWorkspaceFiles(app), CreatePullRequest(app))
     }
 
+    internal fun pullRequestPreflightError(headBranch: String, baseBranch: String, aheadBy: Int): String? {
+        if (!validBranchName(headBranch) || !validBranchName(baseBranch) || headBranch == baseBranch) {
+            return "Pull request head and base must be two different valid branch names."
+        }
+        if (aheadBy <= 0) return "The head branch has no commits ahead of the base branch; there is nothing new to propose."
+        return null
+    }
+
     internal fun validBranchName(value: String): Boolean {
         if (value.isBlank() || value.length > 100 || value.startsWith("/") || value.endsWith("/") ||
             value.endsWith(".") || value.contains("..") || value.contains("//") || value.contains("@{") ||
@@ -406,9 +414,18 @@ object GitHubWriteTools {
             val owner = arg(args, "owner"); val name = arg(args, "repo")
             val head = arg(args, "head_branch"); val base = arg(args, "base_branch")
             val title = arg(args, "title"); val body = arg(args, "body")
-            if (!GitHubWriteTools.validBranchName(head) || !GitHubWriteTools.validBranchName(base) ||
-                head == base || title.isBlank() || title.length > 200 || body.length > 10_000)
-                return ToolResult.Error("Invalid pull request branches or text.")
+            if (title.isBlank() || title.length > 200 || body.length > 10_000) {
+                return ToolResult.Error("Pull request title must be 1–200 characters and body must be at most 10,000 characters.")
+            }
+            val repository = repo(context, owner, name)
+            if (repository.get("archived")?.asBoolean == true) {
+                return ToolResult.Error("Archived repositories cannot accept new pull requests.")
+            }
+            ctx.progress("Checking that both branches exist and the head contains new commits")
+            val comparison = request(context, "GET",
+                url("repos", owner, name, "compare", "$base...$head"))
+            val aheadBy = comparison.get("ahead_by")?.asInt ?: 0
+            pullRequestPreflightError(head, base, aheadBy)?.let { return ToolResult.Error(it) }
             val payload = JsonObject().apply {
                 addProperty("head", head); addProperty("base", base)
                 addProperty("title", title); addProperty("body", body)
