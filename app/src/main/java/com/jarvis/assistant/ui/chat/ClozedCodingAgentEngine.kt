@@ -488,11 +488,47 @@ internal class ClozedCodingAgentEngine(
     private fun runDiagnostics(args: JsonObject): Pair<String, Boolean> {
         val paths = args.getAsJsonArray("paths")?.mapNotNull { it.takeIf { v -> v.isJsonPrimitive }?.asString }.orEmpty()
         if (paths.isEmpty()) return "Error: paths must be a non-empty array." to false
-        val reports = paths.map { path ->
+        val reports = paths.take(100).map { path ->
             val file = runCatching { workspace.resolve(path) }.getOrNull()
-            if (file == null || !file.isFile) "$path: missing"
-            else if (file.extension.equals("json", true)) "$path: " + runCatching { JsonParser.parseString(file.readText()); "valid JSON" }.getOrElse { "invalid JSON: " + it.message }
-            else "$path: text file read successfully"
+            if (file == null || !file.isFile) {
+                path + ": missing or invalid path"
+            } else if (file.length() > 2_000_000) {
+                path + ": skipped (over 2 MB)"
+            } else {
+                val text = runCatching { file.readText(Charsets.UTF_8) }.getOrElse { return@map path + ": unreadable text file" }
+                when (file.extension.lowercase()) {
+                    "json" -> path + ": " + runCatching { JsonParser.parseString(text); "valid JSON" }.getOrElse { "invalid JSON: " + it.message }
+                    "xml" -> path + ": " + runCatching {
+                        val parser = android.util.Xml.newPullParser()
+                        parser.setInput(text.reader())
+                        while (parser.next() != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) Unit
+                        "valid XML"
+                    }.getOrElse { "invalid XML: " + it.message }
+                    else -> {
+                        val stack = java.util.ArrayDeque<Char>()
+                        var quote: Char? = null
+                        var escaped = false
+                        var issue: String? = null
+                        text.forEach { ch ->
+                            if (issue != null) return@forEach
+                            if (quote != null) {
+                                if (escaped) escaped = false
+                                else if (ch == '\\') escaped = true
+                                else if (ch == quote) quote = null
+                            } else when (ch) {
+                                '"', '\'' -> quote = ch
+                                '(', '[', '{' -> stack.addLast(ch)
+                                ')', ']', '}' -> {
+                                    val expected = when (ch) { ')' -> '('; ']' -> '['; else -> '{' }
+                                    if (stack.isEmpty() || stack.removeLast() != expected) issue = "unbalanced bracket " + ch
+                                }
+                            }
+                        }
+                        val result = issue ?: if (quote != null) "unclosed quote" else if (stack.isNotEmpty()) "unclosed bracket " + stack.peekLast() else "balanced delimiters"
+                        path + ": " + result
+                    }
+                }
+            }
         }
         return reports.joinToString("\n") to true
     }
