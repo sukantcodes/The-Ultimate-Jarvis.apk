@@ -196,7 +196,7 @@ internal object ClozedCodingAgentDialog {
             activeAssistant = null
         }
         fun addAssistant(text: String) {
-            val rendered = MarkdownMessageRenderer.render(context, text)
+            val rendered = runCatching { MarkdownMessageRenderer.render(context, text) }.getOrElse { text }
             addText(rendered, rounded(card, border, dp(14)), Gravity.START, primary)
             activeAssistant = transcript.getChildAt(transcript.childCount - 1) as? TextView
             activeAssistant?.apply {
@@ -248,7 +248,7 @@ internal object ClozedCodingAgentDialog {
                     "text" -> {
                         if (activeAssistant == null) addAssistant("")
                         activeAssistantSource.append(event.text)
-                        activeAssistant?.text = MarkdownMessageRenderer.render(context, activeAssistantSource.toString())
+                        activeAssistant?.text = runCatching { MarkdownMessageRenderer.render(context, activeAssistantSource.toString()) }.getOrElse { activeAssistantSource.toString() }
                         scrollBottom()
                     }
                     "reasoning" -> {
