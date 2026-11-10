@@ -101,10 +101,19 @@ internal object ClozedCodingAgentDialog {
         val newButton = action("NEW") { engineRef?.newSession() }
         val undoButton = action("UNDO") { engineRef?.undo() }
         val folderButton = action("PROJECT") {
-            runCatching { context.startActivity(Intent(context, WorkspaceActivity::class.java)) }
+            val projectPath = engineRef?.projectPath().orEmpty()
+            MaterialAlertDialogBuilder(context)
+                .setTitle("Coding project folder")
+                .setMessage(projectPath)
+                .setNegativeButton("Close", null)
+                .setPositiveButton("Copy path") { _, _ ->
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Coding project folder", projectPath))
+                }
+                .show()
         }
-        val providerButton = action("PROVIDER") {
-            runCatching { context.startActivity(Intent(context, com.jarvis.assistant.ui.settings.ApiConnectionActivity::class.java)) }
+        val providerButton = action("ROUTE") {
+            runCatching { context.startActivity(Intent(context, com.jarvis.assistant.ui.settings.WorkRoutingActivity::class.java)) }
         }
         listOf(modeButton, sessionsButton, newButton, undoButton, folderButton, providerButton).forEachIndexed { index, view ->
             val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
