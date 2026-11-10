@@ -224,16 +224,22 @@ class ChatFragment : Fragment() {
                 ChatComposerMenu.Action("Add files", "Attach a document, image or code file", "＋") {
                     documentPicker.launch(arrayOf("*/*"))
                 },
-                ChatComposerMenu.Action("Connectors & GitHub", "Connect accounts and manage integrations", "⌘") {
+                ChatComposerMenu.Action("AI & models", "Providers, API connections and model routing", "✧") {
+                    startActivity(Intent(requireContext(), com.jarvis.assistant.ui.settings.ApiConnectionActivity::class.java))
+                },
+                ChatComposerMenu.Action("Voice settings", "Voice input, hands-free controls and speech setup", "♫") {
+                    startActivity(Intent(requireContext(), com.jarvis.assistant.ui.settings.HandsFreeActivity::class.java))
+                },
+                ChatComposerMenu.Action("Connectors & GitHub", "Manage connected accounts and integrations", "⌘") {
                     startActivity(Intent(requireContext(), ConnectorHubActivity::class.java))
                 },
-                ChatComposerMenu.Action("Workspace", "Browse, preview and export files created by JARVIS", "▤") {
+                ChatComposerMenu.Action("Workspace", "Browse, preview, edit and export ChatBox files", "▤") {
                     startActivity(Intent(requireContext(), WorkspaceActivity::class.java))
                 },
-                ChatComposerMenu.Action("Terminal", "Work with files in the private ChatBox workspace", ">_") {
+                ChatComposerMenu.Action("Terminal", "Run supported commands in the private workspace", ">_") {
                     ChatTerminalDialog.show(requireContext())
                 },
-                ChatComposerMenu.Action("Local website preview", "Start or stop the private loopback preview server", "↗") {
+                ChatComposerMenu.Action("Website preview", "Start or stop the private local preview server", "↗") {
                     LocalServerDialog.show(requireContext())
                 },
                 ChatComposerMenu.Action("Chat tools", "Writing, formatting, export and conversation utilities", "✦") {
@@ -243,6 +249,12 @@ class ChatFragment : Fragment() {
                 },
                 ChatComposerMenu.Action("Conversation history", "Review previous messages in this chat", "◷") {
                     ChatHistoryBottomSheet.newInstance().show(parentFragmentManager, ChatHistoryBottomSheet.TAG)
+                },
+                ChatComposerMenu.Action("Memory", "Open JARVIS memory and saved context controls", "◉") {
+                    startActivity(Intent(requireContext(), com.jarvis.assistant.ui.memory.MemoryActivity::class.java))
+                },
+                ChatComposerMenu.Action("Automations", "Create and manage multi-step assistant workflows", "⏱") {
+                    startActivity(Intent(requireContext(), com.jarvis.assistant.studio.ui.AutomationStudioActivity::class.java))
                 }
             ))
         }
