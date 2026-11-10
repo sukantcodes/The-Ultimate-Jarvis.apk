@@ -19,7 +19,8 @@ import com.jarvis.assistant.databinding.ItemNairaChatMessageBinding
 class JarvisChatAdapter(
     private val onEditUserMessage: ((String) -> Unit)? = null,
     private val onSaveAssistantMessage: ((String) -> Unit)? = null,
-    private val onOpenAttachment: ((String, String, String) -> Unit)? = null
+    private val onOpenAttachment: ((String, String, String) -> Unit)? = null,
+    private val onEditAssistantMessage: ((String) -> Unit)? = null
 ) : ListAdapter<ChatTurn, JarvisChatAdapter.MessageViewHolder>(DiffCallback) {
 
     private var speechEngine: TextToSpeech? = null
@@ -122,6 +123,7 @@ class JarvisChatAdapter(
             binding.tvAssistantMessage.movementMethod = android.text.method.LinkMovementMethod.getInstance()
             binding.tvAssistantMessage.highlightColor = android.graphics.Color.TRANSPARENT
                 binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", turn.jarvisResponse) }
+                binding.btnAssistantEdit.setOnClickListener { onEditAssistantMessage?.invoke(turn.jarvisResponse) }
                 binding.btnAssistantPlay.setOnClickListener {
                     speak(context, turn.jarvisResponse)
                 }

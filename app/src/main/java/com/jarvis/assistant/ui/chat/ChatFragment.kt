@@ -137,7 +137,8 @@ class ChatFragment : Fragment() {
                 putExtra(ChatAttachmentPreviewActivity.EXTRA_NAME, name)
                 putExtra(ChatAttachmentPreviewActivity.EXTRA_MIME, mime)
             })
-        }
+        },
+        onEditAssistantMessage = { response -> showChatArtifactEditor(response) }
     )
 
     override fun onCreateView(
@@ -260,6 +261,87 @@ class ChatFragment : Fragment() {
 
         observeChatTurns()
         observeProviderEngine()
+    }
+
+    /** Opens a focused in-chat editor and saves the edited response as a workspace artifact. */
+    private fun showChatArtifactEditor(initialText: String) {
+        val root = android.widget.LinearLayout(requireContext()).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(16, 8, 16, 4)
+        }
+        val nameInput = android.widget.EditText(requireContext()).apply {
+            hint = "Artifact filename (example: notes.md)"
+            setSingleLine(true)
+            setText("jarvis-artifact.md")
+        }
+        val editor = android.widget.EditText(requireContext()).apply {
+            setText(initialText)
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 13f
+            gravity = android.view.Gravity.TOP or android.view.Gravity.START
+            minLines = 12
+            maxLines = 24
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        }
+        root.addView(nameInput)
+        root.addView(android.widget.ScrollView(requireContext()).apply {
+            addView(editor)
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT, (resources.displayMetrics.heightPixels * 0.48f).toInt()
+            )
+        })
+        val dialog = MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+            .setTitle("Edit response artifact")
+            .setView(root)
+            .setPositiveButton("Save to workspace", null)
+            .setNegativeButton("Cancel", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val rawName = nameInput.text?.toString()?.trim().orEmpty()
+                val fileName = if (rawName.contains('.')) rawName else "$rawName.md"
+                if (!fileName.matches(Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,79}")) ||
+                    fileName.endsWith(".") || fileName.contains("..")
+                ) {
+                    nameInput.error = "Use a simple filename without folders or special characters."
+                    return@setOnClickListener
+                }
+                val content = editor.text?.toString().orEmpty()
+                if (content.isBlank() || content.toByteArray(Charsets.UTF_8).size > 1_000_000) {
+                    editor.error = "Artifact must contain text and stay below 1 MB."
+                    return@setOnClickListener
+                }
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val result = withContext(Dispatchers.IO) {
+                        runCatching {
+                            val workspace = com.jarvis.assistant.tools.Workspace(
+                                java.io.File(requireContext().filesDir, "chatbox-workspace")
+                            )
+                            val target = workspace.resolve("artifacts/$fileName")
+                            if (target.exists()) error("An artifact with that filename already exists. Choose another name.")
+                            target.parentFile?.mkdirs()
+                            val temp = java.io.File(target.parentFile, ".${target.name}.tmp")
+                            temp.writeText(content, Charsets.UTF_8)
+                            if (!temp.renameTo(target)) {
+                                temp.delete()
+                                error("Could not save the artifact to the workspace.")
+                            }
+                            workspace.relative(target)
+                        }
+                    }
+                    result.onSuccess { relative ->
+                        Toast.makeText(requireContext(), "Saved workspace artifact: $relative", Toast.LENGTH_LONG).show()
+                        dialog.dismiss()
+                        startActivity(Intent(requireContext(), WorkspaceActivity::class.java))
+                    }.onFailure { error ->
+                        Toast.makeText(requireContext(), error.message ?: "Could not save artifact.", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+        dialog.show()
     }
 
     private fun showExportFormatPicker(text: String, baseName: String) {
