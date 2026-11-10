@@ -1,6 +1,5 @@
 package com.jarvis.assistant.automation.tasks
 
-import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -8,13 +7,9 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
-import android.provider.CallLog
-import android.telecom.TelecomManager
 import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
 import com.jarvis.assistant.R
 import com.jarvis.assistant.util.ContactCaller
 import org.json.JSONArray
@@ -51,7 +46,7 @@ object ScheduledTaskMemory {
         prefs.edit().putString(CALLS, items.toString()).apply()
         scheduleCallAlarm(context, id, dueAt, cleanContact)
         val minutes = (delayMillis / 60_000L).coerceAtLeast(1L)
-        return "Okay. I saved the task. I will try to call $contact in about $minutes minute(s)."
+        return "Okay. I saved a reminder to call $contact in about $minutes minute(s). I will notify you then; you will tap to place the call."
     }
 
     fun watchAppEvent(context: Context, app: String, keyword: String): String {
@@ -139,21 +134,12 @@ object ScheduledTaskMemory {
         val matches = if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
             ContactCaller.findMatches(context, contact)
         } else emptyList()
-        if (matches.size == 1 && ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED) {
-            try {
-                val call = Intent(Intent.ACTION_CALL, Uri.parse("tel:" + Uri.encode(matches.first().number)))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(call)
-                return
-            } catch (_: Exception) {
-                // Android may block a background call launch; fall through to a user-visible alert.
-            }
-        }
         val detail = when {
-            matches.size > 1 -> "I found more than one contact named $contact. Please choose the right one."
-            matches.isEmpty() -> "Please open JARVIS and check contact access or the saved contact name for $contact."
-            else -> "Android needs you to tap the call notification to continue."
+            matches.size > 1 -> "I found more than one contact named $contact. Open JARVIS to choose the right one."
+            matches.isEmpty() -> "Open JARVIS to check contact access or the saved contact name for $contact."
+            else -> "Your reminder is due. Tap Open dialer when you are ready to place the call."
         }
+        // A reminder must never initiate a phone call in the background. The user always makes the final call.
         postAlert(context, "Time to call $contact", detail, matches.singleOrNull()?.number)
     }
 

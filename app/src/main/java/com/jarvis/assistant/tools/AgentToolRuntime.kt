@@ -5,10 +5,7 @@ import com.jarvis.assistant.tools.builtin.FileTools
 import com.jarvis.assistant.skills.SkillStore
 import java.io.File
 
-/**
- * Process-wide ChatBox tool environment. The workspace is private to the app; tools never receive arbitrary
- * device paths. Consequential operations are routed through the active ChatBox approval host, or denied headlessly.
- */
+/** Process-wide ChatBox tool environment; consequential actions require the active approval host. */
 object AgentToolApproval {
     @Volatile var confirmer: Confirmer? = null
 }
@@ -23,14 +20,12 @@ object AgentToolRuntime {
             SkillTools.all(SkillStore.get(context.applicationContext)).forEach(registry::register)
             WorkspaceTools.all().forEach(registry::register)
             WebTools.all().forEach(registry::register)
+            ScheduledTaskTools.all(context.applicationContext).forEach(registry::register)
             registryInstance = registry
         }
     }
 
-    fun specs(context: Context): List<ToolSpec> {
-        context.applicationContext // ensure callers pass a valid Android context
-        return registry(context).specs()
-    }
+    fun specs(context: Context): List<ToolSpec> = registry(context.applicationContext).specs()
 
     fun executor(context: Context): ToolExecutor = executorInstance ?: synchronized(this) {
         executorInstance ?: run {
