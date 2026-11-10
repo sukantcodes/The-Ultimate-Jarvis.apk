@@ -2,6 +2,7 @@ package com.jarvis.assistant.tools
 
 import android.content.Context
 import com.jarvis.assistant.tools.builtin.FileTools
+import com.jarvis.assistant.skills.SkillStore
 import java.io.File
 
 /**
@@ -16,16 +17,19 @@ object AgentToolRuntime {
     @Volatile private var executorInstance: ToolExecutor? = null
     @Volatile private var registryInstance: ToolRegistry? = null
 
-    private fun registry(): ToolRegistry = registryInstance ?: synchronized(this) {
+    private fun registry(context: Context): ToolRegistry = registryInstance ?: synchronized(this) {
         registryInstance ?: ToolRegistry().also { registry ->
             FileTools.all().forEach(registry::register)
+            SkillTools.all(SkillStore.get(context.applicationContext)).forEach(registry::register)
+            WorkspaceTools.all().forEach(registry::register)
+            WebTools.all().forEach(registry::register)
             registryInstance = registry
         }
     }
 
     fun specs(context: Context): List<ToolSpec> {
         context.applicationContext // ensure callers pass a valid Android context
-        return registry().specs()
+        return registry(context).specs()
     }
 
     fun executor(context: Context): ToolExecutor = executorInstance ?: synchronized(this) {
@@ -40,7 +44,7 @@ object AgentToolRuntime {
             val audit = AuditLog(File(app.filesDir, "agent-tool-audit.jsonl"), redactor)
             val workspace = Workspace(File(app.filesDir, "chatbox-workspace"))
             ToolExecutor(
-                registry = registry(),
+                registry = registry(app),
                 policy = PermissionPolicy(settings),
                 audit = audit,
                 confirmer = { AgentToolApproval.confirmer ?: DenyingConfirmer },

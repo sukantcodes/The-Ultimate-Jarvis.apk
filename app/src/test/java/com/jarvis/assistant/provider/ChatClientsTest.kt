@@ -255,6 +255,7 @@ class ChatClientsTest {
         assertEquals(listOf("user", "model", "user"), contents.map { it.asJsonObject.get("role").asString })
         assertTrue(contents[1].asJsonObject.getAsJsonArray("parts")[0].asJsonObject.has("functionCall"))
         assertEquals("read_file", contents[2].asJsonObject.getAsJsonArray("parts")[0].asJsonObject.getAsJsonObject("functionResponse").get("name").asString)
+        assertEquals("The file says hello.", contents[2].asJsonObject.getAsJsonArray("parts")[0].asJsonObject.getAsJsonObject("functionResponse").getAsJsonObject("response").get("result").asString)
     }
 
     @Test fun gemini_stream_http_failure_is_mapped() {

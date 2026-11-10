@@ -138,6 +138,12 @@ class ToolLayerTest {
         assertEquals("x", File(dir, "log.txt").readText())
     }
 
+    @Test fun repeated_provider_call_ids_are_scoped_to_their_chat_turn_source() {
+        assertTrue(call("append_file", """{"path":"scoped.txt","content":"a"}""", id = "same", source = "turn-1").isOk)
+        assertTrue(call("append_file", """{"path":"scoped.txt","content":"b"}""", id = "same", source = "turn-2").isOk)
+        assertEquals("ab", File(dir, "scoped.txt").readText())
+    }
+
     @Test fun a_denied_call_can_be_asked_again_and_approved() {
         confirmer.answer = Decision.DENY
         assertTrue(call("write_file", """{"path":"r.txt","content":"x"}""", id = "again") is ToolResult.Denied)

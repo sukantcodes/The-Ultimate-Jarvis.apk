@@ -6,6 +6,8 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.Job
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -27,10 +29,11 @@ class ToolExecutor(
     @Volatile var cancelled: Boolean = false
 
     suspend fun execute(call: ToolCall, timeoutMs: Long = defaultTimeoutMs): ToolResult {
-        done[call.id]?.let { return it }
+        val executionKey = "${call.source}:${call.id}:${call.name}:${call.args}"
+        done[executionKey]?.let { return it }
         val result = run(call, timeoutMs)
         // Only remember real outcomes: a denied call can be asked again and approved.
-        if (result !is ToolResult.Denied) done[call.id] = result
+        if (result !is ToolResult.Denied) done[executionKey] = result
         return result
     }
 
@@ -40,10 +43,11 @@ class ToolExecutor(
         val spec = tool.spec
         val missing = spec.params.filter { it.required && !call.args.has(it.name) }.map { it.name }
         if (missing.isNotEmpty()) return ToolResult.Error("Missing required argument(s): ${missing.joinToString()}.")
+        val executionJob = currentCoroutineContext()[Job]
         val ctx = object : ToolContext {
             override val workspace: Workspace = this@ToolExecutor.workspace
             override fun progress(message: String) = onProgress(redactor.redact(message))
-            override val cancelled: Boolean get() = this@ToolExecutor.cancelled
+            override val cancelled: Boolean get() = this@ToolExecutor.cancelled || executionJob?.isActive == false
         }
         val summary = try { tool.describe(call.args) } catch (e: Exception) { spec.description }
         val destructive = try { tool.isDestructive(call.args, ctx) } catch (e: Exception) { true }

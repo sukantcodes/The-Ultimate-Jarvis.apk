@@ -302,7 +302,7 @@ class GeminiChatClient(private val transport: HttpTransport) : ChatProviderClien
                 parts.add(JsonObject().apply {
                     add("functionResponse", JsonObject().apply {
                         addProperty("name", m.toolName.orEmpty())
-                        add("response", JsonObject().apply { addProperty("content", m.text) })
+                        add("response", JsonObject().apply { addProperty("result", m.text) })
                     })
                 })
                 contents.add(JsonObject().apply { addProperty("role", "user"); add("parts", parts) })
