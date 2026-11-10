@@ -70,7 +70,7 @@ class ClozedAgentProtocolTest {
         val transport = FakeTransport().apply {
             stream(FakeTransport.StreamRule({ true }, listOf(
                 """data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call-1","function":{"name":"read","arguments":"{\"path\":"}}]}}]}""",
-                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"notes.txt\"}}]}}]}",
+                """data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"notes.txt\""}}]}}]}""",
                 "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"}\"}}]}}]}",
                 "data: [DONE]"
             )))
