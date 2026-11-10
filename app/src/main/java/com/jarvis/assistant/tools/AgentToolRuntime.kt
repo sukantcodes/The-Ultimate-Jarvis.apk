@@ -21,6 +21,7 @@ object AgentToolRuntime {
             SkillTools.all(SkillStore.get(context.applicationContext)).forEach(registry::register)
             WorkspaceTools.all().forEach(registry::register)
             WebTools.all().forEach(registry::register)
+            registry.register(CodingShellTool())
             McpTools.all(context.applicationContext).forEach(registry::register)
             GitHubTools.all(context.applicationContext).forEach(registry::register)
             GitHubWriteTools.all(context.applicationContext).forEach(registry::register)
@@ -31,7 +32,7 @@ object AgentToolRuntime {
 
     fun specs(context: Context): List<ToolSpec> {
         val app = context.applicationContext
-        return registry(app).also { registry -> registry.register(ConnectorTools(app)); McpTools.all(app).forEach(registry::register) }.specs()
+        return registry(app).also { registry -> registry.register(ConnectorTools(app)); registry.register(CodingShellTool()); McpTools.all(app).forEach(registry::register) }.specs()
     }
 
 
