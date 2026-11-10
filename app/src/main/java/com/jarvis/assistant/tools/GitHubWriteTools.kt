@@ -27,6 +27,8 @@ object GitHubWriteTools {
 
     private const val MAX_RESPONSE = 2_000_000L
     private const val MAX_FILE = 1_000_000L
+    private const val MAX_BATCH_FILES = 25
+    private const val MAX_BATCH_BYTES = 5_000_000L
     private val jsonType = "application/json; charset=utf-8".toMediaType()
     private val client by lazy {
         OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
