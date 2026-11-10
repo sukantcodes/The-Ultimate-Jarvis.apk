@@ -13,7 +13,6 @@ import com.jarvis.assistant.tools.Workspace
 import kotlinx.coroutines.delay
 import java.io.File
 import java.util.ArrayDeque
-import java.util.UUID
 
 internal data class ClozedAgentEvent(
     val type: String,
