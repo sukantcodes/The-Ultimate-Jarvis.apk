@@ -52,6 +52,7 @@ internal class ClozedLlm {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             doOutput = true
+            instanceFollowRedirects = false
             connectTimeout = 30_000
             readTimeout = 300_000
             setRequestProperty("Content-Type", "application/json")
