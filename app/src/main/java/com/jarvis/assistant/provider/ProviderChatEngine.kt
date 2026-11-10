@@ -91,7 +91,9 @@ class ProviderChatEngine(
     private val failedTurns = ConcurrentHashMap.newKeySet<String>()
     private val turnCategory = ConcurrentHashMap<String, WorkCategory>()
 
-    val isBusy: Boolean get() = job?.isActive == true
+    // State is authoritative: a failure is published just before its coroutine returns, so Job.isActive can
+    // briefly remain true after the turn is already retryable. Using the state avoids rejecting that retry.
+    val isBusy: Boolean get() = _state.value is EngineState.Streaming
 
     /**
      * Sends a new question. [displayText] is what the chat shows; [sendText] (defaults to it) is what the model
