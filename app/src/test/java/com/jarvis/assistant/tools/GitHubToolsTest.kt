@@ -46,4 +46,62 @@ class GitHubToolsTest {
         assertFalse(GitHubTools.isSensitiveRepositoryPath("app/src/MainActivity.kt"))
         assertFalse(GitHubTools.isSensitiveRepositoryPath("README.md"))
     }
+
+    @Test fun githubBatchCommitValidationAcceptsSafeUtf8Files() {
+        val files = listOf(
+            GitHubWriteTools.CommitFileInput("src/Main.kt", "app/src/Main.kt", "fun main() = Unit\n".toByteArray()),
+            GitHubWriteTools.CommitFileInput("README.md", "README.md", "# Project\n".toByteArray())
+        )
+        assertTrue(GitHubWriteTools.validateCommitBatch(files) == null)
+    }
+
+    @Test fun githubBatchCommitValidationRejectsDuplicateAndFileFolderConflicts() {
+        val duplicate = listOf(
+            GitHubWriteTools.CommitFileInput("a.txt", "src/a.txt", byteArrayOf(1)),
+            GitHubWriteTools.CommitFileInput("b.txt", "src/a.txt", byteArrayOf(2))
+        )
+        assertTrue(GitHubWriteTools.validateCommitBatch(duplicate)?.contains("Duplicate") == true)
+
+        val conflict = listOf(
+            GitHubWriteTools.CommitFileInput("a.txt", "src", byteArrayOf(1)),
+            GitHubWriteTools.CommitFileInput("b.txt", "src/file.txt", byteArrayOf(2))
+        )
+        assertTrue(GitHubWriteTools.validateCommitBatch(conflict)?.contains("folder") == true)
+    }
+
+    @Test fun githubBatchCommitValidationRejectsSecretsBinaryAndInvalidUtf8() {
+        val secret = listOf(
+            GitHubWriteTools.CommitFileInput("config.txt", "config.txt",
+                "token=ghp_abcdefghijklmnopqrstuvwxyz1234567890".toByteArray())
+        )
+        assertTrue(GitHubWriteTools.validateCommitBatch(secret)?.contains("credential") == true)
+
+        val binary = listOf(GitHubWriteTools.CommitFileInput("image.dat", "image.dat", byteArrayOf(1, 0, 2)))
+        assertTrue(GitHubWriteTools.validateCommitBatch(binary)?.contains("Binary") == true)
+
+        val invalidUtf8 = listOf(GitHubWriteTools.CommitFileInput("bad.txt", "bad.txt", byteArrayOf(0xC3.toByte(), 0x28)))
+        assertTrue(GitHubWriteTools.validateCommitBatch(invalidUtf8)?.contains("UTF-8") == true)
+
+        val sensitive = listOf(GitHubWriteTools.CommitFileInput(".env", ".env", "SAFE=1".toByteArray()))
+        assertTrue(GitHubWriteTools.validateCommitBatch(sensitive)?.contains("private-key") == true)
+    }
+
+    @Test fun githubBatchCommitValidationEnforcesPerFileAndAggregateLimits() {
+        val oversizedFile = listOf(
+            GitHubWriteTools.CommitFileInput("large.txt", "large.txt", ByteArray(1_000_001) { 65 })
+        )
+        assertTrue(GitHubWriteTools.validateCommitBatch(oversizedFile)?.contains("1 MB") == true)
+
+        val tooManyBytes = (0 until 6).map { index ->
+            GitHubWriteTools.CommitFileInput("file" + index + ".txt", "dir/file" + index + ".txt", ByteArray(900_000) { 65 })
+        }
+        assertTrue(GitHubWriteTools.validateCommitBatch(tooManyBytes)?.contains("5 MB") == true)
+    }
+
+    @Test fun githubBatchCommitValidationCapsFileCount() {
+        val tooMany = (0 until 26).map { index ->
+            GitHubWriteTools.CommitFileInput("file" + index + ".txt", "file" + index + ".txt", byteArrayOf(65))
+        }
+        assertTrue(GitHubWriteTools.validateCommitBatch(tooMany)?.contains("25 files") == true)
+    }
 }
