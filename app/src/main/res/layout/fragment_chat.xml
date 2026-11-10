@@ -210,8 +210,8 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="@drawable/bg_chat_composer"
-        android:elevation="10dp"
+        android:background="@drawable/bg_cc_composer"
+        android:elevation="2dp"
         android:paddingStart="14dp"
         android:paddingEnd="12dp"
         android:paddingTop="12dp"
@@ -380,19 +380,14 @@
                 android:layout_height="1dp"
                 android:layout_weight="1" />
 
-            <TextView
+            <ImageButton
                 android:id="@+id/btnStopChat"
-                android:layout_width="wrap_content"
-                android:layout_height="42dp"
-                android:gravity="center"
-                android:text="Stop"
-                android:textColor="?attr/themeTextSecondary"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:background="@drawable/bg_chat_tool_chip"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:layout_marginEnd="4dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/bg_cc_send"
+                android:src="@drawable/ic_cc_stop"
+                app:tint="#FFFFFF"
+                android:layout_marginEnd="6dp"
                 android:visibility="gone"
                 android:contentDescription="Stop JARVIS response" />
 
@@ -401,17 +396,17 @@
                 android:layout_width="42dp"
                 android:layout_height="42dp"
                 android:background="@drawable/bg_chat_attach_button"
-                android:src="@drawable/ic_plus"
-                app:tint="?attr/themeTextPrimary"
+                android:src="@drawable/ic_cc_plus"
+                app:tint="?attr/themeTextSecondary"
                 android:layout_marginEnd="6dp"
                 android:contentDescription="Attach a file" />
 
             <ImageButton
                 android:id="@+id/btnSendMessage"
-                android:layout_width="46dp"
-                android:layout_height="46dp"
-                android:background="@drawable/bg_jarvis_pill_button"
-                android:src="@drawable/ic_send_up"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/bg_cc_send"
+                android:src="@drawable/ic_cc_arrow_up"
                 app:tint="#FFFFFF"
                 android:contentDescription="Send message" />
         </LinearLayout>
