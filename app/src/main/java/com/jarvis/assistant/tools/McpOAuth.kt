@@ -129,6 +129,7 @@ object McpOAuth {
             requestMethod = "GET"
             connectTimeout = 15000
             readTimeout = 30000
+            instanceFollowRedirects = false
             setRequestProperty("Accept", "application/json")
         }
         try {
@@ -145,6 +146,7 @@ object McpOAuth {
             doOutput = true
             connectTimeout = 15000
             readTimeout = 30000
+            instanceFollowRedirects = false
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "application/json")
         }
@@ -163,6 +165,7 @@ object McpOAuth {
             doOutput = true
             connectTimeout = 15000
             readTimeout = 30000
+            instanceFollowRedirects = false
             setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
             setRequestProperty("Accept", "application/json")
         }
