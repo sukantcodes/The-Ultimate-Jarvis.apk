@@ -118,7 +118,9 @@ class JarvisChatAdapter(
 
             if (turn.jarvisResponse.isNotBlank()) {
                 binding.layoutAssistantContainer.visibility = View.VISIBLE
-                binding.tvAssistantMessage.text = turn.jarvisResponse
+                binding.tvAssistantMessage.text = MarkdownMessageRenderer.render(context, turn.jarvisResponse)
+            binding.tvAssistantMessage.movementMethod = android.text.method.LinkMovementMethod.getInstance()
+            binding.tvAssistantMessage.highlightColor = android.graphics.Color.TRANSPARENT
                 binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", turn.jarvisResponse) }
                 binding.btnAssistantPlay.setOnClickListener {
                     speak(context, turn.jarvisResponse)
