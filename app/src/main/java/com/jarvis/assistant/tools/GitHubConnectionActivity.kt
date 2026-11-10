@@ -10,6 +10,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 /** Explicit local setup for optional GitHub repository access. */
 class GitHubConnectionActivity : AppCompatActivity() {
@@ -52,6 +54,28 @@ class GitHubConnectionActivity : AppCompatActivity() {
                 }
             }
         }
+        val test = Button(this).apply {
+            text = "Test GitHub connection"
+            setOnClickListener {
+                if (!GitHubCredentialStore.isConfigured(this@GitHubConnectionActivity)) {
+                    Toast.makeText(this@GitHubConnectionActivity, "Save a token first.", Toast.LENGTH_SHORT).show()
+                } else {
+                    isEnabled = false
+                    status.text = "Checking GitHub authentication…"
+                    lifecycleScope.launch {
+                        try {
+                            val account = GitHubWriteTools.validateConnection(this@GitHubConnectionActivity)
+                            status.text = "Connected and authenticated as @$account. Token remains encrypted on this device."
+                            Toast.makeText(this@GitHubConnectionActivity, "GitHub connection verified.", Toast.LENGTH_SHORT).show()
+                        } catch (error: Exception) {
+                            status.text = "Connection check failed: ${error.message ?: "Check token permissions and network."}"
+                        } finally {
+                            isEnabled = true
+                        }
+                    }
+                }
+            }
+        }
         val remove = Button(this).apply {
             text = "Remove saved token"
             setOnClickListener {
@@ -64,6 +88,7 @@ class GitHubConnectionActivity : AppCompatActivity() {
         root.addView(intro)
         root.addView(token, LinearLayout.LayoutParams(-1, -2))
         root.addView(save)
+        root.addView(test)
         root.addView(remove)
         root.addView(status)
         setContentView(ScrollView(this).apply { addView(root) })
