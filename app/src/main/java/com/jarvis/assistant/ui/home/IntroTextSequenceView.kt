@@ -92,7 +92,7 @@ class IntroTextSequenceView(context: Context) : View(context) {
     private val eyebrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = eyebrowFace }
     private val subtitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = subtitleFace }
     private val sweepMatrix = Matrix()
-    private val bracketLines = FloatArray(16)
+    private val bracketLines = FloatArray(32)
 
     private var bgShader: LinearGradient? = null
     private var glowShader: RadialGradient? = null
