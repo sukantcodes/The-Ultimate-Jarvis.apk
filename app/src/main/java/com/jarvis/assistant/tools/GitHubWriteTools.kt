@@ -36,7 +36,7 @@ object GitHubWriteTools {
 
     fun all(context: Context): List<Tool> {
         val app = context.applicationContext
-        return listOf(ConnectionStatus(app), CreateBranch(app), CommitWorkspaceFile(app), CreatePullRequest(app))
+        return listOf(ConnectionStatus(app), CreateBranch(app), CommitWorkspaceFile(app), CommitWorkspaceFiles(app), CreatePullRequest(app))
     }
 
     internal fun validBranchName(value: String): Boolean {
@@ -57,6 +57,64 @@ object GitHubWriteTools {
             Regex("\\bAKIA[0-9A-Z]{16}\\b")
         )
         return patterns.any { it.containsMatchIn(text) }
+    }
+
+    internal data class CommitFileInput(
+        val workspacePath: String,
+        val repositoryPath: String,
+        val bytes: ByteArray
+    )
+
+    /** Pure validation shared by the batch commit tool and unit tests. */
+    internal fun validateCommitBatch(files: List<CommitFileInput>): String? {
+        if (files.isEmpty()) return "Select at least one workspace file to commit."
+        if (files.size > MAX_BATCH_FILES) return "A single GitHub commit is limited to " + MAX_BATCH_FILES + " files."
+        val local = files.map { it.workspacePath.lowercase(java.util.Locale.ROOT) }
+        val remote = files.map { it.repositoryPath.lowercase(java.util.Locale.ROOT) }
+        if (local.toSet().size != local.size || remote.toSet().size != remote.size) {
+            return "Duplicate workspace or repository paths are not allowed."
+        }
+        for (paths in listOf(local, remote)) {
+            for (i in paths.indices) for (j in i + 1 until paths.size) {
+                if (paths[i].startsWith(paths[j] + "/") || paths[j].startsWith(paths[i] + "/")) {
+                    return "A file path conflicts with a folder path in the selected batch."
+                }
+            }
+        }
+        var total = 0L
+        for (file in files) {
+            if (!GitHubTools.validRepoPath(file.workspacePath) || !GitHubTools.validRepoPath(file.repositoryPath)) {
+                return "Every workspace and repository path must be a safe relative path."
+            }
+            if (GitHubTools.isSensitiveRepositoryPath(file.workspacePath) ||
+                GitHubTools.isSensitiveRepositoryPath(file.repositoryPath)) {
+                return "Credential, key-store and private-key paths cannot be committed."
+            }
+            if (file.bytes.isEmpty() || file.bytes.size.toLong() > MAX_FILE) {
+                return "Each selected file must contain between 1 byte and 1 MB."
+            }
+            if (file.bytes.any { it == 0.toByte() }) return "Binary files are not supported by GitHub workspace commits."
+            val validUtf8 = runCatching {
+                Charsets.UTF_8.newDecoder()
+                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                    .decode(java.nio.ByteBuffer.wrap(file.bytes))
+            }.isSuccess
+            if (!validUtf8) return "Only valid UTF-8 text files can be committed."
+            if (containsCredentialMaterial(file.bytes)) {
+                return "A selected file appears to contain a private key or recognizable access token."
+            }
+            total += file.bytes.size.toLong()
+            if (total > MAX_BATCH_BYTES) return "The selected files exceed the 5 MB per-commit limit."
+        }
+        return null
+    }
+
+    private fun stringArray(args: JsonObject, name: String): List<String> {
+        val value = args.get(name)?.takeIf { it.isJsonArray }?.asJsonArray ?: return emptyList()
+        return value.mapNotNull { element ->
+            element.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString?.trim()
+        }
     }
 
     private fun arg(args: JsonObject, name: String): String =
@@ -198,6 +256,137 @@ object GitHubWriteTools {
             ToolResult.Ok("Committed " + bytes.size + " bytes from workspace/" + localPath + " to " +
                 owner + "/" + name + ":" + branch + "/" + remotePath + ". Commit: " + newSha)
         } catch (e: Exception) { failure(e) }
+        }
+    }
+
+    private class CommitWorkspaceFiles(private val context: Context) : Tool {
+        override val spec = ToolSpec("github_commit_workspace_files",
+            "Commit a selected batch of UTF-8 text files from the isolated ChatBox workspace in one Git commit to an existing non-default branch. Requires explicit user approval; blocks credentials, binary files, unsafe paths and oversized batches.",
+            listOf(
+                ToolParam("owner", required = true),
+                ToolParam("repo", required = true),
+                ToolParam("branch", required = true),
+                ToolParam("workspace_paths", "array", "Workspace-relative source paths, one for each repository_paths entry.", required = true),
+                ToolParam("repository_paths", "array", "Repository-relative destination paths in the same order as workspace_paths.", required = true),
+                ToolParam("message", required = true, description = "Commit message, up to 200 characters.")
+            ), Risk.DESTRUCTIVE, "github")
+
+        override fun describe(args: JsonObject): String {
+            val sources = stringArray(args, "workspace_paths")
+            val destinations = stringArray(args, "repository_paths")
+            val pairs = sources.indices.joinToString { index ->
+                "workspace/" + sources[index] + " → " + (destinations.getOrNull(index) ?: "(missing destination)")
+            }
+            return "Commit " + sources.size + " selected workspace file(s) to " +
+                arg(args, "owner") + "/" + arg(args, "repo") + ":" + arg(args, "branch") +
+                " [" + pairs + "]"
+        }
+
+        override fun isDestructive(args: JsonObject, ctx: ToolContext) = true
+
+        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
+            return try {
+                val owner = arg(args, "owner")
+                val name = arg(args, "repo")
+                val branch = arg(args, "branch")
+                val message = arg(args, "message")
+                val sources = stringArray(args, "workspace_paths")
+                val destinations = stringArray(args, "repository_paths")
+                if (!GitHubTools.validRepositoryPart(owner) || !GitHubTools.validRepositoryPart(name)) {
+                    return ToolResult.Error("Invalid GitHub owner or repository name.")
+                }
+                if (!validBranchName(branch) || message.isBlank() || message.length > 200) {
+                    return ToolResult.Error("Choose a valid feature branch and a commit message of at most 200 characters.")
+                }
+                if (sources.size != destinations.size || sources.isEmpty() || sources.size > MAX_BATCH_FILES) {
+                    return ToolResult.Error("Provide matching workspace_paths and repository_paths arrays containing 1 to " +
+                        MAX_BATCH_FILES + " files.")
+                }
+
+                val files = ArrayList<CommitFileInput>(sources.size)
+                for (index in sources.indices) {
+                    if (ctx.cancelled) throw kotlinx.coroutines.CancellationException("GitHub commit cancelled.")
+                    val path = sources[index]
+                    if (!GitHubTools.validRepoPath(path)) return ToolResult.Error("Invalid workspace path: " + path)
+                    val file = ctx.workspace.resolve(path)
+                    if (!file.isFile || java.nio.file.Files.isSymbolicLink(file.toPath())) {
+                        return ToolResult.Error("Workspace source is not a regular file: " + path)
+                    }
+                    if (file.length() > MAX_FILE) return ToolResult.Error("File exceeds the 1 MB limit: " + path)
+                    files += CommitFileInput(path, destinations[index], file.readBytes())
+                }
+                validateCommitBatch(files)?.let { return ToolResult.Error(it) }
+
+                val repository = repo(context, owner, name)
+                if (repository.get("archived")?.asBoolean == true) {
+                    return ToolResult.Error("Archived repositories cannot be changed.")
+                }
+                val defaultBranch = repository.get("default_branch")?.asString.orEmpty()
+                if (branch == defaultBranch) {
+                    return ToolResult.Error("Direct commits to the default branch are disabled. Create a feature branch first.")
+                }
+
+                val head = request(context, "GET", refUrl(owner, name, branch))
+                val parent = head.getAsJsonObject("object")?.get("sha")?.asString
+                    ?: return ToolResult.Error("Could not resolve the feature branch.")
+                val parentCommit = request(context, "GET", url("repos", owner, name, "git", "commits", parent))
+                val baseTree = parentCommit.getAsJsonObject("tree")?.get("sha")?.asString
+                    ?: return ToolResult.Error("Could not resolve the feature branch tree.")
+
+                val treeEntries = JsonArray()
+                files.forEachIndexed { index, file ->
+                    if (ctx.cancelled) throw kotlinx.coroutines.CancellationException("GitHub commit cancelled.")
+                    ctx.progress("Uploading file " + (index + 1) + " of " + files.size)
+                    val blobPayload = JsonObject().apply {
+                        addProperty("content", Base64.getEncoder().encodeToString(file.bytes))
+                        addProperty("encoding", "base64")
+                    }
+                    val blob = request(context, "POST", url("repos", owner, name, "git", "blobs"), blobPayload)
+                    val blobSha = blob.get("sha")?.asString
+                        ?: return ToolResult.Error("GitHub did not return a blob for " + file.workspacePath)
+                    treeEntries.add(JsonObject().apply {
+                        addProperty("path", file.repositoryPath)
+                        addProperty("mode", "100644")
+                        addProperty("type", "blob")
+                        addProperty("sha", blobSha)
+                    })
+                }
+
+                ctx.progress("Creating one Git commit for the selected files")
+                val treePayload = JsonObject().apply {
+                    addProperty("base_tree", baseTree)
+                    add("tree", treeEntries)
+                }
+                val tree = request(context, "POST", url("repos", owner, name, "git", "trees"), treePayload)
+                val treeSha = tree.get("sha")?.asString
+                    ?: return ToolResult.Error("GitHub did not return the new repository tree.")
+                val parents = JsonArray().apply { add(JsonPrimitive(parent)) }
+                val commitPayload = JsonObject().apply {
+                    addProperty("message", message)
+                    addProperty("tree", treeSha)
+                    add("parents", parents)
+                }
+                val commit = request(context, "POST", url("repos", owner, name, "git", "commits"), commitPayload)
+                val newSha = commit.get("sha")?.asString
+                    ?: return ToolResult.Error("GitHub did not return the new commit.")
+                ctx.progress("Updating feature branch without force-pushing")
+                val update = JsonObject().apply {
+                    addProperty("sha", newSha)
+                    addProperty("force", false)
+                }
+                // force=false makes this a fast-forward-only update: if the branch moved after we read it,
+                // GitHub rejects this update rather than overwriting someone else's commit.
+                request(context, "PATCH", refUrl(owner, name, branch), update)
+                ToolResult.Ok(
+                    "Committed " + files.size + " file(s) (" +
+                        files.sumOf { it.bytes.size.toLong() } + " bytes) to " +
+                        owner + "/" + name + ":" + branch + ". Commit: " + newSha +
+                        "\nFiles: " + files.joinToString { it.repositoryPath } +
+                        "\nNo default branch was changed and no pull request was merged."
+                )
+            } catch (e: Exception) {
+                failure(e)
+            }
         }
     }
 
