@@ -149,6 +149,8 @@ class McpManager private constructor(context: Context) {
                     )
                 }
                 update(server.id) { it.copy(status = "${list.size()} tools available") }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 update(server.id) { it.copy(status = error.message ?: "Connection failed") }
             }
