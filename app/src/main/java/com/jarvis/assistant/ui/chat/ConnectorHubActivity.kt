@@ -14,6 +14,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.jarvis.assistant.tools.GitHubConnectionActivity
+import com.jarvis.assistant.R
+import com.jarvis.assistant.util.ThemeManager
 import org.json.JSONObject
 import java.io.File
 
@@ -23,16 +25,19 @@ class ConnectorHubActivity : AppCompatActivity() {
     private val connectorDir by lazy { File(filesDir, "chatbox-workspace/connectors") }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(pad, pad, pad, pad) }
         root.addView(TextView(this).apply {
             text = "CONNECTORS"
             textSize = 24f
+            setTextColor(themeColor(R.attr.themeTextPrimary))
             setTypeface(typeface, android.graphics.Typeface.BOLD)
         })
         root.addView(TextView(this).apply {
             text = "Connect supported services from ChatBox. Installed REST connectors become callable by JARVIS with permission checks."
             textSize = 14f
+            setTextColor(themeColor(R.attr.themeTextSecondary))
             setPadding(0, dp(8), 0, dp(18))
         })
         root.addView(action("GitHub · Connect account", "Encrypted account connection with approved repository operations") {
@@ -46,9 +51,12 @@ class ConnectorHubActivity : AppCompatActivity() {
         root.addView(TextView(this).apply {
             text = "Supported runtime: HTTPS REST endpoints (GET/POST). Credentials are stored with Android Keystore-backed encryption. MCP server binaries, arbitrary scripts and OAuth flows are not executed automatically."
             textSize = 12f
+            setTextColor(themeColor(R.attr.themeTextMuted))
             setPadding(0, dp(18), 0, 0)
         })
-        setContentView(ScrollView(this).apply { addView(root) })
+        val scroll = ScrollView(this).apply { addView(root) }
+        ThemeManager.applyDynamicBackground(scroll)
+        setContentView(scroll)
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()

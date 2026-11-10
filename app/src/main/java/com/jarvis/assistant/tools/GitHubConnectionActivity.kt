@@ -21,12 +21,15 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import com.jarvis.assistant.R
+import com.jarvis.assistant.util.ThemeManager
 
 /** GitHub Device Flow sign-in with an encrypted local credential and optional PAT fallback. */
 class GitHubConnectionActivity : AppCompatActivity() {
     private var signInJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         val pad = dp(20)
         val root = LinearLayout(this).apply {
@@ -37,17 +40,20 @@ class GitHubConnectionActivity : AppCompatActivity() {
             text = "GitHub connection"
             textSize = 24f
             setTypeface(typeface, Typeface.BOLD)
+            setTextColor(themeColor(R.attr.themeTextPrimary))
             setPadding(0, 0, 0, pad)
         }
         val intro = TextView(this).apply {
             text = "Sign in securely using GitHub Device Flow. JARVIS shows a one-time code; approve it on GitHub and the app completes sign-in automatically. No client secret is embedded. The OAuth sign-in requests read:user and public_repo only, so it can access public repositories but not private repositories. GitHub writes still require JARVIS's separate in-app approval."
             textSize = 14f
+            setTextColor(themeColor(R.attr.themeTextSecondary))
             setPadding(0, 0, 0, dp(12))
         }
         val status = TextView(this).apply {
             text = if (GitHubCredentialStore.isConfigured(this@GitHubConnectionActivity)) {
                 "An encrypted GitHub credential is saved on this device. Test the connection to verify it."
             } else "Not connected. Public repositories can still be read without signing in."
+            setTextColor(themeColor(R.attr.themeTextSecondary))
             setPadding(0, dp(12), 0, dp(12))
         }
         val signIn = Button(this).apply {
@@ -82,11 +88,13 @@ class GitHubConnectionActivity : AppCompatActivity() {
             text = "Advanced fallback · Personal access token"
             textSize = 16f
             setTypeface(typeface, Typeface.BOLD)
+            setTextColor(themeColor(R.attr.themeTextPrimary))
             setPadding(0, dp(22), 0, dp(6))
         }
         val fallbackInfo = TextView(this).apply {
             text = "Only use a fine-grained token restricted to the repositories and permissions you need. It is stored using Android encrypted preferences."
             textSize = 12f
+            setTextColor(themeColor(R.attr.themeTextMuted))
             setPadding(0, 0, 0, dp(8))
         }
         val token = EditText(this).apply {
@@ -134,7 +142,9 @@ class GitHubConnectionActivity : AppCompatActivity() {
         root.addView(token, LinearLayout.LayoutParams(-1, -2))
         root.addView(save)
         root.addView(remove)
-        setContentView(ScrollView(this).apply { addView(root) })
+        val scroll = ScrollView(this).apply { addView(root) }
+        ThemeManager.applyDynamicBackground(scroll)
+        setContentView(scroll)
     }
 
     private fun beginDeviceSignIn(status: TextView, button: Button) {
