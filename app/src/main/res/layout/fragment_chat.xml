@@ -259,6 +259,23 @@
                 android:textStyle="bold"
                 android:contentDescription="Open workspace terminal" />
 
+            <TextView
+                android:id="@+id/btnChatServer"
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                android:layout_marginStart="7dp"
+                android:background="@drawable/bg_chat_tool_chip"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="↗ SERVER"
+                android:textColor="?attr/themeTextPrimary"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:contentDescription="Host a local workspace website" />
+
             <View
                 android:layout_width="0dp"
                 android:layout_height="1dp"
