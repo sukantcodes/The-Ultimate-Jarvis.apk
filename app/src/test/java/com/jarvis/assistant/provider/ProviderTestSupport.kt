@@ -40,6 +40,9 @@ class FakeTransport : HttpTransport {
         streamRules += rule
     }
 
+    /** Forgets scripted plain answers so a test can change what the server says. */
+    fun clearRules() { rules.clear() }
+
     /** Forgets scripted stream answers so a test can make a failing provider "recover". */
     fun clearStreams() {
         streamRules.clear()

@@ -91,7 +91,11 @@ class ProviderChatEngine(
     private val failedTurns = ConcurrentHashMap.newKeySet<String>()
     private val turnCategory = ConcurrentHashMap<String, WorkCategory>()
 
-    val isBusy: Boolean get() = job?.isActive == true
+    /**
+     * Busy means an answer is still being produced. It follows the published state, not the coroutine: the job
+     * publishes Idle/Failed a moment before it fully returns, and Retry or a new message must work right then.
+     */
+    val isBusy: Boolean get() = _state.value is EngineState.Streaming
 
     /**
      * Sends a new question. [displayText] is what the chat shows; [sendText] (defaults to it) is what the model
