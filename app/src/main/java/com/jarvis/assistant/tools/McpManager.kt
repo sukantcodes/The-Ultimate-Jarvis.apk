@@ -49,6 +49,9 @@ class McpManager private constructor(context: Context) {
     private val vault = AndroidKeyVault(app)
     private val requestIds = AtomicLong(1L)
     @Volatile private var cachedTools: List<McpToolRef> = emptyList()
+    @Volatile private var refreshRequired: Boolean = true
+
+    fun needsRefresh(): Boolean = refreshRequired
 
     fun servers(): List<McpServerConfig> {
         val raw = prefs.getString(KEY_SERVERS, null) ?: return emptyList()
@@ -68,6 +71,7 @@ class McpManager private constructor(context: Context) {
         val index = all.indexOfFirst { it.id == clean.id }
         if (index >= 0) all[index] = clean else all += clean
         persist(all)
+        refreshRequired = true
         return null
     }
 
@@ -76,17 +80,20 @@ class McpManager private constructor(context: Context) {
         vault.delete(accessKey(id))
         vault.delete(refreshKey(id))
         cachedTools = cachedTools.filterNot { it.serverId == id }
+        refreshRequired = true
     }
 
     fun setEnabled(id: String, enabled: Boolean) {
         update(id) { it.copy(enabled = enabled, status = if (enabled) "Needs refresh" else "Disabled") }
         if (!enabled) cachedTools = cachedTools.filterNot { it.serverId == id }
+        refreshRequired = true
     }
 
     fun setBearerToken(id: String, token: String): String? {
         if (token.isBlank()) return "Enter a bearer token."
         if (!vault.store(accessKey(id), token.trim())) return "Secure token storage is unavailable; the token was not saved."
         update(id) { it.copy(tokenExpiresAt = Long.MAX_VALUE, status = "Token saved") }
+        refreshRequired = true
         return null
     }
 
@@ -94,6 +101,7 @@ class McpManager private constructor(context: Context) {
         vault.delete(accessKey(id))
         vault.delete(refreshKey(id))
         update(id) { it.copy(tokenExpiresAt = 0L, status = "Login required") }
+        refreshRequired = true
     }
 
     fun tools(): List<McpToolRef> = cachedTools.toList()
@@ -132,6 +140,7 @@ class McpManager private constructor(context: Context) {
             }
         }
         cachedTools = discovered.distinctBy { it.exposedName }
+        refreshRequired = false
     }
 
     suspend fun call(tool: McpToolRef, arguments: JsonObject): String {
@@ -243,6 +252,7 @@ class McpManager private constructor(context: Context) {
         if (!vault.store(accessKey(serverId), access)) throw IllegalStateException("Secure token storage is unavailable.")
         if (!refresh.isNullOrBlank()) vault.store(refreshKey(serverId), refresh)
         update(serverId) { it.copy(tokenExpiresAt = System.currentTimeMillis() + expiresIn.coerceAtLeast(60L) * 1000L, status = "Authenticated") }
+        refreshRequired = true
     }
 
     fun updateOAuthMetadata(serverId: String, clientId: String, authorization: String, token: String, registration: String) {
@@ -299,6 +309,20 @@ internal class McpTool(private val manager: McpManager, private val ref: McpTool
         throw cancelled
     } catch (error: Exception) {
         ToolResult.Error(error.message ?: "MCP call failed.")
+    }
+}
+
+
+/** Permission-gated handshake used to discover tools from enabled MCP servers. */
+class McpRefreshTool(private val manager: McpManager) : Tool {
+    override val spec = ToolSpec("mcp_refresh", "Connect to enabled MCP servers and refresh their tool catalog.", risk = Risk.NETWORK, group = "mcp")
+    override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = try {
+        manager.refreshAll()
+        ToolResult.Ok("Loaded ${manager.tools().size} MCP tools from enabled servers.")
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (error: Exception) {
+        ToolResult.Error(error.message ?: "MCP tool discovery failed.")
     }
 }
 
