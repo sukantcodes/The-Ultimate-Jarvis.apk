@@ -59,7 +59,10 @@ class McpServersActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (::manager.isInitialized) render()
+        if (::manager.isInitialized) {
+            render()
+            if (manager.servers().any { it.enabled }) refreshTools()
+        }
     }
 
     private fun render() {
@@ -129,6 +132,7 @@ class McpServersActivity : AppCompatActivity() {
                 val error = manager.save(config)
                 if (error != null) Toast.makeText(this, error, Toast.LENGTH_LONG).show()
                 render()
+                if (error == null) refreshTools()
             }
             .show()
     }
@@ -147,7 +151,7 @@ class McpServersActivity : AppCompatActivity() {
             .setTitle(server.name)
             .setItems(actions) { _, which ->
                 when (which) {
-                    0 -> { manager.setEnabled(id, !server.enabled); render() }
+                    0 -> { manager.setEnabled(id, !server.enabled); render(); if (!server.enabled) refreshTools() }
                     1 -> lifecycleScope.launch {
                         runCatching { McpOAuth.start(this@McpServersActivity, id) }
                             .onFailure { Toast.makeText(this@McpServersActivity, it.message ?: "MCP login failed.", Toast.LENGTH_LONG).show() }
