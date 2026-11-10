@@ -55,9 +55,9 @@ object LocalTaskVerifier {
     private fun parseToggleIntent(goal: String): ToggleIntent? {
         val clean = goal.trim().lowercase(Locale.ROOT)
         val verb = (enableVerbs + disableVerbs).sortedByDescending { it.length }.firstOrNull { phrase ->
-            Regex("""(?<![\p{L}\p{N}])\${Regex.escape(phrase)}(?![\p{L}\p{N}])""").containsMatchIn(clean)
+            Regex("""(?<![\p{L}\p{N}])${Regex.escape(phrase)}(?![\p{L}\p{N}])""").containsMatchIn(clean)
         } ?: return null
-        val pattern = Regex("""(?<![\p{L}\p{N}])\${Regex.escape(verb)}(?![\p{L}\p{N}])\s+(?:the\s+)?(.+)$""")
+        val pattern = Regex("""(?<![\p{L}\p{N}])${Regex.escape(verb)}(?![\p{L}\p{N}])\s+(?:the\s+)?(.+)$""")
         val raw = pattern.find(clean)?.groupValues?.getOrNull(1)
             ?.replace(Regex("""\s+(?:in|under|from)\s+(?:the\s+)?(?:android\s+)?settings?$"""), "")
             ?.trim().orEmpty()
