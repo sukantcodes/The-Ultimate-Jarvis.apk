@@ -11,6 +11,8 @@ import com.jarvis.assistant.tools.ToolCall
 import com.jarvis.assistant.tools.ToolResult
 import com.jarvis.assistant.tools.Workspace
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.ArrayDeque
 
@@ -322,26 +324,29 @@ internal class ClozedCodingAgentEngine(
             ?: return "Denied: no permission dialog is available." to false
         val decision = confirmer.confirm(com.jarvis.assistant.tools.ConfirmRequest("shell", "terminal", com.jarvis.assistant.tools.Risk.EXECUTE, "Run command in project: " + command, false, "Clozed coding agent"))
         if (decision == com.jarvis.assistant.tools.Decision.DENY) return "Denied: user declined shell execution." to false
-        val process = ProcessBuilder("/system/bin/sh", "-c", command).directory(workspace.root).redirectErrorStream(true).start()
-        val capture = java.io.ByteArrayOutputStream()
-        val reader = Thread {
-            process.inputStream.use { input ->
-                val buffer = ByteArray(4096)
-                while (true) {
-                    val count = input.read(buffer)
-                    if (count < 0) break
-                    if (capture.size() < 24000) capture.write(buffer, 0, minOf(count, 24000 - capture.size()))
+        return withContext(Dispatchers.IO) {
+            val process = ProcessBuilder("/system/bin/sh", "-c", command).directory(workspace.root).redirectErrorStream(true).start()
+            val capture = java.io.ByteArrayOutputStream()
+            val reader = Thread {
+                process.inputStream.use { input ->
+                    val buffer = ByteArray(4096)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        if (capture.size() < 24000) capture.write(buffer, 0, minOf(count, 24000 - capture.size()))
+                    }
                 }
+            }.apply { isDaemon = true; start() }
+            if (!process.waitFor(120, java.util.concurrent.TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                reader.join(1000)
+                "Error: shell command timed out." to false
+            } else {
+                reader.join(1000)
+                val output = capture.toString(Charsets.UTF_8.name())
+                ("exit=" + process.exitValue() + "\n" + output) to (process.exitValue() == 0)
             }
-        }.apply { isDaemon = true; start() }
-        if (!process.waitFor(120, java.util.concurrent.TimeUnit.SECONDS)) {
-            process.destroyForcibly()
-            reader.join(1000)
-            return "Error: shell command timed out." to false
         }
-        reader.join(1000)
-        val output = capture.toString(Charsets.UTF_8.name())
-        return ("exit=" + process.exitValue() + "\n" + output) to (process.exitValue() == 0)
     }
 
     private fun runDiagnostics(args: JsonObject): Pair<String, Boolean> {
@@ -405,7 +410,7 @@ internal class ClozedCodingAgentEngine(
 
     private data class FileSnapshot(val path: String, val content: String?)
 
-    private fun snapshotBefore(call: ClozedToolCall): List<FileSnapshot> {
+    private suspend fun snapshotBefore(call: ClozedToolCall): List<FileSnapshot> = withContext(Dispatchers.IO) {
         val args = runCatching { JsonParser.parseString(call.arguments).asJsonObject }.getOrNull() ?: return emptyList()
         val paths = when (call.name) {
             "write", "edit", "delete" -> listOfNotNull(args.get("path")?.takeIf { it.isJsonPrimitive }?.asString)
@@ -427,10 +432,10 @@ internal class ClozedCodingAgentEngine(
                 result += FileSnapshot(relative, "b64:" + android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))
             }
         }
-        return result
+        result
     }
     fun undoLast() {
-        val changes = undo.removeLastOrNull()
+        val changes = if (undo.isEmpty()) null else undo.removeLast()
         if (changes == null) { emit(ClozedAgentEvent("notice", text = "There are no file changes to undo.")); return }
         changes.asReversed().forEach { snap ->
             val file = runCatching { workspace.resolve(snap.path) }.getOrNull() ?: return@forEach
