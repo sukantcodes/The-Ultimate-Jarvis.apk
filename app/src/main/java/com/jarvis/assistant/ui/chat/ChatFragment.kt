@@ -57,6 +57,7 @@ class ChatFragment : Fragment() {
     private val providerEngine by lazy { ProviderRuntime.chatEngine(requireContext()) }
     private var retrySnackbar: com.google.android.material.snackbar.Snackbar? = null
     private var chatStatusAnimator: ObjectAnimator? = null
+    private var lastObservedAssistantResponse: String = ""
 
     private val chatToolConfirmer = object : Confirmer {
         override suspend fun confirm(request: ConfirmRequest): Decision = withContext(Dispatchers.Main.immediate) {
@@ -190,6 +191,7 @@ class ChatFragment : Fragment() {
                     JarvisConversationService.stopCurrentResponseImmediately()
                     selectedDocument?.savedPath?.let { path -> runCatching { java.io.File(path).delete() } }
                     JarvisApp.instance.chatRepository.clearHistory()
+                    lastObservedAssistantResponse = ""
                     selectedDocument = null
                     updateAttachmentPreview()
                     binding.etMessageInput.hint = "Message JARVIS…"
@@ -474,6 +476,7 @@ class ChatFragment : Fragment() {
                     val answer = DocumentAnalysisClient.analyze(
                         requireContext(), document, prompt, documentKey, documentProvider, documentModel
                     )
+                    setChatActivity("ANSWERING")
                     JarvisApp.instance.chatRepository.addTurn("📎 ${document.name}\n$prompt", answer, document.savedPath, document.name, document.mimeType)
                     selectedDocument = null
                     if (_binding != null) { updateAttachmentPreview(); binding.etMessageInput.hint = "Message JARVIS…" }
@@ -518,6 +521,7 @@ class ChatFragment : Fragment() {
             offlineGenerationJob = viewLifecycleOwner.lifecycleScope.launch {
                 try {
                     val answer = OfflineLlm.generate(appContext, text)
+                    setChatActivity("ANSWERING")
                     JarvisApp.instance.chatRepository.addTurn(text, answer)
                 } catch (error: kotlinx.coroutines.CancellationException) {
                     throw error
@@ -591,6 +595,11 @@ class ChatFragment : Fragment() {
                 viewModel.chatTurns.collect { turns ->
                     if (_binding != null) {
                         binding.layoutChatWelcome.visibility = if (turns.isEmpty()) View.VISIBLE else View.GONE
+                        val latestResponse = turns.lastOrNull()?.jarvisResponse.orEmpty()
+                        if (latestResponse.isNotBlank() && latestResponse != lastObservedAssistantResponse) {
+                            lastObservedAssistantResponse = latestResponse
+                            setChatActivity("ANSWERING")
+                        }
                         val pending = turns.lastOrNull()?.jarvisResponse.isNullOrBlank() || providerEngine.isBusy
                         if (!pending && offlineGenerationJob == null && fileAnalysisJob == null && selectedDocument == null) {
                             binding.btnStopChat.visibility = View.GONE
