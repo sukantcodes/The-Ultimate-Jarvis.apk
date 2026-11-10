@@ -43,6 +43,26 @@ object ScheduledTaskTools {
                 }
             },
             object : Tool {
+                override val spec = ToolSpec("list_scheduled_tasks",
+                    "List active delayed-call reminders and notification watches with their IDs so the user can inspect or cancel them.",
+                    emptyList(), Risk.READ, "task")
+                override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult =
+                    ToolResult.Ok(ScheduledTaskMemory.listScheduledTasks(app))
+            },
+            object : Tool {
+                override val spec = ToolSpec("cancel_scheduled_task",
+                    "Cancel one active delayed-call reminder or notification watch by its exact ID. Requires explicit user approval.",
+                    listOf(ToolParam("task_id", required = true, description = "ID returned by list_scheduled_tasks.")),
+                    Risk.DESTRUCTIVE, "task")
+                override fun describe(args: JsonObject) = "Cancel scheduled task " + args.get("task_id")?.asString.orEmpty()
+                override fun isDestructive(args: JsonObject, ctx: ToolContext) = true
+                override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
+                    val id = args.get("task_id")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+                    if (id.isBlank()) return ToolResult.Error("Provide the task ID from list_scheduled_tasks.")
+                    return ToolResult.Ok(ScheduledTaskMemory.cancelScheduledTask(app, id))
+                }
+            },
+            object : Tool {
                 override val spec = ToolSpec("inspect_long_task",
                     "Read the latest JARVIS long-running task progress, completed steps, blockers and next step.",
                     emptyList(), Risk.READ, "task")

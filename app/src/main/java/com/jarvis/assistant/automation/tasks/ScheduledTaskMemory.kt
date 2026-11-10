@@ -109,6 +109,69 @@ object ScheduledTaskMemory {
         return matched
     }
 
+    /** Lists reminder and one-shot notification-watch metadata without exposing notification contents. */
+    fun listScheduledTasks(context: Context): String {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val calls = readArray(prefs.getString(CALLS, "[]"))
+        val watches = readArray(prefs.getString(WATCHES, "[]"))
+        val output = ArrayList<String>()
+        for (i in 0 until calls.length()) {
+            val item = calls.optJSONObject(i) ?: continue
+            output += "CALL id=" + item.optLong("id") + " contact=" + item.optString("contact") +
+                " dueAt=" + item.optLong("dueAt")
+        }
+        for (i in 0 until watches.length()) {
+            val item = watches.optJSONObject(i) ?: continue
+            output += "WATCH id=" + item.optString("id") + " app=" + item.optString("app") +
+                " keyword=" + item.optString("keyword")
+        }
+        return if (output.isEmpty()) "There are no active scheduled reminders or notification watches."
+        else output.joinToString("\n")
+    }
+
+    /** Cancels exactly one reminder or notification watch by its returned ID. */
+    fun cancelScheduledTask(context: Context, taskId: String): String {
+        val id = taskId.trim()
+        if (id.isBlank() || id.length > 64) return "Provide a valid task ID."
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val calls = readArray(prefs.getString(CALLS, "[]"))
+        val remainingCalls = JSONArray()
+        var removedCall = false
+        var callId: Long? = null
+        for (i in 0 until calls.length()) {
+            val item = calls.optJSONObject(i) ?: continue
+            if (item.optLong("id").toString() == id) {
+                removedCall = true
+                callId = item.optLong("id")
+            } else remainingCalls.put(item)
+        }
+        val watches = readArray(prefs.getString(WATCHES, "[]"))
+        val remainingWatches = JSONArray()
+        var removedWatch = false
+        for (i in 0 until watches.length()) {
+            val item = watches.optJSONObject(i) ?: continue
+            if (item.optString("id") == id) removedWatch = true else remainingWatches.put(item)
+        }
+        if (!removedCall && !removedWatch) return "No active scheduled task was found with that ID."
+        prefs.edit().putString(CALLS, remainingCalls.toString())
+            .putString(WATCHES, remainingWatches.toString()).apply()
+        callId?.let { value ->
+            val intent = Intent(context, ScheduledTaskReceiver::class.java).apply {
+                action = ACTION_CALL_DUE
+                data = Uri.parse("jarvis-task://call/" + value)
+            }
+            val pending = PendingIntent.getBroadcast(
+                context, value.hashCode(), intent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )
+            if (pending != null) {
+                (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(pending)
+                pending.cancel()
+            }
+        }
+        return if (removedCall) "Scheduled call reminder cancelled." else "Notification watch cancelled."
+    }
+
     fun restorePending(context: Context) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val items = readArray(prefs.getString(CALLS, "[]"))
