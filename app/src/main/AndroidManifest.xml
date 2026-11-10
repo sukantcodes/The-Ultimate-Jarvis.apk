@@ -82,6 +82,15 @@
         <activity android:name=".ui.debug.ActionRouterActivity" android:exported="false" />
         <activity android:name=".gallery.GalleryActivity" android:exported="false" />
         <activity android:name=".ui.chat.ChatAttachmentPreviewActivity" android:exported="false" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.chat.McpServersActivity" android:exported="false" />
+        <activity android:name=".ui.chat.McpOAuthCallbackActivity" android:exported="true" android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="clozedcode.app" android:host="oauth" android:path="/callback" />
+            </intent-filter>
+        </activity>
         <activity android:name=".ui.chat.WorkspaceActivity" android:exported="false" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" />
         <activity android:name=".tools.GitHubConnectionActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.chat.ConnectorHubActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
