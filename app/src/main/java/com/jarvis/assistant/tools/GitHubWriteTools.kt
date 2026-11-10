@@ -112,7 +112,7 @@ object GitHubWriteTools {
             }.isSuccess
             if (!validUtf8) return "Only valid UTF-8 text files can be committed."
             if (containsCredentialMaterial(file.bytes)) {
-                return "A selected file appears to contain a private key or recognizable access token."
+                return "A selected file appears to contain credential material, such as a private key or recognizable access token."
             }
             total += file.bytes.size.toLong()
             if (total > MAX_BATCH_BYTES) return "The selected files exceed the 5 MB per-commit limit."
