@@ -61,7 +61,7 @@ object LocalTaskVerifier {
         val raw = pattern.find(clean)?.groupValues?.getOrNull(1)
             ?.replace(Regex("""\s+(?:in|under|from)\s+(?:the\s+)?(?:android\s+)?settings?$"""), "")
             ?.trim().orEmpty()
-        val tokens = raw.split(Regex("[^\p{L}\p{N}]+"))
+        val tokens = raw.split(Regex("""[^\p{L}\p{N}]+"""))
             .filter { it.length >= 2 && it !in ignoredTokens }.toSet()
         if (tokens.isEmpty()) return null
         return ToggleIntent(tokens, verb in enableVerbs)
@@ -70,7 +70,7 @@ object LocalTaskVerifier {
     private fun containsAllTokens(label: String, tokens: Set<String>): Boolean {
         if (tokens.isEmpty()) return false
         val words = label.lowercase(Locale.ROOT)
-            .split(Regex("[^\p{L}\p{N}]+")).filter { it.isNotBlank() }.toSet()
+            .split(Regex("""[^\p{L}\p{N}]+""")).filter { it.isNotBlank() }.toSet()
         return tokens.all { it in words }
     }
 
