@@ -224,7 +224,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:visibility="gone">
 
             <TextView
                 android:id="@+id/btnChatTools"
@@ -356,6 +357,7 @@
 
             <LinearLayout
                 android:id="@+id/chipPersona"
+                android:visibility="gone"
                 android:layout_width="wrap_content"
                 android:layout_height="34dp"
                 android:orientation="horizontal"
@@ -438,7 +440,7 @@
                 android:src="@drawable/ic_plus"
                 app:tint="?attr/themeTextPrimary"
                 android:layout_marginEnd="6dp"
-                android:contentDescription="Attach a file" />
+                android:contentDescription="Open chat actions and attach files" />
 
             <ImageButton
                 android:id="@+id/btnSendMessage"
