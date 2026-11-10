@@ -79,6 +79,8 @@ internal object ClozedCodingAgentDialog {
         }
         header.addView(pathLabel)
         lateinit var engineRef: ClozedCodingAgentEngine
+        lateinit var renderSession: () -> Unit
+        lateinit var submitInput: () -> Unit
         val actions = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
         fun action(label: String, click: () -> Unit): TextView = TextView(context).apply {
             text = label
@@ -92,7 +94,7 @@ internal object ClozedCodingAgentDialog {
             setOnClickListener { click() }
         }
         val modeButton = action("BUILD", {})
-        val sessionsButton = action("SESSIONS") { showSessions(context, engineRef, ::renderSession) }
+        val sessionsButton = action("SESSIONS") { showSessions(context, engineRef, renderSession) }
         val newButton = action("NEW") { engineRef.newSession() }
         val undoButton = action("UNDO") { engineRef.undo() }
         val folderButton = action("PROJECT") {
@@ -189,7 +191,7 @@ internal object ClozedCodingAgentDialog {
             addText(text, rounded(0xff25303d.toInt(), border, dp(10)), Gravity.CENTER, secondary)
             activeAssistant = null
         }
-        fun renderSession() {
+        renderSession = {
             transcript.removeAllViews()
             toolViews.clear()
             activeAssistant = null
@@ -271,7 +273,7 @@ internal object ClozedCodingAgentDialog {
                         plan.text = if (event.text.isBlank()) "" else "PLAN\n" + event.text
                         plan.visibility = if (event.text.isBlank()) View.GONE else View.VISIBLE
                     }
-                    "sessions" -> showSessions(context, engineRef, ::renderSession)
+                    "sessions" -> showSessions(context, engineRef, renderSession)
                 }
             } },
             askQuestion = { question, options -> askQuestion(context, question, options) },
@@ -293,8 +295,7 @@ internal object ClozedCodingAgentDialog {
         input.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEND) { submitInput(); true } else false
         }
-        fun initialRender() { renderSession() }
-        fun submitInput() {
+        submitInput = {
             val value = input.text?.toString().orEmpty()
             if (value.isBlank() || running) return
             input.setText("")
@@ -308,7 +309,7 @@ internal object ClozedCodingAgentDialog {
         }
         dialog.show()
         dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, (context.resources.displayMetrics.heightPixels * 0.94f).toInt())
-        initialRender()
+        renderSession()
     }
 
     private fun showSessions(context: Context, engine: ClozedCodingAgentEngine, onLoaded: () -> Unit) {
