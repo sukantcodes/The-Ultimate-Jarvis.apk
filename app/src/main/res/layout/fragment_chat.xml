@@ -94,7 +94,7 @@
             android:layout_marginStart="7dp"
             android:background="@drawable/bg_chat_header_icon"
             android:src="@drawable/ic_plus"
-            app:tint="#FFFFFF"
+            app:tint="?attr/colorOnPrimary"
             android:contentDescription="Start new conversation" />
     </LinearLayout>
 
