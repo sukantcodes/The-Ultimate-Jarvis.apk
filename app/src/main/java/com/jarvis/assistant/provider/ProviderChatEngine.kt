@@ -89,6 +89,7 @@ class ProviderChatEngine(
     private val sentText = ConcurrentHashMap<String, String>()
     private val sentAttachments = ConcurrentHashMap<String, List<ChatAttachment>>()
     private val failedTurns = ConcurrentHashMap.newKeySet<String>()
+    private val turnCategory = ConcurrentHashMap<String, WorkCategory>()
 
     val isBusy: Boolean get() = job?.isActive == true
 
@@ -104,13 +105,15 @@ class ProviderChatEngine(
     ): SendOutcome {
         synchronized(lock) {
             if (isBusy) return SendOutcome.Busy
-            val provider = when (val r = config.resolveChat()) {
+            val category = WorkClassifier.classify(displayText, attachments, hasDocument = attachmentRef != null || sendText != displayText)
+            val provider = when (val r = config.resolveChat(category)) {
                 ChatResolution.NotActive -> return SendOutcome.NotActive
                 is ChatResolution.Blocked -> return SendOutcome.Blocked("${r.providerName}: ${r.reason}")
                 is ChatResolution.Ready -> r.provider
             }
             checkAttachments(provider, attachments)?.let { return SendOutcome.Blocked(it) }
             val id = store.begin(displayText, attachmentRef)
+            turnCategory[id] = category
             if (sendText != displayText) sentText[id] = sendText
             if (attachments.isNotEmpty()) sentAttachments[id] = attachments
             launch(id, provider, sendText, attachments)
@@ -123,7 +126,7 @@ class ProviderChatEngine(
         synchronized(lock) {
             if (isBusy) return SendOutcome.Busy
             if (turnId !in failedTurns) return SendOutcome.Blocked("That message isn't waiting for a retry.")
-            val provider = when (val r = config.resolveChat()) {
+            val provider = when (val r = config.resolveChat(turnCategory[turnId] ?: WorkCategory.CHAT)) {
                 ChatResolution.NotActive -> return SendOutcome.NotActive
                 is ChatResolution.Blocked -> return SendOutcome.Blocked("${r.providerName}: ${r.reason}")
                 is ChatResolution.Ready -> r.provider

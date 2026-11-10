@@ -265,7 +265,11 @@ class KeyRotationTest {
 
     private fun usesKey(r: HttpRequestSpec, key: String) = r.headers.values.any { it.contains(key) }
 
-    private fun awaitDone(e: ProviderChatEngine) = runBlocking { withTimeout(5000) { e.state.first { it is EngineState.Idle || it is EngineState.Failed } } }
+    private fun awaitDone(e: ProviderChatEngine) = runBlocking {
+        withTimeout(5000) { e.state.first { it is EngineState.Idle || it is EngineState.Failed } }
+        // The state flips a moment before the job itself finishes; a following send() must not see "busy".
+        withTimeout(5000) { while (e.isBusy) kotlinx.coroutines.delay(2) }
+    }
 
     @Test fun when_the_first_key_hits_its_quota_the_same_message_continues_on_the_next_key() {
         addKey("a", "key-AAAA-0000000000", priority = 1)

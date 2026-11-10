@@ -32,6 +32,24 @@ data class ActiveProviderState(val activeProfileId: String?, val revision: Long)
 /** What ChatBox needs from the manager. Kept tiny so ChatBox logic can be tested with a fake. */
 interface ChatConfigSource {
     fun resolveChat(): ChatResolution
+
+    /** Same, for one kind of work. Sources without routing simply use the active provider. */
+    fun resolveChat(category: WorkCategory): ChatResolution = resolveChat()
+}
+
+/** Decides which kind of work a ChatBox message is, so it can follow that category's route. */
+object WorkClassifier {
+    private val CODE_HINTS = listOf(
+        "```", "stack trace", "exception", "compile error", "build error", "fix this bug", "debug", "refactor",
+        "unit test", "kotlin", "python", "javascript", "typescript", "gradle", "function ", "class ", "regex"
+    )
+
+    fun classify(text: String, attachments: List<ChatAttachment>, hasDocument: Boolean): WorkCategory {
+        if (attachments.any { it is ChatAttachment.Image }) return WorkCategory.IMAGE
+        if (hasDocument || attachments.isNotEmpty()) return WorkCategory.FILE_ANALYSIS
+        val lower = text.lowercase()
+        return if (CODE_HINTS.any { lower.contains(it) }) WorkCategory.CODING else WorkCategory.CHAT
+    }
 }
 
 /**
@@ -43,7 +61,9 @@ class ProviderConfigManager(
     private val transport: HttpTransport,
     private val clock: () -> Long = System::currentTimeMillis,
     /** Multi-key pool. When keys are saved for the active provider, the chat engine leases one per request. */
-    private val keyRotation: KeyRotationSource? = null
+    private val keyRotation: KeyRotationSource? = null,
+    /** Per-category routes. When null every kind of work follows the active provider. */
+    private val routes: RoutingStore? = null
 ) : ChatConfigSource {
 
     val discovery = ModelDiscoveryService(transport)
@@ -239,11 +259,31 @@ class ProviderConfigManager(
     // Resolution used by the runtimes
     // ------------------------------------------------------------------------------------------------------
 
-    override fun resolveChat(): ChatResolution {
-        val profile = activeProfile() ?: return ChatResolution.NotActive
+    override fun resolveChat(): ChatResolution = resolveChatFor(activeProfile(), null)
+
+    override fun resolveChat(category: WorkCategory): ChatResolution =
+        routes?.let { resolveForCategory(category, it) } ?: resolveChat()
+
+    /**
+     * Resolves the provider for one category of work. A saved route wins; a category without one follows the
+     * active custom provider. A route to Gemini yields [ChatResolution.NotActive] so the built-in Gemini path
+     * handles it, and a route to a provider that no longer exists is reported as blocked, never silently replaced.
+     */
+    fun resolveForCategory(category: WorkCategory, routes: RoutingStore): ChatResolution {
+        val route = routes.get(category) ?: return resolveChat()
+        if (route.isGemini) return ChatResolution.NotActive
+        if (route.providerId.isBlank()) return resolveChatFor(activeProfile(), route.modelId.ifBlank { null })
+        val profile = repository.get(route.providerId)
+            ?: return ChatResolution.Blocked("Selected provider", "The provider chosen for ${category.label} was deleted. Choose another in Work Routing.")
+        return resolveChatFor(profile, route.modelId.ifBlank { null })
+    }
+
+    private fun resolveChatFor(profile: ProviderProfile?, modelOverride: String?): ChatResolution {
+        profile ?: return ChatResolution.NotActive
         val name = profile.displayName
         validate(profile)?.let { return ChatResolution.Blocked(name, it) }
-        val model = profile.chatModel ?: return ChatResolution.Blocked(name, "No model is selected for $name.")
+        val model = (modelOverride?.let { profile.model(it) ?: ModelInfo(id = it, manual = true) } ?: profile.chatModel)
+            ?: return ChatResolution.Blocked(name, "No model is selected for $name.")
         CapabilityPolicy.chat(model).let { if (!it.ok) return ChatResolution.Blocked(name, it.reason) }
         val secret = keyFor(profile) ?: run {
             // No single key, but the key manager holds a pool: the engine fills in a real key for each request.

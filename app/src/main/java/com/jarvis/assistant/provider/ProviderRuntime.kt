@@ -23,6 +23,18 @@ object ProviderRuntime {
         poolInstance ?: ApiKeyPool(SharedPrefsKeyValueStore(context.applicationContext)).also { poolInstance = it }
     }
 
+    @Volatile private var keyManagerInstance: KeyManager? = null
+    @Volatile private var routingInstance: RoutingStore? = null
+
+    fun keyManager(context: Context): KeyManager = keyManagerInstance ?: synchronized(this) {
+        keyManagerInstance ?: KeyManager(keyPool(context), AndroidKeyVault(context.applicationContext), manager(context)).also { keyManagerInstance = it }
+    }
+
+    /** Saved provider/model choice per kind of work (chat, coding, voice, ...). */
+    fun routing(context: Context): RoutingStore = routingInstance ?: synchronized(this) {
+        routingInstance ?: RoutingStore(SharedPrefsKeyValueStore(context.applicationContext)).also { routingInstance = it }
+    }
+
     fun keyRotation(context: Context): PoolKeyRotation = rotationInstance ?: synchronized(this) {
         rotationInstance ?: PoolKeyRotation(keyPool(context), AndroidKeyVault(context.applicationContext)).also { rotationInstance = it }
     }
@@ -31,7 +43,7 @@ object ProviderRuntime {
         instance ?: run {
             val app = context.applicationContext
             val repo = ProviderRepository(SharedPrefsKeyValueStore(app), AndroidKeyVault(app))
-            ProviderConfigManager(repo, transport(), keyRotation = keyRotation(app)).also { instance = it }
+            ProviderConfigManager(repo, transport(), keyRotation = keyRotation(app), routes = routing(app)).also { instance = it }
         }
     }
 

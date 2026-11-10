@@ -106,6 +106,8 @@ class ApiConnectionActivity : AppCompatActivity() {
             binding.etApiKey.setText("")
         }
 
+        binding.btnManageKeys.setOnClickListener { startActivity(Intent(this, KeyManagerActivity::class.java)) }
+        binding.btnWorkRouting.setOnClickListener { startActivity(Intent(this, WorkRoutingActivity::class.java)) }
         binding.btnAddProvider.setOnClickListener {
             startActivity(Intent(this, CustomProviderEditorActivity::class.java))
         }

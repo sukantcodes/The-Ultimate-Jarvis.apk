@@ -249,8 +249,12 @@ class ChatFragment : Fragment() {
         view.visibility = View.VISIBLE
     }
 
-    private fun customProviderActive(): Boolean =
-        selectedChatMode != "offline" && providerManager.activeProfile() != null
+    private fun customProviderActive(): Boolean {
+        if (selectedChatMode == "offline" || providerManager.activeProfile() == null) return false
+        // The user may have routed normal chat to Gemini explicitly; then the built-in Gemini path answers.
+        val route = ProviderRuntime.routing(requireContext()).get(com.jarvis.assistant.provider.WorkCategory.CHAT)
+        return route?.isGemini != true
+    }
 
     private fun sendViaProvider(text: String) {
         val document = selectedDocument
@@ -334,6 +338,12 @@ class ChatFragment : Fragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     providerManager.state.collect { refreshProviderLabel() }
+                }
+                launch {
+                    // "Switched to API key X because Y hit its limit" - the conversation continues on the next key.
+                    providerEngine.keyNotices.collect { notice ->
+                        if (_binding != null) com.google.android.material.snackbar.Snackbar.make(binding.root, notice, com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show()
+                    }
                 }
                 providerEngine.state.collect { state ->
                     if (_binding == null) return@collect
