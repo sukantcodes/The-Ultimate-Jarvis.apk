@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.jarvis.assistant.tools.McpManager
+import com.jarvis.assistant.tools.McpOAuth
 import com.jarvis.assistant.tools.McpServerConfig
 import kotlinx.coroutines.launch
 import java.util.UUID
