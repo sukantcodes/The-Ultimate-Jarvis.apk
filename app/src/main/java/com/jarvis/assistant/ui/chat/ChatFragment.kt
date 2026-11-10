@@ -3,6 +3,9 @@ package com.jarvis.assistant.ui.chat
 import android.net.Uri
 import android.content.Intent
 import android.os.Bundle
+import android.os.Build
+import android.os.Environment
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -153,6 +156,10 @@ class ChatFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         AgentToolApproval.confirmer = chatToolConfirmer
+        CodingAgentUiBridge.askQuestion = { question, options -> askCodingQuestion(question, options) }
+        CodingAgentUiBridge.openProviderSettings = {
+            if (isAdded) startActivity(Intent(requireContext(), com.jarvis.assistant.ui.settings.ApiConnectionActivity::class.java))
+        }
         com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
 
         binding.rvChatMessages.layoutManager = LinearLayoutManager(requireContext()).apply {
@@ -178,6 +185,11 @@ class ChatFragment : Fragment() {
             binding.etMessageInput.hint = "Message JARVIS…"
         }
         binding.btnStopChat.setOnClickListener {
+            if (selectedChatMode == "coding") {
+                ClozedCodingAgentService.stop(requireContext())
+                setChatActivity("STOPPING")
+                return@setOnClickListener
+            }
             offlineGenerationJob?.cancel()
             offlineGenerationJob = null
             fileAnalysisJob?.cancel()
@@ -236,8 +248,8 @@ class ChatFragment : Fragment() {
                 ChatComposerMenu.Action("Workspace", "Browse, preview, edit and export ChatBox files", "▤") {
                     startActivity(Intent(requireContext(), WorkspaceActivity::class.java))
                 },
-                ChatComposerMenu.Action("Coding Agent + Terminal", "Ask the coding agent to inspect, edit and run project commands", ">_") {
-                    ClozedCodingAgentDialog.show(requireContext())
+                ChatComposerMenu.Action("Coding Agent + Terminal", "Use the JARVIS ChatBox with project-aware coding tools and a real terminal", ">_") {
+                    activateCodingAgentMode()
                 },
                 ChatComposerMenu.Action("Website preview", "Start or stop the private local preview server", "↗") {
                     LocalServerDialog.show(requireContext())
@@ -265,7 +277,7 @@ class ChatFragment : Fragment() {
         }
 
         binding.btnChatTerminal.setOnClickListener {
-            ClozedCodingAgentDialog.show(requireContext())
+            activateCodingAgentMode()
         }
         binding.btnChatServer.setOnClickListener {
             LocalServerDialog.show(requireContext())
@@ -380,9 +392,10 @@ class ChatFragment : Fragment() {
         val labels = arrayOf(
             if (active != null) "Auto · ${active.displayName} (custom provider)" else "Auto · choose available brain",
             "Gemini Live · online",
-            "Offline Brain · on-device"
+            "Offline Brain · on-device",
+            "Coding Agent + Terminal · project workspace"
         )
-        val values = arrayOf("auto", "gemini", "offline")
+        val values = arrayOf("auto", "gemini", "offline", "coding")
         val selected = values.indexOf(selectedChatMode).coerceAtLeast(0)
         MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("Choose chat engine")
@@ -406,6 +419,7 @@ class ChatFragment : Fragment() {
         val label = when (selectedChatMode) {
             "gemini" -> "Gemini"
             "offline" -> "Offline"
+            "coding" -> "Coding Agent"
             else -> "Auto"
         }
         val chip = binding.chipMode
@@ -420,6 +434,16 @@ class ChatFragment : Fragment() {
     private fun refreshProviderLabel() {
         if (_binding == null) return
         val view = binding.tvProviderModel
+        if (selectedChatMode == "coding") {
+            val resolution = providerManager.resolveChat(com.jarvis.assistant.provider.WorkCategory.CODING)
+            view.text = when (resolution) {
+                is com.jarvis.assistant.provider.ChatResolution.Ready -> "Coding Agent · ${resolution.provider.label}"
+                is com.jarvis.assistant.provider.ChatResolution.Blocked -> "Coding Agent · ${resolution.reason}"
+                com.jarvis.assistant.provider.ChatResolution.NotActive -> "Coding Agent · connect a provider in AI & models"
+            }
+            view.visibility = View.VISIBLE
+            return
+        }
         val active = providerManager.activeProfile()
         if (active == null) {
             view.visibility = View.GONE
@@ -432,7 +456,7 @@ class ChatFragment : Fragment() {
     }
 
     private fun customProviderActive(): Boolean {
-        if (selectedChatMode == "offline" || providerManager.activeProfile() == null) return false
+        if (selectedChatMode == "offline" || selectedChatMode == "coding" || providerManager.activeProfile() == null) return false
         // The user may have routed normal chat to Gemini explicitly; then the built-in Gemini path answers.
         val route = ProviderRuntime.routing(requireContext()).get(com.jarvis.assistant.provider.WorkCategory.CHAT)
         return route?.isGemini != true
@@ -566,11 +590,96 @@ class ChatFragment : Fragment() {
         }
     }
 
+
+    private fun activateCodingAgentMode() {
+        selectedChatMode = "coding"
+        chatModePrefs.edit().putString("chat_mode", selectedChatMode).apply()
+        refreshChatModeLabel()
+        Toast.makeText(requireContext(), "Coding Agent mode enabled. Send a project task in this ChatBox.", Toast.LENGTH_LONG).show()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+            MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+                .setTitle("Project folder access")
+                .setMessage("JARVIS Coding Agent needs access to /storage/emulated/0/ClozedProjects so it can read and edit project files.")
+                .setNegativeButton("Later", null)
+                .setPositiveButton("Grant access") { _, _ ->
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:" + requireContext().packageName))
+                    runCatching { startActivity(intent) }.onFailure {
+                        startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+                    }
+                }
+                .show()
+        }
+    }
+
+    private fun sendCodingMessage(text: String) {
+        if (text.isBlank()) return
+        if (selectedDocument != null) {
+            Toast.makeText(requireContext(), "Remove the attachment or copy the file into the coding project folder first.", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (ClozedCodingAgentService.isRunning()) {
+            Toast.makeText(requireContext(), "The coding agent is already working. Stop it or wait for it to finish.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+            activateCodingAgentMode()
+            return
+        }
+        val turnId = JarvisApp.instance.chatRepository.beginPending(text, null, null, null)
+        binding.etMessageInput.text?.clear()
+        binding.btnSendMessage.isEnabled = false
+        binding.btnStopChat.visibility = View.VISIBLE
+        setChatActivity("THINKING")
+        try {
+            ClozedCodingAgentService.submit(requireContext(), text, turnId)
+        } catch (error: Exception) {
+            JarvisApp.instance.chatRepository.finishPending(turnId, "Coding agent could not start: ${error.message ?: error.javaClass.simpleName}")
+            binding.btnSendMessage.isEnabled = true
+            binding.btnStopChat.visibility = View.GONE
+            setChatActivity("READY")
+        }
+    }
+
+    private suspend fun askCodingQuestion(question: String, options: List<String>): String? =
+        withContext(Dispatchers.Main.immediate) {
+            if (!isAdded || _binding == null) return@withContext null
+            suspendCancellableCoroutine { continuation ->
+                val builder = MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+                    .setTitle("JARVIS Coding Agent")
+                    .setMessage(question)
+                    .setNegativeButton("Cancel") { _, _ -> if (continuation.isActive) continuation.resume(null) }
+                if (options.isNotEmpty()) {
+                    builder.setItems(options.toTypedArray()) { _, which ->
+                        if (continuation.isActive) continuation.resume(options.getOrNull(which))
+                    }
+                } else {
+                    val answer = android.widget.EditText(requireContext()).apply {
+                        hint = "Your answer"
+                        setSingleLine(false)
+                        minLines = 2
+                        maxLines = 5
+                    }
+                    builder.setView(answer)
+                    builder.setPositiveButton("Send") { _, _ ->
+                        if (continuation.isActive) continuation.resume(answer.text?.toString()?.trim()?.takeIf { it.isNotBlank() })
+                    }
+                }
+                val dialog = builder.create()
+                dialog.setOnCancelListener { if (continuation.isActive) continuation.resume(null) }
+                continuation.invokeOnCancellation { dialog.dismiss() }
+                dialog.show()
+            }
+        }
+
     private fun sendMessage() {
         val text = binding.etMessageInput.text?.toString()?.trim().orEmpty()
         if (isLocalServerRequest(text)) {
             binding.etMessageInput.text?.clear()
             LocalServerDialog.show(requireContext())
+            return
+        }
+        if (selectedChatMode == "coding") {
+            sendCodingMessage(text)
             return
         }
         if (customProviderActive()) {
@@ -808,7 +917,8 @@ class ChatFragment : Fragment() {
                         }
                         // An empty conversation is idle, not a pending assistant response.
                         val pending = turns.isNotEmpty() &&
-                            (turns.lastOrNull()?.jarvisResponse.isNullOrBlank() || providerEngine.isBusy)
+                            (turns.lastOrNull()?.jarvisResponse.isNullOrBlank() || providerEngine.isBusy ||
+                                (selectedChatMode == "coding" && ClozedCodingAgentService.isRunning()))
                         if (!pending && offlineGenerationJob == null && fileAnalysisJob == null && selectedDocument == null) {
                             binding.btnStopChat.visibility = View.GONE
                             binding.btnSendMessage.isEnabled = true
@@ -856,6 +966,8 @@ class ChatFragment : Fragment() {
         chatStatusAnimator = null
         retrySnackbar?.dismiss()
         if (AgentToolApproval.confirmer === chatToolConfirmer) AgentToolApproval.confirmer = null
+        CodingAgentUiBridge.askQuestion = null
+        CodingAgentUiBridge.openProviderSettings = null
         chatAdapter.release()
         super.onDestroyView()
         _binding = null
