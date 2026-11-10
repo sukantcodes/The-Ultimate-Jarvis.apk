@@ -37,6 +37,12 @@ internal data class ClozedSessionRecord(
     val toolName: String = ""
 )
 
+internal data class ClozedFileSnapshot(
+    val path: String,
+    val content: String?,
+    val isDirectory: Boolean = false
+)
+
 internal data class ClozedSession(
     val id: String,
     var title: String,
@@ -48,7 +54,8 @@ internal data class ClozedSession(
     val messages: MutableList<ClozedSessionRecord> = mutableListOf(),
     var modelOverride: String? = null,
     var reasoningEffort: String? = null,
-    var todos: List<String>? = null
+    var todos: List<String>? = null,
+    var undoHistory: MutableList<List<ClozedFileSnapshot>>? = null
 )
 
 internal class ClozedCodingAgentEngine(
@@ -63,9 +70,9 @@ internal class ClozedCodingAgentEngine(
     private var workspace: Workspace = projectsRoot
     private val sessionsDir = File(app.filesDir, "clozed-sessions").apply { mkdirs() }
     private val gson = com.google.gson.Gson()
-    private val undo = ArrayDeque<List<ClozedFileSnapshot>>().apply { addAll(session.undoHistory.orEmpty()) }
     private var interrupted = false
     private var session = loadLatestSession() ?: createSession()
+    private val undo = ArrayDeque<List<ClozedFileSnapshot>>().apply { addAll(session.undoHistory.orEmpty()) }
     init { restoreSessionWorkspace() }
     private var lastSignature = ""
     private var repeatedSignatureCount = 0
@@ -778,8 +785,8 @@ internal class ClozedCodingAgentEngine(
     }
 
     private fun toolGuidance(): String = buildTools().joinToString("\n\n") { tool ->
-        val properties = tool.schema.getAsJsonObject("properties") ?: JsonObject()
-        val required = tool.schema.getAsJsonArray("required")?.mapNotNull { if (it.isJsonPrimitive) it.asString else null }.orEmpty().toSet()
+        val properties = tool.parameters.getAsJsonObject("properties") ?: JsonObject()
+        val required = tool.parameters.getAsJsonArray("required")?.mapNotNull { if (it.isJsonPrimitive) it.asString else null }.orEmpty().toSet()
         val arguments = properties.entrySet().joinToString("\n") { (name, value) ->
             val property = value.takeIf { it.isJsonObject }?.asJsonObject
             "- $name (${property?.get("type")?.asString ?: "string"}${if (name in required) ", required" else ""}): ${property?.get("description")?.asString.orEmpty()}"
@@ -999,6 +1006,12 @@ internal class ClozedCodingAgentEngine(
         session.undoHistory = undo.toMutableList()
         saveSession()
         emit(ClozedAgentEvent("notice", text = "Restored the previous contents for the last coding-agent change set."))
+    }
+
+    private fun toolResultPair(result: ToolResult): Pair<String, Boolean> = when (result) {
+        is ToolResult.Ok -> result.output to true
+        is ToolResult.Error -> ("Error: " + result.message) to false
+        is ToolResult.Denied -> ("Denied: " + result.reason) to false
     }
 
     private fun parseToolArgs(raw: String): JsonObject {
