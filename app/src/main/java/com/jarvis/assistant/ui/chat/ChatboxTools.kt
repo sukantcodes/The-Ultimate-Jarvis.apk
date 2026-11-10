@@ -128,6 +128,7 @@ object ChatboxTools {
         )
         val conversation=listOf(
             Action("Open ChatBox workspace"){ context.startActivity(Intent(context, WorkspaceActivity::class.java)) },
+            Action("Connectors hub · GitHub, browse & build"){ context.startActivity(Intent(context, ConnectorHubActivity::class.java)) },
             Action("GitHub connection & access"){ context.startActivity(Intent(context, com.jarvis.assistant.tools.GitHubConnectionActivity::class.java)) },
             Action("Copy full conversation"){copy("Conversation",transcript())},
             Action("Share full conversation"){share("JARVIS conversation",transcript())},
