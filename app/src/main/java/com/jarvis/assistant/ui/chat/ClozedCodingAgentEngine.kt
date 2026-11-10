@@ -883,7 +883,21 @@ internal class ClozedCodingAgentEngine(
             }
             command.startsWith("/open ") -> {
                 val id = command.substringAfter(' ').trim()
-                emit(ClozedAgentEvent("notice", text = if (openSession(id)) "Opened coding session $id." else "Session $id was not found."))
+                if (openSession(id)) {
+                    emit(ClozedAgentEvent("notice", text = "Opened coding session $id.", ok = true))
+                    val transcript = session.messages.joinToString("\n\n") { record ->
+                        val role = when (record.role) {
+                            "user" -> "YOU"
+                            "assistant" -> "JARVIS"
+                            else -> "TOOL · " + record.toolName
+                        }
+                        "**$role**\n" + record.text +
+                            (if (record.calls.isNotEmpty()) "\nTool calls: " + record.calls.joinToString { it.name } else "")
+                    }.ifBlank { "This session has no saved messages yet." }
+                    emit(ClozedAgentEvent("session_transcript", text = transcript))
+                } else {
+                    emit(ClozedAgentEvent("notice", text = "Session $id was not found.", ok = false))
+                }
             }
             else -> {
                 val name = command.substringBefore(' ').removePrefix("/")
