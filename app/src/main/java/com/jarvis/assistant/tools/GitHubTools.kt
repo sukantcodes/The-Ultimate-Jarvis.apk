@@ -35,7 +35,7 @@ object GitHubTools {
 
     fun all(context: Context): List<Tool> {
         credentialContext = context.applicationContext
-        return listOf(RepositoryInfo, ListBranches, ReadFile, ImportFile)
+        return listOf(RepositoryInfo, ListBranches, ListDirectory, ReadFile, ImportFile)
     }
 
     internal fun validRepositoryPart(value: String): Boolean =
@@ -179,4 +179,63 @@ object GitHubTools {
             ToolResult.Ok("Imported ${owner}/${repo}/${path} into workspace at ${ctx.workspace.relative(target)} (${bytes.size} bytes).")
         } catch (e: Exception) { error(e) }
     }
+
+    object ListDirectory : Tool {
+        override val spec = ToolSpec("github_list_directory",
+            "Browse files and folders at a path in a GitHub repository branch. Read-only; returns relative paths and file sizes.",
+            listOf(ToolParam("owner", required = true), ToolParam("repo", required = true),
+                ToolParam("path", description = "Optional directory path inside the repository."),
+                ToolParam("ref", description = "Branch or tag; defaults to the repository default branch."),
+                ToolParam("limit", "integer", "Maximum entries, 1 to 200.")),
+            Risk.NETWORK, "github")
+        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = try {
+            val owner = arg(args, "owner"); val repo = arg(args, "repo")
+            val path = arg(args, "path").trim('/'); val ref = arg(args, "ref").ifBlank {
+                val infoUrl = repoUrl(owner, repo, "") ?: return ToolResult.Error("Invalid repository.")
+                JsonParser.parseString(get(infoUrl)).asJsonObject.get("default_branch")?.asString.orEmpty()
+            }
+            if (path.isNotEmpty() && !validRepoPath(path)) return ToolResult.Error("Invalid repository directory path.")
+            if (!validRepositoryPart(owner) || !validRepositoryPart(repo) || ref.isBlank()) return ToolResult.Error("Invalid repository or branch.")
+            val branchUrl = "https://api.github.com".toHttpUrlOrNull()!!.newBuilder()
+                .addPathSegment("repos").addPathSegment(owner).addPathSegment(repo)
+                .addPathSegment("branches").addPathSegment(ref).build()
+            val commitSha = JsonParser.parseString(get(branchUrl)).asJsonObject
+                .getAsJsonObject("commit")?.get("sha")?.asString ?: return ToolResult.Error("Branch commit was not found.")
+            val treeUrl = "https://api.github.com".toHttpUrlOrNull()!!.newBuilder()
+                .addPathSegment("repos").addPathSegment(owner).addPathSegment(repo)
+                .addPathSegment("git").addPathSegment("trees").addPathSegment(commitSha)
+                .addQueryParameter("recursive", "1").build()
+            val tree = JsonParser.parseString(get(treeUrl)).asJsonObject
+            val entries = tree.getAsJsonArray("tree") ?: return ToolResult.Error("GitHub returned no repository tree.")
+            val prefix = if (path.isBlank()) "" else "$path/"
+            val children = linkedMapOf<String, String>()
+            entries.forEach { element ->
+                if (!element.isJsonObject) return@forEach
+                val item = element.asJsonObject
+                val itemPath = item.get("path")?.asString ?: return@forEach
+                if (!itemPath.startsWith(prefix) || itemPath == path) return@forEach
+                val remainder = itemPath.removePrefix(prefix)
+                val first = remainder.substringBefore('/')
+                if (first.isBlank()) return@forEach
+                val isDirectory = remainder.contains('/')
+                if (isDirectory) children.putIfAbsent(first, "DIR")
+                else if (item.get("type")?.asString == "blob") {
+                    val size = item.get("size")?.takeIf { !it.isJsonNull }?.asLong ?: 0L
+                    children[first] = "FILE:$size"
+                }
+            }
+            val limit = args.get("limit")?.let { runCatching { it.asInt }.getOrNull() }?.coerceIn(1, 200) ?: 100
+            val output = children.entries.sortedWith(compareBy({ if (it.value == "DIR") 0 else 1 }, { it.key.lowercase() }))
+                .take(limit).map { (name, kind) -> if (kind == "DIR") "DIR  $name/" else "FILE $name (${kind.substringAfter(':')} bytes)" }
+            ToolResult.Ok(buildString {
+                appendLine("Repository: $owner/$repo")
+                appendLine("Branch: $ref")
+                appendLine("Directory: ${if (path.isBlank()) "/" else path}")
+                append(output.joinToString("\n").ifBlank { "No entries found." })
+                if (children.size > limit) appendLine("\n[Showing $limit of ${children.size} entries]")
+                if (tree.get("truncated")?.asBoolean == true) appendLine("\n[GitHub marked this repository tree as truncated]")
+            })
+        } catch (e: Exception) { error(e) }
+    }
+
 }
