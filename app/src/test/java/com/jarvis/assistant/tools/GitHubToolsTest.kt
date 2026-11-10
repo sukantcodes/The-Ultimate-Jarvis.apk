@@ -127,4 +127,12 @@ class GitHubToolsTest {
         assertTrue(GitHubWriteTools.pullRequestPreflightError("feature/chatbox", "main", 0)?.contains("no commits ahead") == true)
         assertTrue(GitHubWriteTools.pullRequestPreflightError("feature/chatbox", "main", -1)?.contains("no commits ahead") == true)
     }
+
+    @Test fun branchComparisonRejectsInvalidRepositoryAndBranchInputs() {
+        assertTrue(GitHubTools.validComparisonRequest("sukantcodes", "Jarvis", "main", "feature/chatbox"))
+        assertFalse(GitHubTools.validComparisonRequest("../owner", "Jarvis", "main", "feature/chatbox"))
+        assertFalse(GitHubTools.validComparisonRequest("owner", "../repo", "main", "feature/chatbox"))
+        assertFalse(GitHubTools.validComparisonRequest("owner", "repo", "main", "main"))
+        assertFalse(GitHubTools.validComparisonRequest("owner", "repo", "../main", "feature/chatbox"))
+    }
 }
