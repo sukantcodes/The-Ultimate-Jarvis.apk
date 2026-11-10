@@ -1,5 +1,6 @@
 package com.jarvis.assistant.provider
 
+import android.util.Log
 import com.jarvis.assistant.tools.ToolCall
 import com.jarvis.assistant.tools.ToolResult
 import com.jarvis.assistant.tools.ToolSpec
@@ -294,8 +295,18 @@ class ProviderChatEngine(
             } catch (e: TransportException) {
                 fail(id, partial.toString(), ProviderErrors.fromTransport(e))
             } catch (e: Exception) {
-                // A malformed provider answer must never crash the app.
-                fail(id, partial.toString(), ProviderErrors.invalidResponse("Unexpected problem: ${e.javaClass.simpleName}."))
+                // This catch also covers local tool/UI/runtime failures. Do not misreport them as malformed
+                // provider output: only protocol clients should classify response parsing as INVALID_RESPONSE.
+                Log.e(TAG, "Unexpected local ChatBox failure for turn $id (provider=${provider.label})", e)
+                val detail = e.message?.takeIf { it.isNotBlank() }?.take(180)
+                val message = buildString {
+                    append("JARVIS hit an internal ChatBox error (")
+                    append(e.javaClass.simpleName)
+                    append("). ")
+                    if (detail != null) append(detail).append(' ')
+                    append("The failure was recorded in the app log; your request was not confirmed as completed.")
+                }
+                fail(id, partial.toString(), ProviderError(ProviderErrorKind.INVALID_RESPONSE, message))
             }
         }
     }
