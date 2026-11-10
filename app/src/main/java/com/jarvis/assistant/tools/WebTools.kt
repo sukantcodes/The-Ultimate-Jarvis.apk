@@ -28,12 +28,14 @@ object WebTools {
             .connectTimeout(8, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .callTimeout(25, TimeUnit.SECONDS)
-            .dns(Dns { host ->
-                val addresses = InetAddress.getAllByName(host).toList()
-                if (addresses.isEmpty() || addresses.any { !isPublicAddress(it) }) {
-                    throw IOException("The destination resolves to a private or restricted address.")
+            .dns(object : Dns {
+                override fun lookup(hostname: String): List<InetAddress> {
+                    val addresses = InetAddress.getAllByName(hostname).toList()
+                    if (addresses.isEmpty() || addresses.any { !isPublicAddress(it) }) {
+                        throw IOException("The destination resolves to a private or restricted address.")
+                    }
+                    return addresses
                 }
-                addresses
             })
             .build()
     }
