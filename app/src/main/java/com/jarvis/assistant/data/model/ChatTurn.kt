@@ -24,7 +24,8 @@ data class ChatTurn(
     val attachmentName: String? = null,
     val attachmentMimeType: String? = null,
     val codingReasoning: String? = null,
-    val codingTools: List<CodingToolBlock>? = null
+    val codingTools: List<CodingToolBlock>? = null,
+    val codingPlan: String? = null
 ) {
     val formattedTime: String
         get() {
