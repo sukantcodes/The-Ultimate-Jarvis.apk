@@ -75,7 +75,8 @@ internal class ClozedCodingAgentEngine(
 
     fun currentSession(): ClozedSession = session
     fun projectPath(): String = workspace.root.absolutePath
-    fun projectFolders(): List<String> = listOf("ClozedProjects root") + (projectsRoot.root.listFiles()?.filter { it.isDirectory && !it.isHidden }?.sortedBy { it.name.lowercase() }?.map { it.name }.orEmpty())
+    fun projectFolders(): List<String> = listOf("ClozedProjects root") +
+        (File(projectsRoot.root, "projects").listFiles()?.filter { it.isDirectory && !it.isHidden }?.sortedBy { it.name.lowercase() }?.map { it.name }.orEmpty())
     fun selectProjectFolder(name: String): Boolean {
         workspace = if (name == "ClozedProjects root" || name == ".") projectsRoot else Workspace(projectsRoot.project(name))
         session.directory = workspace.root.absolutePath
@@ -459,9 +460,12 @@ internal class ClozedCodingAgentEngine(
                 if (pattern.isBlank()) return "Error: pattern is required." to false
                 val base = workspace.resolve(args.get("path")?.asString ?: ".")
                 val matcher = java.nio.file.FileSystems.getDefault().getPathMatcher("glob:" + pattern)
-                val found = base.walkTopDown().take(5001).filter { file ->
-                    val relative = base.toPath().relativize(file.toPath())
-                    matcher.matches(relative) || matcher.matches(relative.fileName ?: relative)
+                val found = base.walkTopDown().onEnter { directory -> !isIgnored(directory, base) }
+                    .take(5001).filter { file ->
+                    !isIgnored(file, base) && runCatching {
+                        val relative = base.toPath().relativize(file.toPath())
+                        matcher.matches(relative) || matcher.matches(relative.fileName ?: relative)
+                    }.getOrDefault(false)
                 }.take(500).map { workspace.relative(it) + if (it.isDirectory) "/" else "" }.toList()
                 return found.joinToString("\n").ifBlank { "No paths matched." } to true
             }
@@ -589,7 +593,9 @@ internal class ClozedCodingAgentEngine(
         val include = args.get("include")?.asString.orEmpty()
         val matcher = include.takeIf { it.isNotBlank() }?.let { java.nio.file.FileSystems.getDefault().getPathMatcher("glob:" + it) }
         val limit = args.get("limit")?.let { runCatching { it.asInt }.getOrNull() }?.coerceIn(1, 1000) ?: 200
-        val files = if (base.isFile) sequenceOf(base) else base.walkTopDown().filter { it.isFile }
+        val files = if (base.isFile) sequenceOf(base) else base.walkTopDown()
+            .onEnter { directory -> !isIgnored(directory, base) }
+            .filter { it.isFile && !isIgnored(it, base) }
         val hits = ArrayList<String>()
         for (file in files) {
             if (hits.size >= limit || file.length() > 2_000_000) continue
@@ -619,8 +625,19 @@ internal class ClozedCodingAgentEngine(
         )
         if (decision == com.jarvis.assistant.tools.Decision.DENY) return "Denied: user declined shell execution." to false
         val timeoutMs = args.get("timeout")?.let { runCatching { it.asLong }.getOrNull() }?.coerceIn(1000L, 120000L) ?: 120000L
+        val background = args.get("background")?.let { runCatching { it.asBoolean }.getOrNull() } == true
         return withContext(Dispatchers.IO) {
             try {
+                if (background) {
+                    val logDir = workspace.resolve(".clozed/background").apply { mkdirs() }
+                    val logFile = File(logDir, "shell-${System.currentTimeMillis()}.log")
+                    ProcessBuilder("/system/bin/sh", "-c", command)
+                        .directory(workdir)
+                        .redirectErrorStream(true)
+                        .redirectOutput(logFile)
+                        .start()
+                    return@withContext ("Started background command. Output log: " + workspace.relative(logFile)) to true
+                }
                 val process = ProcessBuilder("/system/bin/sh", "-c", command)
                     .directory(workdir)
                     .redirectErrorStream(true)
@@ -651,6 +668,42 @@ internal class ClozedCodingAgentEngine(
                 ("Error: terminal execution failed: " + (error.message ?: error.javaClass.simpleName)) to false
             }
         }
+    }
+
+
+    /** Common .gitignore semantics plus build-output defaults; nested ignore files override parent rules. */
+    private fun isIgnored(file: File, base: File): Boolean {
+        val relative = runCatching { base.toPath().relativize(file.toPath()).toString().replace(File.separatorChar, '/') }.getOrDefault("")
+        val segments = relative.split('/').filter { it.isNotBlank() }
+        if (segments.any { it in setOf(".git", ".gradle", ".idea", ".kotlin", "node_modules", "build") }) return true
+        if (file.name == ".DS_Store" || file.extension.lowercase() in setOf("apk", "aab")) return true
+        val ancestors = generateSequence(file.parentFile) { it.parentFile }
+            .takeWhile { it != null && (it == base || it.path.startsWith(base.path + File.separator)) }
+            .filterNotNull().toList().asReversed()
+        var ignored = false
+        for (directory in ancestors) {
+            val ignore = File(directory, ".gitignore")
+            if (!ignore.isFile) continue
+            val prefix = if (directory == base) "" else base.toPath().relativize(directory.toPath()).toString().replace(File.separatorChar, '/') + "/"
+            val localPath = relative.removePrefix(prefix)
+            val patterns = runCatching { ignore.readLines(Charsets.UTF_8) }.getOrDefault(emptyList())
+            for (raw in patterns) {
+                val line = raw.trim()
+                if (line.isBlank() || line.startsWith("#")) continue
+                val negated = line.startsWith("!")
+                var pattern = if (negated) line.drop(1) else line
+                pattern = pattern.removePrefix("/").removeSuffix("/")
+                if (pattern.isBlank()) continue
+                val matcher = runCatching { java.nio.file.FileSystems.getDefault().getPathMatcher("glob:$pattern") }.getOrNull() ?: continue
+                val matches = if (pattern.contains('/')) {
+                    runCatching { matcher.matches(java.nio.file.Paths.get(localPath)) }.getOrDefault(false)
+                } else {
+                    localPath.split('/').any { segment -> runCatching { matcher.matches(java.nio.file.Paths.get(segment)) }.getOrDefault(false) }
+                }
+                if (matches) ignored = !negated
+            }
+        }
+        return ignored
     }
 
     private fun runDiagnostics(args: JsonObject): Pair<String, Boolean> {
