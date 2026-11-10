@@ -295,6 +295,8 @@ internal class McpTool(private val manager: McpManager, private val ref: McpTool
 
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = try {
         ToolResult.Ok(manager.call(ref, args))
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
     } catch (error: Exception) {
         ToolResult.Error(error.message ?: "MCP call failed.")
     }
