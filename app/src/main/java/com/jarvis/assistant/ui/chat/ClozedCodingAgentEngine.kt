@@ -459,6 +459,7 @@ internal class ClozedCodingAgentEngine(
         val workdir = runCatching { workspace.resolve(args.get("workdir")?.asString ?: ".") }.getOrNull()
             ?: return "Error: invalid workdir." to false
         if (!workdir.isDirectory) return "Error: workdir is not a directory." to false
+        val timeoutMs = args.get("timeout")?.let { runCatching { it.asLong }.getOrNull() }?.coerceIn(1000L, 120000L) ?: 120000L
         return withContext(Dispatchers.IO) {
             val process = ProcessBuilder("/system/bin/sh", "-c", command).directory(workdir).redirectErrorStream(true).start()
             val capture = java.io.ByteArrayOutputStream()
@@ -472,7 +473,7 @@ internal class ClozedCodingAgentEngine(
                     }
                 }
             }.apply { isDaemon = true; start() }
-            if (!process.waitFor(120, java.util.concurrent.TimeUnit.SECONDS)) {
+            if (!process.waitFor(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)) {
                 process.destroyForcibly()
                 reader.join(1000)
                 "Error: shell command timed out." to false
