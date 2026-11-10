@@ -73,7 +73,10 @@ class McpManager private constructor(context: Context) {
         val clean = config.copy(name = config.name.trim().ifBlank { uri.host }, url = config.url.trim().trimEnd('/'))
         val all = servers().toMutableList()
         val index = all.indexOfFirst { it.id == clean.id }
-        if (index >= 0) all[index] = clean else all += clean
+        if (index >= 0) {
+            if (all[index].url != clean.url) resetProtocolSession(clean.id)
+            all[index] = clean
+        } else all += clean
         persist(all)
         refreshRequired = true
         return null
@@ -83,19 +86,24 @@ class McpManager private constructor(context: Context) {
         persist(servers().filterNot { it.id == id })
         vault.delete(accessKey(id))
         vault.delete(refreshKey(id))
+        resetProtocolSession(id)
         cachedTools = cachedTools.filterNot { it.serverId == id }
         refreshRequired = true
     }
 
     fun setEnabled(id: String, enabled: Boolean) {
         update(id) { it.copy(enabled = enabled, status = if (enabled) "Needs refresh" else "Disabled") }
-        if (!enabled) cachedTools = cachedTools.filterNot { it.serverId == id }
+        if (!enabled) {
+            resetProtocolSession(id)
+            cachedTools = cachedTools.filterNot { it.serverId == id }
+        }
         refreshRequired = true
     }
 
     fun setBearerToken(id: String, token: String): String? {
         if (token.isBlank()) return "Enter a bearer token."
         if (!vault.store(accessKey(id), token.trim())) return "Secure token storage is unavailable; the token was not saved."
+        resetProtocolSession(id)
         update(id) { it.copy(tokenExpiresAt = Long.MAX_VALUE, status = "Token saved") }
         refreshRequired = true
         return null
@@ -104,6 +112,7 @@ class McpManager private constructor(context: Context) {
     fun clearBearerToken(id: String) {
         vault.delete(accessKey(id))
         vault.delete(refreshKey(id))
+        resetProtocolSession(id)
         update(id) { it.copy(tokenExpiresAt = 0L, status = "Login required") }
         refreshRequired = true
     }
@@ -285,6 +294,7 @@ class McpManager private constructor(context: Context) {
     fun storeOAuthTokens(serverId: String, access: String, refresh: String?, expiresIn: Long) {
         if (!vault.store(accessKey(serverId), access)) throw IllegalStateException("Secure token storage is unavailable.")
         if (!refresh.isNullOrBlank()) vault.store(refreshKey(serverId), refresh)
+        resetProtocolSession(serverId)
         update(serverId) { it.copy(tokenExpiresAt = System.currentTimeMillis() + expiresIn.coerceAtLeast(60L) * 1000L, status = "Authenticated") }
         refreshRequired = true
     }
@@ -305,6 +315,12 @@ class McpManager private constructor(context: Context) {
 
     private fun persist(configs: List<McpServerConfig>) {
         prefs.edit().putString(KEY_SERVERS, gson.toJson(configs)).apply()
+    }
+
+    private fun resetProtocolSession(id: String) {
+        initializedServers.remove(id)
+        sessionIds.remove(id)
+        protocolVersions.remove(id)
     }
 
     private fun accessKey(id: String) = "mcp_access_${id}"
