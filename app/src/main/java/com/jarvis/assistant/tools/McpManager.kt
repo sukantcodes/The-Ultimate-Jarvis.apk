@@ -142,8 +142,10 @@ class McpManager private constructor(context: Context) {
             add("arguments", arguments)
         }
         val result = request(server, "tools/call", params)
-        if (result.get("isError")?.asBoolean == true) return "Error: " + result.getAsJsonArray("content").orEmpty().joinToString("\n") { it.asJsonObject.get("text")?.asString.orEmpty() }
         val content = result.getAsJsonArray("content") ?: return result.toString()
+        if (result.get("isError")?.asBoolean == true) return "Error: " + content.joinToString("\n") { item ->
+            if (item.isJsonObject) item.asJsonObject.get("text")?.asString.orEmpty() else item.toString()
+        }
         return content.joinToString("\n") { item ->
             if (item.isJsonObject) item.asJsonObject.get("text")?.asString.orEmpty() else item.toString()
         }.ifBlank { "(MCP tool returned no text content.)" }
