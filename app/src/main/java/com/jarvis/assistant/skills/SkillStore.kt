@@ -75,14 +75,36 @@ class SkillStore private constructor(context: Context) {
     }
 
     private fun builtIns(): List<Skill> {
-        val names = try { appContext.assets.list("skills")?.filter { it.endsWith(".md") }?.sorted() } catch (_: Exception) { null }
-            ?: return emptyList()
-        return names.mapNotNull { file ->
-            try {
-                val text = appContext.assets.open("skills/$file").bufferedReader().use { it.readText() }
-                SkillParser.parse(text)?.let { Skill(it.name, it.description, it.body, "built-in", true) }
-            } catch (_: Exception) { null }
+        val root = "skills"
+        val flatFiles = try {
+            appContext.assets.list(root)?.filter { it.endsWith(".md") }?.sorted().orEmpty()
+        } catch (error: Exception) {
+            android.util.Log.w("JarvisSkills", "Could not enumerate built-in skill assets at $root", error)
+            emptyList()
         }
+        val clozedDirectories = try {
+            appContext.assets.list("$root/clozed")?.filter { it.matches(Regex("^[a-z0-9][a-z0-9-]{1,39}$")) }?.sorted().orEmpty()
+        } catch (error: Exception) {
+            android.util.Log.w("JarvisSkills", "Could not enumerate Clozed skill assets at $root/clozed", error)
+            emptyList()
+        }
+        val paths = flatFiles.map { "$root/$it" } +
+            clozedDirectories.map { "$root/clozed/$it/SKILL.md" }
+        val out = LinkedHashMap<String, Skill>()
+        paths.forEach { path ->
+            try {
+                val text = appContext.assets.open(path).bufferedReader().use { it.readText() }
+                val parsed = SkillParser.parse(text)
+                if (parsed == null) {
+                    android.util.Log.w("JarvisSkills", "Ignoring malformed built-in skill asset: $path")
+                } else if (parsed.name !in out) {
+                    out[parsed.name] = Skill(parsed.name, parsed.description, parsed.body, "built-in", true)
+                }
+            } catch (error: Exception) {
+                android.util.Log.w("JarvisSkills", "Could not load built-in skill asset: $path", error)
+            }
+        }
+        return out.values.toList()
     }
 
     // ---- Store (network) ---------------------------------------------------------------------
