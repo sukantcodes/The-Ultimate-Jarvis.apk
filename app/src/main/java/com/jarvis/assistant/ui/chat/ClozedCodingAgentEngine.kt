@@ -58,8 +58,9 @@ internal class ClozedCodingAgentEngine(
     private val gson = com.google.gson.Gson()
     private val undo = ArrayDeque<List<FileSnapshot>>()
     private var interrupted = false
-    private var session = newSession()
-    private val repeatGuard = LinkedHashMap<String, Int>()
+    private var session = createSession()
+    private var lastSignature = ""
+    private var repeatedSignatureCount = 0
     private var todos: List<String> = emptyList()
 
     data class SessionSummary(val id: String, val title: String, val updated: Long, val model: String, val provider: String)
@@ -91,13 +92,14 @@ internal class ClozedCodingAgentEngine(
     }
 
     fun newSession() {
-        session = newSession()
+        session = createSession()
         undo.clear()
-        repeatGuard.clear()
+        lastSignature = ""
+        repeatedSignatureCount = 0
         emit(ClozedAgentEvent("reload"))
     }
 
-    private fun newSession(): ClozedSession {
+    private fun createSession(): ClozedSession {
         val id = "s" + System.currentTimeMillis().toString(36)
         return ClozedSession(id, "Session", workspace.root.absolutePath, "build", "", "", System.currentTimeMillis()).also(::saveSession)
     }
@@ -175,7 +177,9 @@ internal class ClozedCodingAgentEngine(
                 for (call in completion.calls) {
                     if (interrupted) break
                     emit(ClozedAgentEvent("tool_start", id = call.id, name = call.name, input = call.arguments, running = true))
+                    val before = snapshotBefore(call)
                     val result = dispatch(call, provider)
+                    if (result.second && before.isNotEmpty()) undo.addLast(before)
                     history += ClozedMessage.ToolResult(call.id, call.name, result.first)
                     session.messages += ClozedSessionRecord("tool", result.first, callId = call.id, toolName = call.name)
                     saveSession()
@@ -222,10 +226,8 @@ internal class ClozedCodingAgentEngine(
     private suspend fun dispatch(call: ClozedToolCall, provider: com.jarvis.assistant.provider.ResolvedProvider): Pair<String, Boolean> {
         val args = runCatching { JsonParser.parseString(call.arguments).asJsonObject }.getOrElse { JsonObject() }
         val signature = call.name + ":" + args.entrySet().sortedBy { it.key }.joinToString("&") { it.key + "=" + it.value.toString() }
-        val count = (repeatGuard[signature] ?: 0) + 1
-        repeatGuard.clear()
-        repeatGuard[signature] = count
-        if (count >= 3) return ("CRITICAL - REPEATED TOOL CALLS DETECTED\nYou have issued the same " + call.name + " call three times in a row with identical arguments. Stop repeating it. Change approach, or finish and report your findings.") to false
+        if (signature == lastSignature) repeatedSignatureCount++ else { lastSignature = signature; repeatedSignatureCount = 1 }
+        if (repeatedSignatureCount >= 3) return ("CRITICAL - REPEATED TOOL CALLS DETECTED\nYou have issued the same " + call.name + " call three times in a row with identical arguments. Stop repeating it. Change approach, or finish and report your findings.") to false
 
         return try {
             when (call.name) {
@@ -320,11 +322,24 @@ internal class ClozedCodingAgentEngine(
         val decision = confirmer.confirm(com.jarvis.assistant.tools.ConfirmRequest("shell", "terminal", com.jarvis.assistant.tools.Risk.EXECUTE, "Run command in project: " + command, false, "Clozed coding agent"))
         if (decision == com.jarvis.assistant.tools.Decision.DENY) return "Denied: user declined shell execution." to false
         val process = ProcessBuilder("/system/bin/sh", "-c", command).directory(workspace.root).redirectErrorStream(true).start()
-        val output = process.inputStream.bufferedReader().readText().take(24000)
+        val capture = java.io.ByteArrayOutputStream()
+        val reader = Thread {
+            process.inputStream.use { input ->
+                val buffer = ByteArray(4096)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    if (capture.size() < 24000) capture.write(buffer, 0, minOf(count, 24000 - capture.size()))
+                }
+            }
+        }.apply { isDaemon = true; start() }
         if (!process.waitFor(120, java.util.concurrent.TimeUnit.SECONDS)) {
             process.destroyForcibly()
+            reader.join(1000)
             return "Error: shell command timed out." to false
         }
+        reader.join(1000)
+        val output = capture.toString(Charsets.UTF_8.name())
         return ("exit=" + process.exitValue() + "\n" + output) to (process.exitValue() == 0)
     }
 
@@ -388,13 +403,43 @@ internal class ClozedCodingAgentEngine(
     }
 
     private data class FileSnapshot(val path: String, val content: String?)
+
+    private fun snapshotBefore(call: ClozedToolCall): List<FileSnapshot> {
+        val args = runCatching { JsonParser.parseString(call.arguments).asJsonObject }.getOrNull() ?: return emptyList()
+        val paths = when (call.name) {
+            "write", "edit", "delete" -> listOfNotNull(args.get("path")?.takeIf { it.isJsonPrimitive }?.asString)
+            "patch" -> Regex("(?m)^\\+\\+\\+ b/(.+)$").findAll(args.get("patchText")?.asString.orEmpty()).map { it.groupValues[1].trim() }.toList()
+            else -> emptyList()
+        }.distinct()
+        val result = ArrayList<FileSnapshot>()
+        var total = 0L
+        paths.forEach { path ->
+            val file = runCatching { workspace.resolve(path) }.getOrNull() ?: return@forEach
+            val files = if (file.isDirectory) file.walkTopDown().filter { it.isFile }.toList() else listOf(file)
+            if (files.isEmpty() && !file.exists()) result += FileSnapshot(path, null)
+            files.forEach { child ->
+                if (total > 5L * 1024L * 1024L) return@forEach
+                val relative = workspace.relative(child)
+                val bytes = runCatching { child.readBytes() }.getOrNull() ?: return@forEach
+                if (bytes.size > 2_000_000) return@forEach
+                total += bytes.size
+                result += FileSnapshot(relative, "b64:" + android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))
+            }
+        }
+        return result
+    }
     private fun undoLast() {
         val changes = undo.removeLastOrNull()
         if (changes == null) { emit(ClozedAgentEvent("notice", text = "There are no file changes to undo.")); return }
         changes.asReversed().forEach { snap ->
             val file = runCatching { workspace.resolve(snap.path) }.getOrNull() ?: return@forEach
             if (snap.content == null) file.deleteRecursively()
-            else { file.parentFile?.mkdirs(); file.writeText(snap.content, Charsets.UTF_8) }
+            else {
+                file.parentFile?.mkdirs()
+                val value = snap.content
+                if (value.startsWith("b64:")) file.writeBytes(android.util.Base64.decode(value.removePrefix("b64:"), android.util.Base64.NO_WRAP))
+                else file.writeText(value, Charsets.UTF_8)
+            }
         }
         emit(ClozedAgentEvent("notice", text = "Restored the previous contents for the last recorded file change."))
     }
