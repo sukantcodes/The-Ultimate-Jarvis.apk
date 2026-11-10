@@ -75,12 +75,27 @@ class ChatFragment : Fragment() {
         override suspend fun confirm(request: ConfirmRequest): Decision = withContext(Dispatchers.Main.immediate) {
             if (!isAdded || _binding == null) return@withContext Decision.DENY
             suspendCancellableCoroutine { continuation ->
+                val choices = if (request.destructive) {
+                    arrayOf("Allow once", "Deny")
+                } else {
+                    arrayOf("Allow once", "Allow next identical call", "Allow this session", "Always allow this category")
+                }
                 val dialog = MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
                     .setTitle("JARVIS permission request")
-                    .setMessage("${request.summary}\n\nTool: ${request.tool}\nCategory: ${request.group}\nRisk: ${request.risk.label}\n\nAllow this action?")
-                    .setNegativeButton("Deny") { _, _ -> if (continuation.isActive) continuation.resume(Decision.DENY) }
-                    .setNeutralButton("Allow once") { _, _ -> if (continuation.isActive) continuation.resume(Decision.ALLOW_ONCE) }
-                    .setPositiveButton("Allow this session") { _, _ -> if (continuation.isActive) continuation.resume(Decision.ALLOW_SESSION) }
+                    .setMessage("\${request.summary}\n\nTool: \${request.tool}\nCategory: \${request.group}\nRisk: \${request.risk.label}\n\nChoose how this action may proceed.")
+                    .setItems(choices) { _, which ->
+                        val decision = if (request.destructive) {
+                            if (which == 0) Decision.ALLOW_ONCE else Decision.DENY
+                        } else {
+                            when (which) {
+                                0 -> Decision.ALLOW_ONCE
+                                1 -> Decision.ALLOW_NEXT
+                                2 -> Decision.ALLOW_SESSION
+                                else -> Decision.ALLOW_ALWAYS
+                            }
+                        }
+                        if (continuation.isActive) continuation.resume(decision)
+                    }
                     .create()
                 dialog.setOnCancelListener { if (continuation.isActive) continuation.resume(Decision.DENY) }
                 continuation.invokeOnCancellation { dialog.dismiss() }
