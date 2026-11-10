@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 internal object ClozedCodingEngineHolder {
     @Volatile var backend: ClozedCodingAgentEngine? = null
     @Volatile var running: Boolean = false
+    @Volatile var newSessionAfterCurrent: Boolean = false
     val bus = MutableSharedFlow<ClozedAgentEvent>(extraBufferCapacity = 256)
 }
 
@@ -68,9 +69,15 @@ class ClozedCodingAgentService : Service() {
                 }
             }
             ACTION_NEW_SESSION -> {
-                engine?.newSession()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf(startId)
+                if (work?.isActive == true) {
+                    ClozedCodingEngineHolder.newSessionAfterCurrent = true
+                    engine?.interrupt()
+                    updateNotification("Finishing current task before starting a new session…")
+                } else {
+                    engine?.newSession()
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf(startId)
+                }
             }
             ACTION_SUBMIT -> {
                 val text = intent.getStringExtra(EXTRA_TEXT).orEmpty()
@@ -95,6 +102,10 @@ class ClozedCodingAgentService : Service() {
                     } catch (error: Exception) {
                         appendNotice("Coding agent failed: ${error.message ?: error.javaClass.simpleName}")
                     } finally {
+                        if (ClozedCodingEngineHolder.newSessionAfterCurrent) {
+                            backend.newSession()
+                            ClozedCodingEngineHolder.newSessionAfterCurrent = false
+                        }
                         ClozedCodingEngineHolder.running = false
                         if (pendingTurnId == turnId) {
                             JarvisApp.instance.chatRepository.finishPending(turnId, response.toString())
@@ -223,7 +234,7 @@ class ClozedCodingAgentService : Service() {
         }
 
         fun newSession(context: android.content.Context) {
-            ClozedCodingEngineHolder.backend?.newSession()
+            context.startService(Intent(context, ClozedCodingAgentService::class.java).setAction(ACTION_NEW_SESSION))
         }
 
         fun isRunning(): Boolean = ClozedCodingEngineHolder.running
