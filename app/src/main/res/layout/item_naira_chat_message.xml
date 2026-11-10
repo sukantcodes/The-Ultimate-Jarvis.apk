@@ -42,7 +42,7 @@
             android:id="@+id/tvUserMessage"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:maxWidth="280dp"
+            android:maxWidth="560dp"
             android:background="@drawable/bg_jarvis_chat_user"
             android:paddingStart="16dp"
             android:paddingTop="12dp"
@@ -120,7 +120,7 @@
             android:fontFamily="sans-serif"
             android:textSize="15sp"
             android:lineSpacingExtra="4dp"
-            android:breakStrategy="highQuality"
+            android:breakStrategy="high_quality"
             android:hyphenationFrequency="normal" />
 
         <LinearLayout
