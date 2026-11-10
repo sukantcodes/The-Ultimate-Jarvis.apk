@@ -342,11 +342,11 @@ internal object ClozedCodingAgentDialog {
     private fun showSessions(context: Context, engine: ClozedCodingAgentEngine, onLoaded: () -> Unit) {
         val sessions = engine.sessions()
         if (sessions.isEmpty()) {
-            MaterialAlertDialogBuilder(context).setMessage("No saved coding sessions yet.").setPositiveButton("OK", null).show()
+            AlertDialog.Builder(context).setMessage("No saved coding sessions yet.").setPositiveButton("OK", null).show()
             return
         }
         val labels = sessions.map { it.title + "  ·  " + it.provider + " / " + it.model }.toTypedArray()
-        MaterialAlertDialogBuilder(context)
+        AlertDialog.Builder(context)
             .setTitle("Coding sessions")
             .setItems(labels) { _, which -> if (engine.openSession(sessions[which].id)) onLoaded() }
             .setNegativeButton("Cancel", null)
@@ -356,7 +356,7 @@ internal object ClozedCodingAgentDialog {
     private suspend fun askQuestion(context: Context, question: String, options: List<String>): String? =
         suspendCancellableCoroutine { continuation: CancellableContinuation<String?> ->
             val show = {
-                val builder = MaterialAlertDialogBuilder(context).setTitle("JARVIS needs your input").setMessage(question)
+                val builder = AlertDialog.Builder(context).setTitle("JARVIS needs your input").setMessage(question)
                     .setNegativeButton("Cancel") { _, _ -> if (continuation.isActive) continuation.resume(null) }
                 if (options.isNotEmpty()) {
                     builder.setItems(options.toTypedArray()) { _, which -> if (continuation.isActive) continuation.resume(options[which]) }
