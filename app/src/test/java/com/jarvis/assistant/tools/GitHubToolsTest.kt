@@ -119,4 +119,12 @@ class GitHubToolsTest {
         assertFalse(GitHubTools.fitsWorkspaceBudget(fiftyMb, 1L))
         assertFalse(GitHubTools.fitsWorkspaceBudget(0L, twentyMb + 1L))
     }
+
+    @Test fun pullRequestPreflightRequiresDistinctBranchesAndNewCommits() {
+        assertTrue(GitHubWriteTools.pullRequestPreflightError("feature/chatbox", "main", 2) == null)
+        assertTrue(GitHubWriteTools.pullRequestPreflightError("main", "main", 2)?.contains("different") == true)
+        assertTrue(GitHubWriteTools.pullRequestPreflightError("../bad", "main", 2) != null)
+        assertTrue(GitHubWriteTools.pullRequestPreflightError("feature/chatbox", "main", 0)?.contains("no commits ahead") == true)
+        assertTrue(GitHubWriteTools.pullRequestPreflightError("feature/chatbox", "main", -1)?.contains("no commits ahead") == true)
+    }
 }
