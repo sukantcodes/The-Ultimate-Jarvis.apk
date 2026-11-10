@@ -27,7 +27,10 @@ object AgentToolRuntime {
         }
     }
 
-    fun specs(context: Context): List<ToolSpec> = registry(context.applicationContext).specs()
+    fun specs(context: Context): List<ToolSpec> {
+        val app = context.applicationContext
+        return registry(app).also { it.register(ConnectorTools(app)) }.specs()
+    }
 
     fun executor(context: Context): ToolExecutor = executorInstance ?: synchronized(this) {
         executorInstance ?: run {

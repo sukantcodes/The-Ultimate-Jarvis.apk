@@ -148,7 +148,7 @@ class WorkspaceActivity : AppCompatActivity() {
     }
 
     private fun showFile(file: File) {
-        if (!isInsideWorkspace(file) || !file.isFile) return
+        if (!isInsideWorkspace(file) || !file.isFile || java.nio.file.Files.isSymbolicLink(file.toPath())) return
         val canPreview = file.length() <= MAX_PREVIEW_BYTES && file.extension.lowercase() in TEXT_EXTENSIONS
         val preview = TextView(this).apply {
             textSize = 12f
@@ -159,16 +159,94 @@ class WorkspaceActivity : AppCompatActivity() {
             else "Preview is unavailable for this file type or size. You can export it to another app."
         }
         val scroll = ScrollView(this).apply { addView(preview) }
-        MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_Jarvis_MaterialDialog)
+        val dialog = MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle(file.name)
             .setView(scroll)
-            .setPositiveButton("Export to phone") { _, _ ->
+            .setPositiveButton("Export") { _, _ ->
                 exportTarget = file
                 exportLauncher.launch(file.name)
             }
-            .setNeutralButton("Delete") { _, _ -> confirmDelete(file) }
+            .setNeutralButton(if (canPreview) "Edit" else "Delete", null)
             .setNegativeButton("Close", null)
-            .show()
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+                if (canPreview) editFile(file) else confirmDelete(file)
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
+    }
+
+    /** Edits text artifacts in place, creating a recoverable backup before an atomic replacement. */
+    private fun editFile(file: File) {
+        if (!isInsideWorkspace(file) || !file.isFile || java.nio.file.Files.isSymbolicLink(file.toPath()) ||
+            file.length() > MAX_PREVIEW_BYTES || file.extension.lowercase() !in TEXT_EXTENSIONS
+        ) {
+            Toast.makeText(this, "This file type or size cannot be edited here.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val original = runCatching { file.readText(Charsets.UTF_8) }.getOrElse {
+            Toast.makeText(this, "Could not read this file as UTF-8.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val editor = android.widget.EditText(this).apply {
+            setText(original)
+            typeface = Typeface.MONOSPACE
+            textSize = 13f
+            gravity = Gravity.TOP or Gravity.START
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            minLines = 12
+            maxLines = 24
+            setHorizontallyScrolling(true)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        }
+        val scroll = ScrollView(this).apply { addView(editor) }
+        val dialog = MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_Jarvis_MaterialDialog)
+            .setTitle("Edit ${file.name}")
+            .setView(scroll)
+            .setPositiveButton("Save", null)
+            .setNegativeButton("Cancel", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val updated = editor.text?.toString().orEmpty()
+                if (updated.toByteArray(Charsets.UTF_8).size > MAX_PREVIEW_BYTES) {
+                    editor.error = "File exceeds the 1 MB in-app editor limit."
+                    return@setOnClickListener
+                }
+                lifecycleScope.launch {
+                    val result = withContext(Dispatchers.IO) {
+                        runCatching {
+                            if (!isInsideWorkspace(file) || !file.isFile || java.nio.file.Files.isSymbolicLink(file.toPath())) {
+                                error("The workspace file changed or is no longer safe to edit.")
+                            }
+                            val backupDir = workspace.resolve(".jarvis/backups")
+                            if (!backupDir.exists() && !backupDir.mkdirs()) error("Could not create a backup folder.")
+                            val backup = File(backupDir, "${System.currentTimeMillis()}-${file.name}.bak")
+                            file.copyTo(backup, overwrite = false)
+                            val temp = File(file.parentFile, ".${file.name}.jarvis-tmp")
+                            temp.writeText(updated, Charsets.UTF_8)
+                            if (!temp.renameTo(file)) {
+                                temp.delete()
+                                error("Could not replace the original file. Your backup is at ${workspace.relative(backup)}.")
+                            }
+                            backup
+                        }
+                    }
+                    result.onSuccess { backup ->
+                        Toast.makeText(this@WorkspaceActivity, "Saved. Backup: ${workspace.relative(backup)}", Toast.LENGTH_LONG).show()
+                        dialog.dismiss()
+                        render()
+                    }.onFailure { error ->
+                        Toast.makeText(this@WorkspaceActivity, error.message ?: "Save failed.", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+        dialog.show()
     }
 
     private fun confirmDelete(file: File) {
