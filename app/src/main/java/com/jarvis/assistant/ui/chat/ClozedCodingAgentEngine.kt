@@ -229,6 +229,9 @@ internal class ClozedCodingAgentEngine(
 
     private suspend fun dispatch(call: ClozedToolCall, provider: com.jarvis.assistant.provider.ResolvedProvider): Pair<String, Boolean> {
         val args = runCatching { JsonParser.parseString(call.arguments).asJsonObject }.getOrElse { JsonObject() }
+        if (session.agent == "plan" && call.name in setOf("write", "edit", "patch", "delete", "shell")) {
+            return "Denied: plan mode is read-only. No files or project state may be changed." to false
+        }
         val signature = call.name + ":" + args.entrySet().sortedBy { it.key }.joinToString("&") { it.key + "=" + it.value.toString() }
         if (signature == lastSignature) repeatedSignatureCount++ else { lastSignature = signature; repeatedSignatureCount = 1 }
         if (repeatedSignatureCount >= 3) return ("CRITICAL - REPEATED TOOL CALLS DETECTED\nYou have issued the same " + call.name + " call three times in a row with identical arguments. Stop repeating it. Change approach, or finish and report your findings.") to false
