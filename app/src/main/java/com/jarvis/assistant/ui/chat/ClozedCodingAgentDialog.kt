@@ -5,6 +5,10 @@ import android.content.Intent
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
+import android.os.Build
+import android.os.Environment
+import android.provider.Settings
+import android.net.Uri
 import android.os.Looper
 import android.view.Gravity
 import android.view.View
