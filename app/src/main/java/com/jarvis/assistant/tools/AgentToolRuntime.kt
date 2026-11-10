@@ -21,6 +21,7 @@ object AgentToolRuntime {
             WorkspaceTools.all().forEach(registry::register)
             WebTools.all().forEach(registry::register)
             GitHubTools.all(context.applicationContext).forEach(registry::register)
+            GitHubWriteTools.all(context.applicationContext).forEach(registry::register)
             ScheduledTaskTools.all(context.applicationContext).forEach(registry::register)
             registryInstance = registry
         }
