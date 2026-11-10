@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#050812">
+    android:background="?attr/themeBg">
 
     <TextureView
         android:id="@+id/cameraPreview"
@@ -24,7 +24,7 @@
         android:paddingEnd="18dp"
         android:paddingTop="28dp"
         android:paddingBottom="18dp"
-        android:background="#D90A1020">
+        android:background="?attr/themeCardGlassStart">
 
         <TextView
             android:id="@+id/btnScanClose"
@@ -33,7 +33,7 @@
             android:gravity="center"
             android:text="‹"
             android:textSize="34sp"
-            android:textColor="#FFFFFF"
+            android:textColor="?attr/themeTextPrimary"
             android:contentDescription="Close camera scan" />
 
         <LinearLayout
@@ -46,7 +46,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="JARVIS LIVE VISION"
-                android:textColor="#F5FAFF"
+                android:textColor="?attr/themeTextPrimary"
                 android:textSize="15sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.06" />
@@ -56,7 +56,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="INITIALIZING LIVE CAMERA..."
-                android:textColor="#55DDF7"
+                android:textColor="?attr/themeAccent"
                 android:textSize="11sp"
                 android:letterSpacing="0.04" />
         </LinearLayout>
@@ -64,7 +64,7 @@
             android:layout_width="8dp"
             android:layout_height="8dp"
             android:background="@drawable/bg_jarvis_mic_center"
-            android:backgroundTint="#32E6A1" />
+            android:backgroundTint="?attr/themeSuccess" />
     </LinearLayout>
 
     <FrameLayout
@@ -82,7 +82,7 @@
             android:layout_width="match_parent"
             android:layout_height="2dp"
             android:layout_gravity="center"
-            android:background="#AA42E8FF"
+            android:background="?attr/themeAccent1"
             android:elevation="4dp" />
         <TextView
             android:layout_width="wrap_content"
@@ -90,7 +90,7 @@
             android:layout_gravity="top|center_horizontal"
             android:layout_marginTop="116dp"
             android:text="JARVIS IS ANALYSING THE LIVE VIEW"
-            android:textColor="#99DFF7"
+            android:textColor="?attr/themeTextSecondary"
             android:textSize="10sp"
             android:letterSpacing="0.08" />
     </FrameLayout>
@@ -104,10 +104,10 @@
         android:layout_marginEnd="18dp"
         android:layout_marginBottom="126dp"
         android:padding="18dp"
-        android:background="#E61A2638"
+        android:background="?attr/themeCardBg"
         android:elevation="8dp"
         android:text="JARVIS live visual understanding will appear here automatically."
-        android:textColor="#F2FAFF"
+        android:textColor="?attr/themeTextPrimary"
         android:textSize="14sp"
         android:lineSpacingExtra="3dp"
         android:maxLines="5"
@@ -120,7 +120,7 @@
         android:gravity="center"
         android:orientation="horizontal"
         android:padding="24dp"
-        android:background="#CC070B18">
+        android:background="?attr/themeDockBg">
 
         <TextView
             android:id="@+id/btnScanTorch"
@@ -129,7 +129,7 @@
             android:gravity="center"
             android:background="@drawable/bg_scan_control"
             android:text="FLASH OFF"
-            android:textColor="#D9F8FF"
+            android:textColor="?attr/themeTextPrimary"
             android:textStyle="bold"
             android:textSize="11sp" />
 

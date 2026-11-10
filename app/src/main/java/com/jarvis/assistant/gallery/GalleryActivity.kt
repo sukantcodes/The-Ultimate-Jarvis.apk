@@ -19,6 +19,7 @@ import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.jarvis.assistant.R
+import com.jarvis.assistant.util.ThemeManager
 import java.text.DateFormat
 import java.util.Date
 
@@ -55,11 +56,11 @@ class GalleryActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(18), dp(18), dp(18))
-            setBackgroundColor(resolveColor(android.R.attr.colorBackground))
         }
         root.addView(TextView(this).apply {
             text = "JARVIS Gallery"; textSize = 24f
@@ -76,6 +77,7 @@ class GalleryActivity : AppCompatActivity() {
             addView(content, ViewGroup.LayoutParams(-1, -2))
         }
         root.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
+        ThemeManager.applyDynamicBackground(root)
         setContentView(root)
         thumbnailLoader = GalleryThumbnailLoader(contentResolver)
         render()

@@ -25,6 +25,7 @@ import com.jarvis.assistant.data.preferences.AppPreferences
 import com.jarvis.assistant.databinding.ActivityCameraScanBinding
 import com.jarvis.assistant.util.PermissionHelper
 import com.jarvis.assistant.util.SpeechAnnouncer
+import com.jarvis.assistant.util.ThemeManager
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -75,9 +76,11 @@ class CameraScanActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         binding = ActivityCameraScanBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        ThemeManager.applyDynamicBackground(binding.root)
         appPreferences = AppPreferences(this)
         speechAnnouncer = SpeechAnnouncer(this)
         binding.btnScanClose.setOnClickListener { finish() }

@@ -22,6 +22,7 @@ import android.widget.VideoView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.jarvis.assistant.R
+import com.jarvis.assistant.util.ThemeManager
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -53,8 +54,11 @@ class ChatAttachmentPreviewActivity : AppCompatActivity() {
     private var currentPdfBitmap: Bitmap? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_chat_attachment_preview)
+        val root = (findViewById<ViewGroup>(android.R.id.content)).getChildAt(0)
+        ThemeManager.applyDynamicBackground(root)
         content = findViewById(R.id.previewContent)
         pageControls = findViewById(R.id.pdfControls)
         pageLabel = findViewById(R.id.tvPdfPage)
