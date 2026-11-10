@@ -228,7 +228,7 @@ internal class ClozedCodingAgentEngine(
     }
 
     private suspend fun dispatch(call: ClozedToolCall, provider: com.jarvis.assistant.provider.ResolvedProvider): Pair<String, Boolean> {
-        val args = runCatching { JsonParser.parseString(call.arguments).asJsonObject }.getOrElse { JsonObject() }
+        val args = parseToolArgs(call.arguments)
         if (session.agent == "plan" && call.name in setOf("write", "edit", "patch", "delete", "shell")) {
             return "Denied: plan mode is read-only. No files or project state may be changed." to false
         }
@@ -580,10 +580,22 @@ internal class ClozedCodingAgentEngine(
         }
     }
 
+    private fun parseToolArgs(raw: String): JsonObject {
+        runCatching { JsonParser.parseString(raw).asJsonObject }.getOrNull()?.let { return it }
+        val start = raw.indexOf('{')
+        val end = raw.lastIndexOf('}')
+        if (start >= 0 && end > start) {
+            var candidate = raw.substring(start, end + 1)
+            candidate = candidate.replace(Regex(",\\s*([}\\]])"), "$1")
+            runCatching { JsonParser.parseString(candidate).asJsonObject }.getOrNull()?.let { return it }
+        }
+        return JsonObject()
+    }
+
     private data class FileSnapshot(val path: String, val content: String?)
 
     private suspend fun snapshotBefore(call: ClozedToolCall): List<FileSnapshot> = withContext(Dispatchers.IO) {
-        val args = runCatching { JsonParser.parseString(call.arguments).asJsonObject }.getOrNull() ?: return@withContext emptyList()
+        val args = runCatching { parseToolArgs(call.arguments) }.getOrNull() ?: return@withContext emptyList()
         val paths = when (call.name) {
             "write", "edit", "delete" -> listOfNotNull(args.get("path")?.takeIf { it.isJsonPrimitive }?.asString)
             "patch" -> (Regex("(?m)^\\+\\+\\+ b/(.+)$").findAll(args.get("patchText")?.asString.orEmpty()).map { it.groupValues[1].trim() } + Regex("(?m)^--- a/(.+)$").findAll(args.get("patchText")?.asString.orEmpty()).map { it.groupValues[1].trim() }).toList()
