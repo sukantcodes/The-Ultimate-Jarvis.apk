@@ -59,7 +59,7 @@ object AgentToolRuntime {
                     McpTools.all(app).forEach(registry::register)
                 }
                 val policy = PermissionPolicy(settings)
-                if (settings.get("mode.mcp.NETWORK") == null) policy.setMode(Risk.NETWORK, Mode.ASK, "mcp")
+                if (settings.get("mode.mcp.NETWORK") == null && settings.get("mode.NETWORK") == null) policy.setMode(Risk.NETWORK, Mode.ASK, "mcp")
                 ToolExecutor(
                     registry = activeRegistry,
                     policy = policy,
