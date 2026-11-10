@@ -59,7 +59,7 @@ internal class ClozedLlm {
             setRequestProperty("User-Agent", "ClozedCode-User/1.0; +https://clozedcode.app")
             if (anthropic) {
                 setRequestProperty("anthropic-version", "2023-06-01")
-                provider.auth.secret?.reveal()?.takeIf { it.isNotBlank() }?.let { setRequestProperty("x-api-key", it) }
+                if (provider.auth.method != AuthMethod.QUERY_PARAM) provider.auth.secret?.reveal()?.takeIf { it.isNotBlank() }?.let { setRequestProperty("x-api-key", it) }
             } else {
                 applyOpenAiAuth(provider)
             }
@@ -78,7 +78,7 @@ internal class ClozedLlm {
             if (code !in 200..299) {
                 val responseText = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
                 throw ClozedLlmException(
-                    errorMessage(code, responseText),
+                    errorMessage(code, responseText, provider.auth.secret?.reveal().orEmpty()),
                     code,
                     connection.getHeaderField("Retry-After"),
                     responseText
@@ -356,13 +356,13 @@ internal class ClozedLlm {
         return ClozedCompletion(text.toString(), reasoning.toString(), calls)
     }
 
-    private fun errorMessage(code: Int, body: String): String = when (code) {
+    private fun errorMessage(code: Int, body: String, secret: String): String = when (code) {
         401 -> "HTTP 401: invalid or missing API key"
         402 -> "HTTP 402: payment required"
         403 -> "HTTP 403: the provider refused this request"
         404 -> "HTTP 404: model or endpoint not found"
         429 -> "HTTP 429: rate limited"
-        else -> "HTTP $code: ${body.take(300)}"
+        else -> "HTTP $code: ${body.take(300).let { if (secret.isBlank()) it else it.replace(secret, "[REDACTED]") }}"
     }
 }
 
