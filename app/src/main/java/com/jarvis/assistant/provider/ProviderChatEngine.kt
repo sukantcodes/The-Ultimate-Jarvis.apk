@@ -133,7 +133,7 @@ class ProviderChatEngine(
     /** Asks a failed turn again in place. Uses whichever provider is active now. */
     fun retry(turnId: String): SendOutcome {
         synchronized(lock) {
-            if (isBusy) return SendOutcome.Busy
+            if (isBusy && _state.value !is EngineState.Failed) return SendOutcome.Busy
             if (turnId !in failedTurns) return SendOutcome.Blocked("That message isn't waiting for a retry.")
             val provider = when (val r = config.resolveChat(turnCategory[turnId] ?: WorkCategory.CHAT)) {
                 ChatResolution.NotActive -> return SendOutcome.NotActive
