@@ -28,6 +28,9 @@ class ToolExecutor(
     @Volatile var onProgress: (String) -> Unit = {}
     @Volatile var cancelled: Boolean = false
 
+    /** Clear temporary permission grants when the coding session changes. */
+    fun endSession() = policy.endSession()
+
     suspend fun execute(call: ToolCall, timeoutMs: Long = defaultTimeoutMs): ToolResult {
         val executionKey = "${call.source}:${call.id}:${call.name}:${call.args}"
         done[executionKey]?.let { return it }
