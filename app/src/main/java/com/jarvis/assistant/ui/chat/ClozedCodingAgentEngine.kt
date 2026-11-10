@@ -291,7 +291,7 @@ internal class ClozedCodingAgentEngine(
                 val updated = if (all) original.replace(old, new) else original.replaceFirst(old, new)
                 return writeThroughTool(path, updated, call.id)
             }
-            "patch" -> return "Error: patch application is not yet connected; use edit for exact replacements." to false
+            "patch" -> return applyPatch(call, args)
             "glob" -> {
                 val pattern = args.get("pattern")?.asString.orEmpty()
                 if (pattern.isBlank()) return "Error: pattern is required." to false
@@ -329,6 +329,81 @@ internal class ClozedCodingAgentEngine(
         }
         val result: ToolResult = AgentToolRuntime.executor(app).execute(ToolCall(call.id, mapped, mappedArgs, "Clozed coding agent"))
         return result.text to result.isOk
+    }
+
+
+    private suspend fun applyPatch(call: ClozedToolCall, args: JsonObject): Pair<String, Boolean> {
+        val patchText = args.get("patchText")?.asString.orEmpty()
+        if (patchText.isBlank()) return "Error: patchText is required." to false
+        data class Change(val path: String, val content: String?)
+        val lines = patchText.replace("\r\n", "\n").lines()
+        val changes = ArrayList<Change>()
+        var i = 0
+        try {
+            while (i < lines.size) {
+                if (!lines[i].startsWith("--- ")) { i++; continue }
+                val oldPath = lines[i++].removePrefix("--- ").substringBefore('\t').removePrefix("a/")
+                if (i >= lines.size || !lines[i].startsWith("+++ ")) return "Error: malformed unified patch headers." to false
+                val newPath = lines[i++].removePrefix("+++ ").substringBefore('\t').removePrefix("b/")
+                val path = if (newPath == "/dev/null") oldPath else newPath
+                if (path.isBlank() || path == "/dev/null") return "Error: invalid patch path." to false
+                val file = workspace.resolve(path)
+                val original = if (oldPath == "/dev/null") emptyList() else {
+                    if (!file.isFile) return ("Error: patch target does not exist: " + path) to false
+                    if (file.length() > 2_000_000) return ("Error: patch target is too large: " + path) to false
+                    file.readLines(Charsets.UTF_8)
+                }
+                val output = ArrayList<String>()
+                var source = 0
+                var sawHunk = false
+                while (i < lines.size && lines[i].startsWith("@@ ")) {
+                    sawHunk = true
+                    val header = lines[i++]
+                    val match = Regex("@@ -(\\d+)(?:,(\\d+))? \\+(\\d+)(?:,(\\d+))? @@").find(header)
+                        ?: return "Error: invalid patch hunk header." to false
+                    val oldStart = (match.groupValues[1].toIntOrNull() ?: 1) - 1
+                    if (oldStart < source || oldStart > original.size) return ("Error: patch hunk is outside " + path) to false
+                    while (source < oldStart) output += original[source++]
+                    while (i < lines.size && !lines[i].startsWith("@@ ") && !lines[i].startsWith("--- ")) {
+                        val line = lines[i++]
+                        if (line == "\\ No newline at end of file") continue
+                        if (line.isEmpty()) return ("Error: malformed empty patch line in " + path) to false
+                        when (line[0]) {
+                            ' ' -> {
+                                val expected = line.substring(1)
+                                if (original.getOrNull(source) != expected) return ("Error: patch context mismatch in " + path) to false
+                                output += expected
+                                source++
+                            }
+                            '-' -> {
+                                val expected = line.substring(1)
+                                if (original.getOrNull(source) != expected) return ("Error: patch removal mismatch in " + path) to false
+                                source++
+                            }
+                            '+' -> output += line.substring(1)
+                            else -> return ("Error: invalid patch line in " + path) to false
+                        }
+                    }
+                }
+                if (!sawHunk) return ("Error: no hunks supplied for " + path) to false
+                while (source < original.size) output += original[source++]
+                changes += Change(path, if (newPath == "/dev/null") null else output.joinToString("\n"))
+            }
+        } catch (e: Exception) {
+            return ("Error: patch validation failed: " + (e.message ?: "invalid patch")) to false
+        }
+        if (changes.isEmpty()) return "Error: no file changes found in patch." to false
+        changes.forEachIndexed { index, change ->
+            if (change.content == null) {
+                val deleteArgs = JsonObject().apply { addProperty("path", change.path) }
+                val result = AgentToolRuntime.executor(app).execute(ToolCall(call.id + "_delete_" + index, "delete_path", deleteArgs, "Clozed coding agent"))
+                if (!result.isOk) return result.text to false
+            } else {
+                val result = writeThroughTool(change.path, change.content, call.id + "_patch_" + index)
+                if (!result.second) return result.first to false
+            }
+        }
+        return ("Applied " + changes.size + " validated patch change(s).") to true
     }
 
     private suspend fun writeThroughTool(path: String, content: String, callId: String): Pair<String, Boolean> {
@@ -447,7 +522,7 @@ internal class ClozedCodingAgentEngine(
         val args = runCatching { JsonParser.parseString(call.arguments).asJsonObject }.getOrNull() ?: return@withContext emptyList()
         val paths = when (call.name) {
             "write", "edit", "delete" -> listOfNotNull(args.get("path")?.takeIf { it.isJsonPrimitive }?.asString)
-            "patch" -> Regex("(?m)^\\+\\+\\+ b/(.+)$").findAll(args.get("patchText")?.asString.orEmpty()).map { it.groupValues[1].trim() }.toList()
+            "patch" -> (Regex("(?m)^\\+\\+\\+ b/(.+)$").findAll(args.get("patchText")?.asString.orEmpty()).map { it.groupValues[1].trim() } + Regex("(?m)^--- a/(.+)$").findAll(args.get("patchText")?.asString.orEmpty()).map { it.groupValues[1].trim() }).toList()
             else -> emptyList()
         }.distinct()
         val result = ArrayList<FileSnapshot>()
