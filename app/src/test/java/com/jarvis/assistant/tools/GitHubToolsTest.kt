@@ -104,4 +104,19 @@ class GitHubToolsTest {
         }
         assertTrue(GitHubWriteTools.validateCommitBatch(tooMany)?.contains("25 files") == true)
     }
+
+    @Test fun githubFileImportsRejectInvalidUtf8() {
+        assertTrue(GitHubTools.isUtf8Text("normal UTF-8 text".toByteArray()))
+        assertFalse(GitHubTools.isUtf8Text(byteArrayOf(0xC3.toByte(), 0x28)))
+        assertFalse(GitHubTools.isUtf8Text(byteArrayOf(65, 0, 66)))
+    }
+
+    @Test fun repositoryImportRespectsTheTotalWorkspaceQuota() {
+        val fiftyMb = 50L * 1024L * 1024L
+        val twentyMb = 20L * 1024L * 1024L
+        assertTrue(GitHubTools.fitsWorkspaceBudget(10L * 1024L * 1024L, 20L * 1024L * 1024L))
+        assertFalse(GitHubTools.fitsWorkspaceBudget(40L * 1024L * 1024L, 20L * 1024L * 1024L))
+        assertFalse(GitHubTools.fitsWorkspaceBudget(fiftyMb, 1L))
+        assertFalse(GitHubTools.fitsWorkspaceBudget(0L, twentyMb + 1L))
+    }
 }
