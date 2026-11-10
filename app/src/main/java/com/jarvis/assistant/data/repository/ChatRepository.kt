@@ -39,6 +39,8 @@ class ChatRepository(private val preferences: AppPreferences) {
         )
         pendingIds.add(turn.id)
         _turns.value = _turns.value + turn
+        // Persist an in-flight placeholder so process death is restored as an interrupted turn.
+        preferences.saveChatHistory(_turns.value)
         return turn.id
     }
 
@@ -47,6 +49,15 @@ class ChatRepository(private val preferences: AppPreferences) {
     fun updatePending(id: String, text: String) {
         if (id !in pendingIds) return
         _turns.value = _turns.value.map { if (it.id == id) it.copy(jarvisResponse = text) else it }
+    }
+
+    /** Updates structured reasoning and tool activity while a coding-agent turn is running. */
+    @Synchronized
+    fun updatePendingCoding(id: String, reasoning: String, tools: List<com.jarvis.assistant.data.model.CodingToolBlock>) {
+        if (id !in pendingIds) return
+        _turns.value = _turns.value.map {
+            if (it.id == id) it.copy(codingReasoning = reasoning, codingTools = tools.toList()) else it
+        }
     }
 
     /** Stores the final answer (or an error notice) of a turn and saves the history. */
