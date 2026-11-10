@@ -19,7 +19,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.appcompat.app.AlertDialog
 import com.jarvis.assistant.R
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineScope
@@ -102,7 +102,7 @@ internal object ClozedCodingAgentDialog {
         val undoButton = action("UNDO") { engineRef?.undo() }
         val folderButton = action("PROJECT") {
             val projectPath = engineRef?.projectPath().orEmpty()
-            MaterialAlertDialogBuilder(context)
+            AlertDialog.Builder(context)
                 .setTitle("Coding project folder")
                 .setMessage(projectPath)
                 .setNegativeButton("Close", null)
