@@ -194,7 +194,13 @@ internal class ClozedCodingAgentEngine(
                 else -> null
             }
         }.toMutableList()
-        runCatching { withContext(Dispatchers.IO) { com.jarvis.assistant.tools.McpManager.get(app).refreshAll() } }
+        val mcpManager = com.jarvis.assistant.tools.McpManager.get(app)
+        if (mcpManager.needsRefresh() && mcpManager.servers().any { it.enabled }) {
+            val refresh = AgentToolRuntime.codingExecutor(app, workspace.root).execute(
+                ToolCall("mcp_refresh_${session.id}_${System.nanoTime()}", "mcp_refresh", JsonObject(), "Clozed coding agent")
+            )
+            if (!refresh.isOk) emit(ClozedAgentEvent("notice", text = toolResultPair(refresh).first, ok = false))
+        }
         val tools = buildTools()
         val system = withContext(Dispatchers.IO) { buildSystemPrompt(provider.modelId) }
         try {
