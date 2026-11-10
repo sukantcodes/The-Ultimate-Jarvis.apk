@@ -82,7 +82,7 @@ object ChatComposerMenu {
                     background = GradientDrawable().apply {
                         shape = GradientDrawable.OVAL
                         setColor(resolveColor(context, R.attr.themeCardBg))
-                        setStroke(dp(context, 1), resolveColor(context, android.R.attr.colorAccent))
+                        setStroke(dp(context, 1), resolveColor(context, R.attr.themeCardBorder))
                     }
                     layoutParams = LinearLayout.LayoutParams(dp(context, 48), dp(context, 48)).apply {
                         bottomMargin = dp(context, 9)
@@ -94,7 +94,7 @@ object ChatComposerMenu {
                     textSize = 13f
                     gravity = Gravity.CENTER
                     maxLines = 2
-                    setTextColor(resolveColor(context, android.R.attr.textColorPrimary))
+                    setTextColor(resolveColor(context, R.attr.themeTextPrimary))
                     setTypeface(typeface, Typeface.BOLD)
                 }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 addView(TextView(context).apply {
@@ -102,7 +102,7 @@ object ChatComposerMenu {
                     textSize = 10.5f
                     gravity = Gravity.CENTER
                     maxLines = 3
-                    setTextColor(resolveColor(context, android.R.attr.textColorSecondary))
+                    setTextColor(resolveColor(context, R.attr.themeTextSecondary))
                     setPadding(0, dp(context, 4), 0, 0)
                 }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
                 setOnClickListener {
