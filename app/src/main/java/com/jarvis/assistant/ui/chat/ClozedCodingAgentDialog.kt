@@ -270,7 +270,14 @@ internal object ClozedCodingAgentDialog {
                     }
                     "tool_end" -> {
                         val view = toolViews[event.id]
-                        view?.text = (if (event.ok) "✓  " else "⚠  ") + event.name + "\n" + event.output.take(5000)
+                        val collapsed = (if (event.ok) "✓  " else "⚠  ") + event.name + "  ·  " + if (event.ok) "DONE" else "FAILED" + "  ·  Tap to expand"
+                        val expanded = event.name + "\n" + event.output.take(5000)
+                        view?.text = collapsed
+                        view?.tag = expanded
+                        view?.setOnClickListener { card ->
+                            val target = card as TextView
+                            target.text = if (target.text == collapsed) expanded else collapsed
+                        }
                         view?.setTextColor(if (event.ok) secondary else 0xffffb36b.toInt())
                         scrollBottom()
                     }
