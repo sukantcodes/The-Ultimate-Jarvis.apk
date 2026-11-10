@@ -224,11 +224,14 @@ internal class ClozedCodingAgentEngine(
         if (!rotation.hasKeys(provider.profileId)) {
             return llm.complete(provider, system, messages, tools, onText, onReasoning)
         }
-        provider.auth.secret?.wipe()
         val excluded = linkedSetOf<String>()
         while (true) {
-            val lease = rotation.lease(provider.profileId, excluded)
-                ?: throw ClozedLlmException(rotation.unavailableSummary(provider.profileId), 401)
+            val lease = rotation.lease(provider.profileId, excluded) ?: run {
+                if (excluded.isEmpty() && provider.auth.secret?.isBlank == false) {
+                    return llm.complete(provider, system, messages, tools, onText, onReasoning)
+                }
+                throw ClozedLlmException(rotation.unavailableSummary(provider.profileId), 401)
+            }
             val modelId = lease.modelId.ifBlank { provider.modelId }
             val requestProvider = provider.copy(
                 auth = provider.auth.copy(secret = lease.secret),
