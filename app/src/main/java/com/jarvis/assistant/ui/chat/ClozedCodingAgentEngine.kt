@@ -192,6 +192,7 @@ internal class ClozedCodingAgentEngine(
                 else -> null
             }
         }.toMutableList()
+        runCatching { withContext(Dispatchers.IO) { com.jarvis.assistant.tools.McpManager.get(app).refreshAll() } }
         val tools = buildTools()
         val system = withContext(Dispatchers.IO) { buildSystemPrompt(provider.modelId) }
         try {
@@ -315,7 +316,7 @@ internal class ClozedCodingAgentEngine(
             required.forEach(req::add)
             return JsonObject().apply { addProperty("type", "object"); add("properties", properties); add("required", req); addProperty("additionalProperties", false) }
         }
-        return listOf(
+        val builtIns = listOf(
             ClozedToolDefinition("read", "Read a file or directory in the project.", schema("path" to "string", "offset" to "integer", "limit" to "integer", required = listOf("path"))),
             ClozedToolDefinition("write", "Create or overwrite a project file.", schema("path" to "string", "content" to "string", required = listOf("path", "content"))),
             ClozedToolDefinition("edit", "Replace exact text in a project file.", schema("path" to "string", "oldString" to "string", "newString" to "string", "replaceAll" to "boolean", required = listOf("path", "oldString", "newString"))),
@@ -332,6 +333,10 @@ internal class ClozedCodingAgentEngine(
             ClozedToolDefinition("webfetch", "Fetch a public HTTPS webpage.", schema("url" to "string", "format" to "string", required = listOf("url"))),
             ClozedToolDefinition("websearch", "Search the public web.", schema("query" to "string", required = listOf("query")))
         )
+        val mcp = com.jarvis.assistant.tools.McpManager.get(app).tools().map { tool ->
+            ClozedToolDefinition(tool.exposedName, tool.description, tool.inputSchema)
+        }
+        return builtIns + mcp
     }
 
     private suspend fun dispatch(
@@ -342,6 +347,10 @@ internal class ClozedCodingAgentEngine(
         val args = parseToolArgs(call.arguments)
         if (agentMode == "plan" && call.name in setOf("write", "edit", "patch", "delete", "shell")) {
             return "Denied: plan mode is read-only. No files or project state may be changed." to false
+        }
+        if (call.name.startsWith("mcp_")) {
+            val result = AgentToolRuntime.codingExecutor(app, workspace.root).execute(ToolCall(call.id, call.name, args, "Clozed coding agent"))
+            return result.text to result.isOk
         }
         val signature = call.name + ":" + args.entrySet().sortedBy { it.key }.joinToString("&") { it.key + "=" + it.value.toString() }
         if (signature == lastSignature) repeatedSignatureCount++ else { lastSignature = signature; repeatedSignatureCount = 1 }
