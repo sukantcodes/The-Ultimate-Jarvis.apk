@@ -125,18 +125,18 @@ object ChatTerminalDialog {
                         if (!response.isSuccessful) throw IllegalStateException("HTTP ${response.code} ${response.message}. Redirects are not followed; use the final HTTPS URL.")
                         val body = response.body ?: throw IllegalStateException("The server returned an empty response.")
                         if (body.contentLength() > MAX_NETWORK_BYTES) throw IllegalStateException("Response exceeds the 5 MB terminal transfer limit.")
-                        val bytes = body.byteStream().use { it.readNBytes((MAX_NETWORK_BYTES + 1).toInt()) }
+                        val bytes = body.byteStream().use { readLimited(it, (MAX_NETWORK_BYTES + 1).toInt()) }
                         if (bytes.size > MAX_NETWORK_BYTES) throw IllegalStateException("Response exceeds the 5 MB terminal transfer limit.")
                         if (cmd == "curl") {
                             val type = body.contentType()?.toString().orEmpty()
                             if (type.startsWith("text/") || type.contains("json") || type.contains("xml") || type.contains("javascript")) {
-                                String(bytes, Charsets.UTF_8).take(16000) + if (bytes.size > 16000) "\\n… output truncated …" else ""
+                                String(bytes, Charsets.UTF_8).take(16000) + if (bytes.size > 16000) "\n… output truncated …" else ""
                             } else {
                                 "Downloaded ${bytes.size} bytes (content-type: ${type.ifBlank { "unknown" }}). Use wget to save binary files."
                             }
                         } else {
                             val name = a.getOrNull(2) ?: uri.path.substringAfterLast('/').takeIf { it.isNotBlank() } ?: "download.bin"
-                            if (name in listOf(".", "..") || name.contains('/') || name.contains('\\\\') || name.any { it.isISOControl() }) {
+                            if (name in listOf(".", "..") || name.contains('/') || name.contains('\\') || name.any { it.isISOControl() }) {
                                 throw IllegalArgumentException("Use a simple filename without folder paths.")
                             }
                             val target = resolve(name)
@@ -300,6 +300,17 @@ object ChatTerminalDialog {
         refreshPath()
         dialog.show()
         dialog.window?.setLayout((context.resources.displayMetrics.widthPixels * 0.94f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
+    }
+
+    private fun readLimited(input: java.io.InputStream, limit: Int): ByteArray {
+        val output = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (output.size() < limit) {
+            val count = input.read(buffer, 0, minOf(buffer.size, limit - output.size()))
+            if (count < 0) break
+            output.write(buffer, 0, count)
+        }
+        return output.toByteArray()
     }
 
     private fun validatePublicHttpsUrl(raw: String): URI {
