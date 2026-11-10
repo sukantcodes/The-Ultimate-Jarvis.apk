@@ -27,6 +27,7 @@ object LocalWorkspaceServer {
     fun start(root: File, port: Int = 8765): String {
         require(port in 1024..65535) { "Choose a port between 1024 and 65535." }
         if (running.get()) return url()
+        if (!root.exists() && !root.mkdirs()) throw IllegalStateException("Could not create ChatBox workspace folder.")
         val canonicalRoot = root.canonicalFile
         require(canonicalRoot.isDirectory) { "ChatBox workspace folder is missing." }
         val socket = ServerSocket(port, 16, InetAddress.getByName("127.0.0.1"))
