@@ -25,6 +25,7 @@ class JarvisChatAdapter(
     private var speechEngine: TextToSpeech? = null
     private var speechReady = false
     @Volatile private var speaking = false
+    @Volatile private var activeSpeech = ""
     private var pendingSpeech = ""
 
     fun release() {
@@ -33,11 +34,22 @@ class JarvisChatAdapter(
         speechEngine = null
         speechReady = false
         speaking = false
+        activeSpeech = ""
         pendingSpeech = ""
     }
 
     private fun speak(context: Context, text: String) {
-        if (speaking) { speechEngine?.stop(); speaking = false; return }
+        if (speaking && activeSpeech == text) {
+            speechEngine?.stop()
+            speaking = false
+            activeSpeech = ""
+            return
+        }
+        if (speaking) {
+            speechEngine?.stop()
+            speaking = false
+            activeSpeech = ""
+        }
         if (speechEngine == null) {
             pendingSpeech = text
             speechEngine = TextToSpeech(context.applicationContext) { status ->
@@ -47,8 +59,8 @@ class JarvisChatAdapter(
                     if (engine != null) {
                         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                             override fun onStart(utteranceId: String?) { speaking = true }
-                            override fun onDone(utteranceId: String?) { speaking = false }
-                            override fun onError(utteranceId: String?) { speaking = false }
+                            override fun onDone(utteranceId: String?) { speaking = false; activeSpeech = "" }
+                            override fun onError(utteranceId: String?) { speaking = false; activeSpeech = "" }
                         })
                         val languageResult = engine.setLanguage(Locale.getDefault())
                         if (languageResult == TextToSpeech.LANG_MISSING_DATA || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) engine.setLanguage(Locale.US)
@@ -62,6 +74,7 @@ class JarvisChatAdapter(
     }
 
     private fun speakNow(text: String) {
+        activeSpeech = text
         speechEngine?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis-chat-response")
         speaking = true
     }
