@@ -191,7 +191,15 @@ internal class ClozedCodingAgentEngine(
             model = resolvedProvider.model.copy(id = modelOverride, manual = true)
         )
         if (provider.protocol.name == "GEMINI") {
+            provider.auth.secret?.wipe()
             emit(ClozedAgentEvent("notice", text = "The coding agent requires an OpenAI-compatible or Anthropic endpoint. Change the Coding route in Work Routing."))
+            return
+        }
+        val system = try {
+            withContext(Dispatchers.IO) { buildSystemPrompt(provider.modelId) }
+        } catch (missing: ClozedAssetMissingException) {
+            provider.auth.secret?.wipe()
+            emit(ClozedAgentEvent("notice", text = "Coding-agent prompt assets are missing from this build.", ok = false))
             return
         }
         session.model = provider.modelId
@@ -218,7 +226,6 @@ internal class ClozedCodingAgentEngine(
         }
         val tools = buildTools()
         try {
-            val system = withContext(Dispatchers.IO) { buildSystemPrompt(provider.modelId) }
             emit(ClozedAgentEvent("state", text = "thinking"))
             var step = 0
             while (step++ < 40) {
@@ -278,8 +285,6 @@ internal class ClozedCodingAgentEngine(
             if (step > 40) emit(ClozedAgentEvent("notice", text = "Stopped after 40 steps.", ok = false))
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
-        } catch (missing: ClozedAssetMissingException) {
-            emit(ClozedAgentEvent("notice", text = "Coding-agent prompt assets are missing from this build.", ok = false))
         } catch (error: Exception) {
             emit(ClozedAgentEvent("notice", text = "Request failed: " + (error.message ?: error.javaClass.simpleName), ok = false))
         } finally {
@@ -821,7 +826,7 @@ internal class ClozedCodingAgentEngine(
             head.substring(0, safeEnd).trimEnd() + "\n\n[truncated]"
         }
     } catch (error: Exception) {
-        emit(ClozedAgentEvent("notice", text = "Could not read project context file ${'$'}{file.name}: " + (error.message ?: error.javaClass.simpleName), ok = false))
+        emit(ClozedAgentEvent("notice", text = "Could not read project context file ${file.name}: " + (error.message ?: error.javaClass.simpleName), ok = false))
         null
     }
 
@@ -834,8 +839,6 @@ internal class ClozedCodingAgentEngine(
         }
         "## " + tool.name + "\n" + tool.description + if (arguments.isBlank()) "" else "\nArguments:\n" + arguments
     }
-    private fun readAsset(path: String): String = runCatching { app.assets.open(path).bufferedReader().use { it.readText() } }.getOrDefault("")
-
     private suspend fun runCommand(command: String) {
         when {
             command == "/help" -> emit(ClozedAgentEvent("notice", text = "/new /clear /sessions /open <id> /connect /folder /model [id] /models /effort [low|medium|high] /undo /compact /port [stop] /init"))
