@@ -104,7 +104,9 @@ internal class ClozedCodingAgentEngine(
 
     private fun createSession(): ClozedSession {
         val id = "s" + System.currentTimeMillis().toString(36)
-        return ClozedSession(id, "Session", workspace.root.absolutePath, "build", "", "", System.currentTimeMillis()).also(::saveSession)
+        val created = ClozedSession(id, "Session", workspace.root.absolutePath, "build", "", "", System.currentTimeMillis())
+        runCatching { File(sessionsDir, id + ".json").writeText(gson.toJson(created), Charsets.UTF_8) }
+        return created
     }
 
     private fun saveSession() {
@@ -411,7 +413,7 @@ internal class ClozedCodingAgentEngine(
     private data class FileSnapshot(val path: String, val content: String?)
 
     private suspend fun snapshotBefore(call: ClozedToolCall): List<FileSnapshot> = withContext(Dispatchers.IO) {
-        val args = runCatching { JsonParser.parseString(call.arguments).asJsonObject }.getOrNull() ?: return emptyList()
+        val args = runCatching { JsonParser.parseString(call.arguments).asJsonObject }.getOrNull() ?: return@withContext emptyList()
         val paths = when (call.name) {
             "write", "edit", "delete" -> listOfNotNull(args.get("path")?.takeIf { it.isJsonPrimitive }?.asString)
             "patch" -> Regex("(?m)^\\+\\+\\+ b/(.+)$").findAll(args.get("patchText")?.asString.orEmpty()).map { it.groupValues[1].trim() }.toList()
