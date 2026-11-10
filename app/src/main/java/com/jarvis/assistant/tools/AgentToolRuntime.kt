@@ -43,8 +43,9 @@ object AgentToolRuntime {
             val redactor = SecretRedactor()
             val audit = AuditLog(File(app.filesDir, "agent-tool-audit.jsonl"), redactor)
             val workspace = Workspace(File(app.filesDir, "chatbox-workspace"))
+            val activeRegistry = registry(app).also { it.register(ConnectorTools(app)) }
             ToolExecutor(
-                registry = registry(app),
+                registry = activeRegistry,
                 policy = PermissionPolicy(settings),
                 audit = audit,
                 confirmer = { AgentToolApproval.confirmer ?: DenyingConfirmer },

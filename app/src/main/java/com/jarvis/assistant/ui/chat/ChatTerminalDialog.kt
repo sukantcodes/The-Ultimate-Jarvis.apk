@@ -79,7 +79,7 @@ object ChatTerminalDialog {
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(240), 1f))
         val input = EditText(context).apply {
             hint = "Enter command…"
-            singleLine = true
+            isSingleLine = true
             typeface = Typeface.MONOSPACE
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             imeOptions = EditorInfo.IME_ACTION_GO
@@ -204,11 +204,11 @@ object ChatTerminalDialog {
                         fun visit(dir: File, prefix: String, depth: Int) {
                             if (depth > 3 || length > 10000) return
                             dir.listFiles()?.sortedBy { it.name.lowercase() }?.forEach { f ->
-                                append(prefix).append(if (f.isDirectory) "DIR  " else "FILE ").append(f.name).append('\n')
+                                this.append(prefix).append(if (f.isDirectory) "DIR  " else "FILE ").append(f.name).append('\n')
                                 if (f.isDirectory) visit(f, prefix + "  ", depth + 1)
                             }
                         }
-                        append(start.name.ifBlank { "workspace" }).append("/\n")
+                        this.append(start.name.ifBlank { "workspace" }).append("/\n")
                         visit(start, "  ", 0)
                     }
                 }
