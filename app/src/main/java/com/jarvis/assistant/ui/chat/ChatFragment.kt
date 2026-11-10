@@ -214,6 +214,10 @@ class ChatFragment : Fragment() {
             }
         }
 
+        binding.btnChatTerminal.setOnClickListener {
+            ChatTerminalDialog.show(requireContext())
+        }
+
         observeChatTurns()
         observeProviderEngine()
     }
