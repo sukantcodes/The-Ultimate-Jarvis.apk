@@ -40,16 +40,19 @@ class ConnectorHubActivity : AppCompatActivity() {
             setTextColor(themeColor(R.attr.themeTextSecondary))
             setPadding(0, dp(8), 0, dp(18))
         })
-        root.addView(action("GitHub · Connect account", "Encrypted account connection with approved repository operations") {
+        root.addView(action("MCP · Add or connect a server", "Add a Streamable HTTP MCP endpoint, sign in with OAuth (PKCE) or set a bearer token, then discover its tools") {
+            startActivity(Intent(this, McpServersActivity::class.java))
+        })
+        root.addView(action("GitHub Auth · Sign in", "Authorize JARVIS with GitHub Device Flow, verify the account, or manage the encrypted credential") {
             startActivity(Intent(this, GitHubConnectionActivity::class.java))
         })
-        root.addView(action("Browse connector projects", "Explore MCP server projects; downloaded code is never executed by ChatBox") {
+        root.addView(action("Browse MCP server projects", "Explore community MCP server implementations and their setup instructions") {
             openUrl("https://github.com/modelcontextprotocol/servers")
         })
         root.addView(action("Build a REST connector", "Configure a public HTTPS GET or POST endpoint") { showBuilder() })
         root.addView(action("Manage installed connectors", "Install, enable, configure credentials, disable or remove connectors") { showDrafts() })
         root.addView(TextView(this).apply {
-            text = "Supported runtime: HTTPS REST endpoints (GET/POST). Credentials are stored with Android Keystore-backed encryption. MCP server binaries, arbitrary scripts and OAuth flows are not executed automatically."
+            text = "MCP uses remote Streamable HTTP servers; JARVIS does not install or execute downloaded server binaries. GitHub account credentials and MCP OAuth tokens are stored using encrypted Android Keystore-backed storage. Tool calls remain subject to JARVIS permission checks."
             textSize = 12f
             setTextColor(themeColor(R.attr.themeTextMuted))
             setPadding(0, dp(18), 0, 0)
