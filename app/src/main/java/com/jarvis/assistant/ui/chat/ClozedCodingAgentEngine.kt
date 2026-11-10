@@ -102,13 +102,23 @@ internal class ClozedCodingAgentEngine(
     fun interrupt() { interrupted = true }
 
     fun sessions(): List<SessionSummary> = sessionsDir.listFiles()?.filter { it.isFile && it.extension == "json" }
-        ?.mapNotNull { file -> runCatching { gson.fromJson(file.readText(), ClozedSession::class.java) }.getOrNull() }
+        ?.mapNotNull { file ->
+            try { gson.fromJson(file.readText(), ClozedSession::class.java) }
+            catch (error: Exception) {
+                android.util.Log.w("ClozedAgent", "Could not read session ${file.name}: ${error.javaClass.simpleName}")
+                null
+            }
+        }
         ?.sortedByDescending { it.updated }
         ?.map { SessionSummary(it.id, it.title, it.updated, it.model, it.provider) }.orEmpty()
 
     fun openSession(id: String): Boolean {
         val file = File(sessionsDir, "$id.json")
-        val loaded = runCatching { gson.fromJson(file.readText(), ClozedSession::class.java) }.getOrNull() ?: return false
+        val loaded = try { gson.fromJson(file.readText(), ClozedSession::class.java) }
+        catch (error: Exception) {
+            android.util.Log.w("ClozedAgent", "Could not open session ${file.name}: ${error.javaClass.simpleName}")
+            null
+        } ?: return false
         session = loaded
         todos = session.todos.orEmpty()
         restoreSessionWorkspace()
@@ -132,7 +142,10 @@ internal class ClozedCodingAgentEngine(
 
     private fun restoreSessionWorkspace() {
         val root = projectsRoot.root.canonicalFile
-        val saved = runCatching { File(session.directory).canonicalFile }.getOrNull() ?: return
+        val saved = try { File(session.directory).canonicalFile } catch (error: Exception) {
+            android.util.Log.w("ClozedAgent", "Could not resolve saved workspace path: ${error.javaClass.simpleName}")
+            return
+        }
         if (saved == root) {
             workspace = projectsRoot
         } else if (saved.path.startsWith(root.path + File.separator) && saved.isDirectory) {
@@ -146,18 +159,26 @@ internal class ClozedCodingAgentEngine(
     private fun loadLatestSession(): ClozedSession? =
         sessionsDir.listFiles()?.filter { it.isFile && it.extension == "json" }
             ?.sortedByDescending { it.lastModified() }
-            ?.firstNotNullOfOrNull { file -> runCatching { gson.fromJson(file.readText(), ClozedSession::class.java) }.getOrNull() }
+            ?.firstNotNullOfOrNull { file ->
+                try { gson.fromJson(file.readText(), ClozedSession::class.java) }
+                catch (error: Exception) {
+                    android.util.Log.w("ClozedAgent", "Could not restore session ${file.name}: ${error.javaClass.simpleName}")
+                    null
+                }
+            }
 
     private fun createSession(): ClozedSession {
         val id = "s" + System.currentTimeMillis().toString(36)
         val created = ClozedSession(id, "Session", workspace.root.absolutePath, "build", "", "", System.currentTimeMillis())
-        runCatching { File(sessionsDir, id + ".json").writeText(gson.toJson(created), Charsets.UTF_8) }
+        try { File(sessionsDir, id + ".json").writeText(gson.toJson(created), Charsets.UTF_8) }
+        catch (error: Exception) { android.util.Log.w("ClozedAgent", "Could not persist new session $id: ${error.javaClass.simpleName}") }
         return created
     }
 
     private fun saveSession() {
         session.updated = System.currentTimeMillis()
-        runCatching { File(sessionsDir, session.id + ".json").writeText(gson.toJson(session), Charsets.UTF_8) }
+        try { File(sessionsDir, session.id + ".json").writeText(gson.toJson(session), Charsets.UTF_8) }
+        catch (error: Exception) { android.util.Log.w("ClozedAgent", "Could not persist session ${session.id}: ${error.javaClass.simpleName}") }
     }
 
     suspend fun submit(rawText: String) {
