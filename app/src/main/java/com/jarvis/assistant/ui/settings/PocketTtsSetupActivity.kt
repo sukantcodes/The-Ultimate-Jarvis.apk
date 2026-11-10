@@ -20,6 +20,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.jarvis.assistant.R
+import com.jarvis.assistant.util.ThemeManager
 
 /**
  * One-stop launcher for the optional Pocket TTS Android engine.
@@ -59,12 +61,12 @@ class PocketTtsSetupActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         title = "Pocket TTS Setup"
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(22), dp(18), dp(22), dp(24))
-            setBackgroundColor(0xFF080D16.toInt())
         }
         val scroll = ScrollView(this)
         val content = LinearLayout(this).apply {
@@ -74,19 +76,19 @@ class PocketTtsSetupActivity : AppCompatActivity() {
         val heading = TextView(this).apply {
             text = "JARVIS • OFFLINE VOICE"
             textSize = 22f
-            setTextColor(0xFF75D8FF.toInt())
+            setTextColor(themeColor(R.attr.themeAccent))
             gravity = Gravity.CENTER
             setPadding(0, dp(8), 0, dp(14))
         }
         val description = TextView(this).apply {
             text = "Set up Pocket TTS from here. The engine APK is about 12 MB; the English voice pack is about 208 MB and needs free storage and Wi-Fi. Downloads are optional."
             textSize = 15f
-            setTextColor(0xFFE0E8F2.toInt())
+            setTextColor(themeColor(R.attr.themeTextPrimary))
             setPadding(0, 0, 0, dp(18))
         }
         status = TextView(this).apply {
             textSize = 14f
-            setTextColor(0xFFB7C6D8.toInt())
+            setTextColor(themeColor(R.attr.themeTextSecondary))
             text = currentStatus()
             setPadding(0, 0, 0, dp(16))
         }
@@ -97,7 +99,7 @@ class PocketTtsSetupActivity : AppCompatActivity() {
         val note = TextView(this).apply {
             text = "Android security note: JARVIS cannot silently install another app or change your system TTS engine. After the one-time install, import the downloaded ZIP inside Pocket TTS, then select Pocket TTS in Android's Text-to-speech settings. JARVIS keeps using your current system voice until setup is complete."
             textSize = 13f
-            setTextColor(0xFF9BAEC2.toInt())
+            setTextColor(themeColor(R.attr.themeTextMuted))
             setPadding(0, dp(14), 0, dp(8))
         }
         content.addView(heading, matchWidth())
@@ -111,6 +113,7 @@ class PocketTtsSetupActivity : AppCompatActivity() {
         content.addView(note, matchWidth())
         scroll.addView(content)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        ThemeManager.applyDynamicBackground(root)
         setContentView(root)
         refreshButtons()
     }
@@ -250,6 +253,12 @@ class PocketTtsSetupActivity : AppCompatActivity() {
         layoutParams = LinearLayout.LayoutParams(-1, dp(52)).apply {
             bottomMargin = dp(8)
         }
+    }
+
+    private fun themeColor(attribute: Int): Int {
+        val value = android.util.TypedValue()
+        theme.resolveAttribute(attribute, value, true)
+        return if (value.resourceId != 0) getColor(value.resourceId) else value.data
     }
 
     private fun matchWidth() = LinearLayout.LayoutParams(-1, -2)

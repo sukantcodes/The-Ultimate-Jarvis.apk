@@ -1,6 +1,7 @@
 package com.jarvis.assistant.ui.settings
 
 import android.graphics.Color
+import android.app.Activity
 import android.app.Dialog
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -9,6 +10,7 @@ import android.view.ViewGroup
 import android.widget.Toast
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import androidx.activity.result.contract.ActivityResultContracts
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.databinding.BottomSheetThemeSelectionBinding
 import com.jarvis.assistant.ui.home.HomeFragment
@@ -19,6 +21,9 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
     private var _binding: BottomSheetThemeSelectionBinding? = null
     private val binding get() = _binding!!
     private val preferences by lazy { JarvisApp.instance.preferences }
+    private val moreColoursLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) activity?.recreate()
+    }
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog =
         BottomSheetDialog(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_BottomSheet)
@@ -58,7 +63,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         binding.cardThemeSunset.setOnClickListener { selectTheme("sunset", "Sunset") }
 
         binding.btnSelectMoreColours.setOnClickListener {
-            startActivity(android.content.Intent(requireContext(), MoreThemeColoursActivity::class.java))
+            moreColoursLauncher.launch(android.content.Intent(requireContext(), MoreThemeColoursActivity::class.java))
         }
 
         binding.btnApplyCustom.setOnClickListener {

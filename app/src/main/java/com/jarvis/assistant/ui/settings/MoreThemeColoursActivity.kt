@@ -10,6 +10,8 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.jarvis.assistant.JarvisApp
+import com.jarvis.assistant.R
+import com.jarvis.assistant.util.ThemeManager
 
 /**
  * Palette of 50 curated two-colour blends. Choosing one applies both of its colours: the first
@@ -73,22 +75,22 @@ class MoreThemeColoursActivity : Activity() {
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(18), dp(20), dp(24))
-            setBackgroundColor(Color.rgb(10, 13, 31))
         }
         val title = TextView(this).apply {
             text = "50 Blended Colours"
-            setTextColor(Color.WHITE)
+            setTextColor(themeColor(R.attr.themeTextPrimary))
             textSize = 24f
             setTypeface(typeface, Typeface.BOLD)
         }
         root.addView(title)
         root.addView(TextView(this).apply {
             text = "Choose a two-colour blend for your JARVIS theme"
-            setTextColor(Color.rgb(170, 181, 205))
+            setTextColor(themeColor(R.attr.themeTextSecondary))
             textSize = 14f
             setPadding(0, dp(5), 0, dp(16))
         })
@@ -99,7 +101,7 @@ class MoreThemeColoursActivity : Activity() {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(12), dp(10), dp(12), dp(10))
-                background = rounded(Color.rgb(24, 29, 54), dp(14).toFloat())
+                background = rounded(themeColor(R.attr.themeCardBg), dp(14).toFloat())
                 isClickable = true
                 isFocusable = true
                 val lp = LinearLayout.LayoutParams(-1, -2)
@@ -116,13 +118,13 @@ class MoreThemeColoursActivity : Activity() {
             }
             labels.addView(TextView(this).apply {
                 text = blend.name
-                setTextColor(Color.WHITE)
+                setTextColor(themeColor(R.attr.themeTextPrimary))
                 textSize = 15f
                 setTypeface(typeface, Typeface.BOLD)
             })
             labels.addView(TextView(this).apply {
                 text = "${blend.first}  +  ${blend.second}"
-                setTextColor(Color.rgb(166, 179, 204))
+                setTextColor(themeColor(R.attr.themeTextSecondary))
                 textSize = 11f
             })
             row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
@@ -137,6 +139,7 @@ class MoreThemeColoursActivity : Activity() {
         }
         scroll.addView(list)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        ThemeManager.applyDynamicBackground(root)
         setContentView(root)
     }
 
@@ -147,10 +150,12 @@ class MoreThemeColoursActivity : Activity() {
         JarvisApp.instance.preferences.appTheme = "custom"
         setResult(RESULT_OK)
         finish()
-        // Recreate the settings host so all theme-aware views refresh.
-        (parent ?: this).runOnUiThread {
-            if (!isFinishing) recreate()
-        }
+    }
+
+    private fun themeColor(attribute: Int): Int {
+        val value = android.util.TypedValue()
+        theme.resolveAttribute(attribute, value, true)
+        return if (value.resourceId != 0) getColor(value.resourceId) else value.data
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
@@ -159,7 +164,7 @@ class MoreThemeColoursActivity : Activity() {
         android.graphics.drawable.GradientDrawable().apply {
             setColor(color)
             cornerRadius = radius
-            setStroke(dp(1), Color.rgb(54, 68, 115))
+            setStroke(dp(1), themeColor(R.attr.themeCardBorder))
         }
 
     private fun gradient(start: Int, end: Int): android.graphics.drawable.GradientDrawable =

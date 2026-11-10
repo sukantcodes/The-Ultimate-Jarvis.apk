@@ -9,6 +9,8 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.jarvis.assistant.automation.action.ActionLatencyStore
+import com.jarvis.assistant.R
+import com.jarvis.assistant.util.ThemeManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -20,20 +22,21 @@ class ActionRouterActivity : AppCompatActivity() {
     private val store by lazy { ActionLatencyStore(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(20), dp(20), dp(20))
-            setBackgroundColor(color(android.R.attr.colorBackground))
         }
+        ThemeManager.applyDynamicBackground(root)
         root.addView(TextView(this).apply {
             text = "Native-first Action Router"; textSize = 23f
-            setTextColor(color(android.R.attr.textColorPrimary))
+            setTextColor(color(R.attr.themeTextPrimary))
         })
         root.addView(TextView(this).apply {
             text = "Try native Android APIs, explicit intents and deep links before accessibility, screen vision and existing automation."
             textSize = 13f; setPadding(0, dp(8), 0, dp(14))
-            setTextColor(color(android.R.attr.textColorSecondary))
+            setTextColor(color(R.attr.themeTextSecondary))
         })
         val toggle = MaterialSwitch(this).apply {
             text = "Enable native-first routing"
@@ -44,7 +47,7 @@ class ActionRouterActivity : AppCompatActivity() {
         root.addView(TextView(this).apply {
             text = "When disabled, the original command execution path is used unchanged. Routing history is stored locally (maximum 200 records)."
             textSize = 12f; setPadding(0, dp(4), 0, dp(12))
-            setTextColor(color(com.google.android.material.R.attr.colorOnSurfaceVariant))
+            setTextColor(color(R.attr.themeTextSecondary))
         })
         val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         buttons.addView(MaterialButton(this).apply { text = "Refresh"; setOnClickListener { render() } })
@@ -79,7 +82,7 @@ class ActionRouterActivity : AppCompatActivity() {
             list.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(12), dp(10), dp(12), dp(10))
-                setBackgroundColor(color(com.google.android.material.R.attr.colorSurfaceVariant))
+                setBackgroundColor(color(R.attr.themeCardBg))
                 addView(TextView(this@ActionRouterActivity).apply {
                     text = row.taskName; textSize = 15f
                     setTextColor(color(com.google.android.material.R.attr.colorOnSurfaceVariant))
