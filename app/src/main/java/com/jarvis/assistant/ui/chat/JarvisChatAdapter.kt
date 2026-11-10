@@ -122,6 +122,36 @@ class JarvisChatAdapter(
                 binding.tvAssistantMessage.text = MarkdownMessageRenderer.render(context, turn.jarvisResponse)
             binding.tvAssistantMessage.movementMethod = android.text.method.LinkMovementMethod.getInstance()
             binding.tvAssistantMessage.highlightColor = android.graphics.Color.TRANSPARENT
+
+                val reasoning = turn.codingReasoning.orEmpty()
+                binding.tvCodingReasoningToggle.visibility = if (reasoning.isBlank()) View.GONE else View.VISIBLE
+                binding.tvCodingReasoningDetails.visibility = View.GONE
+                binding.tvCodingReasoningToggle.text = "▸ THINKING · TAP TO EXPAND"
+                binding.tvCodingReasoningDetails.text = reasoning
+                binding.tvCodingReasoningToggle.setOnClickListener {
+                    val expand = binding.tvCodingReasoningDetails.visibility != View.VISIBLE
+                    binding.tvCodingReasoningDetails.visibility = if (expand) View.VISIBLE else View.GONE
+                    binding.tvCodingReasoningToggle.text = (if (expand) "▾" else "▸") + " THINKING · " + if (expand) "COLLAPSE" else "EXPAND"
+                }
+
+                val codingTools = turn.codingTools.orEmpty()
+                binding.tvCodingToolsToggle.visibility = if (codingTools.isEmpty()) View.GONE else View.VISIBLE
+                binding.tvCodingToolsDetails.visibility = View.GONE
+                val completed = codingTools.count { !it.running && it.ok }
+                val running = codingTools.count { it.running }
+                binding.tvCodingToolsToggle.text = "▸ TOOL ACTIVITY · ${codingTools.size} ACTIONS · ${completed} DONE" +
+                    (if (running > 0) " · ${running} RUNNING" else "") + " · TAP TO EXPAND"
+                binding.tvCodingToolsDetails.text = codingTools.joinToString("\n\n") { tool ->
+                    val status = if (tool.running) "RUNNING" else if (tool.ok) "DONE" else "FAILED"
+                    "${status}  ·  ${tool.name}\nInput: ${tool.input.take(1800)}\nOutput:\n${tool.output.take(6000)}"
+                }
+                binding.tvCodingToolsToggle.setOnClickListener {
+                    val expand = binding.tvCodingToolsDetails.visibility != View.VISIBLE
+                    binding.tvCodingToolsDetails.visibility = if (expand) View.VISIBLE else View.GONE
+                    binding.tvCodingToolsToggle.text = (if (expand) "▾" else "▸") + " TOOL ACTIVITY · " +
+                        codingTools.size + " ACTIONS · " + if (expand) "COLLAPSE" else "EXPAND"
+                }
+
                 binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", turn.jarvisResponse) }
                 binding.btnAssistantEdit.setOnClickListener { onEditAssistantMessage?.invoke(turn.jarvisResponse) }
                 binding.btnAssistantPlay.setOnClickListener {
