@@ -185,7 +185,7 @@ class ChatFragment : Fragment() {
             binding.etMessageInput.hint = "Message JARVIS…"
         }
         binding.btnStopChat.setOnClickListener {
-            if (selectedChatMode == "coding") {
+            if (selectedChatMode == "coding" || ClozedCodingAgentService.isRunning()) {
                 ClozedCodingAgentService.stop(requireContext())
                 setChatActivity("STOPPING")
                 return@setOnClickListener
@@ -918,7 +918,7 @@ class ChatFragment : Fragment() {
                         // An empty conversation is idle, not a pending assistant response.
                         val pending = turns.isNotEmpty() &&
                             (turns.lastOrNull()?.jarvisResponse.isNullOrBlank() || providerEngine.isBusy ||
-                                (selectedChatMode == "coding" && ClozedCodingAgentService.isRunning()))
+                                ClozedCodingAgentService.isRunning())
                         if (!pending && offlineGenerationJob == null && fileAnalysisJob == null && selectedDocument == null) {
                             binding.btnStopChat.visibility = View.GONE
                             binding.btnSendMessage.isEnabled = true
