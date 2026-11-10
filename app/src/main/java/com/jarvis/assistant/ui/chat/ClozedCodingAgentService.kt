@@ -204,12 +204,12 @@ class ClozedCodingAgentService : Service() {
             }
             "tool_start" -> {
                 tools += CodingToolBlock(event.id, event.name, event.input, "", true, false)
-                JarvisApp.instance.chatRepository.updatePendingCoding(pendingTurnId, reasoning.toString(), tools)
+                JarvisApp.instance.chatRepository.updatePendingCoding(pendingTurnId, reasoning.toString(), tools, plan)
             }
             "tool_end" -> {
                 val index = tools.indexOfLast { it.id == event.id }
                 if (index >= 0) tools[index] = tools[index].copy(output = event.output, running = false, ok = event.ok)
-                JarvisApp.instance.chatRepository.updatePendingCoding(pendingTurnId, reasoning.toString(), tools)
+                JarvisApp.instance.chatRepository.updatePendingCoding(pendingTurnId, reasoning.toString(), tools, plan)
             }
             "todos" -> {
                 plan = event.text
