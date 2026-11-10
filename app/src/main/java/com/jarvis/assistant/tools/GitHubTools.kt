@@ -87,7 +87,7 @@ object GitHubTools {
             listOf(ToolParam("owner", required = true, description = "Repository owner or organisation."),
                 ToolParam("repo", required = true, description = "Repository name.")),
             Risk.NETWORK, "github")
-        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = try {
+        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult { return try {
             val url = repoUrl(arg(args, "owner"), arg(args, "repo"), "") ?: return ToolResult.Error("Invalid GitHub owner or repository name.")
             val obj = JsonParser.parseString(get(url)).asJsonObject
             ToolResult.Ok(buildString {
@@ -108,7 +108,7 @@ object GitHubTools {
             listOf(ToolParam("owner", required = true), ToolParam("repo", required = true),
                 ToolParam("limit", "integer", "Maximum results, 1 to 100.")),
             Risk.NETWORK, "github")
-        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = try {
+        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult { return try {
             val url = repoUrl(arg(args, "owner"), arg(args, "repo"), "branches")!!
                 .newBuilder().addQueryParameter("per_page", (args.get("limit")?.let { runCatching { it.asInt }.getOrNull() } ?: 30).coerceIn(1, 100).toString()).build()
             val arr = JsonParser.parseString(get(url)).asJsonArray
@@ -124,7 +124,7 @@ object GitHubTools {
                 ToolParam("path", required = true, description = "Repository-relative file path."),
                 ToolParam("ref", description = "Branch, tag or commit SHA; defaults to the repository default branch.")),
             Risk.NETWORK, "github")
-        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = try {
+        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult { return try {
             val owner = arg(args, "owner"); val repo = arg(args, "repo"); val path = arg(args, "path")
             if (!validRepoPath(path)) return ToolResult.Error("Invalid repository-relative path.")
             if (!validRepositoryPart(owner) || !validRepositoryPart(repo)) return ToolResult.Error("Invalid GitHub owner or repository name.")
@@ -157,7 +157,7 @@ object GitHubTools {
         override fun describe(args: JsonObject) = "Import ${arg(args, "owner")}/${arg(args, "repo")}/${arg(args, "path")} into ChatBox workspace at ${arg(args, "destination")}"
         override fun isDestructive(args: JsonObject, ctx: ToolContext): Boolean =
             runCatching { ctx.workspace.resolve(arg(args, "destination")).exists() }.getOrDefault(true)
-        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = try {
+        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult { return try {
             val owner = arg(args, "owner"); val repo = arg(args, "repo"); val path = arg(args, "path")
             val destination = arg(args, "destination")
             if (!validRepoPath(path) || !validRepoPath(destination)) return ToolResult.Error("Invalid source or destination path.")
@@ -189,7 +189,7 @@ object GitHubTools {
                 ToolParam("ref", description = "Branch or tag; defaults to the repository default branch."),
                 ToolParam("limit", "integer", "Maximum entries, 1 to 200.")),
             Risk.NETWORK, "github")
-        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = try {
+        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult { return try {
             val owner = arg(args, "owner"); val repo = arg(args, "repo")
             val path = arg(args, "path").trim('/'); val ref = arg(args, "ref").ifBlank {
                 val infoUrl = repoUrl(owner, repo, "") ?: return ToolResult.Error("Invalid repository.")
@@ -271,7 +271,7 @@ object GitHubTools {
             val maxFiles = (args.get("max_files")?.let { runCatching { it.asInt }.getOrNull() } ?: 40).coerceIn(1, 100)
             var targetDir: File? = null
             val written = ArrayList<File>()
-            try {
+            return try {
                 val repository = JsonParser.parseString(get(repoUrl(owner, repo, "") ?: return ToolResult.Error("Invalid repository."))).asJsonObject
                 val ref = arg(args, "ref").ifBlank { repository.get("default_branch")?.asString.orEmpty() }
                 if (ref.isBlank()) return ToolResult.Error("GitHub did not provide a default branch.")
