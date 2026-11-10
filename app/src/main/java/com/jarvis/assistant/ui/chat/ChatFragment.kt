@@ -12,6 +12,9 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.content.Context
 import android.widget.Toast
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.fragment.app.Fragment
@@ -58,6 +61,12 @@ class ChatFragment : Fragment() {
     private var retrySnackbar: com.google.android.material.snackbar.Snackbar? = null
     private var chatStatusAnimator: ObjectAnimator? = null
     private var lastObservedAssistantResponse: String = ""
+    private var speechRecognizer: SpeechRecognizer? = null
+
+    private val voicePermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) startVoiceRecognition()
+        else Toast.makeText(requireContext(), "Microphone permission is needed for voice dictation.", Toast.LENGTH_LONG).show()
+    }
 
     private val chatToolConfirmer = object : Confirmer {
         override suspend fun confirm(request: ConfirmRequest): Decision = withContext(Dispatchers.Main.immediate) {
@@ -153,6 +162,7 @@ class ChatFragment : Fragment() {
         selectedChatMode = chatModePrefs.getString("chat_mode", "auto") ?: "auto"
         refreshChatModeLabel()
         binding.btnSendMessage.setOnClickListener { sendMessage() }
+        binding.btnChatVoiceInput.setOnClickListener { startVoiceInput() }
         binding.etMessageInput.setOnEditorActionListener { _, actionId, event ->
             val enterPressed = event?.keyCode == android.view.KeyEvent.KEYCODE_ENTER && event?.action == android.view.KeyEvent.ACTION_DOWN
             if (actionId == EditorInfo.IME_ACTION_SEND || enterPressed) { sendMessage(); true } else false
@@ -569,6 +579,83 @@ class ChatFragment : Fragment() {
         binding.btnStopChat.visibility = View.VISIBLE
         setChatActivity("THINKING")
     }
+    private fun startVoiceInput() {
+        if (!SpeechRecognizer.isRecognitionAvailable(requireContext())) {
+            Toast.makeText(requireContext(), "Voice recognition is not available on this device.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+            requireContext(), android.Manifest.permission.RECORD_AUDIO
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            voicePermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        startVoiceRecognition()
+    }
+
+    private fun startVoiceRecognition() {
+        if (!isAdded || _binding == null) return
+        runCatching {
+            speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(requireContext()).also { recognizer ->
+                recognizer.setRecognitionListener(object : RecognitionListener {
+                    override fun onReadyForSpeech(params: Bundle?) {
+                        if (_binding != null) setChatActivity("LISTENING")
+                    }
+                    override fun onBeginningOfSpeech() {
+                        if (_binding != null) setChatActivity("LISTENING")
+                    }
+                    override fun onRmsChanged(rmsdB: Float) = Unit
+                    override fun onBufferReceived(buffer: ByteArray?) = Unit
+                    override fun onEndOfSpeech() {
+                        if (_binding != null) setChatActivity("PROCESSING VOICE")
+                    }
+                    override fun onError(error: Int) {
+                        if (_binding != null) {
+                            setChatActivity("READY")
+                            val message = when (error) {
+                                SpeechRecognizer.ERROR_NO_MATCH -> "I couldn't recognise that. Please try again."
+                                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "I didn't hear anything. Tap the microphone and try again."
+                                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission is required."
+                                else -> "Voice recognition stopped. Please try again."
+                            }
+                            Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    override fun onResults(results: Bundle?) {
+                        val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+                        if (_binding != null) {
+                            if (spoken.isNotBlank()) {
+                                binding.etMessageInput.setText(spoken)
+                                binding.etMessageInput.setSelection(spoken.length)
+                                binding.etMessageInput.requestFocus()
+                            }
+                            setChatActivity("READY")
+                        }
+                    }
+                    override fun onPartialResults(partialResults: Bundle?) = Unit
+                    override fun onEvent(eventType: Int, params: Bundle?) = Unit
+                })
+                val intent = android.content.Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak your message to JARVIS")
+                }
+                recognizer.startListening(intent)
+            }
+        }.onFailure {
+            speechRecognizer?.destroy()
+            speechRecognizer = null
+            if (_binding != null) {
+                setChatActivity("READY")
+                Toast.makeText(requireContext(), "Couldn't start voice recognition: ${it.message ?: "try again"}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     private fun isLocalServerRequest(text: String): Boolean {
         val normalized = text.lowercase()
         val serverMention = normalized.contains("local server") ||
@@ -668,6 +755,9 @@ class ChatFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        speechRecognizer?.cancel()
+        speechRecognizer?.destroy()
+        speechRecognizer = null
         chatStatusAnimator?.cancel()
         chatStatusAnimator = null
         retrySnackbar?.dismiss()
