@@ -5,6 +5,15 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
+data class CodingToolBlock(
+    val id: String,
+    val name: String,
+    val input: String = "",
+    val output: String = "",
+    val running: Boolean = false,
+    val ok: Boolean = false
+)
+
 data class ChatTurn(
     val id: String = UUID.randomUUID().toString(),
     val userTranscript: String,
@@ -13,7 +22,9 @@ data class ChatTurn(
     /** Absolute app-private path for a chat attachment, if this turn contains one. */
     val attachmentPath: String? = null,
     val attachmentName: String? = null,
-    val attachmentMimeType: String? = null
+    val attachmentMimeType: String? = null,
+    val codingReasoning: String? = null,
+    val codingTools: List<CodingToolBlock>? = null
 ) {
     val formattedTime: String
         get() {
