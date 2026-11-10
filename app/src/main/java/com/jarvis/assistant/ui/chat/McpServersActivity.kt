@@ -12,7 +12,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.appcompat.app.AlertDialog
 import com.jarvis.assistant.tools.McpManager
 import com.jarvis.assistant.tools.McpOAuth
 import com.jarvis.assistant.tools.McpServerConfig
@@ -113,7 +113,7 @@ class McpServersActivity : AppCompatActivity() {
         }
         panel.addView(name)
         panel.addView(url)
-        MaterialAlertDialogBuilder(this)
+        AlertDialog.Builder(this)
             .setTitle(if (existing == null) "Add MCP server" else "Edit MCP server")
             .setView(panel)
             .setNegativeButton("Cancel", null)
@@ -149,7 +149,7 @@ class McpServersActivity : AppCompatActivity() {
             "Edit",
             "Delete"
         )
-        MaterialAlertDialogBuilder(this)
+        AlertDialog.Builder(this)
             .setTitle(server.name)
             .setItems(actions) { _, which ->
                 when (which) {
@@ -167,7 +167,7 @@ class McpServersActivity : AppCompatActivity() {
                     }
                     4 -> refreshTools()
                     5 -> addServer(server)
-                    6 -> MaterialAlertDialogBuilder(this)
+                    6 -> AlertDialog.Builder(this)
                         .setTitle("Delete MCP server?")
                         .setMessage("This removes the server and its encrypted tokens.")
                         .setNegativeButton("Cancel", null)
@@ -183,7 +183,7 @@ class McpServersActivity : AppCompatActivity() {
             hint = "Bearer token"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         }
-        MaterialAlertDialogBuilder(this)
+        AlertDialog.Builder(this)
             .setTitle("Set bearer token")
             .setMessage("The token is saved in encrypted Android Keystore-backed storage.")
             .setView(input)
