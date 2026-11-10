@@ -14,9 +14,17 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.IOException
 import java.util.Base64
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Explicitly approved GitHub write operations. No operation merges a pull request or writes to a default branch. */
 object GitHubWriteTools {
+    /** Performs a real authenticated /user check without exposing the saved token. */
+    suspend fun validateConnection(context: Context): String = withContext(Dispatchers.IO) {
+        val user = request(context.applicationContext, "GET", url("user"))
+        user.get("login")?.asString?.takeIf { it.isNotBlank() } ?: throw IOException("GitHub did not return an account name.")
+    }
+
     private const val MAX_RESPONSE = 2_000_000L
     private const val MAX_FILE = 1_000_000L
     private val jsonType = "application/json; charset=utf-8".toMediaType()
