@@ -103,7 +103,7 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
             val role = if (m.role == ChatRole.USER) "user" else "assistant"
             val obj = JsonObject().apply { addProperty("role", role) }
             if (m.role == ChatRole.ASSISTANT && m.toolCalls.isNotEmpty()) {
-                if (m.text.isBlank()) add("content", com.google.gson.JsonNull.INSTANCE) else addProperty("content", m.text)
+                if (m.text.isBlank()) obj.add("content", com.google.gson.JsonNull.INSTANCE) else obj.addProperty("content", m.text)
                 obj.add("tool_calls", JsonArray().apply {
                     m.toolCalls.forEach { call ->
                         add(JsonObject().apply {
