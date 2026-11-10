@@ -114,7 +114,7 @@ class JarvisChatAdapter(
         }
 
         /** Letters appear word by word. The full text is laid out up front, so nothing jumps while it plays. */
-        private fun playReveal(text: String) {
+        private fun playReveal(text: CharSequence) {
             val tv: TextView = binding.tvAssistantMessage
             tv.setText(SpannableString(text), TextView.BufferType.SPANNABLE)
             val spannable = tv.text as Spannable
@@ -174,7 +174,8 @@ class JarvisChatAdapter(
                     turn.jarvisResponse.length > 1 && animationsEnabled(context)
                 revealed.add(turn.id)
                 awaiting.remove(turn.id)
-                if (shouldReveal) playReveal(turn.jarvisResponse) else binding.tvAssistantMessage.text = turn.jarvisResponse
+                val rendered = MarkdownRenderer.render(turn.jarvisResponse, context.resources.displayMetrics.density)
+                if (shouldReveal) playReveal(rendered) else binding.tvAssistantMessage.text = rendered
                 binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", turn.jarvisResponse) }
                 binding.btnAssistantPlay.setOnClickListener {
                     speak(context, turn.jarvisResponse)

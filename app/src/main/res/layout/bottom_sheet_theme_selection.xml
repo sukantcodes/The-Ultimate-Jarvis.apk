@@ -132,7 +132,7 @@
                     android:layout_height="wrap_content"
                     android:text="Personalise the Orb"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="17sp"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -332,7 +332,8 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_checklist_tasks"
-                    app:tint="?attr/themeAccent" />
+                    app:tint="?attr/themeAccent"
+        android:contentDescription="Selected" />
             </LinearLayout>
 
             <!-- Theme 2: Dark -->
@@ -382,7 +383,8 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_checklist_tasks"
-                    app:tint="?attr/themeAccent" />
+                    app:tint="?attr/themeAccent"
+        android:contentDescription="Selected" />
             </LinearLayout>
 
             <!-- Theme 3: Red -->
@@ -432,7 +434,8 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_checklist_tasks"
-                    app:tint="?attr/themeAccent" />
+                    app:tint="?attr/themeAccent"
+        android:contentDescription="Selected" />
             </LinearLayout>
 
             <!-- Theme 4: Sunset -->
@@ -482,7 +485,8 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_checklist_tasks"
-                    app:tint="?attr/themeAccent" />
+                    app:tint="?attr/themeAccent"
+        android:contentDescription="Selected" />
             </LinearLayout>
 
             <!-- Theme 5: Custom Background Colour -->
@@ -539,7 +543,8 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_checklist_tasks"
-                        app:tint="?attr/themeAccent" />
+                        app:tint="?attr/themeAccent"
+        android:contentDescription="Selected" />
                 </LinearLayout>
 
                 <!-- Custom Hex Input & Presets -->

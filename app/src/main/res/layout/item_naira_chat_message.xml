@@ -59,9 +59,9 @@
 
             <ImageView
                 android:id="@+id/btnUserEdit"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:padding="9dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="15dp"
                 android:src="@drawable/ic_cc_pencil"
                 app:tint="?attr/themeTextMuted"
                 android:contentDescription="Edit your message"
@@ -70,9 +70,9 @@
 
             <ImageView
                 android:id="@+id/btnUserCopy"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:padding="9dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="15dp"
                 android:src="@drawable/ic_cc_copy"
                 app:tint="?attr/themeTextMuted"
                 android:contentDescription="Copy your message"
@@ -112,7 +112,7 @@
             android:paddingEnd="2dp"
             android:textColor="?attr/themeTextPrimary"
             android:fontFamily="sans-serif"
-            android:textSize="15.5sp"
+            android:textSize="15sp"
             android:lineSpacingExtra="5dp"
             android:textIsSelectable="true" />
 
@@ -125,9 +125,9 @@
 
             <ImageView
                 android:id="@+id/btnAssistantCopy"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:padding="9dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="15dp"
                 android:src="@drawable/ic_cc_copy"
                 app:tint="?attr/themeTextMuted"
                 android:contentDescription="Copy assistant response"
@@ -136,9 +136,9 @@
 
             <ImageView
                 android:id="@+id/btnAssistantPlay"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:padding="9dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="15dp"
                 android:src="@drawable/ic_cc_volume"
                 app:tint="?attr/themeTextMuted"
                 android:contentDescription="Read response aloud; tap again to stop"
@@ -147,9 +147,9 @@
 
             <ImageView
                 android:id="@+id/btnAssistantSave"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:padding="9dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="15dp"
                 android:src="@drawable/ic_cc_download"
                 app:tint="?attr/themeTextMuted"
                 android:contentDescription="Save response as a text file"

@@ -33,7 +33,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/set_screen_title"
                 android:textColor="?attr/themeTextPrimary"
-                android:textSize="27sp"
+                android:textSize="28sp"
                 android:letterSpacing="-0.03"
                 android:fontFamily="sans-serif-medium"
                 android:textStyle="bold" />
@@ -205,7 +205,8 @@
                             android:layout_width="12dp"
                             android:layout_height="12dp"
                             android:src="@drawable/ic_verified_badge"
-                            app:tint="@color/status_green" />
+                            app:tint="@color/status_green"
+        android:importantForAccessibility="no" />
 
                         <TextView
                             android:id="@+id/tvProfileVoiceStatus"
@@ -234,7 +235,8 @@
                             android:layout_width="12dp"
                             android:layout_height="12dp"
                             android:src="@drawable/ic_settings_voice"
-                            app:tint="?attr/themeAccent" />
+                            app:tint="?attr/themeAccent"
+        android:importantForAccessibility="no" />
 
                         <TextView
                             android:id="@+id/tvProfilePersonaChip"

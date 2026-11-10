@@ -17,6 +17,8 @@ import android.graphics.Typeface
 import android.util.TypedValue
 import android.view.View
 import android.view.animation.LinearInterpolator
+import androidx.core.content.res.ResourcesCompat
+import com.jarvis.assistant.R
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.exp
@@ -92,16 +94,21 @@ class PremiumWelcomeView(context: Context) : View(context) {
     private val sparkPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val scanPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val scanMatrix = Matrix()
+    // Same bundled brand fonts as the intro text sequence, so the welcome screen continues it seamlessly.
+    private fun brandFace(res: Int, fallback: Typeface): Typeface =
+        try { ResourcesCompat.getFont(context, res) ?: fallback } catch (_: Exception) { fallback }
+
     private val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+        typeface = brandFace(R.font.orbitron, Typeface.create("sans-serif-black", Typeface.BOLD))
+        setFontVariationSettings("'wght' 800")
         color = Color.WHITE
     }
     private val eyebrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        typeface = brandFace(R.font.rajdhani_semibold, Typeface.create("sans-serif-medium", Typeface.NORMAL))
         letterSpacing = 0.38f
     }
     private val subtitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+        typeface = brandFace(R.font.rajdhani_medium, Typeface.create("sans-serif-light", Typeface.NORMAL))
         letterSpacing = 0.14f
     }
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

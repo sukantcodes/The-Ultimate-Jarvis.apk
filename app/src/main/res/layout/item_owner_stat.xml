@@ -13,7 +13,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textColor="?attr/themeAccent"
-        android:textSize="26sp"
+        android:textSize="28sp"
         android:textStyle="bold"
         android:fontFamily="sans-serif-medium" />
 

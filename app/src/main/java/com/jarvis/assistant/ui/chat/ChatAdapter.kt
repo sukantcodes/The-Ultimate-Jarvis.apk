@@ -27,7 +27,9 @@ class ChatAdapter : ListAdapter<ChatTurn, ChatAdapter.ChatViewHolder>(DiffCallba
         fun bind(turn: ChatTurn) {
             binding.tvTimestamp.text = turn.formattedTime
             binding.tvUserTranscript.text = turn.userTranscript
-            binding.tvJarvisResponse.text = turn.jarvisResponse
+            binding.tvJarvisResponse.text = MarkdownRenderer.render(
+                turn.jarvisResponse, binding.root.resources.displayMetrics.density
+            )
         }
     }
 

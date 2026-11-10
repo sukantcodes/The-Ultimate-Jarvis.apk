@@ -37,21 +37,25 @@ object WelcomeIntroOverlay {
         val introSlides = listOf(
             IntroTextSequenceView.Slide(
                 "INTRODUCING", listOf("J.A.R.V.I.S."),
-                "Your intelligent voice assistant", Color.rgb(64, 160, 255)
+                "Your intelligent voice assistant", accents[0]
             ),
             IntroTextSequenceView.Slide(
                 "CRAFTED WITH PASSION BY", listOf("SUKANTA", "BHATTACHARYA"),
-                "Designed and engineered by one creator", Color.rgb(150, 112, 255)
+                "Designed and engineered by one creator", accents[1]
             ),
             IntroTextSequenceView.Slide(
                 "BUILT TO SERVE YOU", listOf("SPEAK.", "JARVIS ACTS."),
-                "Hands-free help in Hindi, Bengali and English", Color.rgb(28, 214, 200)
+                "Hands-free help in Hindi, Bengali and English", accents[2]
             )
         )
         val backgroundColor = themeColor(activity, R.attr.themeBg, Color.rgb(7, 12, 25))
+        val panelText = themeColor(activity, R.attr.themeTextPrimary, Color.rgb(18, 43, 79))
+        val panelTextSecondary = themeColor(activity, R.attr.themeTextSecondary, Color.rgb(75, 91, 112))
+        val panelTextMuted = themeColor(activity, R.attr.themeTextMuted, Color.rgb(91, 108, 130))
+        val panelCard = themeColor(activity, R.attr.themeCardBg, Color.WHITE)
         val creatorBackground = GradientDrawable(
             GradientDrawable.Orientation.TL_BR,
-            intArrayOf(Color.WHITE, Color.rgb(246, 250, 255), Color.WHITE)
+            intArrayOf(backgroundColor, blend(backgroundColor, accents[0], 0.06f), backgroundColor)
         )
         val overlay = FrameLayout(activity).apply {
             isClickable = true
@@ -134,8 +138,8 @@ object WelcomeIntroOverlay {
                 background = GradientDrawable(
                     GradientDrawable.Orientation.LEFT_RIGHT,
                     intArrayOf(
-                        blend(Color.WHITE, accent, 0.10f),
-                        blend(Color.WHITE, accent, 0.035f)
+                        blend(panelCard, accent, 0.10f),
+                        blend(panelCard, accent, 0.035f)
                     )
                 ).apply {
                     cornerRadius = dp(activity, radius.toInt()).toFloat()
@@ -169,7 +173,7 @@ object WelcomeIntroOverlay {
             }
             val subtitleView = TextView(activity).apply {
                 text = subtitle
-                setTextColor(Color.rgb(75, 91, 112))
+                setTextColor(panelTextSecondary)
                 textSize = 10f
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 letterSpacing = 0.12f
@@ -216,7 +220,7 @@ object WelcomeIntroOverlay {
                 text = "SUPPORT THE CREATOR"
                 gravity = Gravity.CENTER
                 textAlignment = View.TEXT_ALIGNMENT_CENTER
-                setTextColor(Color.rgb(18, 43, 79))
+                setTextColor(panelText)
                 textSize = 21f
                 typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
                 letterSpacing = 0.12f
@@ -259,7 +263,7 @@ object WelcomeIntroOverlay {
                 setPadding(dp(activity, 24), dp(activity, 8), dp(activity, 24), dp(activity, 18))
                 background = GradientDrawable(
                     GradientDrawable.Orientation.TOP_BOTTOM,
-                    intArrayOf(Color.TRANSPARENT, Color.rgb(249, 252, 255), Color.WHITE)
+                    intArrayOf(backgroundColor and 0x00FFFFFF, backgroundColor, backgroundColor)
                 )
             }
             countdownView = TextView(activity).apply {
@@ -273,15 +277,15 @@ object WelcomeIntroOverlay {
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.RECTANGLE
                     cornerRadius = dp(activity, 24).toFloat()
-                    setColor(Color.rgb(30, 112, 238))
-                    setStroke(dp(activity, 1), Color.rgb(108, 177, 255))
+                    setColor(accents[0])
+                    setStroke(dp(activity, 1), blend(accents[0], Color.WHITE, 0.35f))
                 }
                 elevation = dp(activity, 8).toFloat()
                 isClickable = true
                 isFocusable = true
                 setPadding(dp(activity, 28), dp(activity, 12), dp(activity, 28), dp(activity, 12))
                 setOnClickListener { finishIntro() }
-                setShadowLayer(dp(activity, 10).toFloat(), 0f, 0f, Color.rgb(38, 125, 255))
+                setShadowLayer(dp(activity, 10).toFloat(), 0f, 0f, accents[0])
                 contentDescription = "Continue to JARVIS. Automatic entry in ten seconds."
             }
             bottom.addView(countdownView, LinearLayout.LayoutParams(
@@ -290,7 +294,7 @@ object WelcomeIntroOverlay {
             val hint = TextView(activity).apply {
                 text = "JARVIS WILL OPEN AUTOMATICALLY"
                 gravity = Gravity.CENTER
-                setTextColor(Color.rgb(91, 108, 130))
+                setTextColor(panelTextMuted)
                 textSize = 9f
                 letterSpacing = 0.16f
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)

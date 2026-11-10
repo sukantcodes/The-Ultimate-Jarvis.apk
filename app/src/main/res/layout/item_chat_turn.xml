@@ -12,53 +12,48 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
-        android:textColor="@color/text_muted"
-        android:textSize="11sp"
         android:layout_marginBottom="8dp"
+        android:textColor="?attr/themeTextMuted"
+        android:textSize="11sp"
         tools:text="19:45:10" />
 
+    <!-- Same visual language as the live chat: soft card for you, plain text for JARVIS. -->
     <LinearLayout
         android:id="@+id/boxUserMessage"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:layout_marginStart="48dp"
-        android:background="@drawable/bg_user_bubble"
+        android:background="@drawable/bg_cc_user"
         android:orientation="vertical"
-        android:paddingHorizontal="16dp"
-        android:paddingVertical="14dp">
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="12dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/chat_label_you"
-            android:textColor="?attr/themeTextSecondary"
+            android:textColor="?attr/themeTextMuted"
             android:textSize="11sp"
             android:textStyle="bold"
-            android:letterSpacing="0.05" />
+            android:letterSpacing="0.08" />
 
         <TextView
             android:id="@+id/tvUserTranscript"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="?attr/themeTextPrimary"
-            android:textSize="14sp"
-            android:lineSpacingExtra="2dp"
             android:layout_marginTop="3dp"
+            android:lineSpacingExtra="3dp"
+            android:textColor="?attr/themeTextPrimary"
+            android:textSize="15sp"
             tools:text="Hello JARVIS, how are you?" />
     </LinearLayout>
 
     <LinearLayout
         android:id="@+id/boxJarvisMessage"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="start"
-        android:layout_marginEnd="48dp"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/bg_jarvis_bubble"
+        android:layout_marginTop="12dp"
         android:orientation="vertical"
-        android:paddingHorizontal="14dp"
-        android:paddingVertical="12dp">
+        android:paddingHorizontal="2dp">
 
         <TextView
             android:layout_width="wrap_content"
@@ -67,15 +62,16 @@
             android:textColor="?attr/themeAccent"
             android:textSize="11sp"
             android:textStyle="bold"
-            android:letterSpacing="0.05" />
+            android:letterSpacing="0.08" />
 
         <TextView
             android:id="@+id/tvJarvisResponse"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:lineSpacingExtra="5dp"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="14sp"
-            android:layout_marginTop="2dp"
+            android:textSize="15sp"
             tools:text="Online and ready. How can I assist you today, Boss?" />
     </LinearLayout>
 

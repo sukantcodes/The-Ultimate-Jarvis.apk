@@ -9,7 +9,8 @@
         <item name="android:lineSpacingExtra">1dp</item>
     </style>
     <style name="TextAppearance.Jarvis.Display" parent="">
-        <item name="android:fontFamily">sans-serif-black</item>
+        <item name="android:fontFamily">@font/orbitron</item>
+        <item name="android:fontVariationSettings">'wght' 800</item>
         <item name="android:textSize">32sp</item>
         <item name="android:textStyle">normal</item>
         <item name="android:letterSpacing">-0.025</item>
@@ -47,7 +48,7 @@
         <item name="android:textColor">?attr/themeTextMuted</item>
     </style>
     <style name="TextAppearance.Jarvis.Overline" parent="">
-        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:fontFamily">@font/rajdhani_semibold</item>
         <item name="android:textSize">10sp</item>
         <item name="android:textStyle">bold</item>
         <item name="android:letterSpacing">0.12</item>
@@ -73,7 +74,7 @@
         <item name="android:textColor">?attr/themeTextSecondary</item>
     </style>
     <style name="TextAppearance.Jarvis.Status" parent="">
-        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:fontFamily">@font/rajdhani_semibold</item>
         <item name="android:textSize">11sp</item>
         <item name="android:textStyle">bold</item>
         <item name="android:letterSpacing">0.06</item>

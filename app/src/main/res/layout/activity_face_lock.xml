@@ -3,7 +3,7 @@
 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:layout_marginBottom="16dp">
 <ImageButton android:id="@+id/btnBack" android:layout_width="48dp" android:layout_height="48dp" android:background="@drawable/bg_jarvis_icon_square" android:src="@drawable/ic_back" app:tint="?attr/themeTextPrimary" android:contentDescription="Back"/>
-<TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Face Lock Settings" android:textColor="?attr/themeTextPrimary" android:textSize="21sp" android:textStyle="bold"/>
+<TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="14dp" android:text="Face Lock Settings" android:textColor="?attr/themeTextPrimary" android:textSize="20sp" android:textStyle="bold"/>
 </LinearLayout>
 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp" android:background="@drawable/bg_jarvis_card" android:layout_marginBottom="16dp">
 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Guided face scan" android:textColor="?attr/themeTextPrimary" android:textSize="18sp" android:textStyle="bold"/>

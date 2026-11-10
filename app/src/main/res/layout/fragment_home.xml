@@ -436,7 +436,8 @@
                     android:background="@drawable/bg_home_badge_violet"
                 android:src="@drawable/ic_screen_share"
                     app:tint="#A78BFA"
-                android:layout_marginBottom="2dp" />
+                android:layout_marginBottom="2dp"
+        android:importantForAccessibility="no" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -491,7 +492,8 @@
                     android:background="@drawable/bg_home_badge_amber"
                 android:src="@drawable/ic_stack_memory"
                     app:tint="#FFB020"
-                android:layout_marginBottom="2dp" />
+                android:layout_marginBottom="2dp"
+        android:importantForAccessibility="no" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -544,7 +546,8 @@
                     android:background="@drawable/bg_home_badge_orange"
                 android:src="@drawable/ic_settings_language"
                     app:tint="#FB923C"
-                android:layout_marginBottom="2dp" />
+                android:layout_marginBottom="2dp"
+        android:importantForAccessibility="no" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -612,7 +615,8 @@
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:src="@drawable/ic_warning"
-                app:tint="#EF4444" />
+                app:tint="#EF4444"
+        android:importantForAccessibility="no" />
 
             <TextView
                 android:id="@+id/tvLiveErrorTitle"
@@ -629,8 +633,9 @@
 
             <ImageButton
                 android:id="@+id/btnDismissLiveError"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="48dp"
+        android:padding="6dp"
+                android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_close"
                 app:tint="?attr/themeTextMuted"

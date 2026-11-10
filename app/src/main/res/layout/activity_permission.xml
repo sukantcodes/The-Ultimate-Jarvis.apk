@@ -49,7 +49,7 @@
                         android:layout_height="wrap_content"
                         android:text="System Authorizations"
                         android:textColor="?attr/themeTextPrimary"
-                        android:textSize="19sp"
+                        android:textSize="20sp"
                         android:textStyle="bold"
                         android:fontFamily="sans-serif-medium" />
 
@@ -95,7 +95,7 @@
                     android:gravity="center"
                     android:text="Grant necessary authorizations so Jarvis can listen, speak, deliver accurate weather, and process your requests seamlessly."
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="12.5sp"
+                    android:textSize="13sp"
                     android:lineSpacingExtra="2dp" />
             </LinearLayout>
 
@@ -121,7 +121,8 @@
                         android:background="@drawable/bg_jarvis_avatar"
                         android:padding="8dp"
                         android:src="@drawable/ic_mic_jarvis"
-                        app:tint="?attr/themeAccent" />
+                        app:tint="?attr/themeAccent"
+        android:importantForAccessibility="no" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -190,7 +191,8 @@
                         android:background="@drawable/bg_jarvis_avatar"
                         android:padding="8dp"
                         android:src="@drawable/ic_weather_sun"
-                        app:tint="?attr/themeAccent" />
+                        app:tint="?attr/themeAccent"
+        android:importantForAccessibility="no" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -259,7 +261,8 @@
                         android:background="@drawable/bg_jarvis_avatar"
                         android:padding="8dp"
                         android:src="@drawable/ic_nav_bell"
-                        app:tint="?attr/themeAccent" />
+                        app:tint="?attr/themeAccent"
+        android:importantForAccessibility="no" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -328,7 +331,8 @@
                         android:background="@drawable/bg_jarvis_avatar"
                         android:padding="8dp"
                         android:src="@drawable/ic_nav_settings"
-                        app:tint="?attr/themeAccent" />
+                        app:tint="?attr/themeAccent"
+        android:importantForAccessibility="no" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -397,7 +401,8 @@
                         android:background="@drawable/bg_jarvis_avatar"
                         android:padding="8dp"
                         android:src="@drawable/ic_checklist_tasks"
-                        app:tint="?attr/themeAccent" />
+                        app:tint="?attr/themeAccent"
+        android:importantForAccessibility="no" />
 
                     <LinearLayout
                         android:layout_width="0dp"

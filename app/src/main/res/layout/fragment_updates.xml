@@ -30,7 +30,7 @@
                 android:layout_weight="1"
                 android:text="Updates"
                 android:textColor="?attr/themeTextPrimary"
-                android:textSize="26sp"
+                android:textSize="28sp"
                 android:textStyle="bold"
                 android:fontFamily="sans-serif-medium" />
 

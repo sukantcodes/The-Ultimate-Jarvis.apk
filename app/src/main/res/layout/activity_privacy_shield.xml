@@ -49,7 +49,7 @@
                         android:layout_height="wrap_content"
                         android:text="Privacy &amp; Data Shield"
                         android:textColor="?attr/themeTextPrimary"
-                        android:textSize="19sp"
+                        android:textSize="20sp"
                         android:textStyle="bold"
                         android:fontFamily="sans-serif-medium" />
 
@@ -120,7 +120,7 @@
                         android:layout_height="wrap_content"
                         android:text="PRIVATE BY DEFAULT • ANALYTICS DISCLOSED"
                         android:textColor="@color/status_green"
-                        android:textSize="10.5sp"
+                        android:textSize="11sp"
                         android:textStyle="bold"
                         android:letterSpacing="0.08"
                         android:layout_marginStart="6dp" />
@@ -214,7 +214,7 @@
                         android:layout_height="wrap_content"
                         android:text="•  Accounts are optional; guest mode shares no analytics"
                         android:textColor="?attr/themeTextMuted"
-                        android:textSize="12.5sp"
+                        android:textSize="13sp"
                         android:layout_marginBottom="6dp" />
 
                     <TextView
@@ -222,7 +222,7 @@
                         android:layout_height="wrap_content"
                         android:text="•  Voice Biometrics run 100% locally on-device"
                         android:textColor="?attr/themeTextMuted"
-                        android:textSize="12.5sp"
+                        android:textSize="13sp"
                         android:layout_marginBottom="6dp" />
 
                     <TextView
@@ -230,7 +230,7 @@
                         android:layout_height="wrap_content"
                         android:text="•  Direct encrypted TLS 1.3 socket to Gemini Live"
                         android:textColor="?attr/themeTextMuted"
-                        android:textSize="12.5sp" />
+                        android:textSize="13sp" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -580,7 +580,7 @@
                 android:gravity="center"
                 android:text="JARVIS INTELLIGENCE OS • ♪Sukant♪Codes♪\nEngineered for local-first privacy &amp; transparency"
                 android:textColor="?attr/themeTextMuted"
-                android:textSize="11.5sp"
+                android:textSize="12sp"
                 android:lineSpacingExtra="3dp"
                 android:layout_marginTop="8dp" />
 

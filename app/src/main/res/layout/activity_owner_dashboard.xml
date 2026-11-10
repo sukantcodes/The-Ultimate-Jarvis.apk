@@ -37,7 +37,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/owner_dash_title"
                 android:textColor="?attr/themeTextPrimary"
-                android:textSize="19sp"
+                android:textSize="20sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.04"
                 android:fontFamily="sans-serif-condensed" />

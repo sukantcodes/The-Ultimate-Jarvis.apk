@@ -34,7 +34,7 @@
             android:layout_height="wrap_content"
             android:text="VOICE BIOMETRICS"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="17sp"
+            android:textSize="16sp"
             android:textStyle="bold"
             android:fontFamily="sans-serif-black"
             android:letterSpacing="0.12"

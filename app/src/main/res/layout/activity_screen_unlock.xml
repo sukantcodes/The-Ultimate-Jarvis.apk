@@ -49,7 +49,7 @@
                         android:layout_height="wrap_content"
                         android:text="Screen Unlock"
                         android:textColor="?attr/themeTextPrimary"
-                        android:textSize="19sp"
+                        android:textSize="20sp"
                         android:textStyle="bold"
                         android:fontFamily="sans-serif-medium" />
 

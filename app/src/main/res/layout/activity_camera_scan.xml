@@ -32,7 +32,7 @@
             android:layout_height="48dp"
             android:gravity="center"
             android:text="‹"
-            android:textSize="34sp"
+            android:textSize="32sp"
             android:textColor="#FFFFFF"
             android:contentDescription="Close camera scan" />
 

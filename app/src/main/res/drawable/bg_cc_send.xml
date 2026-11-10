@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_enabled="false">
-        <shape android:shape="oval"><solid android:color="@color/cc_disabled" /></shape>
+        <shape android:shape="oval"><solid android:color="?attr/themeChipBg" /></shape>
     </item>
     <item>
         <ripple android:color="#33FFFFFF">
-            <item><shape android:shape="oval"><solid android:color="@color/cc_accent" /></shape></item>
+            <item><shape android:shape="oval"><solid android:color="?attr/themeAccent" /></shape></item>
         </ripple>
     </item>
 </selector>

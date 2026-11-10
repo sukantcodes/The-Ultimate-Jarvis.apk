@@ -33,7 +33,7 @@ class ThinkingIndicatorView @JvmOverloads constructor(
     var startTimeMs: Long = System.currentTimeMillis()
 
     private val density = resources.displayMetrics.density
-    private val accent = ContextCompat.getColor(context, R.color.cc_accent)
+    private val accent = resolveColor(R.attr.themeAccent, Color.rgb(64, 160, 255))
     private val baseText = resolveColor(R.attr.themeTextSecondary, Color.GRAY)
     private val verbs = arrayOf("Thinking", "Reasoning", "Working it out", "Drafting", "Polishing")
 
