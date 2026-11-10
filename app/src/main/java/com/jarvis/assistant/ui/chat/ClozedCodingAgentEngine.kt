@@ -61,7 +61,7 @@ internal class ClozedCodingAgentEngine(
     private val gson = com.google.gson.Gson()
     private val undo = ArrayDeque<List<FileSnapshot>>()
     private var interrupted = false
-    private var session = createSession()
+    private var session = loadLatestSession() ?: createSession()
     private var lastSignature = ""
     private var repeatedSignatureCount = 0
     private var todos: List<String> = emptyList()
@@ -96,6 +96,11 @@ internal class ClozedCodingAgentEngine(
         repeatedSignatureCount = 0
         emit(ClozedAgentEvent("reload"))
     }
+
+    private fun loadLatestSession(): ClozedSession? =
+        sessionsDir.listFiles()?.filter { it.isFile && it.extension == "json" }
+            ?.sortedByDescending { it.lastModified() }
+            ?.firstNotNullOfOrNull { file -> runCatching { gson.fromJson(file.readText(), ClozedSession::class.java) }.getOrNull() }
 
     private fun createSession(): ClozedSession {
         val id = "s" + System.currentTimeMillis().toString(36)
@@ -182,7 +187,7 @@ internal class ClozedCodingAgentEngine(
                     if (interrupted) break
                     emit(ClozedAgentEvent("tool_start", id = call.id, name = call.name, input = call.arguments, running = true))
                     val before = snapshotBefore(call)
-                    val result = dispatch(call, provider)
+                    val result = withContext(Dispatchers.IO) { dispatch(call, provider) }
                     if (result.second && before.isNotEmpty()) undo.addLast(before)
                     history += ClozedMessage.ToolResult(call.id, call.name, result.first)
                     session.messages += ClozedSessionRecord("tool", result.first, callId = call.id, toolName = call.name)
@@ -191,6 +196,8 @@ internal class ClozedCodingAgentEngine(
                 }
             }
             if (step > 40) emit(ClozedAgentEvent("notice", text = "Stopped after 40 steps.", ok = false))
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (error: Exception) {
             emit(ClozedAgentEvent("notice", text = "Request failed: " + (error.message ?: error.javaClass.simpleName), ok = false))
         } finally {
@@ -570,11 +577,11 @@ internal class ClozedCodingAgentEngine(
     private fun toolGuidance(): String = buildTools().joinToString("\n\n") { "## " + it.name + "\n" + it.description }
     private fun readAsset(path: String): String = runCatching { app.assets.open(path).bufferedReader().use { it.readText() } }.getOrDefault("")
 
-    private fun runCommand(command: String) {
+    private suspend fun runCommand(command: String) {
         when {
             command == "/help" -> emit(ClozedAgentEvent("notice", text = "/new /clear /sessions /connect /folder /model /models /undo /compact /port /init"))
-            command == "/new" -> newSession()
-            command == "/clear" -> { session.messages.clear(); saveSession(); emit(ClozedAgentEvent("reload")) }
+            command == "/new" -> { newSession(); emit(ClozedAgentEvent("notice", text = "Started a new coding session.")) }
+            command == "/clear" -> { session.messages.clear(); saveSession(); emit(ClozedAgentEvent("reload")); emit(ClozedAgentEvent("notice", text = "Cleared this coding session.")) }
             command == "/undo" -> undoLast()
             command == "/sessions" -> emit(ClozedAgentEvent("sessions", text = sessions().joinToString("\n") { it.id + " | " + it.title }))
             command == "/connect" -> openProviderSettings()
@@ -583,9 +590,48 @@ internal class ClozedCodingAgentEngine(
             command.startsWith("/model") -> emit(ClozedAgentEvent("notice", text = "Choose the Coding provider/model under Settings > Work Routing."))
             command.startsWith("/effort") -> emit(ClozedAgentEvent("notice", text = "Reasoning effort is controlled by the selected provider/model."))
             command == "/compact" -> { if (session.messages.size > 12) { val keep = session.messages.takeLast(12); session.messages.clear(); session.messages.addAll(keep); saveSession() }; emit(ClozedAgentEvent("notice", text = "Session history compacted to the most recent 12 records.")) }
-            command == "/port" -> emit(ClozedAgentEvent("notice", text = "Use the ChatBox Website Preview action to serve this workspace on loopback."))
-            command == "/init" -> emit(ClozedAgentEvent("notice", text = "Project context files can be created with the write tool after sending a build request."))
-            else -> emit(ClozedAgentEvent("notice", text = "Unknown command: " + command.substringBefore(' ') + ". Try /help."))
+            command == "/port" -> {
+                val url = withContext(Dispatchers.IO) { LocalWorkspaceServer.start(workspace.root) }
+                emit(ClozedAgentEvent("notice", text = "Local project preview is available at $url"))
+            }
+            command == "/init" -> {
+                val file = workspace.resolve("AGENTS.md")
+                if (file.exists()) {
+                    emit(ClozedAgentEvent("notice", text = "AGENTS.md already exists; I left it unchanged."))
+                } else {
+                    val args = JsonObject().apply {
+                        addProperty("path", "AGENTS.md")
+                        addProperty("content", "# Project instructions\\n\\nDescribe the purpose of this project, its architecture, build and test commands, coding conventions, and any important constraints.\\n")
+                        addProperty("overwrite", false)
+                    }
+                    val result = AgentToolRuntime.codingExecutor(app, workspace.root).execute(ToolCall("init_" + session.id, "write_file", args, "Clozed coding agent /init"))
+                    emit(ClozedAgentEvent("notice", text = result.text))
+                }
+            }
+            command.startsWith("/open ") -> {
+                val id = command.substringAfter(' ').trim()
+                emit(ClozedAgentEvent("notice", text = if (openSession(id)) "Opened coding session $id." else "Session $id was not found."))
+            }
+            else -> {
+                val name = command.substringBefore(' ').removePrefix("/")
+                val arguments = command.substringAfter(' ', "").trim()
+                val candidates = listOf(
+                    ".clozed/commands/$name.md", ".clozed/command/$name.md",
+                    ".opencode/commands/$name.md", ".opencode/command/$name.md"
+                )
+                val custom = candidates.firstNotNullOfOrNull { candidate ->
+                    runCatching { workspace.resolve(candidate) }.getOrNull()?.takeIf { it.isFile }
+                }
+                if (custom != null) {
+                    val prompt = withContext(Dispatchers.IO) { custom.readText(Charsets.UTF_8).take(12000) }
+                        .replace("$" + "ARGUMENTS", arguments)
+                        .replace("$" + "1", arguments.substringBefore(' '))
+                    emit(ClozedAgentEvent("notice", text = "Running custom command /$name"))
+                    submit(prompt)
+                } else {
+                    emit(ClozedAgentEvent("notice", text = "Unknown command: /$name. Try /help."))
+                }
+            }
         }
     }
 
