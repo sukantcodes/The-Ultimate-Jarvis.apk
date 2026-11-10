@@ -47,8 +47,37 @@ class GroqLiveSession(
     private val chatModel: String,
     voiceName: String,
     private val systemPromptText: String,
-    private val groqListener: GeminiLiveWebSocket.Listener
+    private val groqListener: GeminiLiveWebSocket.Listener,
+    /**
+     * A user-configured OpenAI-compatible provider. When set, speech-to-text and chat go to that provider with its
+     * own address, credentials and models; Groq's address and key are not used.
+     */
+    private val custom: com.jarvis.assistant.provider.ResolvedProvider? = null
 ) : GeminiLiveWebSocket(groqKey, "", voiceName, systemPromptText, groqListener) {
+
+    private val engineName: String get() = custom?.name ?: "Groq"
+    private val baseUrl: String get() = custom?.baseUrl ?: BASE
+    private val sttModel: String get() = custom?.sttModelId?.takeIf { it.isNotBlank() } ?: STT_MODEL
+    private val httpClient: OkHttpClient get() = if (custom != null) customHttp else http
+    private var useCompletionTokens = false
+
+    /** Request builder with the right address and credentials for the active engine (Groq key, or the custom provider's own auth). */
+    private fun newRequest(path: String): Request.Builder {
+        if (custom == null) {
+            return Request.Builder().url("$BASE$path")
+                .header("Authorization", "Bearer $groqKey")
+                .header("User-Agent", "JarvisAndroid/1.0")
+        }
+        val spec = com.jarvis.assistant.provider.ProviderAuth.withExtraHeaders(
+            com.jarvis.assistant.provider.ProviderAuth.apply(
+                com.jarvis.assistant.provider.HttpRequestSpec("POST", com.jarvis.assistant.provider.ProviderUrl.join(custom.baseUrl, path), emptyMap()),
+                custom.auth
+            ), custom.extraHeaders
+        )
+        val b = Request.Builder().url(spec.url).header("User-Agent", "JarvisAndroid/1.0")
+        spec.headers.forEach { (k, v) -> b.header(k, v) }
+        return b
+    }
 
     private val genderStore = com.jarvis.assistant.voice.VoiceGenderStore(context)
     /** Called with what the user said before the language model runs. Return true to handle it locally and skip the model. */
@@ -111,7 +140,15 @@ class GroqLiveSession(
         sessionJob = job
         sessionScope = CoroutineScope(scope.coroutineContext + job)
 
-        if (groqKey.isBlank()) {
+        val keyMissing = if (custom != null)
+            custom.auth.method != com.jarvis.assistant.provider.AuthMethod.NONE && (custom.auth.secret == null || custom.auth.secret.isBlank)
+        else groqKey.isBlank()
+        if (custom != null && keyMissing) {
+            groqListener.onError("No API key is saved for ${custom.name}. Add it in API Key & Model Settings.", true, "CUSTOM_KEY_MISSING")
+            groqListener.onConnectionStateChanged("OFFLINE")
+            return
+        }
+        if (custom == null && keyMissing) {
             groqListener.onError(
                 "No Groq API key saved. Open Settings > AI Engine and enter your Groq key.",
                 true,
@@ -331,18 +368,15 @@ class GroqLiveSession(
     private suspend fun transcribe(pcm: ByteArray): String? {
         val wav = pcmToWav(pcm, 16_000)
         val body = MultipartBody.Builder().setType(MultipartBody.FORM)
-            .addFormDataPart("model", STT_MODEL)
+            .addFormDataPart("model", sttModel)
             .addFormDataPart("response_format", "json")
             .addFormDataPart("temperature", "0")
             .addFormDataPart("file", "speech.wav", wav.toRequestBody(WAV_TYPE))
             .build()
-        val request = Request.Builder()
-            .url("$BASE/audio/transcriptions")
-            .header("Authorization", "Bearer $groqKey")
-            .header("User-Agent", "JarvisAndroid/1.0")
+        val request = newRequest("/audio/transcriptions")
             .post(body)
             .build()
-        val (code, raw, retryAfter) = http.newCall(request).execute().use {
+        val (code, raw, retryAfter) = httpClient.newCall(request).execute().use {
             Triple(it.code, it.body?.string().orEmpty(), it.header("retry-after"))
         }
         if (code !in 200..299) {
@@ -371,16 +405,13 @@ class GroqLiveSession(
                     put("tools", toolList)
                     put("tool_choice", "auto")
                 }
-                put("temperature", 0.5)
-                put("max_tokens", 500)
+                put("temperature", custom?.temperature ?: 0.5)
+                put(if (useCompletionTokens) "max_completion_tokens" else "max_tokens", custom?.maxTokens ?: 500)
             }
-            val request = Request.Builder()
-                .url("$BASE/chat/completions")
-                .header("Authorization", "Bearer $groqKey")
-                .header("User-Agent", "JarvisAndroid/1.0")
+            val request = newRequest("/chat/completions")
                 .post(body.toString().toRequestBody(JSON_TYPE))
                 .build()
-            val (code, raw, retryAfter) = http.newCall(request).execute().use {
+            val (code, raw, retryAfter) = httpClient.newCall(request).execute().use {
                 Triple(it.code, it.body?.string().orEmpty(), it.header("retry-after"))
             }
             if (code in 200..299) {
@@ -391,12 +422,16 @@ class GroqLiveSession(
                     null
                 }
             }
+            if (custom != null && code == 400 && !useCompletionTokens && raw.contains("max_completion_tokens")) {
+                useCompletionTokens = true
+                continue
+            }
             if (code == 400 && raw.contains("tool_use_failed") && !retriedToolFailure) {
                 retriedToolFailure = true
                 continue
             }
             if (sendTools && (code == 400 || code == 413 || code == 422)) {
-                Log.w(TAG, "Groq rejected the tool list (HTTP $code). Retrying without tools.")
+                Log.w(TAG, "$engineName rejected the tool list (HTTP $code). Retrying without tools.")
                 sendTools = false
                 continue
             }
@@ -408,13 +443,13 @@ class GroqLiveSession(
     }
 
     private suspend fun reportException(e: Exception) {
-        Log.e(TAG, "Groq turn failed: " + e.javaClass.simpleName + " " + e.message)
+        Log.e(TAG, "$engineName turn failed: " + e.javaClass.simpleName + if (custom == null) " " + e.message else "")
         groqListener.onError(
-            "Groq network error: " + e.javaClass.simpleName + (e.message?.let { " - " + it.take(100) } ?: ""),
+            "$engineName network error: " + e.javaClass.simpleName + (if (custom == null) e.message?.let { " - " + it.take(100) }.orEmpty() else ""),
             false,
             "GROQ_NETWORK"
         )
-        speak("I could not reach Groq. Please check your internet connection and try again.")
+        speak("I could not reach $engineName. Please check your internet connection and try again.")
         groqListener.onTurnCompleted()
     }
 
@@ -424,25 +459,27 @@ class GroqLiveSession(
         } catch (e: Exception) {
             ""
         }
-        Log.w(TAG, "Groq HTTP $code ${detail.take(160)}")
+        Log.w(TAG, if (custom == null) "Groq HTTP $code ${detail.take(160)}" else "$engineName HTTP $code")
         when (code) {
             401, 403 -> {
                 groqListener.onError(
-                    "Groq rejected the API key. Check it in Settings > AI Engine.",
+                    if (custom == null) "Groq rejected the API key. Check it in Settings > AI Engine."
+                    else "${custom.name} rejected the API key. Check it in API Key & Model Settings.",
                     true,
-                    "GROQ_KEY_INVALID"
+                    if (custom == null) "GROQ_KEY_INVALID" else "CUSTOM_KEY_INVALID"
                 )
                 groqListener.onConnectionStateChanged("ERROR \u2022 INVALID KEY")
             }
             429 -> {
                 val wait = retryAfter?.trim()?.toIntOrNull()
                 val tail = if (wait != null && wait in 1..120) " Try again in about $wait seconds." else " Please wait a moment."
-                speak("Groq's limit has been reached.$tail You can switch to Gemini in Settings.")
+                speak(if (custom == null) "Groq's limit has been reached.$tail You can switch to Gemini in Settings."
+                      else "$engineName's limit has been reached.$tail")
                 groqListener.onTurnCompleted()
             }
             else -> {
-                groqListener.onError("Groq error " + code + ": " + detail.take(140), false, "GROQ_HTTP_ERROR")
-                speak("Sorry, Groq returned an error. Please try again.")
+                groqListener.onError("$engineName error " + code + (if (custom == null) ": " + detail.take(140) else ""), false, if (custom == null) "GROQ_HTTP_ERROR" else "CUSTOM_HTTP_ERROR")
+                speak("Sorry, $engineName returned an error. Please try again.")
                 groqListener.onTurnCompleted()
             }
         }
@@ -531,7 +568,7 @@ class GroqLiveSession(
         // Keep the complete instruction body: silent character truncation can remove safety,
         // confirmation, or tool-use rules. The activity log remains separately bounded above.
         return base + com.jarvis.assistant.util.ConfirmationPolicy.promptSection() + genderStore.promptSection() + skills + "\n\n" + log + "\n\n" +
-            "ENGINE NOTES: You are running on the Groq engine. Reply in one to three short, natural spoken sentences in the " +
+            "ENGINE NOTES: You are running on the $engineName engine. Reply in one to three short, natural spoken sentences in the " +
             "user's language (English, Hindi or Hinglish). Never use markdown, lists, emojis or asterisks. When the user asks " +
             "you to do something on the phone, call the matching tool instead of describing it. Say a task is done only after " +
             "the tool result says success. If a tool result starts with REFUSED, follow its instructions exactly."
@@ -803,6 +840,9 @@ class GroqLiveSession(
 
         private val JSON_TYPE = "application/json".toMediaType()
         private val WAV_TYPE = "audio/wav".toMediaType()
+        private val customHttp: OkHttpClient by lazy {
+            http.newBuilder().followRedirects(false).followSslRedirects(false).build()
+        }
         private val http: OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)

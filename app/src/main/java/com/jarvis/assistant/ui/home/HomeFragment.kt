@@ -715,7 +715,7 @@ class HomeFragment : Fragment() {
                             binding.btnFixLiveError.text = error.actionText
 
                             when (error.errorCode) {
-                                "API_KEY_INVALID", "API_KEY_MISSING" -> {
+                                "API_KEY_INVALID", "API_KEY_MISSING", "CUSTOM_PROVIDER_BLOCKED" -> {
                                     binding.ivLiveErrorIcon.setImageResource(R.drawable.ic_warning)
                                     binding.ivLiveErrorIcon.imageTintList = ColorStateList.valueOf(Color.parseColor("#EF4444"))
                                     binding.tvLiveErrorTitle.setTextColor(Color.parseColor("#EF4444"))

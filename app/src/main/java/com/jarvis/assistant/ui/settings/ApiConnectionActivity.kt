@@ -17,6 +17,9 @@ import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.R
 import com.jarvis.assistant.data.model.GeminiConstants
 import com.jarvis.assistant.databinding.ActivityApiConnectionBinding
+import com.jarvis.assistant.provider.ActivationResult
+import com.jarvis.assistant.provider.ProviderRuntime
+import com.jarvis.assistant.provider.StepStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -28,6 +31,7 @@ class ApiConnectionActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityApiConnectionBinding
     private val preferences by lazy { JarvisApp.instance.preferences }
+    private val providerManager by lazy { ProviderRuntime.manager(applicationContext) }
     private val testHttpClient = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(5, TimeUnit.SECONDS)
@@ -102,7 +106,31 @@ class ApiConnectionActivity : AppCompatActivity() {
             binding.etApiKey.setText("")
         }
 
+        binding.btnManageKeys.setOnClickListener { startActivity(Intent(this, KeyManagerActivity::class.java)) }
+        binding.btnWorkRouting.setOnClickListener { startActivity(Intent(this, WorkRoutingActivity::class.java)) }
+        binding.btnAddProvider.setOnClickListener {
+            startActivity(Intent(this, CustomProviderEditorActivity::class.java))
+        }
+        binding.btnUseBuiltIn.setOnClickListener {
+            providerManager.deactivate()
+            com.jarvis.assistant.background.JarvisConversationService.clearLiveError()
+            com.jarvis.assistant.background.JarvisConversationService.restartSession()
+            refreshProviderCard()
+            Snackbar.make(binding.root, "Using the built-in engines again.", Snackbar.LENGTH_LONG).show()
+        }
+        binding.btnTestGoogleKey.setOnClickListener {
+            val enteredKey = binding.etApiKey.text?.toString()?.trim() ?: ""
+            if (enteredKey.isBlank()) {
+                Snackbar.make(binding.root, "Please enter a Google Gemini API key first", Snackbar.LENGTH_LONG).show()
+            } else testConnection(enteredKey)
+        }
+
         binding.btnTestConnection.setOnClickListener {
+            // With a custom provider active, this button tests that provider (its endpoint, key and model), not Google.
+            if (providerManager.activeProfile() != null) {
+                testActiveProvider()
+                return@setOnClickListener
+            }
             val enteredKey = binding.etApiKey.text?.toString()?.trim() ?: ""
             if (enteredKey.isBlank()) {
                 Snackbar.make(binding.root, "Please enter an API key first", Snackbar.LENGTH_LONG).show()
@@ -113,6 +141,114 @@ class ApiConnectionActivity : AppCompatActivity() {
 
         binding.btnSaveConnection.setOnClickListener {
             saveAndApply()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshProviderCard()
+    }
+
+    private fun refreshProviderCard() {
+        val active = providerManager.activeProfile()
+        val list = binding.llProviderList
+        list.removeAllViews()
+        if (active == null) {
+            binding.tvProviderActive.text = "Using built-in engines (Gemini / Groq)"
+            binding.btnUseBuiltIn.visibility = android.view.View.GONE
+            binding.btnTestGoogleKey.visibility = android.view.View.GONE
+            binding.btnTestConnection.text = "Test Connection & Latency"
+        } else {
+            binding.tvProviderActive.text = "Active: ${active.displayName} · ${active.selectedModelId.ifBlank { "no model" }}"
+            binding.btnUseBuiltIn.visibility = android.view.View.VISIBLE
+            binding.btnTestGoogleKey.visibility = android.view.View.VISIBLE
+            binding.btnTestConnection.text = "Test active provider"
+            val model = active.selectedModel
+            if (model != null) {
+                binding.tvProviderDetail.text = com.jarvis.assistant.provider.CapabilityPolicy.summary(active, model) +
+                    (if (active.lastRefreshAt > 0) " · models: ${active.lastRefreshStatus}" else "")
+            }
+        }
+        providerManager.profiles().forEach { p ->
+            val isActive = p.id == active?.id
+            val row = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                setPadding(0, 10, 0, 10)
+            }
+            row.addView(android.widget.TextView(this).apply {
+                text = (if (isActive) "● " else "○ ") + p.displayName
+                textSize = 14f
+                setTextColor(themeColor(R.attr.themeTextPrimary))
+            })
+            row.addView(android.widget.TextView(this).apply {
+                text = "${p.protocol.label} · ${p.selectedModelId.ifBlank { "no model chosen" }}"
+                textSize = 11f
+                setTextColor(themeColor(R.attr.themeTextMuted))
+            })
+            val actions = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.HORIZONTAL }
+            actions.addView(com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+                text = "Edit"
+                isAllCaps = false
+                setOnClickListener {
+                    startActivity(Intent(this@ApiConnectionActivity, CustomProviderEditorActivity::class.java)
+                        .putExtra(CustomProviderEditorActivity.EXTRA_PROFILE_ID, p.id))
+                }
+            })
+            if (!isActive) {
+                actions.addView(com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+                    text = "Set active"
+                    isAllCaps = false
+                    setOnClickListener { activateProvider(p.id) }
+                })
+            }
+            row.addView(actions)
+            list.addView(row)
+        }
+    }
+
+    private fun themeColor(attr: Int): Int {
+        val tv = android.util.TypedValue()
+        theme.resolveAttribute(attr, tv, true)
+        return tv.data
+    }
+
+    private fun activateProvider(id: String) {
+        lifecycleScope.launch {
+            when (val result = providerManager.activate(id)) {
+                is ActivationResult.Activated -> {
+                    com.jarvis.assistant.background.JarvisConversationService.clearLiveError()
+                    com.jarvis.assistant.background.JarvisConversationService.restartSession()
+                    Snackbar.make(binding.root, "${result.profile.displayName} is now active" + (result.warning?.let { ". $it" } ?: "."), Snackbar.LENGTH_LONG).show()
+                }
+                is ActivationResult.Rejected -> Snackbar.make(binding.root, result.reason, Snackbar.LENGTH_LONG).show()
+            }
+            refreshProviderCard()
+        }
+    }
+
+    /** Tests the active provider with its own endpoint, key and model. Google is never contacted. */
+    private fun testActiveProvider() {
+        val active = providerManager.activeProfile() ?: return
+        binding.btnTestConnection.isEnabled = false
+        binding.tvPingResult.text = "Testing ${active.displayName}…"
+        binding.viewStatusDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#3B82F6"))
+        lifecycleScope.launch {
+            try {
+                val report = providerManager.testConnection(active, null, active.selectedModelId)
+                binding.tvPingResult.text = report.summary
+                binding.tvLiveStatus.text = (if (report.ok) "PROVIDER OK • " else "PROVIDER FAILED • ") + active.displayName.uppercase()
+                binding.viewStatusDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor(if (report.ok) "#22C55E" else "#EF4444"))
+                Snackbar.make(binding.root, report.steps.joinToString("\n") {
+                    val mark = when (it.status) { StepStatus.PASS -> "✓"; StepStatus.WARN -> "!"; StepStatus.FAIL -> "✗"; StepStatus.SKIPPED -> "–" }
+                    "$mark ${it.title}: ${it.detail}"
+                }, Snackbar.LENGTH_INDEFINITE).setAction("OK") {}.show()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                binding.tvPingResult.text = "Test could not finish (${e.javaClass.simpleName})."
+            } finally {
+                binding.btnTestConnection.isEnabled = true
+            }
         }
     }
 

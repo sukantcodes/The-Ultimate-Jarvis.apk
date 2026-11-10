@@ -29,6 +29,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.jarvis.assistant.provider.AttachmentRef
+import com.jarvis.assistant.provider.EngineState
+import com.jarvis.assistant.provider.ProviderRuntime
+import com.jarvis.assistant.provider.SendOutcome
 
 class ChatFragment : Fragment() {
 
@@ -41,6 +45,9 @@ class ChatFragment : Fragment() {
     private var fileAnalysisJob: Job? = null
     private val chatModePrefs by lazy { requireContext().getSharedPreferences("jarvis_chatbox_preferences", android.content.Context.MODE_PRIVATE) }
     private var selectedChatMode: String = "auto"
+    private val providerManager by lazy { ProviderRuntime.manager(requireContext()) }
+    private val providerEngine by lazy { ProviderRuntime.chatEngine(requireContext()) }
+    private var retrySnackbar: com.google.android.material.snackbar.Snackbar? = null
 
     private val documentPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri == null || _binding == null) return@registerForActivityResult
@@ -136,6 +143,7 @@ class ChatFragment : Fragment() {
             offlineGenerationJob = null
             fileAnalysisJob?.cancel()
             fileAnalysisJob = null
+            providerEngine.cancel()
             binding.btnStopChat.visibility = View.GONE
             binding.tvChatStatus.text = "● READY"
             binding.btnSendMessage.isEnabled = true
@@ -150,6 +158,8 @@ class ChatFragment : Fragment() {
                 .setPositiveButton("New Chat") { _, _ ->
                     offlineGenerationJob?.cancel()
                     fileAnalysisJob?.cancel()
+                    providerEngine.cancel()
+                    retrySnackbar?.dismiss()
                     JarvisConversationService.stopCurrentResponseImmediately()
                     selectedDocument?.savedPath?.let { path -> runCatching { java.io.File(path).delete() } }
                     JarvisApp.instance.chatRepository.clearHistory()
@@ -180,10 +190,16 @@ class ChatFragment : Fragment() {
         }
 
         observeChatTurns()
+        observeProviderEngine()
     }
 
     private fun showChatModePicker() {
-        val labels = arrayOf("Auto · choose available brain", "Gemini Live · online", "Offline Brain · on-device")
+        val active = providerManager.activeProfile()
+        val labels = arrayOf(
+            if (active != null) "Auto · ${active.displayName} (custom provider)" else "Auto · choose available brain",
+            "Gemini Live · online",
+            "Offline Brain · on-device"
+        )
         val values = arrayOf("auto", "gemini", "offline")
         val selected = values.indexOf(selectedChatMode).coerceAtLeast(0)
         MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
@@ -215,10 +231,160 @@ class ChatFragment : Fragment() {
             (chip.getChildAt(1) as android.widget.TextView).text = label
         }
         chip.contentDescription = "Chat engine: $label. Tap to change."
+        refreshProviderLabel()
+    }
+
+    /** Shows which provider and model will answer, so the user is never unsure which brain is in use. */
+    private fun refreshProviderLabel() {
+        if (_binding == null) return
+        val view = binding.tvProviderModel
+        val active = providerManager.activeProfile()
+        if (active == null) {
+            view.visibility = View.GONE
+            return
+        }
+        val model = active.chatModel?.id ?: "no model selected"
+        view.text = if (selectedChatMode != "offline") "Provider: ${active.displayName} · $model"
+        else "Offline Brain selected · custom provider ${active.displayName} is not used"
+        view.visibility = View.VISIBLE
+    }
+
+    private fun customProviderActive(): Boolean {
+        if (selectedChatMode == "offline" || providerManager.activeProfile() == null) return false
+        // The user may have routed normal chat to Gemini explicitly; then the built-in Gemini path answers.
+        val route = ProviderRuntime.routing(requireContext()).get(com.jarvis.assistant.provider.WorkCategory.CHAT)
+        return route?.isGemini != true
+    }
+
+    private fun sendViaProvider(text: String) {
+        val document = selectedDocument
+        if (document == null && text.isBlank()) return
+        if (providerEngine.isBusy) {
+            Toast.makeText(requireContext(), "JARVIS is still answering. Stop it first or wait for it to finish.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        binding.btnSendMessage.isEnabled = false
+        viewLifecycleOwner.lifecycleScope.launch {
+            var display = text
+            var sendText = text
+            var attachments = emptyList<com.jarvis.assistant.provider.ChatAttachment>()
+            var ref: AttachmentRef? = null
+            if (document != null) {
+                val prompt = text.ifBlank { "Analyze this file and explain what it contains. Highlight key points and any issues." }
+                val payload = try {
+                    DocumentAnalysisClient.prepareForProvider(requireContext(), document)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    if (_binding != null) {
+                        binding.btnSendMessage.isEnabled = true
+                        Toast.makeText(requireContext(), e.message ?: "Couldn't read this file.", Toast.LENGTH_LONG).show()
+                    }
+                    return@launch
+                }
+                if (payload.unsupportedReason != null) {
+                    if (_binding != null) {
+                        binding.btnSendMessage.isEnabled = true
+                        Toast.makeText(requireContext(), payload.unsupportedReason, Toast.LENGTH_LONG).show()
+                    }
+                    return@launch
+                }
+                display = "📎 ${document.name}\n$prompt"
+                sendText = buildString {
+                    append("File name: ").append(document.name).append('\n').append(prompt)
+                    if (payload.inlineText.isNotEmpty()) append("\n\n").append(payload.inlineText)
+                }
+                attachments = payload.attachments
+                ref = document.savedPath?.let { AttachmentRef(it, document.name, document.mimeType) }
+            }
+            if (_binding == null) return@launch
+            retrySnackbar?.dismiss()
+            when (val outcome = providerEngine.send(display, sendText, attachments, ref)) {
+                is SendOutcome.Started -> {
+                    binding.etMessageInput.text?.clear()
+                    if (document != null) {
+                        selectedDocument = null
+                        updateAttachmentPreview()
+                        binding.etMessageInput.hint = "Message JARVIS…"
+                    }
+                }
+                SendOutcome.NotActive -> {
+                    binding.btnSendMessage.isEnabled = true
+                    refreshProviderLabel()
+                    Toast.makeText(requireContext(), "No custom provider is active any more.", Toast.LENGTH_LONG).show()
+                }
+                is SendOutcome.Blocked -> {
+                    binding.btnSendMessage.isEnabled = true
+                    showBlocked(outcome.reason)
+                }
+                SendOutcome.Busy -> binding.btnSendMessage.isEnabled = false
+            }
+        }
+    }
+
+    private fun showBlocked(reason: String) {
+        MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+            .setTitle("This provider can't answer")
+            .setMessage(reason + "\n\nJARVIS will not switch to another provider on its own. Change the model in API Key & Model Settings, or pick another chat engine.")
+            .setPositiveButton("OK", null)
+            .setNeutralButton("Open settings") { _, _ ->
+                startActivity(Intent(requireContext(), com.jarvis.assistant.ui.settings.ApiConnectionActivity::class.java))
+            }
+            .show()
+    }
+
+    private fun observeProviderEngine() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    providerManager.state.collect { refreshProviderLabel() }
+                }
+                launch {
+                    // "Switched to API key X because Y hit its limit" - the conversation continues on the next key.
+                    providerEngine.keyNotices.collect { notice ->
+                        if (_binding != null) com.google.android.material.snackbar.Snackbar.make(binding.root, notice, com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show()
+                    }
+                }
+                providerEngine.state.collect { state ->
+                    if (_binding == null) return@collect
+                    when (state) {
+                        is EngineState.Streaming -> {
+                            binding.btnStopChat.visibility = View.VISIBLE
+                            binding.btnSendMessage.isEnabled = false
+                            binding.tvChatStatus.text = "● ANSWERING"
+                        }
+                        is EngineState.Failed -> {
+                            binding.btnStopChat.visibility = View.GONE
+                            binding.btnSendMessage.isEnabled = true
+                            binding.tvChatStatus.text = "● ERROR"
+                            retrySnackbar = com.google.android.material.snackbar.Snackbar
+                                .make(binding.root, state.error.message, com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE)
+                                .setAction("Retry") {
+                                    when (val o = providerEngine.retry(state.turnId)) {
+                                        is SendOutcome.Blocked -> showBlocked(o.reason)
+                                        SendOutcome.NotActive -> Toast.makeText(requireContext(), "No custom provider is active.", Toast.LENGTH_LONG).show()
+                                        else -> Unit
+                                    }
+                                }
+                            retrySnackbar?.show()
+                        }
+                        EngineState.Idle -> if (offlineGenerationJob == null && fileAnalysisJob == null) {
+                            binding.btnStopChat.visibility = View.GONE
+                            binding.btnSendMessage.isEnabled = true
+                            binding.tvChatStatus.text = "● READY"
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun sendMessage() {
         val text = binding.etMessageInput.text?.toString()?.trim().orEmpty()
+        if (customProviderActive()) {
+            sendViaProvider(text)
+            return
+        }
         val document = selectedDocument
         if (document != null) {
             val prompt = text.ifBlank { "Analyze this file and explain what it contains. Highlight key points and any issues." }
@@ -333,7 +499,7 @@ class ChatFragment : Fragment() {
                 viewModel.chatTurns.collect { turns ->
                     if (_binding != null) {
                         binding.layoutChatWelcome.visibility = if (turns.isEmpty()) View.VISIBLE else View.GONE
-                        val pending = turns.lastOrNull()?.jarvisResponse.isNullOrBlank()
+                        val pending = turns.lastOrNull()?.jarvisResponse.isNullOrBlank() || providerEngine.isBusy
                         if (!pending && offlineGenerationJob == null && fileAnalysisJob == null && selectedDocument == null) {
                             binding.btnStopChat.visibility = View.GONE
                             binding.btnSendMessage.isEnabled = true
@@ -354,7 +520,10 @@ class ChatFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        if (_binding != null) com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
+        if (_binding != null) {
+            com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
+            refreshProviderLabel()
+        }
     }
 
     override fun onHiddenChanged(hidden: Boolean) {
@@ -368,6 +537,7 @@ class ChatFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        retrySnackbar?.dismiss()
         chatAdapter.release()
         super.onDestroyView()
         _binding = null
