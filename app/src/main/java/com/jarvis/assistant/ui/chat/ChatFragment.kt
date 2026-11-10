@@ -236,8 +236,8 @@ class ChatFragment : Fragment() {
                 ChatComposerMenu.Action("Workspace", "Browse, preview, edit and export ChatBox files", "▤") {
                     startActivity(Intent(requireContext(), WorkspaceActivity::class.java))
                 },
-                ChatComposerMenu.Action("Terminal", "Run supported commands in the private workspace", ">_") {
-                    ChatTerminalDialog.show(requireContext())
+                ChatComposerMenu.Action("Coding Agent + Terminal", "Ask the coding agent to inspect, edit and run project commands", ">_") {
+                    ClozedCodingAgentDialog.show(requireContext())
                 },
                 ChatComposerMenu.Action("Website preview", "Start or stop the private local preview server", "↗") {
                     LocalServerDialog.show(requireContext())
@@ -265,7 +265,7 @@ class ChatFragment : Fragment() {
         }
 
         binding.btnChatTerminal.setOnClickListener {
-            ChatTerminalDialog.show(requireContext())
+            ClozedCodingAgentDialog.show(requireContext())
         }
         binding.btnChatServer.setOnClickListener {
             LocalServerDialog.show(requireContext())
