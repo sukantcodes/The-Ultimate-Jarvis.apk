@@ -170,8 +170,9 @@ class ChatFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        AgentToolApproval.confirmer = chatToolConfirmer
-        CodingAgentUiBridge.askQuestion = { question, options -> askCodingQuestion(question, options) }
+        AgentToolApproval.confirmer = CodingAgentPermissionBridge.confirmer
+        CodingAgentPermissionBridge.attach(chatToolConfirmer)
+        CodingAgentUiBridge.attachQuestion { question, options -> askCodingQuestion(question, options) }
         CodingAgentUiBridge.openProviderSettings = {
             if (isAdded) startActivity(Intent(requireContext(), com.jarvis.assistant.ui.settings.ApiConnectionActivity::class.java))
         }
@@ -984,8 +985,11 @@ class ChatFragment : Fragment() {
         chatStatusAnimator?.cancel()
         chatStatusAnimator = null
         retrySnackbar?.dismiss()
-        if (AgentToolApproval.confirmer === chatToolConfirmer) AgentToolApproval.confirmer = null
-        CodingAgentUiBridge.askQuestion = null
+        CodingAgentPermissionBridge.detach(chatToolConfirmer)
+        if (!ClozedCodingAgentService.isRunning() && AgentToolApproval.confirmer === CodingAgentPermissionBridge.confirmer) {
+            AgentToolApproval.confirmer = null
+        }
+        CodingAgentUiBridge.detachQuestion()
         CodingAgentUiBridge.openProviderSettings = null
         chatAdapter.release()
         super.onDestroyView()
