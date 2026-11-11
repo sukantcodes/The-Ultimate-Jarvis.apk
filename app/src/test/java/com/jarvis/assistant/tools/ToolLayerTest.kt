@@ -105,6 +105,17 @@ class ToolLayerTest {
         assertEquals(1, confirmer.asked.size)
     }
 
+    @Test fun allowing_a_task_covers_subsequent_non_destructive_actions_for_the_same_task() {
+        confirmer.answer = Decision.ALLOW_TASK
+        val taskId = "task-git-clone-42"
+        assertTrue(call("write_file", """{"path":"f1.txt","content":"1"}""", source = taskId).isOk)
+        assertEquals(1, confirmer.asked.size)
+        assertTrue(call("write_file", """{"path":"f2.txt","content":"2"}""", source = taskId).isOk)
+        assertEquals(1, confirmer.asked.size)
+        assertTrue(call("write_file", """{"path":"f3.txt","content":"3"}""", source = "other-task").isOk)
+        assertEquals(2, confirmer.asked.size)
+    }
+
     @Test fun a_switched_off_category_is_denied_without_asking() {
         policy.setMode(Risk.WRITE, Mode.DENY, group = "files")
         val r = call("write_file", """{"path":"q.txt","content":"x"}""")

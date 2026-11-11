@@ -1,8 +1,13 @@
 package com.jarvis.assistant.ui.chat
 
 import android.net.Uri
+import android.Manifest
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -10,6 +15,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.content.Context
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
@@ -18,6 +24,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.jarvis.assistant.JarvisApp
+import com.jarvis.assistant.R
 import com.jarvis.assistant.background.JarvisConversationService
 import com.jarvis.assistant.databinding.FragmentChatBinding
 import com.jarvis.assistant.ui.home.MainActivity
@@ -65,6 +72,17 @@ class ChatFragment : Fragment() {
     private val providerManager by lazy { ProviderRuntime.manager(requireContext()) }
     private val providerEngine by lazy { ProviderRuntime.chatEngine(requireContext()) }
     private var retrySnackbar: com.google.android.material.snackbar.Snackbar? = null
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var isVoiceListening: Boolean = false
+    private var totalUsedTokens: Int = 0
+
+    private val voicePermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            startVoiceRecognition()
+        } else {
+            Toast.makeText(requireContext(), "Microphone permission is required for voice input.", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     private val documentPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri == null || _binding == null) return@registerForActivityResult
@@ -183,6 +201,8 @@ class ChatFragment : Fragment() {
                     selectedDocument?.savedPath?.let { path -> runCatching { java.io.File(path).delete() } }
                     JarvisApp.instance.chatRepository.clearHistory()
                     selectedDocument = null
+                    totalUsedTokens = 0
+                    binding.tvChatTokens.text = "⚡ 0 TOKENS"
                     updateAttachmentPreview()
                     binding.etMessageInput.hint = "Message JARVIS…"
                 }
@@ -198,8 +218,28 @@ class ChatFragment : Fragment() {
             Toast.makeText(requireContext(), "Persona: Jarvis Active", Toast.LENGTH_SHORT).show()
         }
         binding.chipMode.onSafeClick { showChatModePicker() }
+        binding.tvChatTokens.onSafeClick {
+            AlertDialog.Builder(requireContext())
+                .setTitle("Live Token Usage")
+                .setMessage("Total conversation tokens: $totalUsedTokens\n\nThis calculates prompt and response tokens live across all messages in this chat session.")
+                .setPositiveButton("OK", null)
+                .show()
+        }
         binding.btnAttach.onSafeClick {
             documentPicker.launch(arrayOf("*/*"))
+        }
+        binding.btnVoiceInput.onSafeClick {
+            if (isVoiceListening) {
+                stopVoiceRecognitionAndSend()
+            } else {
+                checkVoicePermissionAndStart()
+            }
+        }
+        binding.btnVoiceStopAndSend.onSafeClick {
+            stopVoiceRecognitionAndSend()
+        }
+        binding.btnVoiceCancel.onSafeClick {
+            cancelVoiceRecognition()
         }
         binding.btnChatTools.onSafeClick {
             ChatboxTools.show(requireContext(), binding.etMessageInput, chatAdapter.currentList) { text ->
@@ -504,6 +544,7 @@ class ChatFragment : Fragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.chatTurns.collect { turns ->
                     if (_binding != null) {
+                        updateTokenUsage(turns)
                         binding.layoutChatWelcome.visibility = if (turns.isEmpty()) View.VISIBLE else View.GONE
                         val pending = turns.lastOrNull()?.jarvisResponse.isNullOrBlank() || providerEngine.isBusy
                         if (!pending && offlineGenerationJob == null && fileAnalysisJob == null && selectedDocument == null) {
@@ -550,7 +591,153 @@ class ChatFragment : Fragment() {
         }
     }
 
+    private fun estimateTokens(text: String?): Int {
+        if (text.isNullOrBlank()) return 0
+        val chars = text.length
+        val words = text.trim().split(Regex("\\s+")).size
+        return maxOf((words * 1.33f).toInt(), (chars / 3.8f).toInt()).coerceAtLeast(1)
+    }
+
+    private fun updateTokenUsage(turns: List<com.jarvis.assistant.data.model.ChatTurn>) {
+        if (_binding == null) return
+        var tokens = 0
+        for (turn in turns) {
+            tokens += estimateTokens(turn.userTranscript)
+            tokens += estimateTokens(turn.jarvisResponse)
+        }
+        totalUsedTokens = tokens
+        val display = if (tokens < 1000) {
+            "⚡ $tokens TOKENS"
+        } else {
+            "⚡ ${"%.1f".format(tokens / 1000.0)}K TOKENS"
+        }
+        binding.tvChatTokens.text = display
+    }
+
+    private fun checkVoicePermissionAndStart() {
+        val granted = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            startVoiceRecognition()
+        } else {
+            voicePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun startVoiceRecognition() {
+        if (_binding == null) return
+        if (!SpeechRecognizer.isRecognitionAvailable(requireContext())) {
+            Toast.makeText(requireContext(), "Speech recognition is not available on this device.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        try {
+            speechRecognizer?.destroy()
+            val recognizer = SpeechRecognizer.createSpeechRecognizer(requireContext())
+            recognizer.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) {
+                    if (_binding == null) return
+                    binding.tvVoiceTranscript.text = "Listening… speak now"
+                }
+
+                override fun onBeginningOfSpeech() = Unit
+
+                override fun onRmsChanged(rmsdB: Float) {
+                    if (_binding == null) return
+                    binding.voiceWaveView.updateRms(rmsdB)
+                }
+
+                override fun onBufferReceived(buffer: ByteArray?) = Unit
+                override fun onEndOfSpeech() {
+                    if (_binding == null) return
+                    binding.tvVoiceTranscript.text = "Processing speech…"
+                }
+
+                override fun onError(error: Int) {
+                    if (_binding == null) return
+                    hideVoiceListening()
+                    if (error != SpeechRecognizer.ERROR_NO_MATCH && error != SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                        val msg = when (error) {
+                            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission required."
+                            SpeechRecognizer.ERROR_NETWORK -> "Network issue with voice recognition."
+                            else -> "Could not recognize speech ($error)."
+                        }
+                        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+                    }
+                }
+
+                override fun onResults(results: Bundle?) {
+                    if (_binding == null) return
+                    hideVoiceListening()
+                    val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
+                    if (text.isNotBlank()) {
+                        binding.etMessageInput.setText(text)
+                        sendMessage()
+                    }
+                }
+
+                override fun onPartialResults(partialResults: Bundle?) {
+                    if (_binding == null) return
+                    val partial = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim()
+                    if (!partial.isNullOrBlank()) {
+                        binding.tvVoiceTranscript.text = partial
+                    }
+                }
+
+                override fun onEvent(eventType: Int, params: Bundle?) = Unit
+            })
+
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, requireContext().packageName)
+            }
+
+            recognizer.startListening(intent)
+            speechRecognizer = recognizer
+            isVoiceListening = true
+            binding.layoutVoiceListening.visibility = View.VISIBLE
+            binding.voiceWaveView.start()
+            binding.tvVoiceTranscript.text = "Listening… speak now"
+            binding.btnVoiceInput.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_cc_send)
+            binding.btnVoiceInput.setColorFilter(android.graphics.Color.WHITE)
+        } catch (e: Exception) {
+            hideVoiceListening()
+            Toast.makeText(requireContext(), "Could not start voice: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun stopVoiceRecognitionAndSend() {
+        try {
+            speechRecognizer?.stopListening()
+        } catch (_: Exception) {
+            hideVoiceListening()
+        }
+    }
+
+    private fun cancelVoiceRecognition() {
+        try {
+            speechRecognizer?.cancel()
+        } catch (_: Exception) {}
+        hideVoiceListening()
+    }
+
+    private fun hideVoiceListening() {
+        isVoiceListening = false
+        if (_binding != null) {
+            binding.layoutVoiceListening.visibility = View.GONE
+            binding.voiceWaveView.stop()
+            binding.btnVoiceInput.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_chat_attach_button)
+            binding.btnVoiceInput.clearColorFilter()
+        }
+    }
+
     override fun onDestroyView() {
+        try {
+            speechRecognizer?.destroy()
+        } catch (_: Exception) {}
+        speechRecognizer = null
+        isVoiceListening = false
         retrySnackbar?.dismiss()
         chatAdapter.release()
         super.onDestroyView()

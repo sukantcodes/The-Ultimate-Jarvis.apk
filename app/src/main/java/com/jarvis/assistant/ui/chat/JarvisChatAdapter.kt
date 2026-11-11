@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.jarvis.assistant.data.model.ChatTurn
 import com.jarvis.assistant.databinding.ItemNairaChatMessageBinding
+import com.jarvis.assistant.databinding.LayoutCodeArtifactCardBinding
 
 class JarvisChatAdapter(
     private val onEditUserMessage: ((String) -> Unit)? = null,
@@ -109,26 +110,80 @@ class JarvisChatAdapter(
          * indicator without touching user bubble, attachments, or triggering full view re-layouts.
          */
         fun bindResponseUpdate(turn: ChatTurn) {
-            val context = binding.root.context
             binding.layoutThinking.visibility = View.GONE
-            if (turn.jarvisResponse.isNotBlank()) {
-                binding.layoutAssistantContainer.visibility = View.VISIBLE
-                val rendered: CharSequence = try {
-                    MarkdownRenderer.render(turn.jarvisResponse, context.resources.displayMetrics.density)
-                } catch (_: Throwable) {
-                    turn.jarvisResponse
-                }
-                binding.tvAssistantMessage.text = rendered
-                binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", turn.jarvisResponse) }
-                binding.btnAssistantPlay.setOnClickListener {
-                    try { speak(context, turn.jarvisResponse) } catch (_: Exception) {
-                        Toast.makeText(context, "Couldn't read this aloud", Toast.LENGTH_SHORT).show()
+            renderAssistantContent(turn, isStreaming = true)
+        }
+
+        private fun renderAssistantContent(turn: ChatTurn, isStreaming: Boolean) {
+            val context = binding.root.context
+            if (turn.jarvisResponse.isBlank()) {
+                binding.layoutAssistantContainer.visibility = View.GONE
+                return
+            }
+            binding.layoutAssistantContainer.visibility = View.VISIBLE
+
+            val rawResponse = turn.jarvisResponse
+            if (rawResponse.contains("```")) {
+                val parsed = CodeBlockParser.parse(rawResponse, isActivelyStreaming = isStreaming)
+                val textBuilder = StringBuilder()
+                val codeBlocks = ArrayList<ParsedContent.Code>()
+
+                for (segment in parsed) {
+                    when (segment) {
+                        is ParsedContent.Text -> textBuilder.append(segment.text)
+                        is ParsedContent.Code -> codeBlocks.add(segment)
                     }
                 }
-                binding.btnAssistantSave.setOnClickListener { onSaveAssistantMessage?.invoke(turn.jarvisResponse) }
+
+                val rendered: CharSequence = try {
+                    val text = textBuilder.toString().trim()
+                    if (text.isNotEmpty()) MarkdownRenderer.render(text, context.resources.displayMetrics.density) else ""
+                } catch (_: Throwable) {
+                    textBuilder.toString()
+                }
+
+                if (rendered.isNotBlank()) {
+                    binding.tvAssistantMessage.text = rendered
+                    binding.tvAssistantMessage.visibility = View.VISIBLE
+                } else {
+                    binding.tvAssistantMessage.visibility = View.GONE
+                }
+
+                binding.layoutAssistantArtifacts.visibility = View.VISIBLE
+                val container = binding.layoutAssistantArtifacts
+                while (container.childCount > codeBlocks.size) {
+                    container.removeViewAt(container.childCount - 1)
+                }
+                for (i in codeBlocks.indices) {
+                    val block = codeBlocks[i]
+                    val cardBinding = if (i < container.childCount) {
+                        LayoutCodeArtifactCardBinding.bind(container.getChildAt(i))
+                    } else {
+                        val card = LayoutCodeArtifactCardBinding.inflate(LayoutInflater.from(context), container, false)
+                        container.addView(card.root)
+                        card
+                    }
+                    CodeArtifactCardBinder.bind(cardBinding, block.language, block.code, block.isWriting)
+                }
             } else {
-                binding.layoutAssistantContainer.visibility = View.GONE
+                binding.layoutAssistantArtifacts.visibility = View.GONE
+                binding.layoutAssistantArtifacts.removeAllViews()
+                binding.tvAssistantMessage.visibility = View.VISIBLE
+                val rendered: CharSequence = try {
+                    MarkdownRenderer.render(rawResponse, context.resources.displayMetrics.density)
+                } catch (_: Throwable) {
+                    rawResponse
+                }
+                binding.tvAssistantMessage.text = rendered
             }
+
+            binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", rawResponse) }
+            binding.btnAssistantPlay.setOnClickListener {
+                try { speak(context, rawResponse) } catch (_: Exception) {
+                    Toast.makeText(context, "Couldn't read this aloud", Toast.LENGTH_SHORT).show()
+                }
+            }
+            binding.btnAssistantSave.setOnClickListener { onSaveAssistantMessage?.invoke(rawResponse) }
         }
 
         fun bind(turn: ChatTurn) {
@@ -158,24 +213,7 @@ class JarvisChatAdapter(
                 binding.layoutUserContainer.visibility = View.GONE
             }
 
-            if (turn.jarvisResponse.isNotBlank()) {
-                binding.layoutAssistantContainer.visibility = View.VISIBLE
-                val rendered: CharSequence = try {
-                    MarkdownRenderer.render(turn.jarvisResponse, context.resources.displayMetrics.density)
-                } catch (_: Throwable) {
-                    turn.jarvisResponse
-                }
-                binding.tvAssistantMessage.text = rendered
-                binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", turn.jarvisResponse) }
-                binding.btnAssistantPlay.setOnClickListener {
-                    try { speak(context, turn.jarvisResponse) } catch (_: Exception) {
-                        Toast.makeText(context, "Couldn't read this aloud", Toast.LENGTH_SHORT).show()
-                    }
-                }
-                binding.btnAssistantSave.setOnClickListener { onSaveAssistantMessage?.invoke(turn.jarvisResponse) }
-            } else {
-                binding.layoutAssistantContainer.visibility = View.GONE
-            }
+            renderAssistantContent(turn, isStreaming = false)
         }
 
         private fun copyToClipboard(context: Context, label: String, text: String) {

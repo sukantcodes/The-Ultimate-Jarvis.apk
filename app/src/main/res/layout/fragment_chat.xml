@@ -75,6 +75,24 @@
         </LinearLayout>
 
         <TextView
+            android:id="@+id/tvChatTokens"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/bg_chat_token_badge"
+            android:text="⚡ 0 TOKENS"
+            android:textColor="#E1F5FE"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.05"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="Live used tokens in this conversation" />
+
+        <TextView
             android:id="@+id/tvChatStatus"
             android:layout_width="wrap_content"
             android:layout_height="30dp"
@@ -300,6 +318,61 @@
                 android:contentDescription="Remove attachment" />
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/layoutVoiceListening"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_voice_listening_bar"
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:layout_marginTop="8dp"
+            android:visibility="gone">
+
+            <com.jarvis.assistant.ui.chat.VoiceWaveView
+                android:id="@+id/voiceWaveView"
+                android:layout_width="38dp"
+                android:layout_height="24dp"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:id="@+id/tvVoiceTranscript"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Listening… speak now"
+                android:textColor="#E1F5FE"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="2"
+                android:ellipsize="end" />
+
+            <ImageButton
+                android:id="@+id/btnVoiceStopAndSend"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="@drawable/bg_cc_send"
+                android:src="@drawable/ic_cc_arrow_up"
+                app:tint="#FFFFFF"
+                android:padding="6dp"
+                android:layout_marginStart="8dp"
+                android:contentDescription="Finish and send voice message" />
+
+            <ImageButton
+                android:id="@+id/btnVoiceCancel"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="@drawable/bg_chat_header_icon"
+                android:src="@drawable/ic_close"
+                app:tint="?attr/themeTextSecondary"
+                android:padding="6dp"
+                android:layout_marginStart="6dp"
+                android:contentDescription="Cancel voice recording" />
+        </LinearLayout>
+
         <EditText
             android:id="@+id/etMessageInput"
             android:layout_width="match_parent"
@@ -407,6 +480,17 @@
                 app:tint="?attr/themeTextSecondary"
                 android:layout_marginEnd="6dp"
                 android:contentDescription="Attach a file" />
+
+            <ImageButton
+                android:id="@+id/btnVoiceInput"
+                android:layout_width="48dp"
+        android:padding="6dp"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_chat_attach_button"
+                android:src="@drawable/ic_mic_jarvis"
+                app:tint="?attr/themeTextSecondary"
+                android:layout_marginEnd="6dp"
+                android:contentDescription="Voice to text input" />
 
             <ImageButton
                 android:id="@+id/btnSendMessage"
