@@ -29,6 +29,23 @@ class WorkspaceActivity : AppCompatActivity() {
     private lateinit var panel: LinearLayout
     private lateinit var output: TextView
     private var counter = 0
+    private var exportFile: java.io.File? = null
+    private val exportLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("*/*")) { uri: android.net.Uri? ->
+        val f = exportFile ?: return@registerForActivityResult
+        if (uri == null) return@registerForActivityResult
+        lifecycleScope.launch {
+            val msg = withContext(Dispatchers.IO) {
+                runCatching { contentResolver.openOutputStream(uri)!!.use { o -> f.inputStream().use { it.copyTo(o) } }; "Saved ${f.name} (${f.length()} bytes)." }.getOrElse { "Could not save: ${it.message}" }
+            }
+            output.text = msg
+        }
+    }
+
+    private fun export(path: String) {
+        val f = runCatching { rt.workspace.resolve(path) }.getOrNull()
+        if (f == null || !f.isFile) { output.text = "Not a file in the workspace: $path"; return }
+        exportFile = f; exportLauncher.launch(f.name)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeManager.applyTheme(this)
@@ -66,7 +83,7 @@ class WorkspaceActivity : AppCompatActivity() {
     private fun files(p: LinearLayout) {
         val path = field(p, "Path in the workspace", ".")
         buttons(p, "List" to { call("list_files", "path" to path.text.toString().ifBlank { "." }) }, "Read" to { call("read_file", "path" to path.text.toString(), "max_chars" to 20000) },
-            "Delete" to { call("delete_path", "path" to path.text.toString()) }, "New folder" to { call("make_directory", "path" to path.text.toString()) })
+            "Delete" to { call("delete_path", "path" to path.text.toString()) }, "Save to device" to { export(path.text.toString()) }, "New folder" to { call("make_directory", "path" to path.text.toString()) })
         val q = field(p, "Search text in files")
         buttons(p, "Search" to { call("search_files", "query" to q.text.toString()) })
         call("list_files", "path" to ".")
