@@ -218,9 +218,26 @@ class ProviderChatEngine(
                         } else {
                             var toolRounds = 0
                             while (true) {
-                                val completion = client.complete(
-                                ChatRequest(active, systemPrompt(), messages, tools = availableTools)
-                            )
+                                val request = ChatRequest(active, systemPrompt(), messages, tools = availableTools)
+                                val completion = try {
+                                    client.complete(request)
+                                } catch (error: ProviderException) {
+                                    // Some OpenAI-compatible gateways accept chat completions but reject function
+                                    // declarations (or return an unusable tool envelope). Retry this same turn once
+                                    // as ordinary text chat so tool support cannot make the provider appear silent.
+                                    if (availableTools.isEmpty() || error.error.kind !in setOf(
+                                            ProviderErrorKind.BAD_REQUEST,
+                                            ProviderErrorKind.UNSUPPORTED_FEATURE,
+                                            ProviderErrorKind.INVALID_RESPONSE
+                                        )
+                                    ) throw error
+                                    Log.w(
+                                        "ProviderChatEngine",
+                                        "Provider rejected or could not decode the tool-enabled request; retrying without tools (provider=${provider.label}, kind=${error.error.kind})"
+                                    )
+                                    _toolActivity.tryEmit("Provider tool format unavailable; retrying as normal chat…")
+                                    client.complete(ChatRequest(active, systemPrompt(), messages))
+                                }
                             if (completion.toolCalls.isEmpty()) {
                                 partial.append(completion.text)
                                 val now = System.nanoTime() / 1_000_000L
