@@ -55,6 +55,19 @@ enum class WorkActionType(
         doneBadgeText = { target -> if (target.isNotBlank()) "✓ Completed $target" else "✓ Code ready" }
     );
 
+    fun getDynamicColor(): Int {
+        return try {
+            when (this) {
+                FILE_CREATE, CODE_SYNTHESIS, FILE_READ -> com.jarvis.assistant.util.ThemeManager.getThemeAccentColor()
+                TERMINAL -> com.jarvis.assistant.util.ThemeManager.getThemeSecondaryColor()
+                FILE_EDIT -> com.jarvis.assistant.util.ThemeManager.getThemeWarningColor()
+                WEB_SEARCH -> com.jarvis.assistant.util.ThemeManager.getThemeSuccessColor()
+            }
+        } catch (_: Exception) {
+            activeColor
+        }
+    }
+
     companion object {
         fun resolve(language: String, targetName: String = "", toolName: String = ""): WorkActionType {
             val tool = toolName.lowercase().trim()

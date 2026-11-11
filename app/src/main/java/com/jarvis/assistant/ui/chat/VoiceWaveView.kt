@@ -25,7 +25,6 @@ class VoiceWaveView @JvmOverloads constructor(
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = Color.parseColor("#00E5FF")
     }
 
     private var rmsLevel: Float = 0f
@@ -91,12 +90,15 @@ class VoiceWaveView @JvmOverloads constructor(
         val minHeight = 4f * density
         val maxHeight = h * 0.85f
 
+        val primary = try { com.jarvis.assistant.util.ThemeManager.getThemeAccentColor() } catch (_: Exception) { Color.parseColor("#00E5FF") }
+        val secondary = try { com.jarvis.assistant.util.ThemeManager.getThemeSecondaryColor() } catch (_: Exception) { Color.parseColor("#7C4DFF") }
+
         val colors = intArrayOf(
-            Color.parseColor("#00E5FF"),
-            Color.parseColor("#29B6F6"),
-            Color.parseColor("#448AFF"),
-            Color.parseColor("#2979FF"),
-            Color.parseColor("#00E5FF")
+            primary,
+            androidx.core.graphics.ColorUtils.blendARGB(primary, secondary, 0.25f),
+            secondary,
+            androidx.core.graphics.ColorUtils.blendARGB(primary, secondary, 0.75f),
+            primary
         )
 
         for (i in 0 until barCount) {

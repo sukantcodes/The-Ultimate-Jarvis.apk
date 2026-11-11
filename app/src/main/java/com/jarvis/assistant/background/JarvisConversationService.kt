@@ -4648,7 +4648,11 @@ class JarvisConversationService : Service() {
             currentTurnWakeAuthorized = true
             pendingAuthorizedVoiceUserText = commandText
             pendingAuthorizedVoicePrompt = authorizedPrompt
-            dispatchPendingAuthorizedVoiceCommand()
+            if (AutonomousBackgroundExecutor.isActionableTask(commandText)) {
+                AutonomousBackgroundExecutor.execute(applicationContext, commandText)
+            } else {
+                dispatchPendingAuthorizedVoiceCommand()
+            }
         }
     }
 
@@ -4781,8 +4785,16 @@ class JarvisConversationService : Service() {
      */
     private fun dispatchPendingAuthorizedVoiceCommand() {
         if (!_isSessionOn.value || offlineLocalMode) return
-        val session = liveWebSocket ?: return
-        if (!session.isSessionReady()) return
+        val session = liveWebSocket
+        if (session == null || !session.isSessionReady()) {
+            val userText = pendingAuthorizedVoiceUserText ?: pendingAuthorizedVoicePrompt
+            if (!userText.isNullOrBlank() && AutonomousBackgroundExecutor.isActionableTask(userText)) {
+                pendingAuthorizedVoicePrompt = null
+                pendingAuthorizedVoiceUserText = null
+                AutonomousBackgroundExecutor.execute(applicationContext, userText)
+            }
+            return
+        }
         val prompt = pendingAuthorizedVoicePrompt ?: return
         val userText = pendingAuthorizedVoiceUserText ?: prompt
 

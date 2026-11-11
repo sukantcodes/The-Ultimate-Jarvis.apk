@@ -91,6 +91,42 @@
   - **PDF (.pdf):** Standard vector PDF with titles, metadata, styled speech cards, and line-numbered code layouts via `PdfDocument`.
 - **Integrated Menus:** Accessible from `ChatboxTools.kt` with dedicated file creation launchers.
 
+### 1.12 Zero-Latency Dual-Engine Voice System & Concise Spoken Summaries
+- **Instant Pre-Warmed Engine:** `JarvisVoiceController.kt` pre-warms TextToSpeech on launch, eliminating the previous 2-second initialization delay.
+- **Intelligent Dual-Engine Routing:**
+  - When Gemini / voice model is configured -> Routes spoken summaries through the authentic Gemini Live Jarvis voice (`JarvisConversationService.announceMessage`).
+  - When only a custom model is configured -> Uses high-performance on-device TTS with refined assistant pitch (0.96) and snappy cadence (1.05).
+- **Strict Single-Utterance Deduplication:** Tracks turn IDs globally to permanently eliminate double-speaking and repetitive echo bugs.
+- **Concise Executive Summaries:** `SpokenSummaryGenerator.kt` strips fences, HTML tags, and raw logs, explaining actions in 1-2 crisp sentences (under 30 words) rather than reading massive 500-word responses or code.
+
+### 1.13 Multi-Model Simultaneous Orchestration & Connected Keys
+- **Unified Coordinator:** `MultiModelCoordinator.kt` bridges all configured keys simultaneously (Gemini key + Custom Provider profiles).
+- **Synergistic Work Distribution:**
+  - Heavy coding, terminal tools, and file generation run on the active coding provider (Custom Model or Gemini).
+  - Multimodal vision/images and authentic Jarvis voice synthesis route to Gemini.
+- **Cross-Model Failover:** Automatically handles rate limits or socket disconnects without dropping the user's ongoing work.
+- **Shared Memory & Workspace:** All models operate on the identical workspace filesystem and tool runtime.
+
+### 1.14 Hands-Free Autonomous Background Execution & Instant Error Recovery
+- **"Hey Jarvis" Background Wake:** Detects wake commands from standby (e.g. "Hey Jarvis, create a website and run it in local server") without opening the app.
+- **Autonomous Execution Engine:** `AutonomousBackgroundExecutor.kt` triggers tool loops in the background, automatically applies Auto-Approve Permissions, creates files, and launches local web servers.
+- **Live Progress Announcements:** Speaks milestone updates ("Created project files, 35% complete, about 10 seconds remaining", "Configuring server, 70% complete", "Task completed").
+- **Instant Error Resume:** If an execution step encounters an error (such as an occupied port or missing folder), it immediately adapts and retries from the exact line without restarting or re-writing existing files.
+
+### 1.15 Full Dynamic App Theme Palette Integration
+- **Zero Static Locking:** Completely eradicated hardcoded `#00E5FF` cyan and `#7C4DFF` purple locks.
+- **Harmonized Color System:** Extended `ThemeManager.kt` with `getThemeSecondaryColor()`, `getThemeSuccessColor()`, `getThemeWarningColor()`, and `isCurrentThemeLight()`.
+- **Dynamic Adaptations:**
+  - `VoiceWaveView.kt` generates smooth multi-color gradients directly from active theme accents.
+  - `WorkIconAnimator.kt` and `WorkActionType.kt` dynamically resolve work colors matching the theme.
+  - Mini-terminal window tag, "Writing code..." badge, code artifact borders, and `TokenSettingsBottomSheet` all dynamically follow the user's selected theme color (Dark, Red, Sunset, or Custom).
+  - Tri-color progress bar maps smoothly across Primary Theme Accent, Secondary Theme Accent, and Success Emerald.
+
+### 1.16 Monotonic Cumulative Chat Token Tracker
+- **Session-Wide Accumulation:** Replaced single-turn resetting with a monotonic cumulative counter (`cumulativeChatTokens`) in `AppPreferences.kt`.
+- **No Resets on New Input:** Typing or sending new prompts never resets the header token counter to 0; it displays the grand total tokens consumed throughout the entire chat session.
+- **Clean Reset Lifecycle:** Resets strictly when the user confirms a "New Chat" in the chat menu.
+
 ---
 
 ## 2. Future Implementation Roadmap (13 Features)
