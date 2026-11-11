@@ -46,9 +46,11 @@ class ToolExecutor(
         val summary = try { tool.describe(call.args) } catch (e: Exception) { spec.description }
         val destructive = try { tool.isDestructive(call.args, ctx) } catch (e: Exception) { true }
         val effectiveRisk = if (destructive) Risk.DESTRUCTIVE else spec.risk
-        val mode = policy.modeFor(effectiveRisk, spec.group)
+        val autoApprove = policy.isAutoApproveAll()
+        val mode = if (autoApprove) Mode.ALLOW else policy.modeFor(effectiveRisk, spec.group)
 
         val decision: String = when {
+            autoApprove -> "allowed (auto-approved all)"
             mode == Mode.DENY -> return deny(call, effectiveRisk, summary, "This kind of action is switched off in Permissions.")
             mode == Mode.ASK && !(
                 (policy.hasSessionGrant(spec.name) || policy.hasTaskGrant(call.source)) && !destructive

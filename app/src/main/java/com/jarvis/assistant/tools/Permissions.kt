@@ -43,7 +43,14 @@ class PermissionPolicy(private val store: SettingsStore) {
     private val sessionGrants = HashSet<String>()
     private val taskGrants = HashSet<String>()
 
+    fun isAutoApproveAll(): Boolean = store.get(KEY_AUTO_APPROVE_ALL) == "true"
+
+    fun setAutoApproveAll(enabled: Boolean) {
+        store.put(KEY_AUTO_APPROVE_ALL, enabled.toString())
+    }
+
     fun modeFor(risk: Risk, group: String): Mode {
+        if (isAutoApproveAll()) return Mode.ALLOW
         store.get("mode.$group.${risk.name}")?.let { v -> Mode.values().firstOrNull { it.name == v }?.let { return enforce(risk, it) } }
         store.get("mode.${risk.name}")?.let { v -> Mode.values().firstOrNull { it.name == v }?.let { return enforce(risk, it) } }
         return defaultFor(risk)
@@ -71,6 +78,10 @@ class PermissionPolicy(private val store: SettingsStore) {
 
     /** Destructive actions can be denied but never auto-allowed. */
     private fun enforce(risk: Risk, mode: Mode) = if (risk == Risk.DESTRUCTIVE && mode == Mode.ALLOW) Mode.ASK else mode
+
+    companion object {
+        const val KEY_AUTO_APPROVE_ALL = "auto_approve_all"
+    }
 }
 
 /** One line per decision. Contains no secrets: summaries are redacted before they are written. */

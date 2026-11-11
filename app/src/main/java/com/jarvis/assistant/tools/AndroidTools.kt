@@ -51,6 +51,7 @@ object ApprovalNotifier {
     fun resolve(id: Int, decision: Decision) { pending.remove(id)?.complete(decision) }
 
     suspend fun ask(context: Context, request: ConfirmRequest, timeoutMs: Long): Decision {
+        if (PermissionPreferences.isAutoApproveAll(context)) return Decision.ALLOW_TASK
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (!nm.areNotificationsEnabled()) return Decision.DENY
         if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(CHANNEL) == null)

@@ -105,6 +105,28 @@ class ToolLayerTest {
         assertEquals(1, confirmer.asked.size)
     }
 
+    @Test fun auto_approve_all_bypasses_all_prompts_including_destructive_actions() {
+        policy.setAutoApproveAll(true)
+        assertTrue(policy.isAutoApproveAll())
+        File(dir, "del.txt").writeText("delete me")
+        val r = call("delete_path", """{"path":"del.txt"}""")
+        assertTrue(r.isOk)
+        assertFalse(File(dir, "del.txt").exists())
+        assertEquals(0, confirmer.asked.size)
+
+        val r2 = call("write_file", """{"path":"auto.txt","content":"approved"}""")
+        assertTrue(r2.isOk)
+        assertEquals("approved", File(dir, "auto.txt").readText())
+        assertEquals(0, confirmer.asked.size)
+
+        // Turn it off and verify confirmation is asked again
+        policy.setAutoApproveAll(false)
+        assertFalse(policy.isAutoApproveAll())
+        val r3 = call("write_file", """{"path":"manual.txt","content":"prompt"}""")
+        assertTrue(r3.isOk)
+        assertEquals(1, confirmer.asked.size)
+    }
+
     @Test fun allowing_a_task_covers_subsequent_non_destructive_actions_for_the_same_task() {
         confirmer.answer = Decision.ALLOW_TASK
         val taskId = "task-git-clone-42"

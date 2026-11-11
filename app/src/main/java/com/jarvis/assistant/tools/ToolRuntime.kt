@@ -128,6 +128,10 @@ object AndroidConfirmer : Confirmer {
     fun detach(activity: Activity) { if (host?.get() === activity) host = null }
 
     override suspend fun confirm(request: ConfirmRequest): Decision {
+        val app = appContext
+        if (app != null && PermissionPreferences.isAutoApproveAll(app)) {
+            return Decision.ALLOW_TASK
+        }
         val activity = host?.get()?.takeIf { !it.isFinishing && !it.isDestroyed }
             ?: return appContext?.let { ApprovalNotifier.ask(it, request, 120_000L) } ?: Decision.DENY   // not on screen: ask through a notification
         val answer = CompletableDeferred<Decision>()

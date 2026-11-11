@@ -151,8 +151,18 @@ object ChatboxTools {
                 }.setNegativeButton("Cancel",null).show()
             }
         )
-        val groups=linkedMapOf("Writing & AI prompts (30)" to writing,"Text formatting (15)" to formatting,"Composer & drafts (12)" to composer,"Conversation tools (10)" to conversation)
-        AlertDialog.Builder(context).setTitle("JARVIS Chatbox · 67 tools").setItems(groups.keys.toTypedArray()){_,index->
+        val settings=listOf(
+            Action("⚡ Chatbox Settings & Auto-Approve Permissions"){
+                TokenSettingsBottomSheet.show(context)
+            },
+            Action("🛡️ Toggle Auto-Approve Permissions (Instant)"){
+                val current = com.jarvis.assistant.tools.PermissionPreferences.isAutoApproveAll(context)
+                com.jarvis.assistant.tools.PermissionPreferences.setAutoApproveAll(context, !current)
+                toast(if (!current) "⚡ Auto-Approve Enabled: All permissions auto-approved" else "Auto-Approve Disabled: Safety prompts enabled")
+            }
+        )
+        val groups=linkedMapOf("Agent & Permissions (2)" to settings,"Writing & AI prompts (30)" to writing,"Text formatting (15)" to formatting,"Composer & drafts (12)" to composer,"Conversation tools (10)" to conversation)
+        AlertDialog.Builder(context).setTitle("JARVIS Chatbox · 69 tools").setItems(groups.keys.toTypedArray()){_,index->
             val title=groups.keys.elementAt(index);val actions=groups.values.elementAt(index)
             AlertDialog.Builder(context).setTitle(title).setItems(actions.map{it.title}.toTypedArray()){_,i->
                 runCatching{actions[i].run()}.onFailure{toast("Tool failed: ${it.message ?: "unknown error"}")}

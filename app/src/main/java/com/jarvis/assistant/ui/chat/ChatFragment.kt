@@ -160,6 +160,7 @@ class ChatFragment : Fragment() {
 
         selectedChatMode = chatModePrefs.getString("chat_mode", "auto") ?: "auto"
         refreshChatModeLabel()
+        updateAutoApproveHeaderStatus()
         binding.btnSendMessage.onSafeClick { sendMessage() }
         binding.etMessageInput.setOnEditorActionListener { _, actionId, event ->
             val enterPressed = event?.keyCode == android.view.KeyEvent.KEYCODE_ENTER && event?.action == android.view.KeyEvent.ACTION_DOWN
@@ -222,6 +223,7 @@ class ChatFragment : Fragment() {
         binding.tvChatTokens.onSafeClick {
             TokenSettingsBottomSheet.show(requireContext(), totalUsedTokens) { _ ->
                 updateTokenUsage(chatAdapter.currentList)
+                updateAutoApproveHeaderStatus()
             }
         }
         binding.btnAttach.onSafeClick {
@@ -577,6 +579,20 @@ class ChatFragment : Fragment() {
         if (_binding != null) {
             com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
             refreshProviderLabel()
+            updateAutoApproveHeaderStatus()
+        }
+    }
+
+    private fun updateAutoApproveHeaderStatus() {
+        if (_binding == null) return
+        val context = context ?: return
+        val auto = com.jarvis.assistant.tools.PermissionPreferences.isAutoApproveAll(context)
+        if (auto) {
+            binding.tvChatSubtitle.text = "Autonomous Workspace · ⚡ Auto-Approve Active"
+            binding.tvChatSubtitle.setTextColor(android.graphics.Color.parseColor("#80D8FF"))
+        } else {
+            binding.tvChatSubtitle.text = "Your intelligent workspace · Ready"
+            binding.tvChatSubtitle.setTextColor(android.graphics.Color.parseColor("#DDEBFF"))
         }
     }
 
