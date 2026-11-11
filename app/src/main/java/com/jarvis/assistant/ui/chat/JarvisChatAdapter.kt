@@ -20,7 +20,8 @@ import com.jarvis.assistant.databinding.LayoutCodeArtifactCardBinding
 class JarvisChatAdapter(
     private val onEditUserMessage: ((String) -> Unit)? = null,
     private val onSaveAssistantMessage: ((String) -> Unit)? = null,
-    private val onOpenAttachment: ((String, String, String) -> Unit)? = null
+    private val onOpenAttachment: ((String, String, String) -> Unit)? = null,
+    var onSpeakingStateChanged: ((Boolean) -> Unit)? = null
 ) : ListAdapter<ChatTurn, JarvisChatAdapter.MessageViewHolder>(DiffCallback) {
 
     private var speechEngine: TextToSpeech? = null
@@ -29,42 +30,88 @@ class JarvisChatAdapter(
     private var pendingSpeech = ""
 
     fun release() {
-        speechEngine?.stop()
+        stopSpeaking()
         speechEngine?.shutdown()
         speechEngine = null
         speechReady = false
-        speaking = false
         pendingSpeech = ""
     }
 
-    private fun speak(context: Context, text: String) {
-        if (speaking) { speechEngine?.stop(); speaking = false; return }
+    fun isSpeaking(): Boolean = speaking
+
+    fun stopSpeaking() {
+        if (speaking) {
+            speechEngine?.stop()
+            speaking = false
+            onSpeakingStateChanged?.invoke(false)
+        }
+    }
+
+    fun speakResponse(context: Context, text: String, autoTriggered: Boolean = false) {
+        val cleanedText = if (autoTriggered) {
+            val stripped = text
+                .replace(Regex("```[\\s\\S]*?```"), " I have written the code in the artifact window. ")
+                .replace(Regex("`+([^`]+)`+"), "$1")
+                .replace(Regex("[#*_~>]+"), "")
+                .trim()
+            if (stripped.isBlank()) "I have completed your task and prepared the files." else stripped
+        } else {
+            text
+        }
+
+        if (speaking) {
+            stopSpeaking()
+            return
+        }
+
         if (speechEngine == null) {
-            pendingSpeech = text
+            pendingSpeech = cleanedText
             speechEngine = TextToSpeech(context.applicationContext) { status ->
                 if (status == TextToSpeech.SUCCESS) {
                     speechReady = true
                     val engine = speechEngine
                     if (engine != null) {
                         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                            override fun onStart(utteranceId: String?) { speaking = true }
-                            override fun onDone(utteranceId: String?) { speaking = false }
-                            override fun onError(utteranceId: String?) { speaking = false }
+                            override fun onStart(utteranceId: String?) {
+                                speaking = true
+                                onSpeakingStateChanged?.invoke(true)
+                            }
+                            override fun onDone(utteranceId: String?) {
+                                speaking = false
+                                onSpeakingStateChanged?.invoke(false)
+                            }
+                            override fun onError(utteranceId: String?) {
+                                speaking = false
+                                onSpeakingStateChanged?.invoke(false)
+                            }
                         })
                         val languageResult = engine.setLanguage(Locale.getDefault())
-                        if (languageResult == TextToSpeech.LANG_MISSING_DATA || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) engine.setLanguage(Locale.US)
+                        if (languageResult == TextToSpeech.LANG_MISSING_DATA || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                            engine.setLanguage(Locale.US)
+                        }
                         val queued = pendingSpeech
                         pendingSpeech = ""
                         if (queued.isNotBlank()) speakNow(queued)
                     }
-                } else Toast.makeText(context, "Text-to-speech is unavailable on this device.", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Text-to-speech is unavailable on this device.", Toast.LENGTH_SHORT).show()
+                }
             }
-        } else if (speechReady) speakNow(text) else pendingSpeech = text
+        } else if (speechReady) {
+            speakNow(cleanedText)
+        } else {
+            pendingSpeech = cleanedText
+        }
+    }
+
+    private fun speak(context: Context, text: String) {
+        speakResponse(context, text, autoTriggered = false)
     }
 
     private fun speakNow(text: String) {
         speechEngine?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis-chat-response")
         speaking = true
+        onSpeakingStateChanged?.invoke(true)
     }
 
     companion object DiffCallback : DiffUtil.ItemCallback<ChatTurn>() {

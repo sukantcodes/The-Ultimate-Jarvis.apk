@@ -77,7 +77,72 @@
             android:contentDescription="Close viewer" />
     </LinearLayout>
 
+    <!-- Theme Selector Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="10dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="THEME:"
+            android:textColor="#90A4AE"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:id="@+id/chipThemeCyber"
+            android:layout_width="wrap_content"
+            android:layout_height="26dp"
+            android:gravity="center"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/bg_auto_approve_badge_active"
+            android:text="Cyber Dark+"
+            android:textColor="#00E5FF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/chipThemeDracula"
+            android:layout_width="wrap_content"
+            android:layout_height="26dp"
+            android:gravity="center"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/bg_auto_approve_badge_inactive"
+            android:text="Dracula"
+            android:textColor="#90A4AE"
+            android:textSize="11sp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/chipThemeMonokai"
+            android:layout_width="wrap_content"
+            android:layout_height="26dp"
+            android:gravity="center"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:background="@drawable/bg_auto_approve_badge_inactive"
+            android:text="Monokai Neon"
+            android:textColor="#90A4AE"
+            android:textSize="11sp"
+            android:clickable="true"
+            android:focusable="true" />
+    </LinearLayout>
+
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollCodeContainer"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"

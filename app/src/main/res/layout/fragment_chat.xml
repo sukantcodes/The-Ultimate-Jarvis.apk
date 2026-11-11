@@ -125,6 +125,17 @@
             android:focusable="true"
             android:contentDescription="Live used tokens in this conversation" />
 
+        <ImageButton
+            android:id="@+id/btnVoiceSpeaker"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:padding="6dp"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/bg_chat_token_badge"
+            android:src="@drawable/ic_cc_volume"
+            app:tint="#00E5FF"
+            android:contentDescription="Auto voice reply toggle" />
+
         <TextView
             android:id="@+id/tvChatStatus"
             android:layout_width="wrap_content"
@@ -502,6 +513,17 @@
                 android:layout_marginEnd="6dp"
                 android:visibility="gone"
                 android:contentDescription="Stop JARVIS response" />
+
+            <ImageButton
+                android:id="@+id/btnCamera"
+                android:layout_width="48dp"
+                android:padding="12dp"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_chat_attach_button"
+                android:src="@drawable/ic_chat_camera"
+                app:tint="?attr/themeTextSecondary"
+                android:layout_marginEnd="6dp"
+                android:contentDescription="Take a photo with camera" />
 
             <ImageButton
                 android:id="@+id/btnAttach"

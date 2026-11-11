@@ -65,29 +65,58 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
                 if (times > 2) { out += c to "Error: this exact call was already made $times times with the same arguments. Do not repeat it; answer with what you have or try something different."; continue }
 
                 val target = when (c.name) {
-                    "write_file", "read_file", "delete_path" -> c.args.get("path")?.takeIf { it.isJsonPrimitive }?.asString ?: "file"
+                    "write_file", "read_file", "edit_file", "delete_path" -> c.args.get("path")?.takeIf { it.isJsonPrimitive }?.asString ?: "file"
                     "terminal_run" -> c.args.get("command")?.takeIf { it.isJsonPrimitive }?.asString ?: "terminal"
                     "make_directory" -> c.args.get("path")?.takeIf { it.isJsonPrimitive }?.asString ?: "folder"
+                    "search_web", "web_search" -> c.args.get("query")?.takeIf { it.isJsonPrimitive }?.asString ?: "web search"
                     else -> c.name
                 }
                 val content = when (c.name) {
                     "write_file" -> c.args.get("content")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+                    "edit_file" -> c.args.get("replacement")?.takeIf { it.isJsonPrimitive }?.asString ?: c.args.get("content")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
                     "terminal_run" -> "$ $target"
+                    "search_web", "web_search" -> "Searching: $target…"
+                    "read_file" -> "Reading $target…"
                     else -> ""
                 }
                 val lang = when (c.name) {
                     "terminal_run" -> "terminal"
+                    "search_web", "web_search" -> "search"
+                    "read_file" -> "read"
+                    "edit_file" -> "edit"
                     else -> target.substringAfterLast('.', "code")
                 }
 
                 onStep(LiveToolStep(c.name, target, lang, content, isWriting = true, n, maxRounds))
-                onActivity(if (c.name == "write_file") "Creating $target…" else if (c.name == "terminal_run") "Terminal: $target…" else "Using ${c.name}…")
+                val activityStart = when (c.name) {
+                    "write_file" -> "Creating $target…"
+                    "edit_file" -> "Editing $target…"
+                    "terminal_run" -> "Terminal: $target…"
+                    "search_web", "web_search" -> "Searching web: $target…"
+                    "read_file" -> "Reading $target…"
+                    else -> "Using ${c.name}…"
+                }
+                onActivity(activityStart)
 
                 val res = try { backend.execute(c) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { ToolResult.Error("${e.javaClass.simpleName}: ${e.message?.take(120)}") }
 
-                val finalOutput = if (c.name == "terminal_run") "$ $target\n${res.text}" else content
+                val finalOutput = when (c.name) {
+                    "terminal_run" -> "$ $target\n${res.text}"
+                    "search_web", "web_search" -> "Query: $target\n\n${res.text}"
+                    "read_file" -> res.text
+                    "edit_file" -> if (content.isNotBlank()) content else res.text
+                    else -> content
+                }
                 onStep(LiveToolStep(c.name, target, lang, finalOutput, isWriting = false, n, maxRounds))
-                onActivity(if (c.name == "write_file") "Created $target" else if (c.name == "terminal_run") "Finished: $target" else "${c.name} finished")
+                val activityDone = when (c.name) {
+                    "write_file" -> "Created $target"
+                    "edit_file" -> "Updated $target"
+                    "terminal_run" -> "Finished: $target"
+                    "search_web", "web_search" -> "Retrieved: $target"
+                    "read_file" -> "Read: $target"
+                    else -> "${c.name} finished"
+                }
+                onActivity(activityDone)
 
                 out += c to clip(res.text)
             }

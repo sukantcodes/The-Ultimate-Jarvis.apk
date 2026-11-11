@@ -235,7 +235,7 @@ class ProviderChatEngine(
                                             actionText = step.toolName,
                                             target = step.target
                                         )
-                                        if (step.codeOrOutput.isNotBlank() && (step.toolName == "write_file" || step.toolName == "terminal_run")) {
+                                        if (step.codeOrOutput.isNotBlank() && (step.toolName in listOf("write_file", "terminal_run", "edit_file", "search_web", "web_search", "read_file"))) {
                                             val fence = "```${step.language}:${step.target}\n${step.codeOrOutput}\n```"
                                             executedBlocks[step.target] = fence
                                             val liveText = executedBlocks.values.joinToString("\n\n")
