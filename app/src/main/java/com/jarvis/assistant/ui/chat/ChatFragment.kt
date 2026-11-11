@@ -80,7 +80,7 @@ class ChatFragment : Fragment() {
     private var isVoiceListening: Boolean = false
     private var totalUsedTokens: Int = 0
     private var lastMessageOriginatedFromVoice: Boolean = false
-    private var lastAutoSpokenTurnId: Long = -1L
+    private var lastAutoSpokenTurnId: String = ""
     private var autoVoiceReplyEnabled: Boolean = false
 
     private val voicePermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
