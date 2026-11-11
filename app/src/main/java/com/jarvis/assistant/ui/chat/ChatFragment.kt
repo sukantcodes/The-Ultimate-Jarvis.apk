@@ -220,11 +220,9 @@ class ChatFragment : Fragment() {
         }
         binding.chipMode.onSafeClick { showChatModePicker() }
         binding.tvChatTokens.onSafeClick {
-            AlertDialog.Builder(requireContext())
-                .setTitle("Live Token Usage")
-                .setMessage("Total conversation tokens: $totalUsedTokens\n\nThis calculates prompt and response tokens live across all messages in this chat session.")
-                .setPositiveButton("OK", null)
-                .show()
+            TokenSettingsBottomSheet.show(requireContext(), totalUsedTokens) { _ ->
+                updateTokenUsage(chatAdapter.currentList)
+            }
         }
         binding.btnAttach.onSafeClick {
             documentPicker.launch(arrayOf("*/*"))

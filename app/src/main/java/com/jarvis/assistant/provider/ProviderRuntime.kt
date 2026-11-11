@@ -58,10 +58,11 @@ object ProviderRuntime {
                 transport = transport(),
                 store = ProviderChatBridge(app.chatRepository),
                 scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate),
-                systemPrompt = { ChatContext.systemPrompt(app.preferences.userName) },
+                systemPrompt = { ChatContext.systemPrompt(app.preferences.userName, TokenModeStore.get(context)) },
                 keyRotation = keyRotation(context),
                 toolBackend = { com.jarvis.assistant.tools.ToolRuntime.backend(app) },
-                extraContext = { q -> com.jarvis.assistant.tools.ToolRuntime.get(app).memory.contextFor(q) }
+                extraContext = { q -> com.jarvis.assistant.tools.ToolRuntime.get(app).memory.contextFor(q) },
+                tokenModeProvider = { TokenModeStore.get(context) }
             ).also { engine = it }
         }
     }
