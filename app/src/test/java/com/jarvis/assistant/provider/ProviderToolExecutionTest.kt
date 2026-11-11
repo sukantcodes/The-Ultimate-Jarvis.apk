@@ -102,15 +102,15 @@ class ProviderToolExecutionTest {
             withTimeout(5000) { while (engine.isBusy) delay(5) }
             assertEquals("Provider answer received successfully.", store.answer)
             assertEquals(2, transport.requests.size)
-            assertTrue(transport.bodyOf(transport.requests[0]).contains("\\"tools\\""))
-            assertFalse(transport.bodyOf(transport.requests[1]).contains("\\"tools\\""))
+            assertTrue(transport.bodyOf(transport.requests[0]).contains("\"tools\""))
+            assertFalse(transport.bodyOf(transport.requests[1]).contains("\"tools\""))
         } finally {
             scope.cancel()
         }
     }
 
     private fun HttpRequestSpec.bodyOfTools(): Boolean =
-        (body as? HttpBody.Text)?.content?.contains("\\"tools\\"") == true
+        (body as? HttpBody.Text)?.content?.contains("\"tools\"") == true
 
     private class TestTurnStore : ChatTurnStore {
         private var id = ""
