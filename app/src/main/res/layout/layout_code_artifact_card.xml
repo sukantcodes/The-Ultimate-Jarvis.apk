@@ -7,13 +7,12 @@
     android:orientation="vertical"
     android:background="@drawable/bg_code_artifact_card"
     android:layout_marginTop="8dp"
-    android:layout_marginBottom="8dp"
-    android:clickable="true"
-    android:focusable="true">
+    android:layout_marginBottom="8dp">
 
+    <!-- Header bar -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="40dp"
+        android:layout_height="42dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:background="@drawable/bg_code_header"
@@ -21,6 +20,7 @@
         android:paddingEnd="8dp">
 
         <ImageView
+            android:id="@+id/ivCardIcon"
             android:layout_width="16dp"
             android:layout_height="16dp"
             android:src="@drawable/ic_code_chip"
@@ -59,6 +59,30 @@
             android:layout_height="1dp"
             android:layout_weight="1" />
 
+        <!-- Down arrow / Tag toggle button -->
+        <LinearLayout
+            android:id="@+id/btnToggleMiniTerminal"
+            android:layout_width="wrap_content"
+            android:layout_height="26dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_auto_approve_chip"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:layout_marginEnd="4dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <TextView
+                android:id="@+id/tvToggleTagText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="▼ Code Window"
+                android:textColor="#80D8FF"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
         <ImageView
             android:id="@+id/btnCardCopy"
             android:layout_width="32dp"
@@ -80,49 +104,103 @@
             android:textSize="11sp"
             android:textStyle="bold"
             android:paddingStart="6dp"
-            android:paddingEnd="6dp" />
+            android:paddingEnd="6dp"
+            android:clickable="true"
+            android:focusable="true" />
     </LinearLayout>
 
+    <!-- Expandable Mini Terminal / Code Window -->
     <LinearLayout
-        android:id="@+id/layoutCodePreview"
+        android:id="@+id/layoutMiniTerminal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp">
+        android:orientation="vertical"
+        android:background="#080C14"
+        android:visibility="visible">
 
-        <TextView
-            android:id="@+id/tvPreviewLineNumbers"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="#455A64"
-            android:fontFamily="monospace"
-            android:textSize="12sp"
-            android:lineSpacingExtra="3dp"
-            android:gravity="end"
-            android:paddingEnd="10dp" />
+        <!-- Mini Terminal Top Bar with macOS/Terminal dots -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="22dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="#0F1420"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp">
 
-        <TextView
-            android:id="@+id/tvPreviewCode"
+            <View
+                android:layout_width="7dp"
+                android:layout_height="7dp"
+                android:background="@drawable/bg_chat_status"
+                android:backgroundTint="#FF5F56" />
+
+            <View
+                android:layout_width="7dp"
+                android:layout_height="7dp"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_chat_status"
+                android:backgroundTint="#FFBD2E" />
+
+            <View
+                android:layout_width="7dp"
+                android:layout_height="7dp"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_chat_status"
+                android:backgroundTint="#27C93F" />
+
+            <TextView
+                android:id="@+id/tvTerminalTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="terminal ~/workspace"
+                android:textColor="#78909C"
+                android:textSize="9sp"
+                android:fontFamily="monospace" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layoutCodePreview"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#CFD8DC"
-            android:fontFamily="monospace"
-            android:textSize="12sp"
-            android:lineSpacingExtra="3dp"
-            android:maxLines="6"
-            android:ellipsize="end" />
+            android:orientation="horizontal"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp">
+
+            <TextView
+                android:id="@+id/tvPreviewLineNumbers"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#455A64"
+                android:fontFamily="monospace"
+                android:textSize="12sp"
+                android:lineSpacingExtra="3dp"
+                android:gravity="end"
+                android:paddingEnd="10dp" />
+
+            <TextView
+                android:id="@+id/tvPreviewCode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#CFD8DC"
+                android:fontFamily="monospace"
+                android:textSize="12sp"
+                android:lineSpacingExtra="3dp"
+                android:maxLines="8"
+                android:ellipsize="end" />
+        </LinearLayout>
     </LinearLayout>
 
     <TextView
         android:id="@+id/tvCardBottomHint"
         android:layout_width="match_parent"
-        android:layout_height="26dp"
+        android:layout_height="24dp"
         android:gravity="center"
-        android:background="#0C0E17"
-        android:text="Click to view full code in editor"
+        android:background="#0A0E17"
+        android:text="Tap tag to toggle mini window · Open ↗ for fullscreen viewer"
         android:textColor="#78909C"
         android:textSize="10sp"
         android:textStyle="bold"

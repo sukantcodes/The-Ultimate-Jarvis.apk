@@ -74,6 +74,39 @@
                 android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/layoutWorkProgress"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_work_progress_badge"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:layout_marginEnd="6dp"
+            android:visibility="gone">
+
+            <ProgressBar
+                android:id="@+id/pbWorkProgress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="40dp"
+                android:layout_height="6dp"
+                android:max="100"
+                android:progress="0"
+                android:progressTint="#00E5FF" />
+
+            <TextView
+                android:id="@+id/tvWorkProgressPercent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="5dp"
+                android:text="0%"
+                android:textColor="#00E5FF"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.04" />
+        </LinearLayout>
+
         <TextView
             android:id="@+id/tvChatTokens"
             android:layout_width="wrap_content"

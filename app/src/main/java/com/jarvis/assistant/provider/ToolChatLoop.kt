@@ -11,23 +11,48 @@ import kotlinx.coroutines.ensureActive
 
 class ToolChatResult(val text: String, val toolCalls: Int, val rounds: Int, val stoppedEarly: String?)
 
+data class LiveToolStep(
+    val toolName: String,
+    val target: String,
+    val language: String,
+    val codeOrOutput: String,
+    val isWriting: Boolean,
+    val round: Int,
+    val maxRounds: Int
+)
+
 /**
  * Lets a model use the phone-workspace tools: ask → run the tools it requested (through the permission-checked
  * [ToolBackend]) → give it the results → repeat until it answers in words. Bounded in rounds, in repeated identical
  * calls, and in result size, so a confused model can never loop forever.
  */
-abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxRounds: Int, private val maxResultChars: Int) {
+abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxRounds: Int = 50, private val maxResultChars: Int = 32_000) {
     protected abstract suspend fun round(request: ChatRequest, state: Any?, results: List<Pair<ToolCall, String>>): Round
     protected abstract fun newState(request: ChatRequest): Any?
     protected class Round(val text: String, val calls: List<ToolCall>, val state: Any?)
 
-    suspend fun run(request: ChatRequest, source: String, onActivity: (String) -> Unit = {}): ToolChatResult {
+    suspend fun run(
+        request: ChatRequest,
+        source: String,
+        onActivity: (String) -> Unit = {},
+        onStep: (LiveToolStep) -> Unit = {}
+    ): ToolChatResult {
         var state = newState(request)
         var results: List<Pair<ToolCall, String>> = emptyList()
         var total = 0; val seen = HashMap<String, Int>(); val collected = StringBuilder()
         for (n in 1..maxRounds) {
             currentCoroutineContext().ensureActive()
-            val r = round(request, state, results)
+            var r: Round? = null
+            var roundAttempts = 0
+            while (r == null) {
+                try {
+                    r = round(request, state, results)
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    if (++roundAttempts >= 4) throw e
+                    kotlinx.coroutines.delay(1000L * roundAttempts)
+                }
+            }
             state = r.state
             if (r.text.isNotBlank()) { if (collected.isNotEmpty()) collected.append("\n\n"); collected.append(r.text.trim()) }
             if (r.calls.isEmpty()) return ToolChatResult(collected.toString(), total, n, null)
@@ -38,14 +63,37 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
                 val times = (seen[key] ?: 0) + 1; seen[key] = times
                 total++
                 if (times > 2) { out += c to "Error: this exact call was already made $times times with the same arguments. Do not repeat it; answer with what you have or try something different."; continue }
-                onActivity("Using ${c.name}…")
+
+                val target = when (c.name) {
+                    "write_file", "read_file", "delete_path" -> c.args.get("path")?.takeIf { it.isJsonPrimitive }?.asString ?: "file"
+                    "terminal_run" -> c.args.get("command")?.takeIf { it.isJsonPrimitive }?.asString ?: "terminal"
+                    "make_directory" -> c.args.get("path")?.takeIf { it.isJsonPrimitive }?.asString ?: "folder"
+                    else -> c.name
+                }
+                val content = when (c.name) {
+                    "write_file" -> c.args.get("content")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+                    "terminal_run" -> "$ $target"
+                    else -> ""
+                }
+                val lang = when (c.name) {
+                    "terminal_run" -> "terminal"
+                    else -> target.substringAfterLast('.', "code")
+                }
+
+                onStep(LiveToolStep(c.name, target, lang, content, isWriting = true, n, maxRounds))
+                onActivity(if (c.name == "write_file") "Creating $target…" else if (c.name == "terminal_run") "Terminal: $target…" else "Using ${c.name}…")
+
                 val res = try { backend.execute(c) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { ToolResult.Error("${e.javaClass.simpleName}: ${e.message?.take(120)}") }
-                onActivity(if (res.isOk) "${c.name} finished" else "${c.name}: ${res.text.take(100)}")
+
+                val finalOutput = if (c.name == "terminal_run") "$ $target\n${res.text}" else content
+                onStep(LiveToolStep(c.name, target, lang, finalOutput, isWriting = false, n, maxRounds))
+                onActivity(if (c.name == "write_file") "Created $target" else if (c.name == "terminal_run") "Finished: $target" else "${c.name} finished")
+
                 out += c to clip(res.text)
             }
             results = out
         }
-        return ToolChatResult(collected.toString(), total, maxRounds, "I stopped after $maxRounds steps without a final answer. Say \"continue\" to let me keep going.")
+        return ToolChatResult(collected.toString(), total, maxRounds, "Completed up to round limit ($maxRounds steps). All generated code and files are saved in the workspace.")
     }
 
     private fun clip(s: String) = if (s.length <= maxResultChars) s else s.take(maxResultChars) + "\n… (${s.length - maxResultChars} more characters were not sent to the model)"
@@ -54,7 +102,7 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
 }
 
 /** OpenAI-compatible tool calling: `tools` + `tool_calls` + `role: tool` messages, one non-streaming request per round. */
-class OpenAiToolLoop(private val transport: HttpTransport, backend: ToolBackend, maxRounds: Int = 12, maxResultChars: Int = 24_000) : ToolChatLoop(backend, maxRounds, maxResultChars) {
+class OpenAiToolLoop(private val transport: HttpTransport, backend: ToolBackend, maxRounds: Int = 50, maxResultChars: Int = 32_000) : ToolChatLoop(backend, maxRounds, maxResultChars) {
     private class State(val messages: JsonArray)
 
     override fun newState(request: ChatRequest): Any? {
@@ -79,7 +127,7 @@ class OpenAiToolLoop(private val transport: HttpTransport, backend: ToolBackend,
             add("tools", ToolSchemas.toOpenAi(backend.specs())); addProperty("tool_choice", "auto")
             p.temperature?.let { addProperty("temperature", it) }
         }
-        val spec = prepare(HttpRequestSpec("POST", ProviderUrl.join(base, "chat/completions"), mapOf("Accept" to "application/json"), HttpBody.Text(JSON_TYPE, body.toString()), 90_000L), p)
+        val spec = prepare(HttpRequestSpec("POST", ProviderUrl.join(base, "chat/completions"), mapOf("Accept" to "application/json"), HttpBody.Text(JSON_TYPE, body.toString()), 120_000L), p)
         val resp = try { transport.execute(spec) } catch (e: TransportException) { throw ProviderException(ProviderErrors.fromTransport(e)) }
         if (!resp.isSuccessful) throw ProviderException(ProviderErrors.fromHttp(resp.code, resp.body, secretOf(p), ErrorContext.CHAT, resp.headers.entries.firstOrNull { it.key.equals("retry-after", true) }?.value))
         val root = parseObject(resp.body) ?: throw ProviderException(ProviderErrors.invalidResponse("Expected a JSON chat completion."))
@@ -100,7 +148,7 @@ class OpenAiToolLoop(private val transport: HttpTransport, backend: ToolBackend,
 }
 
 /** Gemini function calling over generateContent: `functionDeclarations`, `functionCall` parts, `functionResponse` parts. */
-class GeminiToolLoop(private val transport: HttpTransport, backend: ToolBackend, maxRounds: Int = 12, maxResultChars: Int = 24_000) : ToolChatLoop(backend, maxRounds, maxResultChars) {
+class GeminiToolLoop(private val transport: HttpTransport, backend: ToolBackend, maxRounds: Int = 50, maxResultChars: Int = 32_000) : ToolChatLoop(backend, maxRounds, maxResultChars) {
     private class State(val contents: JsonArray)
 
     override fun newState(request: ChatRequest): Any? {
@@ -126,7 +174,7 @@ class GeminiToolLoop(private val transport: HttpTransport, backend: ToolBackend,
             add("tools", JsonArray().apply { add(JsonObject().apply { add("functionDeclarations", ToolSchemas.toGemini(backend.specs())) }) })
         }
         val url = ProviderUrl.join(base, "${ProviderUrl.geminiModelName(p.modelId)}:generateContent")
-        val spec = prepare(HttpRequestSpec("POST", url, mapOf("Accept" to "application/json"), HttpBody.Text(JSON_TYPE, body.toString()), 90_000L), p)
+        val spec = prepare(HttpRequestSpec("POST", url, mapOf("Accept" to "application/json"), HttpBody.Text(JSON_TYPE, body.toString()), 120_000L), p)
         val resp = try { transport.execute(spec) } catch (e: TransportException) { throw ProviderException(ProviderErrors.fromTransport(e)) }
         if (!resp.isSuccessful) throw ProviderException(ProviderErrors.fromHttp(resp.code, resp.body, secretOf(p), ErrorContext.CHAT, resp.headers.entries.firstOrNull { it.key.equals("retry-after", true) }?.value))
         val root = parseObject(resp.body) ?: throw ProviderException(ProviderErrors.invalidResponse("Expected a JSON answer."))
