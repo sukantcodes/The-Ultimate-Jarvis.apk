@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_code_artifact_card"
+    android:layout_marginTop="8dp"
+    android:layout_marginBottom="8dp"
+    android:clickable="true"
+    android:focusable="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@drawable/bg_code_header"
+        android:paddingStart="12dp"
+        android:paddingEnd="8dp">
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:src="@drawable/ic_code_chip"
+            app:tint="#64B5F6"
+            android:layout_marginEnd="6dp"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:id="@+id/tvCardLanguage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="CODE"
+            android:textColor="#E0E6ED"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/tvWritingStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="22dp"
+            android:layout_marginStart="8dp"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:background="@drawable/bg_code_writing_badge"
+            android:text="✦ Writing code…"
+            android:textColor="#64B5F6"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <ImageView
+            android:id="@+id/btnCardCopy"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:padding="7dp"
+            android:src="@drawable/ic_cc_copy"
+            app:tint="#90A4AE"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Copy code"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/btnCardExpand"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Open ↗"
+            android:textColor="#64B5F6"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/layoutCodePreview"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
+
+        <TextView
+            android:id="@+id/tvPreviewLineNumbers"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#455A64"
+            android:fontFamily="monospace"
+            android:textSize="12sp"
+            android:lineSpacingExtra="3dp"
+            android:gravity="end"
+            android:paddingEnd="10dp" />
+
+        <TextView
+            android:id="@+id/tvPreviewCode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#CFD8DC"
+            android:fontFamily="monospace"
+            android:textSize="12sp"
+            android:lineSpacingExtra="3dp"
+            android:maxLines="6"
+            android:ellipsize="end" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvCardBottomHint"
+        android:layout_width="match_parent"
+        android:layout_height="26dp"
+        android:gravity="center"
+        android:background="#0C0E17"
+        android:text="Click to view full code in editor"
+        android:textColor="#78909C"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.04" />
+
+</LinearLayout>

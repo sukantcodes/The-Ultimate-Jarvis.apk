@@ -132,16 +132,17 @@ object AndroidConfirmer : Confirmer {
             ?: return appContext?.let { ApprovalNotifier.ask(it, request, 120_000L) } ?: Decision.DENY   // not on screen: ask through a notification
         val answer = CompletableDeferred<Decision>()
         withContext(Dispatchers.Main) {
-            val title = if (request.destructive) "Confirm: ${request.risk.label}" else "Allow ${request.tool}?"
+            val title = if (request.destructive) "Confirm: ${request.risk.label}" else "Permission: ${request.tool}"
             val message = buildString {
                 append(request.summary).append("\n\n").append(request.risk.label).append(" · ").append(request.group)
-                append("\nAsked by: ").append(request.source)
-                if (request.destructive) append("\n\nThis can not be undone.")
+                append("\nRequested by: ").append(request.source)
+                if (request.destructive) append("\n\nThis is destructive and can not be undone.")
+                else append("\n\nApprove to finish this task without prompting again.")
             }
             val b = AlertDialog.Builder(activity).setTitle(title).setMessage(message).setCancelable(false)
                 .setNegativeButton("Deny") { _, _ -> answer.complete(Decision.DENY) }
-                .setPositiveButton("Allow once") { _, _ -> answer.complete(Decision.ALLOW_ONCE) }
-            if (!request.destructive) b.setNeutralButton("Allow this session") { _, _ -> answer.complete(Decision.ALLOW_SESSION) }
+                .setPositiveButton("Allow (finish task)") { _, _ -> answer.complete(Decision.ALLOW_TASK) }
+            if (!request.destructive) b.setNeutralButton("Always allow (session)") { _, _ -> answer.complete(Decision.ALLOW_SESSION) }
             try { b.show() } catch (e: Exception) { answer.complete(Decision.DENY) }
         }
         return withTimeoutOrNull(120_000L) { answer.await() } ?: Decision.DENY

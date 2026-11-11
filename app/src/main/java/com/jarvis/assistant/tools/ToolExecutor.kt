@@ -50,15 +50,28 @@ class ToolExecutor(
 
         val decision: String = when {
             mode == Mode.DENY -> return deny(call, effectiveRisk, summary, "This kind of action is switched off in Permissions.")
-            mode == Mode.ASK && !(policy.hasSessionGrant(spec.name) && !destructive) -> {
+            mode == Mode.ASK && !(
+                (policy.hasSessionGrant(spec.name) || policy.hasTaskGrant(call.source)) && !destructive
+            ) -> {
                 val d = confirmer().confirm(ConfirmRequest(spec.name, spec.group, effectiveRisk, redactor.redact(summary), destructive, call.source))
                 when (d) {
                     Decision.DENY -> return deny(call, effectiveRisk, summary, "You declined this action.")
-                    Decision.ALLOW_SESSION -> { if (!destructive) policy.grantForSession(spec.name); "allowed (session)" }
+                    Decision.ALLOW_SESSION -> {
+                        if (!destructive) {
+                            policy.grantForSession(spec.name)
+                            policy.allowAllForSession = true
+                            policy.grantForTask(call.source)
+                        }
+                        "allowed (session)"
+                    }
+                    Decision.ALLOW_TASK -> {
+                        if (!destructive) policy.grantForTask(call.source)
+                        "allowed (task)"
+                    }
                     Decision.ALLOW_ONCE -> "allowed (once)"
                 }
             }
-            mode == Mode.ASK -> "allowed (session grant)"
+            mode == Mode.ASK -> "allowed (session or task grant)"
             else -> "allowed (policy)"
         }
 

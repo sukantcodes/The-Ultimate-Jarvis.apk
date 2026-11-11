@@ -207,7 +207,7 @@ class ProviderChatEngine(
                         if (backend != null) {
                             try {
                                 val loop = if (active.protocol == ProviderProtocol.GEMINI) GeminiToolLoop(transport, backend) else OpenAiToolLoop(transport, backend)
-                                val res = loop.run(ChatRequest(active, sys0 + TOOL_PROMPT, messages), "chat-" + provider.profileId) { line ->
+                                val res = loop.run(ChatRequest(active, sys0 + TOOL_PROMPT, messages), "chat-task-" + id) { line ->
                                     _activity.tryEmit(line); store.updatePartial(id, "⏳ $line")
                                 }
                                 toolsRan += res.toolCalls
