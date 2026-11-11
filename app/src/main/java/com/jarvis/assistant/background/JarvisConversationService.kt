@@ -842,11 +842,15 @@ class JarvisConversationService : Service() {
         when (intent?.action) {
             ACTION_START_CONVERSATION -> {
                 textOnlySession = false
+                com.jarvis.assistant.network.GeminiLiveWebSocket.extraDeclarations = null
                 com.jarvis.assistant.audio.JarvisSoundEffects.playWakeSound()
                 beginActiveConversation()
             }
             ACTION_START_TEXT_CHAT -> {
                 textOnlySession = true
+                com.jarvis.assistant.network.GeminiLiveWebSocket.extraDeclarations = {
+                    org.json.JSONArray(com.jarvis.assistant.tools.ToolSchemas.toGemini(com.jarvis.assistant.tools.ToolRuntime.get(applicationContext).registry.specs()).toString())
+                }
                 beginActiveConversation()
             }
             ACTION_ENTER_STANDBY -> enterStandby(announce = false)
@@ -3697,9 +3701,18 @@ class JarvisConversationService : Service() {
                     }
 
                     else -> {
+                        val shared = com.jarvis.assistant.tools.ToolRuntime.get(applicationContext)
+                        if (shared.registry.get(name) != null) {
+                            // Workspace tool: same executor, permissions, sandbox and audit log as the Custom API.
+                            val call = com.jarvis.assistant.tools.ToolCall(callId, name, com.google.gson.JsonParser.parseString(args.toString()).asJsonObject, "gemini-live")
+                            val res = shared.executor.execute(call)
+                            result.put("success", res.isOk)
+                            result.put("message", res.text.take(12_000))
+                        } else {
                         Log.w("JarvisService", "Unknown toolCall name: $name")
                         result.put("success", false)
                         result.put("message", "Unknown tool: $name")
+                        }
                     }
                 }
 
@@ -4677,6 +4690,7 @@ class JarvisConversationService : Service() {
 
     private fun fullStop() {
         textOnlySession = false
+        com.jarvis.assistant.network.GeminiLiveWebSocket.extraDeclarations = null
         stopActiveConversation()
         exitStandbyListening()
         _isStandby.value = false

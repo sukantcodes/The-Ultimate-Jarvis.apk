@@ -36,6 +36,13 @@ open class GeminiLiveWebSocket(
     }
 
     companion object {
+        /**
+         * Extra function declarations added to the Live setup. Set only for ChatBox sessions, so the workspace tools
+         * (files, documents, web, GitHub, terminal, preview) reach Gemini through the same permission-checked layer
+         * the Custom API uses. Plain voice sessions leave this null and are unchanged.
+         */
+        @Volatile var extraDeclarations: (() -> JSONArray?)? = null
+
         private const val TAG = "GeminiLiveWebSocket"
         // Shared OkHttpClient across all sessions — reuses connection pool, DNS cache, and TLS sessions
         private val sharedClient = OkHttpClient.Builder()
@@ -960,7 +967,16 @@ open class GeminiLiveWebSocket(
     }
 
     private fun sendSetupMessage(ws: WebSocket) {
-        val json = buildSetupJson().toString()
+        val setup = buildSetupJson()
+        try {
+            val extra = extraDeclarations?.invoke()
+            if (extra != null) {
+                val decls = setup.getJSONObject("setup").getJSONArray("tools").getJSONObject(0).getJSONArray("functionDeclarations")
+                val have = HashSet<String>().also { h -> for (i in 0 until decls.length()) h.add(decls.getJSONObject(i).optString("name")) }
+                for (i in 0 until extra.length()) { val d = extra.getJSONObject(i); if (d.optString("name") !in have) decls.put(d) }
+            }
+        } catch (e: Exception) { Log.w(TAG, "Workspace tools were not added to the Live setup: ${e.javaClass.simpleName}") }
+        val json = setup.toString()
         Log.d(TAG, "Sending BidiSetup payload to Gemini Live with tools")
         ws.send(json)
     }
