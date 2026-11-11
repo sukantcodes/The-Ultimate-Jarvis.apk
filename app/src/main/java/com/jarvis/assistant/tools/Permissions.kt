@@ -42,7 +42,6 @@ class PermissionPolicy(private val store: SettingsStore) {
 
     private val sessionGrants = HashSet<String>()
     private val taskGrants = HashSet<String>()
-    @Volatile var allowAllForSession: Boolean = false
 
     fun modeFor(risk: Risk, group: String): Mode {
         store.get("mode.$group.${risk.name}")?.let { v -> Mode.values().firstOrNull { it.name == v }?.let { return enforce(risk, it) } }
@@ -55,15 +54,14 @@ class PermissionPolicy(private val store: SettingsStore) {
     }
 
     @Synchronized fun grantForSession(tool: String) { sessionGrants += tool }
-    @Synchronized fun hasSessionGrant(tool: String): Boolean = allowAllForSession || tool in sessionGrants
+    @Synchronized fun hasSessionGrant(tool: String): Boolean = tool in sessionGrants
 
     @Synchronized fun grantForTask(source: String) { if (source.isNotBlank()) taskGrants += source }
-    @Synchronized fun hasTaskGrant(source: String): Boolean = allowAllForSession || (source.isNotBlank() && source in taskGrants)
+    @Synchronized fun hasTaskGrant(source: String): Boolean = source.isNotBlank() && source in taskGrants
 
     @Synchronized fun endSession() {
         sessionGrants.clear()
         taskGrants.clear()
-        allowAllForSession = false
     }
 
     private fun defaultFor(risk: Risk) = when (risk) {

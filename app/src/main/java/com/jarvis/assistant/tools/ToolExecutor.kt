@@ -59,7 +59,6 @@ class ToolExecutor(
                     Decision.ALLOW_SESSION -> {
                         if (!destructive) {
                             policy.grantForSession(spec.name)
-                            policy.allowAllForSession = true
                             policy.grantForTask(call.source)
                         }
                         "allowed (session)"
