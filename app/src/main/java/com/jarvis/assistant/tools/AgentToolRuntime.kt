@@ -3,6 +3,9 @@ package com.jarvis.assistant.tools
 import android.content.Context
 import com.jarvis.assistant.tools.builtin.FileTools
 import com.jarvis.assistant.skills.SkillStore
+import com.jarvis.assistant.tools.terminal.ProcessBackend
+import com.jarvis.assistant.tools.terminal.TerminalManager
+import com.jarvis.assistant.tools.terminal.TerminalTools
 import java.io.File
 
 /** Process-wide ChatBox tool environment; consequential actions require the active approval host. */
@@ -14,6 +17,15 @@ object AgentToolRuntime {
     @Volatile private var executorInstance: ToolExecutor? = null
     @Volatile private var registryInstance: ToolRegistry? = null
     private val codingExecutors = java.util.concurrent.ConcurrentHashMap<String, ToolExecutor>()
+    @Volatile private var terminalManagerInstance: TerminalManager? = null
+
+    private fun terminalManager(context: Context): TerminalManager = terminalManagerInstance ?: synchronized(this) {
+        terminalManagerInstance ?: run {
+            val app = context.applicationContext
+            val workspace = Workspace(File(app.filesDir, "chatbox-workspace"))
+            TerminalManager(workspace, ProcessBackend(), SecretRedactor()).also { terminalManagerInstance = it }
+        }
+    }
 
     private fun registry(context: Context): ToolRegistry = registryInstance ?: synchronized(this) {
         registryInstance ?: ToolRegistry().also { registry ->
@@ -22,6 +34,7 @@ object AgentToolRuntime {
             WorkspaceTools.all().forEach(registry::register)
             WebTools.all().forEach(registry::register)
             registry.register(CodingShellTool())
+            TerminalTools.all(terminalManager(context)).forEach(registry::register)
             registry.register(RestoreSnapshotTool())
             McpTools.all(context.applicationContext).forEach(registry::register)
             GitHubTools.all(context.applicationContext).forEach(registry::register)
