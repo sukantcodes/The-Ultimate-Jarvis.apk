@@ -231,10 +231,6 @@ class ProviderChatEngine(
                                             ProviderErrorKind.INVALID_RESPONSE
                                         )
                                     ) throw error
-                                    Log.w(
-                                        "ProviderChatEngine",
-                                        "Provider rejected or could not decode the tool-enabled request; retrying without tools (provider=${provider.label}, kind=${error.error.kind})"
-                                    )
                                     _toolActivity.tryEmit("Provider tool format unavailable; retrying as normal chat…")
                                     client.complete(ChatRequest(active, systemPrompt(), messages))
                                 }
