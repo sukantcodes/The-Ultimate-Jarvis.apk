@@ -84,6 +84,7 @@
         <activity android:name=".ui.diagnostics.DeviceDiagnosticsActivity" android:exported="false" />
         <activity android:name=".ui.settings.KeyManagerActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.settings.WorkRoutingActivity" android:exported="false" />
+        <activity android:name=".ui.settings.ToolSettingsActivity" android:exported="false" />
         <activity android:name=".ui.diagnostics.CleanupFeatureActivity" android:exported="false" />
 
         <activity

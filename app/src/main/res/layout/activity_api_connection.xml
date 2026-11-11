@@ -474,6 +474,15 @@
                     android:layout_marginTop="8dp"
                     android:text="Work routing (provider per task type)"
                     android:textAllCaps="false" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnWorkspaceTools"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Workspace and tools (GitHub, permissions, memory)"
+                    android:textAllCaps="false" />
             </LinearLayout>
 
         </LinearLayout>

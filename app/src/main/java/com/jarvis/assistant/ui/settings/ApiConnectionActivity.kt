@@ -108,6 +108,7 @@ class ApiConnectionActivity : AppCompatActivity() {
 
         binding.btnManageKeys.setOnClickListener { startActivity(Intent(this, KeyManagerActivity::class.java)) }
         binding.btnWorkRouting.setOnClickListener { startActivity(Intent(this, WorkRoutingActivity::class.java)) }
+        binding.btnWorkspaceTools.setOnClickListener { startActivity(Intent(this, ToolSettingsActivity::class.java)) }
         binding.btnAddProvider.setOnClickListener {
             startActivity(Intent(this, CustomProviderEditorActivity::class.java))
         }
