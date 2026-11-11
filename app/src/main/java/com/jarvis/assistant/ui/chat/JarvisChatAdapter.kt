@@ -179,6 +179,7 @@ class JarvisChatAdapter(
                 } catch (_: Throwable) {
                     turn.jarvisResponse // never let odd markdown take the chat down
                 }
+                binding.tvAssistantMessage.movementMethod = android.text.method.LinkMovementMethod.getInstance()
                 if (shouldReveal) playReveal(rendered) else binding.tvAssistantMessage.text = rendered
                 binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", turn.jarvisResponse) }
                 binding.btnAssistantPlay.setOnClickListener {
