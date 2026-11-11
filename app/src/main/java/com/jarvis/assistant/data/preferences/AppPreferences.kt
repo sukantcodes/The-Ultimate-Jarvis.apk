@@ -549,6 +549,10 @@ class AppPreferences(context: Context) {
         prefs.edit().putString(KEY_CHAT_HISTORY, json).apply()
     }
 
+    var currentChatSessionId: String?
+        get() = prefs.getString("current_chat_session_id", null)
+        set(value) { prefs.edit().putString("current_chat_session_id", value).apply() }
+
     fun clearChatHistory() {
         prefs.edit().remove(KEY_CHAT_HISTORY).apply()
     }

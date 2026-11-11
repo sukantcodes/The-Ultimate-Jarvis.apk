@@ -170,8 +170,8 @@ class ChatFragment : Fragment() {
 
         binding.btnChatNew.onSafeClick {
             MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
-                .setTitle("New Conversation")
-                .setMessage("Start a new conversation and clear current history?")
+                .setTitle("New chat")
+                .setMessage("Start a new chat? The current one stays saved under Chats.")
                 .setPositiveButton("New Chat") { _, _ ->
                     if (_binding == null) return@setPositiveButton
                     offlineGenerationJob?.cancel()
@@ -180,7 +180,7 @@ class ChatFragment : Fragment() {
                     retrySnackbar?.dismiss()
                     JarvisConversationService.stopCurrentResponseImmediately()
                     selectedDocument?.savedPath?.let { path -> runCatching { java.io.File(path).delete() } }
-                    JarvisApp.instance.chatRepository.clearHistory()
+                    JarvisApp.instance.chatRepository.let { if (it.canManageSessions) it.newSession() else it.clearHistory() }
                     selectedDocument = null
                     updateAttachmentPreview()
                     binding.etMessageInput.hint = "Message JARVIS…"
@@ -193,8 +193,9 @@ class ChatFragment : Fragment() {
             (activity as? MainActivity)?.openNavigationDrawer()
         }
 
+        binding.chipPersona.text = "Chats"
         binding.chipPersona.onSafeClick {
-            Toast.makeText(requireContext(), "Persona: Jarvis Active", Toast.LENGTH_SHORT).show()
+            ChatSessionsSheet().show(childFragmentManager, ChatSessionsSheet.TAG)
         }
         binding.chipMode.onSafeClick { showChatModePicker() }
         binding.btnAttach.onSafeClick {

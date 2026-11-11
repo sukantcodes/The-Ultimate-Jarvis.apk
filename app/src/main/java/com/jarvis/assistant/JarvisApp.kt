@@ -72,7 +72,7 @@ class JarvisApp : Application() {
         com.jarvis.assistant.auth.AuthManager.init(this)
         com.jarvis.assistant.owner.DeviceTelemetry.init(this)
         com.jarvis.assistant.owner.DeviceTelemetry.onAppOpen()
-        chatRepository = ChatRepository(preferences)
+        chatRepository = ChatRepository(preferences, com.jarvis.assistant.data.sessions.ChatSessionStore(java.io.File(filesDir, "chat_sessions")))
 
         // Memory System
         memoryDatabase = MemoryDatabase.getInstance(this)
