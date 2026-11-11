@@ -111,10 +111,12 @@ internal object XmlScan {
         val stack = ArrayList<String>()
         var problem: String? = null
         var roots = 0
+        var selfClosed: String? = null
         scan(xml, object : XmlEvents {
-            override fun start(name: String, attrs: String, selfClosing: Boolean) { if (problem == null) { if (stack.isEmpty()) roots++; if (!selfClosing) stack.add(name) } }
+            override fun start(name: String, attrs: String, selfClosing: Boolean) { if (problem == null) { if (stack.isEmpty()) roots++; selfClosed = if (selfClosing) name else null; if (!selfClosing) stack.add(name) } }
             override fun end(name: String) {
                 if (problem != null) return
+                if (selfClosed == name) { selfClosed = null; return }
                 if (stack.isEmpty() && roots > 0 && stack.isEmpty()) { /* closing of a self-closing root */ return }
                 if (stack.isEmpty() || stack.last() != name) problem = "Unexpected closing tag </$name>"
                 else stack.removeAt(stack.size - 1)

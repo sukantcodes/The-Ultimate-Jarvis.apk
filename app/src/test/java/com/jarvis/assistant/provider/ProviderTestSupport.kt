@@ -43,6 +43,8 @@ class FakeTransport : HttpTransport {
     /** Forgets scripted plain answers so a test can change what the server says. */
     fun clearRules() { rules.clear() }
 
+    fun addRule(matches: (HttpRequestSpec) -> Boolean, respond: (HttpRequestSpec) -> HttpResponse) { rules += Rule(matches, respond) }
+
     /** Forgets scripted stream answers so a test can make a failing provider "recover". */
     fun clearStreams() {
         streamRules.clear()

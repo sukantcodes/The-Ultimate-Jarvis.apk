@@ -144,3 +144,11 @@ class FilesTest {
         try { DocumentTools.ReadDocument.run(args("""{"path":"../../etc/passwd"}"""), ctx); fail() } catch (e: Exception) {}
     }
 }
+
+class XmlBalanceTest {
+    @Test fun selfClosingChildrenAreBalanced() {
+        assertNull(XmlScan.balancedError("<a><b/><c x=\"1\"/><d></d></a>"))
+        assertNotNull(XmlScan.balancedError("<a><b/></c>"))
+        assertNotNull(XmlScan.balancedError("<a><b></a>"))
+    }
+}
