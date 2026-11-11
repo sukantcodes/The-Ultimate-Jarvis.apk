@@ -46,6 +46,7 @@ class ChatSessionsSheet : BottomSheetDialogFragment() {
         head.addView(TextView(ctx).apply { text = "Chats"; textSize = 20f; setTypeface(typeface, android.graphics.Typeface.BOLD) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         head.addView(Button(ctx).apply { text = "＋ New chat"; isAllCaps = false; setOnClickListener {
             if (repo.newSession()) { onChanged?.invoke(); dismiss() } else Toast.makeText(ctx, "Wait for the current answer to finish first.", Toast.LENGTH_SHORT).show() } })
+        head.addView(Button(ctx).apply { text = "Workspace"; isAllCaps = false; setOnClickListener { startActivity(android.content.Intent(ctx, com.jarvis.assistant.ui.settings.WorkspaceActivity::class.java)); dismiss() } })
         root.addView(head)
         root.addView(EditText(ctx).apply {
             hint = "Search chats"; setSingleLine(); addTextChangedListener(object : TextWatcher {

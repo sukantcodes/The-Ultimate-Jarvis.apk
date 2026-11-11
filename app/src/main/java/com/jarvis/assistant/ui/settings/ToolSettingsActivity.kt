@@ -47,6 +47,7 @@ class ToolSettingsActivity : AppCompatActivity() {
 
     private fun render() {
         body.removeAllViews()
+        body.addView(UiKit.button(this, "Open workspace (files, terminal, previews, tasks, GitHub)") { startActivity(android.content.Intent(this, WorkspaceActivity::class.java)) })
         github(); voiceTools(); permissions(); memory(); workspace(); audit()
     }
 
