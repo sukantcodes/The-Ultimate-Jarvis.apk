@@ -93,7 +93,20 @@ class ToolSettingsActivity : AppCompatActivity() {
     }
 
     private fun permissions() {
-        val c = section("What the assistant may do", "Reading and web access are allowed by default. Changing files and running programs ask first. Destructive actions (delete, overwrite, push, install) always ask and can not be switched to automatic.")
+        val c = section("What the assistant may do", "Reading and web access are allowed by default. Changing files and running programs ask first. Destructive actions (delete, overwrite, push, install) always ask unless Auto-Approve All is active.")
+        val autoSw = Switch(this).apply {
+            text = "⚡ Auto-Approve All Permissions (Autonomous Mode)"
+            isChecked = com.jarvis.assistant.tools.PermissionPreferences.isAutoApproveAll(this@ToolSettingsActivity)
+        }
+        autoSw.setOnCheckedChangeListener { _, on ->
+            com.jarvis.assistant.tools.PermissionPreferences.setAutoApproveAll(this@ToolSettingsActivity, on)
+            toast(if (on) "⚡ Auto-Approve Enabled: All permissions auto-approved" else "Auto-Approve Disabled: Safety prompts enabled")
+            render()
+        }
+        c.addView(autoSw)
+        if (autoSw.isChecked) {
+            c.addView(UiKit.text(this, "✦ Autonomous Mode is active: all tool calls, workspace edits, and terminal actions will be auto-approved without prompting.", 12f, bold = true))
+        }
         val modes = listOf(Mode.ASK, Mode.ALLOW, Mode.DENY)
         listOf(Risk.WRITE to "Create or change files", Risk.EXECUTE to "Run programs (terminal, previews)", Risk.NETWORK to "Use the internet", Risk.DESTRUCTIVE to "Destructive actions").forEach { (risk, label) ->
             c.addView(UiKit.text(this, label, 13f))

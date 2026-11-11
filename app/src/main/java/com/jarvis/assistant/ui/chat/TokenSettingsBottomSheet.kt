@@ -11,6 +11,7 @@ import com.jarvis.assistant.R
 import com.jarvis.assistant.databinding.SheetTokenSettingsBinding
 import com.jarvis.assistant.provider.TokenMode
 import com.jarvis.assistant.provider.TokenModeStore
+import com.jarvis.assistant.tools.PermissionPreferences
 
 object TokenSettingsBottomSheet {
 
@@ -24,7 +25,34 @@ object TokenSettingsBottomSheet {
         dialog.setContentView(binding.root)
 
         var selected = TokenModeStore.get(context)
+        var autoApprove = PermissionPreferences.isAutoApproveAll(context)
+
         binding.tvTokensUsedSubtitle.text = "Current conversation: $currentTokensUsed tokens used"
+
+        fun updateAutoApproveUI() {
+            binding.switchAutoApproveAll.isChecked = autoApprove
+            if (autoApprove) {
+                binding.cardAutoApproveAll.background = ContextCompat.getDrawable(context, R.drawable.bg_auto_approve_card_active)
+                binding.tvAutoApproveBadge.background = ContextCompat.getDrawable(context, R.drawable.bg_auto_approve_badge_active)
+                binding.tvAutoApproveBadge.text = "★ UNRESTRICTED"
+                binding.tvAutoApproveBadge.setTextColor(Color.parseColor("#000000"))
+                binding.tvAutoApproveSubtitle.text = "Zero-prompt autonomy · Full permission bypass active"
+                binding.tvAutoApproveSubtitle.setTextColor(Color.parseColor("#00E5FF"))
+                binding.viewAutoApproveDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#00E676"))
+                binding.tvAutoApproveStatusText.text = "ACTIVE · All permissions auto-approved without interruption"
+                binding.tvAutoApproveStatusText.setTextColor(Color.parseColor("#00E676"))
+            } else {
+                binding.cardAutoApproveAll.background = ContextCompat.getDrawable(context, R.drawable.bg_auto_approve_card_inactive)
+                binding.tvAutoApproveBadge.background = ContextCompat.getDrawable(context, R.drawable.bg_auto_approve_badge_inactive)
+                binding.tvAutoApproveBadge.text = "STANDARD PROMPTS"
+                binding.tvAutoApproveBadge.setTextColor(Color.parseColor("#90A4AE"))
+                binding.tvAutoApproveSubtitle.text = "Manual confirmation required for sensitive actions"
+                binding.tvAutoApproveSubtitle.setTextColor(Color.parseColor("#78909C"))
+                binding.viewAutoApproveDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#78909C"))
+                binding.tvAutoApproveStatusText.text = "INACTIVE · Write and execute tools will prompt first"
+                binding.tvAutoApproveStatusText.setTextColor(Color.parseColor("#78909C"))
+            }
+        }
 
         fun updateUI() {
             binding.pbPremiumBar.progress = selected.progressPercent
@@ -58,6 +86,25 @@ object TokenSettingsBottomSheet {
         }
 
         updateUI()
+        updateAutoApproveUI()
+
+        binding.cardAutoApproveAll.setOnClickListener {
+            autoApprove = !autoApprove
+            PermissionPreferences.setAutoApproveAll(context, autoApprove)
+            updateAutoApproveUI()
+            val msg = if (autoApprove) "⚡ Auto-Approve Enabled: All permissions will be approved automatically" else "Auto-Approve Disabled: Safety prompts enabled"
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+        }
+
+        binding.switchAutoApproveAll.setOnCheckedChangeListener { _, isChecked ->
+            if (autoApprove != isChecked) {
+                autoApprove = isChecked
+                PermissionPreferences.setAutoApproveAll(context, autoApprove)
+                updateAutoApproveUI()
+                val msg = if (autoApprove) "⚡ Auto-Approve Enabled: All permissions will be approved automatically" else "Auto-Approve Disabled: Safety prompts enabled"
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            }
+        }
 
         binding.cardModeLow.setOnClickListener {
             selected = TokenMode.LOW
@@ -76,7 +123,8 @@ object TokenSettingsBottomSheet {
 
         binding.btnApplyTokenSettings.setOnClickListener {
             TokenModeStore.set(context, selected)
-            Toast.makeText(context, "Token mode set to ${selected.label}", Toast.LENGTH_SHORT).show()
+            PermissionPreferences.setAutoApproveAll(context, autoApprove)
+            Toast.makeText(context, "Settings applied: ${selected.label} tier active", Toast.LENGTH_SHORT).show()
             onModeChanged?.invoke(selected)
             dialog.dismiss()
         }

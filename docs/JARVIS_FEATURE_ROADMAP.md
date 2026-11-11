@@ -34,6 +34,15 @@
 - **Animated Waveform:** Built `VoiceWaveView.kt` with audio-reactive oscillating bars reacting to `rmsdB` speech intensity.
 - **Speech Integration:** Android `SpeechRecognizer` with live partial transcript display and automatic message send upon speech completion.
 
+### 1.5 Autonomous Zero-Prompt Auto-Approve Permissions Mode (Premium UI)
+- **Problem Solved:** Users who want completely autonomous execution without repeated confirmation prompts for file edits, scripts, terminal commands, or destructive actions.
+- **Solution:**
+  - Added global `PermissionPreferences.isAutoApproveAll()` and `policy.isAutoApproveAll()`.
+  - In `ToolExecutor.kt`, auto-approve evaluates first to immediately grant unrestricted execution without ever invoking `confirmer().confirm(...)` or blocking the thread.
+  - Built a cyber-styled **Premium UI Card** with glowing border, `★ UNRESTRICTED` badge, feature chips (Terminal, File Edits, Web, Destructive), and a smooth MaterialSwitch.
+  - Integrated into both **Chatbox Settings** (`sheet_token_settings.xml` & `TokenSettingsBottomSheet.kt`), **API & Connection Settings** (`activity_api_connection.xml` & `ApiConnectionActivity.kt`), **Tool Settings** (`ToolSettingsActivity.kt`), and **Chatbox Tools** (`ChatboxTools.kt`).
+  - Added live status feedback in the Chatbox top header (`Autonomous Workspace · ⚡ Auto-Approve Active`).
+
 ---
 
 ## 2. Future Implementation Roadmap (13 Features)

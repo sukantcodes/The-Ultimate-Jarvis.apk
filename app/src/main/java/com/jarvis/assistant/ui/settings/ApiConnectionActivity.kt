@@ -83,6 +83,34 @@ class ApiConnectionActivity : AppCompatActivity() {
         if (preferences.customEndpoint.isNotBlank()) {
             binding.tvEndpointSummary.text = "Active Endpoint: ${preferences.customEndpoint}"
         }
+
+        val autoApprove = com.jarvis.assistant.tools.PermissionPreferences.isAutoApproveAll(this)
+        updateAutoApproveUI(autoApprove)
+    }
+
+    private fun updateAutoApproveUI(enabled: Boolean) {
+        binding.switchApiAutoApproveAll.isChecked = enabled
+        if (enabled) {
+            binding.cardApiAutoApproveAll.background = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.bg_auto_approve_card_active)
+            binding.tvApiAutoApproveBadge.background = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.bg_auto_approve_badge_active)
+            binding.tvApiAutoApproveBadge.text = "★ UNRESTRICTED"
+            binding.tvApiAutoApproveBadge.setTextColor(Color.parseColor("#000000"))
+            binding.tvApiAutoApproveSubtitle.text = "Zero-prompt autonomy · Complete bypass"
+            binding.tvApiAutoApproveSubtitle.setTextColor(Color.parseColor("#00E5FF"))
+            binding.viewApiAutoApproveDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#00E676"))
+            binding.tvApiAutoApproveStatusText.text = "ACTIVE · All actions auto-approved without prompts"
+            binding.tvApiAutoApproveStatusText.setTextColor(Color.parseColor("#00E676"))
+        } else {
+            binding.cardApiAutoApproveAll.background = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.bg_auto_approve_card_inactive)
+            binding.tvApiAutoApproveBadge.background = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.bg_auto_approve_badge_inactive)
+            binding.tvApiAutoApproveBadge.text = "STANDARD PROMPTS"
+            binding.tvApiAutoApproveBadge.setTextColor(Color.parseColor("#90A4AE"))
+            binding.tvApiAutoApproveSubtitle.text = "Safety prompts active for write & execute tools"
+            binding.tvApiAutoApproveSubtitle.setTextColor(Color.parseColor("#78909C"))
+            binding.viewApiAutoApproveDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#78909C"))
+            binding.tvApiAutoApproveStatusText.text = "INACTIVE · Manual confirmation required"
+            binding.tvApiAutoApproveStatusText.setTextColor(Color.parseColor("#78909C"))
+        }
     }
 
     private fun setupListeners() {
@@ -109,6 +137,21 @@ class ApiConnectionActivity : AppCompatActivity() {
         binding.btnManageKeys.setOnClickListener { startActivity(Intent(this, KeyManagerActivity::class.java)) }
         binding.btnWorkRouting.setOnClickListener { startActivity(Intent(this, WorkRoutingActivity::class.java)) }
         binding.btnWorkspaceTools.setOnClickListener { startActivity(Intent(this, ToolSettingsActivity::class.java)) }
+
+        binding.cardApiAutoApproveAll.setOnClickListener {
+            val next = !binding.switchApiAutoApproveAll.isChecked
+            com.jarvis.assistant.tools.PermissionPreferences.setAutoApproveAll(this, next)
+            updateAutoApproveUI(next)
+            Toast.makeText(this, if (next) "⚡ Auto-Approve Enabled: All permissions auto-approved" else "Auto-Approve Disabled: Safety prompts enabled", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.switchApiAutoApproveAll.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked != com.jarvis.assistant.tools.PermissionPreferences.isAutoApproveAll(this)) {
+                com.jarvis.assistant.tools.PermissionPreferences.setAutoApproveAll(this, isChecked)
+                updateAutoApproveUI(isChecked)
+                Toast.makeText(this, if (isChecked) "⚡ Auto-Approve Enabled: All permissions auto-approved" else "Auto-Approve Disabled: Safety prompts enabled", Toast.LENGTH_SHORT).show()
+            }
+        }
         binding.btnAddProvider.setOnClickListener {
             startActivity(Intent(this, CustomProviderEditorActivity::class.java))
         }
@@ -315,6 +358,7 @@ class ApiConnectionActivity : AppCompatActivity() {
         }
         preferences.aiModel = selectedModel
         preferences.customEndpoint = customEp
+        com.jarvis.assistant.tools.PermissionPreferences.setAutoApproveAll(this, binding.switchApiAutoApproveAll.isChecked)
         com.jarvis.assistant.background.JarvisConversationService.clearLiveError()
         com.jarvis.assistant.background.JarvisConversationService.restartSession()
 
