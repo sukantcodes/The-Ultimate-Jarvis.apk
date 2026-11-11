@@ -47,7 +47,17 @@ class ToolSettingsActivity : AppCompatActivity() {
 
     private fun render() {
         body.removeAllViews()
-        github(); voiceTools(); permissions(); memory(); workspace(); audit()
+        tokenUsage(); github(); voiceTools(); permissions(); memory(); workspace(); audit()
+    }
+
+    private fun tokenUsage() {
+        val current = com.jarvis.assistant.provider.TokenModeStore.get(this)
+        val c = section("Token Usage & Reasoning", "Select how tokens are budgeted. Simple questions get quick direct answers, while complex tasks use deep reasoning. Tokens are dedicated to code and tools instead of conversational chatter.")
+        c.addView(UiKit.text(this, "Active Tier: ${current.tierLabel} (${current.label})", 13f, bold = true))
+        c.addView(UiKit.text(this, current.summary, 12f, muted = true))
+        c.addView(UiKit.button(this, "Configure Token Tier (Low / High / Max)") {
+            com.jarvis.assistant.ui.chat.TokenSettingsBottomSheet.show(this) { render() }
+        })
     }
 
     private fun section(title: String, hint: String? = null): LinearLayout {

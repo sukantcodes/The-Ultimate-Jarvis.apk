@@ -77,7 +77,8 @@ class ProviderChatEngine(
     /** Supplies the shared tool layer, or null when tools are off. Same backend for every provider. */
     private val toolBackend: (() -> com.jarvis.assistant.tools.ToolBackend?)? = null,
     /** Extra system-prompt text for a question, such as the user's saved memories. Must never contain secrets. */
-    private val extraContext: ((String) -> String)? = null
+    private val extraContext: ((String) -> String)? = null,
+    private val tokenModeProvider: (() -> TokenMode)? = null
 ) {
     /** Short live status lines while tools run ("Using web_search…"). */
     private val _activity = MutableSharedFlow<String>(extraBufferCapacity = 32)
@@ -178,8 +179,9 @@ class ProviderChatEngine(
             val partial = StringBuilder()
             var lastUi = 0L
             try {
+                val tokenMode = tokenModeProvider?.invoke() ?: TokenMode.HIGH
                 val history = store.completedTurns(excludingId = id).map { it.copy(user = sentText[it.id] ?: it.user) }
-                val messages = ChatContext.build(history, text, attachments)
+                val messages = ChatContext.build(history, text, attachments, budgetChars = tokenMode.budgetChars)
                 val sys0 = systemPrompt() + (try { extraContext?.invoke(text) } catch (e: Exception) { null }.orEmpty())
                 val client = ChatClientFactory.create(provider.protocol, transport)
                 val pool = keyRotation?.takeIf { it.hasKeys(provider.profileId) }
@@ -207,7 +209,7 @@ class ProviderChatEngine(
                         if (backend != null) {
                             try {
                                 val loop = if (active.protocol == ProviderProtocol.GEMINI) GeminiToolLoop(transport, backend) else OpenAiToolLoop(transport, backend)
-                                val res = loop.run(ChatRequest(active, sys0 + TOOL_PROMPT, messages), "chat-task-" + id) { line ->
+                                val res = loop.run(ChatRequest(active, sys0 + TOOL_PROMPT, messages, maxTokens = active.maxTokens ?: tokenMode.maxTokens), "chat-task-" + id) { line ->
                                     _activity.tryEmit(line); store.updatePartial(id, "⏳ $line")
                                 }
                                 toolsRan += res.toolCalls
@@ -225,7 +227,7 @@ class ProviderChatEngine(
                             }
                         }
                         if (backend == null || toolLoopFailed) {
-                            client.stream(ChatRequest(active, sys0, messages)).collect { event ->
+                            client.stream(ChatRequest(active, sys0, messages, maxTokens = active.maxTokens ?: tokenMode.maxTokens)).collect { event ->
                                 when (event) {
                                     is ChatEvent.Delta -> {
                                         partial.append(event.text)
@@ -345,11 +347,22 @@ object ChatContext {
         return out
     }
 
-    fun systemPrompt(userName: String): String = buildString {
-        append("You are JARVIS, a helpful, accurate assistant inside the user's ChatBox. ")
-        append("Reply in the language the user writes in. Be clear and concise; use short paragraphs or simple lists when they help. ")
-        append("If you don't know something or can't see a file or image, say so instead of guessing. ")
-        append("Only confirm an action or task was completed if a tool result verifies it; never invent or assume execution outcomes.")
+    fun systemPrompt(userName: String, mode: TokenMode = TokenMode.HIGH): String = buildString {
+        append("You are JARVIS, an advanced, ultra-capable AI assistant inside the user's workspace. ")
+        append("Reply in the language the user writes in. ")
+
+        append("\n\n[ADAPTIVE THINKING & REASONING COMPLEXITY]:")
+        append("\n- SIMPLE & CASUAL QUESTIONS: When asked simple greetings, casual conversation, quick definitions, or basic facts, DO NOT overthink or output long paragraphs. Answer directly, simply, and concisely in 1-2 sentences without preamble.")
+        append("\n- COMPLEX TASKS & CODING: When asked complex questions, coding, debugging, architecture, shell/terminal tasks, or multi-step reasoning, THINK DEEPLY and systematically. Plan carefully and provide the highest-quality, robust, production-grade solutions.")
+
+        append("\n\n[TOKEN EFFICIENCY — WORK OVER CHATTING]:")
+        append("\n- Allocate the vast majority of tokens to actual WORK (generating working code, executing tools, accurate terminal commands, and solving problems).")
+        append("\n- NEVER waste tokens on conversational filler, redundant pleasantries ('Sure! I would be delighted to help with that'), repetitive apologies, or repeating the user prompt.")
+        append("\n- Jump immediately into the answer or action.")
+
+        append("\n\n[").append(mode.promptInstruction).append("]")
+
+        append("\n\nOnly confirm an action or task was completed if a tool result verifies it; never invent or assume execution outcomes.")
         if (userName.isNotBlank()) append(" The user's name is ").append(userName.trim()).append('.')
     }
 }
