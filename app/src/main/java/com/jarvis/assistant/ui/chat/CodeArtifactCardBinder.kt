@@ -25,7 +25,7 @@ object CodeArtifactCardBinder {
         val hasTarget = language.contains(':')
         val baseLang = if (hasTarget) language.substringBefore(':').trim() else language.trim()
         val targetName = if (hasTarget) language.substringAfter(':').trim() else ""
-        val isTerminal = baseLang.equals("terminal", true) || baseLang.equals("bash", true) || baseLang.equals("sh", true)
+        val workType = WorkActionType.resolve(baseLang, targetName)
 
         val displayTitle = when {
             targetName.isNotBlank() -> targetName
@@ -34,25 +34,27 @@ object CodeArtifactCardBinder {
         }
         binding.tvCardLanguage.text = displayTitle
 
-        if (isTerminal) {
-            binding.ivCardIcon.setImageResource(R.drawable.ic_menu)
-            binding.ivCardIcon.imageTintList = ContextCompat.getColorStateList(context, R.color.brand_neon_cyan)
+        // Apply Claude-style reactive icon animation
+        WorkIconAnimator.applyWorkAnimation(
+            iconView = binding.ivCardIcon,
+            frameView = binding.flCardIconContainer,
+            type = workType,
+            isWriting = isWriting
+        )
+
+        // Terminal or File Title
+        if (workType == WorkActionType.TERMINAL) {
             binding.tvTerminalTitle.text = if (targetName.isNotBlank()) "terminal: ~/workspace $ $targetName" else "terminal ~/workspace"
         } else {
-            binding.ivCardIcon.setImageResource(R.drawable.ic_code_chip)
-            binding.ivCardIcon.imageTintList = ContextCompat.getColorStateList(context, R.color.brand_neon_cyan)
             binding.tvTerminalTitle.text = if (targetName.isNotBlank()) "file: $targetName" else "$displayTitle snippet"
         }
 
+        // Live status badge
         if (isWriting) {
             binding.tvWritingStatus.visibility = View.VISIBLE
-            val statusLabel = when {
-                isTerminal -> "✦ Running terminal…"
-                targetName.isNotBlank() -> "✦ Creating $targetName…"
-                else -> "✦ Writing code…"
-            }
-            binding.tvWritingStatus.text = statusLabel
-            binding.tvWritingStatus.setTextColor(Color.parseColor("#64B5F6"))
+            val label = workType.activeBadgeText(targetName.ifBlank { baseLang })
+            binding.tvWritingStatus.text = label
+            binding.tvWritingStatus.setTextColor(workType.activeColor)
             binding.tvWritingStatus.background = ContextCompat.getDrawable(context, R.drawable.bg_code_writing_badge)
             val pulse = AlphaAnimation(0.35f, 1.0f).apply {
                 duration = 650
@@ -64,11 +66,7 @@ object CodeArtifactCardBinder {
         } else {
             binding.tvWritingStatus.clearAnimation()
             binding.tvWritingStatus.visibility = View.VISIBLE
-            val statusDone = when {
-                isTerminal -> "✓ Finished"
-                targetName.isNotBlank() -> "✓ Created $targetName"
-                else -> "✓ Done"
-            }
+            val statusDone = workType.doneBadgeText(targetName.ifBlank { baseLang })
             binding.tvWritingStatus.text = statusDone
             binding.tvWritingStatus.setTextColor(Color.parseColor("#00E676"))
             binding.tvWritingStatus.background = ContextCompat.getDrawable(context, R.drawable.bg_chat_status)
@@ -76,7 +74,12 @@ object CodeArtifactCardBinder {
             binding.tvCardBottomHint.text = "Click to toggle mini window · Tap Open ↗ for full viewer ($lineCount lines)"
         }
 
-        val tagPrefix = if (isTerminal) "Terminal" else "Code"
+        val tagPrefix = when (workType) {
+            WorkActionType.TERMINAL -> "Terminal"
+            WorkActionType.WEB_SEARCH -> "Output"
+            else -> "Code"
+        }
+
         fun updateToggleText() {
             val isVisible = binding.layoutMiniTerminal.visibility == View.VISIBLE
             binding.tvToggleTagText.text = if (isVisible) "▲ Hide $tagPrefix" else "▼ $tagPrefix Window"
@@ -96,7 +99,10 @@ object CodeArtifactCardBinder {
             lineNums.append(i).append('\n')
         }
         binding.tvPreviewLineNumbers.text = lineNums.toString().trimEnd()
-        binding.tvPreviewCode.text = previewLines.joinToString("\n")
+
+        val previewText = previewLines.joinToString("\n")
+        val highlighted = CodeSyntaxHighlighter.highlight(previewText, baseLang)
+        binding.tvPreviewCode.text = highlighted
 
         val openViewer = {
             CodeViewerBottomSheet.show(context, baseLang, code, isWriting)

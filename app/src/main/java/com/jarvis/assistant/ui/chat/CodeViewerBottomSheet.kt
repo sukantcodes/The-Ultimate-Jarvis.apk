@@ -3,9 +3,13 @@ package com.jarvis.assistant.ui.chat
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.Color
 import android.view.LayoutInflater
+import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.jarvis.assistant.R
 import com.jarvis.assistant.databinding.SheetCodeViewerBinding
 import java.util.Locale
 
@@ -27,7 +31,34 @@ object CodeViewerBottomSheet {
             lineNums.append(i).append('\n')
         }
         binding.tvLineNumbers.text = lineNums.toString().trimEnd()
-        binding.tvCodeContent.text = code
+
+        var currentTheme = CodeSyntaxHighlighter.Theme.CYBER_DARK
+
+        fun renderTheme(theme: CodeSyntaxHighlighter.Theme) {
+            currentTheme = theme
+            binding.scrollCodeContainer.setBackgroundColor(theme.bgColor)
+            val highlighted = CodeSyntaxHighlighter.highlight(code, language, theme)
+            binding.tvCodeContent.text = highlighted
+
+            val activeBg = ContextCompat.getDrawable(context, R.drawable.bg_auto_approve_badge_active)
+            val inactiveBg = ContextCompat.getDrawable(context, R.drawable.bg_auto_approve_badge_inactive)
+
+            fun updateChip(chip: TextView, active: Boolean) {
+                chip.background = if (active) activeBg else inactiveBg
+                chip.setTextColor(if (active) Color.parseColor("#00E5FF") else Color.parseColor("#90A4AE"))
+                chip.setTypeface(null, if (active) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+            }
+
+            updateChip(binding.chipThemeCyber, theme == CodeSyntaxHighlighter.Theme.CYBER_DARK)
+            updateChip(binding.chipThemeDracula, theme == CodeSyntaxHighlighter.Theme.DRACULA)
+            updateChip(binding.chipThemeMonokai, theme == CodeSyntaxHighlighter.Theme.MONOKAI)
+        }
+
+        renderTheme(CodeSyntaxHighlighter.Theme.CYBER_DARK)
+
+        binding.chipThemeCyber.setOnClickListener { renderTheme(CodeSyntaxHighlighter.Theme.CYBER_DARK) }
+        binding.chipThemeDracula.setOnClickListener { renderTheme(CodeSyntaxHighlighter.Theme.DRACULA) }
+        binding.chipThemeMonokai.setOnClickListener { renderTheme(CodeSyntaxHighlighter.Theme.MONOKAI) }
 
         binding.btnCodeCopy.setOnClickListener {
             try {

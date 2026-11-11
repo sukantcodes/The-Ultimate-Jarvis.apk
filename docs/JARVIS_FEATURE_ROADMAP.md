@@ -55,15 +55,51 @@
   - **Network & API Fault-Tolerance:** Enabled OkHttp connection failure auto-retry, extended timeouts to 120s, automatic 3-tier exponential backoff retries on transient socket/HTTP errors, increased tool loop limit to 50 rounds, and eliminated intermediate "Say continue" halts.
   - **Workspace Auto-Continuity:** Preserves all created files on disk across any interruption and resumes seamlessly.
 
+### 1.7 Claude-Style Reactive Icon Animations for Every Work
+- **Work Classification:** `WorkActionType.kt` dynamically identifies the executing action:
+  - `FILE_CREATE`: Breathing scale + cyan aura pulse (`ic_work_file_create.xml`, `#00E5FF`).
+  - `FILE_EDIT`: Writing tilt oscillation + amber glow (`ic_work_file_edit.xml`, `#FF9100`).
+  - `TERMINAL`: Prompt blink cursor / heartbeat pulse (`ic_work_terminal.xml`, `#B388FF`).
+  - `WEB_SEARCH`: Continuous 360° radar sweep (`ic_work_web_search.xml`, `#00E676`).
+  - `FILE_READ`: Scanning horizontal translate bounce (`ic_work_file_read.xml`, `#40C4FF`).
+  - `CODE_SYNTHESIS`: Cosmic sparkle orbit & scale (`ic_sparkle.xml`, `#80D8FF`).
+  - `COMPLETED`: Snappy overshoot scale bounce into verified check (`ic_work_check.xml`, `#00E676`).
+- **Hardware-Accelerated Animator:** `WorkIconAnimator.kt` runs distinct, smooth animations on the card icon frame `flCardIconContainer` and updates live labels.
+
+### 1.8 Hands-Free Auto Voice Reply
+- **Auto TTS on Voice Input:** Sending a query via the microphone triggers `lastMessageOriginatedFromVoice = true`. Upon reply completion, Jarvis speaks the conversational answer aloud hands-free.
+- **Smart Speech Sanitization:** In `JarvisChatAdapter.kt`, code blocks, fences, and raw syntax are stripped before TTS reads, replacing them with natural spoken summaries.
+- **Quick-Mute & Header Speaker Toggle:** Added `btnVoiceSpeaker` in the chat header with live state:
+  - Glowing Cyan (`#00E5FF`): Auto Voice Reply Active.
+  - Pulsing Gold (`#FFD700`): Currently reading response (1 tap stops immediately).
+  - Muted Grey (`#78909C`): Voice muted.
+
+### 1.9 Full Syntax Highlighting in Code Viewer & Themes
+- **Native Spannable Engine:** `CodeSyntaxHighlighter.kt` applies high-performance token coloring for Kotlin, Python, JS/TS, HTML, CSS, Bash, and JSON.
+- **Interactive Theme Switcher:** `sheet_code_viewer.xml` and `CodeViewerBottomSheet.kt` support 1-tap switching between:
+  - **Cyber Dark+**: Futuristic neon cyan, violet, emerald, and gold.
+  - **Dracula**: Classic purple, pink, green, and cyan.
+  - **Monokai Neon**: High-contrast magenta, lime green, and electric blue.
+
+### 1.10 Camera & Screenshot Quick Capture
+- **Direct Camera Snapshot:** Added `btnCamera` to the chat composer row. 1-tap captures photos with `TakePicturePreview()`, automatically saved to app storage and attached for multimodal vision analysis.
+- **Unified Attachment Picker:** `btnAttach` opens a clean 3-option sheet for Camera, Screenshot/Gallery Image, or Files & Documents.
+
+### 1.11 Multi-Format Export to Markdown & PDF
+- **Dedicated Exporter:** `ChatExporter.kt` formats transcripts into:
+  - **Markdown (.md):** GitHub-flavored markdown with timestamps, attachment links, and syntax-tagged code fences.
+  - **PDF (.pdf):** Standard vector PDF with titles, metadata, styled speech cards, and line-numbered code layouts via `PdfDocument`.
+- **Integrated Menus:** Accessible from `ChatboxTools.kt` with dedicated file creation launchers.
+
 ---
 
 ## 2. Future Implementation Roadmap (13 Features)
 
-### Phase 1: High-Impact Chat & Voice Upgrades (~20 mins)
-- [ ] **Hands-Free Auto Voice Reply**: When sending a query via voice input, Jarvis automatically reads the answer aloud using TTS.
-- [ ] **Full Syntax Highlighting in Code Viewer**: Colorized themes (Dark+, Dracula, Monokai) for Python, Kotlin, JS, HTML, Bash, and JSON in `CodeViewerBottomSheet`.
-- [ ] **Camera & Screenshot Quick Capture**: Direct camera snapshot and gallery picker icons in the composer row for multimodal vision queries.
-- [ ] **Export to Markdown & PDF**: Save chat transcripts with formatted code blocks directly to `.md` or formatted `.pdf`.
+### Phase 1: High-Impact Chat & Voice Upgrades (~20 mins) — COMPLETED ✓
+- [x] **Hands-Free Auto Voice Reply**: When sending a query via voice input, Jarvis automatically reads the answer aloud using TTS.
+- [x] **Full Syntax Highlighting in Code Viewer**: Colorized themes (Dark+, Dracula, Monokai) for Python, Kotlin, JS, HTML, Bash, and JSON in `CodeViewerBottomSheet`.
+- [x] **Camera & Screenshot Quick Capture**: Direct camera snapshot and gallery picker icons in the composer row for multimodal vision queries.
+- [x] **Export to Markdown & PDF**: Save chat transcripts with formatted code blocks directly to `.md` or formatted `.pdf`.
 
 ### Phase 2: Workspace & Developer Tools (~25 mins)
 - [ ] **In-App Live Web Preview**: Floating or split mini-browser to view websites, HTML files, or localhost dev servers started by Jarvis terminal without leaving the app.

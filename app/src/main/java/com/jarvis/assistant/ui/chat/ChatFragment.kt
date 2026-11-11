@@ -36,6 +36,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.graphics.Bitmap
+import android.graphics.Color
+import java.io.File
+import java.io.FileOutputStream
 import com.jarvis.assistant.provider.AttachmentRef
 import com.jarvis.assistant.provider.EngineState
 import com.jarvis.assistant.provider.ProviderRuntime
@@ -75,12 +79,100 @@ class ChatFragment : Fragment() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var isVoiceListening: Boolean = false
     private var totalUsedTokens: Int = 0
+    private var lastMessageOriginatedFromVoice: Boolean = false
+    private var lastAutoSpokenTurnId: Long = -1L
+    private var autoVoiceReplyEnabled: Boolean = false
 
     private val voicePermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
             startVoiceRecognition()
         } else {
             Toast.makeText(requireContext(), "Microphone permission is required for voice input.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private val cameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            takePhotoLauncher.launch(null)
+        } else {
+            Toast.makeText(requireContext(), "Camera permission is required to snap photos.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private val takePhotoLauncher = registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap: Bitmap? ->
+        if (bitmap == null || _binding == null) return@registerForActivityResult
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val tempFile = File(requireContext().cacheDir, "camera_snap_${System.currentTimeMillis()}.jpg")
+                withContext(Dispatchers.IO) {
+                    FileOutputStream(tempFile).use { out ->
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+                    }
+                }
+                val uri = Uri.fromFile(tempFile)
+                val picked = DocumentAnalysisClient.SelectedDocument(uri, tempFile.name, "image/jpeg", tempFile.absolutePath)
+                selectedDocument = DocumentAnalysisClient.persistForChat(requireContext(), picked)
+                if (_binding != null) {
+                    binding.etMessageInput.hint = "Ask about this photo…"
+                    updateAttachmentPreview()
+                    Toast.makeText(requireContext(), "Camera photo captured & attached for analysis!", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Could not save photo: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private val imagePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri == null || _binding == null) return@registerForActivityResult
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val picked = DocumentAnalysisClient.describe(requireContext(), uri)
+                selectedDocument = DocumentAnalysisClient.persistForChat(requireContext(), picked)
+                if (_binding != null) {
+                    binding.etMessageInput.hint = "Ask about ${selectedDocument?.name}…"
+                    updateAttachmentPreview()
+                    Toast.makeText(requireContext(), "Image attached: ${selectedDocument?.name}", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Could not load image: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private var pendingExportMarkdown: String = ""
+    private val exportMdLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri: Uri? ->
+        val text = pendingExportMarkdown
+        if (uri == null || text.isBlank()) return@registerForActivityResult
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    requireContext().contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(text.toByteArray(Charsets.UTF_8))
+                    } ?: error("Couldn't open target location.")
+                }
+                Toast.makeText(requireContext(), "Saved conversation as Markdown (.md).", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Export failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private val exportPdfLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri: Uri? ->
+        if (uri == null) return@registerForActivityResult
+        val turns = chatAdapter.currentList
+        if (turns.isEmpty()) return@registerForActivityResult
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    requireContext().contentResolver.openOutputStream(uri)?.use { out ->
+                        ChatExporter.generatePdf(requireContext(), turns, out)
+                    } ?: error("Couldn't open PDF destination.")
+                }
+                Toast.makeText(requireContext(), "Saved conversation as PDF (.pdf).", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "PDF export failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -226,9 +318,77 @@ class ChatFragment : Fragment() {
                 updateAutoApproveHeaderStatus()
             }
         }
-        binding.btnAttach.onSafeClick {
-            documentPicker.launch(arrayOf("*/*"))
+
+        autoVoiceReplyEnabled = requireContext().getSharedPreferences("jarvis_voice_prefs", Context.MODE_PRIVATE)
+            .getBoolean("key_auto_voice_reply", false)
+
+        fun updateSpeakerButtonVisual(isSpeaking: Boolean = chatAdapter.isSpeaking()) {
+            if (_binding == null) return
+            if (isSpeaking) {
+                binding.btnVoiceSpeaker.setImageResource(R.drawable.ic_cc_stop)
+                binding.btnVoiceSpeaker.setColorFilter(Color.parseColor("#FFD700"))
+                binding.btnVoiceSpeaker.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_work_progress_badge)
+            } else if (autoVoiceReplyEnabled) {
+                binding.btnVoiceSpeaker.setImageResource(R.drawable.ic_cc_volume)
+                binding.btnVoiceSpeaker.setColorFilter(Color.parseColor("#00E5FF"))
+                binding.btnVoiceSpeaker.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_chat_token_badge)
+            } else {
+                binding.btnVoiceSpeaker.setImageResource(R.drawable.ic_cc_volume)
+                binding.btnVoiceSpeaker.setColorFilter(Color.parseColor("#78909C"))
+                binding.btnVoiceSpeaker.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_chat_token_badge)
+            }
         }
+        updateSpeakerButtonVisual()
+
+        chatAdapter.onSpeakingStateChanged = { speaking ->
+            activity?.runOnUiThread { updateSpeakerButtonVisual(speaking) }
+        }
+
+        binding.btnVoiceSpeaker.onSafeClick {
+            if (chatAdapter.isSpeaking()) {
+                chatAdapter.stopSpeaking()
+                updateSpeakerButtonVisual(false)
+                Toast.makeText(requireContext(), "Voice reading stopped", Toast.LENGTH_SHORT).show()
+            } else {
+                autoVoiceReplyEnabled = !autoVoiceReplyEnabled
+                requireContext().getSharedPreferences("jarvis_voice_prefs", Context.MODE_PRIVATE)
+                    .edit().putBoolean("key_auto_voice_reply", autoVoiceReplyEnabled).apply()
+                updateSpeakerButtonVisual(false)
+                val msg = if (autoVoiceReplyEnabled) "⚡ Auto Voice Reply: Enabled (Jarvis speaks answers)" else "Auto Voice Reply: Muted"
+                Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        binding.btnCamera.onSafeClick {
+            val cameraPermission = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
+            if (cameraPermission == PackageManager.PERMISSION_GRANTED) {
+                takePhotoLauncher.launch(null)
+            } else {
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        }
+
+        binding.btnAttach.onSafeClick {
+            val options = arrayOf("📷 Take Camera Photo", "🖼️ Pick Screenshot or Image", "📁 Browse All Files & Code")
+            AlertDialog.Builder(requireContext())
+                .setTitle("Attach to JARVIS Chat")
+                .setItems(options) { _, which ->
+                    when (which) {
+                        0 -> {
+                            val cameraPermission = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
+                            if (cameraPermission == PackageManager.PERMISSION_GRANTED) {
+                                takePhotoLauncher.launch(null)
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        }
+                        1 -> imagePickerLauncher.launch("image/*")
+                        2 -> documentPicker.launch(arrayOf("*/*"))
+                    }
+                }
+                .show()
+        }
+
         binding.btnVoiceInput.onSafeClick {
             if (isVoiceListening) {
                 stopVoiceRecognitionAndSend()
@@ -243,10 +403,30 @@ class ChatFragment : Fragment() {
             cancelVoiceRecognition()
         }
         binding.btnChatTools.onSafeClick {
-            ChatboxTools.show(requireContext(), binding.etMessageInput, chatAdapter.currentList) { text ->
-                pendingExportText = text
-                exportLauncher.launch("Jarvis-Conversation.txt")
-            }
+            ChatboxTools.show(
+                context = requireContext(),
+                input = binding.etMessageInput,
+                turns = chatAdapter.currentList,
+                onExportFormat = { format, content ->
+                    when (format) {
+                        ChatboxTools.ExportFormat.MARKDOWN -> {
+                            pendingExportMarkdown = content
+                            exportMdLauncher.launch("Jarvis-Conversation.md")
+                        }
+                        ChatboxTools.ExportFormat.PDF -> {
+                            exportPdfLauncher.launch("Jarvis-Conversation.pdf")
+                        }
+                        ChatboxTools.ExportFormat.TXT -> {
+                            pendingExportText = content
+                            exportLauncher.launch("Jarvis-Conversation.txt")
+                        }
+                    }
+                },
+                onExport = { text ->
+                    pendingExportText = text
+                    exportLauncher.launch("Jarvis-Conversation.txt")
+                }
+            )
         }
 
         observeChatTurns()
@@ -584,6 +764,15 @@ class ChatFragment : Fragment() {
                             binding.btnStopChat.visibility = View.GONE
                             binding.btnSendMessage.isEnabled = true
                             binding.tvChatStatus.text = "● READY"
+
+                            val latestTurn = turns.lastOrNull()
+                            if (latestTurn != null && latestTurn.id != lastAutoSpokenTurnId && latestTurn.jarvisResponse.isNotBlank()) {
+                                if (lastMessageOriginatedFromVoice || autoVoiceReplyEnabled) {
+                                    lastAutoSpokenTurnId = latestTurn.id
+                                    lastMessageOriginatedFromVoice = false
+                                    chatAdapter.speakResponse(requireContext(), latestTurn.jarvisResponse, autoTriggered = true)
+                                }
+                            }
                         } else if (pending) {
                             binding.btnStopChat.visibility = View.VISIBLE
                             binding.btnSendMessage.isEnabled = false
@@ -717,6 +906,7 @@ class ChatFragment : Fragment() {
                     hideVoiceListening()
                     val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
                     if (text.isNotBlank()) {
+                        lastMessageOriginatedFromVoice = true
                         binding.etMessageInput.setText(text)
                         sendMessage()
                     }
