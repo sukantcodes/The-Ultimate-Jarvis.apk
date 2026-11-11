@@ -38,6 +38,14 @@ class ServerTest {
         assertTrue(servers.running().isEmpty())
     }
 
+    @Test fun gameTemplateIsCompleteAndServes() {
+        assertTrue(run(tool("project_create"), """{"name":"snake","template":"game","title":"Snake"}""").isOk)
+        assertTrue(run(tool("project_check"), """{"name":"snake"}""").text.startsWith("Project check passed"))
+        assertTrue(File(ws.project("snake"), "script.js").readText().contains("touchstart"))
+        assertTrue(run(tool("preview_start"), """{"name":"snake"}""").isOk)
+        assertTrue(get(servers.running().values.single().url + "script.js").second.contains("function step"))
+    }
+
     @Test fun blocksTraversalDotfilesLinksAndOtherMethods() {
         run(tool("project_create"), """{"name":"s"}"""); val proj = ws.project("s")
         File(proj, ".env").writeText("SECRET=1"); File(dir, "outside.txt").writeText("outside")

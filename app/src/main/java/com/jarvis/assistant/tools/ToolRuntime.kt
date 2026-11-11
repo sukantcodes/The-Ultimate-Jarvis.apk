@@ -73,6 +73,8 @@ object ToolRuntime {
 
         val servers = ServerTools(nodeAvailable = { onPath("node") })
         servers.all().forEach(registry::register)
+        registry.register(OpenUrlTool(app, servers.servers))
+        AndroidConfirmer.init(app)
 
         val tokens = GitHubTokenStore(AndroidKeyVault(app), redactor)
         tokens.get()?.let { redactor.register(it) }
@@ -107,11 +109,14 @@ object ToolRuntime {
  */
 object AndroidConfirmer : Confirmer {
     @Volatile private var host: WeakReference<Activity>? = null
-    fun attach(activity: Activity) { host = WeakReference(activity) }
+    @Volatile private var appContext: Context? = null
+    fun init(context: Context) { appContext = context.applicationContext }
+    fun attach(activity: Activity) { host = WeakReference(activity); appContext = activity.applicationContext }
     fun detach(activity: Activity) { if (host?.get() === activity) host = null }
 
     override suspend fun confirm(request: ConfirmRequest): Decision {
-        val activity = host?.get()?.takeIf { !it.isFinishing && !it.isDestroyed } ?: return Decision.DENY
+        val activity = host?.get()?.takeIf { !it.isFinishing && !it.isDestroyed }
+            ?: return appContext?.let { ApprovalNotifier.ask(it, request, 120_000L) } ?: Decision.DENY   // not on screen: ask through a notification
         val answer = CompletableDeferred<Decision>()
         withContext(Dispatchers.Main) {
             val title = if (request.destructive) "Confirm: ${request.risk.label}" else "Allow ${request.tool}?"

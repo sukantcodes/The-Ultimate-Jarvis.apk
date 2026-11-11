@@ -582,6 +582,11 @@ class JarvisConversationService : Service() {
     override fun onCreate() {
         super.onCreate()
         activeInstance = this
+        com.jarvis.assistant.network.GeminiLiveWebSocket.extraDeclarations = {
+            if (textOnlySession || preferences.voiceWorkspaceTools)
+                org.json.JSONArray(com.jarvis.assistant.tools.ToolSchemas.toGemini(com.jarvis.assistant.tools.ToolRuntime.get(applicationContext).registry.specs()).toString())
+            else null
+        }
         createChannel()
         initTts()
         observeNetworkForBrainSwitch()
@@ -842,15 +847,12 @@ class JarvisConversationService : Service() {
         when (intent?.action) {
             ACTION_START_CONVERSATION -> {
                 textOnlySession = false
-                com.jarvis.assistant.network.GeminiLiveWebSocket.extraDeclarations = null
                 com.jarvis.assistant.audio.JarvisSoundEffects.playWakeSound()
                 beginActiveConversation()
             }
             ACTION_START_TEXT_CHAT -> {
                 textOnlySession = true
-                com.jarvis.assistant.network.GeminiLiveWebSocket.extraDeclarations = {
-                    org.json.JSONArray(com.jarvis.assistant.tools.ToolSchemas.toGemini(com.jarvis.assistant.tools.ToolRuntime.get(applicationContext).registry.specs()).toString())
-                }
+
                 beginActiveConversation()
             }
             ACTION_ENTER_STANDBY -> enterStandby(announce = false)
@@ -4690,7 +4692,6 @@ class JarvisConversationService : Service() {
 
     private fun fullStop() {
         textOnlySession = false
-        com.jarvis.assistant.network.GeminiLiveWebSocket.extraDeclarations = null
         stopActiveConversation()
         exitStandbyListening()
         _isStandby.value = false

@@ -10,7 +10,7 @@ import java.util.zip.ZipOutputStream
 
 /** Starter websites. They are plain HTML/CSS/JS so they run with no build step and no downloads. */
 object ProjectScaffolder {
-    enum class Template(val label: String) { STATIC("Blank page"), LANDING("Landing page"), APP("Interactive app (to-do list)") }
+    enum class Template(val label: String) { STATIC("Blank page"), LANDING("Landing page"), APP("Interactive app (to-do list)"), GAME("Canvas game (Snake, touch + keyboard)") }
 
     fun create(dir: File, template: Template, title: String): List<String> {
         val t = title.trim().ifEmpty { "My site" }.replace("<", "&lt;").replace(">", "&gt;")
@@ -21,10 +21,31 @@ object ProjectScaffolder {
 <footer id="contact"><p>Contact: hello@example.com</p></footer>"""), "style.css" to baseCss() + "\n.hero{padding:4rem 1rem;text-align:center;background:linear-gradient(135deg,#1e293b,#334155);color:#fff}\n.btn{display:inline-block;margin-top:1rem;padding:.75rem 1.5rem;border-radius:.5rem;background:#38bdf8;color:#0f172a;text-decoration:none;font-weight:600}\n.cards{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));padding:2rem 1rem;max-width:60rem;margin:auto}\n.cards article{border:1px solid #cbd5e1;border-radius:.75rem;padding:1rem}\nfooter{text-align:center;padding:2rem 1rem;color:#475569}\n", "script.js" to "")
             Template.APP -> mapOf("index.html" to page(t, "<main><h1>$t</h1><form id=\"f\"><input id=\"in\" placeholder=\"Add a task\" aria-label=\"New task\" required><button>Add</button></form><ul id=\"list\"></ul></main>"), "style.css" to baseCss() + "\nform{display:flex;gap:.5rem}input{flex:1;padding:.6rem}li{padding:.4rem 0;cursor:pointer}li.done{text-decoration:line-through;opacity:.6}\n",
                 "script.js" to "const list=document.getElementById('list');let items=[];try{items=JSON.parse(localStorage.getItem('items')||'[]')}catch(e){}\nfunction save(){try{localStorage.setItem('items',JSON.stringify(items))}catch(e){}}\nfunction render(){list.innerHTML='';items.forEach((it,i)=>{const li=document.createElement('li');li.textContent=it.text;if(it.done)li.className='done';li.onclick=()=>{it.done=!it.done;save();render()};list.appendChild(li)})}\ndocument.getElementById('f').onsubmit=e=>{e.preventDefault();const v=document.getElementById('in');items.push({text:v.value,done:false});v.value='';save();render()};render();\n")
+            Template.GAME -> mapOf("index.html" to page(t, "<main class=\"g\"><h1>$t</h1><p id=\"score\"></p><canvas id=\"game\" width=\"400\" height=\"400\"></canvas><p class=\"hint\">Arrow keys / WASD, or swipe on the screen.</p></main>"),
+                "style.css" to baseCss() + "\n.g{text-align:center;max-width:26rem}canvas{width:100%;max-width:400px;aspect-ratio:1;border-radius:.75rem;touch-action:none;background:#0f172a}.hint{color:#64748b;font-size:.9rem}\n",
+                "script.js" to GAME_JS)
         }
         dir.mkdirs(); files.forEach { (n, c) -> File(dir, n).writeText(c) }
         return files.keys.toList()
     }
+
+    private val GAME_JS = """const c=document.getElementById('game'),x=c.getContext('2d'),N=20;let S,dir,next,food,score,best=0,timer,over;
+try{best=+localStorage.getItem('best')||0}catch(e){}
+function reset(){S=[{x:10,y:10},{x:9,y:10},{x:8,y:10}];dir={x:1,y:0};next=dir;score=0;over=false;place();clearInterval(timer);timer=setInterval(step,110);hud()}
+function place(){do{food={x:Math.floor(Math.random()*N),y:Math.floor(Math.random()*N)}}while(S.some(s=>s.x===food.x&&s.y===food.y))}
+function hud(){document.getElementById('score').textContent='Score '+score+'  Best '+best}
+function step(){dir=next;const h={x:S[0].x+dir.x,y:S[0].y+dir.y};
+ if(h.x<0||h.y<0||h.x>=N||h.y>=N||S.some(s=>s.x===h.x&&s.y===h.y)){over=true;clearInterval(timer);if(score>best){best=score;try{localStorage.setItem('best',best)}catch(e){}}hud();draw();return}
+ S.unshift(h);if(h.x===food.x&&h.y===food.y){score++;place();hud()}else S.pop();draw()}
+function draw(){const u=c.width/N;x.fillStyle='#0f172a';x.fillRect(0,0,c.width,c.height);x.fillStyle='#f43f5e';x.fillRect(food.x*u+2,food.y*u+2,u-4,u-4);
+ S.forEach((s,i)=>{x.fillStyle=i?'#22c55e':'#86efac';x.fillRect(s.x*u+1,s.y*u+1,u-2,u-2)});
+ if(over){x.fillStyle='rgba(0,0,0,.6)';x.fillRect(0,0,c.width,c.height);x.fillStyle='#fff';x.font='bold 28px system-ui';x.textAlign='center';x.fillText('Game over',c.width/2,c.height/2-6);x.font='16px system-ui';x.fillText('Tap or press Space to play again',c.width/2,c.height/2+22)}}
+function turn(nx,ny){if(over){reset();return}if(nx===-dir.x&&ny===-dir.y)return;next={x:nx,y:ny}}
+addEventListener('keydown',e=>{const k={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0]}[e.key];if(k){e.preventDefault();turn(k[0],k[1])}else if(e.key===' '&&over)reset()});
+let t0=null;c.addEventListener('touchstart',e=>{t0=e.touches[0];e.preventDefault()},{passive:false});
+c.addEventListener('touchend',e=>{if(!t0)return;const t=e.changedTouches[0],dx=t.clientX-t0.clientX,dy=t.clientY-t0.clientY;if(Math.max(Math.abs(dx),Math.abs(dy))<20){if(over)reset();return}Math.abs(dx)>Math.abs(dy)?turn(dx>0?1:-1,0):turn(0,dy>0?1:-1);t0=null});
+c.addEventListener('click',()=>{if(over)reset()});reset();
+"""
 
     private fun page(title: String, body: String) = "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>$title</title>\n<link rel=\"stylesheet\" href=\"style.css\">\n</head>\n<body>\n$body\n<script src=\"script.js\"></script>\n</body>\n</html>\n"
     private fun baseCss() = "*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;line-height:1.5;color:#0f172a;background:#f8fafc}main{max-width:40rem;margin:2rem auto;padding:0 1rem}"

@@ -47,7 +47,7 @@ class ToolSettingsActivity : AppCompatActivity() {
 
     private fun render() {
         body.removeAllViews()
-        github(); permissions(); memory(); workspace(); audit()
+        github(); voiceTools(); permissions(); memory(); workspace(); audit()
     }
 
     private fun section(title: String, hint: String? = null): LinearLayout {
@@ -72,6 +72,14 @@ class ToolSettingsActivity : AppCompatActivity() {
         })
         if (store.isSaved) r.addView(UiKit.button(this, "Disconnect") { store.remove(); toast("Disconnected."); render() })
         c.addView(r)
+    }
+
+    private fun voiceTools() {
+        val c = section("Voice and tools", "Lets Gemini voice use the workspace tools: create files and websites, run a local preview, search the web, open pages in Chrome. Risky steps ask you first, by notification if Jarvis is not on screen.")
+        val prefs = (application as com.jarvis.assistant.JarvisApp).preferences
+        val sw = Switch(this).apply { text = "Workspace tools in voice sessions"; isChecked = prefs.voiceWorkspaceTools }
+        sw.setOnCheckedChangeListener { _, on -> prefs.voiceWorkspaceTools = on }
+        c.addView(sw)
     }
 
     private fun permissions() {

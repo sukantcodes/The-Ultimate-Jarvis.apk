@@ -459,6 +459,11 @@ class AppPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_MIC_MUTED, false)
         set(value) = prefs.edit().putBoolean(KEY_MIC_MUTED, value).apply()
 
+    /** Lets Gemini voice sessions use the workspace tools (files, web, website preview, GitHub...). */
+    var voiceWorkspaceTools: Boolean
+        get() = prefs.getBoolean("voice_workspace_tools", true)
+        set(value) = prefs.edit().putBoolean("voice_workspace_tools", value).apply()
+
     var isSilentExecutionMode: Boolean
         get() = prefs.getBoolean(KEY_SILENT_EXECUTION_MODE, false)
         set(value) = prefs.edit().putBoolean(KEY_SILENT_EXECUTION_MODE, value).apply()
