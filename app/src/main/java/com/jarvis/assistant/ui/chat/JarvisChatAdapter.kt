@@ -2,17 +2,7 @@ package com.jarvis.assistant.ui.chat
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
-import android.animation.ValueAnimator
 import android.content.Context
-import android.graphics.Color
-import android.provider.Settings
-import android.text.Spannable
-import android.text.SpannableString
-import android.text.style.ForegroundColorSpan
-import android.view.animation.LinearInterpolator
-import android.widget.TextView
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -36,14 +26,6 @@ class JarvisChatAdapter(
     private var speechReady = false
     @Volatile private var speaking = false
     private var pendingSpeech = ""
-
-    /** Turns whose reveal already played, and turns seen waiting for an answer (so a slow reply still animates). */
-    private val revealed = HashSet<String>()
-    private val awaiting = HashSet<String>()
-
-    private fun animationsEnabled(context: Context): Boolean = try {
-        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f
-    } catch (_: Exception) { true }
 
     fun release() {
         speechEngine?.stop()
@@ -83,9 +65,22 @@ class JarvisChatAdapter(
         speechEngine?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis-chat-response")
         speaking = true
     }
+
     companion object DiffCallback : DiffUtil.ItemCallback<ChatTurn>() {
+        const val PAYLOAD_RESPONSE_UPDATE = "PAYLOAD_RESPONSE_UPDATE"
+
         override fun areItemsTheSame(oldItem: ChatTurn, newItem: ChatTurn): Boolean = oldItem.id == newItem.id
         override fun areContentsTheSame(oldItem: ChatTurn, newItem: ChatTurn): Boolean = oldItem == newItem
+
+        override fun getChangePayload(oldItem: ChatTurn, newItem: ChatTurn): Any? {
+            if (oldItem.id == newItem.id &&
+                oldItem.jarvisResponse != newItem.jarvisResponse &&
+                oldItem.userTranscript == newItem.userTranscript &&
+                oldItem.attachmentPath == newItem.attachmentPath) {
+                return PAYLOAD_RESPONSE_UPDATE
+            }
+            return null
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
@@ -97,58 +92,53 @@ class JarvisChatAdapter(
         holder.bind(getItem(position))
     }
 
-    override fun onViewRecycled(holder: MessageViewHolder) {
-        holder.cancelReveal()
-        super.onViewRecycled(holder)
+    override fun onBindViewHolder(holder: MessageViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.contains(PAYLOAD_RESPONSE_UPDATE)) {
+            holder.bindResponseUpdate(getItem(position))
+        } else {
+            super.onBindViewHolder(holder, position, payloads)
+        }
     }
 
     inner class MessageViewHolder(
         private val binding: ItemNairaChatMessageBinding
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        private var revealAnimator: ValueAnimator? = null
-
-        fun cancelReveal() {
-            revealAnimator?.cancel()
-            revealAnimator = null
-        }
-
-        /** Letters appear word by word. The full text is laid out up front, so nothing jumps while it plays. */
-        private fun playReveal(text: CharSequence) {
-            val tv: TextView = binding.tvAssistantMessage
-            tv.setText(SpannableString(text), TextView.BufferType.SPANNABLE)
-            val spannable = tv.text as Spannable
-            val hide = ForegroundColorSpan(Color.TRANSPARENT)
-            val length = text.length
-            spannable.setSpan(hide, 0, length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-            fun showAll() { spannable.removeSpan(hide) }
-            revealAnimator = ValueAnimator.ofInt(0, length).apply {
-                duration = (length * 14L).coerceIn(350L, 2400L)
-                interpolator = LinearInterpolator()
-                addUpdateListener {
-                    var start = it.animatedValue as Int
-                    while (start < length && !text[start].isWhitespace()) start++
-                    if (start >= length) showAll() else spannable.setSpan(hide, start, length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        /**
+         * Fast partial rebind during streaming. Updates only the assistant text and hides the thinking
+         * indicator without touching user bubble, attachments, or triggering full view re-layouts.
+         */
+        fun bindResponseUpdate(turn: ChatTurn) {
+            val context = binding.root.context
+            binding.layoutThinking.visibility = View.GONE
+            if (turn.jarvisResponse.isNotBlank()) {
+                binding.layoutAssistantContainer.visibility = View.VISIBLE
+                val rendered: CharSequence = try {
+                    MarkdownRenderer.render(turn.jarvisResponse, context.resources.displayMetrics.density)
+                } catch (_: Throwable) {
+                    turn.jarvisResponse
                 }
-                addListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) { showAll() }
-                    override fun onAnimationCancel(animation: Animator) { showAll() }
-                })
-                start()
+                binding.tvAssistantMessage.text = rendered
+                binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", turn.jarvisResponse) }
+                binding.btnAssistantPlay.setOnClickListener {
+                    try { speak(context, turn.jarvisResponse) } catch (_: Exception) {
+                        Toast.makeText(context, "Couldn't read this aloud", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                binding.btnAssistantSave.setOnClickListener { onSaveAssistantMessage?.invoke(turn.jarvisResponse) }
+            } else {
+                binding.layoutAssistantContainer.visibility = View.GONE
             }
         }
 
         fun bind(turn: ChatTurn) {
             val context = binding.root.context
-            cancelReveal()
             val isLast = bindingAdapterPosition == itemCount - 1
-            val recent = System.currentTimeMillis() - turn.timestamp < 15_000L
             val pending = turn.jarvisResponse.isBlank() && turn.userTranscript.isNotBlank() &&
                 isLast && System.currentTimeMillis() - turn.timestamp < 180_000L
             binding.layoutThinking.visibility = if (pending) View.VISIBLE else View.GONE
             if (pending) {
                 binding.thinkingIndicator.startTimeMs = turn.timestamp
-                awaiting.add(turn.id)
             }
             val attachmentPath = turn.attachmentPath
             val attachmentName = turn.attachmentName.orEmpty()
@@ -170,16 +160,12 @@ class JarvisChatAdapter(
 
             if (turn.jarvisResponse.isNotBlank()) {
                 binding.layoutAssistantContainer.visibility = View.VISIBLE
-                val shouldReveal = isLast && turn.id !in revealed && (turn.id in awaiting || recent) &&
-                    turn.jarvisResponse.length > 1 && animationsEnabled(context)
-                revealed.add(turn.id)
-                awaiting.remove(turn.id)
                 val rendered: CharSequence = try {
                     MarkdownRenderer.render(turn.jarvisResponse, context.resources.displayMetrics.density)
                 } catch (_: Throwable) {
-                    turn.jarvisResponse // never let odd markdown take the chat down
+                    turn.jarvisResponse
                 }
-                if (shouldReveal) playReveal(rendered) else binding.tvAssistantMessage.text = rendered
+                binding.tvAssistantMessage.text = rendered
                 binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", turn.jarvisResponse) }
                 binding.btnAssistantPlay.setOnClickListener {
                     try { speak(context, turn.jarvisResponse) } catch (_: Exception) {

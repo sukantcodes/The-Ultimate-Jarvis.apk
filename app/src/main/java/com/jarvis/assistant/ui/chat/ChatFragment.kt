@@ -11,7 +11,7 @@ import android.view.inputmethod.InputMethodManager
 import android.content.Context
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -137,6 +137,7 @@ class ChatFragment : Fragment() {
         binding.rvChatMessages.layoutManager = LinearLayoutManager(requireContext()).apply {
             stackFromEnd = true
         }
+        (binding.rvChatMessages.itemAnimator as? androidx.recyclerview.widget.SimpleItemAnimator)?.supportsChangeAnimations = false
         binding.rvChatMessages.adapter = chatAdapter
 
         selectedChatMode = chatModePrefs.getString("chat_mode", "auto") ?: "auto"
@@ -169,7 +170,7 @@ class ChatFragment : Fragment() {
         }
 
         binding.btnChatNew.onSafeClick {
-            MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+            AlertDialog.Builder(requireContext())
                 .setTitle("New Conversation")
                 .setMessage("Start a new conversation and clear current history?")
                 .setPositiveButton("New Chat") { _, _ ->
@@ -220,7 +221,7 @@ class ChatFragment : Fragment() {
         )
         val values = arrayOf("auto", "gemini", "offline")
         val selected = values.indexOf(selectedChatMode).coerceAtLeast(0)
-        MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+        AlertDialog.Builder(requireContext())
             .setTitle("Choose chat engine")
             .setSingleChoiceItems(labels, selected) { dialog, which ->
                 if (_binding == null || !isAdded) { dialog.dismiss(); return@setSingleChoiceItems }
@@ -342,7 +343,7 @@ class ChatFragment : Fragment() {
     }
 
     private fun showBlocked(reason: String) {
-        MaterialAlertDialogBuilder(requireContext(), com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
+        AlertDialog.Builder(requireContext())
             .setTitle("This provider can't answer")
             .setMessage(reason + "\n\nJARVIS will not switch to another provider on its own. Change the model in API Key & Model Settings, or pick another chat engine.")
             .setPositiveButton("OK", null)
@@ -516,7 +517,15 @@ class ChatFragment : Fragment() {
                         }
                     }
                     chatAdapter.submitList(turns) {
-                        if (turns.isNotEmpty()) binding.rvChatMessages.smoothScrollToPosition(turns.size - 1)
+                        if (turns.isNotEmpty() && _binding != null) {
+                            val lm = binding.rvChatMessages.layoutManager as? LinearLayoutManager
+                            if (lm != null) {
+                                val lastVisible = lm.findLastVisibleItemPosition()
+                                if (lastVisible >= turns.size - 3 || lastVisible < 0) {
+                                    binding.rvChatMessages.scrollToPosition(turns.size - 1)
+                                }
+                            }
+                        }
                     }
                 }
             }

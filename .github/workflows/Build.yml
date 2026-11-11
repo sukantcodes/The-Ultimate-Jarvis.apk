@@ -1,45 +1,138 @@
-name: Build Android APK (manual fallback)
+name: Build Android APK
 
 on:
+  push:
+    branches:
+      - Google
+      - Chatbox
+      - Termux
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: Google
+    - name: Checkout source branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref }}
+    - name: Migrate Eleptical Orb to the original plain HTML asset
+      shell: bash
+      run: |
+        set -euo pipefail
+        source="app/src/main/assets/eleptical_orb.html.gz"
+        target="app/src/main/assets/eleptical_orb.html"
+        if [ -f "$source" ] && [ ! -f "$target" ]; then
+          gzip -dc "$source" > "$target"
+          actual="$(sha256sum "$target" | cut -d' ' -f1)"
+          expected="5c3e3b16e3aeb059af7475207b9466e4a3a7c14ac46f1668b1859a24408945b1"
+          test "$actual" = "$expected"
+          rm "$source"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$target" "$source"
+          git commit -m "Store original Eleptical Orb as plain HTML asset"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+        fi
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v4
+      with:
+        packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+    - name: Install native build tools
+      run: sdkmanager "ndk;27.2.12479018" "cmake;3.31.6"
+    - name: Prefetch pinned llama.cpp source with retries
+      env:
+        LLAMA_CPP_REVISION: da2ee1e7a640445fc562fe5529598cee1917e0f5
+      run: |
+        set -euo pipefail
+        dest="$RUNNER_TEMP/llama-cpp"
+        archive="$RUNNER_TEMP/llama-cpp.tar.gz"
+        urls=(
+          "https://codeload.github.com/ggml-org/llama.cpp/tar.gz/$LLAMA_CPP_REVISION"
+          "https://github.com/ggml-org/llama.cpp/archive/$LLAMA_CPP_REVISION.tar.gz"
+          "https://api.github.com/repos/ggml-org/llama.cpp/tarball/$LLAMA_CPP_REVISION"
+        )
+        downloaded=false
+        for url in "${urls[@]}"; do
+          for attempt in 1 2 3 4 5; do
+            rm -f "$archive"
+            if curl --http1.1 -fL --retry 2 --retry-all-errors --retry-delay 4 \
+                 --connect-timeout 30 --max-time 300 -o "$archive" "$url" \
+               && tar -tzf "$archive" >/dev/null 2>&1; then
+              downloaded=true
+              echo "Downloaded pinned llama.cpp source from $url"
+              break 2
+            fi
+            echo "Attempt $attempt failed for $url; retrying"
+            sleep $((attempt * 6))
+          done
+        done
+        if [ "$downloaded" != true ]; then
+          echo "::error::Unable to download pinned llama.cpp source from the configured GitHub archive endpoints."
+          exit 1
+        fi
+        rm -rf "$dest"
+        mkdir -p "$dest"
+        tar -xzf "$archive" -C "$dest" --strip-components=1
+        test -f "$dest/CMakeLists.txt"
+        test -d "$dest/ggml"
+        echo "LLAMA_CPP_SRC=$dest" >> "$GITHUB_ENV"
+        echo "Pinned llama.cpp source is ready at $dest"
+    - name: Prefetch KleidiAI with retries
+      # GitHub release assets intermittently return 504, which fails the native build. Keep the
+      # version in sync with the KleidiAI release that the pinned llama.cpp commit downloads.
+      env:
+        KLEIDIAI_VERSION: v1.32.0
+      run: |
+        set +e
+        dest="$RUNNER_TEMP/kleidiai"
+        for url in \
+          "https://github.com/ARM-software/kleidiai/releases/download/${KLEIDIAI_VERSION}/kleidiai-${KLEIDIAI_VERSION}-src.tar.gz" \
+          "https://github.com/ARM-software/kleidiai/archive/refs/tags/${KLEIDIAI_VERSION}.tar.gz"; do
+          for attempt in 1 2 3 4 5; do
+            rm -rf "$dest"; mkdir -p "$dest"
+            if curl -fsSL --connect-timeout 20 --max-time 180 -o "$RUNNER_TEMP/kleidiai.tar.gz" "$url" \
+               && tar -xzf "$RUNNER_TEMP/kleidiai.tar.gz" -C "$dest" --strip-components=1 \
+               && [ -d "$dest/kai" ]; then
+              echo "KLEIDIAI_SRC=$dest" >> "$GITHUB_ENV"
+              echo "Prefetched KleidiAI from $url"
+              exit 0
+            fi
+            echo "Attempt $attempt failed for $url"
+            sleep $((attempt * 8))
+          done
+        done
+        echo "::warning::Could not prefetch KleidiAI; the native build will try its own download."
+        exit 0
+    - name: Run unit tests
+      env:
+        SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      run: ./gradlew testDebugUnitTest --stacktrace --info
+    - name: Build debug APK
+      env:
+        SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      run: ./gradlew assembleDebug
+    - name: Print SHA1
+      run: ./gradlew signingReport
+    - name: Upload Debug APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: Jarvis-App-Debug-Termux
+        path: app/build/outputs/apk/debug/*.apk
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: 'platform-tools'
-
-      - name: Install native build tools
-        run: sdkmanager "ndk;27.2.12479018" "cmake;3.31.6"
-
-      - name: Build with Gradle
-        env:
-          # Public client key for Supabase Auth. Read by app/build.gradle.kts; GitHub masks it in logs.
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-        run: ./gradlew assembleDebug
-        
-      - name: Print SHA1
-        run: ./gradlew signingReport
-
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Jarvis-App-Debug
-          path: app/build/outputs/apk/debug/*.apk
+# Rebuild trigger: restored Termux branch
