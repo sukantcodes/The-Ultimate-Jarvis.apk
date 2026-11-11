@@ -6,6 +6,7 @@ on:
       - Google
       - Chatbox
       - Termux
+      - Antigravity
     paths-ignore:
       - "*.md"
       - "docs/**"
