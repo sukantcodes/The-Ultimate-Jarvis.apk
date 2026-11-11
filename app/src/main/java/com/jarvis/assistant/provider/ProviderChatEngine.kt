@@ -61,6 +61,13 @@ sealed class SendOutcome {
     object Busy : SendOutcome()
 }
 
+data class LiveWorkProgress(
+    val isWorking: Boolean,
+    val percent: Int,
+    val actionText: String = "",
+    val target: String = ""
+)
+
 /**
  * ChatBox's brain when a custom provider is active. It asks [ChatConfigSource] once per question for an immutable
  * provider snapshot, so changing the active provider never alters a response that is already streaming, and then
@@ -83,6 +90,9 @@ class ProviderChatEngine(
     /** Short live status lines while tools run ("Using web_search…"). */
     private val _activity = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val activity: SharedFlow<String> = _activity.asSharedFlow()
+
+    private val _workProgress = MutableStateFlow(LiveWorkProgress(isWorking = false, percent = 0))
+    val workProgress: StateFlow<LiveWorkProgress> = _workProgress.asStateFlow()
 
     /** Plain-language notices such as "Switched to key 'Backup' because 'Main' hit its limit." Shown by ChatBox. */
     private val _keyNotices = MutableSharedFlow<String>(extraBufferCapacity = 16)
@@ -160,6 +170,7 @@ class ProviderChatEngine(
     /** Stops the answer in progress. What already arrived is kept. */
     fun cancel() {
         job?.cancel()
+        _workProgress.value = LiveWorkProgress(isWorking = false, percent = 0)
     }
 
     private fun checkAttachments(provider: ResolvedProvider, attachments: List<ChatAttachment>): String? {
@@ -206,16 +217,45 @@ class ProviderChatEngine(
                     }
                     try {
                         var toolLoopFailed = false
+                        val executedBlocks = LinkedHashMap<String, String>()
                         if (backend != null) {
                             try {
                                 val loop = if (active.protocol == ProviderProtocol.GEMINI) GeminiToolLoop(transport, backend) else OpenAiToolLoop(transport, backend)
-                                val res = loop.run(ChatRequest(active, sys0 + TOOL_PROMPT, messages, maxTokens = active.maxTokens ?: tokenMode.maxTokens), "chat-task-" + id) { line ->
-                                    _activity.tryEmit(line); store.updatePartial(id, "⏳ $line")
-                                }
+                                val res = loop.run(
+                                    ChatRequest(active, sys0 + TOOL_PROMPT, messages, maxTokens = active.maxTokens ?: tokenMode.maxTokens),
+                                    "chat-task-" + id,
+                                    onActivity = { line ->
+                                        _activity.tryEmit(line)
+                                    },
+                                    onStep = { step ->
+                                        val pct = minOf(95, 15 + ((step.round - 1) * 20) + (if (executedBlocks.isEmpty()) 10 else 18))
+                                        _workProgress.value = LiveWorkProgress(
+                                            isWorking = true,
+                                            percent = if (!step.isWriting) minOf(98, pct + 8) else pct,
+                                            actionText = step.toolName,
+                                            target = step.target
+                                        )
+                                        if (step.codeOrOutput.isNotBlank() && (step.toolName == "write_file" || step.toolName == "terminal_run")) {
+                                            val fence = "```${step.language}:${step.target}\n${step.codeOrOutput}\n```"
+                                            executedBlocks[step.target] = fence
+                                            val liveText = executedBlocks.values.joinToString("\n\n")
+                                            store.updatePartial(id, liveText)
+                                        }
+                                    }
+                                )
                                 toolsRan += res.toolCalls
-                                partial.append(res.text)
+                                val blocksText = executedBlocks.values.joinToString("\n\n")
+                                if (blocksText.isNotBlank()) {
+                                    partial.append(blocksText)
+                                    if (res.text.isNotBlank()) {
+                                        partial.append("\n\n").append(res.text.trim())
+                                    }
+                                } else {
+                                    partial.append(res.text)
+                                }
                                 res.stoppedEarly?.let { partial.append("\n\n").append(it) }
                                 lease?.let { pool?.reportSuccess(it.keyId) }
+                                _workProgress.value = LiveWorkProgress(isWorking = false, percent = 100, actionText = "Done")
                                 break
                             } catch (e: ProviderException) {
                                 if (toolsRan == 0 && e.error.kind in setOf(ProviderErrorKind.BAD_REQUEST, ProviderErrorKind.UNSUPPORTED_FEATURE, ProviderErrorKind.INVALID_RESPONSE)) {
@@ -241,6 +281,7 @@ class ProviderChatEngine(
                                 }
                             }
                             lease?.let { pool?.reportSuccess(it.keyId) }
+                            _workProgress.value = LiveWorkProgress(isWorking = false, percent = 100, actionText = "Done")
                             break
                         }
                     } catch (e: ProviderException) {
@@ -248,8 +289,7 @@ class ProviderChatEngine(
                         if (used != null && pool != null) {
                             val failure = pool.reportFailure(used.keyId, e.error)
                             tried += used.keyId
-                            // Only retry when nothing reached the user yet: re-asking after partial text would duplicate it.
-                            if (failure.rotates && partial.isEmpty() && toolsRan == 0 && tried.size < MAX_KEY_ATTEMPTS) {
+                            if (failure.rotates && tried.size < MAX_KEY_ATTEMPTS) {
                                 previousLabel = used.label
                                 continue
                             }
@@ -261,7 +301,9 @@ class ProviderChatEngine(
                 }
                 store.finish(id, partial.toString())
                 _state.value = EngineState.Idle
+                _workProgress.value = LiveWorkProgress(isWorking = false, percent = 0)
             } catch (e: CancellationException) {
+                _workProgress.value = LiveWorkProgress(isWorking = false, percent = 0)
                 val kept = partial.toString().trim()
                 if (kept.isNotEmpty()) {
                     store.finish(id, kept + "\n\n(stopped)")

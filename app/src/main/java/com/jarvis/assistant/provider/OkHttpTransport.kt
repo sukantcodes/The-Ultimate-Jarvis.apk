@@ -34,7 +34,7 @@ class OkHttpTransport(base: OkHttpClient = OkHttpClient()) : HttpTransport {
     private val client: OkHttpClient = base.newBuilder()
         .followRedirects(false)
         .followSslRedirects(false)
-        .retryOnConnectionFailure(false)
+        .retryOnConnectionFailure(true)
         .build()
 
     private fun build(spec: HttpRequestSpec): Request {
@@ -67,9 +67,9 @@ class OkHttpTransport(base: OkHttpClient = OkHttpClient()) : HttpTransport {
     }
 
     private fun clientFor(spec: HttpRequestSpec): OkHttpClient = client.newBuilder()
-        .callTimeout(spec.timeoutMs, TimeUnit.MILLISECONDS)
-        .connectTimeout(minOf(spec.timeoutMs, 20_000L), TimeUnit.MILLISECONDS)
-        .readTimeout(spec.timeoutMs, TimeUnit.MILLISECONDS)
+        .callTimeout(maxOf(spec.timeoutMs, 120_000L), TimeUnit.MILLISECONDS)
+        .connectTimeout(30_000L, TimeUnit.MILLISECONDS)
+        .readTimeout(maxOf(spec.timeoutMs, 120_000L), TimeUnit.MILLISECONDS)
         .build()
 
     private fun map(e: IOException): TransportException = when (e) {
@@ -83,6 +83,23 @@ class OkHttpTransport(base: OkHttpClient = OkHttpClient()) : HttpTransport {
     }
 
     override suspend fun execute(request: HttpRequestSpec): HttpResponse {
+        var lastError: Throwable? = null
+        for (attempt in 1..3) {
+            try {
+                return executeOnce(request)
+            } catch (e: TransportException) {
+                lastError = e
+                if (e.kind in setOf(TransportFailure.TIMEOUT, TransportFailure.UNREACHABLE) && attempt < 3) {
+                    kotlinx.coroutines.delay(1000L * attempt)
+                    continue
+                }
+                throw e
+            }
+        }
+        throw lastError as? TransportException ?: TransportException(TransportFailure.UNREACHABLE, "Connection failed after 3 retries.")
+    }
+
+    private suspend fun executeOnce(request: HttpRequestSpec): HttpResponse {
         val call = clientFor(request).newCall(build(request))
         return suspendCancellableCoroutine { cont: CancellableContinuation<HttpResponse> ->
             cont.invokeOnCancellation { call.cancel() }

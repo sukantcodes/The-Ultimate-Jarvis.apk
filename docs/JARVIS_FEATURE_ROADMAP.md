@@ -43,6 +43,18 @@
   - Integrated into both **Chatbox Settings** (`sheet_token_settings.xml` & `TokenSettingsBottomSheet.kt`), **API & Connection Settings** (`activity_api_connection.xml` & `ApiConnectionActivity.kt`), **Tool Settings** (`ToolSettingsActivity.kt`), and **Chatbox Tools** (`ChatboxTools.kt`).
   - Added live status feedback in the Chatbox top header (`Autonomous Workspace · ⚡ Auto-Approve Active`).
 
+### 1.6 Claude-Style Work Animation, Mini-Terminal Window & Tri-Color Progress Bar
+- **Problem Solved:** Cluttered raw text (`"⏳ write_file finished"`) during website/code generation, premature "Say continue" halts, and network/API timeout dropouts.
+- **Solution:**
+  - **Claude-style Live Work Animation:** Pulsing glowing badge (`✦ Creating index.html…` / `✦ Running terminal…` -> `✓ Created index.html` / `✓ Finished`).
+  - **Inline Mini-Terminal / Code Window:** Dropdown tag `[▼ Code Window]` / `[▼ Mini Terminal]` that expands an authentic terminal window with macOS dots (🔴 🟡 🟢), line numbers, and live code preview.
+  - **Tri-Color Header Progress Bar:** Positioned beside token count in the top header, calculating actual live work percentage with 3 adaptive theme colors:
+    - 0% – 35%: Electric Cyan (`#00E5FF`) — Initializing & Planning
+    - 36% – 75%: Cyber Purple/Blue (`#7C4DFF`) — Writing Code & Executing Scripts
+    - 76% – 100%: Emerald Green (`#00E676`) / Gold (`#FFD700`) — Finalizing & Verifying
+  - **Network & API Fault-Tolerance:** Enabled OkHttp connection failure auto-retry, extended timeouts to 120s, automatic 3-tier exponential backoff retries on transient socket/HTTP errors, increased tool loop limit to 50 rounds, and eliminated intermediate "Say continue" halts.
+  - **Workspace Auto-Continuity:** Preserves all created files on disk across any interruption and resumes seamlessly.
+
 ---
 
 ## 2. Future Implementation Roadmap (13 Features)

@@ -405,6 +405,38 @@ class ChatFragment : Fragment() {
                         if (_binding != null) com.google.android.material.snackbar.Snackbar.make(binding.root, notice, com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show()
                     }
                 }
+                launch {
+                    providerEngine.workProgress.collect { progress ->
+                        if (_binding == null) return@collect
+                        if (progress.isWorking) {
+                            binding.layoutWorkProgress.visibility = View.VISIBLE
+                            binding.pbWorkProgress.progress = progress.percent
+                            binding.tvWorkProgressPercent.text = "${progress.percent}%"
+                            val color = when {
+                                progress.percent <= 35 -> android.graphics.Color.parseColor("#00E5FF")
+                                progress.percent <= 75 -> android.graphics.Color.parseColor("#7C4DFF")
+                                else -> android.graphics.Color.parseColor("#00E676")
+                            }
+                            binding.pbWorkProgress.progressTintList = android.content.res.ColorStateList.valueOf(color)
+                            binding.tvWorkProgressPercent.setTextColor(color)
+                        } else if (progress.percent == 100) {
+                            binding.layoutWorkProgress.visibility = View.VISIBLE
+                            binding.pbWorkProgress.progress = 100
+                            binding.tvWorkProgressPercent.text = "100%"
+                            val gold = android.graphics.Color.parseColor("#FFD700")
+                            binding.pbWorkProgress.progressTintList = android.content.res.ColorStateList.valueOf(gold)
+                            binding.tvWorkProgressPercent.setTextColor(gold)
+                            launch {
+                                kotlinx.coroutines.delay(2500)
+                                if (_binding != null && !providerEngine.workProgress.value.isWorking) {
+                                    binding.layoutWorkProgress.visibility = View.GONE
+                                }
+                            }
+                        } else {
+                            binding.layoutWorkProgress.visibility = View.GONE
+                        }
+                    }
+                }
                 providerEngine.state.collect { state ->
                     if (_binding == null) return@collect
                     when (state) {
