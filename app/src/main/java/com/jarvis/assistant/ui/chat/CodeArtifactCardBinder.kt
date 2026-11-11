@@ -54,7 +54,7 @@ object CodeArtifactCardBinder {
             binding.tvWritingStatus.visibility = View.VISIBLE
             val label = workType.activeBadgeText(targetName.ifBlank { baseLang })
             binding.tvWritingStatus.text = label
-            binding.tvWritingStatus.setTextColor(workType.activeColor)
+            binding.tvWritingStatus.setTextColor(workType.getDynamicColor())
             binding.tvWritingStatus.background = ContextCompat.getDrawable(context, R.drawable.bg_code_writing_badge)
             val pulse = AlphaAnimation(0.35f, 1.0f).apply {
                 duration = 650
@@ -68,7 +68,8 @@ object CodeArtifactCardBinder {
             binding.tvWritingStatus.visibility = View.VISIBLE
             val statusDone = workType.doneBadgeText(targetName.ifBlank { baseLang })
             binding.tvWritingStatus.text = statusDone
-            binding.tvWritingStatus.setTextColor(Color.parseColor("#00E676"))
+            val successColor = try { com.jarvis.assistant.util.ThemeManager.getThemeSuccessColor() } catch (_: Exception) { Color.parseColor("#00E676") }
+            binding.tvWritingStatus.setTextColor(successColor)
             binding.tvWritingStatus.background = ContextCompat.getDrawable(context, R.drawable.bg_chat_status)
             val lineCount = code.lines().size
             binding.tvCardBottomHint.text = "Click to toggle mini window · Tap Open ↗ for full viewer ($lineCount lines)"

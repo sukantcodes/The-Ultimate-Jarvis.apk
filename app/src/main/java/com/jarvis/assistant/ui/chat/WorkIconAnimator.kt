@@ -31,8 +31,9 @@ object WorkIconAnimator {
         frameView?.clearAnimation()
 
         if (isWriting) {
+            val dynamicColor = type.getDynamicColor()
             iconView.setImageResource(type.iconRes)
-            iconView.imageTintList = ColorStateList.valueOf(type.activeColor)
+            iconView.imageTintList = ColorStateList.valueOf(dynamicColor)
             frameView?.background = ContextCompat.getDrawable(context, R.drawable.bg_work_icon_frame)
 
             val anim: Animation = when (type) {
@@ -130,8 +131,9 @@ object WorkIconAnimator {
 
         } else {
             // Completed state
+            val successColor = try { com.jarvis.assistant.util.ThemeManager.getThemeSuccessColor() } catch (_: Exception) { Color.parseColor("#00E676") }
             iconView.setImageResource(R.drawable.ic_work_check)
-            iconView.imageTintList = ColorStateList.valueOf(Color.parseColor("#00E676"))
+            iconView.imageTintList = ColorStateList.valueOf(successColor)
             frameView?.background = ContextCompat.getDrawable(context, R.drawable.bg_work_icon_frame_done)
 
             val popAnim = ScaleAnimation(

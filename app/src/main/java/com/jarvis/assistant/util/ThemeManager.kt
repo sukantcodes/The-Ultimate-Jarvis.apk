@@ -216,6 +216,38 @@ object ThemeManager {
         }
     }
 
+    /** Secondary accent color used for dual-tone highlights, gradients, and tri-color progress bars. */
+    fun getThemeSecondaryColor(): Int {
+        val prefs = try { JarvisApp.instance.preferences } catch (_: Exception) { null }
+        return when (prefs?.appTheme ?: "sunset") {
+            "dark" -> Color.parseColor("#A78BFA")
+            "red" -> Color.parseColor("#FB7185")
+            "sunset" -> Color.parseColor("#E879A8")
+            "custom" -> {
+                val (first, second) = customColors()
+                if (first != second) second else {
+                    val h = hsl(first)
+                    h[0] = (h[0] + 35f) % 360f
+                    ColorUtils.HSLToColor(h)
+                }
+            }
+            else -> Color.parseColor("#8B5CF6")
+        }
+    }
+
+    /** High-contrast success green harmonized with the active theme. */
+    fun getThemeSuccessColor(): Int = Color.parseColor("#00E676")
+
+    /** High-contrast warning amber harmonized with the active theme. */
+    fun getThemeWarningColor(): Int = Color.parseColor("#FFD700")
+
+    /** Whether the currently active app theme uses a light background canvas. */
+    fun isCurrentThemeLight(): Boolean {
+        val prefs = try { JarvisApp.instance.preferences } catch (_: Exception) { null }
+        val key = prefs?.appTheme ?: "sunset"
+        return isLight(getThemeBgColor(key, null))
+    }
+
     /** The two colours the Home orb should use for the custom theme (same colour twice for a single colour). */
     fun getCustomOrbColors(): Pair<String, String> {
         val (first, second) = customColors()

@@ -38,6 +38,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.content.res.ColorStateList
+import com.jarvis.assistant.util.ThemeManager
+import com.jarvis.assistant.voice.JarvisVoiceController
 import java.io.File
 import java.io.FileOutputStream
 import com.jarvis.assistant.provider.AttachmentRef
@@ -321,15 +324,20 @@ class ChatFragment : Fragment() {
         autoVoiceReplyEnabled = requireContext().getSharedPreferences("jarvis_voice_prefs", Context.MODE_PRIVATE)
             .getBoolean("key_auto_voice_reply", false)
 
-        fun updateSpeakerButtonVisual(isSpeaking: Boolean = chatAdapter.isSpeaking()) {
+        val themeAccent = try { ThemeManager.getThemeAccentColor() } catch (_: Exception) { Color.parseColor("#00E5FF") }
+        val themeWarning = try { ThemeManager.getThemeWarningColor() } catch (_: Exception) { Color.parseColor("#FFD700") }
+
+        fun updateSpeakerButtonVisual(isSpeaking: Boolean = JarvisVoiceController.isSpeaking()) {
             if (_binding == null) return
+            val accent = try { ThemeManager.getThemeAccentColor() } catch (_: Exception) { Color.parseColor("#00E5FF") }
+            val warning = try { ThemeManager.getThemeWarningColor() } catch (_: Exception) { Color.parseColor("#FFD700") }
             if (isSpeaking) {
                 binding.btnVoiceSpeaker.setImageResource(R.drawable.ic_cc_stop)
-                binding.btnVoiceSpeaker.setColorFilter(Color.parseColor("#FFD700"))
+                binding.btnVoiceSpeaker.setColorFilter(warning)
                 binding.btnVoiceSpeaker.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_work_progress_badge)
             } else if (autoVoiceReplyEnabled) {
                 binding.btnVoiceSpeaker.setImageResource(R.drawable.ic_cc_volume)
-                binding.btnVoiceSpeaker.setColorFilter(Color.parseColor("#00E5FF"))
+                binding.btnVoiceSpeaker.setColorFilter(accent)
                 binding.btnVoiceSpeaker.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_chat_token_badge)
             } else {
                 binding.btnVoiceSpeaker.setImageResource(R.drawable.ic_cc_volume)
@@ -339,13 +347,14 @@ class ChatFragment : Fragment() {
         }
         updateSpeakerButtonVisual()
 
-        chatAdapter.onSpeakingStateChanged = { speaking ->
+        JarvisVoiceController.prewarm(requireContext())
+        JarvisVoiceController.addSpeakingStateListener { speaking ->
             activity?.runOnUiThread { updateSpeakerButtonVisual(speaking) }
         }
 
         binding.btnVoiceSpeaker.onSafeClick {
-            if (chatAdapter.isSpeaking()) {
-                chatAdapter.stopSpeaking()
+            if (JarvisVoiceController.isSpeaking()) {
+                JarvisVoiceController.stopSpeaking()
                 updateSpeakerButtonVisual(false)
                 Toast.makeText(requireContext(), "Voice reading stopped", Toast.LENGTH_SHORT).show()
             } else {
@@ -592,18 +601,21 @@ class ChatFragment : Fragment() {
                             binding.layoutWorkProgress.visibility = View.VISIBLE
                             binding.pbWorkProgress.progress = progress.percent
                             binding.tvWorkProgressPercent.text = "${progress.percent}%"
+                            val tAccent = try { ThemeManager.getThemeAccentColor() } catch (_: Exception) { Color.parseColor("#00E5FF") }
+                            val tSecondary = try { ThemeManager.getThemeSecondaryColor() } catch (_: Exception) { Color.parseColor("#7C4DFF") }
+                            val tSuccess = try { ThemeManager.getThemeSuccessColor() } catch (_: Exception) { Color.parseColor("#00E676") }
                             val color = when {
-                                progress.percent <= 35 -> android.graphics.Color.parseColor("#00E5FF")
-                                progress.percent <= 75 -> android.graphics.Color.parseColor("#7C4DFF")
-                                else -> android.graphics.Color.parseColor("#00E676")
+                                progress.percent <= 35 -> tAccent
+                                progress.percent <= 75 -> tSecondary
+                                else -> tSuccess
                             }
-                            binding.pbWorkProgress.progressTintList = android.content.res.ColorStateList.valueOf(color)
+                            binding.pbWorkProgress.progressTintList = ColorStateList.valueOf(color)
                             binding.tvWorkProgressPercent.setTextColor(color)
                         } else if (progress.percent == 100) {
                             binding.layoutWorkProgress.visibility = View.VISIBLE
                             binding.pbWorkProgress.progress = 100
                             binding.tvWorkProgressPercent.text = "100%"
-                            val gold = android.graphics.Color.parseColor("#FFD700")
+                            val gold = try { ThemeManager.getThemeSuccessColor() } catch (_: Exception) { Color.parseColor("#00E676") }
                             binding.pbWorkProgress.progressTintList = android.content.res.ColorStateList.valueOf(gold)
                             binding.tvWorkProgressPercent.setTextColor(gold)
                             launch {
@@ -769,7 +781,12 @@ class ChatFragment : Fragment() {
                                 if (lastMessageOriginatedFromVoice || autoVoiceReplyEnabled) {
                                     lastAutoSpokenTurnId = latestTurn.id
                                     lastMessageOriginatedFromVoice = false
-                                    chatAdapter.speakResponse(requireContext(), latestTurn.jarvisResponse, autoTriggered = true)
+                                    JarvisVoiceController.speakTurnResponse(
+                                        requireContext(),
+                                        latestTurn.id,
+                                        latestTurn.userTranscript,
+                                        latestTurn.jarvisResponse
+                                    )
                                 }
                             }
                         } else if (pending) {
@@ -798,6 +815,9 @@ class ChatFragment : Fragment() {
         super.onResume()
         if (_binding != null) {
             com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
+            val accent = try { ThemeManager.getThemeAccentColor() } catch (_: Exception) { Color.parseColor("#00E5FF") }
+            binding.tvChatTokens.setTextColor(accent)
+            binding.btnSendMessage.imageTintList = ColorStateList.valueOf(accent)
             refreshProviderLabel()
             updateAutoApproveHeaderStatus()
         }
@@ -807,9 +827,10 @@ class ChatFragment : Fragment() {
         if (_binding == null) return
         val context = context ?: return
         val auto = com.jarvis.assistant.tools.PermissionPreferences.isAutoApproveAll(context)
+        val accent = try { ThemeManager.getThemeAccentColor() } catch (_: Exception) { Color.parseColor("#80D8FF") }
         if (auto) {
             binding.tvChatSubtitle.text = "Autonomous Workspace · ⚡ Auto-Approve Active"
-            binding.tvChatSubtitle.setTextColor(android.graphics.Color.parseColor("#80D8FF"))
+            binding.tvChatSubtitle.setTextColor(accent)
         } else {
             binding.tvChatSubtitle.text = "Your intelligent workspace · Ready"
             binding.tvChatSubtitle.setTextColor(android.graphics.Color.parseColor("#DDEBFF"))
@@ -835,18 +856,26 @@ class ChatFragment : Fragment() {
 
     private fun updateTokenUsage(turns: List<com.jarvis.assistant.data.model.ChatTurn>) {
         if (_binding == null) return
-        var tokens = 0
+        var turnsTokens = 0
         for (turn in turns) {
-            tokens += estimateTokens(turn.userTranscript)
-            tokens += estimateTokens(turn.jarvisResponse)
+            turnsTokens += estimateTokens(turn.userTranscript)
+            turnsTokens += estimateTokens(turn.jarvisResponse)
         }
-        totalUsedTokens = tokens
-        val display = if (tokens < 1000) {
-            "⚡ $tokens TOKENS"
+        val prefs = try { (activity?.application as? JarvisApp)?.preferences } catch (_: Exception) { null }
+        val cumulative = prefs?.cumulativeChatTokens ?: 0
+        val totalTokens = maxOf(cumulative, turnsTokens)
+        if (prefs != null && totalTokens > cumulative) {
+            prefs.cumulativeChatTokens = totalTokens
+        }
+        totalUsedTokens = totalTokens
+        val display = if (totalTokens < 1000) {
+            "⚡ $totalTokens TOKENS"
         } else {
-            "⚡ ${"%.1f".format(tokens / 1000.0)}K TOKENS"
+            "⚡ ${"%.1f".format(totalTokens / 1000.0)}K TOKENS"
         }
         binding.tvChatTokens.text = display
+        val themeAccent = try { ThemeManager.getThemeAccentColor() } catch (_: Exception) { Color.parseColor("#00E5FF") }
+        binding.tvChatTokens.setTextColor(themeAccent)
     }
 
     private fun checkVoicePermissionAndStart() {
@@ -975,6 +1004,7 @@ class ChatFragment : Fragment() {
         speechRecognizer = null
         isVoiceListening = false
         retrySnackbar?.dismiss()
+        JarvisVoiceController.stopSpeaking()
         chatAdapter.release()
         super.onDestroyView()
         _binding = null

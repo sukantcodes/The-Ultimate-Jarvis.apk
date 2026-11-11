@@ -42,6 +42,7 @@ class AppPreferences(context: Context) {
         private const val ENCRYPTED_API_PREF_NAME = "jarvis_secure_api_prefs"
         private const val TAG = "AppPreferences"
         private const val KEY_API_KEY = "key_api_key"
+        private const val KEY_CUMULATIVE_CHAT_TOKENS = "key_cumulative_chat_tokens"
         private const val KEY_MODEL = "key_model"
         private const val KEY_VOICE = "key_voice"
         private const val KEY_PERSONALITY = "key_personality"
@@ -551,6 +552,21 @@ class AppPreferences(context: Context) {
 
     fun clearChatHistory() {
         prefs.edit().remove(KEY_CHAT_HISTORY).apply()
+        resetChatTokens()
+    }
+
+    var cumulativeChatTokens: Int
+        get() = prefs.getInt(KEY_CUMULATIVE_CHAT_TOKENS, 0)
+        set(value) = prefs.edit().putInt(KEY_CUMULATIVE_CHAT_TOKENS, value.coerceAtLeast(0)).apply()
+
+    fun addChatTokens(tokens: Int) {
+        if (tokens > 0) {
+            cumulativeChatTokens = (cumulativeChatTokens + tokens)
+        }
+    }
+
+    fun resetChatTokens() {
+        prefs.edit().putInt(KEY_CUMULATIVE_CHAT_TOKENS, 0).apply()
     }
 
     var hasCompletedSetupTutorial: Boolean

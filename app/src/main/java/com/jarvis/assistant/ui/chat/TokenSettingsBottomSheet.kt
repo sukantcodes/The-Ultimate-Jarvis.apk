@@ -27,6 +27,11 @@ object TokenSettingsBottomSheet {
         var selected = TokenModeStore.get(context)
         var autoApprove = PermissionPreferences.isAutoApproveAll(context)
 
+        val themeAccent = try { com.jarvis.assistant.util.ThemeManager.getThemeAccentColor() } catch (_: Exception) { Color.parseColor("#00E5FF") }
+        val themeSecondary = try { com.jarvis.assistant.util.ThemeManager.getThemeSecondaryColor() } catch (_: Exception) { Color.parseColor("#7C4DFF") }
+        val themeSuccess = try { com.jarvis.assistant.util.ThemeManager.getThemeSuccessColor() } catch (_: Exception) { Color.parseColor("#00E676") }
+        val themeWarning = try { com.jarvis.assistant.util.ThemeManager.getThemeWarningColor() } catch (_: Exception) { Color.parseColor("#FFD700") }
+
         binding.tvTokensUsedSubtitle.text = "Current conversation: $currentTokensUsed tokens used"
 
         fun updateAutoApproveUI() {
@@ -37,10 +42,10 @@ object TokenSettingsBottomSheet {
                 binding.tvAutoApproveBadge.text = "★ UNRESTRICTED"
                 binding.tvAutoApproveBadge.setTextColor(Color.parseColor("#000000"))
                 binding.tvAutoApproveSubtitle.text = "Zero-prompt autonomy · Full permission bypass active"
-                binding.tvAutoApproveSubtitle.setTextColor(Color.parseColor("#00E5FF"))
-                binding.viewAutoApproveDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#00E676"))
+                binding.tvAutoApproveSubtitle.setTextColor(themeAccent)
+                binding.viewAutoApproveDot.backgroundTintList = ColorStateList.valueOf(themeSuccess)
                 binding.tvAutoApproveStatusText.text = "ACTIVE · All permissions auto-approved without interruption"
-                binding.tvAutoApproveStatusText.setTextColor(Color.parseColor("#00E676"))
+                binding.tvAutoApproveStatusText.setTextColor(themeSuccess)
             } else {
                 binding.cardAutoApproveAll.background = ContextCompat.getDrawable(context, R.drawable.bg_auto_approve_card_inactive)
                 binding.tvAutoApproveBadge.background = ContextCompat.getDrawable(context, R.drawable.bg_auto_approve_badge_inactive)
@@ -60,9 +65,9 @@ object TokenSettingsBottomSheet {
             binding.tvTierCapacity.text = "${selected.progressPercent}% CAPACITY"
 
             val tintColor = when (selected) {
-                TokenMode.LOW -> Color.parseColor("#00E676")
-                TokenMode.HIGH -> Color.parseColor("#29B6F6")
-                TokenMode.MAX -> Color.parseColor("#FFD700")
+                TokenMode.LOW -> themeSuccess
+                TokenMode.HIGH -> themeAccent
+                TokenMode.MAX -> themeWarning
             }
             binding.pbPremiumBar.progressTintList = ColorStateList.valueOf(tintColor)
 
@@ -70,19 +75,19 @@ object TokenSettingsBottomSheet {
             val isLow = selected == TokenMode.LOW
             binding.cardModeLow.background = ContextCompat.getDrawable(context, if (isLow) R.drawable.bg_token_card_selected else R.drawable.bg_token_card_unselected)
             binding.tvLowRadio.text = if (isLow) "●" else "○"
-            binding.tvLowRadio.setTextColor(if (isLow) Color.parseColor("#00E676") else Color.parseColor("#78909C"))
+            binding.tvLowRadio.setTextColor(if (isLow) themeSuccess else Color.parseColor("#78909C"))
 
             // High card state
             val isHigh = selected == TokenMode.HIGH
             binding.cardModeHigh.background = ContextCompat.getDrawable(context, if (isHigh) R.drawable.bg_token_card_selected else R.drawable.bg_token_card_unselected)
             binding.tvHighRadio.text = if (isHigh) "●" else "○"
-            binding.tvHighRadio.setTextColor(if (isHigh) Color.parseColor("#29B6F6") else Color.parseColor("#78909C"))
+            binding.tvHighRadio.setTextColor(if (isHigh) themeAccent else Color.parseColor("#78909C"))
 
             // Max card state
             val isMax = selected == TokenMode.MAX
             binding.cardModeMax.background = ContextCompat.getDrawable(context, if (isMax) R.drawable.bg_token_card_premium else R.drawable.bg_token_card_unselected)
             binding.tvMaxRadio.text = if (isMax) "●" else "○"
-            binding.tvMaxRadio.setTextColor(if (isMax) Color.parseColor("#FFD700") else Color.parseColor("#78909C"))
+            binding.tvMaxRadio.setTextColor(if (isMax) themeWarning else Color.parseColor("#78909C"))
         }
 
         updateUI()
