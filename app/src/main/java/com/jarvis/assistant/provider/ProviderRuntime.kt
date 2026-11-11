@@ -60,7 +60,8 @@ object ProviderRuntime {
                 scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate),
                 systemPrompt = { ChatContext.systemPrompt(app.preferences.userName) },
                 keyRotation = keyRotation(context),
-                toolBackend = { com.jarvis.assistant.tools.ToolRuntime.backend(app) }
+                toolBackend = { com.jarvis.assistant.tools.ToolRuntime.backend(app) },
+                extraContext = { q -> com.jarvis.assistant.tools.ToolRuntime.get(app).memory.contextFor(q) }
             ).also { engine = it }
         }
     }

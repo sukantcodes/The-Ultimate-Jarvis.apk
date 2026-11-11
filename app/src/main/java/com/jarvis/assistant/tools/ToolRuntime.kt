@@ -39,7 +39,8 @@ object ToolRuntime {
     class Built(
         val workspace: Workspace, val registry: ToolRegistry, val executor: ToolExecutor, val backend: ToolBackend,
         val audit: AuditLog, val policy: PermissionPolicy, val redactor: SecretRedactor,
-        val terminal: TerminalManager?, val servers: ServerTools, val web: WebTools, val githubToken: GitHubTokenStore
+        val terminal: TerminalManager?, val servers: ServerTools, val web: WebTools, val githubToken: GitHubTokenStore,
+        val memory: com.jarvis.assistant.tools.memory.MemoryStore, val tasks: com.jarvis.assistant.tools.tasks.TaskStore
     )
 
     /** Token storage in the same Keystore-backed encrypted vault as API keys. Never logged, never shown in full. */
@@ -81,8 +82,14 @@ object ToolRuntime {
         val terminal = try { TerminalManager(workspace, ProcessBackend(), redactor) } catch (e: Exception) { null }
         terminal?.let { TerminalTools.all(it).forEach(registry::register) }
 
+        val memory = com.jarvis.assistant.tools.memory.MemoryStore(File(app.filesDir, "memory/memories.json"))
+        memory.enabled = app.getSharedPreferences("tool_permissions", Context.MODE_PRIVATE).getBoolean("memory_enabled", true)
+        com.jarvis.assistant.tools.memory.MemoryTools.all(memory).forEach(registry::register)
+        val tasks = com.jarvis.assistant.tools.tasks.TaskStore(File(workspace.root, ".jarvis/tasks"))
+        com.jarvis.assistant.tools.tasks.TaskTools(tasks).all().forEach(registry::register)
+
         val executor = ToolExecutor(registry, policy, audit, { AndroidConfirmer }, redactor, workspace)
-        return Built(workspace, registry, executor, ExecutorBackend(registry, executor), audit, policy, redactor, terminal, servers, web, tokens)
+        return Built(workspace, registry, executor, ExecutorBackend(registry, executor), audit, policy, redactor, terminal, servers, web, tokens, memory, tasks)
     }
 
     private fun onPath(program: String): Boolean =

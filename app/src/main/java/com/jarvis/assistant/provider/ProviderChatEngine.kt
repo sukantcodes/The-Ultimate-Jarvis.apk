@@ -75,7 +75,9 @@ class ProviderChatEngine(
     private val uiThrottleMs: Long = 60L,
     private val keyRotation: KeyRotationSource? = null,
     /** Supplies the shared tool layer, or null when tools are off. Same backend for every provider. */
-    private val toolBackend: (() -> com.jarvis.assistant.tools.ToolBackend?)? = null
+    private val toolBackend: (() -> com.jarvis.assistant.tools.ToolBackend?)? = null,
+    /** Extra system-prompt text for a question, such as the user's saved memories. Must never contain secrets. */
+    private val extraContext: ((String) -> String)? = null
 ) {
     /** Short live status lines while tools run ("Using web_search…"). */
     private val _activity = MutableSharedFlow<String>(extraBufferCapacity = 32)
@@ -178,6 +180,7 @@ class ProviderChatEngine(
             try {
                 val history = store.completedTurns(excludingId = id).map { it.copy(user = sentText[it.id] ?: it.user) }
                 val messages = ChatContext.build(history, text, attachments)
+                val sys0 = systemPrompt() + (try { extraContext?.invoke(text) } catch (e: Exception) { null }.orEmpty())
                 val client = ChatClientFactory.create(provider.protocol, transport)
                 val pool = keyRotation?.takeIf { it.hasKeys(provider.profileId) }
                 val tried = HashSet<String>()
@@ -202,7 +205,7 @@ class ProviderChatEngine(
                     try {
                         if (backend != null) {
                             val loop = if (active.protocol == ProviderProtocol.GEMINI) GeminiToolLoop(transport, backend) else OpenAiToolLoop(transport, backend)
-                            val res = loop.run(ChatRequest(active, systemPrompt() + TOOL_PROMPT, messages), "chat-" + provider.profileId) { line ->
+                            val res = loop.run(ChatRequest(active, sys0 + TOOL_PROMPT, messages), "chat-" + provider.profileId) { line ->
                                 _activity.tryEmit(line); store.updatePartial(id, "⏳ $line")
                             }
                             toolsRan += res.toolCalls
@@ -211,7 +214,7 @@ class ProviderChatEngine(
                             lease?.let { pool?.reportSuccess(it.keyId) }
                             break
                         }
-                        client.stream(ChatRequest(active, systemPrompt(), messages)).collect { event ->
+                        client.stream(ChatRequest(active, sys0, messages)).collect { event ->
                             when (event) {
                                 is ChatEvent.Delta -> {
                                     partial.append(event.text)
