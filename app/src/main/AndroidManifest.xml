@@ -4,6 +4,7 @@
 
     <!-- Android 11+ package visibility for the optional Pocket TTS system engine. -->
     <queries>
+        <package android:name="com.termux" />
         <package android:name="org.pockettts.android.engine" />
     </queries>
 
@@ -41,6 +42,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.CAMERA" />
@@ -86,6 +88,7 @@
         <activity android:name=".ui.settings.WorkRoutingActivity" android:exported="false" />
         <activity android:name=".ui.settings.ToolSettingsActivity" android:exported="false" />
         <receiver android:name=".tools.ToolApprovalReceiver" android:exported="false" />
+        <receiver android:name=".tools.terminal.TermuxResultReceiver" android:exported="true" />
         <activity android:name=".ui.diagnostics.CleanupFeatureActivity" android:exported="false" />
 
         <activity

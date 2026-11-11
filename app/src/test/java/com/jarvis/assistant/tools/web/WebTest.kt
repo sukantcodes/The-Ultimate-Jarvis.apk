@@ -6,6 +6,7 @@ import com.jarvis.assistant.tools.*
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.File
 import java.net.InetAddress
 import java.nio.file.Files
 
@@ -73,5 +74,30 @@ class WebTest {
     @Test fun emptySearchIsReportedHonestly() = runBlocking {
         tr.addRule({ true }) { HttpResponse(200, "<html></html>") }
         assertTrue(WebTools(client, DuckDuckGoHtmlSearch(tr)).WebSearch().run(args("""{"query":"zzz"}"""), ctx).text.startsWith("No results"))
+    }
+
+    private fun raw(code: Int, body: ByteArray = ByteArray(0), h: Map<String, String> = emptyMap()) = RawResponse(code, h, java.io.ByteArrayInputStream(body), {})
+
+    @Test fun downloadSavesChecksSizeAndRedirects() {
+        val dir = Files.createTempDirectory("dl").toFile()
+        val dl = WebDownloader(guard, maxBytes = 1000, connect = { u -> when (u) {
+            "https://example.com/a.bin" -> raw(302, h = mapOf("Location" to "http://internal.example/x"))
+            "https://example.com/ok.txt" -> raw(200, "hello".toByteArray(), mapOf("Content-Type" to "text/plain"))
+            "https://example.com/big" -> raw(200, ByteArray(5000))
+            "https://example.com/declared" -> raw(200, ByteArray(10), mapOf("Content-Length" to "999999"))
+            else -> raw(404) } })
+        try { dl.download("https://example.com/a.bin", File(dir, "a")); fail() } catch (e: WebException) { assertEquals(WebException.Kind.BLOCKED, e.kind) }
+        assertEquals("hello", dl.download("https://example.com/ok.txt", File(dir, "d/ok.txt")).file.readText())
+        try { dl.download("https://example.com/big", File(dir, "big")); fail() } catch (e: WebException) { assertEquals(WebException.Kind.TOO_LARGE, e.kind) }
+        assertFalse(File(dir, "big").exists()); assertFalse(File(dir, "big.part").exists())
+        try { dl.download("https://example.com/declared", File(dir, "c")); fail() } catch (e: WebException) { assertEquals(WebException.Kind.TOO_LARGE, e.kind) }
+        try { dl.download("https://example.com/none", File(dir, "n")); fail() } catch (e: WebException) { assertTrue(e.message!!.contains("404")) }
+    }
+
+    @Test fun downloadToolStaysInWorkspaceAndRefusesOverwrite() = runBlocking {
+        val tool = WebDownloadTool(WebDownloader(guard, connect = { raw(200, "x".toByteArray()) }))
+        assertTrue(tool.run(args("""{"url":"https://example.com/f.txt"}"""), ctx).isOk)
+        assertFalse(tool.run(args("""{"url":"https://example.com/f.txt"}"""), ctx).isOk)
+        try { tool.run(args("""{"url":"https://example.com/f.txt","path":"../../x"}"""), ctx); fail() } catch (e: Exception) {}
     }
 }

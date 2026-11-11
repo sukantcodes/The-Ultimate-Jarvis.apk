@@ -190,6 +190,7 @@ object DocumentAnalysisClient {
             // sent as text with an honest note about size limits, so it works with any model.
             val structured = readStructured(document.name, mime, bytes)
             if (structured != null) return@withContext structured
+            if (extension == "pdf" || mime == "application/pdf") scannedPdfText(context, document.name, bytes)?.let { return@withContext it }
             when {
                 extension == "pdf" || mime == "application/pdf" -> ProviderPayload(
                     listOf(com.jarvis.assistant.provider.ChatAttachment.Pdf(document.name, Base64.encodeToString(bytes, Base64.NO_WRAP))),
@@ -216,6 +217,24 @@ object DocumentAnalysisClient {
                 }
             }
         }
+
+    /** Scanned PDF: draw the pages and read them on the device. Null when OCR found nothing, so the native PDF path is used. */
+    private suspend fun scannedPdfText(context: Context, name: String, bytes: ByteArray): ProviderPayload? {
+        val tmp = File.createTempFile("ocr", ".pdf", context.cacheDir)
+        return try {
+            tmp.writeBytes(bytes)
+            val r = com.jarvis.assistant.tools.files.PdfOcr.run(tmp)
+            if (r.text.isBlank()) null else {
+                val notes = buildString {
+                    append("scanned PDF read with on-device OCR (Latin text only; it may contain mistakes). ")
+                    append("${r.pagesRead} of ${r.pagesTotal} pages read.")
+                    if (r.pagesTotal > r.pagesRead + r.pagesFailed) append(" Pages beyond the first ${r.pagesRead + r.pagesFailed} were not read.")
+                    if (r.pagesFailed > 0) append(" ${r.pagesFailed} pages could not be read.")
+                }
+                ProviderPayload(emptyList(), "FILE CONTENT BEGIN ($notes)\n${r.text.take(60_000)}\nFILE CONTENT END", null)
+            }
+        } catch (e: Exception) { null } finally { tmp.delete() }
+    }
 
     /** Null when the file should take the existing path (images, scanned PDFs, audio/video, unknown types). */
     private fun readStructured(name: String, mime: String, bytes: ByteArray): ProviderPayload? {

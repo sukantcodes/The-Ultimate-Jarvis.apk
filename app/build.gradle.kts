@@ -140,6 +140,8 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.3.4")
     implementation("androidx.camera:camera-view:1.3.4")
     implementation("com.google.mlkit:face-detection:16.1.7")
+    // On-device OCR (Latin script, model bundled so it works offline)
+    implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("net.java.dev.jna:jna:5.13.0@aar")
     implementation("com.alphacephei:vosk-android:0.3.75@aar")
     // Native on-device WebRTC VAD; accepts the existing 16 kHz / 20 ms PCM frames.

@@ -128,7 +128,12 @@ class ToolSettingsActivity : AppCompatActivity() {
         c.addView(UiKit.text(this, "Size: ${size / 1024} KB", 13f))
         val t = rt.terminal
         c.addView(UiKit.text(this, if (t != null) "Terminal: ${t.backend.name} (${t.backend.shell}). Programs such as git, node or python work only if they are installed on this device." else "Terminal: no shell was found on this device.", 13f))
-        c.addView(UiKit.text(this, "Termux: not connected. Running commands in Termux needs its RUN_COMMAND permission and the allow-external-apps setting turned on; the app shell above is used instead.", 12f, muted = true))
+        val installed = com.jarvis.assistant.tools.terminal.TermuxBackend.isInstalled(this)
+        val prefs = getSharedPreferences("tool_permissions", Context.MODE_PRIVATE)
+        val sw = Switch(this).apply { text = "Run commands in Termux" + if (installed) "" else " (Termux not installed)"; isChecked = prefs.getString("terminal_backend", "app") == "termux"; isEnabled = installed }
+        sw.setOnCheckedChangeListener { _, on -> prefs.edit().putString("terminal_backend", if (on) "termux" else "app").apply(); ToolRuntime.invalidate(); toast("Applies from the next chat message."); render() }
+        c.addView(sw)
+        c.addView(UiKit.text(this, "Termux gives real git, node and python, but it needs setup once: " + com.jarvis.assistant.tools.terminal.TermuxBridgeSpec().userSetupSteps.joinToString(" ") + " Limits: output appears when a command ends, and Termux works in its own folder, so files made by the app's file tools are not visible to it.", 12f, muted = true))
         val running = rt.servers.servers.running()
         c.addView(UiKit.text(this, if (running.isEmpty()) "No website previews are running." else "Previews: " + running.entries.joinToString { "${it.key} → ${it.value.url}" }, 13f))
         if (running.isNotEmpty()) c.addView(UiKit.button(this, "Stop all previews") { rt.servers.servers.stopAll(); render() })

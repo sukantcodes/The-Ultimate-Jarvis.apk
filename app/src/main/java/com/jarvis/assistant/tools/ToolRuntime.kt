@@ -53,6 +53,9 @@ object ToolRuntime {
         fun masked(): String = get()?.let { if (it.length <= 8) "••••" else it.take(4) + "••••••••" + it.takeLast(4) } ?: "Not connected"
     }
 
+    /** Forget the built tool layer so the next use rebuilds it (after changing the terminal backend). */
+    fun invalidate() { built = null }
+
     fun get(context: Context): Built = built ?: synchronized(this) { built ?: build(context.applicationContext).also { built = it } }
 
     /** What ChatBox gives to the provider engine. Null never happens on a normal device; kept nullable for safety. */
@@ -82,7 +85,10 @@ object ToolRuntime {
         val gh = GitHubClient(transport, tokens, redactor, JavaNetDownloader())
         GitHubTools.all(gh, InstalledSkillRegistry(File(workspace.root, ".jarvis/skills.json")), tokens).forEach(registry::register)
 
-        val terminal = try { TerminalManager(workspace, ProcessBackend(), redactor) } catch (e: Exception) { null }
+        val wantTermux = app.getSharedPreferences("tool_permissions", Context.MODE_PRIVATE).getString("terminal_backend", "app") == "termux"
+        val terminal = try {
+            TerminalManager(workspace, if (wantTermux && com.jarvis.assistant.tools.terminal.TermuxBackend.isInstalled(app)) com.jarvis.assistant.tools.terminal.TermuxBackend(app) else ProcessBackend(), redactor)
+        } catch (e: Exception) { null }
         terminal?.let { TerminalTools.all(it).forEach(registry::register) }
 
         val memory = com.jarvis.assistant.tools.memory.MemoryStore(File(app.filesDir, "memory/memories.json"))

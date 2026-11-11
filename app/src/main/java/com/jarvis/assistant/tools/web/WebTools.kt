@@ -7,7 +7,7 @@ import com.jarvis.assistant.tools.builtin.str
 
 /** Web tools shared by every provider. Everything they return is marked as untrusted and carries citation numbers. */
 class WebTools(private val client: WebClient, private val search: SearchProvider, val citations: CitationStore = CitationStore()) {
-    fun all(): List<Tool> = listOf(WebSearch(), WebFetch(), WebCitations())
+    fun all(): List<Tool> = listOf(WebSearch(), WebFetch(), WebCitations(), WebDownloadTool())
 
     private fun err(e: WebException) = ToolResult.Error(e.message ?: "Web request failed")
 
