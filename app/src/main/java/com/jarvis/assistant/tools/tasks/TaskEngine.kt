@@ -12,6 +12,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import java.io.File
 
 enum class StepStatus { PENDING, RUNNING, DONE, FAILED, SKIPPED }
@@ -106,3 +107,34 @@ class TaskTools(private val store: TaskStore) {
         override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult { val id = args.str("task_id"); return if (id != null) store.load(id)?.let { ToolResult.Ok(it.summary() + "\n\nLog:\n" + it.log.takeLast(15).joinToString("\n")) } ?: ToolResult.Error("No such task.") else ToolResult.Ok(store.list().joinToString("\n\n") { it.summary() }.ifBlank { "No tasks." }) }
     }
 }
+
+/** Starts, watches and stops background task runs. Runs live in [scope]; the plan is saved after every stretch, so a killed app can resume. */
+class TaskRunner(private val store: TaskStore, private val scope: kotlinx.coroutines.CoroutineScope, private val runner: () -> SegmentRunner,
+                 private val limits: RunLimits = RunLimits(), private val onFinished: (TaskRecord) -> Unit = {}) {
+    private val jobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
+    fun isRunning(id: String) = jobs[id]?.isActive == true
+
+    @Synchronized fun start(id: String): String? {
+        if (store.load(id) == null) return "No such task."
+        if (isRunning(id)) return "That task is already running."
+        jobs[id] = scope.launch(kotlinx.coroutines.Dispatchers.Default) {
+            try { onFinished(TaskEngine(store, runner(), limits).run(id)) } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                store.update(id) { it.copy(state = TaskState.FAILED, log = it.log + "Stopped: ${e.javaClass.simpleName}") }
+            }
+        }
+        return null
+    }
+    fun cancel(id: String): Boolean { val j = jobs[id] ?: return false; j.cancel(); return true }
+}
+
+fun TaskTools.runTools(runner: TaskRunner, store: TaskStore): List<Tool> = listOf(
+    object : Tool {
+        override val spec = ToolSpec("task_run", "Start (or resume) working on a saved task in the background, stretch by stretch, until its steps are done. Returns at once; check with task_status.", listOf(ToolParam("task_id", required = true)), Risk.EXECUTE, "tasks")
+        override fun describe(args: JsonObject) = "Run task ${args.str("task_id")} in the background"
+        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = runner.start(args.str("task_id").orEmpty())?.let { ToolResult.Error(it) } ?: ToolResult.Ok("Task started. It works in the background and saves progress after each stretch; ask for task_status to see it.")
+    },
+    object : Tool {
+        override val spec = ToolSpec("task_cancel", "Stop a running background task. Its plan stays saved and can be resumed.", listOf(ToolParam("task_id", required = true)), Risk.WRITE, "tasks")
+        override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult = if (runner.cancel(args.str("task_id").orEmpty())) ToolResult.Ok("Cancelling.") else ToolResult.Error("That task is not running.")
+    }
+)

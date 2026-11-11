@@ -14,6 +14,7 @@ import com.jarvis.assistant.tools.github.GitHubTools
 import com.jarvis.assistant.tools.github.InstalledSkillRegistry
 import com.jarvis.assistant.tools.github.JavaNetDownloader
 import com.jarvis.assistant.tools.server.ServerTools
+import com.jarvis.assistant.tools.tasks.runTools
 import com.jarvis.assistant.tools.terminal.ProcessBackend
 import com.jarvis.assistant.tools.terminal.TerminalManager
 import com.jarvis.assistant.tools.terminal.TerminalTools
@@ -91,7 +92,13 @@ object ToolRuntime {
         com.jarvis.assistant.tools.tasks.TaskTools(tasks).all().forEach(registry::register)
 
         val executor = ToolExecutor(registry, policy, audit, { AndroidConfirmer }, redactor, workspace)
-        return Built(workspace, registry, executor, ExecutorBackend(registry, executor), audit, policy, redactor, terminal, servers, web, tokens, memory, tasks)
+        val backend = ExecutorBackend(registry, executor)
+        val taskRunner = com.jarvis.assistant.tools.tasks.TaskRunner(tasks, kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Default), {
+            com.jarvis.assistant.provider.TaskSegmentRunner(ProviderRuntime.manager(app), transport, backend, ProviderRuntime.keyRotation(app),
+                { com.jarvis.assistant.provider.ChatContext.systemPrompt((app as? android.app.Application)?.let { com.jarvis.assistant.JarvisApp.instance.preferences.userName } ?: "") })
+        })
+        com.jarvis.assistant.tools.tasks.TaskTools(tasks).runTools(taskRunner, tasks).forEach(registry::register)
+        return Built(workspace, registry, executor, backend, audit, policy, redactor, terminal, servers, web, tokens, memory, tasks)
     }
 
     private fun onPath(program: String): Boolean =

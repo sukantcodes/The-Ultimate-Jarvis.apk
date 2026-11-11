@@ -104,3 +104,23 @@ class TaskEngineTest {
         assertTrue(tools.Status().run(args("{}"), ctx).text.contains("two"))
     }
 }
+
+class TaskRunnerTest {
+    private val dir = Files.createTempDirectory("tr").toFile(); private val store = TaskStore(dir)
+    @Test fun backgroundRunFinishesAndCannotStartTwice() = runBlocking {
+        val t = store.create("g", listOf("a", "b")); val done = CompletableDeferred<TaskRecord>(); val gate = CompletableDeferred<Unit>()
+        val runner = TaskRunner(store, CoroutineScope(Dispatchers.Default), { SegmentRunner { _, _ -> gate.await(); store.update(t.id) { r -> r.copy(steps = r.steps.map { it.copy(status = StepStatus.DONE) }) }; "ok" } }, onFinished = { done.complete(it) })
+        val ctx = object : ToolContext { override val workspace = Workspace(dir) }
+        val tools = TaskTools(store).runTools(runner, store).associateBy { it.spec.name }
+        assertTrue(tools["task_run"]!!.run(args("""{"task_id":"${t.id}"}"""), ctx).isOk)
+        assertFalse(tools["task_run"]!!.run(args("""{"task_id":"${t.id}"}"""), ctx).isOk)
+        assertFalse(tools["task_run"]!!.run(args("""{"task_id":"nope"}"""), ctx).isOk)
+        gate.complete(Unit); assertEquals(TaskState.DONE, withTimeout(5000) { done.await() }.state)
+    }
+    @Test fun cancelStopsARunningTask() = runBlocking {
+        val t = store.create("g", listOf("a")); val gate = CompletableDeferred<Unit>()
+        val runner = TaskRunner(store, CoroutineScope(Dispatchers.Default), { SegmentRunner { _, _ -> gate.await(); "x" } })
+        runner.start(t.id); delay(200); assertTrue(runner.cancel(t.id)); delay(300)
+        assertEquals(TaskState.CANCELLED, store.load(t.id)!!.state)
+    }
+}
