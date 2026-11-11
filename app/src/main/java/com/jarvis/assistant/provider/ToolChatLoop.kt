@@ -66,7 +66,12 @@ class OpenAiToolLoop(private val transport: HttpTransport, backend: ToolBackend,
 
     override suspend fun round(request: ChatRequest, state: Any?, results: List<Pair<ToolCall, String>>): Round {
         val st = state as State
-        for ((c, text) in results) st.messages.add(JsonObject().apply { addProperty("role", "tool"); addProperty("tool_call_id", c.id); addProperty("content", text) })
+        for ((c, text) in results) st.messages.add(JsonObject().apply {
+            addProperty("role", "tool")
+            addProperty("tool_call_id", c.id)
+            addProperty("name", c.name)
+            addProperty("content", text)
+        })
         val p = request.provider
         val base = (ProviderUrl.validateBase(p.baseUrl) as? ProviderUrl.Check.Ok)?.url ?: throw ProviderException(ProviderError(ProviderErrorKind.INVALID_ENDPOINT, "The provider's endpoint URL is not valid."))
         val body = JsonObject().apply {
@@ -83,7 +88,12 @@ class OpenAiToolLoop(private val transport: HttpTransport, backend: ToolBackend,
         val content = msg.get("content")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
         val calls = ToolSchemas.parseOpenAiCalls(msg, "custom-api")
         // Echo the assistant turn (with its tool calls) back so the provider can match the results to it.
-        st.messages.add(JsonObject().apply { addProperty("role", "assistant"); if (content.isNotEmpty()) addProperty("content", content) else add("content", com.google.gson.JsonNull.INSTANCE); msg.get("tool_calls")?.let { add("tool_calls", it) } })
+        st.messages.add(JsonObject().apply {
+            addProperty("role", "assistant")
+            if (content.isNotEmpty()) addProperty("content", content) else add("content", com.google.gson.JsonNull.INSTANCE)
+            msg.get("tool_calls")?.let { add("tool_calls", it) }
+            msg.get("function_call")?.let { add("function_call", it) }
+        })
         if (content.isBlank() && calls.isEmpty()) throw ProviderException(ProviderErrors.invalidResponse("The model returned an empty answer."))
         return Round(content, calls, st)
     }

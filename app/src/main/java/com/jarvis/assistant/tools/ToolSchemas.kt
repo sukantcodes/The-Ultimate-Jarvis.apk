@@ -21,7 +21,7 @@ object ToolSchemas {
             }
         })
         val required = spec.params.filter { it.required }
-        if (required.isNotEmpty()) add("required", JsonArray().apply { required.forEach { add(it.name) } })
+        if (required.isNotEmpty() || !geminiTypes) add("required", JsonArray().apply { required.forEach { add(it.name) } })
     }
 
     /** OpenAI-compatible `tools` array. */
@@ -47,15 +47,26 @@ object ToolSchemas {
         }
     }
 
-    /** Reads `tool_calls` from an OpenAI-compatible assistant message. Malformed arguments become an empty object, never a crash. */
+    /** Reads `tool_calls` (or legacy `function_call`) from an OpenAI-compatible assistant message. */
     fun parseOpenAiCalls(message: JsonObject, source: String): List<ToolCall> {
-        val arr = message.get("tool_calls")?.takeIf { it.isJsonArray }?.asJsonArray ?: return emptyList()
-        return arr.mapNotNull { e ->
-            val o = e.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
-            val fn = o.get("function")?.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
-            val name = fn.get("name")?.takeIf { it.isJsonPrimitive }?.asString ?: return@mapNotNull null
-            ToolCall(o.get("id")?.takeIf { it.isJsonPrimitive }?.asString ?: "call_${System.nanoTime()}", name, argsOf(fn.get("arguments")), source)
+        val arr = message.get("tool_calls")?.takeIf { it.isJsonArray }?.asJsonArray
+        if (arr != null) {
+            val list = arr.mapNotNull { e ->
+                val o = e.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
+                val fn = o.get("function")?.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
+                val name = fn.get("name")?.takeIf { it.isJsonPrimitive }?.asString ?: return@mapNotNull null
+                ToolCall(o.get("id")?.takeIf { it.isJsonPrimitive }?.asString ?: "call_${System.nanoTime()}", name, argsOf(fn.get("arguments")), source)
+            }
+            if (list.isNotEmpty()) return list
         }
+        val fn = message.get("function_call")?.takeIf { it.isJsonObject }?.asJsonObject
+        if (fn != null) {
+            val name = fn.get("name")?.takeIf { it.isJsonPrimitive }?.asString
+            if (name != null) {
+                return listOf(ToolCall("fcall_${System.nanoTime()}", name, argsOf(fn.get("arguments")), source))
+            }
+        }
+        return emptyList()
     }
 
     /** Reads `functionCall` parts (generateContent) or a Live API `toolCall.functionCalls` list. */
