@@ -34,8 +34,14 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
     suspend fun run(
         request: ChatRequest,
         source: String,
-        onActivity: (String) -> Unit = {},
-        onStep: (LiveToolStep) -> Unit = {}
+        onActivity: (String) -> Unit = {}
+    ): ToolChatResult = run(request, source, onActivity, onStep = {})
+
+    suspend fun run(
+        request: ChatRequest,
+        source: String,
+        onActivity: (String) -> Unit,
+        onStep: (LiveToolStep) -> Unit
     ): ToolChatResult {
         var state = newState(request)
         var results: List<Pair<ToolCall, String>> = emptyList()
@@ -96,7 +102,8 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
                     "read_file" -> "Reading $target…"
                     else -> "Using ${c.name}…"
                 }
-                onActivity(activityStart)
+                val activityLabel = if (c.name == "write_file") "Using write_file: Creating $target…" else activityStart
+                onActivity(activityLabel)
 
                 val res = try { backend.execute(c) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { ToolResult.Error("${e.javaClass.simpleName}: ${e.message?.take(120)}") }
 
