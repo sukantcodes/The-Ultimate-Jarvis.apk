@@ -82,3 +82,14 @@ class ToolRegistry {
     @Synchronized fun all(): List<Tool> = tools.values.toList()
     @Synchronized fun specs(): List<ToolSpec> = tools.values.map { it.spec }
 }
+
+/** What a model-driven loop needs from the tool layer. The same backend serves every provider, so rules never differ by provider. */
+interface ToolBackend {
+    fun specs(): List<ToolSpec>
+    suspend fun execute(call: ToolCall): ToolResult
+}
+
+class ExecutorBackend(private val registry: ToolRegistry, private val executor: ToolExecutor) : ToolBackend {
+    override fun specs(): List<ToolSpec> = registry.specs()
+    override suspend fun execute(call: ToolCall): ToolResult = executor.execute(call)
+}

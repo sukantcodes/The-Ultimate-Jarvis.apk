@@ -476,7 +476,8 @@ class ChatFragment : Fragment() {
             }
             return
         }
-        if (!JarvisConversationService.isServiceRunning()) (activity as? MainActivity)?.handleMicOrOrbClick()
+        // Typing never opens the microphone: start a text-only session; voice needs the mic button or the activation phrase.
+        if (!JarvisConversationService.isServiceRunning()) JarvisConversationService.startTextChatSession(requireContext().applicationContext)
         JarvisConversationService.sendTextMessage(text)
         binding.etMessageInput.text?.clear()
         binding.btnSendMessage.isEnabled = false

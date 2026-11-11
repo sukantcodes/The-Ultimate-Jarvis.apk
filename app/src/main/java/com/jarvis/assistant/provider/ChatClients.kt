@@ -48,18 +48,18 @@ object ChatClientFactory {
 
 private const val STREAM_TIMEOUT_MS = 120_000L
 private const val COMPLETE_TIMEOUT_MS = 60_000L
-private const val JSON_TYPE = "application/json; charset=utf-8"
+internal const val JSON_TYPE = "application/json; charset=utf-8"
 
-private fun parseObject(text: String): JsonObject? = try {
+internal fun parseObject(text: String): JsonObject? = try {
     val e = JsonParser.parseString(text)
     if (e.isJsonObject) e.asJsonObject else null
 } catch (e: JsonParseException) {
     null
 }
 
-private fun secretOf(provider: ResolvedProvider): String? = provider.auth.secret?.takeIf { !it.isBlank }?.reveal()
+internal fun secretOf(provider: ResolvedProvider): String? = provider.auth.secret?.takeIf { !it.isBlank }?.reveal()
 
-private fun prepare(request: HttpRequestSpec, provider: ResolvedProvider): HttpRequestSpec =
+internal fun prepare(request: HttpRequestSpec, provider: ResolvedProvider): HttpRequestSpec =
     ProviderAuth.withExtraHeaders(ProviderAuth.apply(request, provider.auth), provider.extraHeaders)
 
 private fun interrupted(): ProviderException = ProviderException(

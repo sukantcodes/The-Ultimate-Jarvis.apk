@@ -59,7 +59,8 @@ object ProviderRuntime {
                 store = ProviderChatBridge(app.chatRepository),
                 scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate),
                 systemPrompt = { ChatContext.systemPrompt(app.preferences.userName) },
-                keyRotation = keyRotation(context)
+                keyRotation = keyRotation(context),
+                toolBackend = { com.jarvis.assistant.tools.ToolRuntime.backend(app) }
             ).also { engine = it }
         }
     }

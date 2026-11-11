@@ -406,8 +406,14 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    override fun onPause() {
+        com.jarvis.assistant.tools.AndroidConfirmer.detach(this)
+        super.onPause()
+    }
+
     override fun onResume() {
         super.onResume()
+        com.jarvis.assistant.tools.AndroidConfirmer.attach(this)
         if (!::binding.isInitialized) return // redirected to the auth screen
         UpdateNotificationChecker.checkOnForeground(applicationContext)
         showUpdateRestartPrompt(force = false)
@@ -660,7 +666,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun handleMicOrOrbClick() {
-        if (!JarvisConversationService.isSessionOn.value) {
+        if (JarvisConversationService.isSessionOn.value && JarvisConversationService.textOnlySession) {
+            // A typed chat session is running with the mic closed; this explicit press turns voice on.
+            if (!PermissionHelper.hasRecordAudioPermission(this)) { requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO); return }
+            JarvisConversationService.enableVoiceCapture()
+        } else if (!JarvisConversationService.isSessionOn.value) {
             checkPermissionsAndStart()
         } else if (JarvisConversationService.conversationState.value == ConversationState.SPEAKING) {
             JarvisConversationService.interruptPlayback()
@@ -687,6 +697,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkPermissionsAndStart() {
+        if (JarvisConversationService.isSessionOn.value && JarvisConversationService.textOnlySession && PermissionHelper.hasRecordAudioPermission(this)) {
+            JarvisConversationService.enableVoiceCapture(); return
+        }
         if (!PermissionHelper.hasRecordAudioPermission(this)) {
             requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             return

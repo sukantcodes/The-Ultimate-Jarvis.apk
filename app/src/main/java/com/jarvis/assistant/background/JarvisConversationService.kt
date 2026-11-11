@@ -96,6 +96,8 @@ class JarvisConversationService : Service() {
     companion object {
         const val ACTION_START_CONVERSATION = "com.jarvis.assistant.START_CONVERSATION"
         const val ACTION_STOP_ALL = "com.jarvis.assistant.STOP_ALL"
+        /** Starts the session for typed ChatBox messages only: the microphone is NOT opened until the user asks for voice. */
+        const val ACTION_START_TEXT_CHAT = "com.jarvis.assistant.START_TEXT_CHAT"
         const val ACTION_ENTER_STANDBY = "com.jarvis.assistant.ENTER_STANDBY"
 
         private const val CHANNEL_ID = "jarvis_conversation"
@@ -155,6 +157,22 @@ class JarvisConversationService : Service() {
         /** True once a wake word has just brought the conversation back, for a one-off UI toast. */
         private val _wakeEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
         val wakeEvents: SharedFlow<Unit> = _wakeEvents.asSharedFlow()
+
+        /** True while the session was started from typed chat and the user has not asked for voice. The mic is closed. */
+        @Volatile var textOnlySession: Boolean = false
+            private set
+
+        fun startTextChatSession(context: android.content.Context) {
+            textOnlySession = true
+            val i = Intent(context, JarvisConversationService::class.java).setAction(ACTION_START_TEXT_CHAT)
+            androidx.core.content.ContextCompat.startForegroundService(context, i)
+        }
+
+        /** The user pressed the voice button or said the activation phrase: open the microphone now. */
+        fun enableVoiceCapture() {
+            textOnlySession = false
+            activeInstance?.startCaptureNow()
+        }
 
         fun setMicMuted(muted: Boolean) {
             activeInstance?.audioRecorder?.setMuted(muted)
@@ -823,7 +841,12 @@ class JarvisConversationService : Service() {
 
         when (intent?.action) {
             ACTION_START_CONVERSATION -> {
+                textOnlySession = false
                 com.jarvis.assistant.audio.JarvisSoundEffects.playWakeSound()
+                beginActiveConversation()
+            }
+            ACTION_START_TEXT_CHAT -> {
+                textOnlySession = true
                 beginActiveConversation()
             }
             ACTION_ENTER_STANDBY -> enterStandby(announce = false)
@@ -1926,8 +1949,15 @@ class JarvisConversationService : Service() {
             }
         }.apply {
             setMuted(preferences.isMicMuted)
-            start(serviceScope)
+            // Typed ChatBox sessions never open the microphone on their own (see enableVoiceCapture()).
+            if (!textOnlySession) start(serviceScope) else Log.i("JarvisService", "Text-only chat session: microphone left closed")
         }
+    }
+
+    private fun startCaptureNow() {
+        val rec = audioRecorder ?: return
+        rec.setMuted(preferences.isMicMuted)
+        rec.start(serviceScope)
     }
 
     /**
@@ -4646,6 +4676,7 @@ class JarvisConversationService : Service() {
     // ---------------------------------------------------------------------
 
     private fun fullStop() {
+        textOnlySession = false
         stopActiveConversation()
         exitStandbyListening()
         _isStandby.value = false
