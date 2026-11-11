@@ -186,6 +186,10 @@ object DocumentAnalysisClient {
                 ?: throw IllegalArgumentException("Jarvis couldn't open this file. Try selecting it again.")
             val extension = document.name.substringAfterLast('.', "").lowercase(Locale.ROOT)
             val mime = document.mimeType.lowercase(Locale.ROOT)
+            // Full document pipeline first: PDF text, DOCX, XLSX, PPTX, CSV, JSON, HTML, ZIP, code. Anything it can read is
+            // sent as text with an honest note about size limits, so it works with any model.
+            val structured = readStructured(document.name, mime, bytes)
+            if (structured != null) return@withContext structured
             when {
                 extension == "pdf" || mime == "application/pdf" -> ProviderPayload(
                     listOf(com.jarvis.assistant.provider.ChatAttachment.Pdf(document.name, Base64.encodeToString(bytes, Base64.NO_WRAP))),
@@ -212,6 +216,20 @@ object DocumentAnalysisClient {
                 }
             }
         }
+
+    /** Null when the file should take the existing path (images, scanned PDFs, audio/video, unknown types). */
+    private fun readStructured(name: String, mime: String, bytes: ByteArray): ProviderPayload? {
+        val ext = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+        if (mime.startsWith("image/") || mime.startsWith("audio/") || mime.startsWith("video/") || ext in listOf("png", "jpg", "jpeg", "webp", "gif", "bmp")) return null
+        val doc = try {
+            com.jarvis.assistant.tools.files.DocumentExtractor().extract(com.jarvis.assistant.tools.files.FileSource(name, null, bytes), com.jarvis.assistant.tools.files.ExtractOptions(extractArchiveText = true))
+        } catch (e: com.jarvis.assistant.tools.files.UnsupportedFileException) { return null }
+        catch (e: com.jarvis.assistant.tools.files.ExtractionFailedException) { return ProviderPayload(emptyList(), "", e.message ?: "This file could not be read.") }
+        if (!doc.hasText) return null   // scanned PDF or empty file: keep the native path (a vision/PDF-capable model) and do not pretend to have read it
+        val packed = com.jarvis.assistant.tools.files.ContextPacker.pack(doc, null, 60_000)
+        val notes = (doc.warnings + packed.note).filter { it.isNotBlank() }.joinToString(" ")
+        return ProviderPayload(emptyList(), "FILE CONTENT BEGIN (${doc.kind.name.lowercase()}; $notes)\n${packed.text}\nFILE CONTENT END", null)
+    }
 
     private fun downscaleIfLarge(bytes: ByteArray, mime: String): Pair<ByteArray, String> {
         if (bytes.size <= 1_500_000) return bytes to mime
