@@ -101,18 +101,20 @@
 - [x] **Camera & Screenshot Quick Capture**: Direct camera snapshot and gallery picker icons in the composer row for multimodal vision queries.
 - [x] **Export to Markdown & PDF**: Save chat transcripts with formatted code blocks directly to `.md` or formatted `.pdf`.
 
-### Phase 2: Workspace & Developer Tools (~25 mins)
-- [ ] **In-App Live Web Preview**: Floating or split mini-browser to view websites, HTML files, or localhost dev servers started by Jarvis terminal without leaving the app.
-- [ ] **Quick Git Dashboard Sheet**: Interactive git status, branch switcher, and 1-tap commit/push sheet directly from Chatbox.
+### Phase 2: Workspace & Developer Tools (Next Up)
+- [ ] **In-App Live Web Inspector & Mini-Browser**: Floating or split mini-browser to preview websites, HTML files, or localhost dev servers started by Jarvis terminal with mobile/tablet/desktop viewports and live reload without leaving the app.
+- [ ] **Visual Git Diff & Dashboard Sheet**: Interactive color-coded git diff (additions/deletions), 1-tap commit/push with AI-generated commit message, and branch switcher.
+- [ ] **Live Interactive Terminal Drawer**: Slide-out live terminal output drawer with active daemon process manager, port bindings, and 1-tap kill/restart controls.
+- [ ] **Workspace File Tree Drawer (`📁 Explorer`)**: Directory tree view of workspace files, file size & modified badges, and 1-tap zip export.
 - [ ] **Search & Filter in Chat History**: Full-text keyword and code snippet search across saved conversation turns.
-- [ ] **Pinned Prompts & Custom Workflows**: Customizable shortcut chips for repetitive tasks (e.g., "Summarize Day", "Check Git Status", "Restart Dev Server").
+- [ ] **Pinned Prompts & Custom Workflows**: Customizable shortcut chips for repetitive tasks.
 
-### Phase 3: Advanced Multimodal & System Automations (~30 mins)
-- [ ] **AI Image Generation**: Built-in tool allowing Jarvis to generate images (using FLUX, Stable Diffusion, or DALL-E) and display them directly in chat turns.
-- [ ] **Interactive Terminal Drawer**: Slide-out live terminal output drawer to monitor background commands while chatting.
+### Phase 3: Advanced Multimodal & System Automations
+- [ ] **Continuous Live Duplex Voice Mode (with Voice Barge-In)**: Interruption-capable continuous voice mode where speaking automatically pauses Jarvis TTS and starts listening naturally.
+- [ ] **AI Image Generation (`generate_image` Tool)**: Built-in tool allowing Jarvis to generate images (using FLUX, Stable Diffusion, or DALL-E) with 1-tap gallery saving.
 - [ ] **Floating Overlay Chat Bubble**: Messenger-style floating Jarvis bubble to access chat and voice over any app without opening full screen.
-- [ ] **Notification Quick-Reply**: Answer or command Jarvis directly from the Android notification shade.
-- [ ] **Scheduled Automated Routines**: Set background cron tasks (e.g., "Check repo updates every morning at 9 AM", "Daily news summary").
+- [ ] **Notification Quick-Reply & Live Progress Bar**: Ongoing status notification with progress bar and quick actions in the Android notification shade.
+- [ ] **Encrypted Workspace Backup & Cloud Sync**: 1-tap exportable `.jarvis` encrypted package for full restore.
 
 ---
 
