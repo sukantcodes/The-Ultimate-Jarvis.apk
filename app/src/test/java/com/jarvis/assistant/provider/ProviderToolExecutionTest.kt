@@ -72,6 +72,46 @@ class ProviderToolExecutionTest {
         }
     }
 
+    @Test fun rejected_tool_schema_retries_as_plain_chat_and_displays_provider_answer() = runBlocking {
+        val transport = FakeTransport()
+        val repository = ProviderRepository(MemoryStore(), MemoryVault())
+        val profile = Fixtures.profile()
+        val manager = ProviderConfigManager(repository, transport)
+        assertNull(manager.save(profile, Fixtures.KEY))
+        repository.setActiveId(profile.id)
+        transport.on(
+            { body -> body.bodyOfTools() },
+            400,
+            """{"error":{"message":"This model does not support tools"}}"""
+        )
+        transport.on(
+            { !it.bodyOfTools() },
+            200,
+            Fixtures.completion("Provider answer received successfully.")
+        )
+        val store = TestTurnStore()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val tool = ToolSpec("echo_tool", "Test tool", emptyList(), Risk.READ, "test")
+        val engine = ProviderChatEngine(
+            manager, transport, store, scope, { "SYS" }, uiThrottleMs = 0,
+            toolSpecs = { listOf(tool) },
+            toolExecutor = { ToolResult.Ok("unused") }
+        )
+        try {
+            assertTrue(engine.send("Please answer") is SendOutcome.Started)
+            withTimeout(5000) { while (engine.isBusy) delay(5) }
+            assertEquals("Provider answer received successfully.", store.answer)
+            assertEquals(2, transport.requests.size)
+            assertTrue(transport.bodyOf(transport.requests[0]).contains("\\"tools\\""))
+            assertFalse(transport.bodyOf(transport.requests[1]).contains("\\"tools\\""))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    private fun HttpRequestSpec.bodyOfTools(): Boolean =
+        (body as? HttpBody.Text)?.content?.contains("\\"tools\\"") == true
+
     private class TestTurnStore : ChatTurnStore {
         private var id = ""
         var answer: String = ""
