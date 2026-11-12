@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="6dp"
+    android:layout_marginStart="4dp"
+    android:layout_marginEnd="4dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="4dp"
+    app:cardBackgroundColor="?attr/themeCardBg">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp">
+
+        <!-- Main row: icon | title+status | progress/check -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- Icon frame -->
+            <FrameLayout
+                android:id="@+id/ivWorkFrame"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="@drawable/bg_work_icon_frame">
+
+                <ImageView
+                    android:id="@+id/ivWorkIcon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:scaleType="centerInside"
+                    android:contentDescription="@null" />
+            </FrameLayout>
+
+            <!-- Middle column: Title + Status -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="10dp"
+                android:layout_marginEnd="8dp">
+
+                <TextView
+                    android:id="@+id/tvWorkStepTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="?attr/themeTextPrimary"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:text="Working…" />
+
+                <TextView
+                    android:id="@+id/tvWorkStepStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:textColor="?attr/themeAccent"
+                    android:layout_marginTop="2dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:text="" />
+            </LinearLayout>
+
+            <!-- Right: ProgressBar while in-progress -->
+            <ProgressBar
+                android:id="@+id/pbWorkStep"
+                style="@android:style/Widget.ProgressBar.Small"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:indeterminate="true"
+                android:visibility="visible" />
+
+            <!-- Right: Checkmark when done -->
+            <ImageView
+                android:id="@+id/ivWorkCheck"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_work_check"
+                android:scaleType="centerInside"
+                android:contentDescription="@null"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+        <!-- Collapsible code block: below the main row (default GONE) -->
+        <LinearLayout
+            android:id="@+id/layoutCodeBlock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="6dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tvCodeToggle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="▶ CODE"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textColor="?attr/themeTextSecondary"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <HorizontalScrollView
+                android:id="@+id/scrollCodeContent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:scrollbars="horizontal"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvCodeContent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:textColor="?attr/themeTextSecondary"
+                    android:maxHeight="120dp"
+                    android:padding="6dp"
+                    android:background="@null"
+                    android:scrollbars="vertical"
+                    android:text="" />
+            </HorizontalScrollView>
+        </LinearLayout>
+
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

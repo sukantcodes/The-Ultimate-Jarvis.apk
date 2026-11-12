@@ -23,6 +23,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.R
 import com.jarvis.assistant.background.JarvisConversationService
@@ -85,6 +86,9 @@ class ChatFragment : Fragment() {
     private var lastMessageOriginatedFromVoice: Boolean = false
     private var lastAutoSpokenTurnId: String = ""
     private var autoVoiceReplyEnabled: Boolean = false
+    private var rvWorkSteps: RecyclerView? = null
+    private val workStepAdapter = WorkStepAdapter()
+    private val workSteps = mutableListOf<WorkStepCard>()
 
     private val voicePermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
@@ -252,6 +256,7 @@ class ChatFragment : Fragment() {
         }
         (binding.rvChatMessages.itemAnimator as? androidx.recyclerview.widget.SimpleItemAnimator)?.supportsChangeAnimations = false
         binding.rvChatMessages.adapter = chatAdapter
+        setupWorkStepsRecyclerView(view)
 
         selectedChatMode = chatModePrefs.getString("chat_mode", "auto") ?: "auto"
         refreshChatModeLabel()
@@ -298,6 +303,7 @@ class ChatFragment : Fragment() {
                     JarvisApp.instance.chatRepository.clearHistory()
                     selectedDocument = null
                     totalUsedTokens = 0
+                    clearWorkSteps()
                     binding.tvChatTokens.text = "⚡ 0 TOKENS"
                     updateAttachmentPreview()
                     binding.etMessageInput.hint = "Message JARVIS…"
@@ -500,6 +506,7 @@ class ChatFragment : Fragment() {
             Toast.makeText(requireContext(), "JARVIS is still answering. Stop it first or wait for it to finish.", Toast.LENGTH_SHORT).show()
             return
         }
+        clearWorkSteps()
         binding.btnSendMessage.isEnabled = false
         viewLifecycleOwner.lifecycleScope.launch {
             var display = text
@@ -585,6 +592,7 @@ class ChatFragment : Fragment() {
                 launch {
                     providerEngine.workProgress.collect { progress ->
                         if (_binding == null) return@collect
+                        handleWorkProgress(progress)
                         if (progress.isWorking) {
                             binding.layoutWorkProgress.visibility = View.VISIBLE
                             binding.pbWorkProgress.progress = progress.percent
@@ -652,6 +660,7 @@ class ChatFragment : Fragment() {
     }
 
     private fun sendMessage() {
+        clearWorkSteps()
         val text = binding.etMessageInput.text?.toString()?.trim().orEmpty()
         if (customProviderActive()) {
             sendViaProvider(text)
@@ -985,6 +994,106 @@ class ChatFragment : Fragment() {
         }
     }
 
+    private fun setupWorkStepsRecyclerView(rootView: View) {
+        val resId = resources.getIdentifier("rvWorkSteps", "id", requireContext().packageName)
+        val existingRv = if (resId != 0) rootView.findViewById<RecyclerView>(resId) else null
+        val targetRv = if (existingRv != null) {
+            existingRv
+        } else {
+            val dynamicRv = RecyclerView(requireContext()).apply {
+                id = if (resId != 0) resId else View.generateViewId()
+                layoutParams = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    bottomToTop = binding.cardInputContainer.id
+                    startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                    endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                }
+                val padH = (4 * resources.displayMetrics.density).toInt()
+                setPadding(padH, 0, padH, 0)
+                clipToPadding = false
+                visibility = View.GONE
+            }
+            (binding.root as? ViewGroup)?.addView(dynamicRv)
+            dynamicRv
+        }
+        targetRv.layoutManager = LinearLayoutManager(requireContext())
+        targetRv.adapter = workStepAdapter
+        rvWorkSteps = targetRv
+    }
+
+    private fun handleWorkProgress(progress: com.jarvis.assistant.provider.LiveWorkProgress) {
+        if (_binding == null) return
+        val stepName = progress.stepName
+        val snippet = progress.codeSnippet
+        if (progress.isWorking) {
+            val title = if (stepName.isNotBlank()) stepName else "Executing task…"
+            val actionType = WorkActionType.resolve(
+                language = "",
+                targetName = progress.target,
+                toolName = progress.actionText
+            )
+            val activeIndex = workSteps.indexOfLast { it.status == WorkStepStatus.IN_PROGRESS }
+            if (activeIndex >= 0) {
+                val current = workSteps[activeIndex]
+                if (current.title == title && current.type == actionType) {
+                    if (snippet != null && snippet != current.codeSnippet) {
+                        workSteps[activeIndex] = current.copy(codeSnippet = snippet)
+                    }
+                } else {
+                    workSteps[activeIndex] = current.copy(status = WorkStepStatus.DONE)
+                    val newCard = WorkStepCard(
+                        id = "step_${System.currentTimeMillis()}_${workSteps.size}",
+                        type = actionType,
+                        title = title,
+                        status = WorkStepStatus.IN_PROGRESS,
+                        codeSnippet = snippet
+                    )
+                    workSteps.add(newCard)
+                }
+            } else {
+                val newCard = WorkStepCard(
+                    id = "step_${System.currentTimeMillis()}_${workSteps.size}",
+                    type = actionType,
+                    title = title,
+                    status = WorkStepStatus.IN_PROGRESS,
+                    codeSnippet = snippet
+                )
+                workSteps.add(newCard)
+            }
+            rvWorkSteps?.visibility = View.VISIBLE
+            workStepAdapter.submitList(workSteps.toList()) {
+                if (workSteps.isNotEmpty()) {
+                    rvWorkSteps?.scrollToPosition(workSteps.size - 1)
+                }
+            }
+        } else if (progress.percent == 100) {
+            markAllWorkStepsDone()
+        } else if (!progress.isWorking && workSteps.any { it.status == WorkStepStatus.IN_PROGRESS }) {
+            markAllWorkStepsDone()
+        }
+    }
+
+    private fun markAllWorkStepsDone() {
+        var changed = false
+        for (i in workSteps.indices) {
+            if (workSteps[i].status == WorkStepStatus.IN_PROGRESS) {
+                workSteps[i] = workSteps[i].copy(status = WorkStepStatus.DONE)
+                changed = true
+            }
+        }
+        if (changed) {
+            workStepAdapter.submitList(workSteps.toList())
+        }
+    }
+
+    private fun clearWorkSteps() {
+        workSteps.clear()
+        workStepAdapter.submitList(emptyList())
+        rvWorkSteps?.visibility = View.GONE
+    }
+
     override fun onDestroyView() {
         try {
             speechRecognizer?.destroy()
@@ -994,6 +1103,7 @@ class ChatFragment : Fragment() {
         retrySnackbar?.dismiss()
         JarvisVoiceController.stopSpeaking()
         chatAdapter.release()
+        rvWorkSteps = null
         super.onDestroyView()
         _binding = null
     }
