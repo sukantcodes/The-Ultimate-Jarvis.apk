@@ -39,6 +39,17 @@ class TtsSettingsFragment : Fragment() {
         ViewModelProvider(this)[TtsSettingsViewModel::class.java]
     }
 
+    private val requestMicPermissionLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            com.jarvis.assistant.background.JarvisConversationService.startWakeWordMonitoring(requireContext())
+            Toast.makeText(requireContext(), "Neural Voice activated & 'Hey Jarvis' listening", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(requireContext(), "Neural Voice activated (Microphone permission needed for 'Hey Jarvis')", Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -187,8 +198,17 @@ class TtsSettingsFragment : Fragment() {
             }
 
             viewModel.saveAndActivate {
-                com.jarvis.assistant.background.JarvisConversationService.startWakeWordMonitoring(requireContext())
-                Toast.makeText(requireContext(), "Neural Voice activated & 'Hey Jarvis' listening", Toast.LENGTH_SHORT).show()
+                val hasMicPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    android.Manifest.permission.RECORD_AUDIO
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+                if (hasMicPermission) {
+                    com.jarvis.assistant.background.JarvisConversationService.startWakeWordMonitoring(requireContext())
+                    Toast.makeText(requireContext(), "Neural Voice activated & 'Hey Jarvis' listening", Toast.LENGTH_SHORT).show()
+                } else {
+                    requestMicPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                }
             }
         }
 

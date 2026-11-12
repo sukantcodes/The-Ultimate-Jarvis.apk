@@ -54,17 +54,20 @@ class TtsModelDownloader(private val context: Context) {
             if (!baseDir.exists() || !baseDir.isDirectory) return null
 
             val targetModel = engineType.defaultModelFileName
-            if (File(baseDir, targetModel).exists()) {
-                return baseDir
+            val candidateModels = if (engineType == VoiceEngineType.LOCAL_KOKORO) {
+                listOf("model.int8.onnx", "model.onnx", targetModel)
+            } else {
+                listOf(targetModel)
             }
 
-            val nestedArchive = File(baseDir, engineType.archiveName)
-            if (File(nestedArchive, targetModel).exists()) {
-                return nestedArchive
+            for (m in candidateModels) {
+                if (File(baseDir, m).exists()) return baseDir
+                val nestedArchive = File(baseDir, engineType.archiveName)
+                if (File(nestedArchive, m).exists()) return nestedArchive
             }
 
             val matchingChild = baseDir.listFiles()?.firstOrNull { child ->
-                child.isDirectory && File(child, targetModel).exists()
+                child.isDirectory && candidateModels.any { File(child, it).exists() }
             }
             if (matchingChild != null) {
                 return matchingChild
@@ -79,8 +82,9 @@ class TtsModelDownloader(private val context: Context) {
 
             return when (engineType) {
                 VoiceEngineType.LOCAL_KOKORO -> {
-                    // Check required artifacts: model.int8.onnx, voices.bin, tokens.txt, espeak-ng-data
-                    File(dir, "model.int8.onnx").exists() &&
+                    // Check required artifacts: model.int8.onnx or model.onnx, voices.bin, tokens.txt, espeak-ng-data
+                    val hasModel = File(dir, "model.int8.onnx").exists() || File(dir, "model.onnx").exists()
+                    hasModel &&
                             File(dir, "voices.bin").exists() &&
                             File(dir, "tokens.txt").exists() &&
                             File(dir, "espeak-ng-data").exists()

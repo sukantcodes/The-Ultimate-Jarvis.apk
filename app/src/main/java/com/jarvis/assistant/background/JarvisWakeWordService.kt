@@ -1,11 +1,13 @@
 package com.jarvis.assistant.background
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -19,6 +21,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.jarvis.assistant.R
 import com.jarvis.assistant.audio.VoiceIntentGate
 import com.jarvis.assistant.ui.home.MainActivity
@@ -47,12 +50,30 @@ class JarvisWakeWordService : Service() {
         fun isRunning(): Boolean = running
 
         fun startService(context: Context) {
-            val intent = Intent(context, JarvisWakeWordService::class.java)
-            androidx.core.content.ContextCompat.startForegroundService(context, intent)
+            val hasMicPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasMicPermission) {
+                Log.w(TAG, "Cannot start JarvisWakeWordService: RECORD_AUDIO permission is not granted")
+                return
+            }
+
+            try {
+                val intent = Intent(context, JarvisWakeWordService::class.java)
+                ContextCompat.startForegroundService(context, intent)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to startForegroundService JarvisWakeWordService", e)
+            }
         }
 
         fun stopService(context: Context) {
-            context.stopService(Intent(context, JarvisWakeWordService::class.java))
+            try {
+                context.stopService(Intent(context, JarvisWakeWordService::class.java))
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to stopService JarvisWakeWordService", e)
+            }
         }
     }
 
@@ -70,24 +91,43 @@ class JarvisWakeWordService : Service() {
     override fun onCreate() {
         super.onCreate()
         running = true
+
+        val hasMicPermission = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!hasMicPermission) {
+            Log.e(TAG, "Cannot run JarvisWakeWordService: RECORD_AUDIO permission missing. Stopping service.")
+            running = false
+            stopSelf()
+            return
+        }
+
         createNotificationChannel()
         val notification = buildNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            try {
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 startForeground(
                     NOTIFICATION_ID,
                     notification,
                     android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
                 )
-            } catch (e: Exception) {
-                Log.w(TAG, "startForeground with MICROPHONE type failed: ${e.message}")
+            } else {
                 startForeground(NOTIFICATION_ID, notification)
             }
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+            Log.i(TAG, "Service started in foreground")
+            mainHandler.post { startWakeWordListening() }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "SecurityException during startForeground: ${e.message}", e)
+            running = false
+            stopSelf()
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception during startForeground: ${e.message}", e)
+            running = false
+            stopSelf()
         }
-        Log.i(TAG, "Service started")
-        mainHandler.post { startWakeWordListening() }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int =

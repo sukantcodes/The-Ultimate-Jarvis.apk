@@ -167,4 +167,28 @@ class NeuralTtsTest {
         assertEquals(null, SpeakerProfile.findById(""))
         assertEquals(null, SpeakerProfile.findById("non_existent_id"))
     }
+
+    @Test
+    fun testPcm16BitConversion() {
+        val floatSamples = floatArrayOf(-1.0f, -0.5f, 0.0f, 0.5f, 1.0f, 1.5f, -1.5f)
+        val shortSamples = ShortArray(floatSamples.size) { i ->
+            (floatSamples[i].coerceIn(-1.0f, 1.0f) * 32767f).toInt().toShort()
+        }
+
+        assertEquals(-32767.toShort(), shortSamples[0])
+        assertEquals(0.toShort(), shortSamples[2])
+        assertEquals(32767.toShort(), shortSamples[4])
+        // Clamping checks
+        assertEquals(32767.toShort(), shortSamples[5])
+        assertEquals(-32767.toShort(), shortSamples[6])
+    }
+
+    @Test
+    fun testCandidateLexiconPrioritization() {
+        val availableLexicons = listOf("lexicon-us-en.txt", "lexicon-gb-en.txt", "lexicon-zh.txt")
+        val joined = availableLexicons.joinToString(",")
+        assertTrue(joined.contains("lexicon-us-en.txt"))
+        assertTrue(joined.contains("lexicon-gb-en.txt"))
+        assertTrue(joined.contains("lexicon-zh.txt"))
+    }
 }

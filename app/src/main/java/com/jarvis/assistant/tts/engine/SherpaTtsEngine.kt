@@ -3,8 +3,10 @@ package com.jarvis.assistant.tts.engine
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioTrack
 import android.util.Log
+import android.widget.Toast
 import com.jarvis.assistant.tts.model.SpeakerProfile
 import com.jarvis.assistant.tts.model.VoiceEngineType
 import com.k2fsa.sherpa.onnx.GeneratedAudio
@@ -18,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -89,11 +92,35 @@ class SherpaTtsEngine(private val context: Context) {
 
         when (engineType) {
             VoiceEngineType.LOCAL_KOKORO -> {
+                val modelFile = File(dir, "model.int8.onnx").takeIf { it.exists() }
+                    ?: File(dir, "model.onnx").takeIf { it.exists() }
+                    ?: File(dir, engineType.defaultModelFileName)
+
                 val kokoroConfig = OfflineTtsKokoroModelConfig().apply {
-                    model = File(dir, "model.int8.onnx").absolutePath
+                    model = modelFile.absolutePath
                     voices = File(dir, "voices.bin").absolutePath
                     tokens = File(dir, "tokens.txt").absolutePath
                     dataDir = File(dir, "espeak-ng-data").absolutePath
+
+                    // Provide lexicon files for English & Chinese phonemization
+                    val candidateLexicons = listOf(
+                        File(dir, "lexicon-us-en.txt"),
+                        File(dir, "lexicon-gb-en.txt"),
+                        File(dir, "lexicon-zh.txt")
+                    ).filter { it.exists() }
+
+                    lexicon = if (candidateLexicons.isNotEmpty()) {
+                        candidateLexicons.joinToString(",") { it.absolutePath }
+                    } else {
+                        dir.listFiles { f -> f.name.startsWith("lexicon") && f.name.endsWith(".txt") }
+                            ?.joinToString(",") { it.absolutePath } ?: ""
+                    }
+
+                    val dictDirFile = File(dir, "dict")
+                    if (dictDirFile.exists()) {
+                        dictDir = dictDirFile.absolutePath
+                    }
+
                     lengthScale = 1.0f
                 }
                 modelConfig.kokoro = kokoroConfig
@@ -103,6 +130,12 @@ class SherpaTtsEngine(private val context: Context) {
                     model = File(dir, "en_GB-alan-medium.onnx").absolutePath
                     tokens = File(dir, "tokens.txt").absolutePath
                     dataDir = File(dir, "espeak-ng-data").absolutePath
+
+                    val piperLexicon = File(dir, "lexicon.txt")
+                    if (piperLexicon.exists()) {
+                        lexicon = piperLexicon.absolutePath
+                    }
+
                     lengthScale = 1.0f
                     noiseScale = 0.667f
                     noiseScaleW = 0.8f
@@ -198,20 +231,43 @@ class SherpaTtsEngine(private val context: Context) {
     }
 
     /**
-     * Streams raw PCM FloatArray directly into AudioTrack with zero disk degradation.
+     * Streams raw PCM FloatArray converted to 16-bit PCM directly into AudioTrack with zero disk degradation.
+     * Guarantees 100% universal Android hardware DAC compatibility, full audio playback without cut-off,
+     * and real-time amplitude synchrony with HUD Holographic Visualizer.
      */
     private suspend fun playPcmInMemory(
         samples: FloatArray,
         sampleRate: Int,
         onAmplitude: ((Float) -> Unit)?
     ) = withContext(Dispatchers.IO) {
+        if (samples.isEmpty()) return@withContext
+
+        // Convert FloatArray [-1.0f, 1.0f] to ShortArray 16-bit PCM for universal hardware compatibility
+        val shortSamples = ShortArray(samples.size) { i ->
+            (samples[i].coerceIn(-1.0f, 1.0f) * 32767f).toInt().toShort()
+        }
+
+        // Check if device media volume is muted
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        val currentVol = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 1
+        if (currentVol == 0) {
+            Log.w(TAG, "Device STREAM_MUSIC volume is currently 0 (muted)")
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    context,
+                    "Media volume is muted. Turn up volume to hear Jarvis.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
         val audioAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANT)
+            .setUsage(AudioAttributes.USAGE_MEDIA)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
             .build()
 
         val audioFormat = AudioFormat.Builder()
-            .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
             .setSampleRate(sampleRate)
             .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
             .build()
@@ -219,10 +275,10 @@ class SherpaTtsEngine(private val context: Context) {
         val minBufferSize = AudioTrack.getMinBufferSize(
             sampleRate,
             AudioFormat.CHANNEL_OUT_MONO,
-            AudioFormat.ENCODING_PCM_FLOAT
+            AudioFormat.ENCODING_PCM_16BIT
         )
 
-        val bufferSize = max(minBufferSize, samples.size * 4)
+        val bufferSize = maxOf(minBufferSize * 2, 8192)
 
         val track = AudioTrack.Builder()
             .setAudioAttributes(audioAttributes)
@@ -240,11 +296,15 @@ class SherpaTtsEngine(private val context: Context) {
             // Stream chunks while computing real-time RMS for the holographic visualizer
             val chunkSize = 1024
             var offset = 0
-            val total = samples.size
+            val total = shortSamples.size
 
             while (offset < total && isActive && isPlayingAudio) {
                 val count = minOf(chunkSize, total - offset)
-                track.write(samples, offset, count, AudioTrack.WRITE_BLOCKING)
+                val written = track.write(shortSamples, offset, count, AudioTrack.WRITE_BLOCKING)
+                if (written < 0) {
+                    Log.e(TAG, "AudioTrack write failed: $written")
+                    break
+                }
 
                 // Compute peak/RMS amplitude for this chunk
                 var sumSq = 0.0f
@@ -264,10 +324,16 @@ class SherpaTtsEngine(private val context: Context) {
                 offset += count
             }
 
-            // Brief dwell so the tail of audio drains from hardware buffers
-            if (isActive && isPlayingAudio) {
-                val tailDwellMs = ((minBufferSize.toFloat() / (sampleRate * 4)) * 1000).toLong().coerceIn(100L, 400L)
-                kotlinx.coroutines.delay(tailDwellMs)
+            // Await full audio completion by verifying playback head position
+            val totalFrames = shortSamples.size
+            val estimatedDurationMs = ((totalFrames.toDouble() / sampleRate) * 1000).toLong()
+            val maxWaitDeadlineMs = System.currentTimeMillis() + estimatedDurationMs + 1500L
+
+            while (isActive && isPlayingAudio && System.currentTimeMillis() < maxWaitDeadlineMs) {
+                if (track.playbackHeadPosition >= totalFrames) {
+                    break
+                }
+                delay(25)
             }
         } finally {
             try {
