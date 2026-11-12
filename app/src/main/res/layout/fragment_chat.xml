@@ -440,63 +440,6 @@
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
-            <LinearLayout
-                android:id="@+id/chipPersona"
-                android:layout_width="wrap_content"
-                android:layout_height="34dp"
-                android:orientation="horizontal"
-                android:gravity="center"
-                android:background="@drawable/bg_chat_tool_chip"
-                android:paddingStart="10dp"
-                android:paddingEnd="12dp"
-                android:layout_marginEnd="7dp">
-
-                <ImageView
-                    android:layout_width="15dp"
-                    android:layout_height="15dp"
-                    android:src="@drawable/ic_nav_chat"
-                    app:tint="?attr/themeTextSecondary"
-                    android:layout_marginEnd="5dp"
-        android:importantForAccessibility="no" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Jarvis"
-                    android:textColor="?attr/themeTextPrimary"
-                    android:textSize="12sp"
-                    android:fontFamily="sans-serif-medium"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/chipMode"
-                android:layout_width="wrap_content"
-                android:layout_height="34dp"
-                android:orientation="horizontal"
-                android:gravity="center"
-                android:background="@drawable/bg_chat_tool_chip"
-                android:paddingStart="10dp"
-                android:paddingEnd="12dp">
-
-                <ImageView
-                    android:layout_width="15dp"
-                    android:layout_height="15dp"
-                    android:src="@drawable/ic_code_chip"
-                    app:tint="?attr/themeTextSecondary"
-                    android:layout_marginEnd="5dp"
-        android:importantForAccessibility="no" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Auto"
-                    android:textColor="?attr/themeTextPrimary"
-                    android:textSize="12sp"
-                    android:fontFamily="sans-serif-medium"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
             <View
                 android:layout_width="0dp"
                 android:layout_height="1dp"
