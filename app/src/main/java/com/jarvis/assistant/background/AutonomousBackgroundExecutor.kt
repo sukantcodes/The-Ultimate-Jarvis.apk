@@ -37,6 +37,7 @@ object AutonomousBackgroundExecutor {
 
     @Volatile private var activeJob: Job? = null
     @Volatile private var isRunningTask: Boolean = false
+    @Volatile private var currentContext: Context? = null
 
     fun isRunning(): Boolean = isRunningTask
 
@@ -68,7 +69,11 @@ object AutonomousBackgroundExecutor {
         }
 
         val appContext = context.applicationContext
+        currentContext = appContext
         isRunningTask = true
+
+        val taskTitle = if (commandText.length > 40) commandText.take(37) + "…" else commandText
+        TaskProgressNotifier.postProgress(appContext, taskTitle, "🔧 Initializing task…", 5)
 
         // Ensure auto-approve is active during autonomous background execution so tool confirms never block
         PermissionPreferences.setAutoApproveAll(appContext, true)
@@ -83,6 +88,7 @@ object AutonomousBackgroundExecutor {
 
         activeJob = scope.launch {
             try {
+                TaskProgressNotifier.postProgress(appContext, taskTitle, "📝 Planning approach…", 15)
                 val engine = ProviderRuntime.chatEngine(appContext)
                 var lastSpokenMilestone = 0
                 val startTime = System.currentTimeMillis()
@@ -93,6 +99,15 @@ object AutonomousBackgroundExecutor {
                         if (!isActive) return@collectLatest
                         val percent = progress.percent
                         val action = progress.actionText.ifBlank { "Executing task" }
+
+                        // Post live notification progress updates
+                        val progressPercent = percent.coerceIn(15, 95)
+                        val progressDesc = if (progress.actionText.isNotBlank()) {
+                            "⚙️ ${progress.actionText}"
+                        } else {
+                            "⚙️ Executing… ($progressPercent%)"
+                        }
+                        TaskProgressNotifier.postProgress(appContext, taskTitle, progressDesc, progressPercent)
 
                         // Milestones: ~35%, ~70%, 100%
                         val milestone = when {
@@ -135,16 +150,24 @@ object AutonomousBackgroundExecutor {
                         }
                         progressJob.cancel()
 
+                        TaskProgressNotifier.postProgress(appContext, taskTitle, "✅ Finalizing…", 90)
+
                         // Final spoken executive wrap-up
                         val finalTurn = (appContext as? JarvisApp)?.chatRepository?.turns?.value?.lastOrNull()
                         val responseText = finalTurn?.jarvisResponse.orEmpty()
                         if (responseText.isNotBlank()) {
                             JarvisVoiceController.speakTurnResponse(appContext, finalTurn?.id.orEmpty(), commandText, responseText)
                         }
+
+                        TaskProgressNotifier.postProgress(appContext, taskTitle, "✓ Done", 100)
+                        val summary = if (responseText.isNotBlank()) responseText.take(120).trim() else "Task completed successfully"
+                        TaskProgressNotifier.postComplete(appContext, taskTitle, summary)
+
                         onComplete?.invoke(true, "Completed")
                     }
                     else -> {
                         progressJob.cancel()
+                        TaskProgressNotifier.cancel(appContext)
                         val errorNotice = "I encountered an issue starting the background execution. Please check your model settings."
                         JarvisVoiceController.speakTurnResponse(appContext, "error-${System.currentTimeMillis()}", null, errorNotice, forceTts = true)
                         onComplete?.invoke(false, "Failed to start")
@@ -152,19 +175,25 @@ object AutonomousBackgroundExecutor {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Autonomous background task failed", e)
+                TaskProgressNotifier.cancel(appContext)
                 val failNotice = "An error occurred during execution. I have preserved your files and will resume from this point."
                 JarvisVoiceController.speakTurnResponse(appContext, "error-${System.currentTimeMillis()}", null, failNotice, forceTts = true)
                 onComplete?.invoke(false, e.message ?: "Unknown error")
             } finally {
                 isRunningTask = false
                 activeJob = null
+                currentContext = null
             }
         }
     }
 
-    fun cancel() {
+    @JvmOverloads
+    fun cancel(context: Context? = null) {
+        val ctx = context ?: currentContext
+        ctx?.let { TaskProgressNotifier.cancel(it) }
         activeJob?.cancel()
         activeJob = null
         isRunningTask = false
+        currentContext = null
     }
 }
