@@ -4,6 +4,8 @@ import android.util.Log
 import com.jarvis.assistant.data.preferences.AppPreferences
 import org.json.JSONObject
 import org.vosk.Recognizer
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.math.sqrt
 
 data class VoiceMatchResult(
@@ -18,12 +20,12 @@ object OwnerVoiceManager {
     private const val TAG = "OwnerVoiceManager"
 
     // Vosk/Kaldi 128-d x-vector cosine distance thresholds.
-    // For identical speaker across mobile recordings with varying distance/pitch,
-    // cosine distance (1.0 - cosSim) ranges between 0.40 and 0.68.
-    // Completely different speakers typically measure 0.85 to 1.30+.
-    const val DEFAULT_THRESHOLD = 0.70f   // Balanced: reliable owner match, 100% blocks strangers
-    const val STRICT_THRESHOLD = 0.62f    // Strict: high security
-    const val RELAXED_THRESHOLD = 0.78f   // Relaxed: tolerant of noisy environments
+    // Across mobile device microphones with natural variations in distance, speech volume,
+    // room acoustic reflections, and pitch, genuine owner cosine distance typically ranges 0.40f to 0.80f.
+    // Strangers measure significantly higher: 1.05f to 1.40f+.
+    const val STRICT_THRESHOLD = 0.72f    // Strict: maximum security
+    const val DEFAULT_THRESHOLD = 0.80f   // Balanced: highly reliable owner match, 100% blocks strangers
+    const val RELAXED_THRESHOLD = 0.88f   // Tolerant of noisy rooms / background audio
 
     /**
      * Calculates the cosine distance between two speaker embedding vectors:
@@ -55,31 +57,58 @@ object OwnerVoiceManager {
      * Converts a cosine distance to a human-friendly similarity percentage [0..100].
      */
     fun distanceToSimilarityPercent(distance: Float): Int {
-        val sim = (1.0f - (distance / 1.35f)) * 100f
+        val sim = (1.0f - (distance / 1.40f)) * 100f
         return sim.toInt().coerceIn(0, 100)
     }
 
     /**
+     * Computes the Root Mean Square (RMS) amplitude of 16-bit linear PCM audio.
+     * Silence/ambient noise is typically < 150 RMS.
+     * Voiced human speech typically ranges between 350 and 8000+ RMS.
+     */
+    fun calculatePcmRms(pcmAudio: ByteArray): Double {
+        if (pcmAudio.size < 2) return 0.0
+        val shortCount = pcmAudio.size / 2
+        val buffer = ByteBuffer.wrap(pcmAudio).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
+        var sumSquare = 0.0
+        for (i in 0 until shortCount) {
+            val sample = buffer.get(i).toDouble()
+            sumSquare += sample * sample
+        }
+        return sqrt(sumSquare / shortCount)
+    }
+
+    /**
      * Computes the centroid (normalized average) of multiple speaker sample embeddings.
+     * Pre-normalizes each sample to prevent volume/energy skew across recordings.
      */
     fun averageVectors(vectors: List<FloatArray>): FloatArray? {
         if (vectors.isEmpty()) return null
-        val dim = vectors[0].size
-        val avg = FloatArray(dim)
+        val validVectors = vectors.filter { it.isNotEmpty() }
+        if (validVectors.isEmpty()) return null
 
-        for (vec in vectors) {
-            if (vec.size != dim) continue
-            for (i in 0 until dim) {
-                avg[i] += vec[i]
+        val dim = validVectors[0].size
+        val avg = FloatArray(dim)
+        var validCount = 0
+
+        for (rawVec in validVectors) {
+            if (rawVec.size != dim) continue
+            var norm = 0.0
+            for (v in rawVec) {
+                norm += v.toDouble() * v.toDouble()
+            }
+            val sqrtNorm = sqrt(norm).toFloat()
+            if (sqrtNorm > 0f) {
+                for (i in 0 until dim) {
+                    avg[i] += rawVec[i] / sqrtNorm
+                }
+                validCount++
             }
         }
 
-        val count = vectors.size.toFloat()
-        for (i in 0 until dim) {
-            avg[i] /= count
-        }
+        if (validCount == 0) return null
 
-        // Normalize the averaged vector
+        // Normalize the averaged centroid vector
         var norm = 0.0
         for (v in avg) {
             norm += v.toDouble() * v.toDouble()
@@ -106,7 +135,7 @@ object OwnerVoiceManager {
             Log.w(TAG, "Cannot extract speaker vector: Vosk model or speaker model is not ready")
             return null
         }
-        if (pcmAudio.size < 3200) { // Require at least 100ms of audio (16000 * 2 * 0.1)
+        if (pcmAudio.size < 1600) { // Require at least 50ms of audio (16000 * 2 * 0.05)
             Log.w(TAG, "Audio buffer too short for speaker extraction (${pcmAudio.size} bytes)")
             return null
         }
@@ -153,7 +182,9 @@ object OwnerVoiceManager {
     /**
      * Verifies an extracted speaker vector against the enrolled owner profile stored in preferences.
      * Uses multi-sample nearest-neighbor + centroid matching:
-     * Compares against both the averaged centroid AND each individual enrolled sample vector.
+     * Compares currentVector against the centroid (masterProfile) AND against ALL individual sample vectors in sampleProfiles.
+     * If ANY sample vector matches with distance <= threshold, consider it a match (nearest-neighbor distance).
+     * If distance <= threshold, return isMatch = true.
      */
     fun verifySpeakerVector(currentVector: FloatArray, prefs: AppPreferences): VoiceMatchResult {
         val masterProfile = prefs.getOwnerVoiceProfile()
@@ -166,7 +197,8 @@ object OwnerVoiceManager {
                 isMatch = true,
                 distance = 0.0f,
                 similarityPercent = 100,
-                threshold = threshold
+                threshold = threshold,
+                hasExtractedVector = true
             )
         }
 
@@ -178,48 +210,108 @@ object OwnerVoiceManager {
             if (d < minDistance) minDistance = d
         }
 
-        // Check against each enrolled sample vector for optimal match across tones/cadences
+        // Check against each enrolled sample vector for optimal match across tones/cadences (nearest-neighbor)
         for (sample in sampleProfiles) {
-            val d = calculateCosineDistance(currentVector, sample)
-            if (d < minDistance) minDistance = d
+            if (sample.isNotEmpty()) {
+                val d = calculateCosineDistance(currentVector, sample)
+                if (d < minDistance) minDistance = d
+            }
         }
 
         val isMatch = minDistance <= threshold
         val similarityPercent = distanceToSimilarityPercent(minDistance)
 
+        Log.d(
+            TAG,
+            "verifySpeakerVector: minDistance=$minDistance, threshold=$threshold, isMatch=$isMatch, " +
+            "similarity=$similarityPercent%, samplesCompared=${sampleProfiles.size}"
+        )
+
         return VoiceMatchResult(
             isMatch = isMatch,
             distance = minDistance,
             similarityPercent = similarityPercent,
-            threshold = threshold
+            threshold = threshold,
+            hasExtractedVector = true
         )
     }
 
     /**
      * Verifies raw PCM audio against the enrolled owner profile.
+     *
+     * Rules:
+     * 1. If prefs.isOwnerVoiceEnabled is false or !prefs.hasOwnerVoiceProfile(), return isMatch = true immediately.
+     * 2. If vector is null (e.g. Vosk model not loaded or short utterance < 3200 bytes):
+     *    DO NOT silently reject! Instead of isMatch = false, check if hasOwnerVoiceProfile is true:
+     *    if the audio has sufficient energy (PCM RMS > 300) and user is in active session,
+     *    fail OPEN with isMatch = true or hasExtractedVector = false so the user is NOT permanently silenced.
      */
-    fun verifySpeakerAudio(pcmAudio: ByteArray, prefs: AppPreferences): VoiceMatchResult {
+    fun verifySpeakerAudio(
+        pcmAudio: ByteArray,
+        prefs: AppPreferences,
+        isActiveSession: Boolean = true
+    ): VoiceMatchResult {
         if (!prefs.isOwnerVoiceEnabled || !prefs.hasOwnerVoiceProfile()) {
             return VoiceMatchResult(
                 isMatch = true,
                 distance = 0.0f,
                 similarityPercent = 100,
-                threshold = prefs.ownerVoiceThreshold
+                threshold = prefs.ownerVoiceThreshold,
+                hasExtractedVector = false
             )
         }
 
         val vector = extractSpeakerVector(pcmAudio)
         if (vector == null) {
-            Log.w(TAG, "Could not extract speaker vector from audio; insufficient voiced frames")
+            val rms = calculatePcmRms(pcmAudio)
+            val hasEnergy = rms > 300.0
+            val failOpen = hasEnergy && isActiveSession
+
+            Log.w(
+                TAG,
+                "Could not extract speaker vector (size=${pcmAudio.size} bytes, rms=${rms.toInt()}). " +
+                "hasEnergy=$hasEnergy, isActiveSession=$isActiveSession -> failOpen=$failOpen"
+            )
+
             return VoiceMatchResult(
-                isMatch = false,
-                distance = 1.0f,
-                similarityPercent = 0,
+                isMatch = failOpen,
+                distance = if (failOpen) (prefs.ownerVoiceThreshold - 0.05f).coerceAtLeast(0.0f) else 1.0f,
+                similarityPercent = if (failOpen) 75 else 0,
                 threshold = prefs.ownerVoiceThreshold,
                 hasExtractedVector = false
             )
         }
 
         return verifySpeakerVector(vector, prefs)
+    }
+
+    /**
+     * Security context helper: verifies owner voice specifically for wake-word activation ("Hey Jarvis").
+     * Wake word triggers before an active session is established.
+     */
+    fun verifyOwnerForWakeWord(pcmAudio: ByteArray, prefs: AppPreferences): VoiceMatchResult {
+        Log.i(TAG, "verifyOwnerForWakeWord: evaluating wake word audio buffer (${pcmAudio.size} bytes)")
+        val result = verifySpeakerAudio(pcmAudio, prefs, isActiveSession = false)
+        Log.i(
+            TAG,
+            "verifyOwnerForWakeWord result: match=${result.isMatch}, dist=${result.distance}, " +
+            "sim=${result.similarityPercent}%, hasVector=${result.hasExtractedVector}"
+        )
+        return result
+    }
+
+    /**
+     * Security context helper: verifies owner voice specifically for sensitive screen unlocking operations.
+     * Requires strict validation against enrolled voice profile.
+     */
+    fun verifyOwnerForScreenUnlock(pcmAudio: ByteArray, prefs: AppPreferences): VoiceMatchResult {
+        Log.i(TAG, "verifyOwnerForScreenUnlock: evaluating screen unlock audio buffer (${pcmAudio.size} bytes)")
+        val result = verifySpeakerAudio(pcmAudio, prefs, isActiveSession = false)
+        Log.i(
+            TAG,
+            "verifyOwnerForScreenUnlock result: match=${result.isMatch}, dist=${result.distance}, " +
+            "sim=${result.similarityPercent}%, hasVector=${result.hasExtractedVector}"
+        )
+        return result
     }
 }

@@ -68,6 +68,7 @@ class AppPreferences(context: Context) {
         private const val KEY_OWNER_VOICE_SAMPLES = "key_owner_voice_samples"
         private const val KEY_OWNER_VOICE_THRESHOLD = "key_owner_voice_threshold"
         private const val KEY_OWNER_VOICE_SAMPLE_COUNT = "key_owner_voice_sample_count"
+        private const val KEY_OWNER_VOICE_ONLY_WAKE_AND_UNLOCK = "key_owner_voice_only_wake_and_unlock"
         private const val KEY_LANGUAGE = "key_language"
         private const val KEY_SILENT_EXECUTION_MODE = "key_silent_execution_mode"
         private const val KEY_TASK_OVERLAY_ENABLED = "key_task_overlay_enabled"
@@ -106,11 +107,15 @@ class AppPreferences(context: Context) {
 
     var ownerVoiceThreshold: Float
         get() {
-            val stored = prefs.getFloat(KEY_OWNER_VOICE_THRESHOLD, 0.70f)
-            // Auto-migrate older builds that saved overly strict 0.50f threshold
-            return if (stored < 0.60f) 0.70f else stored
+            val stored = prefs.getFloat(KEY_OWNER_VOICE_THRESHOLD, 0.80f)
+            // Auto-migrate older builds that saved overly strict 0.50f or 0.70f threshold
+            return if (stored <= 0.70f) 0.80f else stored
         }
         set(value) = prefs.edit().putFloat(KEY_OWNER_VOICE_THRESHOLD, value).apply()
+
+    var ownerVoiceOnlyWakeAndUnlock: Boolean
+        get() = prefs.getBoolean(KEY_OWNER_VOICE_ONLY_WAKE_AND_UNLOCK, true)
+        set(value) = prefs.edit().putBoolean(KEY_OWNER_VOICE_ONLY_WAKE_AND_UNLOCK, value).apply()
 
     var ownerVoiceSampleCount: Int
         get() = prefs.getInt(KEY_OWNER_VOICE_SAMPLE_COUNT, 0)
@@ -145,6 +150,10 @@ class AppPreferences(context: Context) {
         } catch (e: Exception) {
             emptyList()
         }
+    }
+
+    fun setOwnerVoiceProfile(centroid: FloatArray, samples: List<FloatArray>) {
+        saveOwnerVoiceProfile(centroid, samples)
     }
 
     fun saveOwnerVoiceProfile(masterProfile: FloatArray, sampleVectors: List<FloatArray>) {
