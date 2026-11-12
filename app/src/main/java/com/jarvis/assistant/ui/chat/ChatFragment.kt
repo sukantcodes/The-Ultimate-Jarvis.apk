@@ -193,7 +193,7 @@ class ChatFragment : Fragment() {
             (activity as? MainActivity)?.openNavigationDrawer()
         }
 
-        binding.chipPersona.text = "Chats"
+        binding.tvPersonaLabel.text = "Chats"
         binding.chipPersona.onSafeClick {
             ChatSessionsSheet().show(childFragmentManager, ChatSessionsSheet.TAG)
         }
