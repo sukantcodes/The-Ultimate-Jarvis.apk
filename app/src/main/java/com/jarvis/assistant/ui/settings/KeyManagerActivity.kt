@@ -72,14 +72,18 @@ class KeyManagerActivity : AppCompatActivity() {
         // Always include Google Gemini (Built-in) and ElevenLabs alongside any custom providers
         val geminiBuiltIn = ProviderProfile(
             id = "gemini",
-            displayName = "Google Gemini (Built-in)",
-            authMethod = AuthMethod.BEARER_HEADER
+            name = "Google Gemini (Built-in)",
+            baseUrl = "https://generativelanguage.googleapis.com",
+            protocol = ProviderProtocol.GEMINI,
+            authMethod = AuthMethod.BEARER
         )
         val elevenLabsBuiltIn = ProviderProfile(
             id = "elevenlabs",
-            displayName = "ElevenLabs Turbo",
+            name = "ElevenLabs Turbo",
+            baseUrl = "https://api.elevenlabs.io",
+            protocol = ProviderProtocol.OPENAI_COMPATIBLE,
             authMethod = AuthMethod.CUSTOM_HEADER,
-            authHeader = "xi-api-key"
+            authName = "xi-api-key"
         )
         allProviders = listOf(geminiBuiltIn, elevenLabsBuiltIn) + providers.profiles()
 

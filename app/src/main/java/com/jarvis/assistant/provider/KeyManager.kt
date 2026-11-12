@@ -80,14 +80,18 @@ class KeyManager(
             val secret = vault.load(id)?.takeIf { !it.isBlank } ?: return null
             val text = secret.reveal()
             secret.wipe()
-            val valid = try {
-                com.jarvis.assistant.network.ApiKeyValidator.validateKey(text)
-            } catch (e: Exception) { false }
-            if (valid) {
+            val check = try {
+                com.jarvis.assistant.network.ApiKeyValidator.validate(text)
+            } catch (e: Exception) {
+                com.jarvis.assistant.network.ApiKeyCheck.Unreachable(false)
+            }
+            return if (check is com.jarvis.assistant.network.ApiKeyCheck.Valid) {
                 pool.resetCooldown(id)
-                return TestReport(true, "Gemini API key is verified and operational.", emptyList())
+                val step = TestStep("API Key Verification", StepStatus.PASS, "Google AI Studio verified key")
+                TestReport(listOf(step), null, check.latencyMs, discoveryUnsupported = true)
             } else {
-                return TestReport(false, "Gemini API key validation failed with Google AI Studio.", emptyList())
+                val step = TestStep("API Key Verification", StepStatus.FAIL, "Google AI Studio rejected key: $check")
+                TestReport(listOf(step), null, null, discoveryUnsupported = true)
             }
         }
         val manager = providers ?: return null

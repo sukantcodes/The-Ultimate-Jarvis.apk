@@ -126,7 +126,7 @@ class JarvisWakeWordService : Service() {
         }
     }
 
-    private val resumeListeningRunnable = Runnable {
+    private val resumeListeningRunnable: Runnable = Runnable {
         if (!running) return@Runnable
         if (com.jarvis.assistant.voice.JarvisVoiceController.isSpeaking()) {
             Log.d(TAG, "Speech output still active; postponing listening resumption.")
