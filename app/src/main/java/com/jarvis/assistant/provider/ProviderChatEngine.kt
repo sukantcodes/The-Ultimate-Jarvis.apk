@@ -193,7 +193,7 @@ class ProviderChatEngine(
                 val tokenMode = tokenModeProvider?.invoke() ?: TokenMode.HIGH
                 val history = store.completedTurns(excludingId = id).map { it.copy(user = sentText[it.id] ?: it.user) }
                 val messages = ChatContext.build(history, text, attachments, budgetChars = tokenMode.budgetChars)
-                val sys0 = systemPrompt() + CODE_PROMPT + (try { extraContext?.invoke(text) } catch (e: Exception) { null }.orEmpty())
+                val sys0 = systemPrompt() + (try { extraContext?.invoke(text) } catch (e: Exception) { null }.orEmpty())
                 val client = ChatClientFactory.create(provider.protocol, transport)
                 val pool = keyRotation?.takeIf { it.hasKeys(provider.profileId) }
                 val tried = HashSet<String>()
@@ -341,11 +341,6 @@ class ProviderChatEngine(
         const val MAX_KEY_ATTEMPTS = 8
 
         /** Added to the system prompt only when the shared tool layer is active. */
-        /** Makes every piece of code, command or file content arrive as a reviewable card instead of loose text. */
-        const val CODE_PROMPT = "\n\nWhenever you write code, a script, a command or the contents of a file in a reply, always put it in a fenced code block " +
-            "whose opening line names the language and, when it is a file, the file name, for example ```kotlin:MainActivity.kt or ```bash for a command. " +
-            "Never paste code as plain text, and keep the explanation outside the block."
-
         const val TOOL_PROMPT = "\n\nIn this chat you have access to workspace tools (including files, documents, web search/fetch, GitHub, terminal execution, and website preview). " +
             "You MUST call the appropriate tool when the user asks you to perform an action (such as cloning a repository with github_clone_repo, running shell commands with terminal_run, reading/writing files, searching the web, or starting preview servers with preview_start). " +
             "Do not refuse or claim you lack tools when an action tool is available in your tools definition list. Only say something was done if a tool result confirms it. " +
@@ -411,6 +406,10 @@ object ChatContext {
         append("\n- Jump immediately into the answer or action.")
 
         append("\n\n[").append(mode.promptInstruction).append("]")
+
+        append("\n\n[CODE PRESENTATION]:")
+        append("\n- Whenever you write code, a script, a command or the contents of a file, always put it in a fenced code block whose opening line names the language and, for a file, the file name, for example ```kotlin:MainActivity.kt or ```bash for a command.")
+        append("\n- Never paste code as plain text, and keep the explanation outside the block.")
 
         append("\n\nOnly confirm an action or task was completed if a tool result verifies it; never invent or assume execution outcomes.")
         if (userName.isNotBlank()) append(" The user's name is ").append(userName.trim()).append('.')
