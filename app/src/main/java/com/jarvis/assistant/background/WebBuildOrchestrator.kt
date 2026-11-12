@@ -3,7 +3,13 @@ package com.jarvis.assistant.background
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.os.Build
 import android.os.PowerManager
+import androidx.core.app.NotificationCompat
+import com.jarvis.assistant.R
 import android.util.Log
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.data.model.GeminiConstants
@@ -31,6 +37,7 @@ import com.jarvis.assistant.provider.TokenModeStore
 import com.jarvis.assistant.provider.TransportException
 import com.jarvis.assistant.provider.ProviderErrors
 import com.jarvis.assistant.provider.WorkCategory
+import com.jarvis.assistant.automation.command.CommandParser
 import com.jarvis.assistant.tools.PermissionPreferences
 import com.jarvis.assistant.tools.ToolRuntime
 import com.jarvis.assistant.tools.server.ProjectBuilder
@@ -69,8 +76,8 @@ object WebBuildOrchestrator {
     private const val TAG = "WebBuildOrchestrator"
     private const val MAX_RESUMES = 6
     private const val CUSTOM_RETRIES_BEFORE_TAKEOVER = 3
-    private const val SPEAK_EVERY_MS = 35_000L
-    private const val REVIEW_EVERY_MS = 120_000L
+    private const val SPEAK_EVERY_MS = 15_000L
+    private const val REVIEW_EVERY_MS = 90_000L
     private const val MAX_REVIEWS = 5
     private const val ACK_WAIT_MS = 15 * 60_000L
     private const val LOCK_TIMEOUT_MS = 6 * 60 * 60_000L
@@ -98,6 +105,9 @@ object WebBuildOrchestrator {
     @Volatile private var phase = Phase.IDLE
     @Volatile private var engine = Engine.GEMINI
     @Volatile private var spec = ""
+    @Volatile private var quality = false
+    @Volatile private var projectName = ""
+    @Volatile private var previewOpened = false
     @Volatile private var lang = "English"
     @Volatile private var appCtx: Context? = null
     @Volatile private var job: Job? = null
@@ -117,6 +127,7 @@ object WebBuildOrchestrator {
         "create", "build", "make", "develop", "design", "code", "generate", "banao", "bana do", "banado", "banaye",
         "तैयार", "बनाओ", "बना दो", "बनाइए", "তৈরি", "বানাও", "crear", "hacer", "erstelle", "bauen", "作成", "作って"
     )
+    private val wantWords = listOf("chahiye", "chaiye", "चाहिए", "চাই", "i want", "i need", "want a", "need a")
     private val siteWords = listOf(
         "website", "web site", "webpage", "web page", "landing page", "web app", "webapp", "वेबसाइट", "ওয়েবসাইট", "sitio web", "webseite"
     )
@@ -125,8 +136,10 @@ object WebBuildOrchestrator {
     fun isWebBuildRequest(text: String): Boolean {
         val l = text.lowercase(Locale.ROOT)
         val create = createWords.any { l.contains(it) }
-        if (!create) return false
+        val want = wantWords.any { l.contains(it) }
+        if (!create && !want) return false
         if (siteWords.any { l.contains(it) } || gameWords.any { l.contains(it) }) return true
+        if (!create) return false
         // "make a snake game" / "create a game" — a game with a creation verb means a browser game here.
         return Regex("\\b(game|खेल|গেম)\\b").containsMatchIn(l)
     }
@@ -134,11 +147,24 @@ object WebBuildOrchestrator {
     /** True when this utterance belongs to the orchestrator and must not go to the normal assistant path. */
     fun wantsInput(text: String): Boolean = when (phase) {
         Phase.IDLE -> isWebBuildRequest(text)
-        Phase.ASK_ENGINE, Phase.ASK_SPEC -> true
+        // Anything that is clearly an on-device command ("open WhatsApp", "set an alarm") still goes to the normal path.
+        Phase.ASK_ENGINE -> parseEngine(text) != null || isCancel(text) || !isDeviceCommand(text)
+        Phase.ASK_SPEC -> isCancel(text) || !isDeviceCommand(text)
         Phase.WAIT_CUSTOM -> parseEngine(text) == Engine.GEMINI || isCancel(text)
-        Phase.BUILDING -> isCancel(text)
+        Phase.BUILDING -> isCancel(text) || isWebBuildRequest(text)
         Phase.AWAIT_ACK -> isAck(text) || isCancel(text) || isWebBuildRequest(text)
     }
+
+    private fun isDeviceCommand(text: String): Boolean = try {
+        if (isWebBuildRequest(text)) false else CommandParser.parse(text).let { it.command != null && it.confidence >= 0.8f }
+    } catch (e: Exception) { false }
+
+    private val qualityWords = listOf(
+        "high quality", "highest quality", "best quality", "premium", "professional", "stunning", "beautiful", "polished", "top notch", "top-notch",
+        "achha", "accha", "acha", "badhiya", "badiya", "zabardast", "shandar", "behtareen", "best se best", "high-quality",
+        "अच्छा", "बढ़िया", "बढ़िया", "शानदार", "जबरदस्त", "बेहतरीन", "প্রিমিয়াম", "ভালো", "সেরা", "দারুণ"
+    )
+    private fun isQuality(text: String): Boolean = text.lowercase(Locale.ROOT).let { l -> qualityWords.any { l.contains(it) } }
 
     private fun isCancel(text: String): Boolean {
         val l = text.lowercase(Locale.ROOT)
@@ -167,7 +193,7 @@ object WebBuildOrchestrator {
 
     /** A request with nothing to build yet ("create a website"): ask what kind. */
     private fun isGeneric(text: String): Boolean {
-        val filler = (createWords + siteWords + gameWords + listOf(
+        val filler = (createWords + wantWords + qualityWords + siteWords + gameWords + listOf("mujhe", "mera", "mereko", "hai", "ek", "achha", "i", "want", "need",
             "a", "an", "the", "me", "for", "my", "new", "please", "jarvis", "hey", "ek", "mere", "liye", "game", "site",
             "and", "run", "it", "in", "local", "server", "host", "preview", "open", "on", "to", "can", "you", "karo", "kar", "do"
         )).map { it.lowercase(Locale.ROOT) }
@@ -190,10 +216,12 @@ object WebBuildOrchestrator {
             Phase.IDLE -> start(ctx, text, completion)
             Phase.ASK_ENGINE -> onEngineReply(ctx, text)
             Phase.WAIT_CUSTOM -> if (parseEngine(text) == Engine.GEMINI) { job?.cancel(); engine = Engine.GEMINI; afterEngineChosen(ctx) }
-            Phase.ASK_SPEC -> { spec = text.trim(); beginBuild(ctx) }
+            Phase.ASK_SPEC -> { spec = text.trim(); quality = quality || isQuality(text); beginBuild(ctx) }
             Phase.AWAIT_ACK -> if (isAck(text)) { say(ctx, tr("Alright, Sir. I'm here whenever you need me.", "ठीक है सर, मैं यहीं हूँ।", "ঠিক আছে স্যার, আমি এখানেই আছি।")); finish(ctx, true, "Acknowledged") }
                 else { finish(ctx, true, "Next request"); start(ctx, text, completion) }
-            Phase.BUILDING -> Unit
+            Phase.BUILDING -> say(ctx, tr("I'm still building the current project. Say cancel if you want me to stop it.",
+                "मैं अभी मौजूदा प्रोजेक्ट बना रहा हूँ। रोकना हो तो बोलिए कैंसिल।",
+                "আমি এখনও বর্তমান প্রজেক্ট বানাচ্ছি। থামাতে চাইলে বলুন বাতিল।"))
         }
         return true
     }
@@ -201,8 +229,12 @@ object WebBuildOrchestrator {
     private fun start(ctx: Context, text: String, completion: ((Boolean, String) -> Unit)?) {
         onComplete = completion
         spec = text.trim()
+        quality = isQuality(text)
+        previewOpened = false
+        projectName = ""
         lang = MultilingualCommandHelper.resolveLanguage(ctx, text)
         acquireLock(ctx)
+        WebBuildService.start(ctx)
         if (!PermissionPreferences.isAutoApproveAll(ctx)) { priorAutoApprove = false; autoApproveTouched = true; PermissionPreferences.setAutoApproveAll(ctx, true) }
         val hasGemini = JarvisApp.instance.preferences.apiKey.isNotBlank()
         when {
@@ -287,18 +319,28 @@ object WebBuildOrchestrator {
         fun bump(p: Int) { if (p > percent) percent = p.coerceIn(0, 100) }
     }
 
-    private fun beginBuild(ctx: Context) {
+    private fun beginBuild(ctx: Context, resuming: Boolean = false) {
         setPhase(Phase.BUILDING, tr("Starting", "शुरू कर रहा हूँ", "শুরু করছি"), 3)
         val built = ToolRuntime.get(ctx)
-        val name = uniqueProjectName(built.workspace.resolve("projects"), spec)
+        val name = if (resuming && projectName.isNotBlank()) projectName else uniqueProjectName(built.workspace.resolve("projects"), spec)
+        projectName = name
         val dir = built.workspace.project(name)
+        saveState(ctx)
         val label = if (engine == Engine.CUSTOM) activeCustomName(ctx) else "Gemini"
         _status.value = _status.value.copy(engineLabel = label)
-        runCatching { JarvisApp.instance.chatRepository.addTurn(spec, "🛠 Building \"$name\" with $label. I'll host it on the local server and open the preview automatically.") }
-        say(ctx, tr(
-            "Starting now. $label will write the code and I'll supervise it live.",
-            "अभी शुरू करता हूँ। $label कोड लिखेगा और मैं लाइव निगरानी करूँगा।",
-            "এখনই শুরু করছি। $label কোড লিখবে আর আমি লাইভ নজর রাখব।"))
+        if (resuming) {
+            say(ctx, tr("I'm back. Continuing the build from the files already saved.", "मैं वापस आ गया। सेव हुई फ़ाइलों से बिल्ड आगे बढ़ा रहा हूँ।", "আমি ফিরে এসেছি। সংরক্ষিত ফাইল থেকে বিল্ড চালিয়ে যাচ্ছি।"))
+        } else {
+            runCatching { JarvisApp.instance.chatRepository.addTurn(spec, "🛠 Building \"$name\" with $label" + (if (quality) " in high-quality mode" else "") + ". I'll host it on the local server and open the preview automatically.") }
+            say(ctx, if (quality) tr(
+                "Understood, high quality it is. $label will build it to a premium standard and I'll supervise every step.",
+                "समझ गया, हाई क्वालिटी बनेगी। $label इसे प्रीमियम स्तर पर बनाएगा और मैं हर कदम पर निगरानी रखूँगा।",
+                "বুঝেছি, হাই কোয়ালিটি হবে। $label প্রিমিয়াম মানে বানাবে আর আমি প্রতিটি ধাপে নজর রাখব।")
+            else tr(
+                "Starting now. $label will write the code and I'll supervise it live.",
+                "अभी शुरू करता हूँ। $label कोड लिखेगा और मैं लाइव निगरानी करूँगा।",
+                "এখনই শুরু করছি। $label কোড লিখবে আর আমি লাইভ নজর রাখব।"))
+        }
 
         job = scope.launch {
             val tracker = Tracker()
@@ -307,7 +349,7 @@ object WebBuildOrchestrator {
             var attempt = 0
             var takeover = false
             var lastError: String? = null
-            var prompt = buildPrompt(name, spec)
+            var prompt = if (resuming) resumePrompt(name, spec, dir, emptyList(), "the app was restarted") else buildPrompt(name, spec)
             var ok = false
             try {
                 while (isActive) {
@@ -331,6 +373,17 @@ object WebBuildOrchestrator {
                     tracker.workerDone = false
                     prompt = resumePrompt(name, spec, dir, report?.problems.orEmpty(), lastError)
                     delay(1_500L * attempt)
+                }
+                if (ok && quality && isActive) {
+                    tracker.workerDone = false
+                    say(ctx, tr("The first version works. Now polishing it to premium quality.", "पहला वर्ज़न चल रहा है। अब इसे प्रीमियम क्वालिटी तक पॉलिश कर रहा हूँ।", "প্রথম সংস্করণ কাজ করছে। এবার প্রিমিয়াম মানে পালিশ করছি।"))
+                    val heads = dir.walkTopDown().filter { it.isFile && !it.relativeTo(dir).path.startsWith(".") }.take(6)
+                        .joinToString("\n\n") { "// ${it.name}\n" + runCatching { it.readText().take(1_200) }.getOrDefault("") }
+                    val review = narrate(ctx, "You are a senior reviewer. List the 6 most valuable concrete improvements for this project (visual design, responsiveness, animations, game feel or UX, bugs, accessibility). Be specific and short, one per line, plain text. Request: $spec\n\n$heads")
+                    val polish = runWorker(ctx, polishPrompt(name, spec, review), tracker, useCustom = engine == Engine.CUSTOM && !takeover)
+                    if (!polish.ok) lastError = polish.error
+                    val after = ProjectBuilder.check(dir, false)
+                    if (!after.ok) runWorker(ctx, resumePrompt(name, spec, dir, after.problems, lastError), tracker, useCustom = engine == Engine.CUSTOM && !takeover)
                 }
                 tracker.workerDone = true
                 if (!ok) {
@@ -415,14 +468,13 @@ object WebBuildOrchestrator {
     /** Reads the project folder every two seconds so progress, file and size are real, not guessed. */
     private suspend fun monitor(ctx: Context, dir: File, tracker: Tracker, startedAt: Long) {
         var lastSpoken = 0L
-        var lastSig = ""
         var reviews = 0
         var lastReview = System.currentTimeMillis()
         val reviewed = HashSet<String>()
         while (true) {
             val files = dir.walkTopDown().filter { it.isFile && !it.relativeTo(dir).path.startsWith(".") }.toList()
             val latest = files.maxByOrNull { it.lastModified() }
-            val expected = maxOf(4, files.size + (if (tracker.workerDone) 0 else 1))
+            val expected = maxOf(if (quality) 7 else 4, files.size + (if (tracker.workerDone) 0 else 1))
             val base = if (files.isEmpty()) 6 else 15 + (55 * files.size / expected)
             tracker.bump(if (tracker.workerDone) maxOf(base, 72) else minOf(base, 70))
             val current = latest?.name ?: tracker.lastTarget
@@ -437,17 +489,16 @@ object WebBuildOrchestrator {
             }
             publish(ctx, p, stage, current, files.size, eta)
 
-            val sig = "$current|$lines|${files.size}"
             val now = System.currentTimeMillis()
-            if (sig != lastSig && now - lastSpoken >= SPEAK_EVERY_MS) {
-                lastSig = sig; lastSpoken = now
+            if (now - lastSpoken >= SPEAK_EVERY_MS) {
+                lastSpoken = now
                 say(ctx, tr(
                     "$p percent done. $stage. ${files.size} files so far. About ${spokenDuration(eta, 0)} left.",
                     "$p प्रतिशत पूरा। $stage। अब तक ${files.size} फ़ाइलें। लगभग ${spokenDuration(eta, 1)} बाकी।",
                     "$p শতাংশ সম্পূর্ণ। $stage। এখন পর্যন্ত ${files.size}টি ফাইল। প্রায় ${spokenDuration(eta, 2)} বাকি।"), logChat = true)
             }
             // Gemini reads the newest finished file and says in one sentence what it does (observer only).
-            if (latest != null && reviews < MAX_REVIEWS && now - lastReview >= REVIEW_EVERY_MS && latest.name !in reviewed && now - latest.lastModified() > 4_000) {
+            if (latest != null && reviews < MAX_REVIEWS && now - lastReview >= (if (quality) REVIEW_EVERY_MS / 2 else REVIEW_EVERY_MS) && latest.name !in reviewed && now - latest.lastModified() > 4_000) {
                 lastReview = now; reviewed += latest.name; reviews++
                 val head = runCatching { latest.readText().take(1_500) }.getOrDefault("")
                 narrate(ctx, "In one short sentence in $lang, say what this file does and mention any obvious bug. File ${latest.name}:\n$head")?.let { say(ctx, it.take(220)) }
@@ -467,8 +518,11 @@ object WebBuildOrchestrator {
         publish(ctx, 95, tr("Opening preview", "प्रीव्यू खोल रहा हूँ", "প্রিভিউ খুলছি"), "", _status.value.filesWritten, 3)
         val uri = Uri.parse(url)
         val base = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        val opened = ActivityLauncherHelper.startActivitySafely(ctx, Intent(base).setPackage("com.android.chrome")) ||
-            ActivityLauncherHelper.startActivitySafely(ctx, base)
+        val opened = if (previewOpened) true else (ActivityLauncherHelper.startActivitySafely(ctx, Intent(base).setPackage("com.android.chrome")) ||
+            ActivityLauncherHelper.startActivitySafely(ctx, base))
+        previewOpened = true
+        // Wherever the user is (another app, locked screen), this also offers the preview as a tap-to-open / full-screen alert.
+        postPreviewNotification(ctx, url, name)
         _status.value = _status.value.copy(previewUrl = url)
         publish(ctx, 100, tr("Done", "पूरा हुआ", "সম্পন্ন"), "", _status.value.filesWritten, 0)
         runCatching { JarvisApp.instance.chatRepository.addTurn("", "✅ \"$name\" is live at $url (local to this phone)." + if (!opened) " Open it yourself: the browser couldn't be launched from the background." else " I've opened the preview.") }
@@ -495,8 +549,23 @@ object WebBuildOrchestrator {
     // Prompts
     // ─────────────────────────────────────────────────────────────────────────────
 
+    private val qualityRules =
+        "QUALITY MODE: the owner wants the best possible result, not a quick draft. First write a short plan, then build to a premium standard:\n" +
+            "- A cohesive, modern visual design: a defined colour palette, typography scale, spacing system, gradients, shadows, smooth transitions and tasteful animation. Fully responsive from 320px phones to desktops, with touch-friendly controls.\n" +
+            "- Split the code cleanly (index.html, css/style.css, js/*.js) with clear names; rich, realistic content, no lorem ipsum.\n" +
+            "- Accessibility: semantic HTML, labels, keyboard support, good contrast.\n" +
+            "- For a game: polished game feel (particles or screen shake, sound effects via the Web Audio API with a mute button), scoring with a saved high score (localStorage), start, pause and game-over screens, increasing difficulty, and both keyboard and touch controls.\n" +
+            "- For a website: a hero section, several well-designed sections, a working navigation, a contact or call-to-action form with validation, and subtle scroll animations.\n" +
+            "- Handle edge cases and errors; no console errors.\n"
+
+    private fun polishPrompt(name: String, request: String, review: String?): String =
+        "The project \"$name\" (request: \"$request\") works. Now raise it to premium quality by editing the existing files in place; do not recreate the project.\n" +
+            (if (!review.isNullOrBlank()) "Reviewer notes to apply:\n$review\n" else "") + qualityRules +
+            "Then run project_check on \"$name\" and fix any problem. Do not start the preview."
+
     private fun buildPrompt(name: String, request: String): String =
         "Build a complete, polished, fully working website or browser game for this request: \"$request\".\n" +
+            (if (quality) qualityRules else "") +
             "Rules:\n" +
             "- Use the project name \"$name\". Create it with project_create (template static), then write EVERY file with the file tools (index.html, style.css, script.js, and any others needed). Write each file in full, no placeholders or TODOs.\n" +
             "- It must run offline in a plain browser: no build step, no external CDN dependencies.\n" +
@@ -575,8 +644,59 @@ object WebBuildOrchestrator {
         return when (l) { 1 -> "$m मिनट"; 2 -> "$m মিনিট"; else -> if (m == 1) "1 minute" else "$m minutes" }
     }
 
+    private const val PREFS = "jarvis_web_build_state"
+
+    private fun saveState(ctx: Context) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("phase", phase.name).putString("engine", engine.name).putString("spec", spec)
+            .putString("lang", lang).putString("project", projectName).putBoolean("quality", quality).apply()
+    }
+
+    private fun clearState(ctx: Context) { ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply() }
+
+    /**
+     * Called when the build service restarts (the app was closed or the process was killed mid-build):
+     * restores the request and carries on from the files already saved, or goes back to waiting for the custom model.
+     */
+    fun resumeIfPending(context: Context) {
+        val ctx = context.applicationContext
+        if (phase != Phase.IDLE) return
+        val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val saved = p.getString("phase", "") ?: ""
+        if (saved != Phase.BUILDING.name && saved != Phase.WAIT_CUSTOM.name) return
+        appCtx = ctx
+        spec = p.getString("spec", "") ?: ""
+        lang = p.getString("lang", "English") ?: "English"
+        engine = if (p.getString("engine", "") == Engine.CUSTOM.name) Engine.CUSTOM else Engine.GEMINI
+        quality = p.getBoolean("quality", false)
+        projectName = p.getString("project", "") ?: ""
+        previewOpened = false
+        if (spec.isBlank()) { clearState(ctx); return }
+        acquireLock(ctx)
+        if (!PermissionPreferences.isAutoApproveAll(ctx)) { priorAutoApprove = false; autoApproveTouched = true; PermissionPreferences.setAutoApproveAll(ctx, true) }
+        if (saved == Phase.WAIT_CUSTOM.name) afterEngineChosen(ctx) else beginBuild(ctx, resuming = true)
+    }
+
+    private fun postPreviewNotification(ctx: Context, url: String, name: String) {
+        try {
+            val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel("jarvis_web_preview") == null) {
+                nm.createNotificationChannel(NotificationChannel("jarvis_web_preview", "JARVIS live preview", NotificationManager.IMPORTANCE_HIGH))
+            }
+            val open = PendingIntent.getActivity(
+                ctx, 7791, Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            nm.notify(7791, NotificationCompat.Builder(ctx, "jarvis_web_preview")
+                .setSmallIcon(R.drawable.ic_sparkle).setContentTitle("\"$name\" is live").setContentText("Tap to open the preview · $url")
+                .setPriority(NotificationCompat.PRIORITY_HIGH).setCategory(NotificationCompat.CATEGORY_STATUS)
+                .setContentIntent(open).setFullScreenIntent(open, true).setAutoCancel(true).build())
+        } catch (e: Exception) { Log.w(TAG, "preview notification failed", e) }
+    }
+
     private fun setPhase(p: Phase, stage: String, percent: Int = 0) {
         phase = p
+        appCtx?.let { saveState(it) }
         _status.value = _status.value.copy(phase = p, stage = stage, percent = percent)
         appCtx?.let { TaskProgressNotifier.postProgress(it, "Jarvis · web build", stage, percent.coerceIn(1, 100)) }
     }
@@ -611,6 +731,8 @@ object WebBuildOrchestrator {
         wakeLock = null
         if (autoApproveTouched) { PermissionPreferences.setAutoApproveAll(ctx, priorAutoApprove); autoApproveTouched = false }
         if (!success) TaskProgressNotifier.cancel(ctx)
+        clearState(ctx)
+        WebBuildService.stop(ctx)
         cb?.invoke(success, message)
     }
 }
