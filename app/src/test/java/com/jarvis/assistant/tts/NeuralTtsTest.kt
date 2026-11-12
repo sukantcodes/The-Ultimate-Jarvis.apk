@@ -175,12 +175,12 @@ class NeuralTtsTest {
             (floatSamples[i].coerceIn(-1.0f, 1.0f) * 32767f).toInt().toShort()
         }
 
-        assertEquals(-32767.toShort(), shortSamples[0])
-        assertEquals(0.toShort(), shortSamples[2])
-        assertEquals(32767.toShort(), shortSamples[4])
+        assertEquals(-32767, shortSamples[0].toInt())
+        assertEquals(0, shortSamples[2].toInt())
+        assertEquals(32767, shortSamples[4].toInt())
         // Clamping checks
-        assertEquals(32767.toShort(), shortSamples[5])
-        assertEquals(-32767.toShort(), shortSamples[6])
+        assertEquals(32767, shortSamples[5].toInt())
+        assertEquals(-32767, shortSamples[6].toInt())
     }
 
     @Test
