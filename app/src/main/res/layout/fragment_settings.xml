@@ -1243,6 +1243,60 @@
                     android:layout_height="1dp" />
 
                 <LinearLayout
+                    android:id="@+id/rowNotificationTriage"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_diag_check"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle.Alerts"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Notification Triage &amp; VIP Filter" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Alerts"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Filter spam, manage VIP contacts &amp; hands-free replies" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:layout_gravity="center_vertical"
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="?attr/themeTextMuted" />
+                </LinearLayout>
+
+                <View
+                    style="@style/Widget.JarvisSettings.Divider.Alerts"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
+                <LinearLayout
                     android:id="@+id/rowMessageJarvisVoice"
                     style="@style/Widget.JarvisSettings.Row"
                     android:layout_width="match_parent"

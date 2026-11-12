@@ -587,6 +587,9 @@ class SettingsFragment : Fragment() {
         bindSwitchRow(binding.rowMessageAnnounce, binding.switchMessageAnnounce) { checked ->
             MessageAlertSettings(requireContext()).enabled = checked
         }
+        binding.rowNotificationTriage.setOnClickListener {
+            open(com.jarvis.assistant.ui.notifications.NotificationTriageActivity::class.java)
+        }
         bindSwitchRow(binding.rowMessageJarvisVoice, binding.switchMessageJarvisVoice) { checked ->
             MessageAlertSettings(requireContext()).useJarvisVoice = checked
         }

@@ -323,6 +323,10 @@ class ChatFragment : Fragment() {
             }
         }
 
+        binding.tvHardwareTelemetry.onSafeClick {
+            com.jarvis.assistant.ui.telemetry.HardwareTelemetryBottomSheet.show(parentFragmentManager)
+        }
+
         autoVoiceReplyEnabled = requireContext().getSharedPreferences("jarvis_voice_prefs", Context.MODE_PRIVATE)
             .getBoolean("key_auto_voice_reply", false)
 

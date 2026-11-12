@@ -43,6 +43,21 @@
     "tts_settings": {
       "activity": "ui/settings/tts/TtsSettingsActivity.kt",
       "description": "Neural TTS voice configuration"
+    },
+    "voice_enrollment": {
+      "activity": "ui/voice/VoiceEnrollmentActivity.kt",
+      "manager": "audio/OwnerVoiceManager.kt",
+      "description": "Owner voice biometric enrollment and similarity verification"
+    },
+    "notification_triage": {
+      "activity": "ui/notifications/NotificationTriageActivity.kt",
+      "listener": "Notification/JarvisNotificationListener.kt",
+      "description": "Autonomous notification triage, VIP filter, and remote voice dispatcher"
+    },
+    "hardware_telemetry": {
+      "engine": "telemetry/HardwareTelemetryEngine.kt",
+      "bottom_sheet": "ui/telemetry/HardwareTelemetryBottomSheet.kt",
+      "description": "Real-time SoC CPU, RAM, battery thermals, storage, and Iron-Man voice reports"
     }
   },
   "self_modification": {

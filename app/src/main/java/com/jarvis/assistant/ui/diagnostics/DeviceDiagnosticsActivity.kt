@@ -78,6 +78,9 @@ class DeviceDiagnosticsActivity : AppCompatActivity() {
         updated = ui.label("", 12f, p.muted)
         titles.addView(updated)
         header.addView(titles)
+        header.addView(roundButton(R.drawable.ic_settings_chip, "Live Telemetry HUD") {
+            com.jarvis.assistant.ui.telemetry.HardwareTelemetryBottomSheet.show(supportFragmentManager)
+        }.apply { layoutParams = LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)).apply { marginEnd = ui.dp(8) } })
         header.addView(roundButton(R.drawable.ic_diag_refresh, "Refresh") { refresh(true) })
         root.addView(header)
 

@@ -125,6 +125,26 @@
             android:focusable="true"
             android:contentDescription="Live used tokens in this conversation" />
 
+        <TextView
+            android:id="@+id/tvHardwareTelemetry"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:minWidth="44dp"
+            android:minHeight="44dp"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/bg_chat_token_badge"
+            android:text="⚡ HUD"
+            android:textColor="?attr/themeAccent"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.05"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="Open Iron-Man Cybernetic Hardware Telemetry HUD" />
+
         <ImageButton
             android:id="@+id/btnVoiceSpeaker"
             android:layout_width="32dp"

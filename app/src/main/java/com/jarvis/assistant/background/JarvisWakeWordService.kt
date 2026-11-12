@@ -333,6 +333,16 @@ class JarvisWakeWordService : Service() {
             return
         }
 
+        if (tryHandleVoiceReply(command)) {
+            scheduleRestart(RESTART_DELAY_AFTER_COMMAND_MS) { startWakeWordListening() }
+            return
+        }
+
+        if (tryHandleHardwareTelemetry(command)) {
+            scheduleRestart(RESTART_DELAY_AFTER_COMMAND_MS) { startWakeWordListening() }
+            return
+        }
+
         if (AutonomousBackgroundExecutor.isActionableTask(command)) {
             com.jarvis.assistant.JarvisApp.instance.chatRepository.addTurn(command, "Starting task in background…")
             AutonomousBackgroundExecutor.execute(this, command) { _, _ ->
@@ -343,6 +353,116 @@ class JarvisWakeWordService : Service() {
 
         JarvisConversationService.sendTextMessage(command)
         scheduleRestart(RESTART_DELAY_AFTER_COMMAND_MS) { startWakeWordListening() }
+    }
+
+    private fun tryHandleVoiceReply(command: String): Boolean {
+        val hasPending = com.jarvis.assistant.notifications.JarvisNotificationListener.hasPendingReply()
+        val lower = command.lowercase(java.util.Locale.ROOT).trim()
+        val isReplyIntent = lower.startsWith("reply") || lower.startsWith("send reply") || lower.startsWith("tell ")
+        if (!hasPending || !isReplyIntent) return false
+
+        val replyText = when {
+            lower.startsWith("send reply") -> command.substring(10).trim().removePrefix(":").trim()
+            lower.startsWith("reply") -> command.substring(5).trim().removePrefix(":").trim()
+            lower.startsWith("tell ") -> {
+                val afterTell = command.substring(5).trim()
+                val parts = afterTell.split(" ", limit = 2)
+                if (parts.size > 1) parts[1].trim() else afterTell
+            }
+            else -> command.trim()
+        }
+
+        if (replyText.isBlank()) return false
+
+        val msgSettings = com.jarvis.assistant.notifications.MessageAlertSettings(this)
+        val prefs = com.jarvis.assistant.JarvisApp.instance.preferences
+        if (msgSettings.ownerVoiceReplyGated && prefs.isOwnerVoiceEnabled && prefs.hasOwnerVoiceProfile()) {
+            val audioBytes = synchronized(audioBufferLock) { recentAudioBuffer.toByteArray() }
+            val match = com.jarvis.assistant.audio.OwnerVoiceManager.verifySpeakerAudio(audioBytes, prefs)
+            if (!match.isMatch) {
+                Log.w(TAG, "Voice reply rejected: unauthorized speaker")
+                val errMsg = "Voice verification required for message dispatch, Sir."
+                com.jarvis.assistant.JarvisApp.instance.chatRepository.addTurn(command, errMsg)
+                com.jarvis.assistant.voice.JarvisVoiceController.speakTurnResponse(
+                    context = this,
+                    turnId = "reply_err_${System.currentTimeMillis()}",
+                    userPrompt = command,
+                    fullResponse = errMsg
+                )
+                return true
+            }
+        }
+
+        val sender = com.jarvis.assistant.notifications.JarvisNotificationListener.getPendingSender() ?: "sender"
+        val success = com.jarvis.assistant.notifications.JarvisNotificationListener.sendVoiceReply(this, replyText)
+        val response = if (success) {
+            "Reply dispatched to $sender: \"$replyText\", Sir."
+        } else {
+            "Could not dispatch reply to $sender. The notification session may have expired."
+        }
+
+        com.jarvis.assistant.JarvisApp.instance.chatRepository.addTurn(command, response)
+        com.jarvis.assistant.voice.JarvisVoiceController.speakTurnResponse(
+            context = this,
+            turnId = "reply_sent_${System.currentTimeMillis()}",
+            userPrompt = command,
+            fullResponse = response
+        )
+        return true
+    }
+
+    private fun tryHandleHardwareTelemetry(command: String): Boolean {
+        val lower = command.lowercase(java.util.Locale.ROOT).trim()
+        val isTelemetryQuery = lower.contains("system report") ||
+                lower.contains("system status") ||
+                lower.contains("hardware report") ||
+                lower.contains("hardware status") ||
+                lower.contains("hardware telemetry") ||
+                lower.contains("diagnostics report") ||
+                lower.contains("battery status") ||
+                lower.contains("battery temp") ||
+                lower.contains("battery temperature") ||
+                lower.contains("phone temperature") ||
+                lower.contains("thermal status") ||
+                lower.contains("ram status") ||
+                lower.contains("ram usage") ||
+                lower.contains("memory status") ||
+                lower.contains("memory usage") ||
+                lower.contains("cpu status") ||
+                lower.contains("cpu load") ||
+                lower.contains("cpu usage")
+
+        if (!isTelemetryQuery) return false
+
+        val response = when {
+            lower.contains("battery") || lower.contains("temp") || lower.contains("thermal") -> {
+                val snap = com.jarvis.assistant.telemetry.HardwareTelemetryEngine.captureSnapshot(this)
+                val temp = String.format(java.util.Locale.US, "%.1f", snap.battery.temperatureCelsius)
+                "Battery is at ${snap.battery.levelPercent}%, currently ${if (snap.battery.isCharging) snap.battery.chargeType else "on battery power"} at $temp degrees Celsius. Thermal levels are ${snap.battery.thermalStatus.name.lowercase(java.util.Locale.ROOT)}."
+            }
+            lower.contains("ram") || lower.contains("memory") -> {
+                val snap = com.jarvis.assistant.telemetry.HardwareTelemetryEngine.captureSnapshot(this)
+                val freeGb = String.format(java.util.Locale.US, "%.1f", snap.memory.availableBytes / (1024.0 * 1024.0 * 1024.0))
+                val usedPct = (snap.memory.usedFraction * 100).toInt()
+                "Memory utilization is at $usedPct% with $freeGb gigabytes available, Sir."
+            }
+            lower.contains("cpu") -> {
+                val snap = com.jarvis.assistant.telemetry.HardwareTelemetryEngine.captureSnapshot(this)
+                "CPU load is estimated at ${snap.cpu.loadPercent}% across ${snap.cpu.coreCount} cores, Sir."
+            }
+            else -> {
+                com.jarvis.assistant.telemetry.HardwareTelemetryEngine.generateIronManSpeechReport(this)
+            }
+        }
+
+        com.jarvis.assistant.JarvisApp.instance.chatRepository.addTurn(command, response)
+        com.jarvis.assistant.voice.JarvisVoiceController.speakTurnResponse(
+            context = this,
+            turnId = "telemetry_${System.currentTimeMillis()}",
+            userPrompt = command,
+            fullResponse = response
+        )
+        return true
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
