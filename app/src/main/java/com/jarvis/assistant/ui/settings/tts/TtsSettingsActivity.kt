@@ -10,6 +10,8 @@ import com.jarvis.assistant.util.ThemeManager
  */
 class TtsSettingsActivity : AppCompatActivity() {
 
+    private var rootFrame: android.widget.FrameLayout? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
@@ -17,12 +19,19 @@ class TtsSettingsActivity : AppCompatActivity() {
         val frame = android.widget.FrameLayout(this).apply {
             id = android.view.View.generateViewId()
         }
+        rootFrame = frame
         setContentView(frame)
+        ThemeManager.applyDynamicBackground(frame)
 
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
                 .replace(frame.id, TtsSettingsFragment())
                 .commit()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        rootFrame?.let { ThemeManager.applyDynamicBackground(it) }
     }
 }

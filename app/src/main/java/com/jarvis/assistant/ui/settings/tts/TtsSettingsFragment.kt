@@ -1,8 +1,10 @@
 package com.jarvis.assistant.ui.settings.tts
 
+import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -15,6 +17,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.chip.Chip
+import com.jarvis.assistant.R
 import com.jarvis.assistant.databinding.FragmentTtsSettingsBinding
 import com.jarvis.assistant.tts.model.DownloadState
 import com.jarvis.assistant.tts.model.SpeakerProfile
@@ -47,9 +50,25 @@ class TtsSettingsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        ThemeManager.applyFragmentBackground(binding.root)
         applyThemeStyling()
         setupListeners()
         observeViewModel()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        applyThemeStyling()
+        renderEngineSelection(viewModel.selectedEngine.value)
+    }
+
+    private fun resolveThemeColor(context: Context, attrRes: Int): Int {
+        val typedValue = TypedValue()
+        return if (context.theme.resolveAttribute(attrRes, typedValue, true)) {
+            typedValue.data
+        } else {
+            Color.TRANSPARENT
+        }
     }
 
     private fun applyThemeStyling() {
@@ -57,10 +76,9 @@ class TtsSettingsFragment : Fragment() {
         val themeAccent = ThemeManager.getThemeAccentColor()
         val themeSecondary = ThemeManager.getThemeSecondaryColor()
 
-        val cardBg = ColorUtils.setAlphaComponent(themeAccent, 20)
-        val cardBorder = ColorUtils.setAlphaComponent(themeAccent, 75)
-        val surfaceBg = ColorUtils.setAlphaComponent(themeSecondary, 16)
-        val surfaceBorder = ColorUtils.setAlphaComponent(themeSecondary, 65)
+        val cardBg = resolveThemeColor(context, R.attr.themeCardBg)
+        val cardBorder = resolveThemeColor(context, R.attr.themeCardBorder)
+        val textPrimary = resolveThemeColor(context, R.attr.themeTextPrimary)
 
         // Top Header Badge
         binding.tvEngineBadge.background = ThemeManager.createDynamicBadgeDrawable(themeAccent, themeSecondary, 10f, context)
@@ -68,7 +86,7 @@ class TtsSettingsFragment : Fragment() {
 
         // Visualizer Container Card
         binding.containerVisualizerCard.background = ThemeManager.createDynamicCardDrawable(
-            strokeColor = cardBorder,
+            strokeColor = themeAccent,
             fillColor = cardBg,
             cornerRadiusDp = 16f,
             strokeWidthDp = 1.2f,
@@ -77,8 +95,8 @@ class TtsSettingsFragment : Fragment() {
 
         // Model Deploy Card
         binding.cardModelDeploy.background = ThemeManager.createDynamicCardDrawable(
-            strokeColor = surfaceBorder,
-            fillColor = surfaceBg,
+            strokeColor = cardBorder,
+            fillColor = cardBg,
             cornerRadiusDp = 14f,
             strokeWidthDp = 1f,
             context = context
@@ -86,11 +104,12 @@ class TtsSettingsFragment : Fragment() {
 
         // Deploy button
         binding.btnDeployModel.background = ThemeManager.createDynamicBadgeDrawable(themeAccent, themeSecondary, 12f, context)
+        binding.btnDeployModel.setTextColor(if (ThemeManager.isLight(themeAccent)) Color.BLACK else Color.WHITE)
 
         // Speaker Persona Card
         binding.cardSpeakerDetail.background = ThemeManager.createDynamicCardDrawable(
-            strokeColor = surfaceBorder,
-            fillColor = surfaceBg,
+            strokeColor = cardBorder,
+            fillColor = cardBg,
             cornerRadiusDp = 12f,
             strokeWidthDp = 1f,
             context = context
@@ -98,16 +117,23 @@ class TtsSettingsFragment : Fragment() {
 
         // Default primary badge
         binding.badgeKokoroDefault.background = ThemeManager.createDynamicBadgeDrawable(themeAccent, themeSecondary, 6f, context)
+        binding.badgeKokoroDefault.setTextColor(if (ThemeManager.isLight(themeAccent)) Color.BLACK else Color.WHITE)
 
         // Action Buttons
         binding.btnTestVoice.background = ThemeManager.createDynamicCardDrawable(
             strokeColor = themeAccent,
-            fillColor = ColorUtils.setAlphaComponent(themeAccent, 35),
+            fillColor = cardBg,
             cornerRadiusDp = 12f,
             strokeWidthDp = 1.5f,
             context = context
         )
+        binding.btnTestVoice.setTextColor(textPrimary)
+
         binding.btnSaveAndActivate.background = ThemeManager.createDynamicBadgeDrawable(themeAccent, themeSecondary, 12f, context)
+        binding.btnSaveAndActivate.setTextColor(if (ThemeManager.isLight(themeAccent)) Color.BLACK else Color.WHITE)
+
+        binding.sbSpeed.progressTintList = ColorStateList.valueOf(themeAccent)
+        binding.sbSpeed.thumbTintList = ColorStateList.valueOf(themeAccent)
 
         binding.visualizerOrb.updateThemeColors()
     }
@@ -195,7 +221,6 @@ class TtsSettingsFragment : Fragment() {
 
     private fun renderEngineSelection(engine: VoiceEngineType) {
         val themeAccent = ThemeManager.getThemeAccentColor()
-        val themeSecondary = ThemeManager.getThemeSecondaryColor()
         val context = requireContext()
 
         val cards = listOf(
@@ -205,16 +230,16 @@ class TtsSettingsFragment : Fragment() {
             Triple(VoiceEngineType.CLOUD_ELEVENLABS, binding.cardEngineEleven, binding.tvRadioEleven)
         )
 
-        val unselectedStroke = ColorUtils.setAlphaComponent(themeSecondary, 55)
-        val unselectedFill = ColorUtils.setAlphaComponent(themeSecondary, 12)
-        val unselectedRadioColor = ColorUtils.setAlphaComponent(themeSecondary, 180)
+        val cardBg = resolveThemeColor(context, R.attr.themeCardBg)
+        val cardBorder = resolveThemeColor(context, R.attr.themeCardBorder)
+        val textSecondary = resolveThemeColor(context, R.attr.themeTextSecondary)
 
         for ((type, card, radio) in cards) {
             val isSelected = type == engine
             if (isSelected) {
                 card.background = ThemeManager.createDynamicCardDrawable(
                     strokeColor = themeAccent,
-                    fillColor = ColorUtils.setAlphaComponent(themeAccent, 32),
+                    fillColor = ColorUtils.setAlphaComponent(themeAccent, if (ThemeManager.isCurrentThemeLight()) 35 else 50),
                     cornerRadiusDp = 14f,
                     strokeWidthDp = 1.8f,
                     context = context
@@ -223,14 +248,14 @@ class TtsSettingsFragment : Fragment() {
                 radio.setTextColor(themeAccent)
             } else {
                 card.background = ThemeManager.createDynamicCardDrawable(
-                    strokeColor = unselectedStroke,
-                    fillColor = unselectedFill,
+                    strokeColor = cardBorder,
+                    fillColor = cardBg,
                     cornerRadiusDp = 14f,
                     strokeWidthDp = 1f,
                     context = context
                 )
                 radio.text = "○"
-                radio.setTextColor(unselectedRadioColor)
+                radio.setTextColor(textSecondary)
             }
         }
 
@@ -243,11 +268,14 @@ class TtsSettingsFragment : Fragment() {
     private fun populateSpeakerChips(engine: VoiceEngineType) {
         val context = requireContext()
         val themeAccent = ThemeManager.getThemeAccentColor()
-        val themeSecondary = ThemeManager.getThemeSecondaryColor()
         binding.chipGroupSpeakers.removeAllViews()
 
         val speakers = SpeakerProfile.speakersFor(engine)
         val current = viewModel.selectedSpeaker.value
+
+        val cardBg = resolveThemeColor(context, R.attr.themeCardBg)
+        val cardBorder = resolveThemeColor(context, R.attr.themeCardBorder)
+        val textSecondary = resolveThemeColor(context, R.attr.themeTextSecondary)
 
         for (speaker in speakers) {
             val isChecked = speaker.id == current.id
@@ -256,13 +284,13 @@ class TtsSettingsFragment : Fragment() {
                 isCheckable = true
                 this.isChecked = isChecked
                 chipBackgroundColor = ColorStateList.valueOf(
-                    if (isChecked) ColorUtils.setAlphaComponent(themeAccent, 70)
-                    else ColorUtils.setAlphaComponent(themeSecondary, 24)
+                    if (isChecked) ColorUtils.setAlphaComponent(themeAccent, 80)
+                    else cardBg
                 )
-                setTextColor(if (isChecked) themeAccent else ColorUtils.setAlphaComponent(themeSecondary, 220))
+                setTextColor(if (isChecked) (if (ThemeManager.isLight(themeAccent)) Color.BLACK else Color.WHITE) else textSecondary)
                 chipStrokeWidth = 1.5f * resources.displayMetrics.density
                 chipStrokeColor = ColorStateList.valueOf(
-                    if (isChecked) themeAccent else ColorUtils.setAlphaComponent(themeSecondary, 60)
+                    if (isChecked) themeAccent else cardBorder
                 )
                 setOnClickListener {
                     viewModel.selectSpeaker(speaker)

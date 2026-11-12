@@ -102,8 +102,13 @@ class TtsModelDownloader(private val context: Context) {
             var name = entryName.replace('\\', '/')
             while (name.startsWith("/")) name = name.substring(1)
             while (name.startsWith("./")) name = name.substring(2)
-            if (archiveName.isNotBlank() && name.startsWith("$archiveName/")) {
-                name = name.removePrefix("$archiveName/")
+            if (archiveName.isNotBlank()) {
+                if (name == archiveName || name == "$archiveName/") {
+                    return ""
+                }
+                if (name.startsWith("$archiveName/")) {
+                    name = name.removePrefix("$archiveName/")
+                }
             }
             return name
         }
