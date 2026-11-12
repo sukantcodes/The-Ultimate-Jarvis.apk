@@ -310,11 +310,6 @@ class ChatFragment : Fragment() {
             (activity as? MainActivity)?.openNavigationDrawer()
         }
 
-        binding.tvPersonaLabel.text = "Chats"
-        binding.chipPersona.onSafeClick {
-            ChatSessionsSheet().show(childFragmentManager, ChatSessionsSheet.TAG)
-        }
-        binding.chipMode.onSafeClick { showChatModePicker() }
         binding.tvChatTokens.onSafeClick {
             TokenSettingsBottomSheet.show(requireContext(), totalUsedTokens) { _ ->
                 updateTokenUsage(chatAdapter.currentList)
@@ -442,7 +437,15 @@ class ChatFragment : Fragment() {
         observeProviderEngine()
     }
 
-    private fun showChatModePicker() {
+    /** Opens the multi-session chat list (search, pin, rename, archive, export, delete). Reached from the navigation drawer. */
+    fun showChatSessions() {
+        if (_binding == null || !isAdded) return
+        ChatSessionsSheet().show(childFragmentManager, ChatSessionsSheet.TAG)
+    }
+
+    /** Opens the Auto / Gemini Live / Offline Brain picker. Reached from the navigation drawer. */
+    fun showChatModePicker() {
+        if (_binding == null || !isAdded) return
         val active = providerManager.activeProfile()
         val labels = arrayOf(
             if (active != null) "Auto · ${active.displayName} (custom provider)" else "Auto · choose available brain",
@@ -470,17 +473,8 @@ class ChatFragment : Fragment() {
             .show()
     }
 
+    /** The engine chip is gone from the chatbox; the provider/model line below the title still shows which brain answers. */
     private fun refreshChatModeLabel() {
-        val label = when (selectedChatMode) {
-            "gemini" -> "Gemini"
-            "offline" -> "Offline"
-            else -> "Auto"
-        }
-        val chip = binding.chipMode
-        if (chip.childCount > 1 && chip.getChildAt(1) is android.widget.TextView) {
-            (chip.getChildAt(1) as android.widget.TextView).text = label
-        }
-        chip.contentDescription = "Chat engine: $label. Tap to change."
         refreshProviderLabel()
     }
 

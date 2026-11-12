@@ -506,6 +506,14 @@ class MainActivity : AppCompatActivity() {
                 R.id.drawerChat -> selectTab(TAB_CHAT)
                 R.id.drawerSettings -> selectTab(TAB_SETTINGS)
                 R.id.drawerUpdates -> selectTab(TAB_UPDATES)
+                R.id.drawerChatSessions -> {
+                    selectTab(TAB_CHAT)
+                    binding.root.post { chatFragment.showChatSessions() }
+                }
+                R.id.drawerChatEngine -> {
+                    selectTab(TAB_CHAT)
+                    binding.root.post { chatFragment.showChatModePicker() }
+                }
                 R.id.drawerAutomation -> startActivity(Intent(this, com.jarvis.assistant.studio.ui.AutomationStudioActivity::class.java))
                 R.id.drawerMemories -> startActivity(Intent(this, com.jarvis.assistant.ui.memory.MemoryActivity::class.java))
                 R.id.drawerScreenShare -> toggleScreenShare()
