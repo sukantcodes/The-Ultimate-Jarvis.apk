@@ -355,6 +355,11 @@
             android:foregroundServiceType="microphone|mediaPlayback|mediaProjection" />
 
         <service
+            android:name=".background.JarvisWakeWordService"
+            android:foregroundServiceType="microphone"
+            android:exported="false" />
+
+        <service
             android:name=".automation.accessibility.JarvisAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="true">

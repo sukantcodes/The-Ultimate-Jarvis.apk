@@ -289,6 +289,14 @@ class JarvisConversationService : Service() {
             if (service != null) service.cancelAllActiveTools()
             else com.jarvis.assistant.automation.agent.AgentTaskEngine.requestCancellation()
         }
+
+        fun startWakeWordMonitoring(context: Context) {
+            JarvisWakeWordService.startService(context)
+        }
+
+        fun stopWakeWordMonitoring(context: Context) {
+            JarvisWakeWordService.stopService(context)
+        }
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
