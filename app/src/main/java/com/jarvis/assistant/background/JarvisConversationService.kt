@@ -992,7 +992,7 @@ class JarvisConversationService : Service() {
         val now = System.currentTimeMillis()
         lastUserSpeechDetectedTime = now
         lastOwnerVerifiedTimestamp = now
-        isCurrentTurnOwnerVoiceVerified = !ownerVoiceGateOn()
+        isCurrentTurnOwnerVoiceVerified = true
         strictOwnerMatchedThisTurn = false
         pendingToolCalls.clear()
         hasSpeechInCurrentUtterance = false
@@ -1326,7 +1326,7 @@ class JarvisConversationService : Service() {
                             consecutiveVoicedFrames = 0
                             totalVoicedFramesInCurrentUtterance = 0
                             synchronized(currentUtteranceAudioStream) { currentUtteranceAudioStream.reset() }
-                            isCurrentTurnOwnerVoiceVerified = !ownerVoiceGateOn()
+                            isCurrentTurnOwnerVoiceVerified = true
                             strictOwnerMatchedThisTurn = false
                             if (_conversationState.value != ConversationState.SPEAKING) {
                                 setConversationState(if (userTurnInProgress) ConversationState.LISTENING else ConversationState.IDLE)
@@ -1451,15 +1451,9 @@ class JarvisConversationService : Service() {
                                 checkAssistantTextForCommands(currentTurnAssistantText.toString())
                             }
 
-                            // Reset verification flag for the next conversational turn
-                            if (ownerVoiceGateOn()) {
-                                // Keep verification active if within the owner session lease window.
-                                // This prevents the owner from being re-challenged every single turn.
-                                val leaseStillActive = (System.currentTimeMillis() - lastOwnerVerifiedTimestamp) < 120_000L
-                                if (!leaseStillActive) {
-                                    isCurrentTurnOwnerVoiceVerified = false
-                                }
-                            }
+                            // Voice verification is restricted to Wake Word & Screen Unlock ONLY.
+                            // Active conversational session is never challenged or reset.
+                            isCurrentTurnOwnerVoiceVerified = true
                             pendingToolCalls.clear()
 
                             if (!lastCompletedTaskSummary.isNullOrBlank()) {
@@ -1720,7 +1714,7 @@ class JarvisConversationService : Service() {
                                 currentUtteranceAudioStream.reset()
                                 currentUtteranceAudioStream.write(chunk)
                             }
-                            isCurrentTurnOwnerVoiceVerified = !ownerVoiceGateOn()
+                            isCurrentTurnOwnerVoiceVerified = true
                             strictOwnerMatchedThisTurn = false
                             return@AudioRecorder
                         }
@@ -1796,32 +1790,14 @@ class JarvisConversationService : Service() {
                                     }
                                 }
                             }
-                            isCurrentTurnOwnerVoiceVerified = !ownerVoiceGateOn()
+                            isCurrentTurnOwnerVoiceVerified = true
                             strictOwnerMatchedThisTurn = false
                         }
                         hasSpeechInCurrentUtterance = true
                         hasSignalledUtteranceEnd = false
                         totalVoicedFramesInCurrentUtterance++
-                        // EARLY VOICE VERIFICATION: wait for ~800ms of voiced audio for a more stable speaker embedding
-                        // This ensures verification completes BEFORE Gemini starts sending response audio
-                        if (!isCurrentTurnOwnerVoiceVerified && ownerVoiceGateOn() && totalVoicedFramesInCurrentUtterance == 40) {
-                            val audioSnapshot = synchronized(currentUtteranceAudioStream) { currentUtteranceAudioStream.toByteArray() }
-                            if (audioSnapshot.size >= 16000 * 2 * 0.25) {
-                                serviceScope.launch(Dispatchers.Default) {
-                                    val match = com.jarvis.assistant.audio.OwnerVoiceManager.verifySpeakerAudio(audioSnapshot, preferences)
-                                    if (match.isMatch) {
-                                        lastOwnerVerifiedTimestamp = System.currentTimeMillis()
-                                        strictOwnerMatchedThisTurn = true
-                                        isCurrentTurnOwnerVoiceVerified = true
-                                        Log.i("JarvisService", "EARLY voice verification PASSED: Owner confirmed during speech (dist=${match.distance}, sim=${match.similarityPercent}%)")
-                                        processPendingToolCalls(verified = true)
-                                    } else if (match.hasExtractedVector) {
-                                        Log.w("JarvisService", "EARLY voice verification FAILED: Non-owner detected (dist=${match.distance}, thr=${match.threshold})")
-                                        // Don't reject yet - let silence handler do final check with more audio
-                                    }
-                                }
-                            }
-                        }
+                        // Voice verification is restricted to Wake Word and Screen Unlock ONLY.
+                        // Active conversational turns are never interrupted or silenced due to speaker distance.
                         synchronized(currentUtteranceAudioStream) {
                             if (currentUtteranceAudioStream.size() < 480000) {
                                 currentUtteranceAudioStream.write(chunk)
@@ -1851,53 +1827,11 @@ class JarvisConversationService : Service() {
 
                         // Conversational pause reached (~450ms — safe for natural Hinglish speech with inter-word pauses)
                         if (silentDuration > 450) {
-                            if (ownerVoiceGateOn()) {
-                                val isLeaseActive = (now - lastOwnerVerifiedTimestamp) < 120_000L
-                                if (isLeaseActive) {
-                                    // Ultra-low latency: Active owner lease immediately confirms turn with 0ms delay
-                                    lastOwnerVerifiedTimestamp = now
-                                    if (!strictOwnerMatchedThisTurn) {
-                                        val leaseAudio = synchronized(currentUtteranceAudioStream) { currentUtteranceAudioStream.toByteArray() }
-                                        if (leaseAudio.size >= 16000 * 2 * 0.3) {
-                                            serviceScope.launch(Dispatchers.Default) {
-                                                val leaseMatch = com.jarvis.assistant.audio.OwnerVoiceManager.verifySpeakerAudio(leaseAudio, preferences)
-                                                if (leaseMatch.isMatch) {
-                                                    strictOwnerMatchedThisTurn = true
-                                                }
-                                            }
-                                        }
-                                    }
-                                    isCurrentTurnOwnerVoiceVerified = true
-                                    processPendingToolCalls(verified = true)
-                                } else if (!isCurrentTurnOwnerVoiceVerified) {
-                                    val audioBytes = synchronized(currentUtteranceAudioStream) {
-                                        currentUtteranceAudioStream.toByteArray()
-                                    }
-                                    if (audioBytes.size >= 16000 * 2 * 0.3) {
-                                        val match = com.jarvis.assistant.audio.OwnerVoiceManager.verifySpeakerAudio(audioBytes, preferences)
-                                        if (match.isMatch) {
-                                            lastOwnerVerifiedTimestamp = now
-                                            strictOwnerMatchedThisTurn = true
-                                            isCurrentTurnOwnerVoiceVerified = true
-                                            Log.i("JarvisService", "Speech verification passed: Owner confirmed (dist: ${match.distance}, sim: ${match.similarityPercent}%)")
-                                            processPendingToolCalls(verified = true)
-                                        } else {
-                                            isCurrentTurnOwnerVoiceVerified = false
-                                            audioPlayer?.flush()
-                                            currentTurnAssistantText.clear()
-                                            _liveAssistantResponse.value = ""
-                                            Log.w("JarvisService", "Speech verification rejected: Non-owner (dist: ${match.distance}, thr: ${match.threshold})")
-                                            processPendingToolCalls(verified = false)
-                                        }
-                                    } else {
-                                        isCurrentTurnOwnerVoiceVerified = !ownerVoiceGateOn()
-                                        strictOwnerMatchedThisTurn = false
-                                        if (!isCurrentTurnOwnerVoiceVerified) {
-                                            processPendingToolCalls(verified = false)
-                                        }
-                                    }
-                                }
-                            }
+                            // Voice verification is restricted to Wake Word & Screen Unlock ONLY per user specification.
+                            // Normal active conversation is never discarded, flushed, or silenced due to speaker distance.
+                            isCurrentTurnOwnerVoiceVerified = true
+                            lastOwnerVerifiedTimestamp = now
+                            processPendingToolCalls(verified = true)
 
                             if (totalVoicedFramesInCurrentUtterance >= VAD_MIN_UTTERANCE_FRAMES || currentTurnUserText.trim().isNotEmpty()) {
                                 if (ownerVoiceGateOn() && !isCurrentTurnOwnerVoiceVerified) {
@@ -3144,6 +3078,18 @@ class JarvisConversationService : Service() {
                         } else {
                             var voiceOk = unlockStore.allowWithoutVoiceMatch
                             if (!voiceOk && ownerEnrolled) {
+                                if (!strictOwnerMatchedThisTurn) {
+                                    val audioBytes = synchronized(currentUtteranceAudioStream) {
+                                        currentUtteranceAudioStream.toByteArray()
+                                    }
+                                    if (audioBytes.isNotEmpty()) {
+                                        val match = com.jarvis.assistant.audio.OwnerVoiceManager.verifyOwnerForScreenUnlock(audioBytes, preferences)
+                                        Log.i("JarvisService", "Screen unlock owner verification result: isMatch=${match.isMatch}, dist=${match.distance}")
+                                        if (match.isMatch) {
+                                            strictOwnerMatchedThisTurn = true
+                                        }
+                                    }
+                                }
                                 var waitedMs = 0
                                 while (!strictOwnerMatchedThisTurn && waitedMs < 2_000) {
                                     kotlinx.coroutines.delay(100)
@@ -4318,7 +4264,7 @@ class JarvisConversationService : Service() {
         lastHandledAssistantCommand = ""
         val prefs = (application as? JarvisApp)?.preferences
         val isLeaseActive = (System.currentTimeMillis() - lastOwnerVerifiedTimestamp) < 30_000L
-        isCurrentTurnOwnerVoiceVerified = prefs == null || !ownerVoiceGateOn() || isLeaseActive
+        isCurrentTurnOwnerVoiceVerified = true
         strictOwnerMatchedThisTurn = false
         pendingToolCalls.clear()
         synchronized(currentUtteranceAudioStream) { currentUtteranceAudioStream.reset() }
@@ -4568,7 +4514,11 @@ class JarvisConversationService : Service() {
                 if (speaker == null || speaker.length() == 0) return
                 val vector = FloatArray(speaker.length()) { i -> speaker.getDouble(i).toFloat() }
                 val match = com.jarvis.assistant.audio.OwnerVoiceManager.verifySpeakerVector(vector, preferences)
-                if (!match.isMatch) return
+                if (!match.isMatch) {
+                    Log.w("JarvisService", "Standby wake word rejected: Stranger voice (distance=${match.distance}, thr=${match.threshold})")
+                    return
+                }
+                Log.i("JarvisService", "Standby wake word accepted: Owner confirmed (distance=${match.distance}, sim=${match.similarityPercent}%)")
                 lastOwnerVerifiedTimestamp = System.currentTimeMillis()
                 strictOwnerMatchedThisTurn = true
                 isCurrentTurnOwnerVoiceVerified = true

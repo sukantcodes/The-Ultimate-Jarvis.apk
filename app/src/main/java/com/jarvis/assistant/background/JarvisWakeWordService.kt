@@ -62,6 +62,8 @@ class JarvisWakeWordService : Service() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var speechRecognizer: SpeechRecognizer? = null
     private var currentMode = ListenMode.WAKE_WORD
+    private val audioBufferLock = Any()
+    private val recentAudioBuffer = java.io.ByteArrayOutputStream()
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -170,15 +172,32 @@ class JarvisWakeWordService : Service() {
 
                 override fun onBeginningOfSpeech() {}
                 override fun onRmsChanged(rmsdB: Float) {}
-                override fun onBufferReceived(buffer: ByteArray?) {}
+                override fun onBufferReceived(buffer: ByteArray?) {
+                    if (buffer != null && buffer.isNotEmpty()) {
+                        synchronized(audioBufferLock) {
+                            if (recentAudioBuffer.size() > 96000) {
+                                recentAudioBuffer.reset()
+                            }
+                            recentAudioBuffer.write(buffer)
+                        }
+                    }
+                }
                 override fun onEndOfSpeech() {}
 
                 override fun onPartialResults(partialResults: Bundle?) {
-                    if (mode != ListenMode.WAKE_WORD) return
                     val partial = partialResults
                         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         ?.firstOrNull() ?: return
-                    if (VoiceIntentGate.hasWakePrefix(partial)) {
+
+                    // Full-duplex barge-in: If output is currently playing/speaking and user speaks wake or interrupt phrase
+                    if (com.jarvis.assistant.voice.JarvisVoiceController.isSpeaking()) {
+                        if (VoiceIntentGate.hasWakePrefix(partial) || com.jarvis.assistant.voice.JarvisVoiceController.shouldInterruptForPhrase(partial)) {
+                            Log.i(TAG, "Barge-in interrupted output on partial: '$partial'")
+                            com.jarvis.assistant.voice.JarvisVoiceController.interruptIfSpeaking("Wake word spoken during output")
+                        }
+                    }
+
+                    if (currentMode == ListenMode.WAKE_WORD && VoiceIntentGate.hasWakePrefix(partial)) {
                         Log.i(TAG, "Wake phrase detected (partial): '$partial'")
                         onWakePhraseDetected()
                     }
@@ -190,7 +209,15 @@ class JarvisWakeWordService : Service() {
                         ?: emptyList<String>()
                     val best = texts.firstOrNull().orEmpty().trim()
 
-                    when (mode) {
+                    // Full-duplex barge-in: If output is currently playing/speaking and user speaks wake or interrupt phrase
+                    if (com.jarvis.assistant.voice.JarvisVoiceController.isSpeaking()) {
+                        if (VoiceIntentGate.hasWakePrefix(best) || com.jarvis.assistant.voice.JarvisVoiceController.shouldInterruptForPhrase(best)) {
+                            Log.i(TAG, "Barge-in interrupted output on final: '$best'")
+                            com.jarvis.assistant.voice.JarvisVoiceController.interruptIfSpeaking("Wake word spoken during output")
+                        }
+                    }
+
+                    when (currentMode) {
                         ListenMode.WAKE_WORD -> {
                             if (VoiceIntentGate.hasWakePrefix(best)) {
                                 Log.i(TAG, "Wake phrase confirmed (final): '$best'")
@@ -247,6 +274,9 @@ class JarvisWakeWordService : Service() {
 
     private fun startWakeWordListening() {
         Log.d(TAG, "Starting wake-word listening")
+        synchronized(audioBufferLock) {
+            recentAudioBuffer.reset()
+        }
         startListeningForMode(ListenMode.WAKE_WORD)
     }
 
@@ -258,6 +288,23 @@ class JarvisWakeWordService : Service() {
     // ── Wake + Command logic ───────────────────────────────────────────────────
 
     private fun onWakePhraseDetected() {
+        if (com.jarvis.assistant.voice.JarvisVoiceController.isSpeaking()) {
+            com.jarvis.assistant.voice.JarvisVoiceController.interruptIfSpeaking("Wake word spoken during output")
+        }
+
+        val prefs = com.jarvis.assistant.JarvisApp.instance.preferences
+        if (prefs.isOwnerVoiceEnabled && prefs.hasOwnerVoiceProfile()) {
+            val audioBytes = synchronized(audioBufferLock) { recentAudioBuffer.toByteArray() }
+            val match = com.jarvis.assistant.audio.OwnerVoiceManager.verifyOwnerForWakeWord(audioBytes, prefs)
+            if (!match.isMatch) {
+                Log.w(TAG, "Wake word rejected: stranger voice")
+                // Do NOT wake up, do NOT activate command mode. Restart wake listening immediately.
+                scheduleRestart(0) { startWakeWordListening() }
+                return
+            }
+            Log.i(TAG, "Wake word accepted: owner verified (dist=${match.distance}, sim=${match.similarityPercent}%)")
+        }
+
         vibrate(50)
 
         // Start the conversation service if it isn't running
@@ -270,6 +317,9 @@ class JarvisWakeWordService : Service() {
     }
 
     private fun onCommandReceived(command: String) {
+        if (com.jarvis.assistant.voice.JarvisVoiceController.shouldInterruptForPhrase(command)) {
+            com.jarvis.assistant.voice.JarvisVoiceController.interruptIfSpeaking("Stop phrase received in command: $command")
+        }
         val appMod = com.jarvis.assistant.selfaware.AppModificationEngine.processCommand(this, command)
         if (appMod is com.jarvis.assistant.selfaware.AppModificationEngine.ModificationResult.Success) {
             com.jarvis.assistant.JarvisApp.instance.chatRepository.addTurn(command, appMod.message)

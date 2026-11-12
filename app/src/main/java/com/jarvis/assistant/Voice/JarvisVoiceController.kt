@@ -35,13 +35,14 @@ object JarvisVoiceController {
     private val listeners = mutableListOf<(Boolean) -> Unit>()
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    fun isSpeaking(): Boolean = isSpeakingState
+    fun isSpeaking(): Boolean =
+        isSpeakingState || JarvisConversationService.conversationState.value == JarvisConversationService.ConversationState.SPEAKING
 
     fun addSpeakingStateListener(listener: (Boolean) -> Unit) {
         synchronized(listeners) {
             listeners.add(listener)
         }
-        listener(isSpeakingState)
+        listener(isSpeaking())
     }
 
     fun removeSpeakingStateListener(listener: (Boolean) -> Unit) {
@@ -57,6 +58,38 @@ object JarvisVoiceController {
                 listeners.forEach { it(speaking) }
             }
         }
+    }
+
+    /**
+     * Immediately interrupts active speech playback across all channels (TTS, Gemini Live,
+     * neural voice dispatchers) and notifies all listeners.
+     *
+     * @return true if speaking was active and interrupted, false otherwise.
+     */
+    fun interruptIfSpeaking(reason: String = "user barge-in"): Boolean {
+        if (isSpeaking()) {
+            Log.i(TAG, "Interrupting speaking immediately: $reason")
+            stopSpeaking()
+            return true
+        }
+        return false
+    }
+
+    /**
+     * Determines whether the given spoken phrase warrants interrupting ongoing speech.
+     * Matches barge-in words like "stop", "shut up", "pause", "wait", "hold on", "cancel",
+     * "quiet", "silence", or if the user starts addressing "jarvis".
+     */
+    fun shouldInterruptForPhrase(phrase: String): Boolean {
+        val clean = phrase.trim().lowercase(Locale.ROOT)
+        if (clean.isEmpty()) return false
+        if (clean.startsWith("jarvis") || clean.startsWith("hey jarvis")) {
+            return true
+        }
+        val interruptKeywords = listOf(
+            "stop", "shut up", "pause", "wait", "hold on", "cancel", "quiet", "silence"
+        )
+        return interruptKeywords.any { clean.contains(it) }
     }
 
     /** Pre-warms the TTS engine immediately so there is zero delay when speaking. */
@@ -188,6 +221,13 @@ object JarvisVoiceController {
         } catch (_: Exception) {}
         try {
             JarvisConversationService.interruptPlayback()
+        } catch (_: Exception) {}
+        try {
+            JarvisConversationService.stopCurrentResponseImmediately()
+        } catch (_: Exception) {}
+        try {
+            val app = JarvisApp.instance
+            com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(app).stop()
         } catch (_: Exception) {}
         notifySpeakingState(false)
     }
