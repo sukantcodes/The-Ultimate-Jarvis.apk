@@ -133,6 +133,37 @@ object ChatExporter {
             }
         }
 
+        /**
+         * Draws a text layout that may be taller than one page, continuing on following pages line by line,
+         * so a long answer (for example a big code reply) is never cut off at the bottom of a page.
+         */
+        fun drawPaginated(layout: StaticLayout, trailingGap: Float) {
+            var line = 0
+            val total = layout.lineCount
+            while (line < total) {
+                val available = pageHeight - margin - 20f - yCursor
+                val firstHeight = layout.getLineBottom(line) - layout.getLineTop(line)
+                if (available < firstHeight) {
+                    checkPageBreak(pageHeight.toFloat()) // force a fresh page
+                    continue
+                }
+                val startTop = layout.getLineTop(line)
+                var end = line
+                while (end < total && layout.getLineBottom(end) - startTop <= available) end++
+                if (end == line) end = line + 1
+                val sliceHeight = (layout.getLineBottom(end - 1) - startTop).toFloat()
+                canvas.save()
+                canvas.clipRect(margin, yCursor, margin + contentWidth, yCursor + sliceHeight)
+                canvas.translate(margin, yCursor - startTop)
+                layout.draw(canvas)
+                canvas.restore()
+                yCursor += sliceHeight
+                line = end
+                if (line < total) checkPageBreak(pageHeight.toFloat())
+            }
+            yCursor += trailingGap
+        }
+
         // Title page header
         canvas.drawText("⚡ JARVIS AI — Conversation Transcript", margin, yCursor + 16f, titlePaint)
         yCursor += 26f
@@ -164,12 +195,7 @@ object ChatExporter {
                     .setLineSpacing(2f, 1f)
                     .build()
 
-                checkPageBreak(userLayout.height.toFloat() + 20f)
-                canvas.save()
-                canvas.translate(margin, yCursor)
-                userLayout.draw(canvas)
-                canvas.restore()
-                yCursor += userLayout.height + 14f
+                drawPaginated(userLayout, 14f)
             }
 
             // Jarvis section header
@@ -188,12 +214,7 @@ object ChatExporter {
                     .setLineSpacing(2f, 1f)
                     .build()
 
-                checkPageBreak(jarvisLayout.height.toFloat() + 20f)
-                canvas.save()
-                canvas.translate(margin, yCursor)
-                jarvisLayout.draw(canvas)
-                canvas.restore()
-                yCursor += jarvisLayout.height + 18f
+                drawPaginated(jarvisLayout, 18f)
             }
 
             // Turn separator

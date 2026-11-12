@@ -27,6 +27,12 @@ object WorkIconAnimator {
         isWriting: Boolean
     ) {
         val context = iconView.context
+        // Streaming re-binds the card on every update; restarting the animation each time makes it stutter.
+        val stateKey = type.name + ":" + isWriting
+        val stillRunning = iconView.animation?.let { !it.hasEnded() } == true
+        if (iconView.tag == stateKey && (!isWriting || stillRunning)) return
+        iconView.tag = stateKey
+
         iconView.clearAnimation()
         frameView?.clearAnimation()
 

@@ -82,6 +82,11 @@ class ChatFragment : Fragment() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var isVoiceListening: Boolean = false
     private var totalUsedTokens: Int = 0
+    // Token counter: highest estimate seen for the open conversation (so it never dips while replies stream or fail).
+    private var tokenConversationKey: String? = null
+    private var tokenConversationPeak: Int = 0
+    // Auto voice reply: which conversation the "already spoken" marker belongs to.
+    private var speechConversationKey: String? = null
     private var lastMessageOriginatedFromVoice: Boolean = false
     private var lastAutoSpokenTurnId: String = ""
     private var autoVoiceReplyEnabled: Boolean = false
@@ -298,6 +303,8 @@ class ChatFragment : Fragment() {
                     JarvisApp.instance.chatRepository.let { if (it.canManageSessions) it.newSession() else it.clearHistory() }
                     selectedDocument = null
                     totalUsedTokens = 0
+                    tokenConversationKey = null
+                    tokenConversationPeak = 0
                     binding.tvChatTokens.text = "⚡ 0 TOKENS"
                     updateAttachmentPreview()
                     binding.etMessageInput.hint = "Message JARVIS…"
@@ -766,13 +773,23 @@ class ChatFragment : Fragment() {
                         updateTokenUsage(turns)
                         binding.layoutChatWelcome.visibility = if (turns.isEmpty()) View.VISIBLE else View.GONE
                         val pending = turns.lastOrNull()?.jarvisResponse.isNullOrBlank() || providerEngine.isBusy
+                        val speechKey = turns.firstOrNull()?.id
+                        if (speechKey != speechConversationKey) {
+                            speechConversationKey = speechKey
+                            // Opening the chat or switching to another saved chat: what is already there is history, not news.
+                            if (!pending) lastAutoSpokenTurnId = turns.lastOrNull()?.id ?: ""
+                        }
                         if (!pending && offlineGenerationJob == null && fileAnalysisJob == null && selectedDocument == null) {
                             binding.btnStopChat.visibility = View.GONE
                             binding.btnSendMessage.isEnabled = true
                             binding.tvChatStatus.text = "● READY"
 
                             val latestTurn = turns.lastOrNull()
-                            if (latestTurn != null && latestTurn.id != lastAutoSpokenTurnId && latestTurn.jarvisResponse.isNotBlank()) {
+                            if (latestTurn != null && latestTurn.id != lastAutoSpokenTurnId && latestTurn.jarvisResponse.isNotBlank() &&
+                                !latestTurn.jarvisResponse.let { r ->
+                                    val prefix = com.jarvis.assistant.provider.ProviderChatEngine.ERROR_PREFIX
+                                    r.startsWith(prefix) || r.contains("\n\n" + prefix)
+                                }) {
                                 if (lastMessageOriginatedFromVoice || autoVoiceReplyEnabled) {
                                     lastAutoSpokenTurnId = latestTurn.id
                                     lastMessageOriginatedFromVoice = false
@@ -828,7 +845,7 @@ class ChatFragment : Fragment() {
             binding.tvChatSubtitle.setTextColor(accent)
         } else {
             binding.tvChatSubtitle.text = "Your intelligent workspace · Ready"
-            binding.tvChatSubtitle.setTextColor(android.graphics.Color.parseColor("#DDEBFF"))
+            binding.tvChatSubtitle.setTextColor(ThemeManager.getThemeTextSecondaryColor())
         }
     }
 
@@ -856,12 +873,14 @@ class ChatFragment : Fragment() {
             turnsTokens += estimateTokens(turn.userTranscript)
             turnsTokens += estimateTokens(turn.jarvisResponse)
         }
-        val prefs = try { (activity?.application as? JarvisApp)?.preferences } catch (_: Exception) { null }
-        val cumulative = prefs?.cumulativeChatTokens ?: 0
-        val totalTokens = maxOf(cumulative, turnsTokens)
-        if (prefs != null && totalTokens > cumulative) {
-            prefs.cumulativeChatTokens = totalTokens
+        // The counter belongs to the open conversation: a new chat or another saved chat starts from its own turns.
+        val conversationKey = turns.firstOrNull()?.id
+        if (conversationKey != tokenConversationKey) {
+            tokenConversationKey = conversationKey
+            tokenConversationPeak = 0
         }
+        tokenConversationPeak = maxOf(tokenConversationPeak, turnsTokens)
+        val totalTokens = tokenConversationPeak
         totalUsedTokens = totalTokens
         val display = if (totalTokens < 1000) {
             "⚡ $totalTokens TOKENS"

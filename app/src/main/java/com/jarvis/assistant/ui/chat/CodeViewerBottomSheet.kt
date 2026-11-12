@@ -72,6 +72,16 @@ object CodeViewerBottomSheet {
 
         binding.btnCodeClose.setOnClickListener { dialog.dismiss() }
 
+        // Open fully expanded so the code is readable straight away instead of in a half-height peek.
+        dialog.setOnShowListener {
+            val sheet = dialog.findViewById<android.view.View>(com.google.android.material.R.id.design_bottom_sheet)
+            if (sheet != null) {
+                val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(sheet)
+                behavior.skipCollapsed = true
+                behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
+            }
+        }
+
         dialog.show()
     }
 }

@@ -93,22 +93,35 @@ object TokenSettingsBottomSheet {
         updateUI()
         updateAutoApproveUI()
 
-        binding.cardAutoApproveAll.setOnClickListener {
-            autoApprove = !autoApprove
+        fun commitAutoApprove(enabled: Boolean) {
+            autoApprove = enabled
             PermissionPreferences.setAutoApproveAll(context, autoApprove)
             updateAutoApproveUI()
             val msg = if (autoApprove) "⚡ Auto-Approve Enabled: All permissions will be approved automatically" else "Auto-Approve Disabled: Safety prompts enabled"
             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
         }
 
-        binding.switchAutoApproveAll.setOnCheckedChangeListener { _, isChecked ->
-            if (autoApprove != isChecked) {
-                autoApprove = isChecked
-                PermissionPreferences.setAutoApproveAll(context, autoApprove)
-                updateAutoApproveUI()
-                val msg = if (autoApprove) "⚡ Auto-Approve Enabled: All permissions will be approved automatically" else "Auto-Approve Disabled: Safety prompts enabled"
-                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+        // Turning it ON skips every safety prompt (deletes, terminal commands, writes), so confirm once.
+        // Turning it OFF is always a single tap.
+        fun requestAutoApprove(enable: Boolean) {
+            if (enable == autoApprove) return
+            if (!enable) {
+                commitAutoApprove(false)
+                return
             }
+            androidx.appcompat.app.AlertDialog.Builder(context)
+                .setTitle("Turn on Auto-Approve?")
+                .setMessage("JARVIS will write and delete files, run terminal commands and use other tools without asking you first. You can turn this off here at any time.")
+                .setPositiveButton("Turn on") { _, _ -> commitAutoApprove(true) }
+                .setNegativeButton("Cancel") { _, _ -> updateAutoApproveUI() }
+                .setOnCancelListener { updateAutoApproveUI() }
+                .show()
+        }
+
+        binding.cardAutoApproveAll.setOnClickListener { requestAutoApprove(!autoApprove) }
+
+        binding.switchAutoApproveAll.setOnCheckedChangeListener { _, isChecked ->
+            requestAutoApprove(isChecked)
         }
 
         binding.cardModeLow.setOnClickListener {

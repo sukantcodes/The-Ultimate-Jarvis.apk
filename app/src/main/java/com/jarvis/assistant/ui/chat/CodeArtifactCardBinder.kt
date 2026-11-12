@@ -56,12 +56,15 @@ object CodeArtifactCardBinder {
             binding.tvWritingStatus.text = label
             binding.tvWritingStatus.setTextColor(workType.getDynamicColor())
             binding.tvWritingStatus.background = ContextCompat.getDrawable(context, R.drawable.bg_code_writing_badge)
-            val pulse = AlphaAnimation(0.35f, 1.0f).apply {
-                duration = 650
-                repeatMode = Animation.REVERSE
-                repeatCount = Animation.INFINITE
+            val pulsing = binding.tvWritingStatus.animation?.let { !it.hasEnded() } == true
+            if (!pulsing) {
+                val pulse = AlphaAnimation(0.35f, 1.0f).apply {
+                    duration = 650
+                    repeatMode = Animation.REVERSE
+                    repeatCount = Animation.INFINITE
+                }
+                binding.tvWritingStatus.startAnimation(pulse)
             }
-            binding.tvWritingStatus.startAnimation(pulse)
             binding.tvCardBottomHint.text = "✦ Actively executing · Tap tag to collapse/expand mini window"
         } else {
             binding.tvWritingStatus.clearAnimation()
@@ -94,10 +97,13 @@ object CodeArtifactCardBinder {
         }
 
         val lines = code.split('\n')
-        val previewLines = lines.take(12)
+        // While code is being written, follow the newest lines (like watching it type); once done, show the top.
+        val previewCount = 12
+        val previewStart = if (isWriting && lines.size > previewCount) lines.size - previewCount else 0
+        val previewLines = lines.subList(previewStart, minOf(lines.size, previewStart + previewCount))
         val lineNums = StringBuilder()
         for (i in 1..previewLines.size) {
-            lineNums.append(i).append('\n')
+            lineNums.append(previewStart + i).append('\n')
         }
         binding.tvPreviewLineNumbers.text = lineNums.toString().trimEnd()
 
