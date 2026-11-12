@@ -61,33 +61,39 @@ object MultilingualCommandHelper {
 
         val lower = trimmed.lowercase(Locale.ROOT)
 
+        fun matchesToken(tokens: List<String>): Boolean {
+            return tokens.any { token ->
+                Regex("(?i)\\b" + Regex.escape(token) + "\\b").containsMatchIn(lower)
+            }
+        }
+
         // Hinglish markers
         val hinglishTokens = listOf(
             "banao", "karo", "batao", "chal raha", "kitna", "kitni", "kaise", "bhejo",
             "jawab", "haal", "kaisa", "garam", "tapman", "acha", "theek", "shuru", "bolo"
         )
-        if (hinglishTokens.any { lower.contains(it) }) return "Hinglish"
+        if (matchesToken(hinglishTokens)) return "Hinglish"
+
+        // German markers
+        val germanTokens = listOf(
+            "erstelle", "bauen", "starten", "batterie", "akku",
+            "bericht", "status", "temperatur", "antworten", "speicher", "bitte"
+        )
+        if (matchesToken(germanTokens)) return "German"
 
         // Spanish markers
         val spanishTokens = listOf(
             "crear", "sitio", "página", "construir", "iniciar", "servidor", "batería",
             "cómo", "cuál", "informe", "estado", "temperatura", "responder", "memoria"
         )
-        if (spanishTokens.any { lower.contains(it) }) return "Spanish"
+        if (matchesToken(spanishTokens)) return "Spanish"
 
         // French markers
         val frenchTokens = listOf(
-            "créer", "site", "construire", "démarrer", "serveur", "batterie",
+            "créer", "construire", "démarrer", "serveur", "batterie",
             "rapport", "état", "température", "répondre", "mémoire", "processeur"
         )
-        if (frenchTokens.any { lower.contains(it) }) return "French"
-
-        // German markers
-        val germanTokens = listOf(
-            "erstelle", "bauen", "starten", "server", "batterie", "akku",
-            "bericht", "status", "temperatur", "antworten", "speicher"
-        )
-        if (germanTokens.any { lower.contains(it) }) return "German"
+        if (matchesToken(frenchTokens)) return "French"
 
         return fallbackLocaleLanguage()
     }
@@ -116,6 +122,21 @@ object MultilingualCommandHelper {
 
     fun isActionableTask(prompt: String): Boolean {
         val lower = prompt.trim().lowercase(Locale.ROOT)
+
+        val hasWebsite = lower.contains("website") || lower.contains("web site") || lower.contains("site web") ||
+                lower.contains("sitio web") || lower.contains("webseite") || lower.contains("वेबसाइट") ||
+                lower.contains("వెబ్‌సైట్") || lower.contains("வலைத்தளம்") || lower.contains("ওয়েবসাইট") ||
+                lower.contains("ウェブサイト")
+
+        val hasCreationAction = lower.contains("create") || lower.contains("build") || lower.contains("make") ||
+                lower.contains("banao") || lower.contains("bana do") || lower.contains("banado") || lower.contains("banaye") ||
+                lower.contains("design") || lower.contains("develop") ||
+                lower.contains("crear") || lower.contains("hacer") || lower.contains("construir") ||
+                lower.contains("erstelle") || lower.contains("bauen") || lower.contains("作成") ||
+                lower.contains("తయారు") || lower.contains("உருவாக்கு") || lower.contains("তৈরি")
+
+        if (hasWebsite && hasCreationAction) return true
+
         val actionKeywords = listOf(
             // English
             "create a website", "create website", "build a website", "build website",
@@ -266,8 +287,7 @@ object MultilingualCommandHelper {
             // English
             "send reply", "reply to", "reply", "tell him", "tell her", "tell them", "tell",
             // Hindi / Hinglish
-            "reply karo", "jawab do", "unhe bolo", "usko bolo", "bol do", "bhejo",
-            "reply bhej do", "reply kardo", "bolo",
+            "reply bhej do", "reply kardo", "reply karo", "jawab do", "unhe bolo", "usko bolo", "bol do", "bhejo", "bolo",
             // Spanish
             "enviar respuesta", "responder", "responde", "dile a", "dile", "envía",
             // French
@@ -276,7 +296,7 @@ object MultilingualCommandHelper {
             "antwort senden", "antworte", "sag ihm", "sag ihr",
             // Japanese
             "返信して", "返信", "伝えて"
-        )
+        ).sortedByDescending { it.length }
 
         for (prefix in prefixes) {
             if (lower.startsWith(prefix)) {
