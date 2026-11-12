@@ -40,10 +40,7 @@ android {
         versionName = configuredVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        ndk {
-            abiFilters.clear()
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-        }
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         buildConfigField("String", "DEVELOPER_NAME", buildConfigString(developerName.ifBlank { "Unverified developer" }))
         buildConfigField("String", "COPYRIGHT_OWNER", buildConfigString(copyrightOwner.ifBlank { "Unconfigured" }))
         buildConfigField("String", "PINNED_RELEASE_CERT_SHA256", buildConfigString(releaseCertSha256))
