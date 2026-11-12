@@ -45,6 +45,8 @@ object AutonomousBackgroundExecutor {
      * Checks if a user prompt is an actionable autonomous command suitable for background tool execution.
      */
     fun isActionableTask(prompt: String): Boolean {
+        if (WebBuildOrchestrator.wantsInput(prompt)) return true
+        if (WebBuildOrchestrator.isActive()) return false
         return com.jarvis.assistant.util.MultilingualCommandHelper.isActionableTask(prompt)
     }
 
@@ -56,6 +58,8 @@ object AutonomousBackgroundExecutor {
         commandText: String,
         onComplete: ((Boolean, String) -> Unit)? = null
     ) {
+        // Website / web-game builds (and replies to their questions) are run by the build supervisor.
+        if (WebBuildOrchestrator.handle(context, commandText, onComplete)) return
         if (isRunningTask) {
             Log.w(TAG, "An autonomous task is already running. Ignoring duplicate request.")
             return

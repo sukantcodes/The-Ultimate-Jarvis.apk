@@ -3114,7 +3114,7 @@ class JarvisConversationService : Service() {
                         if (!userAskedForStandby) {
                             result.put("success", false)
                             result.put("message", "REFUSED: The user's current request did not explicitly ask Jarvis to go to standby. Keep the conversation active and continue the requested task.")
-                        } else if (isAutonomousTaskRunning) {
+                        } else if (isAutonomousTaskRunning || com.jarvis.assistant.background.WebBuildOrchestrator.isActive()) {
                             // Going to standby mid-task stopped the conversation and left the task unfinished.
                             result.put("success", false)
                             result.put("message", "REFUSED: a task is still running. Do NOT go to background. Continue the task, or tell the user honestly what is blocking it.")
@@ -4390,6 +4390,7 @@ class JarvisConversationService : Service() {
                 val timeoutMs = configuredMs
                 if (timeoutMs <= 0L) continue
                 val busy = isAutonomousTaskRunning ||
+                    com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
                     com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value != null ||
                     autonomousLoopJob?.isActive == true || autonomousWaitingForUser ||
                     activeToolJobs.any { it.isActive } || isExecutingTool ||
@@ -4849,6 +4850,7 @@ class JarvisConversationService : Service() {
             }
             if (_isSessionOn.value && returnToStandbyAfterAuthorizedTurn &&
                 !isAutonomousTaskRunning && !autonomousWaitingForUser &&
+                !com.jarvis.assistant.background.WebBuildOrchestrator.isActive() &&
                 pendingToolCalls.isEmpty() && activeToolJobs.isEmpty() &&
                 !isExecutingTool && macroJob?.isActive != true) {
                 returnToStandbyAfterAuthorizedTurn = false

@@ -594,6 +594,18 @@ class ChatFragment : Fragment() {
                     }
                 }
                 launch {
+                    com.jarvis.assistant.background.WebBuildOrchestrator.status.collect { st ->
+                        if (_binding == null) return@collect
+                        if (st.phase == com.jarvis.assistant.background.WebBuildOrchestrator.Phase.IDLE) return@collect
+                        val eta = if (st.etaSec > 0) " · ~" + (if (st.etaSec < 60) "${st.etaSec}s" else "${(st.etaSec + 30) / 60}m") else ""
+                        val file = if (st.currentFile.isNotBlank()) " · ${st.currentFile}" else ""
+                        binding.tvChatStatus.text = "● ${st.stage.uppercase()} ${st.percent}%$file$eta"
+                        binding.layoutWorkProgress.visibility = View.VISIBLE
+                        binding.pbWorkProgress.progress = st.percent
+                        binding.tvWorkProgressPercent.text = "${st.percent}%"
+                    }
+                }
+                launch {
                     providerEngine.workProgress.collect { progress ->
                         if (_binding == null) return@collect
                         handleWorkProgress(progress)
@@ -1007,54 +1019,10 @@ class ChatFragment : Fragment() {
 
     private fun handleWorkProgress(progress: com.jarvis.assistant.provider.LiveWorkProgress) {
         if (_binding == null) return
-        val stepName = progress.stepName
-        val snippet = progress.codeSnippet
-        if (progress.isWorking) {
-            val title = if (stepName.isNotBlank()) stepName else "Executing task…"
-            val actionType = WorkActionType.resolve(
-                language = "",
-                targetName = progress.target,
-                toolName = progress.actionText
-            )
-            val activeIndex = workSteps.indexOfLast { it.status == WorkStepStatus.IN_PROGRESS }
-            if (activeIndex >= 0) {
-                val current = workSteps[activeIndex]
-                if (current.title == title && current.type == actionType) {
-                    if (snippet != null && snippet != current.codeSnippet) {
-                        workSteps[activeIndex] = current.copy(codeSnippet = snippet)
-                    }
-                } else {
-                    workSteps[activeIndex] = current.copy(status = WorkStepStatus.DONE)
-                    val newCard = WorkStepCard(
-                        id = "step_${System.currentTimeMillis()}_${workSteps.size}",
-                        type = actionType,
-                        title = title,
-                        status = WorkStepStatus.IN_PROGRESS,
-                        codeSnippet = snippet
-                    )
-                    workSteps.add(newCard)
-                }
-            } else {
-                val newCard = WorkStepCard(
-                    id = "step_${System.currentTimeMillis()}_${workSteps.size}",
-                    type = actionType,
-                    title = title,
-                    status = WorkStepStatus.IN_PROGRESS,
-                    codeSnippet = snippet
-                )
-                workSteps.add(newCard)
-            }
-            rvWorkSteps?.visibility = View.VISIBLE
-            workStepAdapter.submitList(workSteps.toList()) {
-                if (workSteps.isNotEmpty()) {
-                    rvWorkSteps?.scrollToPosition(workSteps.size - 1)
-                }
-            }
-        } else if (progress.percent == 100) {
-            markAllWorkStepsDone()
-        } else if (!progress.isWorking && workSteps.any { it.status == WorkStepStatus.IN_PROGRESS }) {
-            markAllWorkStepsDone()
-        }
+        // The floating work-step bubbles are intentionally gone: Jarvis reports real progress by voice, the
+        // notification and the header status instead.
+        if (workSteps.isNotEmpty()) clearWorkSteps()
+        rvWorkSteps?.visibility = View.GONE
     }
 
     private fun markAllWorkStepsDone() {
