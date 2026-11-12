@@ -145,19 +145,32 @@ data class SpeakerProfile(
             )
         )
 
+        val NONE_SPEAKER = SpeakerProfile(
+            id = "none_default",
+            speakerId = -1,
+            displayName = "None (Disabled)",
+            language = "None",
+            gender = "None",
+            tone = "Disabled",
+            engineType = VoiceEngineType.NONE,
+            isDefault = true
+        )
+
         fun speakersFor(engineType: VoiceEngineType): List<SpeakerProfile> = when (engineType) {
             VoiceEngineType.LOCAL_KOKORO -> KOKORO_SPEAKERS
             VoiceEngineType.LOCAL_PIPER -> PIPER_SPEAKERS
             VoiceEngineType.CLOUD_GEMINI -> GEMINI_VOICES
             VoiceEngineType.CLOUD_ELEVENLABS -> ELEVENLABS_VOICES
-            VoiceEngineType.NONE -> emptyList()
+            VoiceEngineType.NONE -> listOf(NONE_SPEAKER)
         }
 
         fun defaultFor(engineType: VoiceEngineType): SpeakerProfile =
-            speakersFor(engineType).firstOrNull { it.isDefault } ?: speakersFor(engineType).firstOrNull() ?: KOKORO_SPEAKERS.first()
+            if (engineType == VoiceEngineType.NONE) NONE_SPEAKER
+            else speakersFor(engineType).firstOrNull { it.isDefault } ?: speakersFor(engineType).firstOrNull() ?: KOKORO_SPEAKERS.first()
 
         fun findById(id: String?): SpeakerProfile? {
             if (id.isNullOrBlank()) return null
+            if (id == NONE_SPEAKER.id) return NONE_SPEAKER
             return (KOKORO_SPEAKERS + PIPER_SPEAKERS + GEMINI_VOICES + ELEVENLABS_VOICES).firstOrNull { it.id == id }
         }
     }
