@@ -145,6 +145,8 @@ object JarvisVoiceController {
         return geminiKey.isNotBlank()
     }
 
+    @Volatile private var isStoppingStateExecution: Boolean = false
+
     /**
      * Speaks the assistant response for a given turn.
      *
@@ -177,7 +179,13 @@ object JarvisVoiceController {
             lastSpokenTurnId = turnId
         }
 
-        val useJarvisVoice = !forceTts && isJarvisLiveVoiceAvailable(context)
+        // Explicit fallback/system TTS request: execute immediately and do NOT dispatch recursively
+        if (forceTts) {
+            speakSystemTts(context, shortSpokenText)
+            return
+        }
+
+        val useJarvisVoice = isJarvisLiveVoiceAvailable(context)
 
         if (useJarvisVoice) {
             // Authentic Jarvis voice through live service announcement
@@ -201,9 +209,16 @@ object JarvisVoiceController {
                 notifySpeakingState(false)
             }
         } catch (_: Exception) {
-            prewarm(context)
-            speakViaTts(shortSpokenText)
+            speakSystemTts(context, shortSpokenText)
         }
+    }
+
+    /**
+     * Directly speaks via the Android system TextToSpeech engine with zero recursive dispatching.
+     */
+    fun speakSystemTts(context: Context, text: String) {
+        prewarm(context)
+        speakViaTts(text)
     }
 
     private fun speakViaTts(text: String) {
@@ -216,21 +231,39 @@ object JarvisVoiceController {
         }
     }
 
-    fun stopSpeaking() {
+    /**
+     * Stops only the legacy Android TextToSpeech engine.
+     * Guaranteed never to invoke external voice dispatchers to avoid mutual recursion.
+     */
+    fun stopLegacyTts() {
         try {
             ttsEngine?.stop()
         } catch (_: Exception) {}
+    }
+
+    /**
+     * Comprehensive speech stoppage across all playback engines.
+     * Protected by [isStoppingStateExecution] re-entrancy guard against stack overflows.
+     */
+    fun stopSpeaking() {
+        if (isStoppingStateExecution) return
+        isStoppingStateExecution = true
         try {
-            JarvisConversationService.interruptPlayback()
-        } catch (_: Exception) {}
-        try {
-            JarvisConversationService.stopCurrentResponseImmediately()
-        } catch (_: Exception) {}
-        try {
-            val app = JarvisApp.instance
-            com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(app).stop()
-        } catch (_: Exception) {}
-        notifySpeakingState(false)
+            stopLegacyTts()
+            try {
+                JarvisConversationService.interruptPlayback()
+            } catch (_: Exception) {}
+            try {
+                JarvisConversationService.stopCurrentResponseImmediately()
+            } catch (_: Exception) {}
+            try {
+                val app = JarvisApp.instance
+                com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(app).stopEngines()
+            } catch (_: Exception) {}
+            notifySpeakingState(false)
+        } finally {
+            isStoppingStateExecution = false
+        }
     }
 
     fun release() {

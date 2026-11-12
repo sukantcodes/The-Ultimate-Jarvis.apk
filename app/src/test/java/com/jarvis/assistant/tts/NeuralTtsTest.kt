@@ -124,4 +124,47 @@ class NeuralTtsTest {
         assertTrue(clean.contains("See Documentation for details."))
         assertTrue(clean.contains("All systems optimal."))
     }
+
+    @Test
+    fun testArchiveEntryPathSanitization() {
+        val kokoroArchive = "kokoro-int8-multi-lang-v1_0"
+        val piperArchive = "vits-piper-en_GB-alan-medium"
+
+        // Direct paths with archive root prefix
+        assertEquals("model.int8.onnx", com.jarvis.assistant.tts.engine.TtsModelDownloader.sanitizeRelativeEntryPath("$kokoroArchive/model.int8.onnx", kokoroArchive))
+        assertEquals("voices.bin", com.jarvis.assistant.tts.engine.TtsModelDownloader.sanitizeRelativeEntryPath("$kokoroArchive/voices.bin", kokoroArchive))
+        assertEquals("espeak-ng-data/phontab", com.jarvis.assistant.tts.engine.TtsModelDownloader.sanitizeRelativeEntryPath("$kokoroArchive/espeak-ng-data/phontab", kokoroArchive))
+
+        // Root directory entry itself should resolve to blank (skipped)
+        assertEquals("", com.jarvis.assistant.tts.engine.TtsModelDownloader.sanitizeRelativeEntryPath("$kokoroArchive/", kokoroArchive))
+        assertEquals("", com.jarvis.assistant.tts.engine.TtsModelDownloader.sanitizeRelativeEntryPath(kokoroArchive, kokoroArchive))
+
+        // Dot-slash prefixed paths
+        assertEquals("model.int8.onnx", com.jarvis.assistant.tts.engine.TtsModelDownloader.sanitizeRelativeEntryPath("./$kokoroArchive/model.int8.onnx", kokoroArchive))
+
+        // Flat entries without folder prefix
+        assertEquals("en_GB-alan-medium.onnx", com.jarvis.assistant.tts.engine.TtsModelDownloader.sanitizeRelativeEntryPath("en_GB-alan-medium.onnx", piperArchive))
+
+        // Piper archive paths
+        assertEquals("tokens.txt", com.jarvis.assistant.tts.engine.TtsModelDownloader.sanitizeRelativeEntryPath("$piperArchive/tokens.txt", piperArchive))
+    }
+
+    @Test
+    fun testSpeakerProfileFindById() {
+        assertNotNull(SpeakerProfile.findById("kokoro_bm_george"))
+        assertEquals("George (Classic Jarvis)", SpeakerProfile.findById("kokoro_bm_george")?.displayName)
+
+        assertNotNull(SpeakerProfile.findById("piper_alan"))
+        assertEquals("Alan (Medium VITS)", SpeakerProfile.findById("piper_alan")?.displayName)
+
+        assertNotNull(SpeakerProfile.findById("gemini_charon"))
+        assertEquals("Charon", SpeakerProfile.findById("gemini_charon")?.displayName)
+
+        assertNotNull(SpeakerProfile.findById("eleven_rachel"))
+        assertEquals("Rachel", SpeakerProfile.findById("eleven_rachel")?.displayName)
+
+        assertEquals(null, SpeakerProfile.findById(null))
+        assertEquals(null, SpeakerProfile.findById(""))
+        assertEquals(null, SpeakerProfile.findById("non_existent_id"))
+    }
 }

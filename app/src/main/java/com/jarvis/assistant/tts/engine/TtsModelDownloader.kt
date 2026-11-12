@@ -44,10 +44,38 @@ class TtsModelDownloader(private val context: Context) {
             return File(base, engineType.archiveName)
         }
 
+        /**
+         * Resolves the actual directory containing the engine's model weights.
+         * Gracefully handles both direct root unpacks and nested archive subdirectories.
+         */
+        fun resolveModelDir(context: Context, engineType: VoiceEngineType): File? {
+            if (!engineType.isLocal) return null
+            val baseDir = getEngineDir(context, engineType)
+            if (!baseDir.exists() || !baseDir.isDirectory) return null
+
+            val targetModel = engineType.defaultModelFileName
+            if (File(baseDir, targetModel).exists()) {
+                return baseDir
+            }
+
+            val nestedArchive = File(baseDir, engineType.archiveName)
+            if (File(nestedArchive, targetModel).exists()) {
+                return nestedArchive
+            }
+
+            val matchingChild = baseDir.listFiles()?.firstOrNull { child ->
+                child.isDirectory && File(child, targetModel).exists()
+            }
+            if (matchingChild != null) {
+                return matchingChild
+            }
+
+            return null
+        }
+
         fun isEngineInstalled(context: Context, engineType: VoiceEngineType): Boolean {
             if (!engineType.isLocal) return true
-            val dir = getEngineDir(context, engineType)
-            if (!dir.exists() || !dir.isDirectory) return false
+            val dir = resolveModelDir(context, engineType) ?: return false
 
             return when (engineType) {
                 VoiceEngineType.LOCAL_KOKORO -> {
@@ -65,6 +93,19 @@ class TtsModelDownloader(private val context: Context) {
                 }
                 else -> true
             }
+        }
+
+        /**
+         * Sanitizes entry relative paths by stripping root archive folder prefixes and normalising path separators.
+         */
+        fun sanitizeRelativeEntryPath(entryName: String, archiveName: String): String {
+            var name = entryName.replace('\\', '/')
+            while (name.startsWith("/")) name = name.substring(1)
+            while (name.startsWith("./")) name = name.substring(2)
+            if (archiveName.isNotBlank() && name.startsWith("$archiveName/")) {
+                name = name.removePrefix("$archiveName/")
+            }
+            return name
         }
     }
 
@@ -153,9 +194,9 @@ class TtsModelDownloader(private val context: Context) {
             targetExtractDir.mkdirs()
 
             if (url.endsWith(".tar.bz2") || url.endsWith(".tbz2") || url.endsWith(".bz2")) {
-                extractTarBz2(tempArchiveFile, targetExtractDir)
+                extractTarBz2(tempArchiveFile, targetExtractDir, engineType.archiveName)
             } else if (url.endsWith(".zip")) {
-                extractZip(tempArchiveFile, targetExtractDir)
+                extractZip(tempArchiveFile, targetExtractDir, engineType.archiveName)
             } else {
                 throw IOException("Unsupported archive format for $url")
             }
@@ -183,22 +224,69 @@ class TtsModelDownloader(private val context: Context) {
     }
 
     /**
-     * Extracts .tar.bz2 archives safely using Apache Commons Compress with Zip/Tar Slip protection.
+     * Extracts .tar.bz2 archives safely using Apache Commons Compress with Zip/Tar Slip protection
+     * and automatic root directory flattening.
      */
-    private fun extractTarBz2(archive: File, destDir: File) {
+    private fun extractTarBz2(archive: File, destDir: File, archiveName: String) {
         val canonicalDest = destDir.canonicalFile
         FileInputStream(archive).use { fis ->
             BufferedInputStream(fis).use { bis ->
                 BZip2CompressorInputStream(bis).use { bzIn ->
                     TarArchiveInputStream(bzIn).use { tarIn ->
-                        var entry = tarIn.nextEntry
+                        var entry = tarIn.nextTarEntry
                         while (entry != null) {
-                            _downloadState.value = DownloadState.Extracting(entry.name)
-                            val targetFile = File(destDir, entry.name).canonicalFile
+                            val relPath = sanitizeRelativeEntryPath(entry.name, archiveName)
+                            if (relPath.isNotBlank()) {
+                                _downloadState.value = DownloadState.Extracting(relPath)
+                                val targetFile = File(destDir, relPath).canonicalFile
+
+                                // Strict path traversal verification
+                                if (!targetFile.toPath().startsWith(canonicalDest.toPath())) {
+                                    throw SecurityException("Path traversal attempt in tar archive: ${entry.name}")
+                                }
+
+                                if (entry.isDirectory) {
+                                    if (!targetFile.exists()) targetFile.mkdirs()
+                                } else {
+                                    val parent = targetFile.parentFile
+                                    if (parent != null && !parent.exists()) parent.mkdirs()
+
+                                    BufferedOutputStream(FileOutputStream(targetFile)).use { out ->
+                                        val buffer = ByteArray(BUFFER_SIZE)
+                                        var count: Int
+                                        while (tarIn.read(buffer).also { count = it } != -1) {
+                                            out.write(buffer, 0, count)
+                                        }
+                                        out.flush()
+                                    }
+                                }
+                            }
+                            entry = tarIn.nextTarEntry
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Extracts .zip archives safely with Zip Slip protection and automatic root directory flattening.
+     */
+    private fun extractZip(archive: File, destDir: File, archiveName: String) {
+        val canonicalDest = destDir.canonicalFile
+        FileInputStream(archive).use { fis ->
+            BufferedInputStream(fis).use { bis ->
+                ZipInputStream(bis).use { zipIn ->
+                    var entry = zipIn.nextEntry
+                    while (entry != null) {
+                        val relPath = sanitizeRelativeEntryPath(entry.name, archiveName)
+                        if (relPath.isNotBlank()) {
+                            _downloadState.value = DownloadState.Extracting(relPath)
+                            val targetFile = File(destDir, relPath).canonicalFile
 
                             // Strict path traversal verification
                             if (!targetFile.toPath().startsWith(canonicalDest.toPath())) {
-                                throw SecurityException("Path traversal attempt in tar archive: ${entry.name}")
+                                throw SecurityException("Path traversal attempt in zip archive: ${entry.name}")
                             }
 
                             if (entry.isDirectory) {
@@ -210,51 +298,11 @@ class TtsModelDownloader(private val context: Context) {
                                 BufferedOutputStream(FileOutputStream(targetFile)).use { out ->
                                     val buffer = ByteArray(BUFFER_SIZE)
                                     var count: Int
-                                    while (tarIn.read(buffer).also { count = it } != -1) {
+                                    while (zipIn.read(buffer).also { count = it } != -1) {
                                         out.write(buffer, 0, count)
                                     }
                                     out.flush()
                                 }
-                            }
-                            entry = tarIn.nextEntry
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Extracts .zip archives safely with Zip Slip protection.
-     */
-    private fun extractZip(archive: File, destDir: File) {
-        val canonicalDest = destDir.canonicalFile
-        FileInputStream(archive).use { fis ->
-            BufferedInputStream(fis).use { bis ->
-                ZipInputStream(bis).use { zipIn ->
-                    var entry = zipIn.nextEntry
-                    while (entry != null) {
-                        _downloadState.value = DownloadState.Extracting(entry.name)
-                        val targetFile = File(destDir, entry.name).canonicalFile
-
-                        // Strict path traversal verification
-                        if (!targetFile.toPath().startsWith(canonicalDest.toPath())) {
-                            throw SecurityException("Path traversal attempt in zip archive: ${entry.name}")
-                        }
-
-                        if (entry.isDirectory) {
-                            if (!targetFile.exists()) targetFile.mkdirs()
-                        } else {
-                            val parent = targetFile.parentFile
-                            if (parent != null && !parent.exists()) parent.mkdirs()
-
-                            BufferedOutputStream(FileOutputStream(targetFile)).use { out ->
-                                val buffer = ByteArray(BUFFER_SIZE)
-                                var count: Int
-                                while (zipIn.read(buffer).also { count = it } != -1) {
-                                    out.write(buffer, 0, count)
-                                }
-                                out.flush()
                             }
                         }
                         zipIn.closeEntry()

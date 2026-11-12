@@ -45,6 +45,7 @@ class JarvisVoiceDispatcher private constructor(private val context: Context) {
     private val speakingStateListeners = CopyOnWriteArrayList<(Boolean) -> Unit>()
 
     @Volatile private var isSpeaking: Boolean = false
+    @Volatile private var isStoppingDispatcher: Boolean = false
 
     fun getActiveEngineType(): VoiceEngineType {
         val saved = prefs.getString(KEY_ACTIVE_ENGINE, VoiceEngineType.LOCAL_KOKORO.id)
@@ -198,14 +199,8 @@ class JarvisVoiceDispatcher private constructor(private val context: Context) {
                     sherpaEngine.speak(cleanSpeech, speaker, speed, amplitudeCallback, completionCallback)
                 } else {
                     Log.w(TAG, "Local engine ${speaker.engineType.displayName} not installed. Falling back to system TTS.")
-                    // Fallback to pre-warmed system TTS
-                    JarvisVoiceController.speakTurnResponse(
-                        context = context,
-                        turnId = "fallback_${System.currentTimeMillis()}",
-                        userPrompt = null,
-                        fullResponse = cleanSpeech,
-                        forceTts = true
-                    )
+                    // Fallback directly to system TTS with zero recursive dispatching
+                    JarvisVoiceController.speakSystemTts(context, cleanSpeech)
                     completionCallback()
                 }
             }
@@ -215,12 +210,31 @@ class JarvisVoiceDispatcher private constructor(private val context: Context) {
         }
     }
 
-    fun stop() {
+    /**
+     * Halts playback on the Sherpa-ONNX and Cloud synthesis engines only.
+     * Never calls into JarvisVoiceController to avoid mutual recursion.
+     */
+    fun stopEngines() {
         sherpaEngine.stop()
         cloudEngine.stop()
-        JarvisVoiceController.stopSpeaking()
         notifyAmplitude(0f)
         notifySpeaking(false)
+    }
+
+    /**
+     * Master stop entrypoint. Re-entrancy guarded against stack overflow.
+     */
+    fun stop() {
+        if (isStoppingDispatcher) return
+        isStoppingDispatcher = true
+        try {
+            stopEngines()
+            try {
+                JarvisVoiceController.stopLegacyTts()
+            } catch (_: Exception) {}
+        } finally {
+            isStoppingDispatcher = false
+        }
     }
 
     fun release() {

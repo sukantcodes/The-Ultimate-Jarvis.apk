@@ -10,8 +10,8 @@ import android.widget.SeekBar
 import android.widget.Toast
 import androidx.core.graphics.ColorUtils
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.chip.Chip
@@ -54,18 +54,22 @@ class TtsSettingsFragment : Fragment() {
 
     private fun applyThemeStyling() {
         val context = requireContext()
-        val themeAccent = try { ThemeManager.getThemeAccentColor() } catch (_: Exception) { Color.parseColor("#2F6BFF") }
-        val themeSecondary = try { ThemeManager.getThemeSecondaryColor() } catch (_: Exception) { Color.parseColor("#8B5CF6") }
-        val themeSuccess = try { ThemeManager.getThemeSuccessColor() } catch (_: Exception) { Color.parseColor("#00E676") }
+        val themeAccent = ThemeManager.getThemeAccentColor()
+        val themeSecondary = ThemeManager.getThemeSecondaryColor()
 
-        // Top Header
+        val cardBg = ColorUtils.setAlphaComponent(themeAccent, 20)
+        val cardBorder = ColorUtils.setAlphaComponent(themeAccent, 75)
+        val surfaceBg = ColorUtils.setAlphaComponent(themeSecondary, 16)
+        val surfaceBorder = ColorUtils.setAlphaComponent(themeSecondary, 65)
+
+        // Top Header Badge
         binding.tvEngineBadge.background = ThemeManager.createDynamicBadgeDrawable(themeAccent, themeSecondary, 10f, context)
-        binding.tvEngineBadge.setTextColor(Color.BLACK)
+        binding.tvEngineBadge.setTextColor(if (ThemeManager.isLight(themeAccent)) Color.BLACK else Color.WHITE)
 
         // Visualizer Container Card
         binding.containerVisualizerCard.background = ThemeManager.createDynamicCardDrawable(
-            strokeColor = ColorUtils.setAlphaComponent(themeAccent, 90),
-            fillColor = Color.parseColor("#101A2E"),
+            strokeColor = cardBorder,
+            fillColor = cardBg,
             cornerRadiusDp = 16f,
             strokeWidthDp = 1.2f,
             context = context
@@ -73,8 +77,8 @@ class TtsSettingsFragment : Fragment() {
 
         // Model Deploy Card
         binding.cardModelDeploy.background = ThemeManager.createDynamicCardDrawable(
-            strokeColor = Color.parseColor("#232C3D"),
-            fillColor = Color.parseColor("#0E1626"),
+            strokeColor = surfaceBorder,
+            fillColor = surfaceBg,
             cornerRadiusDp = 14f,
             strokeWidthDp = 1f,
             context = context
@@ -85,17 +89,20 @@ class TtsSettingsFragment : Fragment() {
 
         // Speaker Persona Card
         binding.cardSpeakerDetail.background = ThemeManager.createDynamicCardDrawable(
-            strokeColor = Color.parseColor("#1E2A3E"),
-            fillColor = Color.parseColor("#0D1522"),
+            strokeColor = surfaceBorder,
+            fillColor = surfaceBg,
             cornerRadiusDp = 12f,
             strokeWidthDp = 1f,
             context = context
         )
 
+        // Default primary badge
+        binding.badgeKokoroDefault.background = ThemeManager.createDynamicBadgeDrawable(themeAccent, themeSecondary, 6f, context)
+
         // Action Buttons
         binding.btnTestVoice.background = ThemeManager.createDynamicCardDrawable(
             strokeColor = themeAccent,
-            fillColor = Color.parseColor("#142036"),
+            fillColor = ColorUtils.setAlphaComponent(themeAccent, 35),
             cornerRadiusDp = 12f,
             strokeWidthDp = 1.5f,
             context = context
@@ -131,10 +138,28 @@ class TtsSettingsFragment : Fragment() {
         }
 
         binding.btnTestVoice.setOnClickListener {
+            val currentEngine = viewModel.selectedEngine.value
+            if (currentEngine.isLocal && !viewModel.isEngineInstalled.value) {
+                Toast.makeText(
+                    requireContext(),
+                    "Local neural core not installed. Deploying or testing with system voice fallback.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
             viewModel.testVoiceValidation()
         }
 
         binding.btnSaveAndActivate.setOnClickListener {
+            val currentEngine = viewModel.selectedEngine.value
+            if (currentEngine.isLocal && !viewModel.isEngineInstalled.value) {
+                Toast.makeText(
+                    requireContext(),
+                    "Please deploy the neural model core before activating this offline voice.",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@setOnClickListener
+            }
+
             viewModel.saveAndActivate {
                 com.jarvis.assistant.background.JarvisConversationService.startWakeWordMonitoring(requireContext())
                 Toast.makeText(requireContext(), "Neural Voice activated & 'Hey Jarvis' listening", Toast.LENGTH_SHORT).show()
@@ -170,6 +195,7 @@ class TtsSettingsFragment : Fragment() {
 
     private fun renderEngineSelection(engine: VoiceEngineType) {
         val themeAccent = ThemeManager.getThemeAccentColor()
+        val themeSecondary = ThemeManager.getThemeSecondaryColor()
         val context = requireContext()
 
         val cards = listOf(
@@ -179,12 +205,16 @@ class TtsSettingsFragment : Fragment() {
             Triple(VoiceEngineType.CLOUD_ELEVENLABS, binding.cardEngineEleven, binding.tvRadioEleven)
         )
 
+        val unselectedStroke = ColorUtils.setAlphaComponent(themeSecondary, 55)
+        val unselectedFill = ColorUtils.setAlphaComponent(themeSecondary, 12)
+        val unselectedRadioColor = ColorUtils.setAlphaComponent(themeSecondary, 180)
+
         for ((type, card, radio) in cards) {
             val isSelected = type == engine
             if (isSelected) {
                 card.background = ThemeManager.createDynamicCardDrawable(
                     strokeColor = themeAccent,
-                    fillColor = ColorUtils.setAlphaComponent(themeAccent, 24),
+                    fillColor = ColorUtils.setAlphaComponent(themeAccent, 32),
                     cornerRadiusDp = 14f,
                     strokeWidthDp = 1.8f,
                     context = context
@@ -193,14 +223,14 @@ class TtsSettingsFragment : Fragment() {
                 radio.setTextColor(themeAccent)
             } else {
                 card.background = ThemeManager.createDynamicCardDrawable(
-                    strokeColor = Color.parseColor("#232C3D"),
-                    fillColor = Color.parseColor("#121722"),
+                    strokeColor = unselectedStroke,
+                    fillColor = unselectedFill,
                     cornerRadiusDp = 14f,
                     strokeWidthDp = 1f,
                     context = context
                 )
                 radio.text = "○"
-                radio.setTextColor(Color.parseColor("#78909C"))
+                radio.setTextColor(unselectedRadioColor)
             }
         }
 
@@ -213,23 +243,26 @@ class TtsSettingsFragment : Fragment() {
     private fun populateSpeakerChips(engine: VoiceEngineType) {
         val context = requireContext()
         val themeAccent = ThemeManager.getThemeAccentColor()
+        val themeSecondary = ThemeManager.getThemeSecondaryColor()
         binding.chipGroupSpeakers.removeAllViews()
 
         val speakers = SpeakerProfile.speakersFor(engine)
         val current = viewModel.selectedSpeaker.value
 
         for (speaker in speakers) {
+            val isChecked = speaker.id == current.id
             val chip = Chip(context).apply {
                 text = speaker.displayName
                 isCheckable = true
-                isChecked = speaker.id == current.id
+                this.isChecked = isChecked
                 chipBackgroundColor = ColorStateList.valueOf(
-                    if (isChecked) ColorUtils.setAlphaComponent(themeAccent, 60) else Color.parseColor("#1B2538")
+                    if (isChecked) ColorUtils.setAlphaComponent(themeAccent, 70)
+                    else ColorUtils.setAlphaComponent(themeSecondary, 24)
                 )
-                setTextColor(if (isChecked) Color.WHITE else Color.parseColor("#B0BEC5"))
+                setTextColor(if (isChecked) themeAccent else ColorUtils.setAlphaComponent(themeSecondary, 220))
                 chipStrokeWidth = 1.5f * resources.displayMetrics.density
                 chipStrokeColor = ColorStateList.valueOf(
-                    if (isChecked) themeAccent else Color.parseColor("#2C3A52")
+                    if (isChecked) themeAccent else ColorUtils.setAlphaComponent(themeSecondary, 60)
                 )
                 setOnClickListener {
                     viewModel.selectSpeaker(speaker)
@@ -265,7 +298,7 @@ class TtsSettingsFragment : Fragment() {
             binding.containerSpeakerSelection.visibility = View.VISIBLE
         } else {
             binding.tvDeployStatusBadge.text = "UNINSTALLED"
-            binding.tvDeployStatusBadge.setTextColor(Color.parseColor("#FFB74D"))
+            binding.tvDeployStatusBadge.setTextColor(ThemeManager.getThemeWarningColor())
             binding.tvDeployDescription.text = "Model archive: ${engine.archiveName} · Memory: ~${engine.ramFootprintMb} MB RAM. Operates safely offline."
             binding.btnDeployModel.visibility = View.VISIBLE
             binding.containerDownloading.visibility = View.GONE

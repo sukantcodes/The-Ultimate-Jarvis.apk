@@ -60,9 +60,9 @@ class SherpaTtsEngine(private val context: Context) {
 
         releaseNativeTts()
 
-        val engineDir = TtsModelDownloader.getEngineDir(context, engineType)
-        if (!TtsModelDownloader.isEngineInstalled(context, engineType)) {
-            Log.w(TAG, "Cannot initialize ${engineType.displayName}: Model files not installed at ${engineDir.absolutePath}")
+        val engineDir = TtsModelDownloader.resolveModelDir(context, engineType)
+        if (engineDir == null || !TtsModelDownloader.isEngineInstalled(context, engineType)) {
+            Log.w(TAG, "Cannot initialize ${engineType.displayName}: Model files not installed")
             return false
         }
 
@@ -148,14 +148,20 @@ class SherpaTtsEngine(private val context: Context) {
                 if (currentEngineType != speakerProfile.engineType || offlineTts == null) {
                     val ready = initializeEngine(speakerProfile.engineType)
                     if (!ready || offlineTts == null) {
-                        Log.e(TAG, "Local neural engine could not be readied for synthesis")
-                        withContext(Dispatchers.Main) { onComplete?.invoke() }
+                        Log.e(TAG, "Local neural engine could not be readied for synthesis; graceful fallback to system TTS")
+                        withContext(Dispatchers.Main) {
+                            com.jarvis.assistant.voice.JarvisVoiceController.speakSystemTts(context, text)
+                            onComplete?.invoke()
+                        }
                         return@launch
                     }
                 }
 
                 val tts = offlineTts ?: run {
-                    withContext(Dispatchers.Main) { onComplete?.invoke() }
+                    withContext(Dispatchers.Main) {
+                        com.jarvis.assistant.voice.JarvisVoiceController.speakSystemTts(context, text)
+                        onComplete?.invoke()
+                    }
                     return@launch
                 }
 
@@ -168,14 +174,20 @@ class SherpaTtsEngine(private val context: Context) {
                 val sampleRate: Int = generatedAudio.sampleRate
 
                 if (samples.isEmpty()) {
-                    Log.w(TAG, "Generated audio waveform was empty")
-                    withContext(Dispatchers.Main) { onComplete?.invoke() }
+                    Log.w(TAG, "Generated audio waveform was empty; fallback to system TTS")
+                    withContext(Dispatchers.Main) {
+                        com.jarvis.assistant.voice.JarvisVoiceController.speakSystemTts(context, text)
+                        onComplete?.invoke()
+                    }
                     return@launch
                 }
 
                 playPcmInMemory(samples, sampleRate, onAmplitude)
             } catch (e: Exception) {
-                Log.e(TAG, "Synthesis or in-memory playback failed", e)
+                Log.e(TAG, "Synthesis or in-memory playback failed; graceful fallback to system TTS", e)
+                withContext(Dispatchers.Main) {
+                    com.jarvis.assistant.voice.JarvisVoiceController.speakSystemTts(context, text)
+                }
             } finally {
                 withContext(Dispatchers.Main) {
                     onAmplitude?.invoke(0f)

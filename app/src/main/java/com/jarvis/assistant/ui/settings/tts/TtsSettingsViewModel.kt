@@ -1,6 +1,7 @@
 package com.jarvis.assistant.ui.settings.tts
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher
@@ -17,6 +18,10 @@ import kotlinx.coroutines.launch
  * ViewModel managing TTS engine states, model downloads, speaker profiles, and live amplitude updates.
  */
 class TtsSettingsViewModel(application: Application) : AndroidViewModel(application) {
+
+    companion object {
+        private const val TAG = "TtsSettingsViewModel"
+    }
 
     private val dispatcher = JarvisVoiceDispatcher.getInstance(application)
     private val downloader = TtsModelDownloader(application)
@@ -87,7 +92,11 @@ class TtsSettingsViewModel(application: Application) : AndroidViewModel(applicat
                 refreshInstallationState()
                 dispatcher.setActiveEngineType(engine)
                 dispatcher.setActiveSpeaker(_selectedSpeaker.value)
-                testVoiceValidation()
+                try {
+                    testVoiceValidation()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Test voice validation threw exception following deploy", e)
+                }
             }
         }
     }
@@ -95,8 +104,12 @@ class TtsSettingsViewModel(application: Application) : AndroidViewModel(applicat
     fun testVoiceValidation(
         phrase: String = "Systems initialized. Voice parameters verified, Sir."
     ) {
-        val speaker = _selectedSpeaker.value
-        dispatcher.speak(phrase, overrideSpeaker = speaker)
+        try {
+            val speaker = _selectedSpeaker.value
+            dispatcher.speak(phrase, overrideSpeaker = speaker)
+        } catch (e: Exception) {
+            Log.e(TAG, "Speech execution error during voice validation", e)
+        }
     }
 
     fun saveAndActivate(onSaved: (() -> Unit)? = null) {
@@ -105,7 +118,11 @@ class TtsSettingsViewModel(application: Application) : AndroidViewModel(applicat
         dispatcher.setActiveEngineType(engine)
         dispatcher.setActiveSpeaker(speaker)
         dispatcher.setSpeechSpeed(_speechSpeed.value)
-        testVoiceValidation()
+        try {
+            testVoiceValidation()
+        } catch (e: Exception) {
+            Log.w(TAG, "Voice validation notice during save & activate", e)
+        }
         onSaved?.invoke()
     }
 
