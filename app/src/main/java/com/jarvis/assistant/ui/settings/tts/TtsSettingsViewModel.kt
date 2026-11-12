@@ -91,7 +91,12 @@ class TtsSettingsViewModel(application: Application) : AndroidViewModel(applicat
             downloader.downloadAndInstall(engine) {
                 refreshInstallationState()
                 dispatcher.setActiveEngineType(engine)
-                dispatcher.setActiveSpeaker(_selectedSpeaker.value)
+                val speakerToSet = if (_selectedSpeaker.value.engineType == engine) {
+                    _selectedSpeaker.value
+                } else {
+                    SpeakerProfile.defaultFor(engine).also { _selectedSpeaker.value = it }
+                }
+                dispatcher.setActiveSpeaker(speakerToSet)
                 try {
                     testVoiceValidation()
                 } catch (e: Exception) {

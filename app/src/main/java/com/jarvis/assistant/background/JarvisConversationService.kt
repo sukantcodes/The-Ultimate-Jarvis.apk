@@ -582,7 +582,7 @@ class JarvisConversationService : Service() {
     @Volatile private var currentTurnWakeAuthorized = false
 
     private fun isCurrentVoiceTurnAuthorized(): Boolean =
-        currentTurnWakeAuthorized || VoiceIntentGate.hasWakePrefix(currentTurnUserText.toString())
+        _isSessionOn.value || currentTurnWakeAuthorized || VoiceIntentGate.hasWakePrefix(currentTurnUserText.toString())
     @Volatile
     private var isPendingWakeGreeting = false
     private var headsetAudioRouter: com.jarvis.assistant.audio.HeadsetAudioRouter? = null
@@ -591,9 +591,7 @@ class JarvisConversationService : Service() {
         super.onCreate()
         activeInstance = this
         com.jarvis.assistant.network.GeminiLiveWebSocket.extraDeclarations = {
-            if (textOnlySession || preferences.voiceWorkspaceTools)
-                org.json.JSONArray(com.jarvis.assistant.tools.ToolSchemas.toGemini(com.jarvis.assistant.tools.ToolRuntime.get(applicationContext).registry.specs()).toString())
-            else null
+            org.json.JSONArray(com.jarvis.assistant.tools.ToolSchemas.toGemini(com.jarvis.assistant.tools.ToolRuntime.get(applicationContext).registry.specs()).toString())
         }
         createChannel()
         initTts()
@@ -911,8 +909,9 @@ class JarvisConversationService : Service() {
             }
             val skillsSection = com.jarvis.assistant.skills.SkillStore.get(applicationContext).promptSection()
             val learnedTaskProfile = com.jarvis.assistant.memory.TaskBehaviorLearner.promptSection(applicationContext)
+            val blueprintSection = "\n\n" + com.jarvis.assistant.selfaware.AppBlueprintProvider.getBlueprintSummary(applicationContext)
             basePrompt + learnedTaskProfile + policySection + genderSection + skillsSection +
-                com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).promptSection()
+                blueprintSection + com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).promptSection()
         }
     }
 
@@ -930,6 +929,8 @@ class JarvisConversationService : Service() {
         }
         exitStandbyListening()
         isPendingWakeGreeting = wakeTriggered
+        currentTurnWakeAuthorized = true
+        wakeAuthorizationArmed = true
 
         val app = application as JarvisApp
         val preferences = app.preferences
@@ -976,6 +977,10 @@ class JarvisConversationService : Service() {
                         explanation = "Hybrid Custom AI + Offline Voice"
                     )
                     offlineLocalMode = false
+                } else if (preferences.apiKey.trim().isNotBlank()) {
+                    customVoice = null
+                    offlineLocalMode = false
+                    apiKey = preferences.apiKey.trim()
                 } else {
                     offlineLocalMode = true
                 }
@@ -989,9 +994,9 @@ class JarvisConversationService : Service() {
             offlineLocalMode = true
         }
 
-        if (offlineLocalMode || !com.jarvis.assistant.offline.OfflineModelDownloader.isInternetAvailable(applicationContext)) {
+        if (offlineLocalMode) {
             val localModel = com.jarvis.assistant.offline.OfflineModelDownloader.modelFile(applicationContext)
-            if (offlineLocalMode && !com.jarvis.assistant.offline.OfflineModelDownloader.isModelValid(localModel)) {
+            if (!com.jarvis.assistant.offline.OfflineModelDownloader.isModelValid(localModel)) {
                 _liveError.value = JarvisLiveError(
                     title = "OFFLINE BRAIN NOT READY",
                     message = "JARVIS selected Offline Brain because the online provider is unavailable or there is no internet connection, but the local Qwen3 model is not installed. Open Offline JARVIS and download the model once.",
@@ -1175,6 +1180,13 @@ class JarvisConversationService : Service() {
                             }
                             if (suppressAudioUntilTurnComplete) {
                                 Log.w("JarvisService", "onAudioDataReceived: Audio suppressed (suppressAudioUntilTurnComplete=true)")
+                                return
+                            }
+                            // If an offline neural voice model (Kokoro/Piper) is installed & active,
+                            // suppress Gemini server audio bytes so Kokoro can synthesize the clean speech
+                            val voiceDisp = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(applicationContext)
+                            val activeEng = voiceDisp.getActiveEngineType()
+                            if (activeEng.isLocal && com.jarvis.assistant.tts.engine.TtsModelDownloader.isEngineInstalled(applicationContext, activeEng)) {
                                 return
                             }
                             // Silent execution applies to task narration, while leaving ordinary
@@ -1392,6 +1404,18 @@ class JarvisConversationService : Service() {
                             }
                             audioPlayer?.notifyTurnComplete()
                             audioChunksReceivedInTurn = 0
+
+                            val voiceDisp = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(applicationContext)
+                            val activeEng = voiceDisp.getActiveEngineType()
+                            val offlineTtsActive = activeEng.isLocal && com.jarvis.assistant.tts.engine.TtsModelDownloader.isEngineInstalled(applicationContext, activeEng)
+                            if (offlineTtsActive && !textChatTurnActive && assistantTurnText.isNotBlank() && !preferences.isSilentExecutionMode) {
+                                setConversationState(ConversationState.SPEAKING)
+                                voiceDisp.speak(assistantTurnText) {
+                                    if (_isSessionOn.value) {
+                                        setConversationState(ConversationState.IDLE)
+                                    }
+                                }
+                            }
                             if (textChatTurnActive) {
                                 val prompt = currentTextChatPrompt
                                 if (prompt.isNotBlank()) {
@@ -4949,13 +4973,15 @@ class JarvisConversationService : Service() {
      * 20 seconds if you do not answer). If that cannot start, or the setting is off, the phone's voice is used.
      */
     fun speakAnnouncement(text: String) {
-        val wantsJarvisVoice = com.jarvis.assistant.notifications.MessageAlertSettings(applicationContext).useJarvisVoice &&
-            !com.jarvis.assistant.security.AiEngineStore(applicationContext).useGroq &&
-            (application as? JarvisApp)?.preferences?.apiKey.orEmpty().isNotBlank()
-        if (!wantsJarvisVoice) {
-            batteryAnnouncer?.say(text)
+        val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(applicationContext)
+        val activeEngine = dispatcher.getActiveEngineType()
+        val isOfflineTtsActive = activeEngine.isLocal && com.jarvis.assistant.tts.engine.TtsModelDownloader.isEngineInstalled(applicationContext, activeEngine)
+
+        if (isOfflineTtsActive) {
+            dispatcher.speak(text)
             return
         }
+
         val socket = liveWebSocket
         if (socket != null && socket.isSessionReady()) {
             socket.sendClientContent(announcementPrompt(text))
@@ -4967,13 +4993,13 @@ class JarvisConversationService : Service() {
             announcementOnlySession = true
             serviceScope.launch(Dispatchers.Main) { beginActiveConversation(wakeTriggered = false) }
         }
-        // If the live session never gets ready, the phone's voice says it so the announcement is never lost.
+        // If the live session never gets ready, the voice dispatcher says it so the announcement is never lost.
         serviceScope.launch {
             kotlinx.coroutines.delay(15_000)
             val stillPending = pendingAnnouncement
             if (stillPending != null) {
                 pendingAnnouncement = null
-                batteryAnnouncer?.say(stillPending)
+                dispatcher.speak(stillPending)
             }
         }
     }
@@ -5221,10 +5247,37 @@ class JarvisConversationService : Service() {
         automationMatchJob = serviceScope.launch {
             kotlinx.coroutines.delay(450)
             val text = currentTurnUserText.toString().trim()
-            if (isCurrentVoiceTurnAuthorized() && text.isNotEmpty() && !tryInstantSocialCommand(text)) {
-                tryLocalAutomation(text)
+            if (isCurrentVoiceTurnAuthorized() && text.isNotEmpty()) {
+                if (tryActionableTaskDelegation(text)) return@launch
+                if (!tryInstantSocialCommand(text)) {
+                    tryLocalAutomation(text)
+                }
             }
         }
+    }
+
+    private suspend fun tryActionableTaskDelegation(text: String): Boolean {
+        if (!com.jarvis.assistant.background.AutonomousBackgroundExecutor.isActionableTask(text)) return false
+        if (automationHandledTurn || hasExecutedCommandInCurrentTurn) return false
+
+        val manager = com.jarvis.assistant.provider.ProviderRuntime.manager(applicationContext)
+        val activeProfile = manager.activeProfile()
+        val customModelActive = activeProfile != null && (manager.hasKey(activeProfile.id) || activeProfile.authMethod == com.jarvis.assistant.provider.AuthMethod.NONE)
+
+        automationHandledTurn = true
+        hasExecutedCommandInCurrentTurn = true
+        suppressAudioUntilTurnComplete = true
+        audioPlayer?.flush()
+
+        val providerName = if (customModelActive) activeProfile?.displayName ?: "Custom Model" else "Workspace Engine"
+        val lang = com.jarvis.assistant.util.MultilingualCommandHelper.resolveLanguage(applicationContext, text)
+        val ack = com.jarvis.assistant.util.MultilingualCommandHelper.getLocalizedAck(lang).ifBlank {
+            "Understood, Sir. Delegating task to $providerName in your workspace. I will monitor execution and update you continuously."
+        }
+        speakAnnouncement(ack)
+
+        com.jarvis.assistant.background.AutonomousBackgroundExecutor.execute(applicationContext, text)
+        return true
     }
 
     // ---------------------------------------------------------------------------------------------

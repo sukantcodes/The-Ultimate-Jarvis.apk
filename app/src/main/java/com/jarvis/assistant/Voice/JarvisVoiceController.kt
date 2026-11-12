@@ -185,30 +185,15 @@ object JarvisVoiceController {
             return
         }
 
-        val useJarvisVoice = isJarvisLiveVoiceAvailable(context)
-
-        if (useJarvisVoice) {
-            // Authentic Jarvis voice through live service announcement
-            val announced = JarvisConversationService.announceMessage(shortSpokenText)
-            if (announced) {
-                notifySpeakingState(true)
-                // Fallback reset speaking indicator after rough speaking duration
-                val estimatedDurationMs = maxOf(2500L, (shortSpokenText.split("\\s+".toRegex()).size * 350L))
-                mainHandler.postDelayed({
-                    if (isSpeakingState) notifySpeakingState(false)
-                }, estimatedDurationMs)
-                return
-            }
-        }
-
-        // Direct instant neural TTS path (Kokoro-82M, Piper VITS, Cloud, or fallback)
+        // Master Voice Dispatcher (Offline Neural Kokoro/Piper, Gemini Voice, or System Fallback)
         try {
             val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(context)
             notifySpeakingState(true)
             dispatcher.speak(shortSpokenText) {
                 notifySpeakingState(false)
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e(TAG, "JarvisVoiceDispatcher speak failed; falling back to system TTS", e)
             speakSystemTts(context, shortSpokenText)
         }
     }

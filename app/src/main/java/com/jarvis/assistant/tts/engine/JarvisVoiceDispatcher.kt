@@ -48,8 +48,33 @@ class JarvisVoiceDispatcher private constructor(private val context: Context) {
     @Volatile private var isStoppingDispatcher: Boolean = false
 
     fun getActiveEngineType(): VoiceEngineType {
-        val saved = prefs.getString(KEY_ACTIVE_ENGINE, VoiceEngineType.LOCAL_KOKORO.id)
-        return VoiceEngineType.fromId(saved)
+        val saved = prefs.getString(KEY_ACTIVE_ENGINE, null)
+        if (saved != null) {
+            val engine = VoiceEngineType.fromId(saved)
+            if (engine.isLocal && TtsModelDownloader.isEngineInstalled(context, engine)) {
+                return engine
+            }
+            if (!engine.isLocal && engine != VoiceEngineType.NONE) {
+                return engine
+            }
+            if (engine == VoiceEngineType.NONE) {
+                return VoiceEngineType.NONE
+            }
+        }
+        // Auto-resolution:
+        // 1. If an offline neural model is installed, automatically set & prioritize it
+        if (TtsModelDownloader.isEngineInstalled(context, VoiceEngineType.LOCAL_KOKORO)) {
+            return VoiceEngineType.LOCAL_KOKORO
+        }
+        if (TtsModelDownloader.isEngineInstalled(context, VoiceEngineType.LOCAL_PIPER)) {
+            return VoiceEngineType.LOCAL_PIPER
+        }
+        // 2. Until an offline voice model is downloaded, use Gemini Voice!
+        val app = context.applicationContext as? JarvisApp ?: JarvisApp.instance
+        if (app.preferences.apiKey.trim().isNotBlank()) {
+            return VoiceEngineType.CLOUD_GEMINI
+        }
+        return VoiceEngineType.NONE
     }
 
     fun setActiveEngineType(engineType: VoiceEngineType) {
@@ -193,13 +218,16 @@ class JarvisVoiceDispatcher private constructor(private val context: Context) {
             onComplete?.invoke()
         }
 
+        val hasGemini = (context.applicationContext as? JarvisApp)?.preferences?.apiKey?.trim()?.isNotEmpty() == true
         when (speaker.engineType) {
             VoiceEngineType.LOCAL_KOKORO, VoiceEngineType.LOCAL_PIPER -> {
                 if (TtsModelDownloader.isEngineInstalled(context, speaker.engineType)) {
                     sherpaEngine.speak(cleanSpeech, speaker, speed, amplitudeCallback, completionCallback)
+                } else if (hasGemini) {
+                    Log.i(TAG, "Local engine ${speaker.engineType.displayName} not installed. Using Gemini Cloud Voice.")
+                    cloudEngine.speak(cleanSpeech, SpeakerProfile.defaultFor(VoiceEngineType.CLOUD_GEMINI), amplitudeCallback, completionCallback)
                 } else {
-                    Log.w(TAG, "Local engine ${speaker.engineType.displayName} not installed. Falling back to system TTS.")
-                    // Fallback directly to system TTS with zero recursive dispatching
+                    Log.w(TAG, "Local engine ${speaker.engineType.displayName} not installed and no Gemini key. Falling back to system TTS.")
                     JarvisVoiceController.speakSystemTts(context, cleanSpeech)
                     completionCallback()
                 }
@@ -208,9 +236,14 @@ class JarvisVoiceDispatcher private constructor(private val context: Context) {
                 cloudEngine.speak(cleanSpeech, speaker, amplitudeCallback, completionCallback)
             }
             VoiceEngineType.NONE -> {
-                Log.i(TAG, "Offline TTS engine is deactivated. Delegating to system voice.")
-                JarvisVoiceController.speakSystemTts(context, cleanSpeech)
-                completionCallback()
+                if (hasGemini) {
+                    Log.i(TAG, "Offline TTS not active. Using Gemini Voice.")
+                    cloudEngine.speak(cleanSpeech, SpeakerProfile.defaultFor(VoiceEngineType.CLOUD_GEMINI), amplitudeCallback, completionCallback)
+                } else {
+                    Log.i(TAG, "Offline TTS engine is deactivated. Delegating to system voice.")
+                    JarvisVoiceController.speakSystemTts(context, cleanSpeech)
+                    completionCallback()
+                }
             }
         }
     }

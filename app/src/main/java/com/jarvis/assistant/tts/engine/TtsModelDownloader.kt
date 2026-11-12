@@ -39,6 +39,13 @@ class TtsModelDownloader(private val context: Context) {
         fun notifyEnginesChanged(context: Context) {
             val installed = VoiceEngineType.entries.filter { it.isLocal && isEngineInstalled(context, it) }
             _installedEnginesFlow.value = installed
+            if (isEngineInstalled(context, VoiceEngineType.LOCAL_KOKORO)) {
+                val dispatcher = JarvisVoiceDispatcher.getInstance(context)
+                if (!dispatcher.getActiveEngineType().isLocal) {
+                    dispatcher.setActiveEngineType(VoiceEngineType.LOCAL_KOKORO)
+                    dispatcher.setActiveSpeaker(SpeakerProfile.defaultFor(VoiceEngineType.LOCAL_KOKORO))
+                }
+            }
         }
 
         fun getModelsBaseDir(context: Context): File {

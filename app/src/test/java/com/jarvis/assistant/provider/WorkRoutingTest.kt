@@ -81,6 +81,14 @@ class WorkRoutingTest {
         assertEquals("local_kokoro", saved.modelId)
     }
 
+    @Test fun gemini_route_resolves_cleanly_for_voice() {
+        routes.set(WorkCategory.VOICE, Route(Route.GEMINI, "gemini-2.0-flash"))
+        val saved = routes.get(WorkCategory.VOICE)
+        assertNotNull(saved)
+        assertTrue(saved!!.isGemini)
+        assertEquals("gemini-2.0-flash", saved.modelId)
+    }
+
     @Test fun task_type_from_id_resolves_all_categories() {
         assertEquals(TaskType.CHAT_ANALYSIS, TaskType.fromId("chat_analysis"))
         assertEquals(TaskType.IMAGE_UNDERSTANDING, TaskType.fromId("image_understanding"))
