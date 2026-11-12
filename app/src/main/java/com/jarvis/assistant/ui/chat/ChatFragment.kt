@@ -310,10 +310,6 @@ class ChatFragment : Fragment() {
             (activity as? MainActivity)?.openNavigationDrawer()
         }
 
-        binding.chipPersona.onSafeClick {
-            Toast.makeText(requireContext(), "Persona: Jarvis Active", Toast.LENGTH_SHORT).show()
-        }
-        binding.chipMode.onSafeClick { showChatModePicker() }
         binding.tvChatTokens.onSafeClick {
             TokenSettingsBottomSheet.show(requireContext(), totalUsedTokens) { _ ->
                 updateTokenUsage(chatAdapter.currentList)
@@ -469,17 +465,9 @@ class ChatFragment : Fragment() {
             .show()
     }
 
+    // The visible Auto/Jarvis selector chips were removed from the composer.
+    // Keep the existing routing preference and provider status logic intact.
     private fun refreshChatModeLabel() {
-        val label = when (selectedChatMode) {
-            "gemini" -> "Gemini"
-            "offline" -> "Offline"
-            else -> "Auto"
-        }
-        val chip = binding.chipMode
-        if (chip.childCount > 1 && chip.getChildAt(1) is android.widget.TextView) {
-            (chip.getChildAt(1) as android.widget.TextView).text = label
-        }
-        chip.contentDescription = "Chat engine: $label. Tap to change."
         refreshProviderLabel()
     }
 
