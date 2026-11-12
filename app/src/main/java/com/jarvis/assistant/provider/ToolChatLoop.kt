@@ -83,14 +83,19 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
                     "terminal_run" -> "$ $target"
                     "search_web", "web_search" -> "Searching: $target…"
                     "read_file" -> "Reading $target…"
-                    else -> ""
+                    "make_directory" -> "Creating folder $target…"
+                    "delete_path" -> "Deleting $target…"
+                    else -> "Running ${c.name}…"
                 }
                 val lang = when (c.name) {
                     "terminal_run" -> "terminal"
                     "search_web", "web_search" -> "search"
                     "read_file" -> "read"
                     "edit_file" -> "edit"
-                    else -> target.substringAfterLast('.', "code")
+                    "make_directory" -> "folder"
+                    "delete_path" -> "delete"
+                    "write_file" -> target.substringAfterLast('.', "code")
+                    else -> "tool"
                 }
 
                 onStep(LiveToolStep(c.name, target, lang, content, isWriting = true, n, maxRounds))
@@ -112,7 +117,17 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
                     "search_web", "web_search" -> "Query: $target\n\n${res.text}"
                     "read_file" -> res.text
                     "edit_file" -> if (content.isNotBlank()) content else res.text
-                    else -> content
+                    "write_file" -> content
+                    "make_directory" -> "Created folder $target"
+                    "delete_path" -> res.text.ifBlank { "Deleted $target" }
+                    else -> res.text.ifBlank { content }.take(4_000)
+                }.let { shown ->
+                    // Never let a card look successful when the tool was refused or failed.
+                    when (res) {
+                        is ToolResult.Error -> "⚠ ${res.text}\n\n$shown".trim()
+                        is ToolResult.Denied -> "⚠ ${res.text}\n\n$shown".trim()
+                        else -> shown
+                    }
                 }
                 onStep(LiveToolStep(c.name, target, lang, finalOutput, isWriting = false, n, maxRounds))
                 val activityDone = when (c.name) {
