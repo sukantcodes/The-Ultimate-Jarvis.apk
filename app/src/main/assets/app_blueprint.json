@@ -1,0 +1,53 @@
+{
+  "app_name": "JARVIS AI Assistant",
+  "package": "com.jarvis.assistant",
+  "version": "Antigravity",
+  "architecture": "MVVM + Kotlin Coroutines + StateFlow",
+  "features": {
+    "chat": {
+      "fragment": "ui/chat/ChatFragment.kt",
+      "viewmodel": "ui/home/MainViewModel.kt",
+      "description": "Main AI chat interface with voice and text"
+    },
+    "voice": {
+      "controller": "Voice/JarvisVoiceController.kt",
+      "dispatcher": "tts/JarvisVoiceDispatcher.kt",
+      "description": "Neural TTS with Kokoro, Piper, Gemini, ElevenLabs"
+    },
+    "wake_word": {
+      "service": "background/JarvisWakeWordService.kt",
+      "grammar": "audio/JarvisWakeWordGrammar.kt",
+      "description": "Always-on Hey Jarvis wake word detection"
+    },
+    "themes": {
+      "manager": "util/ThemeManager.kt",
+      "description": "Dynamic accent/secondary/success/warning color theming"
+    },
+    "permissions": {
+      "auto_approve": "tools/PermissionPreferences.isAutoApproveAll()",
+      "description": "Auto-approve all tool permissions without prompting"
+    },
+    "automation": {
+      "engine": "Studio/AutomationEngine.kt",
+      "description": "Macro and automation studio"
+    },
+    "background_tasks": {
+      "service": "background/JarvisConversationService.kt",
+      "executor": "background/AutonomousBackgroundExecutor.kt",
+      "description": "Background AI task execution"
+    },
+    "skills": {
+      "catalog": "Studio/ActionCatalog.kt",
+      "description": "Extensible skill catalog"
+    },
+    "tts_settings": {
+      "activity": "ui/settings/tts/TtsSettingsActivity.kt",
+      "description": "Neural TTS voice configuration"
+    }
+  },
+  "self_modification": {
+    "enabled": true,
+    "auto_approve": true,
+    "note": "Jarvis has full access to modify its own app behavior via AppModificationEngine"
+  }
+}

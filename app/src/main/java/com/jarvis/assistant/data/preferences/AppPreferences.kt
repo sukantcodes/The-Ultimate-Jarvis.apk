@@ -480,6 +480,10 @@ class AppPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_SILENT_EXECUTION_MODE, false)
         set(value) = prefs.edit().putBoolean(KEY_SILENT_EXECUTION_MODE, value).apply()
 
+    var selfAwareMode: Boolean
+        get() = prefs.getBoolean("key_self_aware_mode", true)
+        set(value) = prefs.edit().putBoolean("key_self_aware_mode", value).apply()
+
     var isTaskOverlayEnabled: Boolean
         get() = prefs.getBoolean(KEY_TASK_OVERLAY_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_TASK_OVERLAY_ENABLED, value).apply()
