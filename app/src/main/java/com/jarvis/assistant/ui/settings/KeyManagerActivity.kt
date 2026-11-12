@@ -20,6 +20,7 @@ import com.jarvis.assistant.provider.AuthMethod
 import com.jarvis.assistant.provider.KeyManager
 import com.jarvis.assistant.provider.KeyRecord
 import com.jarvis.assistant.provider.ProviderProfile
+import com.jarvis.assistant.provider.ProviderProtocol
 import com.jarvis.assistant.provider.ProviderRuntime
 import com.jarvis.assistant.provider.ResetSchedule
 import com.jarvis.assistant.util.ThemeManager
