@@ -625,7 +625,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_tts_play"
-                            app:tint="@color/set_accent_voice" />
+                            app:tint="?attr/themeAccent" />
                     </FrameLayout>
 
                     <LinearLayout
@@ -639,14 +639,14 @@
                             style="@style/Widget.JarvisSettings.RowTitle.Voice"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@string/set_pockettts_title" />
+                            android:text="Neural Voice &amp; TTS Core" />
 
                         <TextView
                             android:id="@+id/tvPocketTtsSubtitle"
                             style="@style/Widget.JarvisSettings.RowSubtitle.Voice"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@string/set_pockettts_subtitle" />
+                            android:text="Kokoro-82M Int8 • Piper VITS • Gemini &amp; ElevenLabs" />
                     </LinearLayout>
 
                     <ImageView

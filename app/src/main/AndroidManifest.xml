@@ -89,6 +89,11 @@
         <activity android:name=".ui.diagnostics.CleanupFeatureActivity" android:exported="false" />
 
         <activity
+            android:name=".ui.settings.tts.TtsSettingsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
             android:name=".ui.settings.PocketTtsSetupActivity"
             android:exported="false"
             android:screenOrientation="portrait" />

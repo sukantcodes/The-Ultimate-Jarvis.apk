@@ -87,7 +87,11 @@ class ToolSettingsActivity : AppCompatActivity() {
     private fun voiceTools() {
         val c = section("Voice and tools", "Lets Gemini voice use the workspace tools: create files and websites, run a local preview, search the web, open pages in Chrome. Risky steps ask you first, by notification if Jarvis is not on screen.")
         val prefs = (application as com.jarvis.assistant.JarvisApp).preferences
-        val sw = Switch(this).apply { text = "Workspace tools in voice sessions"; isChecked = prefs.voiceWorkspaceTools }
+        val sw = Switch(this).apply {
+            text = "Workspace tools in voice sessions"
+            isChecked = prefs.voiceWorkspaceTools
+            ThemeManager.tintSwitch(this, ThemeManager.getThemeAccentColor())
+        }
         sw.setOnCheckedChangeListener { _, on -> prefs.voiceWorkspaceTools = on }
         c.addView(sw)
     }
@@ -97,6 +101,7 @@ class ToolSettingsActivity : AppCompatActivity() {
         val autoSw = Switch(this).apply {
             text = "⚡ Auto-Approve All Permissions (Autonomous Mode)"
             isChecked = com.jarvis.assistant.tools.PermissionPreferences.isAutoApproveAll(this@ToolSettingsActivity)
+            ThemeManager.tintSwitch(this, ThemeManager.getThemeAccentColor())
         }
         autoSw.setOnCheckedChangeListener { _, on ->
             com.jarvis.assistant.tools.PermissionPreferences.setAutoApproveAll(this@ToolSettingsActivity, on)

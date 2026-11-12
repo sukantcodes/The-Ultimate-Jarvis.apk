@@ -159,9 +159,17 @@ object JarvisVoiceController {
             }
         }
 
-        // Direct instant TTS path (for custom models, offline mode, or fallback)
-        prewarm(context)
-        speakViaTts(shortSpokenText)
+        // Direct instant neural TTS path (Kokoro-82M, Piper VITS, Cloud, or fallback)
+        try {
+            val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(context)
+            notifySpeakingState(true)
+            dispatcher.speak(shortSpokenText) {
+                notifySpeakingState(false)
+            }
+        } catch (_: Exception) {
+            prewarm(context)
+            speakViaTts(shortSpokenText)
+        }
     }
 
     private fun speakViaTts(text: String) {

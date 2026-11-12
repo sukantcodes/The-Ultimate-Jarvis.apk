@@ -127,6 +127,16 @@
 - **No Resets on New Input:** Typing or sending new prompts never resets the header token counter to 0; it displays the grand total tokens consumed throughout the entire chat session.
 - **Clean Reset Lifecycle:** Resets strictly when the user confirms a "New Chat" in the chat menu.
 
+### 1.17 Theme-Synced Settings & Production-Grade Dual-Tier Neural TTS Engine
+- **Global Dynamic Theme Synchronization:** Audited and bound Token Tier selector (Low/High/Max), Auto-Approve switches, and all HUD controls dynamically to `ThemeManager.getThemeAccentColor()`. Zero hardcoded static hex colors; borders, backgrounds, and switch thumbs adapt instantly to theme changes without restarting the app.
+- **Primary Local Engine (Kokoro-82M Int8 Multi-Lang):** Default studio-grade on-device neural voice with ~135 MB active RAM footprint. Curated speaker profiles include `bm_george` (Classic Jarvis, British Male, sid=11), `bm_lewis` (sid=12), `af_bella` (sid=1), `bf_emma` (sid=7), and `am_adam` (sid=5).
+- **Fallback Local Engine (Piper VITS Alan Medium):** High-speed, lightweight offline fallback (< 50 MB RAM, 20-40 ms synthesis latency).
+- **Cloud Synthesis Service (Gemini & ElevenLabs):** Authenticated REST integration for Gemini 3.8 Flash Cloud TTS (Charon, Orus, Kore, Puck) and ElevenLabs Turbo v2.5 (Rachel, Adam) with in-memory `MediaDataSource` streaming.
+- **Zero Flash Degradation & In-Memory Streaming:** Native PCM FloatArray piped directly into `AudioTrack` configured with `USAGE_ASSISTANT` and `CONTENT_TYPE_SPEECH`. Zero intermediate WAV/MP3 files written to disk.
+- **Strict Pre-Synthesis Sanitization:** Rigorous regex filters stripping code blocks, JSON payloads, URLs, and markdown before voice synthesis.
+- **Resilient Model Downloader & Unpacker:** OkHttp 8 KB streaming downloader with real-time `StateFlow<DownloadState>` progress and Apache Commons Compress `.tar.bz2` + `.zip` safe extraction with strict canonical path traversal security against Zip Slip.
+- **Cybernetic Holographic HUD & Visualizer:** OLED Obsidian canvas with dynamic frosted glass panels and custom Canvas-rendered `HolographicVisualizerView` actively reacting to speech RMS amplitude in real-time. Immediate voice validation on save: *"Systems initialized. Voice parameters verified, Sir."*
+
 ---
 
 ## 2. Future Implementation Roadmap (13 Features)

@@ -342,4 +342,67 @@ object ThemeManager {
         // Use the same full-bounds renderer for every activity and fragment, including Updates.
         view.background = createThemeBackgroundDrawable(themeKey)
     }
+
+    /**
+     * Programmatically creates a card background with dynamic theme stroke and fill,
+     * ensuring that changing the theme immediately updates all card containers.
+     */
+    fun createDynamicCardDrawable(
+        strokeColor: Int,
+        fillColor: Int = 0x1A101A2E,
+        cornerRadiusDp: Float = 14f,
+        strokeWidthDp: Float = 1.5f,
+        context: Context
+    ): Drawable {
+        val density = context.resources.displayMetrics.density
+        return android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+            cornerRadius = cornerRadiusDp * density
+            setColor(fillColor)
+            setStroke((strokeWidthDp * density).toInt().coerceAtLeast(1), strokeColor)
+        }
+    }
+
+    /**
+     * Programmatically creates a dynamic gradient badge background bound to theme accents.
+     */
+    fun createDynamicBadgeDrawable(
+        startColor: Int,
+        endColor: Int,
+        cornerRadiusDp: Float = 12f,
+        context: Context
+    ): Drawable {
+        val density = context.resources.displayMetrics.density
+        return android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+            intArrayOf(startColor, endColor)
+        ).apply {
+            cornerRadius = cornerRadiusDp * density
+        }
+    }
+
+    /**
+     * Tints an Android switch thumb and track dynamically using the active theme accent.
+     */
+    fun tintSwitch(switch: android.widget.CompoundButton, accentColor: Int = getThemeAccentColor()) {
+        val trackStates = arrayOf(
+            intArrayOf(android.R.attr.state_checked),
+            intArrayOf(-android.R.attr.state_checked)
+        )
+        val trackColors = intArrayOf(
+            ColorUtils.setAlphaComponent(accentColor, 120),
+            Color.parseColor("#424A60")
+        )
+        switch.trackTintList = android.content.res.ColorStateList(trackStates, trackColors)
+
+        val thumbStates = arrayOf(
+            intArrayOf(android.R.attr.state_checked),
+            intArrayOf(-android.R.attr.state_checked)
+        )
+        val thumbColors = intArrayOf(
+            accentColor,
+            Color.parseColor("#90A4AE")
+        )
+        switch.thumbTintList = android.content.res.ColorStateList(thumbStates, thumbColors)
+    }
 }

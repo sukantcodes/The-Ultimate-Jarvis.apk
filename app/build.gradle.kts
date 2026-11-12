@@ -40,7 +40,10 @@ android {
         versionName = configuredVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
+        ndk {
+            abiFilters.clear()
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
         buildConfigField("String", "DEVELOPER_NAME", buildConfigString(developerName.ifBlank { "Unverified developer" }))
         buildConfigField("String", "COPYRIGHT_OWNER", buildConfigString(copyrightOwner.ifBlank { "Unconfigured" }))
         buildConfigField("String", "PINNED_RELEASE_CERT_SHA256", buildConfigString(releaseCertSha256))
@@ -98,6 +101,17 @@ android {
         // Keep all other lint checks enabled while that upstream detector is incompatible.
         disable += "NullSafeMutableLiveData"
     }
+
+    packaging {
+        jniLibs {
+            pickFirsts += listOf(
+                "**/libonnxruntime.so",
+                "**/libsherpa-onnx-c-api.so",
+                "**/libsherpa-onnx-cxx-api.so",
+                "**/libsherpa-onnx-jni.so"
+            )
+        }
+    }
 }
 
 tasks.register("verifyReleaseSecurityInputs") {
@@ -153,6 +167,10 @@ dependencies {
 
     // Security Crypto for EncryptedSharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // Neural TTS: Sherpa-ONNX on-device inference & Apache Commons Compress
+    implementation("com.github.k2-fsa.sherpa-onnx:sherpa-onnx:v2.0.1")
+    implementation("org.apache.commons:commons-compress:1.26.2")
 
     testImplementation("junit:junit:4.13.2")
     // Real org.json for JVM unit tests (the Android stub throws); used by the task ledger codec tests.

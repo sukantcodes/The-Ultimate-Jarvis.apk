@@ -504,7 +504,7 @@ class SettingsFragment : Fragment() {
 
     private fun setupVoiceSection() {
         binding.rowVoiceGender.setOnClickListener { showVoiceGenderDialog() }
-        binding.rowPocketTts.setOnClickListener { open(PocketTtsSetupActivity::class.java) }
+        binding.rowPocketTts.setOnClickListener { open(com.jarvis.assistant.ui.settings.tts.TtsSettingsActivity::class.java) }
         binding.rowNoiseCancel.setOnClickListener { showNoiseCancelDialog() }
         binding.rowAutoSleep.setOnClickListener { showAutoSleepDialog() }
         binding.rowDefaultAssistant.setOnClickListener { requestDefaultAssistant() }
@@ -761,6 +761,7 @@ class SettingsFragment : Fragment() {
         refreshSwitchStates()
         updateAiEngineSubtitle()
         updateVoiceGenderSubtitle()
+        updateTtsSubtitle()
         updateNoiseCancelSubtitle()
         updateAutoSleepSubtitle()
         updateNotificationAccessSubtitle()
@@ -851,6 +852,15 @@ class SettingsFragment : Fragment() {
 
     private fun updateVoiceGenderSubtitle() {
         binding.tvVoiceGenderSubtitle.text = VoiceGenderStore(requireContext()).summary()
+    }
+
+    private fun updateTtsSubtitle() {
+        try {
+            val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(requireContext())
+            val engine = dispatcher.getActiveEngineType()
+            val speaker = dispatcher.getActiveSpeaker()
+            binding.tvPocketTtsSubtitle.text = "${engine.displayName} • ${speaker.displayName}"
+        } catch (_: Exception) {}
     }
 
     private fun updateNoiseCancelSubtitle() {

@@ -90,19 +90,47 @@ class ApiConnectionActivity : AppCompatActivity() {
 
     private fun updateAutoApproveUI(enabled: Boolean) {
         binding.switchApiAutoApproveAll.isChecked = enabled
+        val themeAccent = com.jarvis.assistant.util.ThemeManager.getThemeAccentColor()
+        val themeSecondary = com.jarvis.assistant.util.ThemeManager.getThemeSecondaryColor()
+        val themeSuccess = com.jarvis.assistant.util.ThemeManager.getThemeSuccessColor()
+        com.jarvis.assistant.util.ThemeManager.tintSwitch(binding.switchApiAutoApproveAll, themeAccent)
+
         if (enabled) {
-            binding.cardApiAutoApproveAll.background = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.bg_auto_approve_card_active)
-            binding.tvApiAutoApproveBadge.background = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.bg_auto_approve_badge_active)
+            binding.cardApiAutoApproveAll.background = com.jarvis.assistant.util.ThemeManager.createDynamicCardDrawable(
+                strokeColor = themeAccent,
+                fillColor = androidx.core.graphics.ColorUtils.setAlphaComponent(themeAccent, 24),
+                cornerRadiusDp = 14f,
+                strokeWidthDp = 1.8f,
+                context = this
+            )
+            binding.tvApiAutoApproveBadge.background = com.jarvis.assistant.util.ThemeManager.createDynamicBadgeDrawable(
+                startColor = themeAccent,
+                endColor = themeSecondary,
+                cornerRadiusDp = 12f,
+                context = this
+            )
             binding.tvApiAutoApproveBadge.text = "★ UNRESTRICTED"
             binding.tvApiAutoApproveBadge.setTextColor(Color.parseColor("#000000"))
             binding.tvApiAutoApproveSubtitle.text = "Zero-prompt autonomy · Complete bypass"
-            binding.tvApiAutoApproveSubtitle.setTextColor(Color.parseColor("#00E5FF"))
-            binding.viewApiAutoApproveDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#00E676"))
+            binding.tvApiAutoApproveSubtitle.setTextColor(themeAccent)
+            binding.viewApiAutoApproveDot.backgroundTintList = ColorStateList.valueOf(themeSuccess)
             binding.tvApiAutoApproveStatusText.text = "ACTIVE · All actions auto-approved without prompts"
-            binding.tvApiAutoApproveStatusText.setTextColor(Color.parseColor("#00E676"))
+            binding.tvApiAutoApproveStatusText.setTextColor(themeSuccess)
         } else {
-            binding.cardApiAutoApproveAll.background = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.bg_auto_approve_card_inactive)
-            binding.tvApiAutoApproveBadge.background = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.bg_auto_approve_badge_inactive)
+            binding.cardApiAutoApproveAll.background = com.jarvis.assistant.util.ThemeManager.createDynamicCardDrawable(
+                strokeColor = Color.parseColor("#232C3D"),
+                fillColor = Color.parseColor("#121722"),
+                cornerRadiusDp = 14f,
+                strokeWidthDp = 1f,
+                context = this
+            )
+            binding.tvApiAutoApproveBadge.background = com.jarvis.assistant.util.ThemeManager.createDynamicCardDrawable(
+                strokeColor = Color.parseColor("#2E3A4E"),
+                fillColor = Color.parseColor("#20293D"),
+                cornerRadiusDp = 12f,
+                strokeWidthDp = 1f,
+                context = this
+            )
             binding.tvApiAutoApproveBadge.text = "STANDARD PROMPTS"
             binding.tvApiAutoApproveBadge.setTextColor(Color.parseColor("#90A4AE"))
             binding.tvApiAutoApproveSubtitle.text = "Safety prompts active for write & execute tools"

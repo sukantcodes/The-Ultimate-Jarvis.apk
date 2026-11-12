@@ -308,7 +308,7 @@
                 android:layout_height="10dp"
                 android:max="100"
                 android:progress="66"
-                android:progressTint="#29B6F6" />
+                android:progressTint="?attr/colorPrimary" />
         </LinearLayout>
 
         <TextView
@@ -409,7 +409,7 @@
                 android:layout_height="24dp"
                 android:gravity="center"
                 android:text="●"
-                android:textColor="#29B6F6"
+                android:textColor="?attr/colorPrimary"
                 android:textSize="18sp" />
         </LinearLayout>
 
