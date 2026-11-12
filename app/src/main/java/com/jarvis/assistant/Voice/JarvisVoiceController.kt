@@ -8,6 +8,7 @@ import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.background.JarvisConversationService
+import com.jarvis.assistant.data.model.ConversationState
 import java.util.Locale
 
 /**
@@ -36,7 +37,7 @@ object JarvisVoiceController {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     fun isSpeaking(): Boolean =
-        isSpeakingState || JarvisConversationService.conversationState.value == JarvisConversationService.ConversationState.SPEAKING
+        isSpeakingState || JarvisConversationService.conversationState.value == ConversationState.SPEAKING
 
     fun addSpeakingStateListener(listener: (Boolean) -> Unit) {
         synchronized(listeners) {

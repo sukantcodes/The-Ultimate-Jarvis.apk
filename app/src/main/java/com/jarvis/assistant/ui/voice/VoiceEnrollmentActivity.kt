@@ -417,7 +417,7 @@ class VoiceEnrollmentActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 binding.btnRecordSample.isEnabled = true
                 binding.btnRecordSample.background = ThemeManager.createDynamicBadgeDrawable(
-                    themeAccent, themeSecondary, 28f, this
+                    themeAccent, themeSecondary, 28f, this@VoiceEnrollmentActivity
                 )
 
                 if (vector != null && vector.isNotEmpty()) {
@@ -553,7 +553,7 @@ class VoiceEnrollmentActivity : AppCompatActivity() {
                         fillColor = ColorUtils.setAlphaComponent(themeSuccess, 25),
                         cornerRadiusDp = 12f,
                         strokeWidthDp = 1.5f,
-                        context = this
+                        context = this@VoiceEnrollmentActivity
                     )
                     val distStr = String.format(Locale.ROOT, "%.2f", result.distance)
                     val threshStr = String.format(Locale.ROOT, "%.2f", result.threshold)
@@ -568,7 +568,7 @@ class VoiceEnrollmentActivity : AppCompatActivity() {
                         fillColor = ColorUtils.setAlphaComponent(themeWarning, 25),
                         cornerRadiusDp = 12f,
                         strokeWidthDp = 1.5f,
-                        context = this
+                        context = this@VoiceEnrollmentActivity
                     )
                     binding.tvTestDetails.text = "Non-owner voice detected and blocked! Distance: $distStr (Threshold: $threshStr)"
                 }
