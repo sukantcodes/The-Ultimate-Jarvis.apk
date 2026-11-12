@@ -42,6 +42,7 @@ class AppPreferences(context: Context) {
         private const val ENCRYPTED_API_PREF_NAME = "jarvis_secure_api_prefs"
         private const val TAG = "AppPreferences"
         private const val KEY_API_KEY = "key_api_key"
+        private const val KEY_ELEVENLABS_API_KEY = "key_elevenlabs_api_key"
         private const val KEY_CUMULATIVE_CHAT_TOKENS = "key_cumulative_chat_tokens"
         private const val KEY_MODEL = "key_model"
         private const val KEY_VOICE = "key_voice"
@@ -198,6 +199,16 @@ class AppPreferences(context: Context) {
             val saved = if (clean.isEmpty()) secure.edit().remove(KEY_API_KEY).commit()
             else secure.edit().putString(KEY_API_KEY, clean).commit()
             check(saved) { "Could not save API key to encrypted storage." }
+        }
+
+    var elevenLabsApiKey: String
+        get() = secureApiPrefs?.getString(KEY_ELEVENLABS_API_KEY, "")?.trim()
+            ?: prefs.getString(KEY_ELEVENLABS_API_KEY, "")?.trim().orEmpty()
+        set(value) {
+            val clean = value.trim()
+            val target = secureApiPrefs ?: prefs
+            if (clean.isEmpty()) target.edit().remove(KEY_ELEVENLABS_API_KEY).apply()
+            else target.edit().putString(KEY_ELEVENLABS_API_KEY, clean).apply()
         }
 
     val canStoreApiKeySecurely: Boolean get() = secureApiPrefs != null

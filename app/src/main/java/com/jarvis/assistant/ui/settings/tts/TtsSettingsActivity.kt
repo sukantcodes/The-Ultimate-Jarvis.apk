@@ -15,7 +15,7 @@ class TtsSettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         val frame = android.widget.FrameLayout(this).apply {
-            id = R.id.fragment_container_view_tag
+            id = android.view.View.generateViewId()
         }
         setContentView(frame)
 

@@ -1,6 +1,7 @@
 package com.jarvis.assistant.util
 
 import android.app.Activity
+import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -393,7 +394,7 @@ object ThemeManager {
             ColorUtils.setAlphaComponent(accentColor, 120),
             Color.parseColor("#424A60")
         )
-        switch.trackTintList = android.content.res.ColorStateList(trackStates, trackColors)
+        val trackColorList = android.content.res.ColorStateList(trackStates, trackColors)
 
         val thumbStates = arrayOf(
             intArrayOf(android.R.attr.state_checked),
@@ -403,6 +404,20 @@ object ThemeManager {
             accentColor,
             Color.parseColor("#90A4AE")
         )
-        switch.thumbTintList = android.content.res.ColorStateList(thumbStates, thumbColors)
+        val thumbColorList = android.content.res.ColorStateList(thumbStates, thumbColors)
+
+        when (switch) {
+            is androidx.appcompat.widget.SwitchCompat -> {
+                switch.trackTintList = trackColorList
+                switch.thumbTintList = thumbColorList
+            }
+            is android.widget.Switch -> {
+                switch.trackTintList = trackColorList
+                switch.thumbTintList = thumbColorList
+            }
+            else -> {
+                androidx.core.widget.CompoundButtonCompat.setButtonTintList(switch, thumbColorList)
+            }
+        }
     }
 }

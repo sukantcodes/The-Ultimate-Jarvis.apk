@@ -10,7 +10,7 @@ import android.widget.SeekBar
 import android.widget.Toast
 import androidx.core.graphics.ColorUtils
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -32,7 +32,9 @@ class TtsSettingsFragment : Fragment() {
     private var _binding: FragmentTtsSettingsBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: TtsSettingsViewModel by viewModels()
+    private val viewModel: TtsSettingsViewModel by lazy {
+        ViewModelProvider(this)[TtsSettingsViewModel::class.java]
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
