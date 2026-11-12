@@ -13,6 +13,7 @@
     <LinearLayout
         android:id="@+id/layoutChatHeader"
         android:layout_width="0dp"
+        app:layout_constraintWidth_max="@dimen/chat_content_max_width"
         android:layout_height="68dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
@@ -185,6 +186,7 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvChatMessages"
         android:layout_width="0dp"
+        app:layout_constraintWidth_max="@dimen/chat_content_max_width"
         android:layout_height="0dp"
         android:clipToPadding="false"
         android:paddingTop="18dp"
@@ -305,6 +307,7 @@
     <LinearLayout
         android:id="@+id/cardInputContainer"
         android:layout_width="0dp"
+        app:layout_constraintWidth_max="@dimen/chat_content_max_width"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:background="@drawable/bg_cc_composer"

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Phones: content uses the full width. Larger screens override this to keep ChatBox a clean centred column. -->
+    <dimen name="chat_content_max_width">2000dp</dimen>
+    <dimen name="chat_code_text">11sp</dimen>
+    <integer name="chat_code_window_lines">7</integer>
+</resources>

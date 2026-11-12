@@ -678,6 +678,13 @@ class ChatFragment : Fragment() {
     private fun sendMessage() {
         clearWorkSteps()
         val text = binding.etMessageInput.text?.toString()?.trim().orEmpty()
+        // Typed website / web-game requests (and replies to the build questions) use the same supervised build as
+        // voice, so they work with Jarvis asleep: live code shows here, the project is hosted and the preview opens.
+        if (selectedDocument == null && text.isNotBlank() && com.jarvis.assistant.background.WebBuildOrchestrator.wantsInput(text)) {
+            binding.etMessageInput.text?.clear()
+            com.jarvis.assistant.background.AutonomousBackgroundExecutor.execute(requireContext().applicationContext, text)
+            return
+        }
         if (customProviderActive()) {
             sendViaProvider(text)
             return

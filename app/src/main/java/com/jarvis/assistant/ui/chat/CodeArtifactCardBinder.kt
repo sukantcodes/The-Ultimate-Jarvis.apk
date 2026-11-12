@@ -5,6 +5,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Color
 import android.view.View
+import android.os.Handler
+import android.os.Looper
 import android.view.animation.AlphaAnimation
 import android.view.animation.Animation
 import android.widget.Toast
@@ -14,6 +16,18 @@ import com.jarvis.assistant.databinding.LayoutCodeArtifactCardBinding
 import java.util.Locale
 
 object CodeArtifactCardBinder {
+
+    /** Per-card state kept on the view so recycled cards animate correctly and typing replays never leak. */
+    private class CardState {
+        var shown = 0
+        var lastCode = ""
+        var wasWriting = false
+        var userToggled = false
+        var entered = false
+        var ticker: Runnable? = null
+    }
+
+    private val ui = Handler(Looper.getMainLooper())
 
     fun bind(
         binding: LayoutCodeArtifactCardBinding,
@@ -62,7 +76,6 @@ object CodeArtifactCardBinder {
                 repeatCount = Animation.INFINITE
             }
             binding.tvWritingStatus.startAnimation(pulse)
-            binding.tvCardBottomHint.text = "✦ Actively executing · Tap tag to collapse/expand mini window"
         } else {
             binding.tvWritingStatus.clearAnimation()
             binding.tvWritingStatus.visibility = View.VISIBLE
@@ -71,8 +84,6 @@ object CodeArtifactCardBinder {
             val successColor = try { com.jarvis.assistant.util.ThemeManager.getThemeSuccessColor() } catch (_: Exception) { Color.parseColor("#00E676") }
             binding.tvWritingStatus.setTextColor(successColor)
             binding.tvWritingStatus.background = ContextCompat.getDrawable(context, R.drawable.bg_chat_status)
-            val lineCount = code.lines().size
-            binding.tvCardBottomHint.text = "Click to toggle mini window · Tap Open ↗ for full viewer ($lineCount lines)"
         }
 
         val tagPrefix = when (workType) {
@@ -81,29 +92,82 @@ object CodeArtifactCardBinder {
             else -> "Code"
         }
 
+        val state = (binding.root.tag as? CardState) ?: CardState().also { binding.root.tag = it }
+        state.ticker?.let { ui.removeCallbacks(it) }
+        state.ticker = null
+
+        val res = context.resources
+        val windowLines = res.getInteger(R.integer.chat_code_window_lines)
+        val lines = code.split('\n')
+        val total = lines.size
+        binding.tvTerminalTitle.append(" · $total lines")
+        binding.tvCardBottomHint.visibility = View.GONE
+
+        // Lines are cut to what fits so every code line stays one row and the window never grows.
+        val density = res.displayMetrics.density
+        val charW = binding.tvPreviewCode.paint.measureText("M").coerceAtLeast(1f)
+        val columnPx = minOf(res.displayMetrics.widthPixels.toFloat(), 780f * density)
+        val maxChars = ((columnPx - 96f * density) / charW).toInt().coerceIn(20, 140)
+        fun cut(l: String) = if (l.length > maxChars) l.take(maxChars - 1) + "…" else l
+
+        fun render(from: Int, end: Int, cursor: Boolean) {
+            val slice = lines.subList(from, end).joinToString("\n") { cut(it) } + if (cursor) "▌" else ""
+            val nums = StringBuilder()
+            for (n in (from + 1)..maxOf(end, from + 1)) { nums.append(n).append('\n') }
+            binding.tvPreviewLineNumbers.text = nums.toString().trimEnd()
+            binding.tvPreviewCode.text = CodeSyntaxHighlighter.highlight(slice, baseLang)
+        }
+
         fun updateToggleText() {
             val isVisible = binding.layoutMiniTerminal.visibility == View.VISIBLE
             binding.tvToggleTagText.text = if (isVisible) "▲ Hide $tagPrefix" else "▼ $tagPrefix Window"
         }
-        updateToggleText()
 
         binding.btnToggleMiniTerminal.setOnClickListener {
+            state.userToggled = true
             val willShow = binding.layoutMiniTerminal.visibility != View.VISIBLE
             binding.layoutMiniTerminal.visibility = if (willShow) View.VISIBLE else View.GONE
             updateToggleText()
         }
 
-        val lines = code.split('\n')
-        val previewLines = lines.take(12)
-        val lineNums = StringBuilder()
-        for (i in 1..previewLines.size) {
-            lineNums.append(i).append('\n')
+        if (isWriting) {
+            // Live: a small fixed window that follows the newest lines, typed in with a cursor (like Claude).
+            binding.tvPreviewCode.minLines = windowLines
+            binding.tvPreviewLineNumbers.minLines = windowLines
+            binding.tvPreviewCode.maxLines = windowLines
+            if (!state.userToggled) binding.layoutMiniTerminal.visibility = View.VISIBLE
+            if (!state.entered) {
+                state.entered = true
+                binding.root.alpha = 0f
+                binding.root.translationY = 12f * density
+                binding.root.animate().alpha(1f).translationY(0f).setDuration(220).start()
+            }
+            state.shown = if (code.startsWith(state.lastCode)) minOf(state.shown, total) else 0
+            state.lastCode = code
+            state.wasWriting = true
+            val tick = object : Runnable {
+                override fun run() {
+                    if (binding.root.tag !== state) return
+                    val step = maxOf(1, (total - state.shown) / 18)
+                    state.shown = minOf(total, state.shown + step)
+                    render(maxOf(0, state.shown - windowLines), state.shown, cursor = true)
+                    if (state.shown < total) ui.postDelayed(this, 40L)
+                }
+            }
+            state.ticker = tick
+            tick.run()
+        } else {
+            binding.tvPreviewCode.minLines = 1
+            binding.tvPreviewLineNumbers.minLines = 1
+            binding.tvPreviewCode.maxLines = windowLines
+            state.lastCode = code
+            state.shown = total
+            render(0, minOf(total, windowLines), cursor = false)
+            // Finished work collapses to a one-line header so the conversation stays compact; tap to reopen.
+            if (!state.userToggled) binding.layoutMiniTerminal.visibility = View.GONE
+            state.wasWriting = false
         }
-        binding.tvPreviewLineNumbers.text = lineNums.toString().trimEnd()
-
-        val previewText = previewLines.joinToString("\n")
-        val highlighted = CodeSyntaxHighlighter.highlight(previewText, baseLang)
-        binding.tvPreviewCode.text = highlighted
+        updateToggleText()
 
         val openViewer = {
             CodeViewerBottomSheet.show(context, baseLang, code, isWriting)

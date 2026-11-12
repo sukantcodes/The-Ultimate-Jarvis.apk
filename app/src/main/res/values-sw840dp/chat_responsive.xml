@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="chat_content_max_width">900dp</dimen>
+    <dimen name="chat_code_text">14sp</dimen>
+    <integer name="chat_code_window_lines">14</integer>
+</resources>

@@ -28,6 +28,7 @@ import com.jarvis.assistant.provider.GeminiToolLoop
 import com.jarvis.assistant.provider.LiveToolStep
 import com.jarvis.assistant.provider.ModelInfo
 import com.jarvis.assistant.provider.ProviderChatEngine
+import com.jarvis.assistant.provider.ProviderChatBridge
 import com.jarvis.assistant.provider.ProviderException
 import com.jarvis.assistant.provider.ProviderProtocol
 import com.jarvis.assistant.provider.ProviderRuntime
@@ -316,6 +317,7 @@ object WebBuildOrchestrator {
         @Volatile var lastTarget = ""
         @Volatile var percent = 0
         @Volatile var workerDone = false
+        @Volatile var chatTurns = 0
         fun bump(p: Int) { if (p > percent) percent = p.coerceIn(0, 100) }
     }
 
@@ -448,15 +450,29 @@ object WebBuildOrchestrator {
         val system = ChatContext.systemPrompt(JarvisApp.instance.preferences.userName, TokenModeStore.get(ctx)) + ProviderChatEngine.TOOL_PROMPT
         return try {
             val loop = GeminiToolLoop(ProviderRuntime.transport(), backend)
-            loop.run(
-                ChatRequest(provider, system, listOf(ChatMessage(ChatRole.USER, prompt)), maxTokens = TokenModeStore.get(ctx).maxTokens),
-                "web-build",
-                onActivity = { },
-                onStep = { s: LiveToolStep ->
-                    tracker.lastTool = s.toolName
-                    if (s.target.isNotBlank()) tracker.lastTarget = s.target.substringAfterLast('/')
-                }
-            )
+            // Show the work in ChatBox exactly like a custom model's: code and terminal blocks that appear live.
+            val store = ProviderChatBridge(JarvisApp.instance.chatRepository)
+            val turnId = store.begin(if (tracker.chatTurns++ == 0) "🛠 Gemini is building: $spec" else "🛠 Gemini continues the build", null)
+            val blocks = LinkedHashMap<String, String>()
+            try {
+                val res = loop.run(
+                    ChatRequest(provider, system, listOf(ChatMessage(ChatRole.USER, prompt)), maxTokens = TokenModeStore.get(ctx).maxTokens),
+                    "web-build",
+                    onActivity = { },
+                    onStep = { s: LiveToolStep ->
+                        tracker.lastTool = s.toolName
+                        if (s.target.isNotBlank()) tracker.lastTarget = s.target.substringAfterLast('/')
+                        if (s.codeOrOutput.isNotBlank() && s.toolName in setOf("write_file", "edit_file", "terminal_run", "read_file")) {
+                            blocks[s.target] = "```${s.language}:${s.target}\n${s.codeOrOutput}\n```"
+                            store.updatePartial(turnId, blocks.values.joinToString("\n\n"))
+                        }
+                    }
+                )
+                store.finish(turnId, (blocks.values.joinToString("\n\n") + "\n\n" + res.text.trim()).trim().ifBlank { "Done." })
+            } catch (e: Exception) {
+                store.fail(turnId, blocks.values.joinToString("\n\n"), ProviderChatEngine.ERROR_PREFIX + (if (e is ProviderException) e.error.message else (e.message ?: "Build step failed")))
+                throw e
+            }
             WorkerResult(true)
         } catch (e: ProviderException) {
             WorkerResult(false, e.error.message)
@@ -495,13 +511,13 @@ object WebBuildOrchestrator {
                 say(ctx, tr(
                     "$p percent done. $stage. ${files.size} files so far. About ${spokenDuration(eta, 0)} left.",
                     "$p प्रतिशत पूरा। $stage। अब तक ${files.size} फ़ाइलें। लगभग ${spokenDuration(eta, 1)} बाकी।",
-                    "$p শতাংশ সম্পূর্ণ। $stage। এখন পর্যন্ত ${files.size}টি ফাইল। প্রায় ${spokenDuration(eta, 2)} বাকি।"), logChat = true)
+                    "$p শতাংশ সম্পূর্ণ। $stage। এখন পর্যন্ত ${files.size}টি ফাইল। প্রায় ${spokenDuration(eta, 2)} বাকি।"), logChat = false)
             }
             // Gemini reads the newest finished file and says in one sentence what it does (observer only).
             if (latest != null && reviews < MAX_REVIEWS && now - lastReview >= (if (quality) REVIEW_EVERY_MS / 2 else REVIEW_EVERY_MS) && latest.name !in reviewed && now - latest.lastModified() > 4_000) {
                 lastReview = now; reviewed += latest.name; reviews++
                 val head = runCatching { latest.readText().take(1_500) }.getOrDefault("")
-                narrate(ctx, "In one short sentence in $lang, say what this file does and mention any obvious bug. File ${latest.name}:\n$head")?.let { say(ctx, it.take(220)) }
+                narrate(ctx, "In one short sentence in $lang, say what this file does and mention any obvious bug. File ${latest.name}:\n$head")?.let { say(ctx, it.take(220), logChat = false) }
             }
             delay(2_000)
         }
@@ -707,8 +723,8 @@ object WebBuildOrchestrator {
         TaskProgressNotifier.postProgress(ctx, "Jarvis · web build", "$stage$etaText", percent.coerceIn(1, 100))
     }
 
-    private fun say(ctx: Context, text: String, logChat: Boolean = false) {
-        if (logChat) runCatching { JarvisApp.instance.chatRepository.addTurn("", "🛠 $text") }
+    private fun say(ctx: Context, text: String, logChat: Boolean = true) {
+        if (logChat) runCatching { JarvisApp.instance.chatRepository.addTurn("🛠 JARVIS build", text) }
         if (!JarvisConversationService.announceMessage(text)) {
             JarvisVoiceController.speakTurnResponse(ctx, "webbuild-${System.nanoTime()}", null, text, forceTts = true)
         }
