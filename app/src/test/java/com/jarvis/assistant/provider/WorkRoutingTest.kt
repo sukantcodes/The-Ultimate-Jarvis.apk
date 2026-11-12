@@ -1,6 +1,7 @@
 package com.jarvis.assistant.provider
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import kotlinx.coroutines.flow.first
@@ -70,6 +71,22 @@ class WorkRoutingTest {
         assertTrue(routes.all().isEmpty())
         store.putString(RoutingStore.KEY, """{"chat":{"p":"a"},"unknown":{"p":"z"},"coding":5}""")
         assertEquals(setOf(WorkCategory.CHAT), routes.all().keys)
+    }
+
+    @Test fun offline_tts_route_is_recognized_and_preserved() {
+        routes.set(WorkCategory.VOICE, Route(Route.OFFLINE_TTS, "local_kokoro"))
+        val saved = routes.get(WorkCategory.VOICE)
+        assertNotNull(saved)
+        assertTrue(saved!!.isOfflineTts)
+        assertEquals("local_kokoro", saved.modelId)
+    }
+
+    @Test fun task_type_from_id_resolves_all_categories() {
+        assertEquals(TaskType.CHAT_ANALYSIS, TaskType.fromId("chat_analysis"))
+        assertEquals(TaskType.IMAGE_UNDERSTANDING, TaskType.fromId("image_understanding"))
+        assertEquals(TaskType.CODING_DEBUGGING, TaskType.fromId("coding_debugging"))
+        assertEquals(TaskType.VOICE_CONVERSATION, TaskType.fromId("voice_conversation"))
+        assertEquals(TaskType.CHAT_ANALYSIS, TaskType.fromId("unknown"))
     }
 }
 

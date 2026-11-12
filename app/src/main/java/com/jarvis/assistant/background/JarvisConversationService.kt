@@ -935,31 +935,63 @@ class JarvisConversationService : Service() {
         val preferences = app.preferences
         val engineStore = com.jarvis.assistant.security.AiEngineStore(applicationContext)
         val useGroq = engineStore.useGroq
-        val apiKey = if (useGroq) engineStore.groqKey().trim() else preferences.apiKey.trim()
+        var apiKey = if (useGroq) engineStore.groqKey().trim() else preferences.apiKey.trim()
 
-        // A custom provider wins only when the user explicitly activated one. If it cannot run voice, say so and
-        // stop: JARVIS never quietly falls back to Gemini, Groq or another provider.
         var customVoice: com.jarvis.assistant.provider.VoiceResolution.Ready? = null
-        when (val resolution = com.jarvis.assistant.provider.ProviderRuntime.manager(applicationContext).resolveVoice()) {
-            com.jarvis.assistant.provider.VoiceResolution.NotActive -> Unit
-            is com.jarvis.assistant.provider.VoiceResolution.Ready -> customVoice = resolution
-            is com.jarvis.assistant.provider.VoiceResolution.Blocked -> {
+        val voiceRoute = com.jarvis.assistant.provider.TaskRouter.getRouteForTask(
+            applicationContext,
+            com.jarvis.assistant.provider.TaskType.VOICE_CONVERSATION
+        )
+
+        when (voiceRoute) {
+            is com.jarvis.assistant.provider.TaskRouteResolution.Blocked -> {
                 _liveError.value = JarvisLiveError(
-                    title = "MODEL CAN'T RUN VOICE",
-                    message = "${resolution.providerName}: ${resolution.reason}\n\nJARVIS did not switch to another provider. You can still use this model in ChatBox if it supports text, or pick a different model in API Key & Model Settings.",
-                    errorCode = "CUSTOM_PROVIDER_BLOCKED",
+                    title = voiceRoute.title,
+                    message = voiceRoute.message,
+                    errorCode = "VOICE_ROUTE_BLOCKED",
                     actionText = "OPEN SETTINGS"
                 )
-                serviceScope.launch { _events.emit("${resolution.providerName} can't run real-time voice with the selected model.") }
+                serviceScope.launch { _events.emit(voiceRoute.message) }
                 fullStop()
                 return
             }
+            is com.jarvis.assistant.provider.TaskRouteResolution.Gemini -> {
+                customVoice = null
+                offlineLocalMode = false
+                apiKey = preferences.apiKey.trim()
+            }
+            is com.jarvis.assistant.provider.TaskRouteResolution.Custom -> {
+                customVoice = com.jarvis.assistant.provider.VoiceResolution.Ready(
+                    provider = voiceRoute.provider,
+                    mode = com.jarvis.assistant.provider.VoiceMode.TURN_BASED,
+                    explanation = "Custom provider voice"
+                )
+                offlineLocalMode = false
+            }
+            is com.jarvis.assistant.provider.TaskRouteResolution.HybridVoice -> {
+                if (voiceRoute.customProvider != null) {
+                    customVoice = com.jarvis.assistant.provider.VoiceResolution.Ready(
+                        provider = voiceRoute.customProvider,
+                        mode = com.jarvis.assistant.provider.VoiceMode.TURN_BASED,
+                        explanation = "Hybrid Custom AI + Offline Voice"
+                    )
+                    offlineLocalMode = false
+                } else {
+                    offlineLocalMode = true
+                }
+            }
+            is com.jarvis.assistant.provider.TaskRouteResolution.Offline -> {
+                offlineLocalMode = true
+            }
         }
-        offlineLocalMode = (customVoice == null && apiKey.isBlank()) ||
-            !com.jarvis.assistant.offline.OfflineModelDownloader.isInternetAvailable(applicationContext)
-        if (offlineLocalMode) {
+
+        if (!offlineLocalMode && customVoice == null && apiKey.isBlank()) {
+            offlineLocalMode = true
+        }
+
+        if (offlineLocalMode || !com.jarvis.assistant.offline.OfflineModelDownloader.isInternetAvailable(applicationContext)) {
             val localModel = com.jarvis.assistant.offline.OfflineModelDownloader.modelFile(applicationContext)
-            if (!com.jarvis.assistant.offline.OfflineModelDownloader.isModelValid(localModel)) {
+            if (offlineLocalMode && !com.jarvis.assistant.offline.OfflineModelDownloader.isModelValid(localModel)) {
                 _liveError.value = JarvisLiveError(
                     title = "OFFLINE BRAIN NOT READY",
                     message = "JARVIS selected Offline Brain because the online provider is unavailable or there is no internet connection, but the local Qwen3 model is not installed. Open Offline JARVIS and download the model once.",
@@ -1676,16 +1708,17 @@ class JarvisConversationService : Service() {
                 val now = System.currentTimeMillis()
 
                 // Acoustic Echo Decay Protection (AEDP):
-                // For 150ms after speaker audio stops, discard mic chunks so room reverberation
-                // does not bounce into Gemini Live and cause false self-interruption.
-                if (now - lastPlaybackEndTime < 150L) {
+                // For 300ms after speaker audio stops, discard mic chunks so room reverberation
+                // does not bounce into Gemini Live/STT and cause false self-interruption or echo loops.
+                if (now - lastPlaybackEndTime < 300L) {
                     consecutiveVoicedFrames = 0
                     return@AudioRecorder
                 }
 
                 // Assistant is speaking / AudioTrack or TTS is actively playing:
                 val isSpeakerActive = (audioPlayer?.isPlaying() == true) || (tts?.isSpeaking == true) ||
-                        (_conversationState.value == ConversationState.SPEAKING)
+                        (_conversationState.value == ConversationState.SPEAKING) ||
+                        com.jarvis.assistant.voice.JarvisVoiceController.isSpeaking()
 
                 if (isSpeakerActive) {
                     val hasHeadset = headsetAudioRouter?.isHeadsetConnected() == true
@@ -2309,13 +2342,16 @@ class JarvisConversationService : Service() {
     // ---------------------------------------------------------------------
 
     private fun hasOnlineProvider(): Boolean {
-        val providerManager = com.jarvis.assistant.provider.ProviderRuntime.manager(applicationContext)
-        if (providerManager.activeProfile() != null) {
-            return providerManager.resolveVoice() is com.jarvis.assistant.provider.VoiceResolution.Ready
+        val voiceRoute = com.jarvis.assistant.provider.TaskRouter.getRouteForTask(
+            applicationContext,
+            com.jarvis.assistant.provider.TaskType.VOICE_CONVERSATION
+        )
+        return when (voiceRoute) {
+            is com.jarvis.assistant.provider.TaskRouteResolution.Gemini -> true
+            is com.jarvis.assistant.provider.TaskRouteResolution.Custom -> true
+            is com.jarvis.assistant.provider.TaskRouteResolution.HybridVoice -> voiceRoute.customProvider != null
+            else -> false
         }
-        val engineStore = com.jarvis.assistant.security.AiEngineStore(applicationContext)
-        val key = if (engineStore.useGroq) engineStore.groqKey() else preferences.apiKey
-        return key.isNotBlank()
     }
 
     private fun observeNetworkForBrainSwitch() {

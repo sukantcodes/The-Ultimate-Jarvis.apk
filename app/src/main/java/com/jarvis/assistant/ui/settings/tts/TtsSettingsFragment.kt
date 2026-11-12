@@ -143,6 +143,16 @@ class TtsSettingsFragment : Fragment() {
         binding.btnSaveAndActivate.background = ThemeManager.createDynamicBadgeDrawable(themeAccent, themeSecondary, 12f, context)
         binding.btnSaveAndActivate.setTextColor(if (ThemeManager.isLight(themeAccent)) Color.BLACK else Color.WHITE)
 
+        val themeWarning = ThemeManager.getThemeWarningColor()
+        binding.btnDeactivateTts.background = ThemeManager.createDynamicCardDrawable(
+            strokeColor = themeWarning,
+            fillColor = cardBg,
+            cornerRadiusDp = 12f,
+            strokeWidthDp = 1.2f,
+            context = context
+        )
+        binding.btnDeactivateTts.setTextColor(themeWarning)
+
         binding.sbSpeed.progressTintList = ColorStateList.valueOf(themeAccent)
         binding.sbSpeed.thumbTintList = ColorStateList.valueOf(themeAccent)
 
@@ -210,6 +220,19 @@ class TtsSettingsFragment : Fragment() {
                     requestMicPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
                 }
             }
+        }
+
+        binding.btnDeactivateTts.setOnClickListener {
+            val builder = com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Deactivate Offline TTS?")
+                .setMessage("This immediately stops speech, releases the microphone, and unloads native neural models from RAM while keeping model files on disk.")
+                .setPositiveButton("Deactivate") { _, _ ->
+                    viewModel.deactivateOfflineTts {
+                        Toast.makeText(requireContext(), "Offline TTS deactivated & memory freed", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+            builder.show()
         }
 
         binding.sbSpeed.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {

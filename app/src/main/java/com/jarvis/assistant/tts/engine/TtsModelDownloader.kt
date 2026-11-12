@@ -33,6 +33,14 @@ class TtsModelDownloader(private val context: Context) {
         private const val TAG = "TtsModelDownloader"
         private const val BUFFER_SIZE = 8192 // 8 KB buffer
 
+        private val _installedEnginesFlow = MutableStateFlow<List<VoiceEngineType>>(emptyList())
+        val installedEnginesFlow: StateFlow<List<VoiceEngineType>> = _installedEnginesFlow.asStateFlow()
+
+        fun notifyEnginesChanged(context: Context) {
+            val installed = VoiceEngineType.entries.filter { it.isLocal && isEngineInstalled(context, it) }
+            _installedEnginesFlow.value = installed
+        }
+
         fun getModelsBaseDir(context: Context): File {
             val dir = File(context.filesDir, "tts_models")
             if (!dir.exists()) dir.mkdirs()
@@ -82,18 +90,28 @@ class TtsModelDownloader(private val context: Context) {
 
             return when (engineType) {
                 VoiceEngineType.LOCAL_KOKORO -> {
-                    // Check required artifacts: model.int8.onnx or model.onnx, voices.bin, tokens.txt, espeak-ng-data
-                    val hasModel = File(dir, "model.int8.onnx").exists() || File(dir, "model.onnx").exists()
-                    hasModel &&
-                            File(dir, "voices.bin").exists() &&
-                            File(dir, "tokens.txt").exists() &&
-                            File(dir, "espeak-ng-data").exists()
+                    // Check required artifacts with minimum integrity sizes:
+                    // model.int8.onnx or model.onnx (>= 20 MB), voices.bin (>= 500 KB), tokens.txt (>= 500 B), espeak-ng-data dir
+                    val modelFile = File(dir, "model.int8.onnx").takeIf { it.exists() }
+                        ?: File(dir, "model.onnx").takeIf { it.exists() }
+                    val voicesFile = File(dir, "voices.bin")
+                    val tokensFile = File(dir, "tokens.txt")
+                    val espeakDir = File(dir, "espeak-ng-data")
+
+                    modelFile != null && modelFile.length() >= 20_000_000L &&
+                            voicesFile.exists() && voicesFile.length() >= 500_000L &&
+                            tokensFile.exists() && tokensFile.length() >= 500L &&
+                            espeakDir.exists() && espeakDir.isDirectory
                 }
                 VoiceEngineType.LOCAL_PIPER -> {
-                    // Check required artifacts: en_GB-alan-medium.onnx, tokens.txt, espeak-ng-data
-                    File(dir, "en_GB-alan-medium.onnx").exists() &&
-                            File(dir, "tokens.txt").exists() &&
-                            File(dir, "espeak-ng-data").exists()
+                    // Check required artifacts: en_GB-alan-medium.onnx (>= 5 MB), tokens.txt, espeak-ng-data
+                    val modelFile = File(dir, "en_GB-alan-medium.onnx")
+                    val tokensFile = File(dir, "tokens.txt")
+                    val espeakDir = File(dir, "espeak-ng-data")
+
+                    modelFile.exists() && modelFile.length() >= 5_000_000L &&
+                            tokensFile.exists() && tokensFile.length() >= 500L &&
+                            espeakDir.exists() && espeakDir.isDirectory
                 }
                 else -> true
             }
@@ -197,21 +215,42 @@ class TtsModelDownloader(private val context: Context) {
             Log.i(TAG, "Download finished (${downloadedBytes} bytes). Beginning archive extraction...")
             _downloadState.value = DownloadState.Extracting("Preparing target workspace...")
 
-            if (targetExtractDir.exists()) {
-                targetExtractDir.deleteRecursively()
-            }
-            targetExtractDir.mkdirs()
+            val tempExtractDir = File(cacheDir, "${engineType.archiveName}_${System.currentTimeMillis()}.extract.tmp")
+            if (tempExtractDir.exists()) tempExtractDir.deleteRecursively()
+            tempExtractDir.mkdirs()
 
-            if (url.endsWith(".tar.bz2") || url.endsWith(".tbz2") || url.endsWith(".bz2")) {
-                extractTarBz2(tempArchiveFile, targetExtractDir, engineType.archiveName)
-            } else if (url.endsWith(".zip")) {
-                extractZip(tempArchiveFile, targetExtractDir, engineType.archiveName)
-            } else {
-                throw IOException("Unsupported archive format for $url")
+            try {
+                if (url.endsWith(".tar.bz2") || url.endsWith(".tbz2") || url.endsWith(".bz2")) {
+                    extractTarBz2(tempArchiveFile, tempExtractDir, engineType.archiveName)
+                } else if (url.endsWith(".zip")) {
+                    extractZip(tempArchiveFile, tempExtractDir, engineType.archiveName)
+                } else {
+                    throw IOException("Unsupported archive format for $url")
+                }
+
+                // Normalise directory structure if the archive unpacked everything into a sub-folder
+                flattenNestedSingleFolder(tempExtractDir)
+
+                // Atomic Integrity Validation: verify models before touching target install directory
+                val isValid = validateExtractedIntegrity(tempExtractDir, engineType)
+                if (!isValid) {
+                    throw IOException("Model integrity validation failed: extracted weights for ${engineType.displayName} are corrupt or incomplete.")
+                }
+
+                if (targetExtractDir.exists()) {
+                    targetExtractDir.deleteRecursively()
+                }
+                if (!tempExtractDir.renameTo(targetExtractDir)) {
+                    tempExtractDir.copyRecursively(targetExtractDir, overwrite = true)
+                    tempExtractDir.deleteRecursively()
+                }
+            } finally {
+                if (tempExtractDir.exists()) {
+                    tempExtractDir.deleteRecursively()
+                }
             }
 
-            // Normalise directory structure if the archive unpacked everything into a sub-folder
-            flattenNestedSingleFolder(targetExtractDir)
+            notifyEnginesChanged(context)
 
             Log.i(TAG, "Extraction completed successfully into ${targetExtractDir.absolutePath}")
             _downloadState.value = DownloadState.Ready
@@ -224,11 +263,37 @@ class TtsModelDownloader(private val context: Context) {
             if (targetExtractDir.exists()) {
                 targetExtractDir.deleteRecursively()
             }
+            notifyEnginesChanged(context)
             false
         } finally {
             if (tempArchiveFile.exists()) {
                 tempArchiveFile.delete()
             }
+        }
+    }
+
+    private fun validateExtractedIntegrity(dir: File, engineType: VoiceEngineType): Boolean {
+        return when (engineType) {
+            VoiceEngineType.LOCAL_KOKORO -> {
+                val model = File(dir, "model.int8.onnx").takeIf { it.exists() }
+                    ?: File(dir, "model.onnx").takeIf { it.exists() }
+                val voices = File(dir, "voices.bin")
+                val tokens = File(dir, "tokens.txt")
+                val espeak = File(dir, "espeak-ng-data")
+                model != null && model.length() >= 20_000_000L &&
+                        voices.exists() && voices.length() >= 500_000L &&
+                        tokens.exists() && tokens.length() >= 500L &&
+                        espeak.exists() && espeak.isDirectory
+            }
+            VoiceEngineType.LOCAL_PIPER -> {
+                val model = File(dir, "en_GB-alan-medium.onnx")
+                val tokens = File(dir, "tokens.txt")
+                val espeak = File(dir, "espeak-ng-data")
+                model.exists() && model.length() >= 5_000_000L &&
+                        tokens.exists() && tokens.length() >= 500L &&
+                        espeak.exists() && espeak.isDirectory
+            }
+            else -> true
         }
     }
 

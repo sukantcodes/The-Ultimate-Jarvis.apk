@@ -32,6 +32,7 @@ class KeyManager(
                 cooldownMs = cooldownMs.coerceIn(KeyRecord.MIN_COOLDOWN_MS, KeyRecord.MAX_COOLDOWN_MS), resetSchedule = resetSchedule
             )
         )
+        syncGeminiKeyIfApplicable(providerId)
         return null
     }
 
@@ -43,12 +44,22 @@ class KeyManager(
         if (isDuplicate(rec.providerId, clean, exceptId = id)) return "This key is already saved for this provider."
         if (!vault.store(id, clean)) return "The key could not be saved to secure storage."
         pool.resetCooldown(id)
+        syncGeminiKeyIfApplicable(rec.providerId)
         return null
     }
 
     fun remove(id: String): Boolean {
+        val rec = pool.get(id)
         vault.delete(id)
-        return pool.delete(id)
+        val res = pool.delete(id)
+        rec?.let { syncGeminiKeyIfApplicable(it.providerId) }
+        return res
+    }
+
+    fun resetLimitFlags(providerId: String? = null): Int {
+        val count = pool.resetLimitFlags(providerId)
+        providerId?.let { syncGeminiKeyIfApplicable(it) }
+        return count
     }
 
     /** Deletes every key of a provider (used when the provider itself is deleted). */
@@ -65,6 +76,20 @@ class KeyManager(
     /** Sends a real request with this one key to its own provider. A pass also clears a stale "rejected" mark. */
     suspend fun test(id: String): TestReport? {
         val rec = pool.get(id) ?: return null
+        if (rec.providerId == "gemini") {
+            val secret = vault.load(id)?.takeIf { !it.isBlank } ?: return null
+            val text = secret.reveal()
+            secret.wipe()
+            val valid = try {
+                com.jarvis.assistant.network.ApiKeyValidator.validateKey(text)
+            } catch (e: Exception) { false }
+            if (valid) {
+                pool.resetCooldown(id)
+                return TestReport(true, "Gemini API key is verified and operational.", emptyList())
+            } else {
+                return TestReport(false, "Gemini API key validation failed with Google AI Studio.", emptyList())
+            }
+        }
         val manager = providers ?: return null
         val profile = manager.profile(rec.providerId) ?: return null
         val secret = vault.load(id)?.takeIf { !it.isBlank } ?: return null
@@ -74,6 +99,24 @@ class KeyManager(
         val report = manager.testConnection(profile, text, model)
         if (report.ok && (rec.health == KeyHealth.INVALID || rec.health == KeyHealth.BILLING)) pool.resetCooldown(id)
         return report
+    }
+
+    private fun syncGeminiKeyIfApplicable(providerId: String) {
+        if (providerId == "gemini") {
+            try {
+                val app = com.jarvis.assistant.JarvisApp.instance
+                val activeKeyRec = pool.listFor("gemini").filter { it.enabled && it.isUsableAt(System.currentTimeMillis()) }
+                    .minByOrNull { it.priority }
+                if (activeKeyRec != null) {
+                    val secret = vault.load(activeKeyRec.id)
+                    if (secret != null && !secret.isBlank) {
+                        val key = secret.reveal()
+                        secret.wipe()
+                        app.preferences.apiKey = key
+                    }
+                }
+            } catch (_: Exception) {}
+        }
     }
 
     private fun isDuplicate(providerId: String, clean: String, exceptId: String?): Boolean =

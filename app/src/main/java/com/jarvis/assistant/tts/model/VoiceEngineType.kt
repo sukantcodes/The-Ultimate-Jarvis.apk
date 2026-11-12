@@ -47,6 +47,15 @@ enum class VoiceEngineType(
         downloadUrl = "",
         ramFootprintMb = 0,
         defaultModelFileName = ""
+    ),
+    NONE(
+        id = "none",
+        displayName = "Disabled (No Offline TTS)",
+        isLocal = false,
+        archiveName = "",
+        downloadUrl = "",
+        ramFootprintMb = 0,
+        defaultModelFileName = ""
     );
 
     companion object {

@@ -548,5 +548,17 @@
                 android:layout_marginStart="8dp" />
         </LinearLayout>
 
+        <!-- Deactivate Offline TTS Action Button -->
+        <Button
+            android:id="@+id/btnDeactivateTts"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Deactivate Offline TTS"
+            android:textColor="?attr/themeTextPrimary"
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="24dp" />
+
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

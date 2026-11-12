@@ -150,10 +150,11 @@ data class SpeakerProfile(
             VoiceEngineType.LOCAL_PIPER -> PIPER_SPEAKERS
             VoiceEngineType.CLOUD_GEMINI -> GEMINI_VOICES
             VoiceEngineType.CLOUD_ELEVENLABS -> ELEVENLABS_VOICES
+            VoiceEngineType.NONE -> emptyList()
         }
 
         fun defaultFor(engineType: VoiceEngineType): SpeakerProfile =
-            speakersFor(engineType).firstOrNull { it.isDefault } ?: speakersFor(engineType).first()
+            speakersFor(engineType).firstOrNull { it.isDefault } ?: speakersFor(engineType).firstOrNull() ?: KOKORO_SPEAKERS.first()
 
         fun findById(id: String?): SpeakerProfile? {
             if (id.isNullOrBlank()) return null

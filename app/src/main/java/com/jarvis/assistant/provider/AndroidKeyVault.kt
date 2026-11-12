@@ -2,8 +2,11 @@ package com.jarvis.assistant.provider
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import java.io.File
+import java.security.GeneralSecurityException
 
 /** Plain (non-secret) provider data: profile JSON and the active profile id. */
 class SharedPrefsKeyValueStore(context: Context) : KeyValueStore {
@@ -14,34 +17,57 @@ class SharedPrefsKeyValueStore(context: Context) : KeyValueStore {
 }
 
 /**
- * Endpoint API keys, encrypted with an AES-256 master key held in the Android Keystore. If the secure store cannot
- * be opened, [available] is false and nothing is saved: keys are never written as plain text.
+ * Endpoint API keys, encrypted with an AES-256 master key held in the Android Keystore.
+ * Safely recovers from Keystore corruption / AEADBadTagException / GeneralSecurityException.
  */
 class AndroidKeyVault(context: Context) : KeyVault {
-    private val prefs: SharedPreferences? = try {
+    private val prefs: SharedPreferences? = initVault(context)
+
+    private fun initVault(context: Context): SharedPreferences? {
         val app = context.applicationContext
+        return try {
+            createEncryptedPrefs(app)
+        } catch (e: Exception) {
+            Log.w("AndroidKeyVault", "Secure storage init error (${e.javaClass.simpleName}); recovering cleanly", e)
+            try {
+                // Delete corrupted preferences file and re-initialize
+                val file = File(app.filesDir.parentFile, "shared_prefs/$FILE.xml")
+                if (file.exists()) file.delete()
+                createEncryptedPrefs(app)
+            } catch (fallbackError: Throwable) {
+                Log.e("AndroidKeyVault", "Failed to recreate EncryptedSharedPreferences after recovery", fallbackError)
+                null
+            }
+        }
+    }
+
+    private fun createEncryptedPrefs(app: Context): SharedPreferences {
         val master = MasterKey.Builder(app).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
-        EncryptedSharedPreferences.create(
+        return EncryptedSharedPreferences.create(
             app, FILE, master,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
-    } catch (e: Exception) {
-        null
     }
 
     override val available: Boolean get() = prefs != null
 
     override fun load(profileId: String): ApiKeySecret? = try {
         prefs?.getString(PREFIX + profileId, null)?.takeIf { it.isNotBlank() }?.let { ApiKeySecret.of(it) }
-    } catch (e: Exception) { null }
+    } catch (e: Exception) {
+        Log.w("AndroidKeyVault", "Failed to decrypt key for $profileId: ${e.message}")
+        null
+    }
 
     override fun store(profileId: String, key: String): Boolean {
         val p = prefs ?: return false
         return try {
             if (key.isBlank()) p.edit().remove(PREFIX + profileId).commit()
             else p.edit().putString(PREFIX + profileId, key).commit()
-        } catch (e: Exception) { false }
+        } catch (e: Exception) {
+            Log.e("AndroidKeyVault", "Failed to encrypt and store key for $profileId", e)
+            false
+        }
     }
 
     override fun delete(profileId: String) {

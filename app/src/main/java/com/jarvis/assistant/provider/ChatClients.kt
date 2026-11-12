@@ -168,11 +168,18 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
         if (root.has("error") && !root.get("error").isJsonNull) {
             throw ProviderException(ProviderErrors.fromHttp(400, bodyText, null, ErrorContext.CHAT))
         }
-        val message = root.getAsJsonArrayOrNull("choices")?.firstOrNull()?.takeIf { it.isJsonObject }?.asJsonObject
-            ?.getAsJsonObjectOrNull("message")
-            ?: throw ProviderException(ProviderErrors.invalidResponse("The answer had no choices."))
-        val text = contentText(message.get("content"))
-        val hadTool = message.getAsJsonArrayOrNull("tool_calls")?.size()?.let { it > 0 } == true
+        val choice = root.getAsJsonArrayOrNull("choices")?.firstOrNull()?.takeIf { it.isJsonObject }?.asJsonObject
+        val message = choice?.getAsJsonObjectOrNull("message")
+        val directText = root.stringOrNull("text") ?: root.stringOrNull("response") ?: root.stringOrNull("output")
+        val text = message?.let {
+            contentText(it.get("content")).ifBlank {
+                contentText(it.get("reasoning_content")).ifBlank {
+                    contentText(it.get("reasoning"))
+                }
+            }
+        } ?: choice?.let { contentText(it.get("text")) } ?: directText.orEmpty()
+
+        val hadTool = message?.getAsJsonArrayOrNull("tool_calls")?.size()?.let { it > 0 } == true
         if (text.isBlank() && !hadTool) {
             throw ProviderException(ProviderErrors.invalidResponse("The model returned an empty answer."))
         }
@@ -205,7 +212,13 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
                     }
                     val choice = obj.getAsJsonArrayOrNull("choices")?.firstOrNull()?.takeIf { it.isJsonObject }?.asJsonObject
                     val delta = choice?.getAsJsonObjectOrNull("delta")
-                    val piece = delta?.let { contentText(it.get("content")) }.orEmpty()
+                    val piece = delta?.let {
+                        contentText(it.get("content")).ifEmpty {
+                            contentText(it.get("reasoning_content")).ifEmpty {
+                                contentText(it.get("reasoning"))
+                            }
+                        }
+                    } ?: choice?.let { contentText(it.get("text")) }.orEmpty()
                     if (piece.isNotEmpty()) {
                         emitted = true
                         emit(ChatEvent.Delta(piece))

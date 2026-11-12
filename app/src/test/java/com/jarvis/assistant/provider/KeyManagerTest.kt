@@ -103,4 +103,46 @@ class KeyManagerTest {
         assertTrue(keys.keys("p1").isEmpty())
         assertEquals(1, vault.keys.size)
     }
+
+    @Test fun reset_limit_flags_clears_rate_limited_status() {
+        keys.add("p1", "Key1", "sk-p1-1111111111")
+        keys.add("p1", "Key2", "sk-p1-2222222222")
+        keys.add("p2", "Key3", "sk-p2-3333333333")
+        val k1 = keys.keys("p1")[0].id
+        val k2 = keys.keys("p1")[1].id
+        val k3 = keys.keys("p2")[0].id
+
+        pool.reportFailure(k1, KeyFailure.RATE_LIMIT, 60_000L)
+        pool.reportFailure(k2, KeyFailure.QUOTA, 60_000L)
+        pool.reportFailure(k3, KeyFailure.RATE_LIMIT, 60_000L)
+
+        assertTrue(pool.get(k1)!!.isRateLimited)
+        assertTrue(pool.get(k2)!!.isRateLimited)
+        assertTrue(pool.get(k3)!!.isRateLimited)
+
+        // Reset only p1
+        val resetP1Count = keys.resetLimitFlags("p1")
+        assertEquals(2, resetP1Count)
+        assertFalse(pool.get(k1)!!.isRateLimited)
+        assertFalse(pool.get(k2)!!.isRateLimited)
+        assertTrue(pool.get(k3)!!.isRateLimited)
+
+        // Reset all
+        val resetAllCount = keys.resetLimitFlags(null)
+        assertEquals(1, resetAllCount)
+        assertFalse(pool.get(k3)!!.isRateLimited)
+    }
+
+    @Test fun automatic_cooldown_reset_after_expiration() {
+        keys.add("p1", "Key1", "sk-p1-1111111111")
+        val k1 = keys.keys("p1")[0].id
+        pool.reportFailure(k1, KeyFailure.RATE_LIMIT, 5_000L)
+        val rec = pool.get(k1)!!
+        assertTrue(rec.isRateLimited)
+        assertFalse(rec.isUsableAt(now + 1_000L))
+
+        // After cooldown expires
+        assertTrue(rec.isUsableAt(now + 6_000L))
+        assertEquals(KeyHealth.AVAILABLE, rec.healthAt(now + 6_000L))
+    }
 }

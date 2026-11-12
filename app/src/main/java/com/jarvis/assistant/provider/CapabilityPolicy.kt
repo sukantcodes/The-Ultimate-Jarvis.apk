@@ -26,22 +26,28 @@ object CapabilityPolicy {
                 if (model.support(Capability.TEXT) == Support.NO) {
                     return VoiceEligibility(VoiceMode.NONE, "${model.id} isn't a chat model, so it can't answer in a voice session.")
                 }
+                val tools = if (model.support(Capability.TOOLS) == Support.NO) " Phone actions are unavailable because this model doesn't accept tools." else ""
                 if (profile.sttModelId.isBlank()) {
                     return VoiceEligibility(
-                        VoiceMode.NONE,
-                        "This provider type has no real-time voice protocol in JARVIS. To talk to ${model.id}, choose a speech-to-text model for this provider (turn-based voice). It works in ChatBox either way."
+                        VoiceMode.TURN_BASED,
+                        "Turn-based hybrid voice: on-device speech-to-text transcribes your speech, ${model.id} answers, and offline neural TTS speaks the reply.$tools"
                     )
                 }
                 when (profile.sttSupport) {
                     Support.YES -> {
-                        val tools = if (model.support(Capability.TOOLS) == Support.NO) " Phone actions are unavailable because this model doesn't accept tools." else ""
                         VoiceEligibility(
                             VoiceMode.TURN_BASED,
                             "Turn-based voice: ${profile.sttModelId} transcribes your speech, ${model.id} answers, and your phone speaks the reply.$tools"
                         )
                     }
-                    Support.NO -> VoiceEligibility(VoiceMode.NONE, "The speech-to-text model \"${profile.sttModelId}\" isn't available on this provider, so voice can't run. ChatBox still works.")
-                    Support.UNKNOWN -> VoiceEligibility(VoiceMode.NONE, "Speech-to-text hasn't been verified for \"${profile.sttModelId}\". Tap \"Check compatibility\" first.")
+                    Support.NO -> VoiceEligibility(
+                        VoiceMode.TURN_BASED,
+                        "Turn-based hybrid voice: ${profile.sttModelId} is unavailable online; on-device speech-to-text transcribes your speech, ${model.id} answers, and offline neural TTS speaks the reply.$tools"
+                    )
+                    Support.UNKNOWN -> VoiceEligibility(
+                        VoiceMode.TURN_BASED,
+                        "Turn-based voice: ${profile.sttModelId} transcribes your speech, ${model.id} answers, and your phone speaks the reply.$tools"
+                    )
                 }
             }
         }

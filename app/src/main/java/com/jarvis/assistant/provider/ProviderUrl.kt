@@ -18,7 +18,13 @@ object ProviderUrl {
         data class Bad(val reason: String) : Check()
     }
 
-    private val TRAILING_PATHS = listOf("/chat/completions", "/completions", "/models")
+    private val TRAILING_PATHS = listOf(
+        "/chat/completions",
+        "/completions",
+        "/models",
+        "/audio/transcriptions",
+        "/audio/speech"
+    )
     private val VERSION_SEGMENT = Regex("^v\\d+(alpha|beta)?\\d*$", RegexOption.IGNORE_CASE)
 
     /** Validates a provider base URL and returns it normalised (lower-case host, no trailing slash or pasted path). */
@@ -68,10 +74,21 @@ object ProviderUrl {
         }
         val port = if (uri.port > 0) ":${uri.port}" else ""
         val hostPart = if (host.contains(':') && !host.startsWith("[")) "[$host]" else host.lowercase(Locale.ROOT)
+        if (allowPastedEndpointPath) {
+            // Auto-normalize common provider hosts that omit /v1
+            if (path.isEmpty() && (hostPart == "api.deepseek.com" || hostPart == "api.openai.com" || hostPart == "api.groq.com")) {
+                path = "/v1"
+            }
+        }
         return Check.Ok("$scheme://$hostPart$port$path")
     }
 
-    fun join(base: String, path: String): String = base.trimEnd('/') + "/" + path.trimStart('/')
+    fun join(base: String, path: String): String {
+        val b = base.trimEnd('/')
+        val p = path.trimStart('/')
+        if (b.endsWith(p, ignoreCase = true)) return b
+        return "$b/$p"
+    }
 
     /**
      * Resolves a discovery path override. Relative paths are joined to [base]. Absolute URLs are accepted only

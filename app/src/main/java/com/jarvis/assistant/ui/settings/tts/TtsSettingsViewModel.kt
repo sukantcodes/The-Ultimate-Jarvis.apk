@@ -126,6 +126,16 @@ class TtsSettingsViewModel(application: Application) : AndroidViewModel(applicat
         onSaved?.invoke()
     }
 
+    fun deactivateOfflineTts(onDeactivated: (() -> Unit)? = null) {
+        viewModelScope.launch {
+            dispatcher.deactivateOfflineTts()
+            _selectedEngine.value = VoiceEngineType.NONE
+            _selectedSpeaker.value = SpeakerProfile.defaultFor(VoiceEngineType.NONE)
+            refreshInstallationState()
+            onDeactivated?.invoke()
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         dispatcher.removeAmplitudeListener(amplitudeListener)

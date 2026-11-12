@@ -106,15 +106,27 @@ data class KeyRecord(
     val unavailableUntil: Long = 0L,
     val lastFailureNote: String = "",
     val usage: KeyUsage = KeyUsage(),
-    val createdAt: Long = 0L
+    val createdAt: Long = 0L,
+    /** Flagged true when quota (429/402/403/RESOURCE_EXHAUSTED) is hit on this key. */
+    val isRateLimited: Boolean = false,
+    /** Timestamp when the rate limit was detected. */
+    val limitedAtTimestamp: Long = 0L
 ) {
     /** Health as of [nowMs]: a finished cooldown counts as available again, even right after an app restart. */
-    fun healthAt(nowMs: Long): KeyHealth = when (health) {
-        KeyHealth.RATE_LIMITED, KeyHealth.QUOTA_EXHAUSTED -> if (nowMs >= unavailableUntil) KeyHealth.AVAILABLE else health
+    fun healthAt(nowMs: Long): KeyHealth = when {
+        health == KeyHealth.RATE_LIMITED || health == KeyHealth.QUOTA_EXHAUSTED || isRateLimited -> {
+            if (nowMs >= unavailableUntil && unavailableUntil > 0L) KeyHealth.AVAILABLE else health
+        }
         else -> health
     }
 
-    fun isUsableAt(nowMs: Long): Boolean = enabled && healthAt(nowMs) == KeyHealth.AVAILABLE
+    /** Returns true if key is enabled, not rate-limited, and its health is AVAILABLE as of [nowMs]. */
+    fun isUsableAt(nowMs: Long): Boolean {
+        if (!enabled) return false
+        val autoCooldownExpired = (nowMs >= unavailableUntil && unavailableUntil > 0L)
+        val rateLimitActive = isRateLimited && !autoCooldownExpired
+        return !rateLimitActive && healthAt(nowMs) == KeyHealth.AVAILABLE
+    }
 
     companion object {
         const val DEFAULT_QUOTA_COOLDOWN_MS = 60L * 60_000L

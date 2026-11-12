@@ -505,6 +505,24 @@ class SettingsFragment : Fragment() {
     private fun setupVoiceSection() {
         binding.rowVoiceGender.setOnClickListener { showVoiceGenderDialog() }
         binding.rowPocketTts.setOnClickListener { open(com.jarvis.assistant.ui.settings.tts.TtsSettingsActivity::class.java) }
+        binding.rowPocketTts.setOnLongClickListener {
+            val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(requireContext())
+            if (dispatcher.getActiveEngineType().isLocal) {
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("Offline TTS Active")
+                    .setMessage("Active Engine: ${dispatcher.getActiveEngineType().displayName}\n\nDeactivate offline voice, release microphone, and free memory?")
+                    .setPositiveButton("Deactivate") { _, _ ->
+                        dispatcher.deactivateOfflineTts()
+                        updateTtsSubtitle()
+                        toast("Offline TTS deactivated & memory freed")
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+                true
+            } else {
+                false
+            }
+        }
         binding.rowNoiseCancel.setOnClickListener { showNoiseCancelDialog() }
         binding.rowAutoSleep.setOnClickListener { showAutoSleepDialog() }
         binding.rowDefaultAssistant.setOnClickListener { requestDefaultAssistant() }

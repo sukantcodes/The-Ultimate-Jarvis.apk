@@ -366,26 +366,66 @@ class GroqLiveSession(
     // ------------------------------------------------------------------------------------------
 
     private suspend fun transcribe(pcm: ByteArray): String? {
-        val wav = pcmToWav(pcm, 16_000)
-        val body = MultipartBody.Builder().setType(MultipartBody.FORM)
-            .addFormDataPart("model", sttModel)
-            .addFormDataPart("response_format", "json")
-            .addFormDataPart("temperature", "0")
-            .addFormDataPart("file", "speech.wav", wav.toRequestBody(WAV_TYPE))
-            .build()
-        val request = newRequest("/audio/transcriptions")
-            .post(body)
-            .build()
-        val (code, raw, retryAfter) = httpClient.newCall(request).execute().use {
-            Triple(it.code, it.body?.string().orEmpty(), it.header("retry-after"))
+        if (custom != null && (custom.sttModelId.isBlank() || custom.sttModelId == "none")) {
+            val local = transcribeWithVosk(pcm)
+            if (!local.isNullOrBlank()) return local
         }
-        if (code !in 200..299) {
-            reportHttpError(code, raw, retryAfter)
+        try {
+            val wav = pcmToWav(pcm, 16_000)
+            val body = MultipartBody.Builder().setType(MultipartBody.FORM)
+                .addFormDataPart("model", sttModel)
+                .addFormDataPart("response_format", "json")
+                .addFormDataPart("temperature", "0")
+                .addFormDataPart("file", "speech.wav", wav.toRequestBody(WAV_TYPE))
+                .build()
+            val request = newRequest("/audio/transcriptions")
+                .post(body)
+                .build()
+            val (code, raw, retryAfter) = httpClient.newCall(request).execute().use {
+                Triple(it.code, it.body?.string().orEmpty(), it.header("retry-after"))
+            }
+            if (code in 200..299) {
+                val text = JSONObject(raw).optString("text", "").trim()
+                if (text.isNotBlank()) return text
+            } else {
+                Log.w(TAG, "Cloud transcription returned code $code, attempting Vosk fallback")
+                val local = transcribeWithVosk(pcm)
+                if (!local.isNullOrBlank()) return local
+                reportHttpError(code, raw, retryAfter)
+                return null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Cloud transcription call failed: ${e.message}, attempting Vosk fallback")
+            val local = transcribeWithVosk(pcm)
+            if (!local.isNullOrBlank()) return local
             return null
         }
+        return transcribeWithVosk(pcm)
+    }
+
+    private fun transcribeWithVosk(pcm: ByteArray): String? {
         return try {
-            JSONObject(raw).optString("text", "").trim()
+            val app = context.applicationContext
+            if (com.jarvis.assistant.audio.VoskModelManager.model == null) {
+                com.jarvis.assistant.audio.VoskModelManager.init(app, CoroutineScope(Dispatchers.IO))
+                var waited = 0
+                while (com.jarvis.assistant.audio.VoskModelManager.model == null && waited < 2000) {
+                    Thread.sleep(100)
+                    waited += 100
+                }
+            }
+            val model = com.jarvis.assistant.audio.VoskModelManager.model ?: return null
+            org.vosk.Recognizer(model, 16000.0f).use { rec ->
+                if (rec.acceptWaveForm(pcm, pcm.size)) {
+                    val res = JSONObject(rec.result).optString("text").trim()
+                    if (res.isNotBlank()) res else null
+                } else {
+                    val finalRes = JSONObject(rec.finalResult).optString("text").trim()
+                    if (finalRes.isNotBlank()) finalRes else null
+                }
+            }
         } catch (e: Exception) {
+            Log.w(TAG, "Offline Vosk fallback transcription failed: ${e.message}")
             null
         }
     }

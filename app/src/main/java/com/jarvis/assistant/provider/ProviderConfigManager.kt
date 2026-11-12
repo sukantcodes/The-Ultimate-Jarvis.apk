@@ -297,13 +297,38 @@ class ProviderConfigManager(
     }
 
     fun resolveVoice(): VoiceResolution {
+        val voiceRoute = routes?.get(WorkCategory.VOICE)
+        if (voiceRoute != null) {
+            if (voiceRoute.isGemini || voiceRoute.isOfflineTts) {
+                return VoiceResolution.NotActive
+            }
+            if (voiceRoute.providerId.isNotBlank()) {
+                val profile = repository.get(voiceRoute.providerId)
+                    ?: return VoiceResolution.Blocked("Selected provider", "The provider chosen for Voice Conversations was deleted. Choose another in Work Routing.")
+                return resolveVoiceFor(profile, voiceRoute.modelId.ifBlank { null })
+            }
+        }
         val profile = activeProfile() ?: return VoiceResolution.NotActive
+        return resolveVoiceFor(profile, null)
+    }
+
+    private fun resolveVoiceFor(profile: ProviderProfile, modelOverride: String?): VoiceResolution {
         val name = profile.displayName
         validate(profile)?.let { return VoiceResolution.Blocked(name, it) }
-        val model = profile.selectedModel ?: return VoiceResolution.Blocked(name, "No model is selected for $name.")
+        val model = (modelOverride?.let { profile.model(it) ?: ModelInfo(id = it, manual = true) } ?: profile.selectedModel)
+            ?: return VoiceResolution.Blocked(name, "No model is selected for $name.")
         val eligibility = CapabilityPolicy.voice(profile, model)
         if (!eligibility.canRunVoice) return VoiceResolution.Blocked(name, eligibility.reason)
-        val secret = keyFor(profile) ?: return VoiceResolution.Blocked(name, "No API key is saved for $name.")
+        val secret = keyFor(profile) ?: run {
+            if (keyRotation?.hasKeys(profile.id) == true) {
+                return VoiceResolution.Ready(
+                    ProviderResolver.resolve(profile, ApiKeySecret(CharArray(0)), model.id),
+                    eligibility.mode,
+                    eligibility.reason
+                )
+            }
+            return VoiceResolution.Blocked(name, "No API key is saved for $name.")
+        }
         return VoiceResolution.Ready(
             ProviderResolver.resolve(profile, secret.takeIf { profile.authMethod != AuthMethod.NONE }, model.id),
             eligibility.mode,

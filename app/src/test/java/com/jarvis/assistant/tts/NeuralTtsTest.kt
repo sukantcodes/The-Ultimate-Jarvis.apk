@@ -28,6 +28,13 @@ class NeuralTtsTest {
 
         assertEquals("cloud_elevenlabs", VoiceEngineType.CLOUD_ELEVENLABS.id)
         assertFalse(VoiceEngineType.CLOUD_ELEVENLABS.isLocal)
+
+        assertEquals("none", VoiceEngineType.NONE.id)
+        assertFalse(VoiceEngineType.NONE.isLocal)
+        val defaultSpeaker = SpeakerProfile.defaultFor(VoiceEngineType.NONE)
+        assertEquals("none_default", defaultSpeaker.id)
+        val speakers = SpeakerProfile.speakersFor(VoiceEngineType.NONE)
+        assertEquals(1, speakers.size)
     }
 
     @Test

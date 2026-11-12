@@ -24,11 +24,16 @@ enum class WorkCategory(val id: String, val label: String) {
 
 /**
  * Where one category of work goes. [providerId] is a custom provider's id, [GEMINI] for the built-in Gemini
- * engine, or blank for "whichever custom provider is active". A blank [modelId] means that provider's own model.
+ * engine, [OFFLINE_TTS] for on-device neural voice, or blank for "whichever custom provider is active".
+ * A blank [modelId] means that provider's own model.
  */
 data class Route(val providerId: String = "", val modelId: String = "") {
     val isGemini: Boolean get() = providerId == GEMINI
-    companion object { const val GEMINI = "gemini" }
+    val isOfflineTts: Boolean get() = providerId == OFFLINE_TTS
+    companion object {
+        const val GEMINI = "gemini"
+        const val OFFLINE_TTS = "offline_tts"
+    }
 }
 
 /** Saved routes. Plain data only (no secrets). A category with no saved route follows the active custom provider. */

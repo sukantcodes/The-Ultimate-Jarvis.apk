@@ -16,6 +16,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.jarvis.assistant.R
+import com.jarvis.assistant.provider.AuthMethod
 import com.jarvis.assistant.provider.KeyManager
 import com.jarvis.assistant.provider.KeyRecord
 import com.jarvis.assistant.provider.ProviderProfile
@@ -26,8 +27,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * API Key Manager. Lists the saved keys of one custom provider with a masked hint, status and usage, and lets the
- * user add, rename, edit, switch off, test, reset the cooldown of, and delete each key. Full key text is never shown.
+ * API Key Manager.
+ * Enables multiple API keys per provider (Gemini, Custom AI Providers, ElevenLabs) with automatic
+ * rate-limit/quota failover, limit flag reset, priority reordering, and resilient Keystore access.
  */
 class KeyManagerActivity : AppCompatActivity() {
 
@@ -37,7 +39,7 @@ class KeyManagerActivity : AppCompatActivity() {
 
     private lateinit var list: LinearLayout
     private lateinit var summary: android.widget.TextView
-    private var profiles: List<ProviderProfile> = emptyList()
+    private var allProviders: List<ProviderProfile> = emptyList()
     private var selected: ProviderProfile? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,42 +48,100 @@ class KeyManagerActivity : AppCompatActivity() {
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         ThemeManager.applyDynamicBackground(root)
 
-        val bar = UiKit.row(this).apply { setPadding(UiKit.dp(this@KeyManagerActivity, 8), UiKit.dp(this@KeyManagerActivity, 12), UiKit.dp(this@KeyManagerActivity, 16), UiKit.dp(this@KeyManagerActivity, 8)) }
+        val bar = UiKit.row(this).apply {
+            setPadding(
+                UiKit.dp(this@KeyManagerActivity, 8),
+                UiKit.dp(this@KeyManagerActivity, 12),
+                UiKit.dp(this@KeyManagerActivity, 16),
+                UiKit.dp(this@KeyManagerActivity, 8)
+            )
+        }
         bar.addView(UiKit.button(this, "‹ Back") { finish() })
         bar.addView(UiKit.text(this, "  API Key Manager", 20f, bold = true))
         root.addView(bar)
 
         val body = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            val p = UiKit.dp(this@KeyManagerActivity, 16); setPadding(p, 0, p, p)
+            val p = UiKit.dp(this@KeyManagerActivity, 16)
+            setPadding(p, 0, p, p)
         }
         val scroll = ScrollView(this).apply { isFillViewport = true; addView(body) }
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         setContentView(root)
 
-        profiles = providers.profiles()
-        if (profiles.isEmpty()) {
-            body.addView(UiKit.text(this, "Add a custom provider first (Settings → API Key & Model Settings → Add provider). Keys belong to a provider.", 14f, muted = true))
-            return
-        }
+        // Always include Google Gemini (Built-in) and ElevenLabs alongside any custom providers
+        val geminiBuiltIn = ProviderProfile(
+            id = "gemini",
+            displayName = "Google Gemini (Built-in)",
+            authMethod = AuthMethod.BEARER_HEADER
+        )
+        val elevenLabsBuiltIn = ProviderProfile(
+            id = "elevenlabs",
+            displayName = "ElevenLabs Turbo",
+            authMethod = AuthMethod.CUSTOM_HEADER,
+            authHeader = "xi-api-key"
+        )
+        allProviders = listOf(geminiBuiltIn, elevenLabsBuiltIn) + providers.profiles()
 
         body.addView(UiKit.text(this, "Provider", 12f, muted = true))
-        val spinner = Spinner(this)
-        spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, profiles.map { it.displayName })
-        val activeId = providers.activeProfile()?.id
-        spinner.setSelection(profiles.indexOfFirst { it.id == activeId }.coerceAtLeast(0))
+        val spinner = Spinner(this).apply {
+            minimumHeight = UiKit.dp(this@KeyManagerActivity, 48)
+            adapter = ArrayAdapter(
+                this@KeyManagerActivity,
+                android.R.layout.simple_spinner_dropdown_item,
+                allProviders.map { it.displayName }
+            )
+        }
+        val activeCustomId = providers.activeProfile()?.id
+        val initialIndex = if (activeCustomId != null) {
+            allProviders.indexOfFirst { it.id == activeCustomId }.coerceAtLeast(0)
+        } else {
+            0
+        }
+        spinner.setSelection(initialIndex)
         body.addView(spinner)
-        selected = profiles[spinner.selectedItemPosition]
+        selected = allProviders.getOrNull(spinner.selectedItemPosition) ?: allProviders.firstOrNull()
 
-        summary = UiKit.text(this, "", 12f, muted = true).apply { setPadding(0, UiKit.dp(this@KeyManagerActivity, 8), 0, UiKit.dp(this@KeyManagerActivity, 8)) }
+        summary = UiKit.text(this, "", 12f, muted = true).apply {
+            setPadding(0, UiKit.dp(this@KeyManagerActivity, 8), 0, UiKit.dp(this@KeyManagerActivity, 8))
+        }
         body.addView(summary)
-        body.addView(UiKit.button(this, "Add API key", outlined = false) { showEditor(null) })
-        body.addView(UiKit.gap(this, 12))
+
+        // Action Buttons Row: Add Key, Reset Provider Limits, Reset All Limits
+        val actionRow = UiKit.row(this).apply {
+            gravity = Gravity.START
+            setPadding(0, 0, 0, UiKit.dp(this@KeyManagerActivity, 8))
+        }
+        actionRow.addView(UiKit.button(this, "+ Add API key", outlined = false) { showEditor(null) })
+        actionRow.addView(UiKit.gap(this, 8))
+        actionRow.addView(UiKit.button(this, "Reset Limit Flags", outlined = true) {
+            val prof = selected ?: return@button
+            val cleared = keys.resetLimitFlags(prof.id)
+            render()
+            toast("Cleared limit flags for $cleared key(s) under ${prof.displayName}.")
+        })
+        actionRow.addView(UiKit.gap(this, 8))
+        actionRow.addView(UiKit.button(this, "Reset All Limits", outlined = true) {
+            val cleared = keys.resetLimitFlags(null)
+            render()
+            toast("Cleared limit flags across all providers ($cleared keys restored).")
+        })
+
+        val hScroll = android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(actionRow)
+        }
+        body.addView(hScroll)
+        body.addView(UiKit.gap(this, 8))
+
         list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         body.addView(list)
 
         spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p: AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) { selected = profiles[pos]; render() }
+            override fun onItemSelected(p: AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
+                selected = allProviders.getOrNull(pos) ?: allProviders.firstOrNull()
+                render()
+            }
             override fun onNothingSelected(p: AdapterView<*>?) {}
         }
         render()
@@ -90,8 +150,14 @@ class KeyManagerActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (selected == null) return
-        // Cooldown countdowns and "key is back" changes show up without leaving the screen.
-        lifecycleScope.launch { repeatOnLifecycle(Lifecycle.State.RESUMED) { while (true) { render(); delay(15_000) } } }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                while (true) {
+                    render()
+                    delay(15_000)
+                }
+            }
+        }
     }
 
     private fun render() {
@@ -99,10 +165,13 @@ class KeyManagerActivity : AppCompatActivity() {
         val records = keys.keys(profile.id)
         val now = System.currentTimeMillis()
         val usable = records.count { it.isUsableAt(now) }
+        val rateLimitedCount = records.count { it.isRateLimited }
+
+        val rateLimitNote = if (rateLimitedCount > 0) " · $rateLimitedCount currently rate-limited" else ""
         summary.text = if (records.isEmpty()) {
-            "No keys yet. Add several and JARVIS will switch to the next one automatically when a key reaches its limit."
+            "No keys stored for ${profile.displayName}. Add multiple keys and JARVIS will automatically fail over to the next key upon rate-limit (429)."
         } else {
-            "${records.size} key${if (records.size == 1) "" else "s"} · $usable ready now. Lower priority number is used first."
+            "${records.size} key${if (records.size == 1) "" else "s"} · $usable ready$rateLimitNote. Lower priority is leased first."
         }
         list.removeAllViews()
         records.sortedWith(compareBy({ it.priority }, { it.createdAt })).forEach { list.addView(keyCard(it, now)) }
@@ -112,25 +181,70 @@ class KeyManagerActivity : AppCompatActivity() {
         val card = UiKit.card(this)
         val head = UiKit.row(this)
         val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        titles.addView(UiKit.text(this, rec.label, 16f, bold = true))
-        titles.addView(UiKit.text(this, keys.mask(rec.id).ifEmpty { "No key text" } + "  ·  priority ${rec.priority}" +
-            (if (rec.modelId.isNotBlank()) "  ·  ${rec.modelId}" else ""), 12f, muted = true))
+
+        val labelRow = UiKit.row(this)
+        labelRow.addView(UiKit.text(this, rec.label, 16f, bold = true))
+        if (rec.isRateLimited) {
+            val badge = UiKit.text(this, " ⚡ RATE LIMITED ", 10f, bold = true).apply {
+                setTextColor(ThemeManager.getThemeWarningColor())
+                setPadding(UiKit.dp(this@KeyManagerActivity, 6), 0, 0, 0)
+            }
+            labelRow.addView(badge)
+        } else if (rec.isUsableAt(now)) {
+            val badge = UiKit.text(this, " ✓ READY ", 10f, bold = true).apply {
+                setTextColor(ThemeManager.getThemeSuccessColor())
+                setPadding(UiKit.dp(this@KeyManagerActivity, 6), 0, 0, 0)
+            }
+            labelRow.addView(badge)
+        }
+        titles.addView(labelRow)
+
+        titles.addView(
+            UiKit.text(
+                this,
+                keys.mask(rec.id).ifEmpty { "Saved Secret" } + " · priority ${rec.priority}" +
+                        (if (rec.modelId.isNotBlank()) " · ${rec.modelId}" else ""),
+                12f,
+                muted = true
+            )
+        )
         head.addView(titles, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
         val toggle = Switch(this).apply {
             isChecked = rec.enabled
             contentDescription = "Use ${rec.label}"
-            setOnCheckedChangeListener { _, on -> pool.setEnabled(rec.id, on); render() }
+            setOnCheckedChangeListener { _, on ->
+                pool.setEnabled(rec.id, on)
+                render()
+            }
         }
         head.addView(toggle)
         card.addView(head)
-        card.addView(UiKit.text(this, keys.statusLine(rec, now), 12f).apply { setPadding(0, UiKit.dp(this@KeyManagerActivity, 6), 0, 0) })
-        if (rec.lastFailureNote.isNotBlank()) card.addView(UiKit.text(this, rec.lastFailureNote, 11f, muted = true))
+
+        card.addView(UiKit.text(this, keys.statusLine(rec, now), 12f).apply {
+            setPadding(0, UiKit.dp(this@KeyManagerActivity, 6), 0, 0)
+        })
+        if (rec.lastFailureNote.isNotBlank()) {
+            card.addView(UiKit.text(this, rec.lastFailureNote, 11f, muted = true))
+        }
+
         val actions = UiKit.row(this).apply { gravity = Gravity.START }
         actions.addView(UiKit.button(this, "Test") { testKey(rec) })
+        actions.addView(UiKit.gap(this, 6))
         actions.addView(UiKit.button(this, "Edit") { showEditor(rec) })
-        actions.addView(UiKit.button(this, "Reset") { pool.resetCooldown(rec.id); render(); toast("Cooldown cleared for ${rec.label}.") })
+        actions.addView(UiKit.gap(this, 6))
+        actions.addView(UiKit.button(this, "Reset Limit") {
+            pool.resetCooldown(rec.id)
+            render()
+            toast("Rate limit flag & cooldown cleared for ${rec.label}.")
+        })
+        actions.addView(UiKit.gap(this, 6))
         actions.addView(UiKit.button(this, "Delete") { confirmDelete(rec) })
-        val hs = android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(actions) }
+
+        val hs = android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(actions)
+        }
         card.addView(hs)
         return card
     }
@@ -138,43 +252,67 @@ class KeyManagerActivity : AppCompatActivity() {
     private fun testKey(rec: KeyRecord) {
         toast("Testing ${rec.label}…")
         lifecycleScope.launch {
-            val report = try { keys.test(rec.id) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { null }
+            val report = try {
+                keys.test(rec.id)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
             render()
             MaterialAlertDialogBuilder(this@KeyManagerActivity, R.style.ThemeOverlay_Jarvis_MaterialDialog)
-                .setTitle(if (report?.ok == true) "Key works" else "Key test failed")
-                .setMessage(report?.summary ?: "This key could not be tested. Check that its provider still exists and the key text is saved.")
-                .setPositiveButton("OK", null).show()
+                .setTitle(if (report?.ok == true) "Key Operational" else "Key Test Failed")
+                .setMessage(report?.summary ?: "This key could not be tested. Check network connectivity and credentials.")
+                .setPositiveButton("OK", null)
+                .show()
         }
     }
 
     private fun confirmDelete(rec: KeyRecord) {
         MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_Jarvis_MaterialDialog)
             .setTitle("Delete ${rec.label}?")
-            .setMessage("The key is removed from this phone. This can't be undone, but you can add it again.")
-            .setPositiveButton("Delete") { _, _ -> keys.remove(rec.id); render() }
-            .setNegativeButton("Cancel", null).show()
+            .setMessage("The key will be safely removed from secure storage.")
+            .setPositiveButton("Delete") { _, _ ->
+                keys.remove(rec.id)
+                render()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
-    /** Add (rec == null) or edit. Leaving the key box empty when editing keeps the saved key. */
+    /** Add (rec == null) or edit existing API key. Safe from null pointer exceptions. */
     private fun showEditor(rec: KeyRecord?) {
-        val profile = selected ?: return
-        val label = UiKit.input(this, "Name (for example Personal)", rec?.label.orEmpty())
-        val key = UiKit.input(this, if (rec == null) "API key" else "New API key (leave empty to keep)", secret = true)
-        val priority = UiKit.input(this, "Priority (1 = first)", (rec?.priority ?: 100).toString(), number = true)
+        val profile = selected ?: allProviders.firstOrNull() ?: return
+        val label = UiKit.input(this, "Key Label (e.g. Primary Key, Backup)", rec?.label.orEmpty())
+        val key = UiKit.input(this, if (rec == null) "API Key" else "New API Key (leave empty to keep)", secret = true)
+        val priority = UiKit.input(this, "Priority (1 = highest priority)", (rec?.priority ?: 100).toString(), number = true)
         val model = UiKit.input(this, "Model for this key (optional)", rec?.modelId.orEmpty())
-        val cooldown = UiKit.input(this, "Rest after a limit, minutes", ((rec?.cooldownMs ?: KeyRecord.DEFAULT_QUOTA_COOLDOWN_MS) / 60_000L).toString(), number = true)
+        val cooldown = UiKit.input(this, "Cooldown after rate-limit, minutes", ((rec?.cooldownMs ?: KeyRecord.DEFAULT_QUOTA_COOLDOWN_MS) / 60_000L).toString(), number = true)
+
         val schedTypes = arrayOf("No reset schedule", "Resets daily at a time", "Resets every N minutes")
         val sched = Spinner(this).apply {
+            minimumHeight = UiKit.dp(this@KeyManagerActivity, 48)
             adapter = ArrayAdapter(this@KeyManagerActivity, android.R.layout.simple_spinner_dropdown_item, schedTypes)
-            setSelection(when (rec?.resetSchedule?.type) { ResetSchedule.Type.DAILY -> 1; ResetSchedule.Type.INTERVAL -> 2; else -> 0 })
+            setSelection(when (rec?.resetSchedule?.type) {
+                ResetSchedule.Type.DAILY -> 1
+                ResetSchedule.Type.INTERVAL -> 2
+                else -> 0
+            })
         }
         val s = rec?.resetSchedule ?: ResetSchedule.NONE
         val at = UiKit.input(this, "Daily time HH:MM (24 h)", if (s.type == ResetSchedule.Type.DAILY) "%02d:%02d".format(s.hour, s.minute) else "")
-        val offset = UiKit.input(this, "Time zone offset, minutes from UTC (India = 330)", (if (s.type == ResetSchedule.Type.DAILY) s.utcOffsetMinutes else java.util.TimeZone.getDefault().rawOffset / 60_000).toString())
+        val offset = UiKit.input(this, "Time zone offset, minutes from UTC", (if (s.type == ResetSchedule.Type.DAILY) s.utcOffsetMinutes else java.util.TimeZone.getDefault().rawOffset / 60_000).toString())
         val every = UiKit.input(this, "Reset interval, minutes", if (s.type == ResetSchedule.Type.INTERVAL) s.intervalMinutes.toString() else "", number = true)
-        val form = UiKit.form(this, label, key, priority, model, cooldown, UiKit.text(this, "Quota reset (when the provider doesn't say)", 12f, muted = true), sched, at, offset, every)
+
+        val form = UiKit.form(
+            this,
+            label, key, priority, model, cooldown,
+            UiKit.text(this, "Quota Reset Schedule (Optional)", 12f, muted = true),
+            sched, at, offset, every
+        )
+
         MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_Jarvis_MaterialDialog)
-            .setTitle(if (rec == null) "Add API key" else "Edit ${rec.label}")
+            .setTitle(if (rec == null) "Add API Key (${profile.displayName})" else "Edit ${rec.label}")
             .setView(ScrollView(this).apply { addView(form) })
             .setPositiveButton("Save", null)
             .setNegativeButton("Cancel", null)
@@ -184,33 +322,67 @@ class KeyManagerActivity : AppCompatActivity() {
                         val schedule = when (sched.selectedItemPosition) {
                             1 -> {
                                 val m = Regex("^(\\d{1,2}):(\\d{2})$").matchEntire(at.text.toString().trim())
-                                val h = m?.groupValues?.get(1)?.toInt(); val mi = m?.groupValues?.get(2)?.toInt()
-                                if (h == null || mi == null || h > 23 || mi > 59) { toast("Enter the daily reset time as HH:MM."); return@setOnClickListener }
+                                val h = m?.groupValues?.get(1)?.toInt()
+                                val mi = m?.groupValues?.get(2)?.toInt()
+                                if (h == null || mi == null || h > 23 || mi > 59) {
+                                    toast("Enter the daily reset time as HH:MM.")
+                                    return@setOnClickListener
+                                }
                                 ResetSchedule.daily(h, mi, offset.text.toString().trim().toIntOrNull() ?: 0)
                             }
                             2 -> {
                                 val n = every.text.toString().trim().toIntOrNull()
-                                if (n == null || n <= 0) { toast("Enter the reset interval in minutes."); return@setOnClickListener }
+                                if (n == null || n <= 0) {
+                                    toast("Enter the reset interval in minutes.")
+                                    return@setOnClickListener
+                                }
                                 ResetSchedule.every(n, System.currentTimeMillis())
                             }
                             else -> ResetSchedule.NONE
                         }
                         val prio = priority.text.toString().trim().toIntOrNull() ?: 100
                         val rest = (cooldown.text.toString().trim().toLongOrNull() ?: 60L).coerceIn(1L, 7L * 24 * 60) * 60_000L
-                        val typed = key.text.toString()
+                        val typed = key.text.toString().trim()
+
                         val problem = if (rec == null) {
-                            keys.add(profile.id, label.text.toString(), typed, prio, model.text.toString(), rest, schedule)
+                            if (typed.isBlank()) {
+                                toast("Please enter an API key.")
+                                return@setOnClickListener
+                            }
+                            keys.add(
+                                providerId = profile.id,
+                                label = label.text.toString().trim(),
+                                keyText = typed,
+                                priority = prio,
+                                modelId = model.text.toString().trim(),
+                                cooldownMs = rest,
+                                resetSchedule = schedule
+                            )
                         } else {
                             if (typed.isNotBlank()) keys.replaceKey(rec.id, typed) else null
                         }
-                        if (problem != null) { toast(problem); return@setOnClickListener }
+
+                        if (problem != null) {
+                            toast(problem)
+                            return@setOnClickListener
+                        }
+
                         if (rec != null) {
                             pool.get(rec.id)?.let {
-                                pool.upsert(it.copy(label = label.text.toString().trim().ifEmpty { it.label }, priority = prio,
-                                    modelId = model.text.toString().trim(), cooldownMs = rest, resetSchedule = schedule))
+                                pool.upsert(
+                                    it.copy(
+                                        label = label.text.toString().trim().ifEmpty { it.label },
+                                        priority = prio,
+                                        modelId = model.text.toString().trim(),
+                                        cooldownMs = rest,
+                                        resetSchedule = schedule
+                                    )
+                                )
                             }
                         }
-                        dlg.dismiss(); render()
+
+                        dlg.dismiss()
+                        render()
                     }
                 }
             }.show()

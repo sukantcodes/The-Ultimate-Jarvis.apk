@@ -56,12 +56,25 @@ class SherpaTtsEngine(private val context: Context) {
 
     /**
      * Initializes or switches the active local engine (Kokoro or Piper).
+     * Strictly enforces memory safety: checks available RAM and unloads previous engine first.
      */
     fun initializeEngine(engineType: VoiceEngineType): Boolean = synchronized(initLock) {
         if (!engineType.isLocal) return false
         if (offlineTts != null && currentEngineType == engineType) return true
 
+        // Strict 1 GB / Available RAM Guard: check system memory before native initialization
+        val actManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+        val memInfo = android.app.ActivityManager.MemoryInfo()
+        actManager?.getMemoryInfo(memInfo)
+        val availMemMb = memInfo.availMem / (1024L * 1024L)
+
+        // Unload existing engine first to immediately release native heap allocations
         releaseNativeTts()
+
+        if (memInfo.lowMemory || availMemMb < 150L) {
+            Log.w(TAG, "Critical memory constraint: only ${availMemMb}MB free RAM (lowMemory=${memInfo.lowMemory}). Aborting native allocation for ${engineType.displayName}.")
+            return false
+        }
 
         val engineDir = TtsModelDownloader.resolveModelDir(context, engineType)
         if (engineDir == null || !TtsModelDownloader.isEngineInstalled(context, engineType)) {
@@ -73,7 +86,7 @@ class SherpaTtsEngine(private val context: Context) {
             val ttsConfig = createConfigForEngine(engineType, engineDir)
             offlineTts = OfflineTts(null, ttsConfig)
             currentEngineType = engineType
-            Log.i(TAG, "Successfully initialized Sherpa-ONNX native core for ${engineType.displayName}")
+            Log.i(TAG, "Successfully initialized Sherpa-ONNX native core for ${engineType.displayName} (${availMemMb}MB RAM available)")
             true
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to instantiate OfflineTts native core for ${engineType.displayName}", e)
@@ -262,7 +275,7 @@ class SherpaTtsEngine(private val context: Context) {
         }
 
         val audioAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
             .build()
 
@@ -289,6 +302,19 @@ class SherpaTtsEngine(private val context: Context) {
 
         currentAudioTrack = track
         isPlayingAudio = true
+
+        var focusRequest: android.media.AudioFocusRequest? = null
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setAudioAttributes(audioAttributes)
+                .setAcceptsDelayedFocusGain(false)
+                .setOnAudioFocusChangeListener { /* Ducking handled by framework */ }
+                .build()
+            audioManager?.requestAudioFocus(focusRequest)
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager?.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+        }
 
         try {
             track.play()
@@ -346,6 +372,12 @@ class SherpaTtsEngine(private val context: Context) {
                 currentAudioTrack = null
                 isPlayingAudio = false
             }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager?.abandonAudioFocus(null)
+            }
         }
     }
 
@@ -365,7 +397,7 @@ class SherpaTtsEngine(private val context: Context) {
         currentAudioTrack = null
     }
 
-    private fun releaseNativeTts() = synchronized(initLock) {
+    fun releaseNativeTts() = synchronized(initLock) {
         try {
             offlineTts?.release()
         } catch (e: Throwable) {

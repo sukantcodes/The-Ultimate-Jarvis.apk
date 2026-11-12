@@ -55,7 +55,39 @@ class ApiKeyPool(
 
     /** The user pressed "reset cooldown" (or replaced the key): the key is eligible again right now. */
     fun resetCooldown(id: String): Boolean = update(id) {
-        it.copy(health = KeyHealth.AVAILABLE, unavailableUntil = 0L, lastFailureNote = "")
+        it.copy(
+            health = KeyHealth.AVAILABLE,
+            unavailableUntil = 0L,
+            lastFailureNote = "",
+            isRateLimited = false,
+            limitedAtTimestamp = 0L
+        )
+    }
+
+    /**
+     * Resets rate-limit and quota exhausted flags for all keys under [providerId] (or globally when null).
+     * Keys immediately become available for reuse on demand.
+     */
+    fun resetLimitFlags(providerId: String? = null): Int = synchronized(lock) {
+        val all = readAll().toMutableList()
+        var count = 0
+        all.indices.forEach { i ->
+            val rec = all[i]
+            if (providerId == null || rec.providerId == providerId) {
+                if (rec.isRateLimited || rec.health == KeyHealth.RATE_LIMITED || rec.health == KeyHealth.QUOTA_EXHAUSTED) {
+                    all[i] = rec.copy(
+                        health = KeyHealth.AVAILABLE,
+                        unavailableUntil = 0L,
+                        lastFailureNote = "",
+                        isRateLimited = false,
+                        limitedAtTimestamp = 0L
+                    )
+                    count++
+                }
+            }
+        }
+        if (count > 0) writeAll(all)
+        count
     }
 
     /**
@@ -105,12 +137,16 @@ class ApiKeyPool(
         val updated = when (failure) {
             KeyFailure.QUOTA -> rec.copy(
                 health = KeyHealth.QUOTA_EXHAUSTED,
+                isRateLimited = true,
+                limitedAtTimestamp = now,
                 unavailableUntil = quotaUntil(rec, retryAfterMs, now),
                 lastFailureNote = shortNote,
                 usage = rec.usage.copy(quotaHits = rec.usage.quotaHits + 1)
             )
             KeyFailure.RATE_LIMIT -> rec.copy(
                 health = KeyHealth.RATE_LIMITED,
+                isRateLimited = true,
+                limitedAtTimestamp = now,
                 unavailableUntil = now + (retryAfterMs ?: KeyRecord.DEFAULT_RATE_LIMIT_COOLDOWN_MS)
                     .coerceIn(KeyRecord.MIN_COOLDOWN_MS, KeyRecord.MAX_COOLDOWN_MS),
                 lastFailureNote = shortNote,
@@ -204,6 +240,8 @@ object KeyPoolCodec {
         addProperty("unavailableUntil", r.unavailableUntil)
         addProperty("lastFailureNote", r.lastFailureNote)
         addProperty("createdAt", r.createdAt)
+        addProperty("isRateLimited", r.isRateLimited)
+        addProperty("limitedAtTimestamp", r.limitedAtTimestamp)
         add("schedule", JsonObject().apply {
             addProperty("type", r.resetSchedule.type.name)
             addProperty("hour", r.resetSchedule.hour)
@@ -255,7 +293,9 @@ object KeyPoolCodec {
                 lastUsedAt = usage?.long("lastUsedAt", 0) ?: 0L,
                 lastSuccessAt = usage?.long("lastSuccessAt", 0) ?: 0L
             ),
-            createdAt = o.long("createdAt", 0)
+            createdAt = o.long("createdAt", 0),
+            isRateLimited = o.bool("isRateLimited", false),
+            limitedAtTimestamp = o.long("limitedAtTimestamp", 0)
         )
     }
 

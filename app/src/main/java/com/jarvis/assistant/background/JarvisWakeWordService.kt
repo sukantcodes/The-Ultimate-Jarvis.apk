@@ -30,11 +30,15 @@ import com.jarvis.assistant.ui.home.MainActivity
  * Always-on foreground service that listens for "Hey Jarvis" wake phrases using
  * Android's SpeechRecognizer in PARTIAL-result mode.
  *
- * State machine:
- *   IDLE → wake phrase detected → COMMAND_LISTEN → command received →
- *   JarvisConversationService.sendTextMessage() → (1 500 ms delay) → IDLE
+ * Explicit State machine:
+ *   IDLE -> INITIALIZING -> LISTENING -> PROCESSING -> SPEAKING -> ERROR
  *
- * On any error, restart after 2 000 ms.
+ * Features:
+ * 1. Half-duplex guard: Pauses microphone capture while assistant audio/TTS is playing
+ *    and enforces a 300ms acoustic echo guard delay after playback completion.
+ * 2. Infinite mic loop elimination: Guaranteed 400ms backoff on restarts and clean halt
+ *    on consecutive RECOGNIZER_BUSY / INSUFFICIENT_PERMISSIONS errors.
+ * 3. Android 14-16+ Foreground Service microphone runtime permission safety.
  */
 class JarvisWakeWordService : Service() {
 
@@ -44,6 +48,10 @@ class JarvisWakeWordService : Service() {
         private const val NOTIFICATION_ID = 42
         private const val RESTART_DELAY_AFTER_COMMAND_MS = 1_500L
         private const val RESTART_DELAY_AFTER_ERROR_MS   = 2_000L
+        private const val MIN_BACKOFF_DELAY_MS          = 400L
+        private const val ECHO_GUARD_DELAY_MS           = 300L
+        private const val MAX_CONSECUTIVE_BUSY_ERRORS   = 2
+        private const val MAX_CONSECUTIVE_TOTAL_ERRORS  = 5
 
         @Volatile private var running = false
 
@@ -77,20 +85,71 @@ class JarvisWakeWordService : Service() {
         }
     }
 
-    // ── State ─────────────────────────────────────────────────────────────────
+    // ── State Machine ──────────────────────────────────────────────────────────
+    enum class WakeState {
+        IDLE,
+        INITIALIZING,
+        LISTENING,
+        PROCESSING,
+        SPEAKING,
+        ERROR
+    }
+
     private enum class ListenMode { WAKE_WORD, COMMAND }
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var speechRecognizer: SpeechRecognizer? = null
     private var currentMode = ListenMode.WAKE_WORD
+    private var currentState = WakeState.IDLE
+
+    private var consecutiveBusyErrors = 0
+    private var consecutiveTotalErrors = 0
+
     private val audioBufferLock = Any()
     private val recentAudioBuffer = java.io.ByteArrayOutputStream()
+
+    private val speakingListener: (Boolean) -> Unit = { isSpeaking ->
+        mainHandler.post {
+            if (!running) return@post
+            if (isSpeaking) {
+                Log.d(TAG, "Half-duplex guard: Output actively speaking. Suspending microphone capture.")
+                mainHandler.removeCallbacks(resumeListeningRunnable)
+                transitionTo(WakeState.SPEAKING)
+                stopRecognizer()
+            } else {
+                if (currentState == WakeState.SPEAKING) {
+                    Log.d(TAG, "Half-duplex guard: Output finished. Resuming listening after ${ECHO_GUARD_DELAY_MS}ms.")
+                    mainHandler.removeCallbacks(resumeListeningRunnable)
+                    mainHandler.postDelayed(resumeListeningRunnable, ECHO_GUARD_DELAY_MS)
+                }
+            }
+        }
+    }
+
+    private val resumeListeningRunnable = Runnable {
+        if (!running) return@Runnable
+        if (com.jarvis.assistant.voice.JarvisVoiceController.isSpeaking()) {
+            Log.d(TAG, "Speech output still active; postponing listening resumption.")
+            mainHandler.postDelayed(resumeListeningRunnable, ECHO_GUARD_DELAY_MS)
+            return@Runnable
+        }
+        consecutiveBusyErrors = 0
+        startWakeWordListening()
+    }
+
+    private fun transitionTo(newState: WakeState) {
+        if (currentState != newState) {
+            currentState = newState
+            Log.d(TAG, "WakeState -> $newState")
+        }
+    }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     override fun onCreate() {
         super.onCreate()
         running = true
+        transitionTo(WakeState.IDLE)
 
         val hasMicPermission = ContextCompat.checkSelfPermission(
             this,
@@ -117,7 +176,8 @@ class JarvisWakeWordService : Service() {
             } else {
                 startForeground(NOTIFICATION_ID, notification)
             }
-            Log.i(TAG, "Service started in foreground")
+            Log.i(TAG, "Service started in foreground with microphone type")
+            com.jarvis.assistant.voice.JarvisVoiceController.addSpeakingStateListener(speakingListener)
             mainHandler.post { startWakeWordListening() }
         } catch (e: SecurityException) {
             Log.e(TAG, "SecurityException during startForeground: ${e.message}", e)
@@ -135,8 +195,13 @@ class JarvisWakeWordService : Service() {
 
     override fun onDestroy() {
         running = false
+        mainHandler.removeCallbacksAndMessages(null)
+        try {
+            com.jarvis.assistant.voice.JarvisVoiceController.removeSpeakingStateListener(speakingListener)
+        } catch (_: Exception) {}
         stopRecognizer()
-        Log.i(TAG, "Service stopped")
+        transitionTo(WakeState.IDLE)
+        Log.i(TAG, "Service stopped and recognizer released")
         super.onDestroy()
     }
 
@@ -194,8 +259,19 @@ class JarvisWakeWordService : Service() {
      * [mode] controls how the results are interpreted.
      */
     private fun startListeningForMode(mode: ListenMode) {
+        if (!running) return
+
+        if (com.jarvis.assistant.voice.JarvisVoiceController.isSpeaking()) {
+            Log.d(TAG, "[$mode] Speech playback is currently active; withholding mic acquisition.")
+            transitionTo(WakeState.SPEAKING)
+            mainHandler.removeCallbacks(resumeListeningRunnable)
+            mainHandler.postDelayed(resumeListeningRunnable, ECHO_GUARD_DELAY_MS)
+            return
+        }
+
         currentMode = mode
         stopRecognizer()
+        transitionTo(WakeState.INITIALIZING)
 
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             Log.w(TAG, "Speech recognition not available on this device")
@@ -208,10 +284,17 @@ class JarvisWakeWordService : Service() {
 
                 override fun onReadyForSpeech(params: Bundle?) {
                     Log.d(TAG, "[$mode] Ready for speech")
+                    consecutiveBusyErrors = 0
+                    consecutiveTotalErrors = 0
+                    transitionTo(WakeState.LISTENING)
                 }
 
-                override fun onBeginningOfSpeech() {}
+                override fun onBeginningOfSpeech() {
+                    transitionTo(WakeState.PROCESSING)
+                }
+
                 override fun onRmsChanged(rmsdB: Float) {}
+
                 override fun onBufferReceived(buffer: ByteArray?) {
                     if (buffer != null && buffer.isNotEmpty()) {
                         synchronized(audioBufferLock) {
@@ -222,7 +305,10 @@ class JarvisWakeWordService : Service() {
                         }
                     }
                 }
-                override fun onEndOfSpeech() {}
+
+                override fun onEndOfSpeech() {
+                    transitionTo(WakeState.PROCESSING)
+                }
 
                 override fun onPartialResults(partialResults: Bundle?) {
                     val partial = partialResults
@@ -263,8 +349,8 @@ class JarvisWakeWordService : Service() {
                                 Log.i(TAG, "Wake phrase confirmed (final): '$best'")
                                 onWakePhraseDetected()
                             } else {
-                                // Not a wake phrase — keep listening
-                                scheduleRestart(0) { startWakeWordListening() }
+                                // Not a wake phrase — keep listening with safe backoff delay
+                                scheduleRestart(MIN_BACKOFF_DELAY_MS) { startWakeWordListening() }
                             }
                         }
                         ListenMode.COMMAND -> {
@@ -283,8 +369,29 @@ class JarvisWakeWordService : Service() {
                     val errorName = speechErrorName(error)
                     Log.w(TAG, "[$mode] SpeechRecognizer error: $error ($errorName)")
 
-                    // ERROR_NO_MATCH / ERROR_SPEECH_TIMEOUT are benign — just restart
-                    scheduleRestart(RESTART_DELAY_AFTER_ERROR_MS) { startWakeWordListening() }
+                    consecutiveTotalErrors++
+                    if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY ||
+                        error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS
+                    ) {
+                        consecutiveBusyErrors++
+                    }
+
+                    if (consecutiveBusyErrors >= MAX_CONSECUTIVE_BUSY_ERRORS) {
+                        Log.e(TAG, "Halting wake word listener after $consecutiveBusyErrors consecutive busy/permission errors to prevent infinite mic loop.")
+                        stopRecognizer()
+                        transitionTo(WakeState.ERROR)
+                        return
+                    }
+
+                    if (consecutiveTotalErrors >= MAX_CONSECUTIVE_TOTAL_ERRORS) {
+                        Log.e(TAG, "Halting wake word listener after $consecutiveTotalErrors consecutive errors to protect mic hardware.")
+                        stopRecognizer()
+                        transitionTo(WakeState.ERROR)
+                        return
+                    }
+
+                    val delay = maxOf(MIN_BACKOFF_DELAY_MS, RESTART_DELAY_AFTER_ERROR_MS)
+                    scheduleRestart(delay) { startWakeWordListening() }
                 }
 
                 override fun onEvent(eventType: Int, params: Bundle?) {}
@@ -297,7 +404,6 @@ class JarvisWakeWordService : Service() {
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
             if (mode == ListenMode.WAKE_WORD) {
-                // Keep listening for a long time in wake-word mode
                 putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 3_000L)
                 putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 3_000L)
                 putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1_000L)
@@ -338,8 +444,7 @@ class JarvisWakeWordService : Service() {
             val match = com.jarvis.assistant.audio.OwnerVoiceManager.verifyOwnerForWakeWord(audioBytes, prefs)
             if (!match.isMatch) {
                 Log.w(TAG, "Wake word rejected: stranger voice")
-                // Do NOT wake up, do NOT activate command mode. Restart wake listening immediately.
-                scheduleRestart(0) { startWakeWordListening() }
+                scheduleRestart(MIN_BACKOFF_DELAY_MS) { startWakeWordListening() }
                 return
             }
             Log.i(TAG, "Wake word accepted: owner verified (dist=${match.distance}, sim=${match.similarityPercent}%)")
@@ -469,11 +574,8 @@ class JarvisWakeWordService : Service() {
 
     private fun scheduleRestart(delayMs: Long, action: () -> Unit) {
         stopRecognizer()
-        if (delayMs > 0) {
-            mainHandler.postDelayed(action, delayMs)
-        } else {
-            mainHandler.post(action)
-        }
+        val effectiveDelay = maxOf(delayMs, MIN_BACKOFF_DELAY_MS)
+        mainHandler.postDelayed(action, effectiveDelay)
     }
 
     @Suppress("DEPRECATION")

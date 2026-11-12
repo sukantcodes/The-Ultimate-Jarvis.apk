@@ -207,7 +207,24 @@ class JarvisVoiceDispatcher private constructor(private val context: Context) {
             VoiceEngineType.CLOUD_GEMINI, VoiceEngineType.CLOUD_ELEVENLABS -> {
                 cloudEngine.speak(cleanSpeech, speaker, amplitudeCallback, completionCallback)
             }
+            VoiceEngineType.NONE -> {
+                Log.i(TAG, "Offline TTS engine is deactivated. Delegating to system voice.")
+                JarvisVoiceController.speakSystemTts(context, cleanSpeech)
+                completionCallback()
+            }
         }
+    }
+
+    /**
+     * Immediately stops active speech playback, releases native model memory,
+     * and resets active TTS preference to NONE.
+     */
+    fun deactivateOfflineTts() {
+        stop()
+        sherpaEngine.releaseNativeTts()
+        setActiveEngineType(VoiceEngineType.NONE)
+        prefs.edit().putString(KEY_ACTIVE_ENGINE, VoiceEngineType.NONE.id).apply()
+        Log.i(TAG, "Offline TTS deactivated: native model unloaded from memory and preference reset to NONE.")
     }
 
     /**
