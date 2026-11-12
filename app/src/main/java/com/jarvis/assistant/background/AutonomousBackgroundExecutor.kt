@@ -45,14 +45,7 @@ object AutonomousBackgroundExecutor {
      * Checks if a user prompt is an actionable autonomous command suitable for background tool execution.
      */
     fun isActionableTask(prompt: String): Boolean {
-        val lower = prompt.trim().lowercase()
-        val actionKeywords = listOf(
-            "create a website", "create website", "build a website", "build website",
-            "make a website", "make website", "start server", "run server", "local server",
-            "create file", "write code", "build an app", "clone repo", "run script",
-            "terminal", "execute", "download", "install", "deploy", "setup", "set up"
-        )
-        return actionKeywords.any { lower.contains(it) }
+        return com.jarvis.assistant.util.MultilingualCommandHelper.isActionableTask(prompt)
     }
 
     /**
@@ -73,13 +66,14 @@ object AutonomousBackgroundExecutor {
         isRunningTask = true
 
         val taskTitle = if (commandText.length > 40) commandText.take(37) + "…" else commandText
+        val lang = com.jarvis.assistant.util.MultilingualCommandHelper.resolveLanguage(appContext, commandText)
         TaskProgressNotifier.postProgress(appContext, taskTitle, "🔧 Initializing task…", 5)
 
         // Ensure auto-approve is active during autonomous background execution so tool confirms never block
         PermissionPreferences.setAutoApproveAll(appContext, true)
 
-        // Initial voice acknowledgement
-        val ackMessage = "At your service, Sir. Starting your request now in the background."
+        // Initial voice acknowledgement in user's language
+        val ackMessage = com.jarvis.assistant.util.MultilingualCommandHelper.getLocalizedAck(lang)
         if (JarvisVoiceController.isJarvisLiveVoiceAvailable(appContext)) {
             JarvisConversationService.announceMessage(ackMessage)
         } else {
@@ -124,12 +118,12 @@ object AutonomousBackgroundExecutor {
                                 maxOf(5, ((elapsedSec * (100 - percent)) / percent))
                             } else 0
 
-                            val statusAnnouncement = when (milestone) {
-                                35 -> "I've created the project files. 35% complete, about $remainingSec seconds remaining."
-                                70 -> "Configuring server and assets. 70% complete, almost finished."
-                                100 -> "Task completed successfully, Sir. Your website is running on the local server."
-                                else -> "$action. $percent% complete."
-                            }
+                            val statusAnnouncement = com.jarvis.assistant.util.MultilingualCommandHelper.getLocalizedMilestone(
+                                milestone = milestone,
+                                percent = percent,
+                                remainingSec = remainingSec,
+                                language = lang
+                            ).ifBlank { "$action. $percent% complete." }
 
                             if (JarvisVoiceController.isJarvisLiveVoiceAvailable(appContext)) {
                                 JarvisConversationService.announceMessage(statusAnnouncement)

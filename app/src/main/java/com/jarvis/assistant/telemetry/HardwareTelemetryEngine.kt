@@ -417,10 +417,18 @@ object HardwareTelemetryEngine {
     }
 
     fun generateIronManSpeechReport(context: Context): String {
-        return generateIronManSpeechReport(captureSnapshot(context))
+        val lang = com.jarvis.assistant.util.MultilingualCommandHelper.resolveLanguage(context, "")
+        return generateIronManSpeechReport(captureSnapshot(context), lang)
     }
 
-    fun generateIronManSpeechReport(snapshot: FullTelemetrySnapshot): String {
+    fun generateIronManSpeechReport(context: Context, language: String): String {
+        val resolvedLang = if (language.equals("Auto", ignoreCase = true)) {
+            com.jarvis.assistant.util.MultilingualCommandHelper.resolveLanguage(context, "")
+        } else language
+        return generateIronManSpeechReport(captureSnapshot(context), resolvedLang)
+    }
+
+    fun generateIronManSpeechReport(snapshot: FullTelemetrySnapshot, language: String = "English"): String {
         val x = snapshot.cpu.loadPercent
         val n = snapshot.cpu.coreCount
         val y = (snapshot.memory.usedFraction * 100).roundToInt()
@@ -439,12 +447,74 @@ object HardwareTelemetryEngine {
         }
         val s = String.format(Locale.US, "%.1f", snapshot.storage.freeBytes / (1024.0 * 1024.0 * 1024.0))
 
-        val body = "All systems operational, Sir. CPU load is at $x% across $n cores, memory utilization is $y% with $z gigabytes free. Battery stands at $b%, operating at a cool $t degrees Celsius $powerState. Internal storage has $s gigabytes available. All neural subsystems are optimal."
+        val lang = language.lowercase(Locale.ROOT)
+        val isOverheat = snapshot.battery.thermalStatus == ThermalStatus.CRITICAL_OVERHEAT
 
-        return if (snapshot.battery.thermalStatus == ThermalStatus.CRITICAL_OVERHEAT) {
-            "Warning Sir: Battery thermal levels are elevated at $t degrees Celsius. Device throttling active. $body"
-        } else {
-            body
+        return when (lang) {
+            "hindi", "hinglish" -> {
+                val body = "Sabhi systems theek se kaam kar rahe hain, Sir. CPU load $n cores par $x% hai, memory utilization $y% hai aur $z gigabytes free hai. Battery $b% par hai, jo $t degrees Celsius par chal rahi hai. Internal storage mein $s gigabytes space bacha hai. Sabhi neural subsystems optimal hain."
+                if (isOverheat) "Warning Sir: Battery ka tapman $t degrees Celsius par elevated hai. $body" else body
+            }
+            "spanish" -> {
+                val body = "Todos los sistemas están operativos, Señor. La carga de la CPU es del $x% en $n núcleos, la utilización de la memoria es del $y% con $z gigabytes libres. La batería está al $b%, funcionando a $t grados Celsius. El almacenamiento interno tiene $s gigabytes disponibles. Todos los subsistemas neuronales son óptimos."
+                if (isOverheat) "Advertencia Señor: La temperatura de la batería está elevada a $t grados Celsius. $body" else body
+            }
+            "french" -> {
+                val body = "Tous les systèmes sont opérationnels, Monsieur. La charge du processeur est de $x% sur $n cœurs, l'utilisation de la mémoire est de $y% avec $z gigaoctets libres. La batterie est à $b%, fonctionnant à $t degrés Celsius. Le stockage interne a $s gigaoctets disponibles. Tous les sous-systèmes neuronaux sont optimaux."
+                if (isOverheat) "Attention Monsieur : La température de la batterie est élevée à $t degrés Celsius. $body" else body
+            }
+            "german" -> {
+                val body = "Alle Systeme betriebsbereit, Sir. Die CPU-Auslastung liegt bei $x% auf $n Kernen, die Speichernutzung beträgt $y% mit $z Gigabyte freiem Speicher. Der Akku liegt bei $b% und arbeitet bei $t Grad Celsius. Interner Speicher hat $s Gigabyte verfügbar. Alle neuronalen Subsysteme sind optimal."
+                if (isOverheat) "Warnung Sir: Akkutemperatur ist mit $t Grad Celsius erhöht. $body" else body
+            }
+            "japanese" -> {
+                val body = "すべてのシステムが正常に稼働しています、サー。CPU負荷は $n コアで $x%、メモリ使用率は $y% で $z ギガバイトの空きがあります。バッテリー残量は $b% で、$t 度で動作しています。内部ストレージには $s ギガバイトの空きがあります。すべてのニューラルサブシステムは最適です。"
+                if (isOverheat) "警告 サー: バッテリー温度が $t 度に上昇しています。$body" else body
+            }
+            else -> {
+                val body = "All systems operational, Sir. CPU load is at $x% across $n cores, memory utilization is $y% with $z gigabytes free. Battery stands at $b%, operating at a cool $t degrees Celsius $powerState. Internal storage has $s gigabytes available. All neural subsystems are optimal."
+                if (isOverheat) "Warning Sir: Battery thermal levels are elevated at $t degrees Celsius. Device throttling active. $body" else body
+            }
+        }
+    }
+
+    fun getBatterySpeechReport(snapshot: FullTelemetrySnapshot, language: String = "English"): String {
+        val b = snapshot.battery.levelPercent
+        val t = String.format(Locale.US, "%.1f", snapshot.battery.temperatureCelsius)
+        val charge = if (snapshot.battery.isCharging) snapshot.battery.chargeType else "on battery power"
+        return when (language.lowercase(Locale.ROOT)) {
+            "hindi", "hinglish" -> "Battery $b% par hai, $t degrees Celsius tapman par chal rahi hai. Thermal levels ${snapshot.battery.thermalStatus.name.lowercase(Locale.ROOT)} hain, Sir."
+            "spanish" -> "La batería está al $b%, funcionando a $t grados Celsius. Nivel térmico ${snapshot.battery.thermalStatus.name.lowercase(Locale.ROOT)}, Señor."
+            "french" -> "La batterie est à $b%, fonctionnant à $t degrés Celsius. Niveau thermique ${snapshot.battery.thermalStatus.name.lowercase(Locale.ROOT)}, Monsieur."
+            "german" -> "Der Akku liegt bei $b% bei $t Grad Celsius. Thermischer Status ${snapshot.battery.thermalStatus.name.lowercase(Locale.ROOT)}, Sir."
+            "japanese" -> "バッテリー残量は $b% で、$t 度で動作しています、サー。"
+            else -> "Battery is at $b%, currently $charge at $t degrees Celsius. Thermal levels are ${snapshot.battery.thermalStatus.name.lowercase(Locale.ROOT)}."
+        }
+    }
+
+    fun getMemorySpeechReport(snapshot: FullTelemetrySnapshot, language: String = "English"): String {
+        val y = (snapshot.memory.usedFraction * 100).roundToInt()
+        val z = String.format(Locale.US, "%.1f", snapshot.memory.availableBytes / (1024.0 * 1024.0 * 1024.0))
+        return when (language.lowercase(Locale.ROOT)) {
+            "hindi", "hinglish" -> "RAM utilization $y% hai aur $z gigabytes free memory bachi hai, Sir."
+            "spanish" -> "La utilización de memoria es del $y% con $z gigabytes disponibles, Señor."
+            "french" -> "L'utilisation de la mémoire est de $y% avec $z gigaoctets disponibles, Monsieur."
+            "german" -> "Die Speichernutzung liegt bei $y% mit $z Gigabyte verfügbarem RAM, Sir."
+            "japanese" -> "メモリ使用率は $y% で、$z ギガバイトの空きがあります、サー。"
+            else -> "Memory utilization is at $y% with $z gigabytes available, Sir."
+        }
+    }
+
+    fun getCpuSpeechReport(snapshot: FullTelemetrySnapshot, language: String = "English"): String {
+        val x = snapshot.cpu.loadPercent
+        val n = snapshot.cpu.coreCount
+        return when (language.lowercase(Locale.ROOT)) {
+            "hindi", "hinglish" -> "CPU load $n cores par lagbhag $x% estimated hai, Sir."
+            "spanish" -> "La carga de la CPU se estima en $x% en $n núcleos, Señor."
+            "french" -> "La charge du processeur est estimée à $x% sur $n cœurs, Monsieur."
+            "german" -> "Die CPU-Last wird auf $x% über $n Kerne geschätzt, Sir."
+            "japanese" -> "CPU負荷は $n コアで約 $x% と推定されます、サー。"
+            else -> "CPU load is estimated at $x% across $n cores, Sir."
         }
     }
 

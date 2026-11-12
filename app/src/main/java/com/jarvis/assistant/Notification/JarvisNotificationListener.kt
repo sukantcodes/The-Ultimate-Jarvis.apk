@@ -213,20 +213,22 @@ class JarvisNotificationListener : NotificationListenerService() {
         val spokenSender = MessageSpeechSanitizer.forAnnouncement(message.sender).ifBlank { "someone" }
         val spokenGroup = message.group?.let { MessageSpeechSanitizer.forAnnouncement(it) }
 
-        val text = if (settings.readMessageBody && message.body.isNotBlank()) {
-            val replyPrompt = if (message.replyAction != null && settings.enableVoiceReply) " Say reply to respond." else ""
-            if (!spokenGroup.isNullOrBlank()) {
-                "Sir, " + spokenSender + " sent a message in " + spokenGroup + " on " + message.app.displayName + ": \"" + message.body + "\"." + replyPrompt
-            } else {
-                "Sir, " + spokenSender + " sent a message on " + message.app.displayName + ": \"" + message.body + "\"." + replyPrompt
-            }
-        } else {
-            if (!spokenGroup.isNullOrBlank()) {
-                "Sir, " + spokenGroup + " group mein " + spokenSender + " se " + message.app.displayName + " par message aaya hai."
-            } else {
-                "Sir, " + spokenSender + " se " + message.app.displayName + " par message aaya hai."
-            }
+        val prefLang = try {
+            com.jarvis.assistant.JarvisApp.instance.preferences.language
+        } catch (_: Throwable) {
+            "Auto"
         }
+        val detectedLang = com.jarvis.assistant.util.MultilingualCommandHelper.resolveLanguage(applicationContext, message.body.ifBlank { message.sender })
+        val effectiveLang = if (prefLang.isNotBlank() && !prefLang.equals("Auto", ignoreCase = true)) prefLang else detectedLang
+
+        val displaySender = if (!spokenGroup.isNullOrBlank()) "$spokenSender in $spokenGroup" else spokenSender
+        val text = com.jarvis.assistant.util.MultilingualCommandHelper.getLocalizedNotificationAnnouncement(
+            sender = displaySender,
+            appName = message.app.displayName,
+            body = if (settings.readMessageBody) message.body else "",
+            hasReplyAction = message.replyAction != null && settings.enableVoiceReply,
+            language = effectiveLang
+        )
 
         note("announced a " + message.app.displayName + " message from " + message.sender)
         if (!JarvisConversationService.announceMessage(text)) {
