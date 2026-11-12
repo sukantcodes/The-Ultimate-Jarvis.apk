@@ -93,7 +93,7 @@
                 android:layout_height="6dp"
                 android:max="100"
                 android:progress="0"
-                android:progressTint="#00E5FF" />
+                android:progressTint="?attr/themeAccent" />
 
             <TextView
                 android:id="@+id/tvWorkProgressPercent"
@@ -101,7 +101,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="5dp"
                 android:text="0%"
-                android:textColor="#00E5FF"
+                android:textColor="?attr/themeAccent"
                 android:textSize="10sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.04" />
@@ -117,7 +117,7 @@
             android:layout_marginEnd="6dp"
             android:background="@drawable/bg_chat_token_badge"
             android:text="⚡ 0 TOKENS"
-            android:textColor="#E1F5FE"
+            android:textColor="?attr/themeTextPrimary"
             android:textSize="10sp"
             android:textStyle="bold"
             android:letterSpacing="0.05"
@@ -133,7 +133,7 @@
             android:layout_marginEnd="6dp"
             android:background="@drawable/bg_chat_token_badge"
             android:src="@drawable/ic_cc_volume"
-            app:tint="#00E5FF"
+            app:tint="?attr/themeAccent"
             android:contentDescription="Auto voice reply toggle" />
 
         <TextView
@@ -388,7 +388,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Listening… speak now"
-                android:textColor="#E1F5FE"
+                android:textColor="?attr/themeTextPrimary"
                 android:textSize="13sp"
                 android:fontFamily="sans-serif-medium"
                 android:maxLines="2"

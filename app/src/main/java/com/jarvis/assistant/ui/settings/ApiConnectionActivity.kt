@@ -94,22 +94,22 @@ class ApiConnectionActivity : AppCompatActivity() {
             binding.cardApiAutoApproveAll.background = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.bg_auto_approve_card_active)
             binding.tvApiAutoApproveBadge.background = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.bg_auto_approve_badge_active)
             binding.tvApiAutoApproveBadge.text = "★ UNRESTRICTED"
-            binding.tvApiAutoApproveBadge.setTextColor(Color.parseColor("#000000"))
+            binding.tvApiAutoApproveBadge.setTextColor(com.jarvis.assistant.util.ThemeManager.getThemeOnAccentColor())
             binding.tvApiAutoApproveSubtitle.text = "Zero-prompt autonomy · Complete bypass"
-            binding.tvApiAutoApproveSubtitle.setTextColor(Color.parseColor("#00E5FF"))
-            binding.viewApiAutoApproveDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#00E676"))
+            binding.tvApiAutoApproveSubtitle.setTextColor(com.jarvis.assistant.util.ThemeManager.getThemeAccentColor())
+            binding.viewApiAutoApproveDot.backgroundTintList = ColorStateList.valueOf(com.jarvis.assistant.util.ThemeManager.getThemeSuccessColor())
             binding.tvApiAutoApproveStatusText.text = "ACTIVE · All actions auto-approved without prompts"
-            binding.tvApiAutoApproveStatusText.setTextColor(Color.parseColor("#00E676"))
+            binding.tvApiAutoApproveStatusText.setTextColor(com.jarvis.assistant.util.ThemeManager.getThemeSuccessColor())
         } else {
             binding.cardApiAutoApproveAll.background = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.bg_auto_approve_card_inactive)
             binding.tvApiAutoApproveBadge.background = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.bg_auto_approve_badge_inactive)
             binding.tvApiAutoApproveBadge.text = "STANDARD PROMPTS"
-            binding.tvApiAutoApproveBadge.setTextColor(Color.parseColor("#90A4AE"))
+            binding.tvApiAutoApproveBadge.setTextColor(com.jarvis.assistant.util.ThemeManager.getThemeTextSecondaryColor())
             binding.tvApiAutoApproveSubtitle.text = "Safety prompts active for write & execute tools"
-            binding.tvApiAutoApproveSubtitle.setTextColor(Color.parseColor("#78909C"))
-            binding.viewApiAutoApproveDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#78909C"))
+            binding.tvApiAutoApproveSubtitle.setTextColor(com.jarvis.assistant.util.ThemeManager.getThemeTextMutedColor())
+            binding.viewApiAutoApproveDot.backgroundTintList = ColorStateList.valueOf(com.jarvis.assistant.util.ThemeManager.getThemeTextMutedColor())
             binding.tvApiAutoApproveStatusText.text = "INACTIVE · Manual confirmation required"
-            binding.tvApiAutoApproveStatusText.setTextColor(Color.parseColor("#78909C"))
+            binding.tvApiAutoApproveStatusText.setTextColor(com.jarvis.assistant.util.ThemeManager.getThemeTextMutedColor())
         }
     }
 

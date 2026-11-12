@@ -45,7 +45,7 @@ object CodeViewerBottomSheet {
 
             fun updateChip(chip: TextView, active: Boolean) {
                 chip.background = if (active) activeBg else inactiveBg
-                chip.setTextColor(if (active) Color.parseColor("#00E5FF") else Color.parseColor("#90A4AE"))
+                chip.setTextColor(if (active) com.jarvis.assistant.util.ThemeManager.getThemeAccentColor() else com.jarvis.assistant.util.ThemeManager.getThemeTextSecondaryColor())
                 chip.setTypeface(null, if (active) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
             }
 

@@ -235,11 +235,48 @@ object ThemeManager {
         }
     }
 
-    /** High-contrast success green harmonized with the active theme. */
-    fun getThemeSuccessColor(): Int = Color.parseColor("#00E676")
+    /** The style resource of the theme the user has selected, so attributes can be resolved without an Activity. */
+    private fun activeThemeRes(): Int {
+        val key = try { JarvisApp.instance.preferences.appTheme } catch (_: Exception) { null } ?: "sunset"
+        return when (key) {
+            "dark" -> R.style.Theme_JarvisAssistant_Dark
+            "red" -> R.style.Theme_JarvisAssistant_Red
+            "sunset" -> R.style.Theme_JarvisAssistant_Sunset
+            "custom" -> {
+                val (first, second) = customColors()
+                val light = customIsLight(first, second)
+                customStyleRes(accentSource(first, second, light), light)
+            }
+            else -> R.style.Theme_JarvisAssistant_Light
+        }
+    }
 
-    /** High-contrast warning amber harmonized with the active theme. */
-    fun getThemeWarningColor(): Int = Color.parseColor("#FFD700")
+    /** Resolves a theme attribute (for example R.attr.themeSuccess) against the active app theme. */
+    fun resolveThemeColor(attr: Int, fallback: Int): Int = try {
+        val themed = android.view.ContextThemeWrapper(JarvisApp.instance, activeThemeRes())
+        val value = android.util.TypedValue()
+        if (themed.theme.resolveAttribute(attr, value, true) &&
+            value.type >= android.util.TypedValue.TYPE_FIRST_COLOR_INT &&
+            value.type <= android.util.TypedValue.TYPE_LAST_COLOR_INT
+        ) value.data else fallback
+    } catch (_: Exception) {
+        fallback
+    }
+
+    /** Muted (tertiary) text colour of the active theme. */
+    fun getThemeTextMutedColor(): Int = resolveThemeColor(R.attr.themeTextMuted, Color.parseColor("#64748B"))
+
+    /** Secondary text colour of the active theme. */
+    fun getThemeTextSecondaryColor(): Int = resolveThemeColor(R.attr.themeTextSecondary, Color.parseColor("#94A3B8"))
+
+    /** Text colour that stays readable on top of a solid accent or warning fill (the theme's own background tone). */
+    fun getThemeOnAccentColor(): Int = resolveThemeColor(R.attr.themeBg, Color.BLACK)
+
+    /** Success colour of the active theme (deep green on light themes, soft green on dark ones). */
+    fun getThemeSuccessColor(): Int = resolveThemeColor(R.attr.themeSuccess, Color.parseColor("#4ADE80"))
+
+    /** Warning colour of the active theme (deep amber on light themes, soft amber on dark ones). */
+    fun getThemeWarningColor(): Int = resolveThemeColor(R.attr.themeWarning, Color.parseColor("#FBBF24"))
 
     /** Whether the currently active app theme uses a light background canvas. */
     fun isCurrentThemeLight(): Boolean {

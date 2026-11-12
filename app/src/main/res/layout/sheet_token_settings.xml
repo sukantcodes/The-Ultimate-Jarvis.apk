@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:fillViewport="true"
-    android:background="#0F131D">
+    android:background="?attr/themeSurface">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -49,7 +49,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Chatbox &amp; Agent Settings"
-                    android:textColor="#FFFFFF"
+                    android:textColor="?attr/themeTextPrimary"
                     android:textSize="17sp"
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-medium" />
@@ -59,7 +59,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Current chat: 0 tokens used"
-                    android:textColor="#90A4AE"
+                    android:textColor="?attr/themeTextSecondary"
                     android:textSize="12sp" />
             </LinearLayout>
         </LinearLayout>
@@ -77,7 +77,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="AUTONOMOUS PERMISSIONS &amp; TOOLS"
-                android:textColor="#78909C"
+                android:textColor="?attr/themeTextMuted"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08" />
@@ -88,7 +88,7 @@
                 android:layout_height="wrap_content"
                 android:text="★ UNRESTRICTED"
                 android:background="@drawable/bg_auto_approve_badge_active"
-                android:textColor="#000000"
+                android:textColor="?attr/themeBg"
                 android:textSize="9sp"
                 android:textStyle="bold"
                 android:paddingStart="8dp"
@@ -134,7 +134,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Auto-Approve All Permissions"
-                        android:textColor="#FFFFFF"
+                        android:textColor="?attr/themeTextPrimary"
                         android:textSize="14sp"
                         android:textStyle="bold" />
 
@@ -143,7 +143,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Zero-prompt autonomy · Complete bypass"
-                        android:textColor="#80D8FF"
+                        android:textColor="?attr/themeAccent"
                         android:textSize="11sp"
                         android:layout_marginTop="2dp" />
                 </LinearLayout>
@@ -160,7 +160,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:text="When enabled, JARVIS automatically approves ALL permissions with zero interruptions. Terminal commands, workspace file edits, web requests, and destructive actions run to completion without confirmation prompts."
-                android:textColor="#B0BEC5"
+                android:textColor="?attr/themeTextSecondary"
                 android:textSize="12sp"
                 android:lineSpacingExtra="2dp" />
 
@@ -181,7 +181,7 @@
                     android:paddingBottom="5dp"
                     android:layout_marginEnd="4dp"
                     android:text="⚡ Terminal"
-                    android:textColor="#80D8FF"
+                    android:textColor="?attr/themeAccent"
                     android:textSize="10sp"
                     android:textStyle="bold" />
 
@@ -195,7 +195,7 @@
                     android:paddingBottom="5dp"
                     android:layout_marginEnd="4dp"
                     android:text="📁 File Edits"
-                    android:textColor="#80D8FF"
+                    android:textColor="?attr/themeAccent"
                     android:textSize="10sp"
                     android:textStyle="bold" />
 
@@ -209,7 +209,7 @@
                     android:paddingBottom="5dp"
                     android:layout_marginEnd="4dp"
                     android:text="🌐 Web"
-                    android:textColor="#80D8FF"
+                    android:textColor="?attr/themeAccent"
                     android:textSize="10sp"
                     android:textStyle="bold" />
 
@@ -222,7 +222,7 @@
                     android:paddingTop="5dp"
                     android:paddingBottom="5dp"
                     android:text="✦ Destructive"
-                    android:textColor="#FFD700"
+                    android:textColor="?attr/themeWarning"
                     android:textSize="10sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -240,7 +240,7 @@
                     android:layout_width="8dp"
                     android:layout_height="8dp"
                     android:background="@drawable/bg_chat_status"
-                    android:backgroundTint="#00E676" />
+                    android:backgroundTint="?attr/themeSuccess" />
 
                 <TextView
                     android:id="@+id/tvAutoApproveStatusText"
@@ -248,7 +248,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
                     android:text="ACTIVE · All actions auto-approved without prompts"
-                    android:textColor="#00E676"
+                    android:textColor="?attr/themeSuccess"
                     android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -259,7 +259,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="TOKEN REASONING &amp; CAPACITY"
-            android:textColor="#78909C"
+            android:textColor="?attr/themeTextMuted"
             android:textSize="11sp"
             android:textStyle="bold"
             android:letterSpacing="0.08"
@@ -286,7 +286,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="✦ Balanced Tier (Default)"
-                    android:textColor="#81D4FA"
+                    android:textColor="?attr/themeAccent"
                     android:textSize="13sp"
                     android:textStyle="bold" />
 
@@ -295,7 +295,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="66% CAPACITY"
-                    android:textColor="#B0BEC5"
+                    android:textColor="?attr/themeTextSecondary"
                     android:textSize="10sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.08" />
@@ -308,14 +308,14 @@
                 android:layout_height="10dp"
                 android:max="100"
                 android:progress="66"
-                android:progressTint="#29B6F6" />
+                android:progressTint="?attr/themeAccent" />
         </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="SELECT USAGE MODE"
-            android:textColor="#78909C"
+            android:textColor="?attr/themeTextMuted"
             android:textSize="11sp"
             android:textStyle="bold"
             android:letterSpacing="0.08"
@@ -344,7 +344,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="LOW  ·  Ultra-Efficient"
-                    android:textColor="#FFFFFF"
+                    android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
@@ -352,7 +352,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="1,500 token limit. Minimal consumption; rapid, direct answers without reasoning fluff."
-                    android:textColor="#90A4AE"
+                    android:textColor="?attr/themeTextSecondary"
                     android:textSize="12sp"
                     android:layout_marginTop="3dp" />
             </LinearLayout>
@@ -363,7 +363,7 @@
                 android:layout_height="24dp"
                 android:gravity="center"
                 android:text="○"
-                android:textColor="#78909C"
+                android:textColor="?attr/themeTextMuted"
                 android:textSize="18sp" />
         </LinearLayout>
 
@@ -390,7 +390,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="HIGH  ·  Balanced (Recommended)"
-                    android:textColor="#81D4FA"
+                    android:textColor="?attr/themeAccent"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
@@ -398,7 +398,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="4,096 token limit. Fast on simple questions; deep thinking and complete code on complex tasks."
-                    android:textColor="#B0BEC5"
+                    android:textColor="?attr/themeTextSecondary"
                     android:textSize="12sp"
                     android:layout_marginTop="3dp" />
             </LinearLayout>
@@ -409,7 +409,7 @@
                 android:layout_height="24dp"
                 android:gravity="center"
                 android:text="●"
-                android:textColor="#29B6F6"
+                android:textColor="?attr/themeAccent"
                 android:textSize="18sp" />
         </LinearLayout>
 
@@ -442,7 +442,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="MAX"
-                        android:textColor="#FFD700"
+                        android:textColor="?attr/themeWarning"
                         android:textSize="14sp"
                         android:textStyle="bold" />
 
@@ -451,7 +451,7 @@
                         android:layout_height="wrap_content"
                         android:text="★ PREMIUM"
                         android:background="@drawable/bg_premium_tier_badge"
-                        android:textColor="#000000"
+                        android:textColor="?attr/themeBg"
                         android:textSize="9sp"
                         android:textStyle="bold"
                         android:paddingStart="6dp"
@@ -465,7 +465,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="16,384 token limit. Deepest reasoning, full context, exhaustive engineering solutions."
-                    android:textColor="#90A4AE"
+                    android:textColor="?attr/themeTextSecondary"
                     android:textSize="12sp"
                     android:layout_marginTop="3dp" />
             </LinearLayout>
@@ -476,7 +476,7 @@
                 android:layout_height="24dp"
                 android:gravity="center"
                 android:text="○"
-                android:textColor="#78909C"
+                android:textColor="?attr/themeTextMuted"
                 android:textSize="18sp" />
         </LinearLayout>
 
@@ -494,7 +494,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="✓"
-                android:textColor="#00E676"
+                android:textColor="?attr/themeSuccess"
                 android:textSize="14sp"
                 android:textStyle="bold"
                 android:layout_marginEnd="8dp" />
@@ -504,7 +504,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Work-First Optimization: Tokens are prioritized for code and tools, eliminating conversational filler."
-                android:textColor="#B0BEC5"
+                android:textColor="?attr/themeTextSecondary"
                 android:textSize="11sp" />
         </LinearLayout>
 

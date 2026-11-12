@@ -337,7 +337,7 @@ class ChatFragment : Fragment() {
                 binding.btnVoiceSpeaker.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_chat_token_badge)
             } else {
                 binding.btnVoiceSpeaker.setImageResource(R.drawable.ic_cc_volume)
-                binding.btnVoiceSpeaker.setColorFilter(Color.parseColor("#78909C"))
+                binding.btnVoiceSpeaker.setColorFilter(ThemeManager.getThemeTextMutedColor())
                 binding.btnVoiceSpeaker.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_chat_token_badge)
             }
         }
@@ -960,7 +960,7 @@ class ChatFragment : Fragment() {
             binding.voiceWaveView.start()
             binding.tvVoiceTranscript.text = "Listening… speak now"
             binding.btnVoiceInput.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_cc_send)
-            binding.btnVoiceInput.setColorFilter(android.graphics.Color.WHITE)
+            binding.btnVoiceInput.setColorFilter(ThemeManager.getThemeOnAccentColor())
         } catch (e: Exception) {
             hideVoiceListening()
             Toast.makeText(requireContext(), "Could not start voice: ${e.message}", Toast.LENGTH_SHORT).show()

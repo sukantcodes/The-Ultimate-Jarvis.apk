@@ -40,7 +40,7 @@ object TokenSettingsBottomSheet {
                 binding.cardAutoApproveAll.background = ContextCompat.getDrawable(context, R.drawable.bg_auto_approve_card_active)
                 binding.tvAutoApproveBadge.background = ContextCompat.getDrawable(context, R.drawable.bg_auto_approve_badge_active)
                 binding.tvAutoApproveBadge.text = "★ UNRESTRICTED"
-                binding.tvAutoApproveBadge.setTextColor(Color.parseColor("#000000"))
+                binding.tvAutoApproveBadge.setTextColor(com.jarvis.assistant.util.ThemeManager.getThemeOnAccentColor())
                 binding.tvAutoApproveSubtitle.text = "Zero-prompt autonomy · Full permission bypass active"
                 binding.tvAutoApproveSubtitle.setTextColor(themeAccent)
                 binding.viewAutoApproveDot.backgroundTintList = ColorStateList.valueOf(themeSuccess)
@@ -50,12 +50,12 @@ object TokenSettingsBottomSheet {
                 binding.cardAutoApproveAll.background = ContextCompat.getDrawable(context, R.drawable.bg_auto_approve_card_inactive)
                 binding.tvAutoApproveBadge.background = ContextCompat.getDrawable(context, R.drawable.bg_auto_approve_badge_inactive)
                 binding.tvAutoApproveBadge.text = "STANDARD PROMPTS"
-                binding.tvAutoApproveBadge.setTextColor(Color.parseColor("#90A4AE"))
+                binding.tvAutoApproveBadge.setTextColor(com.jarvis.assistant.util.ThemeManager.getThemeTextSecondaryColor())
                 binding.tvAutoApproveSubtitle.text = "Manual confirmation required for sensitive actions"
-                binding.tvAutoApproveSubtitle.setTextColor(Color.parseColor("#78909C"))
-                binding.viewAutoApproveDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#78909C"))
+                binding.tvAutoApproveSubtitle.setTextColor(com.jarvis.assistant.util.ThemeManager.getThemeTextMutedColor())
+                binding.viewAutoApproveDot.backgroundTintList = ColorStateList.valueOf(com.jarvis.assistant.util.ThemeManager.getThemeTextMutedColor())
                 binding.tvAutoApproveStatusText.text = "INACTIVE · Write and execute tools will prompt first"
-                binding.tvAutoApproveStatusText.setTextColor(Color.parseColor("#78909C"))
+                binding.tvAutoApproveStatusText.setTextColor(com.jarvis.assistant.util.ThemeManager.getThemeTextMutedColor())
             }
         }
 
@@ -75,19 +75,19 @@ object TokenSettingsBottomSheet {
             val isLow = selected == TokenMode.LOW
             binding.cardModeLow.background = ContextCompat.getDrawable(context, if (isLow) R.drawable.bg_token_card_selected else R.drawable.bg_token_card_unselected)
             binding.tvLowRadio.text = if (isLow) "●" else "○"
-            binding.tvLowRadio.setTextColor(if (isLow) themeSuccess else Color.parseColor("#78909C"))
+            binding.tvLowRadio.setTextColor(if (isLow) themeSuccess else com.jarvis.assistant.util.ThemeManager.getThemeTextMutedColor())
 
             // High card state
             val isHigh = selected == TokenMode.HIGH
             binding.cardModeHigh.background = ContextCompat.getDrawable(context, if (isHigh) R.drawable.bg_token_card_selected else R.drawable.bg_token_card_unselected)
             binding.tvHighRadio.text = if (isHigh) "●" else "○"
-            binding.tvHighRadio.setTextColor(if (isHigh) themeAccent else Color.parseColor("#78909C"))
+            binding.tvHighRadio.setTextColor(if (isHigh) themeAccent else com.jarvis.assistant.util.ThemeManager.getThemeTextMutedColor())
 
             // Max card state
             val isMax = selected == TokenMode.MAX
             binding.cardModeMax.background = ContextCompat.getDrawable(context, if (isMax) R.drawable.bg_token_card_premium else R.drawable.bg_token_card_unselected)
             binding.tvMaxRadio.text = if (isMax) "●" else "○"
-            binding.tvMaxRadio.setTextColor(if (isMax) themeWarning else Color.parseColor("#78909C"))
+            binding.tvMaxRadio.setTextColor(if (isMax) themeWarning else com.jarvis.assistant.util.ThemeManager.getThemeTextMutedColor())
         }
 
         updateUI()

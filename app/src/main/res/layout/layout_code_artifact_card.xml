@@ -33,7 +33,7 @@
                 android:layout_height="15dp"
                 android:layout_gravity="center"
                 android:src="@drawable/ic_work_file_create"
-                app:tint="#00E5FF"
+                app:tint="?attr/themeAccent"
                 android:importantForAccessibility="no" />
         </FrameLayout>
 
@@ -42,7 +42,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="CODE"
-            android:textColor="#E0E6ED"
+            android:textColor="?attr/themeTextPrimary"
             android:textSize="11sp"
             android:textStyle="bold"
             android:letterSpacing="0.08"
@@ -58,7 +58,7 @@
             android:paddingEnd="8dp"
             android:background="@drawable/bg_code_writing_badge"
             android:text="✦ Writing code…"
-            android:textColor="#64B5F6"
+            android:textColor="?attr/themeAccent"
             android:textSize="10sp"
             android:textStyle="bold"
             android:visibility="gone" />
@@ -87,7 +87,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="▼ Code Window"
-                android:textColor="#80D8FF"
+                android:textColor="?attr/themeAccent"
                 android:textSize="10sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -98,7 +98,7 @@
             android:layout_height="32dp"
             android:padding="7dp"
             android:src="@drawable/ic_cc_copy"
-            app:tint="#90A4AE"
+            app:tint="?attr/themeTextSecondary"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Copy code"
             android:clickable="true"
@@ -109,7 +109,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Open ↗"
-            android:textColor="#64B5F6"
+            android:textColor="?attr/themeAccent"
             android:textSize="11sp"
             android:textStyle="bold"
             android:paddingStart="6dp"
@@ -124,7 +124,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="#080C14"
+        android:background="?attr/themeInputBg"
         android:visibility="visible">
 
         <!-- Mini Terminal Top Bar with macOS/Terminal dots -->
@@ -133,7 +133,7 @@
             android:layout_height="22dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:background="#0F1420"
+            android:background="?attr/themeInputBg"
             android:paddingStart="10dp"
             android:paddingEnd="10dp">
 
@@ -141,21 +141,21 @@
                 android:layout_width="7dp"
                 android:layout_height="7dp"
                 android:background="@drawable/bg_chat_status"
-                android:backgroundTint="#FF5F56" />
+                android:backgroundTint="?attr/themeError" />
 
             <View
                 android:layout_width="7dp"
                 android:layout_height="7dp"
                 android:layout_marginStart="4dp"
                 android:background="@drawable/bg_chat_status"
-                android:backgroundTint="#FFBD2E" />
+                android:backgroundTint="?attr/themeWarning" />
 
             <View
                 android:layout_width="7dp"
                 android:layout_height="7dp"
                 android:layout_marginStart="4dp"
                 android:background="@drawable/bg_chat_status"
-                android:backgroundTint="#27C93F" />
+                android:backgroundTint="?attr/themeSuccess" />
 
             <TextView
                 android:id="@+id/tvTerminalTitle"
@@ -164,7 +164,7 @@
                 android:layout_weight="1"
                 android:layout_marginStart="8dp"
                 android:text="terminal ~/workspace"
-                android:textColor="#78909C"
+                android:textColor="?attr/themeTextMuted"
                 android:textSize="9sp"
                 android:fontFamily="monospace" />
         </LinearLayout>
@@ -183,7 +183,7 @@
                 android:id="@+id/tvPreviewLineNumbers"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="#455A64"
+                android:textColor="?attr/themeTextMuted"
                 android:fontFamily="monospace"
                 android:textSize="12sp"
                 android:lineSpacingExtra="3dp"
@@ -194,7 +194,7 @@
                 android:id="@+id/tvPreviewCode"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="#CFD8DC"
+                android:textColor="?attr/themeTextSecondary"
                 android:fontFamily="monospace"
                 android:textSize="12sp"
                 android:lineSpacingExtra="3dp"
@@ -208,9 +208,9 @@
         android:layout_width="match_parent"
         android:layout_height="24dp"
         android:gravity="center"
-        android:background="#0A0E17"
+        android:background="?attr/themeInputBg"
         android:text="Tap tag to toggle mini window · Open ↗ for fullscreen viewer"
-        android:textColor="#78909C"
+        android:textColor="?attr/themeTextMuted"
         android:textSize="10sp"
         android:textStyle="bold"
         android:letterSpacing="0.04" />

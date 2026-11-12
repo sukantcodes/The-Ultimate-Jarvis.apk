@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0F121C"
+    android:background="?attr/themeSurface"
     android:padding="16dp">
 
     <View
@@ -26,7 +26,7 @@
             android:layout_width="22dp"
             android:layout_height="22dp"
             android:src="@drawable/ic_code_chip"
-            app:tint="#64B5F6"
+            app:tint="?attr/themeAccent"
             android:layout_marginEnd="8dp"
             android:importantForAccessibility="no" />
 
@@ -41,7 +41,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Code Viewer"
-                android:textColor="#FFFFFF"
+                android:textColor="?attr/themeTextPrimary"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:fontFamily="sans-serif-medium" />
@@ -51,7 +51,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="0 lines"
-                android:textColor="#90A4AE"
+                android:textColor="?attr/themeTextSecondary"
                 android:textSize="12sp" />
         </LinearLayout>
 
@@ -61,7 +61,7 @@
             android:layout_height="40dp"
             android:background="@drawable/bg_chat_header_icon"
             android:src="@drawable/ic_cc_copy"
-            app:tint="#FFFFFF"
+            app:tint="?attr/themeTextPrimary"
             android:padding="8dp"
             android:contentDescription="Copy full code" />
 
@@ -72,7 +72,7 @@
             android:layout_marginStart="8dp"
             android:background="@drawable/bg_chat_header_icon"
             android:src="@drawable/ic_close"
-            app:tint="#FFFFFF"
+            app:tint="?attr/themeTextPrimary"
             android:padding="8dp"
             android:contentDescription="Close viewer" />
     </LinearLayout>
@@ -89,7 +89,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="THEME:"
-            android:textColor="#90A4AE"
+            android:textColor="?attr/themeTextSecondary"
             android:textSize="10sp"
             android:textStyle="bold"
             android:letterSpacing="0.08"
@@ -105,7 +105,7 @@
             android:layout_marginEnd="6dp"
             android:background="@drawable/bg_auto_approve_badge_active"
             android:text="Cyber Dark+"
-            android:textColor="#00E5FF"
+            android:textColor="?attr/themeAccent"
             android:textSize="11sp"
             android:textStyle="bold"
             android:clickable="true"
@@ -121,7 +121,7 @@
             android:layout_marginEnd="6dp"
             android:background="@drawable/bg_auto_approve_badge_inactive"
             android:text="Dracula"
-            android:textColor="#90A4AE"
+            android:textColor="?attr/themeTextSecondary"
             android:textSize="11sp"
             android:clickable="true"
             android:focusable="true" />
@@ -135,7 +135,7 @@
             android:paddingEnd="10dp"
             android:background="@drawable/bg_auto_approve_badge_inactive"
             android:text="Monokai Neon"
-            android:textColor="#90A4AE"
+            android:textColor="?attr/themeTextSecondary"
             android:textSize="11sp"
             android:clickable="true"
             android:focusable="true" />
@@ -146,7 +146,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="#0A0C14"
+        android:background="?attr/themeInputBg"
         android:padding="12dp">
 
         <HorizontalScrollView
@@ -162,7 +162,7 @@
                     android:id="@+id/tvLineNumbers"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#546E7A"
+                    android:textColor="?attr/themeTextMuted"
                     android:fontFamily="monospace"
                     android:textSize="13sp"
                     android:lineSpacingExtra="4dp"
@@ -173,7 +173,7 @@
                     android:id="@+id/tvCodeContent"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#ECEFF1"
+                    android:textColor="?attr/themeTextPrimary"
                     android:fontFamily="monospace"
                     android:textSize="13sp"
                     android:lineSpacingExtra="4dp"
