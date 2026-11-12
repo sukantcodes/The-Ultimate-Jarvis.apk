@@ -30,6 +30,7 @@ enum class WorkCategory(val id: String, val label: String) {
 data class Route(val providerId: String = "", val modelId: String = "") {
     val isGemini: Boolean get() = providerId == GEMINI
     val isOfflineTts: Boolean get() = providerId == OFFLINE_TTS
+    val isCustom: Boolean get() = providerId.isNotBlank() && !isGemini && !isOfflineTts
     companion object {
         const val GEMINI = "gemini"
         const val OFFLINE_TTS = "offline_tts"
