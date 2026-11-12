@@ -995,29 +995,7 @@ class ChatFragment : Fragment() {
     }
 
     private fun setupWorkStepsRecyclerView(rootView: View) {
-        val resId = resources.getIdentifier("rvWorkSteps", "id", requireContext().packageName)
-        val existingRv = if (resId != 0) rootView.findViewById<RecyclerView>(resId) else null
-        val targetRv = if (existingRv != null) {
-            existingRv
-        } else {
-            val dynamicRv = RecyclerView(requireContext()).apply {
-                id = if (resId != 0) resId else View.generateViewId()
-                layoutParams = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    bottomToTop = binding.cardInputContainer.id
-                    startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-                    endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-                }
-                val padH = (4 * resources.displayMetrics.density).toInt()
-                setPadding(padH, 0, padH, 0)
-                clipToPadding = false
-                visibility = View.GONE
-            }
-            (binding.root as? ViewGroup)?.addView(dynamicRv)
-            dynamicRv
-        }
+        val targetRv = binding.rvWorkSteps
         targetRv.layoutManager = LinearLayoutManager(requireContext())
         targetRv.adapter = workStepAdapter
         rvWorkSteps = targetRv

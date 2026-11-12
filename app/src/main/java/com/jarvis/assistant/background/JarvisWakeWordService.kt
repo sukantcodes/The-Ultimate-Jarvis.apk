@@ -270,6 +270,27 @@ class JarvisWakeWordService : Service() {
     }
 
     private fun onCommandReceived(command: String) {
+        val appMod = com.jarvis.assistant.selfaware.AppModificationEngine.processCommand(this, command)
+        if (appMod is com.jarvis.assistant.selfaware.AppModificationEngine.ModificationResult.Success) {
+            com.jarvis.assistant.JarvisApp.instance.chatRepository.addTurn(command, appMod.message)
+            com.jarvis.assistant.voice.JarvisVoiceController.speakTurnResponse(
+                context = this,
+                turnId = "self_mod_${System.currentTimeMillis()}",
+                userPrompt = command,
+                fullResponse = appMod.message
+            )
+            scheduleRestart(RESTART_DELAY_AFTER_COMMAND_MS) { startWakeWordListening() }
+            return
+        }
+
+        if (AutonomousBackgroundExecutor.isActionableTask(command)) {
+            com.jarvis.assistant.JarvisApp.instance.chatRepository.addTurn(command, "Starting task in background…")
+            AutonomousBackgroundExecutor.execute(this, command) { _, _ ->
+                scheduleRestart(RESTART_DELAY_AFTER_COMMAND_MS) { startWakeWordListening() }
+            }
+            return
+        }
+
         JarvisConversationService.sendTextMessage(command)
         scheduleRestart(RESTART_DELAY_AFTER_COMMAND_MS) { startWakeWordListening() }
     }

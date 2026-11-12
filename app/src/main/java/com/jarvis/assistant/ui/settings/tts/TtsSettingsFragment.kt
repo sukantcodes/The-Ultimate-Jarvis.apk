@@ -136,7 +136,8 @@ class TtsSettingsFragment : Fragment() {
 
         binding.btnSaveAndActivate.setOnClickListener {
             viewModel.saveAndActivate {
-                Toast.makeText(requireContext(), "Neural Voice parameters saved & verified", Toast.LENGTH_SHORT).show()
+                com.jarvis.assistant.background.JarvisConversationService.startWakeWordMonitoring(requireContext())
+                Toast.makeText(requireContext(), "Neural Voice activated & 'Hey Jarvis' listening", Toast.LENGTH_SHORT).show()
             }
         }
 

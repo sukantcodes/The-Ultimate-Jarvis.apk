@@ -269,6 +269,19 @@
             android:focusable="true" />
     </LinearLayout>
 
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvWorkSteps"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxHeight="260dp"
+        app:layout_constraintBottom_toTopOf="@id/cardInputContainer"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:layout_marginBottom="4dp"
+        android:visibility="gone" />
+
     <LinearLayout
         android:id="@+id/cardInputContainer"
         android:layout_width="0dp"
