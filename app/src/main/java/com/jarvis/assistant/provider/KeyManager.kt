@@ -140,7 +140,9 @@ class KeyManager(
                 "gemini" -> if (key != null) app.preferences.apiKey = key
                 "groq" -> if (key != null) com.jarvis.assistant.security.AiEngineStore(app).setGroqKey(key)
                 "elevenlabs" -> if (key != null) app.preferences.elevenLabsApiKey = key
-                else -> if (key != null && providers != null) providers.saveKey(providerId, key)
+                else -> if (key != null) {
+                    providers?.saveKey(providerId, key) ?: vault.store(providerId, key)
+                }
             }
         } catch (_: Exception) {}
     }

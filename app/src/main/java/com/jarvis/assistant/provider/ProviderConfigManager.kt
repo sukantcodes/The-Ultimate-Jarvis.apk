@@ -99,6 +99,8 @@ class ProviderConfigManager(
 
     fun loadKey(id: String): ApiKeySecret? = repository.loadKey(id)
 
+    fun saveKey(id: String, key: String): Boolean = repository.saveKey(id, key)
+
     /** Checks a profile before it is saved. Returns a plain-language problem, or null when it is fine. */
     fun validate(profile: ProviderProfile): String? {
         (ProviderUrl.validateBase(profile.baseUrl) as? ProviderUrl.Check.Bad)?.let { return it.reason }
