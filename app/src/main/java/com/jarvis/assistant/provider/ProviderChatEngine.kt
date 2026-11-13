@@ -131,7 +131,7 @@ class ProviderChatEngine(
         synchronized(lock) {
             if (isBusy) return SendOutcome.Busy
             val category = categoryOverride ?: WorkClassifier.classify(displayText, attachments, hasDocument = attachmentRef != null || sendText != displayText)
-            val res = categoryOverride?.let { config.resolveChat(it) } ?: config.resolveChat()
+            val res = config.resolveChat(category)
             val resolved = if (res is ChatResolution.NotActive && categoryOverride != null) config.resolveChat() else res
             val provider = when (resolved) {
                 ChatResolution.NotActive -> return SendOutcome.NotActive

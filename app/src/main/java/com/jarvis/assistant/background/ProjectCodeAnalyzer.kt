@@ -330,14 +330,15 @@ object ProjectCodeAnalyzer {
         url: String,
         lang: String
     ): String {
-        val isHi = lang.contains("hindi") || lang.contains("hinglish")
-        val isBn = lang.contains("bengali") || lang.contains("bangla")
-        val isTe = lang.contains("telugu")
-        val isTa = lang.contains("tamil")
-        val isMr = lang.contains("marathi")
-        val isEs = lang.contains("spanish")
-        val isFr = lang.contains("french")
-        val isDe = lang.contains("german")
+        val l = lang.lowercase(Locale.ROOT)
+        val isHi = l.contains("hindi") || l.contains("hinglish")
+        val isBn = l.contains("bengali") || l.contains("bangla")
+        val isTe = l.contains("telugu")
+        val isTa = l.contains("tamil")
+        val isMr = l.contains("marathi")
+        val isEs = l.contains("spanish")
+        val isFr = l.contains("french")
+        val isDe = l.contains("german")
 
         val animStr = if (a.cssAnimations.isNotEmpty()) a.cssAnimations.joinToString(", ") else "smooth glowing pulses and fluid transforms"
         val animStrHi = if (a.cssAnimations.isNotEmpty()) a.cssAnimations.joinToString(", ") else "luminous glow aur smooth pulse"
