@@ -20,7 +20,7 @@ class KeyManager(
     ): String? {
         if (!vault.available) return unavailableMessage()
         val clean = cleanKeyText(keyText)
-        ProviderAuth.validateKeyText(clean)?.let { return it }
+        validateClean(clean)?.let { return it }
         if (isDuplicate(providerId, clean, exceptId = null)) return "This key is already saved for this provider."
         val id = pool.newId()
         if (!vault.store(id, clean)) return "The key could not be saved to secure storage." + reason()
@@ -41,7 +41,7 @@ class KeyManager(
         val rec = pool.get(id) ?: return "That key no longer exists."
         if (!vault.available) return unavailableMessage()
         val clean = cleanKeyText(keyText)
-        ProviderAuth.validateKeyText(clean)?.let { return it }
+        validateClean(clean)?.let { return it }
         if (isDuplicate(rec.providerId, clean, exceptId = id)) return "This key is already saved for this provider."
         if (!vault.store(id, clean)) return "The key could not be saved to secure storage." + reason()
         pool.resetCooldown(id)
@@ -52,6 +52,11 @@ class KeyManager(
     /** Pasted keys often carry invisible characters or edge spaces. A space or line break inside a key is still refused. */
     private fun cleanKeyText(raw: String): String =
         raw.filterNot { it in '\u200B'..'\u200D' || it == '\uFEFF' || it == '\u00A0' }.trim()
+
+    /** Shared checks for a cleaned key: the provider's character rules, plus no space or line break inside the key. */
+    private fun validateClean(clean: String): String? =
+        ProviderAuth.validateKeyText(clean)
+            ?: if (clean.any { it.isWhitespace() }) "The key contains a space or line break. Re-copy it without extra spaces or line breaks." else null
 
     private fun reason(): String = vault.lastError?.let { " ($it)" }.orEmpty()
 
