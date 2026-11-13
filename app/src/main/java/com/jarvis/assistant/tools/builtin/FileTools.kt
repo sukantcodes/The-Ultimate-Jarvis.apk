@@ -99,7 +99,8 @@ object FileTools {
         override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
             val from = ctx.workspace.resolve(args.str("from")!!); val to = ctx.workspace.resolve(args.str("to")!!)
             if (!from.exists()) return ToolResult.Error("Nothing at ${args.str("from")}.")
-            if (from == ctx.workspace.root || from.parent == null) return ToolResult.Error("The root folder can not be moved.")
+            if (from == ctx.workspace.root) return ToolResult.Error("The workspace itself can not be moved.")
+            if (from.parent == null) return ToolResult.Error("The root folder can not be moved.")
             if (to.exists()) return ToolResult.Error("${args.str("to")} already exists. Delete it first, or choose another name.")
             to.parentFile?.mkdirs()
             return if (from.renameTo(to)) ToolResult.Ok("Moved to ${ctx.workspace.relative(to)}.") else ToolResult.Error("The move failed.")
@@ -112,8 +113,9 @@ object FileTools {
         override fun describe(args: JsonObject) = "DELETE ${args.str("path")} permanently"
         override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
             val f = ctx.workspace.resolve(args.str("path")!!)
-            if (f == ctx.workspace.root || f.parent == null || f.path == "/" || f.path == "/sdcard" || f.path == "/storage/emulated/0") {
-                return ToolResult.Error("Root storage folder can not be deleted.")
+            if (f == ctx.workspace.root) return ToolResult.Error("The workspace root can not be deleted.")
+            if (f.parent == null || f.path == "/" || f.path == "/sdcard" || f.path == "/storage/emulated/0") {
+                return ToolResult.Error("The root storage folder can not be deleted.")
             }
             if (!f.exists()) return ToolResult.Error("Nothing at ${args.str("path")}.")
             val count = if (f.isDirectory) f.walkTopDown().count() else 1
