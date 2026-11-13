@@ -330,10 +330,13 @@ object AutonomousProjectOrchestrator {
 
         try {
             // Phase 1: Structure & Semantic HTML5 (0% -> 25%)
-            val phase1Delay = (totalDurationMs * 0.15).toLong().coerceIn(800L, 25_000L)
-            delay(phase1Delay)
             val htmlContent = generateHighDetailHtml(request.topic, request.projectType)
             File(workspaceDir, "index.html").writeText(htmlContent)
+            val htmlPurpose = ProjectCodeAnalyzer.generateFilePurpose("index.html", htmlContent, isNew = true, language = lang)
+            speakResponse(context, htmlPurpose)
+
+            val phase1Delay = (totalDurationMs * 0.15).toLong().coerceIn(800L, 25_000L)
+            delay(phase1Delay)
 
             TaskProgressNotifier.postProgress(context, request.topic, "🎨 Designing responsive UI & styling…", 35)
             turnId?.let {
@@ -349,16 +352,22 @@ object AutonomousProjectOrchestrator {
             speakResponse(context, milestone35Msg)
 
             // Phase 2: High-Detail CSS3 (25% -> 55%)
-            val phase2Delay = (totalDurationMs * 0.25).toLong().coerceIn(1200L, 35_000L)
-            delay(phase2Delay)
             val cssContent = generateHighDetailCss(request.projectType)
             File(workspaceDir, "style.css").writeText(cssContent)
+            val cssPurpose = ProjectCodeAnalyzer.generateFilePurpose("style.css", cssContent, isNew = true, language = lang)
+            speakResponse(context, cssPurpose)
+
+            val phase2Delay = (totalDurationMs * 0.25).toLong().coerceIn(1200L, 35_000L)
+            delay(phase2Delay)
 
             // Phase 3: Robust JavaScript & Game Loop / Dynamic Logic (55% -> 80%)
-            val phase3Delay = (totalDurationMs * 0.25).toLong().coerceIn(1500L, 40_000L)
-            delay(phase3Delay)
             val jsContent = generateHighDetailJs(request.topic, request.projectType)
             File(workspaceDir, "script.js").writeText(jsContent)
+            val jsPurpose = ProjectCodeAnalyzer.generateFilePurpose("script.js", jsContent, isNew = true, language = lang)
+            speakResponse(context, jsPurpose)
+
+            val phase3Delay = (totalDurationMs * 0.25).toLong().coerceIn(1500L, 40_000L)
+            delay(phase3Delay)
 
             TaskProgressNotifier.postProgress(context, request.topic, "⚡ Integrating logic & sound FX…", 70)
             turnId?.let {
@@ -374,6 +383,9 @@ object AutonomousProjectOrchestrator {
             speakResponse(context, milestone70Msg)
 
             // Phase 4: Validation & Quality Audit (80% -> 95%)
+            val checkingNotice = MultilingualCommandHelper.getLocalizedFilesChecking(lang)
+            speakResponse(context, checkingNotice)
+
             val phase4Delay = (totalDurationMs * 0.15).toLong().coerceIn(800L, 20_000L)
             delay(phase4Delay)
             val checkReport = ProjectBuilder.check(workspaceDir, nodeAvailable = false)
@@ -385,15 +397,19 @@ object AutonomousProjectOrchestrator {
             val localServer = servers.start(safeProjectName, workspaceDir, false)
             val previewUrl = localServer.url
 
+            val serverNotice = MultilingualCommandHelper.getLocalizedServerCreatedAndPreview(previewUrl, lang)
+            speakResponse(context, serverNotice)
+
             // Automatically open preview in browser
             openPreviewUrl(context, previewUrl)
 
             TaskProgressNotifier.postProgress(context, request.topic, "✓ Done", 100)
             TaskProgressNotifier.postComplete(context, request.topic, "Running on $previewUrl")
 
-            // Final Spoken Explanation in started language
-            val explanation = MultilingualCommandHelper.getLocalizedBuildExplanation(
-                title = request.topic,
+            // Final Spoken Explanation in started language analyzing the entire code
+            val explanation = ProjectCodeAnalyzer.generateExplanation(
+                dir = workspaceDir,
+                topic = request.topic,
                 type = request.projectType,
                 url = previewUrl,
                 language = lang

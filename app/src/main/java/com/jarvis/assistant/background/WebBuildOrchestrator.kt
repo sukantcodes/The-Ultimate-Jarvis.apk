@@ -572,6 +572,8 @@ object WebBuildOrchestrator {
                         "आपके ${spokenDuration(budgetSec, 1)} में से ${spokenDuration(used, 1)} में पूरा हो गया।",
                         "আপনার ${spokenDuration(budgetSec, 2)} এর মধ্যে ${spokenDuration(used, 2)}-এ শেষ হয়েছে।"))
                 }
+                val checkingNotice = MultilingualCommandHelper.getLocalizedFilesChecking(lang)
+                say(ctx, checkingNotice, logChat = false)
                 hostAndPreview(ctx, dir, name)
             } catch (e: CancellationException) {
                 monitor.cancel(); throw e
@@ -745,6 +747,9 @@ object WebBuildOrchestrator {
                 else tr("Extending the $role in $file" + (if (names.isNotBlank()) ": $names." else "."),
                     "$file में $roleHi आगे बढ़ा रहा हूँ" + (if (names.isNotBlank()) ": $names।" else "।"),
                     "$file-এ $roleBn এগিয়ে নিচ্ছি" + (if (names.isNotBlank()) ": $names।" else "।"))
+            },
+            smartPurpose = { file, content, isNew ->
+                ProjectCodeAnalyzer.generateFilePurpose(file, content, isNew, lang)
             }
         )
         var narration: Job? = null
@@ -798,6 +803,8 @@ object WebBuildOrchestrator {
             say(ctx, tr("I couldn't start the local server: ${e.message}", "लोकल सर्वर चालू नहीं हो सका: ${e.message}", "লোকাল সার্ভার চালু করা যায়নি: ${e.message}"))
             finish(ctx, false, "Server failed"); return
         }
+        val serverNotice = MultilingualCommandHelper.getLocalizedServerCreatedAndPreview(url, lang)
+        say(ctx, serverNotice, logChat = false)
         publish(ctx, 97, tr("Opening preview", "प्रीव्यू खोल रहा हूँ", "প্রিভিউ খুলছি"), "", _status.value.filesWritten, 3)
         val uri = Uri.parse(url)
         val base = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -812,11 +819,14 @@ object WebBuildOrchestrator {
         TaskProgressNotifier.postComplete(ctx, name, "Live at $url")
         val isGame = spec.contains("game", true) || dir.walkTopDown().any { it.name.endsWith(".html") && runCatching { it.readText().contains("canvas", true) }.getOrDefault(false) }
         val projectTypeStr = if (isGame) tr("game", "गेम", "গেম") else tr("website", "वेबसाइट", "ওয়েবসাইট")
-        val explanation = MultilingualCommandHelper.getLocalizedBuildExplanation(name, projectTypeStr, url, lang).ifBlank {
-            tr("Your $projectTypeStr \"$name\" is live on the local server at $url, and I have opened the preview for you. I have built a high-detail $projectTypeStr with responsive modern design, fluid animations, and complete interactive controls. Everything is fully functional and ready.",
-               "आपका $projectTypeStr \"$name\" लोकल सर्वर $url पर लाइव है और मैंने प्रीव्यू खोल दिया है। मैंने हाई डिटेल के साथ रिस्पॉन्सिव मॉडर्न डिज़ाइन, एनिमेशन और इंटरैक्टिव कंट्रोल्स बनाए हैं। सब कुछ ठीक काम कर रहा है।",
-               "আপনার $projectTypeStr \"$name\" লোকাল সার্ভার $url-এ চালু হয়েছে এবং আমি প্রিভিউ খুলে দিয়েছি। হাই ডিটেইল সহ রেসপনসিভ ডিজাইন ও অ্যানিমেশন যুক্ত করা হয়েছে।")
-        }
+        val explanation = ProjectCodeAnalyzer.generateExplanation(
+            dir = dir,
+            topic = name,
+            type = projectTypeStr,
+            url = url,
+            language = lang,
+            askAi = { system, prompt -> narrate(ctx, prompt, system, maxTokens = 350) }
+        )
         say(ctx, explanation, logChat = false)
 
         setPhase(Phase.AWAIT_ACK, tr("Say okay when you're done", "हो जाए तो ओके बोलिए", "হয়ে গেলে ওকে বলুন"), 100)

@@ -52,7 +52,8 @@ internal class BuildNarrator(
     /** (system prompt, user prompt) -> the model's reply, or null when no model could answer. */
     private val ask: suspend (String, String) -> String?,
     /** Localised plain-words fallback: (file, role, symbols, isNewFile) -> a sentence. */
-    private val fallback: (String, String, List<String>, Boolean) -> String
+    private val fallback: (String, String, List<String>, Boolean) -> String,
+    private val smartPurpose: ((file: String, content: String, isNew: Boolean) -> String)? = null
 ) {
     private class Known(var length: Long)
 
@@ -96,8 +97,8 @@ internal class BuildNarrator(
         val system = "You are JARVIS, speaking aloud to the owner while their project is being built. " +
             "Speak ONLY in ${language()} (if that is Hinglish, write Hindi in Roman letters). Use one or two short, natural spoken sentences: plain text, no markdown, no emojis, " +
             "and never read file extensions aloud as 'dot js'. " +
-            "Say which PART of the project the new code is building and what it does, using real names you can see in the code " +
-            "(for example the game loop, collision checks, the navigation bar, form validation, the colour theme). " +
+            "State which file is being created or updated AND explain the exact purpose of that file and the features, layout, or animations being added. " +
+            "Analyze the real code and use concrete names you can see (for example the 60fps game loop, collision checks, responsive navigation bar, Web Audio sound effects, or colour theme). " +
             "If you notice an obvious bug in the code shown, mention it briefly. " +
             "Never repeat or reword anything listed under ALREADY SAID. " +
             "If there is nothing meaningful and new to say, answer exactly: SKIP"
@@ -121,7 +122,9 @@ internal class BuildNarrator(
 
         val reply = ask(system, prompt)
         val line: String? = when {
-            reply == null -> if (significant && focusPath != null) fallback(focusFile!!.name, CodeInsights.role(focusFile.name), symbols, isNew) else null
+            reply == null -> if (significant && focusPath != null) {
+                smartPurpose?.invoke(focusFile!!.name, text, isNew) ?: fallback(focusFile!!.name, CodeInsights.role(focusFile.name), symbols, isNew)
+            } else null
             reply.trim().trim('.', '!', '"').equals("SKIP", ignoreCase = true) -> null
             else -> clean(reply)
         }

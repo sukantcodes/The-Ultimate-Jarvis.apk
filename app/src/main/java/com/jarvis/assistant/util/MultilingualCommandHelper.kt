@@ -610,15 +610,43 @@ object MultilingualCommandHelper {
 
     fun getLocalizedBuildStarting(topic: String, quality: String, minutes: Int, language: String): String {
         return when (language.lowercase(Locale.ROOT)) {
-            "hindi", "hinglish" -> "Samajh gaya Sir. $topic ka $quality build shuru kar raha hoon. $minutes minute ka time budget set hai. Main aapko continuously update karta rahoonga."
-            "spanish" -> "Entendido, Señor. Iniciando la construcción con $quality para $topic. Tiempo asignado: $minutes minutos. Lo mantendré actualizado."
-            "french" -> "Compris, Monsieur. Lancement de la création $quality pour $topic. Durée allouée : $minutes minutes. Je vous tiens informé."
-            "german" -> "Verstanden, Sir. Starte den $quality Bau für $topic. Zugeordnete Zeit: $minutes Minuten. Ich halte Sie auf dem Laufenden."
-            "japanese" -> "承知いたしました、サー。$topic の $quality 構築を開始します。割り当て時間は $minutes 分です。随時進捗をお知らせします。"
-            "telugu" -> "అర్థమైంది సర్. $topic కోసం $quality బిల్డ్ ప్రారంభిస్తున్నాను. $minutes నిమిషాలు కేటాయించబడింది. పురోగతిని తెలియజేస్తుంటాను."
-            "tamil" -> "புரிந்தது சார். $topic க்கான $quality உருவாக்கத்தைத் தொடங்குகிறேன். ஒதுக்கப்பட்ட நேரம் $minutes நிமிடங்கள். புதுப்பிப்புகளைத் தெரிவிக்கிறேன்."
-            "bengali" -> "বুঝেছি স্যার। $topic এর জন্য $quality বিল্ড শুরু করছি। সময় বরাদ্দ: $minutes মিনিট। আপনাকে অগ্রগতি জানাব।"
-            else -> "Understood, Sir. Starting $quality build for your $topic now. Allocated duration is $minutes minutes. I will keep you updated on progress."
+            "hindi", "hinglish" -> "Aapka '$topic' par $quality kaam shuru ho gaya hai aur yeh $minutes minute mein poora ho jayega. Main code aur files analyze karke aapko smartly update deta rahoonga."
+            "spanish" -> "Su trabajo para '$topic' ha comenzado con $quality y se completará en $minutes minutos. Analizaré el código y lo mantendré informado."
+            "french" -> "Votre travail pour '$topic' a commencé en $quality et sera terminé dans $minutes minutes. J'analyse le code et vous tiendrai informé."
+            "german" -> "Ihre Arbeit für '$topic' mit $quality hat begonnen und wird in $minutes Minuten abgeschlossen sein. Ich analysiere den Code und halte Sie auf dem Laufenden."
+            "japanese" -> "サー、$topic の $quality 作業を開始しました。$minutes 分で完了予定です。コードを分析しながら随時お知らせします。"
+            "telugu" -> "మీ '$topic' కోసం $quality పని ప్రారంభమైంది మరియు $minutes నిమిషాల్లో పూర్తవుతుంది. కోడ్‌ను విశ్లేషిస్తూ వివరాలను తెలియజేస్తుంటాను."
+            "tamil" -> "உங்கள் '$topic' க்கான $quality பணி தொடங்கிவிட்டது, $minutes நிமிடங்களில் முடிவடையும். குறியீட்டை பகுப்பாய்வு செய்து புதுப்பிப்புகளைத் தெரிவிக்கிறேன்."
+            "bengali" -> "আপনার '$topic'-এর $quality কাজ শুরু হয়েছে এবং এটি $minutes মিনিটের মধ্যে সম্পন্ন হবে। আমি কোড ও ফাইল বিশ্লেষণ করে আপনাকে আপডেট দেব।"
+            else -> "Your work has started for '$topic' with $quality, and it will be completed in $minutes minutes. I will analyze the code and keep you smartly updated."
+        }
+    }
+
+    fun getLocalizedFilesChecking(language: String): String {
+        return when (language.lowercase(Locale.ROOT)) {
+            "hindi", "hinglish" -> "Files ki checking chal rahi hai aur jald hi preview start kiya jayega."
+            "bengali" -> "ফাইলগুলো যাচাই করা হচ্ছে এবং শীঘ্রই প্রিভিউ দেখানো হবে।"
+            "spanish" -> "Los archivos se están comprobando y la vista previa estará lista pronto."
+            "french" -> "Les fichiers sont en cours de vérification et l'aperçu sera bientôt disponible."
+            "german" -> "Die Dateien werden überprüft und die Vorschau wird in Kürze gestartet."
+            "japanese" -> "ファイルの検証を行っています。まもなくプレビューを開始します。"
+            "telugu" -> "ఫైల్‌లను తనిఖీ చేస్తున్నాను మరియు త్వరలోనే ప్రివ్యూ ప్రారంభించబడుతుంది."
+            "tamil" -> "கோப்புகள் சரிபார்க்கப்படுகின்றன, விரைவில் முன்னோட்டம் திறக்கப்படும்."
+            else -> "The files are being checked and will be previewed soon."
+        }
+    }
+
+    fun getLocalizedServerCreatedAndPreview(url: String, language: String): String {
+        return when (language.lowercase(Locale.ROOT)) {
+            "hindi", "hinglish" -> "Server successfully create ho gaya hai aur maine preview start kar diya hai."
+            "bengali" -> "সার্ভার সফলভাবে তৈরি হয়েছে এবং আমি প্রিভিউ শুরু করেছি।"
+            "spanish" -> "El servidor se ha creado con éxito y he iniciado la vista previa."
+            "french" -> "Serveur créé avec succès et j'ai lancé l'aperçu."
+            "german" -> "Server erfolgreich erstellt und ich habe die Vorschau gestartet."
+            "japanese" -> "サーバーが正常に作成され、プレビューを開始しました。"
+            "telugu" -> "సర్వర్ విజయవంతంగా సృష్టించబడింది మరియు ప్రివ్యూ ప్రారంభించబడింది."
+            "tamil" -> "சேவையகம் வெற்றிகரமாக உருவாக்கப்பட்டது, முன்னோட்டம் தொடங்கப்பட்டுள்ளது."
+            else -> "Server successfully created and I have started the preview."
         }
     }
 
