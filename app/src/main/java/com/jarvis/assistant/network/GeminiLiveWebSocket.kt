@@ -948,7 +948,7 @@ open class GeminiLiveWebSocket(
                         // 22. build_website_or_game
                         put(JSONObject().apply {
                             put("name", "build_website_or_game")
-                            put("description", "Builds, codes, previews, and launches a complete interactive website or browser game using the supervised project build engine (e.g. \"create a website\", \"build a game\", \"make a landing page\", \"website banao\", \"snake game bana do\"). Use whenever the user asks to create, build, or code any website, web page, or game.")
+                            put("description", "Builds, codes, previews, and launches a complete interactive website or browser game using the supervised project build engine (e.g. \"create a website\", \"build a game\", \"make a landing page\", \"website banao\", \"snake game bana do\"). MUST BE CALLED IMMEDIATELY whenever the user asks to create, build, or code any website, web page, or game. NEVER chatter or give empty spoken replies.")
                             put("parameters", JSONObject().apply {
                                 put("type", "OBJECT")
                                 put("properties", JSONObject().apply {

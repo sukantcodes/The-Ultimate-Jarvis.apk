@@ -82,7 +82,12 @@ class CloudVoiceEngine(private val context: Context) {
 
                 playInMemory(audioBytes, onAmplitude)
             } catch (e: Exception) {
-                Log.e(TAG, "Cloud TTS synthesis failed", e)
+                Log.e(TAG, "Cloud TTS synthesis failed; falling back to System TTS", e)
+                try {
+                    com.jarvis.assistant.voice.JarvisVoiceController.speakSystemTts(context, text)
+                } catch (fallbackError: Exception) {
+                    Log.e(TAG, "System TTS fallback also failed", fallbackError)
+                }
             } finally {
                 withContext(Dispatchers.Main) {
                     onAmplitude?.invoke(0f)

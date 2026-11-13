@@ -18,9 +18,12 @@ class ChatRepository(private val preferences: AppPreferences) {
     init {
         // A turn saved without an answer can only come from a process that died mid-answer; show it as
         // interrupted instead of leaving the chat waiting forever.
-        _turns.value = preferences.loadChatHistory().map {
-            if (it.jarvisResponse.isBlank()) it.copy(jarvisResponse = "⚠ This answer was interrupted. Tap Retry to ask again.") else it
-        }
+        // Purge any legacy audio turns from persisted history so ChatBox remains strictly for Work Purpose.
+        _turns.value = preferences.loadChatHistory()
+            .filter { it.userTranscript != "(Audio query)" && it.jarvisResponse != "(Audio response)" }
+            .map {
+                if (it.jarvisResponse.isBlank()) it.copy(jarvisResponse = "⚠ This answer was interrupted. Tap Retry to ask again.") else it
+            }
     }
 
     private fun persist(list: List<ChatTurn>) {
@@ -83,6 +86,8 @@ class ChatRepository(private val preferences: AppPreferences) {
         val cleanUser = userText.trim()
         val cleanJarvis = jarvisText.trim()
         if (cleanUser.isEmpty() && cleanJarvis.isEmpty()) return
+        // ChatBox is strictly for work purpose: conversational audio placeholders are excluded
+        if (cleanUser == "(Audio query)" || cleanJarvis == "(Audio response)") return
 
         val currentList = _turns.value.toMutableList()
         if (currentList.isNotEmpty()) {
@@ -93,8 +98,8 @@ class ChatRepository(private val preferences: AppPreferences) {
 
         currentList.add(
             ChatTurn(
-                userTranscript = cleanUser.ifEmpty { "(Audio query)" },
-                jarvisResponse = cleanJarvis.ifEmpty { "(Audio response)" },
+                userTranscript = cleanUser,
+                jarvisResponse = cleanJarvis,
                 attachmentPath = attachmentPath,
                 attachmentName = attachmentName,
                 attachmentMimeType = attachmentMimeType
@@ -114,8 +119,7 @@ class ChatRepository(private val preferences: AppPreferences) {
 
         val currentList = _turns.value.toMutableList()
         val index = currentList.indexOfLast {
-            it.userTranscript == cleanUser &&
-                (it.jarvisResponse == "(Audio response)" || it.jarvisResponse.isBlank())
+            it.userTranscript == cleanUser && it.jarvisResponse.isBlank()
         }
         if (index < 0) return
 

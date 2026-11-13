@@ -531,7 +531,6 @@ class JarvisWakeWordService : Service() {
             if (!match.isMatch) {
                 Log.w(TAG, "Voice reply rejected: unauthorized speaker")
                 val errMsg = com.jarvis.assistant.util.MultilingualCommandHelper.getLocalizedVoiceAuthRequired(lang)
-                com.jarvis.assistant.JarvisApp.instance.chatRepository.addTurn(command, errMsg)
                 com.jarvis.assistant.voice.JarvisVoiceController.speakTurnResponse(
                     context = this,
                     turnId = "reply_err_${System.currentTimeMillis()}",

@@ -398,15 +398,6 @@ object AutonomousProjectOrchestrator {
             val previewUrl = localServer.url
 
             val serverNotice = MultilingualCommandHelper.getLocalizedServerCreatedAndPreview(previewUrl, lang)
-            speakResponse(context, serverNotice)
-
-            // Automatically open preview in browser
-            openPreviewUrl(context, previewUrl)
-
-            TaskProgressNotifier.postProgress(context, request.topic, "✓ Done", 100)
-            TaskProgressNotifier.postComplete(context, request.topic, "Running on $previewUrl")
-
-            // Final Spoken Explanation in started language analyzing the entire code
             val explanation = ProjectCodeAnalyzer.generateExplanation(
                 dir = workspaceDir,
                 topic = request.topic,
@@ -414,6 +405,13 @@ object AutonomousProjectOrchestrator {
                 url = previewUrl,
                 language = lang
             )
+            val fullAnnouncement = "$serverNotice $explanation"
+
+            // Automatically open preview in browser
+            openPreviewUrl(context, previewUrl)
+
+            TaskProgressNotifier.postProgress(context, request.topic, "✓ Done", 100)
+            TaskProgressNotifier.postComplete(context, request.topic, "Running on $previewUrl")
 
             // Finish work turn in ChatBox
             turnId?.let {
@@ -431,8 +429,8 @@ object AutonomousProjectOrchestrator {
                 )
             }
 
-            // Immediately and automatically explain the build by voice!
-            speakResponse(context, explanation)
+            // Immediately and automatically explain the build by voice without audio cut-off!
+            speakResponseSuspending(context, fullAnnouncement)
 
         } catch (e: CancellationException) {
             Log.i(TAG, "Build cancelled for ${request.topic}")
@@ -469,6 +467,22 @@ object AutonomousProjectOrchestrator {
             dispatcher.speak(text)
         } catch (e: Exception) {
             Log.e(TAG, "JarvisVoiceDispatcher speak failed", e)
+        }
+    }
+
+    private suspend fun speakResponseSuspending(context: Context, text: String) {
+        if (text.isBlank()) return
+        try {
+            val dispatcher = JarvisVoiceDispatcher.getInstance(context)
+            kotlinx.coroutines.withTimeoutOrNull(120_000L) {
+                kotlinx.coroutines.suspendCancellableCoroutine<Unit> { cont ->
+                    dispatcher.speak(text) {
+                        if (cont.isActive) cont.resume(Unit) {}
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "JarvisVoiceDispatcher speakSuspending failed", e)
         }
     }
 

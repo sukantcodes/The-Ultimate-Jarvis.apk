@@ -28,9 +28,14 @@ class MemoryManager(
     private val shortTermSummary = StringBuilder()
 
     init {
-        // Preload recent persistent chat turns so memory is continuous across app restarts
+        // Preload recent persistent chat turns (excluding build logs and legacy audio markers) so memory is continuous across app restarts
         scope.launch(Dispatchers.IO) {
-            val savedTurns = chatRepository.turns.value
+            val savedTurns = chatRepository.turns.value.filter {
+                it.userTranscript.isNotBlank() &&
+                !it.userTranscript.startsWith("🛠") &&
+                it.userTranscript != "(Audio query)" &&
+                it.jarvisResponse != "(Audio response)"
+            }
             _shortTermHistory.value = savedTurns.takeLast(MAX_SHORT_TERM_TURNS)
             Log.i(TAG, "Preloaded ${_shortTermHistory.value.size} persistent turns into active memory.")
         }
@@ -105,7 +110,6 @@ class MemoryManager(
         )
         Log.i(TAG, "Saved long-term memory in category '$category': $clean")
         val response = "Sir, I have permanently committed that to memory: $clean."
-        chatRepository.addTurn(clean, response)
         return response
     }
 
@@ -124,7 +128,6 @@ class MemoryManager(
         } else {
             "I couldn't find any memory matching '$clean'."
         }
-        chatRepository.addTurn(clean, response)
         return response
     }
 
@@ -137,7 +140,6 @@ class MemoryManager(
         val count = all.size
         val topFacts = all.take(6).joinToString(". ") { it.rawText }
         val response = "Sir, I remember $count key facts about you in my Memory Core, including: $topFacts."
-        chatRepository.addTurn("What do you remember about me?", response)
         return response
     }
 
@@ -147,7 +149,6 @@ class MemoryManager(
         val bday = preferences.userBirthday
         if (bday.isNotBlank()) {
             val reply = "Sir, your birthday is $bday."
-            chatRepository.addTurn("When is my birthday?", reply)
             return reply
         }
         val memories = repository.searchMemories("birthday")
@@ -155,18 +156,15 @@ class MemoryManager(
         if (mem != null) {
             preferences.userBirthday = mem.value
             val reply = "Sir, your birthday is ${mem.value}."
-            chatRepository.addTurn("When is my birthday?", reply)
             return reply
         }
         val notSet = "Sir, you haven't told me your birthday yet. You can tell me 'My birthday is 15th August' and I will save it."
-        chatRepository.addTurn("When is my birthday?", notSet)
         return notSet
     }
 
     fun getFavoriteSongResponse(): String {
         val song = resolveSongQuery("my favorite song")
         val reply = "Sir, your favorite song is $song."
-        chatRepository.addTurn("What is my favorite song?", reply)
         return reply
     }
 
@@ -176,16 +174,13 @@ class MemoryManager(
         if (routines.isNotEmpty()) {
             val summary = routines.joinToString("; ") { it.rawText }
             val reply = "Sir, here is your recorded daily routine: $summary."
-            chatRepository.addTurn("What is my routine?", reply)
             return reply
         }
         if (preferences.dailyRoutine.isNotBlank()) {
             val reply = "Sir, your daily routine is: ${preferences.dailyRoutine}."
-            chatRepository.addTurn("What is my routine?", reply)
             return reply
         }
         val notSet = "Sir, you haven't recorded your routine yet. Tell me 'I wake up at 7 am' or 'I go to the gym at 6 pm' and I will save it."
-        chatRepository.addTurn("What is my routine?", notSet)
         return notSet
     }
 
@@ -446,7 +441,9 @@ class MemoryManager(
         }
 
         // Persistent Dialogue History across App Restarts
-        val recentTurns = chatRepository.turns.value.takeLast(15)
+        val recentTurns = chatRepository.turns.value
+            .filter { !it.userTranscript.startsWith("🛠") && !it.jarvisResponse.startsWith("🛠") }
+            .takeLast(15)
         if (recentTurns.isNotEmpty()) {
             sb.append("\n[PERSISTENT DIALOGUE HISTORY ACROSS APP RESTARTS]:\n")
             sb.append("You remember what was discussed in previous conversations with the user:\n")

@@ -332,6 +332,9 @@ object ProjectCodeAnalyzer {
     ): String {
         val isHi = lang.contains("hindi") || lang.contains("hinglish")
         val isBn = lang.contains("bengali") || lang.contains("bangla")
+        val isTe = lang.contains("telugu")
+        val isTa = lang.contains("tamil")
+        val isMr = lang.contains("marathi")
         val isEs = lang.contains("spanish")
         val isFr = lang.contains("french")
         val isDe = lang.contains("german")
@@ -369,6 +372,21 @@ object ProjectCodeAnalyzer {
                 "স্যার, আপনার '$topic' ${a.projectType} লোকাল সার্ভারে চালু হয়েছে এবং প্রিভিউ ওপেন করা হয়েছে। " +
                         "কোড বিশ্লেষণে দেখা গেছে এতে $compStr এবং $animStr অ্যানিমেশন রয়েছে। " +
                         "এছাড়া এতে $mechStr যুক্ত করা হয়েছে, যাতে সবকিছু নিখুঁতভাবে চলছে।"
+            }
+            isTe -> {
+                "సర్, మీ '$topic' ${a.projectType} లోకల్ సర్వర్‌లో లైవ్ రన్ అవుతోంది మరియు ప్రివ్యూ ఓపెన్ చేయబడింది. " +
+                        "కోడ్ విశ్లేషణ ప్రకారం: ఇందులో $compStr ఉన్నాయి. విజువల్స్ కోసం $styleStr మరియు $animStr ఉన్నాయి. " +
+                        "లాజిక్‌లో $mechStr చేర్చబడింది, అన్నీ చక్కగా పనిచేస్తున్నాయి."
+            }
+            isTa -> {
+                "சார், உங்கள் '$topic' ${a.projectType} உள்ளூர் சேவையகத்தில் இயங்குகிறது மற்றும் முன்னோட்டம் திறக்கப்பட்டது. " +
+                        "குறியீடு பகுப்பாய்வு: இதில் $compStr மற்றும் $styleStr உடன் $animStr அனிமேஷன்கள் உள்ளன. " +
+                        "லாஜிக்கில் $mechStr செயல்படுத்தப்பட்டுள்ளது, அனைத்தும் சீராக இயங்குகின்றன."
+            }
+            isMr -> {
+                "सर, आपला '$topic' ${a.projectType} लोकल सर्व्हरवर लाईव्ह सुरू आहे आणि प्रिव्ह्यू उघडला आहे. " +
+                        "कोड विश्लेषणात: यामध्ये $compStr, $styleStr आणि $animStr समाविष्ट आहेत. " +
+                        "तसेच यामध्ये $mechStr जोडले गेले आहे, सर्वकाही व्यवस्थित चालत आहे."
             }
             isEs -> {
                 "Señor, su ${a.projectType} '$topic' ya está activo en el servidor local y he abierto la vista previa. " +

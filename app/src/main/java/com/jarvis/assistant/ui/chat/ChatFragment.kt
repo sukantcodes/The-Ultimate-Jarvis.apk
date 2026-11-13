@@ -820,13 +820,16 @@ class ChatFragment : Fragment() {
                             binding.tvChatStatus.text = "● THINKING"
                         }
                     }
-                    chatAdapter.submitList(turns) {
-                        if (turns.isNotEmpty() && _binding != null) {
+                    val workTurns = turns.filter { turn ->
+                        turn.userTranscript != "(Audio query)" && turn.jarvisResponse != "(Audio response)"
+                    }
+                    chatAdapter.submitList(workTurns) {
+                        if (workTurns.isNotEmpty() && _binding != null) {
                             val lm = binding.rvChatMessages.layoutManager as? LinearLayoutManager
                             if (lm != null) {
                                 val lastVisible = lm.findLastVisibleItemPosition()
-                                if (lastVisible >= turns.size - 3 || lastVisible < 0) {
-                                    binding.rvChatMessages.scrollToPosition(turns.size - 1)
+                                if (lastVisible >= workTurns.size - 3 || lastVisible < 0) {
+                                    binding.rvChatMessages.scrollToPosition(workTurns.size - 1)
                                 }
                             }
                         }

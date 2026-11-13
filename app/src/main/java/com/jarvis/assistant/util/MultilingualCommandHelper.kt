@@ -225,12 +225,13 @@ object MultilingualCommandHelper {
     fun isUserChoosesJarvisDirectly(prompt: String): Boolean {
         val lower = prompt.trim().lowercase(Locale.ROOT)
         val tokens = listOf(
-            "you create", "i will create", "you do it", "you make it", "you build", "you build it",
+            "you create", "i will create", "i'll create", "you do it", "you make it", "you build", "you build it",
             "jarvis create", "jarvis do it", "jarvis banao", "jarvis banaye", "jarvis khud banao",
             "tum banao", "aap banao", "khud banao", "khud bana do", "tu bana", "tu banao",
             "you make", "create it yourself", "make it yourself", "build it yourself",
             "sirf tum banao", "jarvis tum", "tum hi banao", "aap hi banao", "bana do", "create karo",
-            "tu bana de", "aap banaye", "you do", "do it yourself"
+            "tu bana de", "aap banaye", "you do", "do it yourself", "tum hi", "aap hi", "khud hi",
+            "gemini", "jemini", "you create it", "you create website"
         )
         return tokens.any { lower.contains(it) } || lower == "you" || lower == "jarvis" || lower == "tum" || lower == "aap"
     }
@@ -582,15 +583,15 @@ object MultilingualCommandHelper {
 
     fun getLocalizedAskProviderChoice(language: String): String {
         return when (language.lowercase(Locale.ROOT)) {
-            "hindi", "hinglish" -> "Sir, abhi custom provider configured nahi hai. Kya main khud project bana doon, ya aap custom provider add karenge?"
-            "spanish" -> "Señor, no hay un proveedor personalizado configurado. ¿Desea que cree el proyecto yo mismo o agregará un proveedor personalizado?"
-            "french" -> "Monsieur, aucun fournisseur personnalisé n'est configuré. Dois-je créer le projet moi-même ou allez-vous ajouter un fournisseur personnalisé ?"
-            "german" -> "Sir, es ist kein benutzerdefinierter Anbieter konfiguriert. Soll ich das Projekt selbst erstellen oder möchten Sie einen Anbieter hinzufügen?"
-            "japanese" -> "サー、カスタムプロバイダーが設定されていません。私が直接作成しますか、それともカスタムプロバイダーを追加しますか？"
+            "hindi", "hinglish" -> "No custom model is active. Kya main khud website bana doon, ya aap custom provider add karenge?"
+            "spanish" -> "No hay un modelo personalizado activo. ¿Debería crear el sitio web yo mismo o agregará un proveedor personalizado?"
+            "french" -> "Aucun modèle personnalisé n'est actif. Dois-je créer le site web moi-même ou allez-vous ajouter un fournisseur personnalisé ?"
+            "german" -> "Es ist kein benutzerdefiniertes Modell aktiv. Soll ich die Website selbst erstellen oder möchten Sie einen benutzerdefinierten Anbieter hinzufügen?"
+            "japanese" -> "カスタムモデルが有効になっていません。私が直接ウェブサイトを作成しますか、それともカスタムプロバイダーを追加しますか？"
             "telugu" -> "సర్, కస్టమ్ ప్రొవైడర్ కాన్ఫిగర్ చేయబడలేదు. ప్రాజెక్ట్‌ను నేనే తయారు చేయమంటారా లేదా మీరు కస్టమ్ ప్రొవైడర్‌ను జోడిస్తారా?"
             "tamil" -> "சார், தனிப்பயன் வழங்குநர் எதுவும் கட்டமைக்கப்படவில்லை. திட்டத்தை நானே உருவாக்கவா அல்லது நீங்கள் சேர்ப்பீர்களா?"
-            "bengali" -> "স্যার, কাস্টম প্রদানকারী কনফিগার করা নেই। আমি কি নিজেই প্রজেক্ট তৈরি করব, নাকি আপনি কাস্টম প্রদানকারী যোগ করবেন?"
-            else -> "Sir, no custom provider is currently configured. Should I create the project myself, or would you like to add a custom provider?"
+            "bengali" -> "কোনো কাস্টম মডেল চালু নেই। আমি কি নিজেই ওয়েবসাইট বানাব, নাকি আপনি কাস্টম প্রোভাইডার যোগ করবেন?"
+            else -> "No custom model is active. Should I create the website myself, or will you add a custom provider?"
         }
     }
 

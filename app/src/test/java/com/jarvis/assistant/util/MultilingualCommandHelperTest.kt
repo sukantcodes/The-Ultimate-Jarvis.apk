@@ -211,11 +211,14 @@ class MultilingualCommandHelperTest {
     fun testUserChoiceOnProvider() {
         assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("you create"))
         assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("i will create"))
-        assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("jarvis create"))
-        assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("you do it"))
         assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("tum banao"))
         assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("aap banao"))
         assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("khud bana do"))
+        assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("jarvis create"))
+        assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("you do it"))
+        assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("tu bana"))
+        assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("tu banao"))
+        assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("gemini"))
 
         assertTrue(MultilingualCommandHelper.isUserWantsToAddCustomProvider("add custom provider"))
         assertTrue(MultilingualCommandHelper.isUserWantsToAddCustomProvider("i will add custom provider"))
@@ -224,6 +227,9 @@ class MultilingualCommandHelperTest {
 
     @Test
     fun testLocalizedProjectPromptsAndExplanations() {
+        val askProviderEn = MultilingualCommandHelper.getLocalizedAskProviderChoice("English")
+        assertEquals("No custom model is active. Should I create the website myself, or will you add a custom provider?", askProviderEn)
+
         val askProviderHi = MultilingualCommandHelper.getLocalizedAskProviderChoice("Hindi")
         assertTrue(askProviderHi.contains("custom provider", ignoreCase = true))
         assertTrue(askProviderHi.contains("kya main khud", ignoreCase = true))

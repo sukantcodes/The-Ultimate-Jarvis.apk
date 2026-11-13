@@ -194,10 +194,10 @@ object WebBuildOrchestrator {
         val l = text.lowercase(Locale.ROOT)
         val custom = listOf("custom", "कस्टम", "কাস্টম", "own model", "my model", "my own", "provider", "add custom provider", "add custom", "add provider", "custom provider")
         val gemini = listOf(
-            "gemini", "jemini", "जेमिनी", "জেমিনি", "you create", "i will create", "you write", "you do",
+            "gemini", "jemini", "जेमिनी", "জেমিনি", "you create", "i will create", "i'll create", "you write", "you do",
             "you make", "you build", "tum", "तुम", "aap", "आप", "তুমি", "tum banao", "aap banao",
             "khud banao", "create it yourself", "jarvis create", "jarvis do it", "jarvis banao",
-            "you", "do it yourself", "sirf tum", "bana do", "make it"
+            "you", "do it yourself", "sirf tum", "bana do", "make it", "tu bana", "tu banao", "tu bana de", "tum hi"
         )
         return when {
             custom.any { l.contains(it) } -> Engine.CUSTOM
@@ -230,9 +230,9 @@ object WebBuildOrchestrator {
         when (phase) {
             Phase.IDLE -> start(ctx, text, completion)
             Phase.ASK_ENGINE -> onEngineReply(ctx, text)
-            Phase.WAIT_CUSTOM -> if (parseEngine(text) == Engine.GEMINI) { job?.cancel(); engine = Engine.GEMINI; afterEngineChosen(ctx) }
+            Phase.WAIT_CUSTOM -> if (parseEngine(text) == Engine.GEMINI || MultilingualCommandHelper.isUserChoosesJarvisDirectly(text)) { job?.cancel(); engine = Engine.GEMINI; afterEngineChosen(ctx) }
             Phase.ASK_SPEC -> {
-                spec = text.trim(); quality = quality || isQuality(text)
+                spec = text.trim(); quality = quality || isQuality(text) || !text.contains("standard", ignoreCase = true)
                 if (budgetSec < 0) TimeBudget.parse(text, requireUnit = true)?.let { budgetSec = it }
                 askQualityAndTimeOrBegin(ctx)
             }
@@ -250,7 +250,8 @@ object WebBuildOrchestrator {
         onComplete = completion
         spec = text.trim()
         val parsedQualityAndTime = MultilingualCommandHelper.parseQualityAndTime(text)
-        quality = isQuality(text) || parsedQualityAndTime?.first?.contains("high", true) == true
+        // High detail is strictly enforced by default unless standard is explicitly requested
+        quality = !text.contains("standard", ignoreCase = true)
         budgetSec = parsedQualityAndTime?.second?.let { it * 60 } ?: (TimeBudget.parse(text, requireUnit = true) ?: -1)
         deadlineAt = 0L
         previewOpened = false
@@ -265,9 +266,9 @@ object WebBuildOrchestrator {
         val requestedGemini = MultilingualCommandHelper.isUserChoosesJarvisDirectly(text) || parseEngine(text) == Engine.GEMINI
         val requestedCustom = MultilingualCommandHelper.isUserWantsToAddCustomProvider(text) || parseEngine(text) == Engine.CUSTOM
         when {
-            customAvail -> { engine = Engine.CUSTOM; afterEngineChosen(ctx) }
             requestedGemini -> { engine = Engine.GEMINI; afterEngineChosen(ctx) }
             requestedCustom -> { engine = Engine.CUSTOM; afterEngineChosen(ctx) }
+            customAvail -> { engine = Engine.CUSTOM; afterEngineChosen(ctx) }
             hasGemini -> {
                 setPhase(Phase.ASK_ENGINE, tr("Waiting for your choice", "आपके जवाब का इंतज़ार", "আপনার উত্তরের অপেক্ষা"))
                 val prompt = MultilingualCommandHelper.getLocalizedAskProviderChoice(lang).ifBlank {
@@ -488,7 +489,11 @@ object WebBuildOrchestrator {
                         break
                     }
                     if (!result.ok) lastError = result.error
-                    val report = if (File(dir, "index.html").isFile || dir.walkTopDown().any { it.isFile }) ProjectBuilder.check(dir, false) else null
+                    var report = if (File(dir, "index.html").isFile || dir.walkTopDown().any { it.isFile }) ProjectBuilder.check(dir, false) else null
+                    if (report == null || !report.ok) {
+                        extractCodeBlocksFromRecentChat(dir)
+                        report = if (File(dir, "index.html").isFile || dir.walkTopDown().any { it.isFile }) ProjectBuilder.check(dir, false) else null
+                    }
                     if (report != null && report.ok) { ok = true; break }
                     val geminiAvailable = JarvisApp.instance.preferences.apiKey.isNotBlank()
                     // The custom provider hit its limit (every key used up): Gemini carries on at once from the saved files.
@@ -554,6 +559,12 @@ object WebBuildOrchestrator {
                     }
                 }
                 tracker.workerDone = true
+                if (timed && quality && (workUntil - System.currentTimeMillis() > 6_000L)) {
+                    val remainingSec = ((workUntil - System.currentTimeMillis()) / 1000).toInt()
+                    if (remainingSec > 5) {
+                        delay((remainingSec - 4) * 1000L)
+                    }
+                }
                 if (!ok) {
                     monitor.cancel()
                     say(ctx, if (outOfTime) tr("Your time ran out before anything runnable was ready. Your files are saved in the project $name.",
@@ -804,7 +815,6 @@ object WebBuildOrchestrator {
             finish(ctx, false, "Server failed"); return
         }
         val serverNotice = MultilingualCommandHelper.getLocalizedServerCreatedAndPreview(url, lang)
-        say(ctx, serverNotice, logChat = false)
         publish(ctx, 97, tr("Opening preview", "प्रीव्यू खोल रहा हूँ", "প্রিভিউ খুলছি"), "", _status.value.filesWritten, 3)
         val uri = Uri.parse(url)
         val base = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -827,10 +837,14 @@ object WebBuildOrchestrator {
             language = lang,
             askAi = { system, prompt -> narrate(ctx, prompt, system, maxTokens = 350) }
         )
-        say(ctx, explanation, logChat = false)
-
+        val ackNotice = tr(
+            "Say okay when you're done, and I'll stay ready until then.",
+            "जब हो जाए तो ओके बोलिए, तब तक मैं तैयार रहूँगा।",
+            "হয়ে গেলে ওকে বলুন, ততক্ষণ আমি তৈরি থাকব।"
+        )
+        val fullAnnouncement = "$serverNotice $explanation $ackNotice"
         setPhase(Phase.AWAIT_ACK, tr("Say okay when you're done", "हो जाए तो ओके बोलिए", "হয়ে গেলে ওকে বলুন"), 100)
-        say(ctx, tr("Say okay when you're done, and I'll stay ready until then.", "जब हो जाए तो ओके बोलिए, तब तक मैं तैयार रहूँगा।", "হয়ে গেলে ওকে বলুন, ততক্ষণ আমি তৈরি থাকব।"))
+        saySuspending(ctx, fullAnnouncement, logChat = false)
         holdUntilAck(ctx)
     }
 
@@ -889,7 +903,61 @@ object WebBuildOrchestrator {
     private fun customReady(ctx: Context): Boolean {
         val m = ProviderRuntime.manager(ctx)
         val p = m.activeProfile() ?: return false
-        return m.hasKey(p.id) || p.authMethod == AuthMethod.NONE
+        val hasModel = p.chatModel != null || p.models.isNotEmpty() || p.selectedModelId.isNotBlank()
+        val hasKey = m.hasKey(p.id) || ProviderRuntime.keyRotation(ctx).hasKeys(p.id) || p.authMethod == AuthMethod.NONE
+        return hasModel && hasKey
+    }
+
+    private fun extractCodeBlocksFromRecentChat(dir: File) {
+        val lastTurns = JarvisApp.instance.chatRepository.turns.value.takeLast(3)
+        for (turn in lastTurns.reversed()) {
+            val text = turn.jarvisResponse
+            if (text.isBlank()) continue
+            extractAndWriteFiles(dir, text)
+            if (File(dir, "index.html").isFile) break
+        }
+    }
+
+    fun extractAndWriteFiles(dir: File, text: String): Boolean {
+        var written = false
+        val namedRegex = Regex("```(?:[a-zA-Z0-9_-]+:)?([a-zA-Z0-9_./-]+\\.[a-zA-Z0-9]+)\\s*\\n(.*?)```", RegexOption.DOT_MATCHES_ALL)
+        for (match in namedRegex.findAll(text)) {
+            val rawPath = match.groupValues[1].trim().trimStart('/')
+            val content = match.groupValues[2].trim()
+            if (rawPath.isNotEmpty() && content.isNotEmpty()) {
+                val targetFile = File(dir, rawPath)
+                targetFile.parentFile?.mkdirs()
+                targetFile.writeText(content)
+                written = true
+            }
+        }
+        if (File(dir, "index.html").isFile) return true
+
+        val htmlRegex = Regex("```(?:html)?\\s*\\n(<!DOCTYPE html.*?)```", setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE))
+        val htmlMatch = htmlRegex.find(text)
+        if (htmlMatch != null) {
+            val htmlContent = htmlMatch.groupValues[1].trim()
+            File(dir, "index.html").writeText(htmlContent)
+            written = true
+        }
+
+        val cssRegex = Regex("```css\\s*\\n(.*?)```", RegexOption.DOT_MATCHES_ALL)
+        val cssMatch = cssRegex.find(text)
+        if (cssMatch != null) {
+            val cssContent = cssMatch.groupValues[1].trim()
+            File(dir, "style.css").writeText(cssContent)
+            written = true
+        }
+
+        val jsRegex = Regex("```(?:javascript|js)\\s*\\n(.*?)```", RegexOption.DOT_MATCHES_ALL)
+        val jsMatch = jsRegex.find(text)
+        if (jsMatch != null) {
+            val jsContent = jsMatch.groupValues[1].trim()
+            File(dir, "script.js").writeText(jsContent)
+            written = true
+        }
+
+        return written
     }
 
     private fun activeCustomName(ctx: Context): String = ProviderRuntime.manager(ctx).activeProfile()?.displayName ?: "Custom model"
@@ -1015,6 +1083,20 @@ object WebBuildOrchestrator {
         JarvisConversationService.flushActiveAudio()
         val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(ctx)
         dispatcher.speak(text)
+    }
+
+    private suspend fun saySuspending(ctx: Context, text: String, logChat: Boolean = false) {
+        if (text.isBlank()) return
+        if (logChat) runCatching { JarvisApp.instance.chatRepository.addTurn("🛠 JARVIS build", text) }
+        JarvisConversationService.flushActiveAudio()
+        val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(ctx)
+        withTimeoutOrNull(120_000L) {
+            kotlinx.coroutines.suspendCancellableCoroutine<Unit> { cont ->
+                dispatcher.speak(text) {
+                    if (cont.isActive) cont.resume(Unit) {}
+                }
+            }
+        }
     }
 
     private fun acquireLock(ctx: Context) {
