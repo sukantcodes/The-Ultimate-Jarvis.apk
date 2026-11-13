@@ -66,7 +66,8 @@ internal object TimeBudget {
         var s = raw.lowercase(Locale.ROOT).map { if (it.isDigit() && it !in '0'..'9') Character.digit(it, 10).digitToChar() else it }.joinToString("")
         val typedDigits = s
         s = tensAndUnits.replace(s) { m -> ((tensValue[m.groupValues[1]] ?: 0) + (unitValue[m.groupValues[2]] ?: 0)).toString() }
-        s = Regex("half\\s+an?\\s+(?:hour|hr)|half\\s+(?:hour|hr)").replace(s, "30 minutes")
+        // "half an hour" / "half hour" only: "one and a half hours" must reach the "N and a half" rule below untouched.
+        s = Regex("(?<![\\p{L}\\p{M}])half\\s+(?:an?\\s+)?(?:hour|hr)(?![\\p{L}\\p{M}])").replace(s, "30 minutes")
         s = wordPattern.replace(s) { m -> numberWords[m.groupValues[1]] ?: m.value }
         s = Regex("(?<![\\p{L}\\p{M}\\d.])an?\\s+(hours?|hrs?|hr|minutes?|mins?)").replace(s) { m -> "1 ${m.groupValues[1]}" }
         s = Regex("(?<![\\p{L}\\p{M}])(?:sadhe|sade|साढ़े|साढे|সাড়ে)\\s*(\\d+)").replace(s) { m -> "${m.groupValues[1]}.5" }
