@@ -71,7 +71,7 @@ object AutonomousProjectOrchestrator {
     }
 
     fun isBuilding(): Boolean = synchronized(lock) {
-        currentStage == Stage.BUILDING || WebBuildOrchestrator.phase == WebBuildOrchestrator.Phase.BUILDING
+        currentStage == Stage.BUILDING || WebBuildOrchestrator.status.value.phase == WebBuildOrchestrator.Phase.BUILDING
     }
 
     fun getStage(): Stage = currentStage
@@ -85,7 +85,6 @@ object AutonomousProjectOrchestrator {
             val profile = manager.activeProfile() ?: return false
             val hasModel = profile.chatModel != null || profile.models.isNotEmpty()
             val hasKey = manager.hasKey(profile.id) ||
-                    manager.keyFor(profile) != null ||
                     ProviderRuntime.keyRotation(context).hasKeys(profile.id) ||
                     profile.authMethod == AuthMethod.NONE
             hasModel && hasKey
@@ -383,7 +382,7 @@ object AutonomousProjectOrchestrator {
             // Phase 5: Start Local Preview Server & Open Browser (95% -> 100%)
             TaskProgressNotifier.postProgress(context, request.topic, "🌐 Launching live preview…", 95)
             val servers = ToolRuntime.get(context).servers.servers
-            val localServer = servers.start(safeProjectName, workspaceDir, spaFallback = false)
+            val localServer = servers.start(safeProjectName, workspaceDir, false)
             val previewUrl = localServer.url
 
             // Automatically open preview in browser

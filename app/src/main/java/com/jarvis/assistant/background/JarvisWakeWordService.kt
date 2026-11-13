@@ -508,12 +508,10 @@ class JarvisWakeWordService : Service() {
         }
 
         // Conversational voice command: activate live voice session instead of dumping into text ChatBox
-        val service = JarvisConversationService.activeInstance
-        if (service != null) {
-            service.beginActiveConversation(wakeTriggered = true)
-        } else {
-            JarvisConversationService.startVoiceService(this)
+        val intent = Intent(this, JarvisConversationService::class.java).apply {
+            action = JarvisConversationService.ACTION_START_CONVERSATION
         }
+        startService(intent)
         scheduleRestart(RESTART_DELAY_AFTER_COMMAND_MS) { startWakeWordListening() }
     }
 

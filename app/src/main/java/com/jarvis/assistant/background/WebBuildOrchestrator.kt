@@ -234,7 +234,7 @@ object WebBuildOrchestrator {
             Phase.ASK_SPEC -> {
                 spec = text.trim(); quality = quality || isQuality(text)
                 if (budgetSec < 0) TimeBudget.parse(text, requireUnit = true)?.let { budgetSec = it }
-                askTimeOrBegin(ctx)
+                askQualityAndTimeOrBegin(ctx)
             }
             Phase.ASK_TIME -> onTimeReply(ctx, text)
             Phase.AWAIT_ACK -> if (isAck(text)) { say(ctx, tr("Alright, Sir. I'm here whenever you need me.", "ठीक है सर, मैं यहीं हूँ।", "ঠিক আছে স্যার, আমি এখানেই আছি।")); finish(ctx, true, "Acknowledged") }
@@ -358,9 +358,9 @@ object WebBuildOrchestrator {
 
     private fun onTimeReply(ctx: Context, text: String) {
         val parsed = MultilingualCommandHelper.parseQualityAndTime(text)
-        if (parsed != null) {
-            quality = parsed.first.contains("high", true) || isQuality(text)
-            budgetSec = parsed.second * 60
+        if (parsed != null && (parsed.first != null || parsed.second != null)) {
+            quality = parsed.first?.contains("high", true) == true || isQuality(text)
+            budgetSec = parsed.second?.let { it * 60 } ?: (TimeBudget.parse(text) ?: if (quality) 300 else 120)
         } else {
             if (isQuality(text)) quality = true
             val sec = TimeBudget.parse(text)
