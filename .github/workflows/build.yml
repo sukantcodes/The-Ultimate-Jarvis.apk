@@ -124,6 +124,23 @@ jobs:
       env:
         SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
       run: ./gradlew testDebugUnitTest --stacktrace --info
+    - name: Report failing unit tests
+      if: failure()
+      run: |
+        python3 - <<'PY'
+        import glob, xml.etree.ElementTree as ET
+        n = 0
+        for f in glob.glob('app/build/test-results/**/*.xml', recursive=True):
+            for tc in ET.parse(f).getroot().iter('testcase'):
+                for k in ('failure', 'error'):
+                    e = tc.find(k)
+                    if e is not None and n < 10:
+                        n += 1
+                        msg = ((e.get('message') or '') + ' ' + (e.text or '')[:300]).replace('\n', ' ').replace('\r', ' ')
+                        print('::error title=Test failed %s.%s::%s' % (tc.get('classname'), tc.get('name'), msg))
+        if n == 0:
+            print('::warning::No failing test cases found in the XML reports; the failure is a compile or setup error.')
+        PY
     - name: Build debug APK
       env:
         SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
