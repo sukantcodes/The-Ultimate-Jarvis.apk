@@ -32,7 +32,7 @@ class KeyManager(
                 cooldownMs = cooldownMs.coerceIn(KeyRecord.MIN_COOLDOWN_MS, KeyRecord.MAX_COOLDOWN_MS), resetSchedule = resetSchedule
             )
         )
-        syncGeminiKeyIfApplicable(providerId)
+        syncKeyIfApplicable(providerId)
         return null
     }
 
@@ -45,7 +45,7 @@ class KeyManager(
         if (isDuplicate(rec.providerId, clean, exceptId = id)) return "This key is already saved for this provider."
         if (!vault.store(id, clean)) return "The key could not be saved to secure storage." + reason()
         pool.resetCooldown(id)
-        syncGeminiKeyIfApplicable(rec.providerId)
+        syncKeyIfApplicable(rec.providerId)
         return null
     }
 
@@ -68,13 +68,13 @@ class KeyManager(
         val rec = pool.get(id)
         vault.delete(id)
         val res = pool.delete(id)
-        rec?.let { syncGeminiKeyIfApplicable(it.providerId) }
+        rec?.let { syncKeyIfApplicable(it.providerId) }
         return res
     }
 
     fun resetLimitFlags(providerId: String? = null): Int {
         val count = pool.resetLimitFlags(providerId)
-        providerId?.let { syncGeminiKeyIfApplicable(it) }
+        providerId?.let { syncKeyIfApplicable(it) }
         return count
     }
 
@@ -121,22 +121,28 @@ class KeyManager(
         return report
     }
 
-    private fun syncGeminiKeyIfApplicable(providerId: String) {
-        if (providerId == "gemini") {
-            try {
-                val app = com.jarvis.assistant.JarvisApp.instance
-                val activeKeyRec = pool.listFor("gemini").filter { it.enabled && it.isUsableAt(System.currentTimeMillis()) }
-                    .minByOrNull { it.priority }
-                if (activeKeyRec != null) {
-                    val secret = vault.load(activeKeyRec.id)
-                    if (secret != null && !secret.isBlank) {
-                        val key = secret.reveal()
-                        secret.wipe()
-                        app.preferences.apiKey = key
-                    }
-                }
-            } catch (_: Exception) {}
-        }
+    fun syncKeyIfApplicable(providerId: String) {
+        try {
+            val app = com.jarvis.assistant.JarvisApp.instance
+            val activeKeyRec = pool.listFor(providerId)
+                .filter { it.enabled && it.isUsableAt(System.currentTimeMillis()) }
+                .minByOrNull { it.priority }
+            val key = if (activeKeyRec != null) {
+                val secret = vault.load(activeKeyRec.id)
+                if (secret != null && !secret.isBlank) {
+                    val k = secret.reveal()
+                    secret.wipe()
+                    k
+                } else null
+            } else null
+
+            when (providerId) {
+                "gemini" -> if (key != null) app.preferences.apiKey = key
+                "groq" -> if (key != null) com.jarvis.assistant.security.AiEngineStore(app).setGroqKey(key)
+                "elevenlabs" -> if (key != null) app.preferences.elevenLabsApiKey = key
+                else -> if (key != null && providers != null) providers.saveKey(providerId, key)
+            }
+        } catch (_: Exception) {}
     }
 
     private fun isDuplicate(providerId: String, clean: String, exceptId: String?): Boolean =

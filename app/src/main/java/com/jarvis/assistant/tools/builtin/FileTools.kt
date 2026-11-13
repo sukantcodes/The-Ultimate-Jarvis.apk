@@ -21,8 +21,8 @@ object FileTools {
     }
 
     object ListFiles : Tool {
-        override val spec = ToolSpec("list_files", "List files and folders inside the workspace.",
-            listOf(ToolParam("path", description = "Folder, relative to the workspace. Default: the workspace root."), ToolParam("recursive", "boolean", "List sub-folders too.")),
+        override val spec = ToolSpec("list_files", "List files and folders inside the workspace or device internal storage (e.g. /sdcard, /storage/emulated/0).",
+            listOf(ToolParam("path", description = "Folder, relative to the workspace or absolute device path (e.g. /sdcard, /storage/emulated/0). Default: the workspace root."), ToolParam("recursive", "boolean", "List sub-folders too.")),
             Risk.READ, "files")
         override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
             val dir = ctx.workspace.resolve(args.str("path") ?: ".")
@@ -36,8 +36,8 @@ object FileTools {
     }
 
     object ReadFile : Tool {
-        override val spec = ToolSpec("read_file", "Read a text file from the workspace.",
-            listOf(ToolParam("path", required = true, description = "File path relative to the workspace."), ToolParam("max_chars", "integer", "Stop after this many characters (default 20000).")),
+        override val spec = ToolSpec("read_file", "Read a text file from the workspace or device storage.",
+            listOf(ToolParam("path", required = true, description = "File path relative to the workspace or absolute device path (e.g. /sdcard/notes.txt)."), ToolParam("max_chars", "integer", "Stop after this many characters (default 20000).")),
             Risk.READ, "files")
         override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
             val f = ctx.workspace.resolve(args.str("path")!!)
@@ -51,8 +51,8 @@ object FileTools {
     }
 
     object WriteFile : Tool {
-        override val spec = ToolSpec("write_file", "Create a file in the workspace, or replace it when overwrite is true.",
-            listOf(ToolParam("path", required = true), ToolParam("content", required = true, description = "Full file contents."), ToolParam("overwrite", "boolean", "Replace the file if it already exists.")),
+        override val spec = ToolSpec("write_file", "Create a file in the workspace or device internal storage, or replace it when overwrite is true.",
+            listOf(ToolParam("path", required = true, description = "File path relative to the workspace or absolute device path (e.g. /sdcard/notes.txt)."), ToolParam("content", required = true, description = "Full file contents."), ToolParam("overwrite", "boolean", "Replace the file if it already exists.")),
             Risk.WRITE, "files")
         override fun describe(args: JsonObject) = "Write ${args.str("path")} (${args.str("content")?.length ?: 0} characters)"
         override fun isDestructive(args: JsonObject, ctx: ToolContext): Boolean =
@@ -63,7 +63,9 @@ object FileTools {
             if (f.exists() && args.bool("overwrite") != true) return ToolResult.Error("${args.str("path")} already exists. Set overwrite to true to replace it.")
             if (f.name in PROTECTED_NAMES) return ToolResult.Error("${f.name} is protected.")
             val content = args.str("content")!!
-            if (ctx.workspace.sizeOf() + content.length > MAX_WORKSPACE_BYTES) return ToolResult.Error("The workspace is full. Delete something first.")
+            if (f.path.startsWith(ctx.workspace.root.path) && ctx.workspace.sizeOf() + content.length > MAX_WORKSPACE_BYTES) {
+                return ToolResult.Error("The workspace is full. Delete something first.")
+            }
             f.parentFile?.mkdirs()
             f.writeText(content)
             return ToolResult.Ok("Wrote ${ctx.workspace.relative(f)} (${f.length()} bytes).", listOf(ToolArtifact(f.path, f.name, mimeOf(f.name))))
@@ -71,8 +73,8 @@ object FileTools {
     }
 
     object AppendFile : Tool {
-        override val spec = ToolSpec("append_file", "Add text to the end of a workspace file (created if missing).",
-            listOf(ToolParam("path", required = true), ToolParam("content", required = true)), Risk.WRITE, "files")
+        override val spec = ToolSpec("append_file", "Add text to the end of a workspace or device storage file (created if missing).",
+            listOf(ToolParam("path", required = true, description = "File path relative to workspace or absolute device path."), ToolParam("content", required = true)), Risk.WRITE, "files")
         override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
             val f = ctx.workspace.resolve(args.str("path")!!)
             if (f.isDirectory) return ToolResult.Error("That path is a folder.")
@@ -82,7 +84,7 @@ object FileTools {
     }
 
     object MakeDirectory : Tool {
-        override val spec = ToolSpec("make_directory", "Create a folder in the workspace.", listOf(ToolParam("path", required = true)), Risk.WRITE, "files")
+        override val spec = ToolSpec("make_directory", "Create a folder in the workspace or device internal storage (e.g. /sdcard/MyFolder).", listOf(ToolParam("path", required = true, description = "Folder path relative to workspace or absolute device path.")), Risk.WRITE, "files")
         override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
             val d = ctx.workspace.resolve(args.str("path")!!)
             return if (d.isDirectory || d.mkdirs()) ToolResult.Ok("Folder ready: ${ctx.workspace.relative(d)}") else ToolResult.Error("Could not create the folder.")
@@ -90,14 +92,14 @@ object FileTools {
     }
 
     object MovePath : Tool {
-        override val spec = ToolSpec("move_path", "Move or rename a file or folder inside the workspace.",
+        override val spec = ToolSpec("move_path", "Move or rename a file or folder inside the workspace or device storage.",
             listOf(ToolParam("from", required = true), ToolParam("to", required = true)), Risk.WRITE, "files")
         override fun describe(args: JsonObject) = "Move ${args.str("from")} to ${args.str("to")}"
         override fun isDestructive(args: JsonObject, ctx: ToolContext) = runCatching { ctx.workspace.resolve(args.str("to") ?: "").exists() }.getOrDefault(false)
         override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
             val from = ctx.workspace.resolve(args.str("from")!!); val to = ctx.workspace.resolve(args.str("to")!!)
             if (!from.exists()) return ToolResult.Error("Nothing at ${args.str("from")}.")
-            if (from == ctx.workspace.root) return ToolResult.Error("The workspace itself can not be moved.")
+            if (from == ctx.workspace.root || from.parent == null) return ToolResult.Error("The root folder can not be moved.")
             if (to.exists()) return ToolResult.Error("${args.str("to")} already exists. Delete it first, or choose another name.")
             to.parentFile?.mkdirs()
             return if (from.renameTo(to)) ToolResult.Ok("Moved to ${ctx.workspace.relative(to)}.") else ToolResult.Error("The move failed.")
@@ -105,12 +107,14 @@ object FileTools {
     }
 
     object DeletePath : Tool {
-        override val spec = ToolSpec("delete_path", "Delete a file or folder (and everything in it) from the workspace.",
+        override val spec = ToolSpec("delete_path", "Delete a file or folder (and everything in it) from the workspace or device storage.",
             listOf(ToolParam("path", required = true)), Risk.DESTRUCTIVE, "files")
         override fun describe(args: JsonObject) = "DELETE ${args.str("path")} permanently"
         override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
             val f = ctx.workspace.resolve(args.str("path")!!)
-            if (f == ctx.workspace.root) return ToolResult.Error("The workspace root can not be deleted.")
+            if (f == ctx.workspace.root || f.parent == null || f.path == "/" || f.path == "/sdcard" || f.path == "/storage/emulated/0") {
+                return ToolResult.Error("Root storage folder can not be deleted.")
+            }
             if (!f.exists()) return ToolResult.Error("Nothing at ${args.str("path")}.")
             val count = if (f.isDirectory) f.walkTopDown().count() else 1
             return if (f.deleteRecursively()) ToolResult.Ok("Deleted ${args.str("path")} ($count item${if (count == 1) "" else "s"}).") else ToolResult.Error("Some items could not be deleted.")
@@ -118,7 +122,7 @@ object FileTools {
     }
 
     object SearchFiles : Tool {
-        override val spec = ToolSpec("search_files", "Search text inside workspace files (case-insensitive).",
+        override val spec = ToolSpec("search_files", "Search text inside files (case-insensitive) in the workspace or device storage.",
             listOf(ToolParam("query", required = true), ToolParam("path", description = "Folder to search. Default: the workspace root.")), Risk.READ, "files")
         override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
             val root = ctx.workspace.resolve(args.str("path") ?: ".")

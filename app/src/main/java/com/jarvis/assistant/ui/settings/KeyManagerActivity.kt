@@ -40,6 +40,7 @@ class KeyManagerActivity : AppCompatActivity() {
 
     private lateinit var list: LinearLayout
     private lateinit var summary: android.widget.TextView
+    private lateinit var spinner: Spinner
     private var allProviders: List<ProviderProfile> = emptyList()
     private var selected: ProviderProfile? = null
 
@@ -70,42 +71,13 @@ class KeyManagerActivity : AppCompatActivity() {
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         setContentView(root)
 
-        // Always include Google Gemini (Built-in) and ElevenLabs alongside any custom providers
-        val geminiBuiltIn = ProviderProfile(
-            id = "gemini",
-            name = "Google Gemini (Built-in)",
-            baseUrl = "https://generativelanguage.googleapis.com",
-            protocol = ProviderProtocol.GEMINI,
-            authMethod = AuthMethod.BEARER
-        )
-        val elevenLabsBuiltIn = ProviderProfile(
-            id = "elevenlabs",
-            name = "ElevenLabs Turbo",
-            baseUrl = "https://api.elevenlabs.io",
-            protocol = ProviderProtocol.OPENAI_COMPATIBLE,
-            authMethod = AuthMethod.CUSTOM_HEADER,
-            authName = "xi-api-key"
-        )
-        allProviders = listOf(geminiBuiltIn, elevenLabsBuiltIn) + providers.profiles()
-
         body.addView(UiKit.text(this, "Provider", 12f, muted = true))
-        val spinner = Spinner(this).apply {
+        spinner = Spinner(this).apply {
             minimumHeight = UiKit.dp(this@KeyManagerActivity, 48)
-            adapter = ArrayAdapter(
-                this@KeyManagerActivity,
-                android.R.layout.simple_spinner_dropdown_item,
-                allProviders.map { it.displayName }
-            )
         }
-        val activeCustomId = providers.activeProfile()?.id
-        val initialIndex = if (activeCustomId != null) {
-            allProviders.indexOfFirst { it.id == activeCustomId }.coerceAtLeast(0)
-        } else {
-            0
-        }
-        spinner.setSelection(initialIndex)
         body.addView(spinner)
-        selected = allProviders.getOrNull(spinner.selectedItemPosition) ?: allProviders.firstOrNull()
+
+        refreshProviders()
 
         summary = UiKit.text(this, "", 12f, muted = true).apply {
             setPadding(0, UiKit.dp(this@KeyManagerActivity, 8), 0, UiKit.dp(this@KeyManagerActivity, 8))
@@ -152,9 +124,47 @@ class KeyManagerActivity : AppCompatActivity() {
         render()
     }
 
+    private fun refreshProviders() {
+        val geminiBuiltIn = ProviderProfile(
+            id = "gemini",
+            name = "Google Gemini (Built-in)",
+            baseUrl = "https://generativelanguage.googleapis.com",
+            protocol = ProviderProtocol.GEMINI,
+            authMethod = AuthMethod.BEARER
+        )
+        val groqBuiltIn = ProviderProfile(
+            id = "groq",
+            name = "Groq (Built-in)",
+            baseUrl = "https://api.groq.com/openai",
+            protocol = ProviderProtocol.OPENAI_COMPATIBLE,
+            authMethod = AuthMethod.BEARER
+        )
+        val elevenLabsBuiltIn = ProviderProfile(
+            id = "elevenlabs",
+            name = "ElevenLabs Turbo",
+            baseUrl = "https://api.elevenlabs.io",
+            protocol = ProviderProtocol.OPENAI_COMPATIBLE,
+            authMethod = AuthMethod.CUSTOM_HEADER,
+            authName = "xi-api-key"
+        )
+        val customProfiles = providers.profiles()
+        allProviders = listOf(geminiBuiltIn, groqBuiltIn, elevenLabsBuiltIn) + customProfiles
+
+        val currentId = selected?.id ?: providers.activeProfile()?.id ?: "gemini"
+        val titles = allProviders.map { it.displayName }
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, titles).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        spinner.adapter = adapter
+        val idx = allProviders.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
+        spinner.setSelection(idx)
+        selected = allProviders.getOrNull(idx) ?: allProviders.firstOrNull()
+    }
+
     override fun onResume() {
         super.onResume()
-        if (selected == null) return
+        refreshProviders()
+        render()
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 while (true) {
@@ -170,7 +180,7 @@ class KeyManagerActivity : AppCompatActivity() {
         val records = keys.keys(profile.id)
         val now = System.currentTimeMillis()
         val usable = records.count { it.isUsableAt(now) }
-        val rateLimitedCount = records.count { it.isRateLimited }
+        val rateLimitedCount = records.count { it.isRateLimitedAt(now) }
 
         val rateLimitNote = if (rateLimitedCount > 0) " · $rateLimitedCount currently rate-limited" else ""
         summary.text = if (records.isEmpty()) {
@@ -189,7 +199,7 @@ class KeyManagerActivity : AppCompatActivity() {
 
         val labelRow = UiKit.row(this)
         labelRow.addView(UiKit.text(this, rec.label, 16f, bold = true))
-        if (rec.isRateLimited) {
+        if (rec.isRateLimitedAt(now)) {
             val badge = UiKit.text(this, " ⚡ RATE LIMITED ", 10f, bold = true).apply {
                 setTextColor(ThemeManager.getThemeWarningColor())
                 setPadding(UiKit.dp(this@KeyManagerActivity, 6), 0, 0, 0)
@@ -287,116 +297,133 @@ class KeyManagerActivity : AppCompatActivity() {
 
     /** Add (rec == null) or edit existing API key. Safe from null pointer exceptions. */
     private fun showEditor(rec: KeyRecord?) {
-        val profile = selected ?: allProviders.firstOrNull() ?: return
-        val label = UiKit.input(this, "Key Label (e.g. Primary Key, Backup)", rec?.label.orEmpty())
-        val key = UiKit.input(this, if (rec == null) "API Key" else "New API Key (leave empty to keep)", secret = true)
-        val priority = UiKit.input(this, "Priority (1 = highest priority)", (rec?.priority ?: 100).toString(), number = true)
-        val model = UiKit.input(this, "Model for this key (optional)", rec?.modelId.orEmpty())
-        val cooldown = UiKit.input(this, "Cooldown after rate-limit, minutes", ((rec?.cooldownMs ?: KeyRecord.DEFAULT_QUOTA_COOLDOWN_MS) / 60_000L).toString(), number = true)
+        try {
+            val profile = selected ?: allProviders.firstOrNull() ?: run {
+                toast("Please select a provider first.")
+                return
+            }
+            val label = UiKit.input(this, "Key Label (e.g. Primary Key, Backup)", rec?.label.orEmpty())
+            val key = UiKit.input(this, if (rec == null) "API Key" else "New API Key (leave empty to keep)", secret = true)
+            val priority = UiKit.input(this, "Priority (1 = highest priority)", (rec?.priority ?: 100).toString(), number = true)
+            val model = UiKit.input(this, "Model for this key (optional)", rec?.modelId.orEmpty())
+            val cooldown = UiKit.input(this, "Cooldown after rate-limit, minutes", ((rec?.cooldownMs ?: KeyRecord.DEFAULT_QUOTA_COOLDOWN_MS) / 60_000L).toString(), number = true)
 
-        val schedTypes = arrayOf("No reset schedule", "Resets daily at a time", "Resets every N minutes")
-        val sched = Spinner(this).apply {
-            minimumHeight = UiKit.dp(this@KeyManagerActivity, 48)
-            adapter = ArrayAdapter(this@KeyManagerActivity, android.R.layout.simple_spinner_dropdown_item, schedTypes)
-            setSelection(when (rec?.resetSchedule?.type) {
-                ResetSchedule.Type.DAILY -> 1
-                ResetSchedule.Type.INTERVAL -> 2
-                else -> 0
-            })
-        }
-        val s = rec?.resetSchedule ?: ResetSchedule.NONE
-        val at = UiKit.input(this, "Daily time HH:MM (24 h)", if (s.type == ResetSchedule.Type.DAILY) "%02d:%02d".format(s.hour, s.minute) else "")
-        val offset = UiKit.input(this, "Time zone offset, minutes from UTC", (if (s.type == ResetSchedule.Type.DAILY) s.utcOffsetMinutes else java.util.TimeZone.getDefault().rawOffset / 60_000).toString())
-        val every = UiKit.input(this, "Reset interval, minutes", if (s.type == ResetSchedule.Type.INTERVAL) s.intervalMinutes.toString() else "", number = true)
+            val schedTypes = arrayOf("No reset schedule", "Resets daily at a time", "Resets every N minutes")
+            val sched = Spinner(this).apply {
+                minimumHeight = UiKit.dp(this@KeyManagerActivity, 48)
+                val schedAdapter = ArrayAdapter(this@KeyManagerActivity, android.R.layout.simple_spinner_item, schedTypes).apply {
+                    setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                }
+                adapter = schedAdapter
+                setSelection(when (rec?.resetSchedule?.type) {
+                    ResetSchedule.Type.DAILY -> 1
+                    ResetSchedule.Type.INTERVAL -> 2
+                    else -> 0
+                })
+            }
+            val s = rec?.resetSchedule ?: ResetSchedule.NONE
+            val at = UiKit.input(this, "Daily time HH:MM (24 h)", if (s.type == ResetSchedule.Type.DAILY) "%02d:%02d".format(s.hour, s.minute) else "")
+            val offset = UiKit.input(this, "Time zone offset, minutes from UTC", (if (s.type == ResetSchedule.Type.DAILY) s.utcOffsetMinutes else java.util.TimeZone.getDefault().rawOffset / 60_000).toString())
+            val every = UiKit.input(this, "Reset interval, minutes", if (s.type == ResetSchedule.Type.INTERVAL) s.intervalMinutes.toString() else "", number = true)
 
-        val form = UiKit.form(
-            this,
-            label, key, priority, model, cooldown,
-            UiKit.text(this, "Quota Reset Schedule (Optional)", 12f, muted = true),
-            sched, at, offset, every
-        )
+            val form = UiKit.form(
+                this,
+                label, key, priority, model, cooldown,
+                UiKit.text(this, "Quota Reset Schedule (Optional)", 12f, muted = true),
+                sched, at, offset, every
+            )
 
-        MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_Jarvis_MaterialDialog)
-            .setTitle(if (rec == null) "Add API Key (${profile.displayName})" else "Edit ${rec.label}")
-            .setView(ScrollView(this).apply { addView(form) })
-            .setPositiveButton("Save", null)
-            .setNegativeButton("Cancel", null)
-            .create().also { dlg ->
-                dlg.setOnShowListener {
-                    dlg.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener click@{
-                      try {
-                        val schedule = when (sched.selectedItemPosition) {
-                            1 -> {
-                                val m = Regex("^(\\d{1,2}):(\\d{2})$").matchEntire(at.text.toString().trim())
-                                val h = m?.groupValues?.get(1)?.toInt()
-                                val mi = m?.groupValues?.get(2)?.toInt()
-                                if (h == null || mi == null || h > 23 || mi > 59) {
-                                    toast("Enter the daily reset time as HH:MM.")
-                                    return@click
-                                }
-                                ResetSchedule.daily(h, mi, offset.text.toString().trim().toIntOrNull() ?: 0)
-                            }
-                            2 -> {
-                                val n = every.text.toString().trim().toIntOrNull()
-                                if (n == null || n <= 0) {
-                                    toast("Enter the reset interval in minutes.")
-                                    return@click
-                                }
-                                ResetSchedule.every(n, System.currentTimeMillis())
-                            }
-                            else -> ResetSchedule.NONE
+            fun processSave(): Boolean {
+                val schedule = when (sched.selectedItemPosition) {
+                    1 -> {
+                        val m = Regex("^(\\d{1,2}):(\\d{2})$").matchEntire(at.text.toString().trim())
+                        val h = m?.groupValues?.get(1)?.toInt()
+                        val mi = m?.groupValues?.get(2)?.toInt()
+                        if (h == null || mi == null || h > 23 || mi > 59) {
+                            toast("Enter the daily reset time as HH:MM.")
+                            return false
                         }
-                        val prio = priority.text.toString().trim().toIntOrNull() ?: 100
-                        val rest = (cooldown.text.toString().trim().toLongOrNull() ?: 60L).coerceIn(1L, 7L * 24 * 60) * 60_000L
-                        val typed = key.text.toString().trim()
+                        ResetSchedule.daily(h, mi, offset.text.toString().trim().toIntOrNull() ?: 0)
+                    }
+                    2 -> {
+                        val n = every.text.toString().trim().toIntOrNull()
+                        if (n == null || n <= 0) {
+                            toast("Enter the reset interval in minutes.")
+                            return false
+                        }
+                        ResetSchedule.every(n, System.currentTimeMillis())
+                    }
+                    else -> ResetSchedule.NONE
+                }
+                val prio = priority.text.toString().trim().toIntOrNull() ?: 100
+                val rest = (cooldown.text.toString().trim().toLongOrNull() ?: 60L).coerceIn(1L, 7L * 24 * 60) * 60_000L
+                val typed = key.text.toString().trim()
 
-                        val problem = if (rec == null) {
-                            if (typed.isBlank()) {
-                                toast("Please enter an API key.")
-                                return@click
-                            }
-                            keys.add(
-                                providerId = profile.id,
-                                label = label.text.toString().trim(),
-                                keyText = typed,
+                val problem = if (rec == null) {
+                    if (typed.isBlank()) {
+                        toast("Please enter an API key.")
+                        return false
+                    }
+                    keys.add(
+                        providerId = profile.id,
+                        label = label.text.toString().trim(),
+                        keyText = typed,
+                        priority = prio,
+                        modelId = model.text.toString().trim(),
+                        cooldownMs = rest,
+                        resetSchedule = schedule
+                    )
+                } else {
+                    if (typed.isNotBlank()) keys.replaceKey(rec.id, typed) else null
+                }
+
+                if (problem != null) {
+                    toast(problem)
+                    return false
+                }
+
+                if (rec != null) {
+                    pool.get(rec.id)?.let {
+                        pool.upsert(
+                            it.copy(
+                                label = label.text.toString().trim().ifEmpty { it.label },
                                 priority = prio,
                                 modelId = model.text.toString().trim(),
                                 cooldownMs = rest,
                                 resetSchedule = schedule
                             )
-                        } else {
-                            if (typed.isNotBlank()) keys.replaceKey(rec.id, typed) else null
-                        }
-
-                        if (problem != null) {
-                            toast(problem)
-                            return@click
-                        }
-
-                        if (rec != null) {
-                            pool.get(rec.id)?.let {
-                                pool.upsert(
-                                    it.copy(
-                                        label = label.text.toString().trim().ifEmpty { it.label },
-                                        priority = prio,
-                                        modelId = model.text.toString().trim(),
-                                        cooldownMs = rest,
-                                        resetSchedule = schedule
-                                    )
-                                )
-                            }
-                        }
-
-                        dlg.dismiss()
-                        render()
-                        if (rec == null) toast("API key saved for ${profile.displayName}.")
-                      } catch (e: Exception) {
-                        // Never crash the dialog: show what went wrong and keep the typed values.
-                        toast("Couldn't save the key: ${e.message ?: e.javaClass.simpleName}")
-                      }
+                        )
                     }
                 }
-            }.show()
+                render()
+                if (rec == null) toast("API key saved for ${profile.displayName}.")
+                return true
+            }
+
+            val dlg = MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_Jarvis_MaterialDialog)
+                .setTitle(if (rec == null) "Add API Key (${profile.displayName})" else "Edit ${rec.label}")
+                .setView(ScrollView(this).apply { addView(form) })
+                .setPositiveButton("Save", null)
+                .setNegativeButton("Cancel", null)
+                .create()
+
+            dlg.setOnShowListener {
+                val positiveBtn = dlg.getButton(android.content.DialogInterface.BUTTON_POSITIVE)
+                positiveBtn?.setOnClickListener {
+                    try {
+                        if (processSave()) {
+                            dlg.dismiss()
+                        }
+                    } catch (e: Exception) {
+                        toast("Couldn't save the key: ${e.message ?: e.javaClass.simpleName}")
+                    }
+                }
+            }
+            dlg.show()
+        } catch (t: Throwable) {
+            android.util.Log.e("KeyManagerActivity", "Failed to open key editor dialog", t)
+            toast("Could not open key editor: ${t.localizedMessage ?: t.javaClass.simpleName}")
+        }
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()

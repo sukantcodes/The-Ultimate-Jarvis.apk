@@ -145,10 +145,37 @@ class KeyManagerTest {
         pool.reportFailure(k1, KeyFailure.RATE_LIMIT, 5_000L)
         val rec = pool.get(k1)!!
         assertTrue(rec.isRateLimited)
+        assertTrue(rec.isRateLimitedAt(now + 1_000L))
         assertFalse(rec.isUsableAt(now + 1_000L))
 
         // After cooldown expires
+        assertFalse(rec.isRateLimitedAt(now + 6_000L))
         assertTrue(rec.isUsableAt(now + 6_000L))
         assertEquals(KeyHealth.AVAILABLE, rec.healthAt(now + 6_000L))
+
+        // Acquire after expiration automatically clears rate limit flag on leased and stored record
+        now += 6_000L
+        val leased = pool.acquire("p1")
+        assertNotNull(leased)
+        assertFalse(leased!!.isRateLimited)
+        assertFalse(pool.get(k1)!!.isRateLimited)
+    }
+
+    @Test fun multi_provider_support_and_sync() {
+        assertNull(keys.add("gemini", "Gemini Key 1", "AIzaSyGeminiKey12345"))
+        assertNull(keys.add("gemini", "Gemini Key 2", "AIzaSyGeminiKey67890", priority = 50))
+        assertNull(keys.add("groq", "Groq Key 1", "gsk_groqKey1111111111"))
+        assertNull(keys.add("elevenlabs", "ElevenLabs Key 1", "eleven_key_1111111111"))
+        assertNull(keys.add("custom_provider_1", "Custom Key 1", "sk-custom-1111111111"))
+
+        assertEquals(2, keys.keys("gemini").size)
+        assertEquals(1, keys.keys("groq").size)
+        assertEquals(1, keys.keys("elevenlabs").size)
+        assertEquals(1, keys.keys("custom_provider_1").size)
+
+        // Lower priority is acquired first
+        val gLease = pool.acquire("gemini")
+        assertNotNull(gLease)
+        assertEquals("Gemini Key 2", gLease!!.label)
     }
 }

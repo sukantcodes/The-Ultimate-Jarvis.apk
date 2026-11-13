@@ -105,6 +105,8 @@ class ApiKeyPool(
         val used = pick.copy(
             health = KeyHealth.AVAILABLE,
             unavailableUntil = 0L,
+            isRateLimited = false,
+            limitedAtTimestamp = 0L,
             usage = pick.usage.copy(requests = pick.usage.requests + 1, lastUsedAt = now)
         )
         all[index] = used
@@ -117,6 +119,7 @@ class ApiKeyPool(
             val now = clock()
             it.copy(
                 health = KeyHealth.AVAILABLE, unavailableUntil = 0L, lastFailureNote = "",
+                isRateLimited = false, limitedAtTimestamp = 0L,
                 usage = it.usage.copy(successes = it.usage.successes + 1, lastSuccessAt = now)
             )
         }

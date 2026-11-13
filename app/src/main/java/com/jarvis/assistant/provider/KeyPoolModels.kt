@@ -113,9 +113,16 @@ data class KeyRecord(
     val limitedAtTimestamp: Long = 0L
 ) {
     /** Health as of [nowMs]: a finished cooldown counts as available again, even right after an app restart. */
+    fun isRateLimitedAt(nowMs: Long): Boolean {
+        if (!isRateLimited) return false
+        if (unavailableUntil > 0L && nowMs >= unavailableUntil) return false
+        return true
+    }
+
+    /** Health as of [nowMs]: a finished cooldown counts as available again, even right after an app restart. */
     fun healthAt(nowMs: Long): KeyHealth = when {
         health == KeyHealth.RATE_LIMITED || health == KeyHealth.QUOTA_EXHAUSTED || isRateLimited -> {
-            if (nowMs >= unavailableUntil && unavailableUntil > 0L) KeyHealth.AVAILABLE else health
+            if (unavailableUntil > 0L && nowMs >= unavailableUntil) KeyHealth.AVAILABLE else health
         }
         else -> health
     }
@@ -123,9 +130,8 @@ data class KeyRecord(
     /** Returns true if key is enabled, not rate-limited, and its health is AVAILABLE as of [nowMs]. */
     fun isUsableAt(nowMs: Long): Boolean {
         if (!enabled) return false
-        val autoCooldownExpired = (nowMs >= unavailableUntil && unavailableUntil > 0L)
-        val rateLimitActive = isRateLimited && !autoCooldownExpired
-        return !rateLimitActive && healthAt(nowMs) == KeyHealth.AVAILABLE
+        if (isRateLimitedAt(nowMs)) return false
+        return healthAt(nowMs) == KeyHealth.AVAILABLE
     }
 
     companion object {

@@ -47,7 +47,50 @@ class ToolSettingsActivity : AppCompatActivity() {
 
     private fun render() {
         body.removeAllViews()
-        tokenUsage(); github(); voiceTools(); permissions(); memory(); workspace(); audit()
+        tokenUsage(); github(); voiceTools(); storageAccess(); permissions(); memory(); workspace(); audit()
+    }
+
+    private fun storageAccess() {
+        val c = section("Internal Storage & All Files Access", "Gives JARVIS Chatbox and tools full access to check, view, edit, create, and delete any file or folder directly inside your device's internal storage (/sdcard, /storage/emulated/0).")
+        val hasPermission = com.jarvis.assistant.tools.PermissionPreferences.hasAllFilesAccess(this)
+        val isEnabled = com.jarvis.assistant.tools.PermissionPreferences.isAllFilesAccessEnabled(this)
+
+        val sw = Switch(this).apply {
+            text = "Full Device Storage Access"
+            isChecked = isEnabled
+            ThemeManager.tintSwitch(this, ThemeManager.getThemeAccentColor())
+        }
+        sw.setOnCheckedChangeListener { _, on ->
+            com.jarvis.assistant.tools.PermissionPreferences.setAllFilesAccessEnabled(this, on)
+            render()
+        }
+        c.addView(sw)
+
+        val statusRow = UiKit.row(this)
+        val badge = if (hasPermission) {
+            UiKit.text(this, "✓ SYSTEM PERMISSION GRANTED", 11f, bold = true).apply {
+                setTextColor(ThemeManager.getThemeSuccessColor())
+            }
+        } else {
+            UiKit.text(this, "⚡ PERMISSION REQUIRED", 11f, bold = true).apply {
+                setTextColor(ThemeManager.getThemeWarningColor())
+            }
+        }
+        statusRow.addView(badge)
+        c.addView(statusRow)
+
+        if (hasPermission) {
+            c.addView(UiKit.text(this, "JARVIS has unrestricted access to read, write, edit, and delete files and folders on /sdcard and internal device storage.", 12f, muted = true))
+        } else {
+            c.addView(UiKit.text(this, "Android requires 'All files access' permission for managing device files. Tap below to enable in system settings.", 12f, muted = true))
+            c.addView(UiKit.button(this, "Grant All Files Access in Android Settings") {
+                try {
+                    startActivity(com.jarvis.assistant.tools.PermissionPreferences.createManageAllFilesIntent(this))
+                } catch (e: Exception) {
+                    toast("Could not open system settings: ${e.message}")
+                }
+            })
+        }
     }
 
     private fun tokenUsage() {

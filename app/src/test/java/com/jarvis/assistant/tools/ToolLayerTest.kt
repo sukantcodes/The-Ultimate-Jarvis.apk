@@ -49,6 +49,21 @@ class ToolLayerTest {
         assertTrue(ws.resolve("a/b/c.txt").path.startsWith(ws.root.path))
     }
 
+    @Test fun internal_storage_and_device_paths_are_resolved() {
+        val sdcardFile = ws.resolve("/sdcard/documents/notes.txt")
+        assertEquals(File("/sdcard/documents/notes.txt").canonicalPath, sdcardFile.path)
+
+        val sdcardAlias = ws.resolve("sdcard/download/sample.txt")
+        assertEquals(File("/sdcard/download/sample.txt").canonicalPath, sdcardAlias.path)
+
+        val storageFile = ws.resolve("/storage/emulated/0/Music/song.mp3")
+        assertEquals(File("/storage/emulated/0/Music/song.mp3").canonicalPath, storageFile.path)
+
+        // Relative path computation handles files outside workspace root gracefully
+        val rel = ws.relative(sdcardFile)
+        assertTrue(rel.contains("notes.txt"))
+    }
+
     @Test fun a_symbolic_link_cannot_be_used_to_leave_the_workspace() {
         val outside = Files.createTempDirectory("outside").toFile()
         try {
