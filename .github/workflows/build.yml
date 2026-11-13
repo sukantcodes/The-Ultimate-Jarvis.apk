@@ -123,7 +123,9 @@ jobs:
     - name: Run unit tests
       env:
         SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-      run: ./gradlew testDebugUnitTest --stacktrace --info
+      run: |
+        set -o pipefail
+        ./gradlew testDebugUnitTest --stacktrace --info 2>&1 | tee /tmp/gradle-test.log
     - name: Report failing unit tests
       if: failure()
       run: |
@@ -140,6 +142,17 @@ jobs:
                         print('::error title=Test failed %s.%s::%s' % (tc.get('classname'), tc.get('name'), msg))
         if n == 0:
             print('::warning::No failing test cases found in the XML reports; the failure is a compile or setup error.')
+        import re
+        try:
+            lines = open('/tmp/gradle-test.log', errors='replace').read().splitlines()
+        except Exception:
+            lines = []
+        shown = 0
+        for i, l in enumerate(lines):
+            if shown < 12 and (l.startswith('e: ') or 'What went wrong' in l or l.startswith('> ') and 'rror' in l):
+                shown += 1
+                ctx = ' / '.join(x.strip() for x in lines[i:i+3])
+                print('::error title=Gradle::' + ctx[:600].replace('%', ' '))
         PY
     - name: Build debug APK
       env:
