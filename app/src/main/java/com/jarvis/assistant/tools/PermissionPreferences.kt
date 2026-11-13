@@ -18,6 +18,17 @@ object PermissionPreferences {
         return runCatching { prefs.getBoolean(KEY_AUTO_APPROVE_ALL, false) }.getOrDefault(false)
     }
 
+    /** The master internet switch for tools. On by default; see [PermissionPolicy.isInternetAllowed]. */
+    fun isInternetAllowed(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(PermissionPolicy.KEY_INTERNET_ENABLED, null) != "false"
+
+    fun setInternetAllowed(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putString(PermissionPolicy.KEY_INTERNET_ENABLED, enabled.toString())
+            .apply()
+        runCatching { ToolRuntime.get(context).policy.setInternetAllowed(enabled) }
+    }
+
     fun setAutoApproveAll(context: Context, enabled: Boolean) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit()

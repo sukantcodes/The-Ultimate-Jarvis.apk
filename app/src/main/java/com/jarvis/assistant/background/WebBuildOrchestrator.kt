@@ -78,8 +78,7 @@ object WebBuildOrchestrator {
     private const val MAX_RESUMES = 6
     private const val CUSTOM_RETRIES_BEFORE_TAKEOVER = 3
     private const val SPEAK_EVERY_MS = 15_000L
-    private const val REVIEW_EVERY_MS = 90_000L
-    private const val MAX_REVIEWS = 5
+    private const val NUDGE_AFTER_MS = 60_000L
     private const val ACK_WAIT_MS = 15 * 60_000L
     private const val LOCK_TIMEOUT_MS = 6 * 60 * 60_000L
 
@@ -109,6 +108,7 @@ object WebBuildOrchestrator {
     @Volatile private var quality = false
     @Volatile private var projectName = ""
     @Volatile private var previewOpened = false
+    @Volatile private var lastNarration = ""
     @Volatile private var lang = "English"
     @Volatile private var appCtx: Context? = null
     @Volatile private var job: Job? = null
@@ -232,6 +232,7 @@ object WebBuildOrchestrator {
         spec = text.trim()
         quality = isQuality(text)
         previewOpened = false
+        lastNarration = ""
         projectName = ""
         lang = MultilingualCommandHelper.resolveLanguage(ctx, text)
         acquireLock(ctx)
@@ -381,7 +382,7 @@ object WebBuildOrchestrator {
                     say(ctx, tr("The first version works. Now polishing it to premium quality.", "पहला वर्ज़न चल रहा है। अब इसे प्रीमियम क्वालिटी तक पॉलिश कर रहा हूँ।", "প্রথম সংস্করণ কাজ করছে। এবার প্রিমিয়াম মানে পালিশ করছি।"))
                     val heads = dir.walkTopDown().filter { it.isFile && !it.relativeTo(dir).path.startsWith(".") }.take(6)
                         .joinToString("\n\n") { "// ${it.name}\n" + runCatching { it.readText().take(1_200) }.getOrDefault("") }
-                    val review = narrate(ctx, "You are a senior reviewer. List the 6 most valuable concrete improvements for this project (visual design, responsiveness, animations, game feel or UX, bugs, accessibility). Be specific and short, one per line, plain text. Request: $spec\n\n$heads")
+                    val review = narrate(ctx, "You are a senior reviewer. List the 6 most valuable concrete improvements for this project (visual design, responsiveness, animations, game feel or UX, bugs, accessibility). Be specific and short, one per line, plain text. Request: $spec\n\n$heads", maxTokens = 450)
                     val polish = runWorker(ctx, polishPrompt(name, spec, review), tracker, useCustom = engine == Engine.CUSTOM && !takeover)
                     if (!polish.ok) lastError = polish.error
                     val after = ProjectBuilder.check(dir, false)
@@ -483,10 +484,24 @@ object WebBuildOrchestrator {
 
     /** Reads the project folder every two seconds so progress, file and size are real, not guessed. */
     private suspend fun monitor(ctx: Context, dir: File, tracker: Tracker, startedAt: Long) {
-        var lastSpoken = 0L
-        var reviews = 0
-        var lastReview = System.currentTimeMillis()
-        val reviewed = HashSet<String>()
+        val narrator = BuildNarrator(
+            request = { spec },
+            language = { lang },
+            ask = { system, prompt -> narrate(ctx, prompt, system) },
+            fallback = { file, role, symbols, isNew ->
+                val names = symbols.take(3).joinToString(", ")
+                val roleHi = when (role) { "page structure" -> "पेज का ढांचा"; "styling" -> "स्टाइलिंग"; "logic" -> "लॉजिक"; "data" -> "डेटा"; else -> "कोड" }
+                val roleBn = when (role) { "page structure" -> "পেজের কাঠামো"; "styling" -> "স্টাইলিং"; "logic" -> "লজিক"; "data" -> "ডেটা"; else -> "কোড" }
+                if (isNew) tr("Started the $role in $file" + (if (names.isNotBlank()) ": $names." else "."),
+                    "$file में $roleHi शुरू किया" + (if (names.isNotBlank()) ": $names।" else "।"),
+                    "$file-এ $roleBn শুরু করেছি" + (if (names.isNotBlank()) ": $names।" else "।"))
+                else tr("Extending the $role in $file" + (if (names.isNotBlank()) ": $names." else "."),
+                    "$file में $roleHi आगे बढ़ा रहा हूँ" + (if (names.isNotBlank()) ": $names।" else "।"),
+                    "$file-এ $roleBn এগিয়ে নিচ্ছি" + (if (names.isNotBlank()) ": $names।" else "।"))
+            }
+        )
+        var narration: Job? = null
+        try {
         while (true) {
             val files = dir.walkTopDown().filter { it.isFile && !it.relativeTo(dir).path.startsWith(".") }.toList()
             val latest = files.maxByOrNull { it.lastModified() }
@@ -505,21 +520,22 @@ object WebBuildOrchestrator {
             }
             publish(ctx, p, stage, current, files.size, eta)
 
-            val now = System.currentTimeMillis()
-            if (now - lastSpoken >= SPEAK_EVERY_MS) {
-                lastSpoken = now
-                say(ctx, tr(
-                    "$p percent done. $stage. ${files.size} files so far. About ${spokenDuration(eta, 0)} left.",
-                    "$p प्रतिशत पूरा। $stage। अब तक ${files.size} फ़ाइलें। लगभग ${spokenDuration(eta, 1)} बाकी।",
-                    "$p শতাংশ সম্পূর্ণ। $stage। এখন পর্যন্ত ${files.size}টি ফাইল। প্রায় ${spokenDuration(eta, 2)} বাকি।"), logChat = false)
-            }
-            // Gemini reads the newest finished file and says in one sentence what it does (observer only).
-            if (latest != null && reviews < MAX_REVIEWS && now - lastReview >= (if (quality) REVIEW_EVERY_MS / 2 else REVIEW_EVERY_MS) && latest.name !in reviewed && now - latest.lastModified() > 4_000) {
-                lastReview = now; reviewed += latest.name; reviews++
-                val head = runCatching { latest.readText().take(1_500) }.getOrDefault("")
-                narrate(ctx, "In one short sentence in $lang, say what this file does and mention any obvious bug. File ${latest.name}:\n$head")?.let { say(ctx, it.take(220), logChat = false) }
+            // What to say is decided from the real code, off the progress loop so a slow model never freezes the status.
+            if (narration?.isActive != true) {
+                val snapshot = files
+                val pct = p
+                val etaNow = eta
+                val done = tracker.workerDone
+                narration = scope.launch {
+                    val line = narrator.tick(dir, snapshot, pct, etaNow, done, SPEAK_EVERY_MS, NUDGE_AFTER_MS) ?: return@launch
+                    say(ctx, line, logChat = false)
+                    lastNarration = line.take(140)
+                }
             }
             delay(2_000)
+        }
+        } finally {
+            narration?.cancel()
         }
     }
 
@@ -547,7 +563,7 @@ object WebBuildOrchestrator {
             else tr("Your project is live at $url. Please open it in the browser.", "आपका प्रोजेक्ट $url पर लाइव है। कृपया ब्राउज़र में खोलें।", "আপনার প্রজেক্ট $url এ লাইভ। ব্রাউজারে খুলুন।"))
 
         val titles = dir.walkTopDown().filter { it.isFile && it.name.endsWith(".html") }.take(1).map { runCatching { it.readText().take(1_200) }.getOrDefault("") }.joinToString()
-        val rhyme = narrate(ctx, "Write a 2 to 4 line RHYMING phrase in $lang that briefly explains this website or game to its owner. No emojis, no markdown. Request: $spec\nPage start:\n$titles")
+        val rhyme = narrate(ctx, "Write a 2 to 4 line RHYMING phrase in $lang that briefly explains this website or game to its owner. No emojis, no markdown. Request: $spec\nPage start:\n$titles", maxTokens = 240)
         if (!rhyme.isNullOrBlank()) say(ctx, rhyme.take(400), logChat = true)
 
         setPhase(Phase.AWAIT_ACK, tr("Say okay when you're done", "हो जाए तो ओके बोलिए", "হয়ে গেলে ওকে বলুন"), 100)
@@ -625,7 +641,7 @@ object WebBuildOrchestrator {
     }
 
     /** Short side-calls for the live review and the rhyme. Gemini when a key exists, otherwise the active custom model. */
-    private suspend fun narrate(ctx: Context, prompt: String): String? {
+    private suspend fun narrate(ctx: Context, prompt: String, system: String = "You are JARVIS. Reply with plain spoken text only.", maxTokens: Int = 160): String? {
         val provider = geminiProvider(ctx, false)
             ?: ((ProviderRuntime.manager(ctx).resolveChat(WorkCategory.CHAT)) as? ChatResolution.Ready)?.provider
             ?: return null
@@ -633,7 +649,7 @@ object WebBuildOrchestrator {
             val sb = StringBuilder()
             withTimeoutOrNull(25_000L) {
                 ChatClientFactory.create(provider.protocol, ProviderRuntime.transport())
-                    .stream(ChatRequest(provider, "You are JARVIS. Reply with plain spoken text only.", listOf(ChatMessage(ChatRole.USER, prompt)), maxTokens = 300))
+                    .stream(ChatRequest(provider, system, listOf(ChatMessage(ChatRole.USER, prompt)), maxTokens = maxTokens))
                     .collect { ev -> if (ev is ChatEvent.Delta) sb.append(ev.text) }
             }
             sb.toString().trim().ifBlank { null }
@@ -720,7 +736,9 @@ object WebBuildOrchestrator {
     private fun publish(ctx: Context, percent: Int, stage: String, file: String, files: Int, eta: Int) {
         _status.value = _status.value.copy(phase = phase, percent = percent, stage = stage, currentFile = file, filesWritten = files, etaSec = eta)
         val etaText = if (eta > 0) " · ~${spokenDuration(eta, 0)} left" else ""
-        TaskProgressNotifier.postProgress(ctx, "Jarvis · web build", "$stage$etaText", percent.coerceIn(1, 100))
+        // The notification carries the latest thing Jarvis said (what the code is for); the header keeps the exact file and numbers.
+        val text = if (lastNarration.isNotBlank() && phase == Phase.BUILDING) lastNarration else "$stage$etaText"
+        TaskProgressNotifier.postProgress(ctx, "Jarvis · web build", text, percent.coerceIn(1, 100))
     }
 
     private fun say(ctx: Context, text: String, logChat: Boolean = true) {

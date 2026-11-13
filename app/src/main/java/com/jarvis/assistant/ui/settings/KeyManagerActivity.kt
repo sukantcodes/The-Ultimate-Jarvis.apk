@@ -323,7 +323,8 @@ class KeyManagerActivity : AppCompatActivity() {
             .setNegativeButton("Cancel", null)
             .create().also { dlg ->
                 dlg.setOnShowListener {
-                    dlg.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                    dlg.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener click@{
+                      try {
                         val schedule = when (sched.selectedItemPosition) {
                             1 -> {
                                 val m = Regex("^(\\d{1,2}):(\\d{2})$").matchEntire(at.text.toString().trim())
@@ -331,7 +332,7 @@ class KeyManagerActivity : AppCompatActivity() {
                                 val mi = m?.groupValues?.get(2)?.toInt()
                                 if (h == null || mi == null || h > 23 || mi > 59) {
                                     toast("Enter the daily reset time as HH:MM.")
-                                    return@setOnClickListener
+                                    return@click
                                 }
                                 ResetSchedule.daily(h, mi, offset.text.toString().trim().toIntOrNull() ?: 0)
                             }
@@ -339,7 +340,7 @@ class KeyManagerActivity : AppCompatActivity() {
                                 val n = every.text.toString().trim().toIntOrNull()
                                 if (n == null || n <= 0) {
                                     toast("Enter the reset interval in minutes.")
-                                    return@setOnClickListener
+                                    return@click
                                 }
                                 ResetSchedule.every(n, System.currentTimeMillis())
                             }
@@ -352,7 +353,7 @@ class KeyManagerActivity : AppCompatActivity() {
                         val problem = if (rec == null) {
                             if (typed.isBlank()) {
                                 toast("Please enter an API key.")
-                                return@setOnClickListener
+                                return@click
                             }
                             keys.add(
                                 providerId = profile.id,
@@ -369,7 +370,7 @@ class KeyManagerActivity : AppCompatActivity() {
 
                         if (problem != null) {
                             toast(problem)
-                            return@setOnClickListener
+                            return@click
                         }
 
                         if (rec != null) {
@@ -388,6 +389,11 @@ class KeyManagerActivity : AppCompatActivity() {
 
                         dlg.dismiss()
                         render()
+                        if (rec == null) toast("API key saved for ${profile.displayName}.")
+                      } catch (e: Exception) {
+                        // Never crash the dialog: show what went wrong and keep the typed values.
+                        toast("Couldn't save the key: ${e.message ?: e.javaClass.simpleName}")
+                      }
                     }
                 }
             }.show()

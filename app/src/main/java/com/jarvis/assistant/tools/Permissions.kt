@@ -45,11 +45,22 @@ class PermissionPolicy(private val store: SettingsStore) {
 
     fun isAutoApproveAll(): Boolean = store.get(KEY_AUTO_APPROVE_ALL) == "true"
 
+    /**
+     * The master internet switch (ChatBox + menu → Workspace tools). It is checked before every other rule, so it
+     * also holds under Auto-Approve All: when it is off, no tool may use the internet.
+     */
+    fun isInternetAllowed(): Boolean = store.get(KEY_INTERNET_ENABLED) != "false"
+
+    fun setInternetAllowed(enabled: Boolean) {
+        store.put(KEY_INTERNET_ENABLED, enabled.toString())
+    }
+
     fun setAutoApproveAll(enabled: Boolean) {
         store.put(KEY_AUTO_APPROVE_ALL, enabled.toString())
     }
 
     fun modeFor(risk: Risk, group: String): Mode {
+        if (risk == Risk.NETWORK && !isInternetAllowed()) return Mode.DENY
         if (isAutoApproveAll()) return Mode.ALLOW
         store.get("mode.$group.${risk.name}")?.let { v -> Mode.values().firstOrNull { it.name == v }?.let { return enforce(risk, it) } }
         store.get("mode.${risk.name}")?.let { v -> Mode.values().firstOrNull { it.name == v }?.let { return enforce(risk, it) } }
@@ -81,6 +92,10 @@ class PermissionPolicy(private val store: SettingsStore) {
 
     companion object {
         const val KEY_AUTO_APPROVE_ALL = "auto_approve_all"
+        const val KEY_INTERNET_ENABLED = "internet_enabled"
+
+        /** Tool groups that reach the internet whatever their risk label says (GitHub pushes are "destructive", not "network"). */
+        val INTERNET_GROUPS = setOf("web", "github", "browser")
     }
 }
 

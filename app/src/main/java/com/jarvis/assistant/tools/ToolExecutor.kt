@@ -46,6 +46,9 @@ class ToolExecutor(
         val summary = try { tool.describe(call.args) } catch (e: Exception) { spec.description }
         val destructive = try { tool.isDestructive(call.args, ctx) } catch (e: Exception) { true }
         val effectiveRisk = if (destructive) Risk.DESTRUCTIVE else spec.risk
+        if (!policy.isInternetAllowed() && (spec.risk == Risk.NETWORK || spec.group in PermissionPolicy.INTERNET_GROUPS)) {
+            return deny(call, effectiveRisk, summary, "Internet access for tools is switched off. Turn it on from the ChatBox + menu, under Workspace tools.")
+        }
         val autoApprove = policy.isAutoApproveAll()
         val mode = if (autoApprove) Mode.ALLOW else policy.modeFor(effectiveRisk, spec.group)
 

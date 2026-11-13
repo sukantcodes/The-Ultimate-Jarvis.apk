@@ -16,6 +16,10 @@ interface KeyValueStore {
  */
 interface KeyVault {
     val available: Boolean
+
+    /** A short reason the vault could not start or save, for the user-facing message. Never contains key text. */
+    val lastError: String? get() = null
+
     fun load(profileId: String): ApiKeySecret?
     fun store(profileId: String, key: String): Boolean
     fun delete(profileId: String)

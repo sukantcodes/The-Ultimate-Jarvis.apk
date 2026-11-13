@@ -2,11 +2,17 @@ package com.jarvis.assistant.provider
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
 import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import java.io.File
-import java.security.GeneralSecurityException
+import java.security.KeyStore
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 
 /** Plain (non-secret) provider data: profile JSON and the active profile id. */
 class SharedPrefsKeyValueStore(context: Context) : KeyValueStore {
@@ -17,65 +23,169 @@ class SharedPrefsKeyValueStore(context: Context) : KeyValueStore {
 }
 
 /**
- * Endpoint API keys, encrypted with an AES-256 master key held in the Android Keystore.
- * Safely recovers from Keystore corruption / AEADBadTagException / GeneralSecurityException.
+ * Endpoint API keys, always encrypted (never plain text).
+ *
+ * Every [AndroidKeyVault] in the process shares one [SecureBackend], so the app never has several copies of the
+ * encrypted store fighting over the same files. The backend tries, in order:
+ *  1. EncryptedSharedPreferences with an AES-256 Android Keystore master key;
+ *  2. if that store is corrupted (for example after a restore, an OS update or a Keystore reset), it wipes the
+ *     unreadable store together with its keyset and master key and creates a fresh one;
+ *  3. if the library still cannot start, a direct AES-256-GCM key held in the Android Keystore.
+ * Initialisation is retried on later calls, so one bad moment does not leave Add API key broken until a restart.
  */
 class AndroidKeyVault(context: Context) : KeyVault {
-    private val prefs: SharedPreferences? = initVault(context)
+    private val app: Context = context.applicationContext
 
-    private fun initVault(context: Context): SharedPreferences? {
-        val app = context.applicationContext
-        return try {
-            createEncryptedPrefs(app)
-        } catch (e: Exception) {
-            Log.w("AndroidKeyVault", "Secure storage init error (${e.javaClass.simpleName}); recovering cleanly", e)
-            try {
-                // Delete corrupted preferences file and re-initialize
-                val file = File(app.filesDir.parentFile, "shared_prefs/$FILE.xml")
-                if (file.exists()) file.delete()
-                createEncryptedPrefs(app)
-            } catch (fallbackError: Throwable) {
-                Log.e("AndroidKeyVault", "Failed to recreate EncryptedSharedPreferences after recovery", fallbackError)
-                null
-            }
-        }
-    }
+    override val available: Boolean get() = SecureBackend.store(app) != null
 
-    private fun createEncryptedPrefs(app: Context): SharedPreferences {
-        val master = MasterKey.Builder(app).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
-        return EncryptedSharedPreferences.create(
-            app, FILE, master,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
-    }
-
-    override val available: Boolean get() = prefs != null
+    override val lastError: String? get() = SecureBackend.lastError
 
     override fun load(profileId: String): ApiKeySecret? = try {
-        prefs?.getString(PREFIX + profileId, null)?.takeIf { it.isNotBlank() }?.let { ApiKeySecret.of(it) }
-    } catch (e: Exception) {
-        Log.w("AndroidKeyVault", "Failed to decrypt key for $profileId: ${e.message}")
+        SecureBackend.store(app)?.get(PREFIX + profileId)?.takeIf { it.isNotBlank() }?.let { ApiKeySecret.of(it) }
+    } catch (e: Throwable) {
+        Log.w(TAG, "Failed to read key for $profileId: ${e.javaClass.simpleName}")
         null
     }
 
     override fun store(profileId: String, key: String): Boolean {
-        val p = prefs ?: return false
+        val s = SecureBackend.store(app) ?: return false
         return try {
-            if (key.isBlank()) p.edit().remove(PREFIX + profileId).commit()
-            else p.edit().putString(PREFIX + profileId, key).commit()
-        } catch (e: Exception) {
-            Log.e("AndroidKeyVault", "Failed to encrypt and store key for $profileId", e)
+            if (key.isBlank()) s.remove(PREFIX + profileId) else s.put(PREFIX + profileId, key)
+        } catch (e: Throwable) {
+            SecureBackend.note("saving", e)
             false
         }
     }
 
     override fun delete(profileId: String) {
-        try { prefs?.edit()?.remove(PREFIX + profileId)?.commit() } catch (_: Exception) {}
+        try { SecureBackend.store(app)?.remove(PREFIX + profileId) } catch (_: Throwable) {}
     }
 
     companion object {
-        private const val FILE = "jarvis_provider_keys_secure"
+        private const val TAG = "AndroidKeyVault"
         private const val PREFIX = "key_"
+    }
+}
+
+/** A tiny string store whose values are encrypted at rest. */
+internal interface SecretStore {
+    fun get(key: String): String?
+    fun put(key: String, value: String): Boolean
+    fun remove(key: String): Boolean
+}
+
+internal object SecureBackend {
+    private const val TAG = "SecureBackend"
+    private const val FILE = "jarvis_provider_keys_secure"
+    private const val DIRECT_FILE = "jarvis_provider_keys_direct"
+    private const val DIRECT_ALIAS = "jarvis_provider_key_direct_v1"
+    private const val TINK_KEYSET_FILE = "__androidx_security_crypto_encrypted_prefs__"
+    private const val RETRY_AFTER_MS = 3_000L
+
+    private val lock = Any()
+    @Volatile private var current: SecretStore? = null
+    @Volatile private var lastAttemptAt = 0L
+    @Volatile var lastError: String? = null
+        private set
+
+    fun note(stage: String, t: Throwable) {
+        lastError = "$stage failed (${t.javaClass.simpleName}${t.message?.let { ": " + it.take(80) } ?: ""})"
+        Log.w(TAG, lastError, t)
+    }
+
+    fun store(app: Context): SecretStore? {
+        current?.let { return it }
+        synchronized(lock) {
+            current?.let { return it }
+            val now = System.currentTimeMillis()
+            if (lastError != null && now - lastAttemptAt < RETRY_AFTER_MS) return null
+            lastAttemptAt = now
+            val opened = open(app)
+            if (opened != null) lastError = null
+            current = opened
+            return opened
+        }
+    }
+
+    private fun open(app: Context): SecretStore? {
+        try { return encryptedPrefs(app) } catch (t: Throwable) { note("Opening secure storage", t) }
+        // The store exists but cannot be decrypted: its keys are already unreadable, so start clean.
+        try {
+            wipe(app)
+            return encryptedPrefs(app)
+        } catch (t: Throwable) { note("Recreating secure storage", t) }
+        try { return DirectKeystoreStore(app) } catch (t: Throwable) { note("Keystore fallback", t) }
+        return null
+    }
+
+    private fun encryptedPrefs(app: Context): SecretStore {
+        val master = MasterKey.Builder(app).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
+        val prefs = EncryptedSharedPreferences.create(
+            app, FILE, master,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+        // Prove the store really works (read and write) before reporting it available.
+        check(prefs.edit().putString("__probe__", "ok").commit()) { "probe write refused" }
+        prefs.edit().remove("__probe__").commit()
+        return object : SecretStore {
+            override fun get(key: String): String? = prefs.getString(key, null)
+            override fun put(key: String, value: String): Boolean = prefs.edit().putString(key, value).commit()
+            override fun remove(key: String): Boolean = prefs.edit().remove(key).commit()
+        }
+    }
+
+    private fun wipe(app: Context) {
+        runCatching { app.deleteSharedPreferences(FILE) }
+        runCatching { app.deleteSharedPreferences(TINK_KEYSET_FILE) }
+        runCatching {
+            KeyStore.getInstance("AndroidKeyStore").apply { load(null) }.deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+        }
+    }
+
+    /** AES-256-GCM with a key that never leaves the Android Keystore; ciphertext sits in ordinary preferences. */
+    private class DirectKeystoreStore(app: Context) : SecretStore {
+        private val prefs: SharedPreferences = app.getSharedPreferences(DIRECT_FILE, Context.MODE_PRIVATE)
+        private val key: SecretKey = loadOrCreateKey()
+
+        init {
+            // Fail construction (so the caller reports "unavailable") if the Keystore cannot actually encrypt.
+            decrypt(encrypt("probe")).let { check(it == "probe") { "round trip mismatch" } }
+        }
+
+        private fun loadOrCreateKey(): SecretKey {
+            val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            (ks.getKey(DIRECT_ALIAS, null) as? SecretKey)?.let { return it }
+            val gen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+            gen.init(
+                KeyGenParameterSpec.Builder(DIRECT_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .setKeySize(256)
+                    .build()
+            )
+            return gen.generateKey()
+        }
+
+        private fun encrypt(plain: String): String {
+            val c = Cipher.getInstance("AES/GCM/NoPadding")
+            c.init(Cipher.ENCRYPT_MODE, key)
+            val ct = c.doFinal(plain.toByteArray(Charsets.UTF_8))
+            return Base64.encodeToString(c.iv + ct, Base64.NO_WRAP)
+        }
+
+        private fun decrypt(encoded: String): String {
+            val raw = Base64.decode(encoded, Base64.NO_WRAP)
+            val c = Cipher.getInstance("AES/GCM/NoPadding")
+            c.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, raw, 0, 12))
+            return String(c.doFinal(raw, 12, raw.size - 12), Charsets.UTF_8)
+        }
+
+        override fun get(key: String): String? =
+            prefs.getString(key, null)?.let { runCatching { decrypt(it) }.getOrNull() }
+
+        override fun put(key: String, value: String): Boolean = prefs.edit().putString(key, encrypt(value)).commit()
+
+        override fun remove(key: String): Boolean = prefs.edit().remove(key).commit()
     }
 }

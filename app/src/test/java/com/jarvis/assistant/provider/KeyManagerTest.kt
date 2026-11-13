@@ -40,6 +40,12 @@ class KeyManagerTest {
         assertEquals(1, keys.keys("p1").size)
     }
 
+    @Test fun invisible_paste_characters_are_stripped_but_inner_breaks_are_refused() {
+        assertNull(keys.add("p1", "Pasted", "\u200Bsk-pasted-0000000000\uFEFF\u00A0"))
+        assertEquals("sk-pasted-0000000000", vault.keys[keys.keys("p1")[0].id])
+        assertNotNull(keys.add("p1", "Broken", "sk-bro ken-0000000000"))
+    }
+
     @Test fun nothing_is_saved_without_secure_storage() {
         val locked = KeyManager(pool, MemoryVault(available = false), providers)
         assertTrue(locked.add("p1", "A", "sk-aaaa-0000000000")!!.contains("never stored as plain text"))

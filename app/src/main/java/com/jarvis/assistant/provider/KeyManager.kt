@@ -18,12 +18,12 @@ class KeyManager(
         providerId: String, label: String, keyText: String, priority: Int = 100, modelId: String = "",
         cooldownMs: Long = KeyRecord.DEFAULT_QUOTA_COOLDOWN_MS, resetSchedule: ResetSchedule = ResetSchedule.NONE
     ): String? {
-        if (!vault.available) return "Secure storage is unavailable on this device, so the key was not saved. Keys are never stored as plain text."
-        ProviderAuth.validateKeyText(keyText)?.let { return it }
-        val clean = keyText.trim()
+        if (!vault.available) return unavailableMessage()
+        val clean = cleanKeyText(keyText)
+        ProviderAuth.validateKeyText(clean)?.let { return it }
         if (isDuplicate(providerId, clean, exceptId = null)) return "This key is already saved for this provider."
         val id = pool.newId()
-        if (!vault.store(id, clean)) return "The key could not be saved to secure storage."
+        if (!vault.store(id, clean)) return "The key could not be saved to secure storage." + reason()
         pool.upsert(
             KeyRecord(
                 id = id, providerId = providerId,
@@ -39,14 +39,25 @@ class KeyManager(
     /** Swaps in new key text (for example after the provider revoked the old one) and makes the key eligible again. */
     fun replaceKey(id: String, keyText: String): String? {
         val rec = pool.get(id) ?: return "That key no longer exists."
-        ProviderAuth.validateKeyText(keyText)?.let { return it }
-        val clean = keyText.trim()
+        if (!vault.available) return unavailableMessage()
+        val clean = cleanKeyText(keyText)
+        ProviderAuth.validateKeyText(clean)?.let { return it }
         if (isDuplicate(rec.providerId, clean, exceptId = id)) return "This key is already saved for this provider."
-        if (!vault.store(id, clean)) return "The key could not be saved to secure storage."
+        if (!vault.store(id, clean)) return "The key could not be saved to secure storage." + reason()
         pool.resetCooldown(id)
         syncGeminiKeyIfApplicable(rec.providerId)
         return null
     }
+
+    /** Pasted keys often carry invisible characters or edge spaces. A space or line break inside a key is still refused. */
+    private fun cleanKeyText(raw: String): String =
+        raw.filterNot { it in '\u200B'..'\u200D' || it == '\uFEFF' || it == '\u00A0' }.trim()
+
+    private fun reason(): String = vault.lastError?.let { " ($it)" }.orEmpty()
+
+    private fun unavailableMessage(): String =
+        "Secure storage could not start on this device, so the key was not saved. Keys are never stored as plain text." + reason() +
+            " Try again in a few seconds."
 
     fun remove(id: String): Boolean {
         val rec = pool.get(id)

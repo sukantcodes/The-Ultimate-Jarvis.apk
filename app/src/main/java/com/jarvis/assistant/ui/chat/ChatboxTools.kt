@@ -7,6 +7,11 @@ import android.content.Intent
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.jarvis.assistant.R
+import com.jarvis.assistant.tools.PermissionPreferences
+import com.jarvis.assistant.tools.ToolRuntime
+import com.jarvis.assistant.ui.settings.UiKit
 import com.jarvis.assistant.data.model.ChatTurn
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -190,12 +195,66 @@ object ChatboxTools {
                 toast(if (!current) "⚡ Auto-Approve Enabled: All permissions auto-approved" else "Auto-Approve Disabled: Safety prompts enabled")
             }
         )
-        val groups = linkedMapOf("Agent & Permissions (2)" to settings, "Writing & AI prompts (30)" to writing, "Text formatting (15)" to formatting, "Composer & drafts (12)" to composer, "Conversation tools (11)" to conversation)
-        AlertDialog.Builder(context).setTitle("JARVIS Chatbox · 70 tools").setItems(groups.keys.toTypedArray()) { _, index ->
+        // Workspace tools: the internet permission for tools, and the GitHub access token (kept in encrypted storage).
+        val internetOn = PermissionPreferences.isInternetAllowed(context)
+        val githubStore = runCatching { ToolRuntime.get(context).githubToken }.getOrNull()
+        val workspace = listOf(
+            Action(if (internetOn) "🌐 Internet access for tools: ON (tap to turn off)" else "🌐 Internet access for tools: OFF (tap to turn on)") {
+                PermissionPreferences.setInternetAllowed(context, !internetOn)
+                toast(if (!internetOn) "Internet access ON: web search, GitHub and browser tools can run" else "Internet access OFF: tools can't use the internet")
+            },
+            Action(if (githubStore?.isSaved == true) "🔑 GitHub access token: connected (${githubStore.masked()})" else "🔑 GitHub access token: not connected (tap to save)") {
+                if (githubStore == null) toast("Workspace tools are unavailable on this device") else showGithubTokenDialog(context, githubStore)
+            },
+            Action("🧰 Workspace status") {
+                val autoApprove = PermissionPreferences.isAutoApproveAll(context)
+                AlertDialog.Builder(context).setTitle("Workspace status").setMessage(
+                    "Internet for tools: ${if (internetOn) "on" else "off"}\n" +
+                        "GitHub token: ${if (githubStore?.isSaved == true) "saved (${githubStore.masked()})" else "not saved"}\n" +
+                        "Auto-approve permissions: ${if (autoApprove) "on" else "off"}"
+                ).setPositiveButton("OK", null).show()
+            }
+        )
+        val groups = linkedMapOf("Workspace tools (3)" to workspace, "Agent & Permissions (2)" to settings, "Writing & AI prompts (30)" to writing, "Text formatting (15)" to formatting, "Composer & drafts (12)" to composer, "Conversation tools (11)" to conversation)
+        AlertDialog.Builder(context).setTitle("JARVIS Chatbox · 73 tools").setItems(groups.keys.toTypedArray()) { _, index ->
             val title = groups.keys.elementAt(index); val actions = groups.values.elementAt(index)
             AlertDialog.Builder(context).setTitle(title).setItems(actions.map { it.title }.toTypedArray()) { _, i ->
                 runCatching { actions[i].run() }.onFailure { toast("Tool failed: ${it.message ?: "unknown error"}") }
             }.setNegativeButton("Close", null).show()
         }.setNegativeButton("Close", null).show()
+    }
+
+    /** Saves, replaces or removes the GitHub token. The token is typed into a hidden field and stored encrypted; it is never shown in full. */
+    private fun showGithubTokenDialog(context: Context, store: ToolRuntime.GitHubTokenStore) {
+        val input = UiKit.input(context, "Paste a GitHub access token", secret = true)
+        val status = UiKit.text(
+            context,
+            if (store.isSaved) "Connected: ${store.masked()}. Paste a new token to replace it." else "Not connected. Use a fine-grained token with only the access you need.",
+            12f, muted = true
+        )
+        val builder = MaterialAlertDialogBuilder(context, R.style.ThemeOverlay_Jarvis_MaterialDialog)
+            .setTitle("GitHub access token")
+            .setView(UiKit.form(context, status, input))
+            .setPositiveButton("Save", null)
+            .setNegativeButton("Cancel", null)
+        if (store.isSaved) builder.setNeutralButton("Disconnect") { _, _ ->
+            store.remove()
+            Toast.makeText(context, "GitHub disconnected", Toast.LENGTH_SHORT).show()
+        }
+        val dialog = builder.create()
+        dialog.setOnShowListener {
+            dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
+                val token = input.text.toString().filterNot { it.isWhitespace() }
+                when {
+                    token.length < 20 -> Toast.makeText(context, "That does not look like a GitHub token.", Toast.LENGTH_LONG).show()
+                    store.save(token) -> {
+                        Toast.makeText(context, "GitHub token saved securely", Toast.LENGTH_SHORT).show()
+                        dialog.dismiss()
+                    }
+                    else -> Toast.makeText(context, "Secure storage couldn't save the token. Try again in a few seconds.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+        dialog.show()
     }
 }
