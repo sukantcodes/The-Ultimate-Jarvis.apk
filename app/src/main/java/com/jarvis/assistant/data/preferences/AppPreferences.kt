@@ -82,6 +82,7 @@ class AppPreferences(context: Context) {
         private const val KEY_CUSTOM_THEME_COLOR = "key_custom_theme_color"
         private const val KEY_CUSTOM_THEME_COLOR_2 = "key_custom_theme_color_2"
         private const val KEY_ORB_ANIMATION = "key_orb_animation"
+        private const val KEY_ORB_ELEPTICAL_MIGRATED = "key_orb_eleptical_default_v1"
         private const val KEY_ORB_SPEED = "key_orb_speed"
         private const val KEY_ORB_GLOW = "key_orb_glow"
         private const val KEY_ORB_SCALE = "key_orb_scale"
@@ -94,6 +95,8 @@ class AppPreferences(context: Context) {
         private const val KEY_OPENING_ANIMATION_PENDING = "key_opening_animation_pending"
         private const val KEY_SETUP_TUTORIAL_COMPLETED = "key_setup_tutorial_completed"
         private const val KEY_SETUP_TUTORIAL_STEP = "key_setup_tutorial_step"
+        /** The orb shown on the home screen until the user picks another one. */
+        const val DEFAULT_ORB = "eleptical_orb"
         const val ORB_GLOW_MIN = 0f
         const val ORB_GLOW_MAX = 2f
         const val ORB_SIZE_MIN = 0.6f
@@ -351,10 +354,20 @@ class AppPreferences(context: Context) {
 
     var orbAnimation: String
         get() {
-            // Removed orbs (plasma_core, holographic_pulse and their old aliases) fall back to the default orb.
+            // The Eleptical Orb is the default. Removed orbs (plasma_core, holographic_pulse and their old aliases)
+            // fall back to it too. The original orb is still available as "default" for anyone who picks it.
             val valid = listOf("default", "eleptical_orb", "aurora_orb", "iron_man_head", "full_human", "quantum_core", "siri_glow")
-            val stored = prefs.getString(KEY_ORB_ANIMATION, "default") ?: "default"
-            return if (stored in valid) stored else "default"
+            val stored = prefs.getString(KEY_ORB_ANIMATION, DEFAULT_ORB) ?: DEFAULT_ORB
+            // One-time switch for existing installs: anyone still on the original orb moves to the Eleptical Orb,
+            // so it shows as selected in the orb picker. Later choices, including picking the original again, stay.
+            if (!prefs.getBoolean(KEY_ORB_ELEPTICAL_MIGRATED, false)) {
+                prefs.edit().apply {
+                    if (stored == "default") putString(KEY_ORB_ANIMATION, DEFAULT_ORB)
+                    putBoolean(KEY_ORB_ELEPTICAL_MIGRATED, true)
+                }.commit()
+                if (stored == "default") return DEFAULT_ORB
+            }
+            return if (stored in valid) stored else DEFAULT_ORB
         }
         set(value) { prefs.edit().putString(KEY_ORB_ANIMATION, value).commit() }
 

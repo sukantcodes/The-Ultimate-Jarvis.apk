@@ -1091,8 +1091,8 @@ class PhoneControlManager(
                 }
                 "orb animation" -> {
                     val animation = value.replace(" ", "_")
-                    val valid = setOf("default", "aurora_orb", "iron_man_head", "full_human", "quantum_core", "siri_glow")
-                    if (animation !in valid) return "Available orb animations: default, aurora orb, iron man head, full human, quantum core, siri glow."
+                    val valid = setOf("default", "eleptical_orb", "aurora_orb", "iron_man_head", "full_human", "quantum_core", "siri_glow")
+                    if (animation !in valid) return "Available orb animations: default, eleptical orb, aurora orb, iron man head, full human, quantum core, siri glow."
                     prefs.orbAnimation = animation
                     "JARVIS orb animation changed to $animation."
                 }
