@@ -82,7 +82,7 @@ object WebBuildOrchestrator {
     private const val ACK_WAIT_MS = 15 * 60_000L
     private const val LOCK_TIMEOUT_MS = 6 * 60 * 60_000L
 
-    enum class Phase { IDLE, ASK_ENGINE, WAIT_CUSTOM, ASK_SPEC, BUILDING, AWAIT_ACK }
+    enum class Phase { IDLE, ASK_ENGINE, WAIT_CUSTOM, ASK_SPEC, ASK_TIME, BUILDING, AWAIT_ACK }
     enum class Engine { GEMINI, CUSTOM }
 
     data class Status(
@@ -96,7 +96,7 @@ object WebBuildOrchestrator {
         val previewUrl: String = ""
     )
 
-    private class WorkerResult(val ok: Boolean, val error: String? = null)
+    private class WorkerResult(val ok: Boolean, val error: String? = null, val timedOut: Boolean = false)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val _status = MutableStateFlow(Status())
@@ -106,6 +106,10 @@ object WebBuildOrchestrator {
     @Volatile private var engine = Engine.GEMINI
     @Volatile private var spec = ""
     @Volatile private var quality = false
+    /** The owner's time allowance in seconds: -1 not asked yet, 0 no limit, otherwise the exact budget. */
+    @Volatile private var budgetSec = -1
+    /** Epoch millis when the budget runs out; 0 when there is no limit. Saved so a restart keeps the same deadline. */
+    @Volatile private var deadlineAt = 0L
     @Volatile private var projectName = ""
     @Volatile private var previewOpened = false
     @Volatile private var lastNarration = ""
@@ -151,6 +155,7 @@ object WebBuildOrchestrator {
         // Anything that is clearly an on-device command ("open WhatsApp", "set an alarm") still goes to the normal path.
         Phase.ASK_ENGINE -> parseEngine(text) != null || isCancel(text) || !isDeviceCommand(text)
         Phase.ASK_SPEC -> isCancel(text) || !isDeviceCommand(text)
+        Phase.ASK_TIME -> isCancel(text) || TimeBudget.parse(text) != null || !isDeviceCommand(text)
         Phase.WAIT_CUSTOM -> parseEngine(text) == Engine.GEMINI || isCancel(text)
         Phase.BUILDING -> isCancel(text) || isWebBuildRequest(text)
         Phase.AWAIT_ACK -> isAck(text) || isCancel(text) || isWebBuildRequest(text)
@@ -217,7 +222,12 @@ object WebBuildOrchestrator {
             Phase.IDLE -> start(ctx, text, completion)
             Phase.ASK_ENGINE -> onEngineReply(ctx, text)
             Phase.WAIT_CUSTOM -> if (parseEngine(text) == Engine.GEMINI) { job?.cancel(); engine = Engine.GEMINI; afterEngineChosen(ctx) }
-            Phase.ASK_SPEC -> { spec = text.trim(); quality = quality || isQuality(text); beginBuild(ctx) }
+            Phase.ASK_SPEC -> {
+                spec = text.trim(); quality = quality || isQuality(text)
+                if (budgetSec < 0) TimeBudget.parse(text, requireUnit = true)?.let { budgetSec = it }
+                askTimeOrBegin(ctx)
+            }
+            Phase.ASK_TIME -> onTimeReply(ctx, text)
             Phase.AWAIT_ACK -> if (isAck(text)) { say(ctx, tr("Alright, Sir. I'm here whenever you need me.", "ठीक है सर, मैं यहीं हूँ।", "ঠিক আছে স্যার, আমি এখানেই আছি।")); finish(ctx, true, "Acknowledged") }
                 else { finish(ctx, true, "Next request"); start(ctx, text, completion) }
             Phase.BUILDING -> say(ctx, tr("I'm still building the current project. Say cancel if you want me to stop it.",
@@ -231,6 +241,8 @@ object WebBuildOrchestrator {
         onComplete = completion
         spec = text.trim()
         quality = isQuality(text)
+        budgetSec = TimeBudget.parse(text, requireUnit = true) ?: -1
+        deadlineAt = 0L
         previewOpened = false
         lastNarration = ""
         projectName = ""
@@ -296,8 +308,36 @@ object WebBuildOrchestrator {
             setPhase(Phase.ASK_SPEC, tr("Waiting for your idea", "आपके आइडिया का इंतज़ार", "আপনার আইডিয়ার অপেক্ষা"))
             say(ctx, tr("What kind of website or game should I build?", "कैसी वेबसाइट या गेम बनाऊँ?", "কেমন ওয়েবসাইট বা গেম বানাব?"))
         } else {
-            beginBuild(ctx)
+            askTimeOrBegin(ctx)
         }
+    }
+
+    /** Before any work starts, ask how much time the owner has, unless they already said (for example "in 10 minutes"). */
+    private fun askTimeOrBegin(ctx: Context) {
+        if (budgetSec >= 0) { beginBuild(ctx); return }
+        setPhase(Phase.ASK_TIME, tr("Waiting for your time limit", "आपकी समय सीमा का इंतज़ार", "আপনার সময়সীমার অপেক্ষা"))
+        say(ctx, tr(
+            "How much time do you have? Tell me, for example, 10 minutes, and I'll finish exactly within it.",
+            "आपके पास कितना समय है? बताइए, जैसे 10 मिनट, मैं ठीक उसी समय में काम पूरा कर दूँगा।",
+            "আপনার হাতে কতটা সময় আছে? বলুন, যেমন ১০ মিনিট, আমি ঠিক সেই সময়ের মধ্যেই শেষ করব।"))
+    }
+
+    private fun onTimeReply(ctx: Context, text: String) {
+        val sec = TimeBudget.parse(text)
+        if (sec == null) {
+            say(ctx, tr("Please tell me the time, like 10 minutes or one hour. Or say no limit.",
+                "कृपया समय बताइए, जैसे 10 मिनट या एक घंटा। या बोलिए कोई लिमिट नहीं।",
+                "অনুগ্রহ করে সময় বলুন, যেমন ১০ মিনিট বা এক ঘণ্টা। অথবা বলুন কোনো লিমিট নেই।"))
+            return
+        }
+        budgetSec = sec
+        beginBuild(ctx)
+    }
+
+    private fun langIndex(): Int = when {
+        lang.contains("hindi", true) || lang.contains("hinglish", true) -> 1
+        lang.contains("bengali", true) || lang.contains("bangla", true) -> 2
+        else -> 0
     }
 
     fun cancel(context: Context? = null, announce: Boolean = false) {
@@ -328,6 +368,8 @@ object WebBuildOrchestrator {
         val name = if (resuming && projectName.isNotBlank()) projectName else uniqueProjectName(built.workspace.resolve("projects"), spec)
         projectName = name
         val dir = built.workspace.project(name)
+        if (budgetSec < 0) budgetSec = 0
+        if (!resuming) deadlineAt = if (budgetSec > 0) System.currentTimeMillis() + budgetSec * 1000L else 0L
         saveState(ctx)
         val label = if (engine == Engine.CUSTOM) activeCustomName(ctx) else "Gemini"
         _status.value = _status.value.copy(engineLabel = label)
@@ -345,18 +387,52 @@ object WebBuildOrchestrator {
                 "এখনই শুরু করছি। $label কোড লিখবে আর আমি লাইভ নজর রাখব।"))
         }
 
+        if (!resuming && budgetSec > 0) {
+            say(ctx, tr("You gave me ${spokenDuration(budgetSec, 0)}. I'll finish and open the preview within that time.",
+                "आपने ${spokenDuration(budgetSec, 1)} दिए हैं। मैं उसी समय में काम पूरा करके प्रीव्यू खोल दूँगा।",
+                "আপনি ${spokenDuration(budgetSec, 2)} দিয়েছেন। আমি সেই সময়ের মধ্যেই কাজ শেষ করে প্রিভিউ খুলব।"))
+        }
+
         job = scope.launch {
             val tracker = Tracker()
-            val startedAt = System.currentTimeMillis()
+            val timed = deadlineAt > 0
+            val totalMs = budgetSec * 1000L
+            val startedAt = if (timed) deadlineAt - totalMs else System.currentTimeMillis()
+            // Writing stops early enough to leave time to check, host and open the preview before the deadline.
+            val workUntil = if (timed) deadlineAt - maxOf(8_000L, totalMs / 12) else Long.MAX_VALUE
+            // The first pass aims to finish well inside the budget; past this point Jarvis tells the model to wrap up.
+            val wrapAt = if (timed) startedAt + totalMs * 65 / 100 else Long.MAX_VALUE
+            fun timeNote(lastPass: Boolean): String {
+                if (!timed) return ""
+                val secs = (((if (lastPass) workUntil else wrapAt) - System.currentTimeMillis()) / 1000).toInt().coerceAtLeast(10)
+                return timeRules(secs, lastPass)
+            }
+            var wrapping = false
+            var outOfTime = false
             val monitor = launch { monitor(ctx, dir, tracker, startedAt) }
             var attempt = 0
             var takeover = false
             var lastError: String? = null
-            var prompt = if (resuming) resumePrompt(name, spec, dir, emptyList(), "the app was restarted") else buildPrompt(name, spec)
+            var prompt = (if (resuming) resumePrompt(name, spec, dir, emptyList(), "the app was restarted") else buildPrompt(name, spec)) + timeNote(false)
             var ok = false
             try {
                 while (isActive) {
-                    val result = runWorker(ctx, prompt, tracker, useCustom = engine == Engine.CUSTOM && !takeover)
+                    if (System.currentTimeMillis() >= workUntil) { outOfTime = true; break }
+                    val result = runWorker(ctx, prompt, tracker, useCustom = engine == Engine.CUSTOM && !takeover,
+                        untilMs = if (wrapping) workUntil else minOf(wrapAt, workUntil))
+                    if (result.timedOut) {
+                        if (!wrapping && System.currentTimeMillis() < workUntil - 5_000) {
+                            wrapping = true
+                            tracker.workerDone = false
+                            say(ctx, tr("Time is getting short. I'm telling $label to wrap up with a working version now.",
+                                "समय कम हो रहा है। मैं $label से अभी चलने वाला वर्ज़न पूरा करने को कह रहा हूँ।",
+                                "সময় কমে আসছে। আমি $label-কে এখনই চালু থাকা সংস্করণ শেষ করতে বলছি।"))
+                            prompt = resumePrompt(name, spec, dir, emptyList(), "the time budget is nearly used") + timeNote(true)
+                            continue
+                        }
+                        outOfTime = true
+                        break
+                    }
                     if (!result.ok) lastError = result.error
                     val report = if (File(dir, "index.html").isFile || dir.walkTopDown().any { it.isFile }) ProjectBuilder.check(dir, false) else null
                     if (report != null && report.ok) { ok = true; break }
@@ -374,24 +450,32 @@ object WebBuildOrchestrator {
                             "$label ${tracker.lastTarget.ifBlank { "প্ল্যানিং ধাপে" }} থেমে গেছে। ঠিক সেখান থেকেই আবার শুরু করছি।"))
                     }
                     tracker.workerDone = false
-                    prompt = resumePrompt(name, spec, dir, report?.problems.orEmpty(), lastError)
+                    prompt = resumePrompt(name, spec, dir, report?.problems.orEmpty(), lastError) + timeNote(wrapping)
                     delay(1_500L * attempt)
                 }
-                if (ok && quality && isActive) {
+                // Out of time but something runnable exists: open that rather than nothing.
+                if (!ok && outOfTime && File(dir, "index.html").isFile) {
+                    ok = true
+                    say(ctx, tr("Your time is up, so I'm opening what is ready.", "आपका समय पूरा हो गया, इसलिए जो तैयार है उसे खोल रहा हूँ।", "আপনার সময় শেষ, তাই যা তৈরি আছে তা খুলছি।"))
+                }
+                val timeForPolish = !timed || workUntil - System.currentTimeMillis() > totalMs * 35 / 100
+                if (ok && quality && isActive && timeForPolish) {
                     tracker.workerDone = false
                     say(ctx, tr("The first version works. Now polishing it to premium quality.", "पहला वर्ज़न चल रहा है। अब इसे प्रीमियम क्वालिटी तक पॉलिश कर रहा हूँ।", "প্রথম সংস্করণ কাজ করছে। এবার প্রিমিয়াম মানে পালিশ করছি।"))
                     val heads = dir.walkTopDown().filter { it.isFile && !it.relativeTo(dir).path.startsWith(".") }.take(6)
                         .joinToString("\n\n") { "// ${it.name}\n" + runCatching { it.readText().take(1_200) }.getOrDefault("") }
                     val review = narrate(ctx, "You are a senior reviewer. List the 6 most valuable concrete improvements for this project (visual design, responsiveness, animations, game feel or UX, bugs, accessibility). Be specific and short, one per line, plain text. Request: $spec\n\n$heads", maxTokens = 450)
-                    val polish = runWorker(ctx, polishPrompt(name, spec, review), tracker, useCustom = engine == Engine.CUSTOM && !takeover)
+                    val polish = runWorker(ctx, polishPrompt(name, spec, review) + timeNote(false), tracker, useCustom = engine == Engine.CUSTOM && !takeover, untilMs = workUntil)
                     if (!polish.ok) lastError = polish.error
                     val after = ProjectBuilder.check(dir, false)
-                    if (!after.ok) runWorker(ctx, resumePrompt(name, spec, dir, after.problems, lastError), tracker, useCustom = engine == Engine.CUSTOM && !takeover)
+                    if (!after.ok && System.currentTimeMillis() < workUntil - 5_000) runWorker(ctx, resumePrompt(name, spec, dir, after.problems, lastError) + timeNote(true), tracker, useCustom = engine == Engine.CUSTOM && !takeover, untilMs = workUntil)
                 }
                 tracker.workerDone = true
                 if (!ok) {
                     monitor.cancel()
-                    say(ctx, tr("I couldn't finish the build after several restarts. Your files are saved in the project $name.",
+                    say(ctx, if (outOfTime) tr("Your time ran out before anything runnable was ready. Your files are saved in the project $name.",
+                        "आपका समय खत्म हो गया और चलने लायक कुछ तैयार नहीं हो सका। आपकी फ़ाइलें प्रोजेक्ट $name में सुरक्षित हैं।",
+                        "আপনার সময় শেষ হয়ে গেছে, চালানোর মতো কিছু তৈরি হয়নি। আপনার ফাইল $name প্রজেক্টে সংরক্ষিত আছে।") else tr("I couldn't finish the build after several restarts. Your files are saved in the project $name.",
                         "कई बार दोबारा कोशिश के बाद भी बिल्ड पूरा नहीं हो सका। आपकी फ़ाइलें प्रोजेक्ट $name में सुरक्षित हैं।",
                         "বহুবার চেষ্টার পরও বিল্ড শেষ হয়নি। আপনার ফাইল $name প্রজেক্টে সংরক্ষিত আছে।"))
                     setPhase(Phase.AWAIT_ACK, tr("Build incomplete", "बिल्ड अधूरा", "বিল্ড অসম্পূর্ণ"), tracker.percent)
@@ -399,6 +483,12 @@ object WebBuildOrchestrator {
                     return@launch
                 }
                 monitor.cancel()
+                if (timed) {
+                    val used = ((System.currentTimeMillis() - startedAt) / 1000).toInt()
+                    say(ctx, tr("Done in ${spokenDuration(used, 0)} of your ${spokenDuration(budgetSec, 0)}.",
+                        "आपके ${spokenDuration(budgetSec, 1)} में से ${spokenDuration(used, 1)} में पूरा हो गया।",
+                        "আপনার ${spokenDuration(budgetSec, 2)} এর মধ্যে ${spokenDuration(used, 2)}-এ শেষ হয়েছে।"))
+                }
                 hostAndPreview(ctx, dir, name)
             } catch (e: CancellationException) {
                 monitor.cancel(); throw e
@@ -411,9 +501,23 @@ object WebBuildOrchestrator {
         }
     }
 
-    private suspend fun runWorker(ctx: Context, prompt: String, tracker: Tracker, useCustom: Boolean): WorkerResult {
-        return if (useCustom) runCustomWorker(ctx, prompt, tracker) else runGeminiWorker(ctx, prompt, tracker)
+    private suspend fun runWorker(ctx: Context, prompt: String, tracker: Tracker, useCustom: Boolean, untilMs: Long = Long.MAX_VALUE): WorkerResult {
+        suspend fun once() = if (useCustom) runCustomWorker(ctx, prompt, tracker) else runGeminiWorker(ctx, prompt, tracker)
+        if (untilMs == Long.MAX_VALUE) return once()
+        val remaining = untilMs - System.currentTimeMillis()
+        if (remaining <= 0) return WorkerResult(false, "The time budget is used up.", timedOut = true)
+        // A worker that is still going when its slice ends is stopped; what it already wrote stays on disk.
+        return withTimeoutOrNull(remaining) { once() } ?: run {
+            if (useCustom) runCatching { ProviderRuntime.chatEngine(ctx).cancel() }
+            WorkerResult(false, "The time budget was reached.", timedOut = true)
+        }
     }
+
+    private fun timeRules(secs: Int, lastPass: Boolean): String =
+        "\nTIME LIMIT: the owner gave a hard time limit. You have about ${spokenDuration(secs, 0)} left to finish everything, including project_check. " +
+            "Work fast and scale the scope to fit: fewer sections or features is fine, but everything you write must work. " +
+            "Write files in this order: index.html, style.css, script.js, one tool call per file, with no long planning and no extra polish until the core works." +
+            (if (lastPass) " This is the last pass: finish the smallest complete working version right now and stop." else "")
 
     private suspend fun runCustomWorker(ctx: Context, prompt: String, tracker: Tracker): WorkerResult {
         val eng = ProviderRuntime.chatEngine(ctx)
@@ -470,6 +574,9 @@ object WebBuildOrchestrator {
                     }
                 )
                 store.finish(turnId, (blocks.values.joinToString("\n\n") + "\n\n" + res.text.trim()).trim().ifBlank { "Done." })
+            } catch (e: CancellationException) {
+                store.finish(turnId, (blocks.values.joinToString("\n\n") + "\n\n⏱ Stopped to stay within the time limit; Jarvis is wrapping up.").trim())
+                throw e
             } catch (e: Exception) {
                 store.fail(turnId, blocks.values.joinToString("\n\n"), ProviderChatEngine.ERROR_PREFIX + (if (e is ProviderException) e.error.message else (e.message ?: "Build step failed")))
                 throw e
@@ -508,11 +615,15 @@ object WebBuildOrchestrator {
             val expected = maxOf(if (quality) 7 else 4, files.size + (if (tracker.workerDone) 0 else 1))
             val base = if (files.isEmpty()) 6 else 15 + (55 * files.size / expected)
             tracker.bump(if (tracker.workerDone) maxOf(base, 72) else minOf(base, 70))
+            val timed = deadlineAt > 0
+            val now = System.currentTimeMillis()
+            if (timed) { val total = budgetSec * 1000L; tracker.bump(minOf(((now - (deadlineAt - total)) * 100 / total).toInt(), 97)) }
             val current = latest?.name ?: tracker.lastTarget
             val lines = latest?.let { runCatching { it.readLines().size }.getOrDefault(0) } ?: 0
             val elapsed = ((System.currentTimeMillis() - startedAt) / 1000).toInt()
             val p = tracker.percent
-            val eta = if (p in 10..99) maxOf(5, elapsed * (100 - p) / p) else 0
+            // With a time limit the countdown is the real time left to the deadline, not a guess.
+            val eta = if (timed) ((deadlineAt - now) / 1000).toInt().coerceAtLeast(0) else if (p in 10..99) maxOf(5, elapsed * (100 - p) / p) else 0
             val stage = when {
                 files.isEmpty() -> tr("Planning the project", "प्रोजेक्ट की प्लानिंग", "প্রজেক্ট প্ল্যান করছি")
                 tracker.workerDone -> tr("Checking the files", "फ़ाइलें जाँच रहा हूँ", "ফাইল যাচাই করছি")
@@ -681,7 +792,8 @@ object WebBuildOrchestrator {
     private fun saveState(ctx: Context) {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("phase", phase.name).putString("engine", engine.name).putString("spec", spec)
-            .putString("lang", lang).putString("project", projectName).putBoolean("quality", quality).apply()
+            .putString("lang", lang).putString("project", projectName).putBoolean("quality", quality)
+            .putInt("budget", budgetSec).putLong("deadline", deadlineAt).apply()
     }
 
     private fun clearState(ctx: Context) { ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply() }
@@ -701,6 +813,8 @@ object WebBuildOrchestrator {
         lang = p.getString("lang", "English") ?: "English"
         engine = if (p.getString("engine", "") == Engine.CUSTOM.name) Engine.CUSTOM else Engine.GEMINI
         quality = p.getBoolean("quality", false)
+        budgetSec = p.getInt("budget", 0)
+        deadlineAt = p.getLong("deadline", 0L)
         projectName = p.getString("project", "") ?: ""
         previewOpened = false
         if (spec.isBlank()) { clearState(ctx); return }
