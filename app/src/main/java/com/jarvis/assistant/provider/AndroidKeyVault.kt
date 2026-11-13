@@ -28,8 +28,9 @@ class SharedPrefsKeyValueStore(context: Context) : KeyValueStore {
  * Every [AndroidKeyVault] in the process shares one [SecureBackend], so the app never has several copies of the
  * encrypted store fighting over the same files. The backend tries, in order:
  *  1. EncryptedSharedPreferences with an AES-256 Android Keystore master key;
- *  2. if that store is corrupted (for example after a restore, an OS update or a Keystore reset), it wipes the
- *     unreadable store together with its keyset and master key and creates a fresh one;
+ *  2. if that store keeps failing to open (for example after a restore, an OS update or a Keystore reset), it
+ *     replaces the unreadable store with a fresh one, but only after several failed attempts in a row, never after
+ *     a single temporary failure, and a copy of the old encrypted file is kept first;
  *  3. if the library still cannot start, a direct AES-256-GCM key held in the Android Keystore.
  * Initialisation is retried on later calls, so one bad moment does not leave Add API key broken until a restart.
  */
@@ -81,6 +82,10 @@ internal object SecureBackend {
     private const val DIRECT_ALIAS = "jarvis_provider_key_direct_v1"
     private const val TINK_KEYSET_FILE = "__androidx_security_crypto_encrypted_prefs__"
     private const val RETRY_AFTER_MS = 3_000L
+    private const val STATE_FILE = "jarvis_vault_state"
+    private const val KEY_OPEN_FAILURES = "open_failures"
+    private const val KEY_LAST_FAILURE_AT = "last_failure_at"
+    private const val BACKUP_DIR = "vault-backup"
 
     private val lock = Any()
     @Volatile private var current: SecretStore? = null
@@ -108,14 +113,45 @@ internal object SecureBackend {
     }
 
     private fun open(app: Context): SecretStore? {
-        try { return encryptedPrefs(app) } catch (t: Throwable) { note("Opening secure storage", t) }
-        // The store exists but cannot be decrypted: its keys are already unreadable, so start clean.
+        val state = app.getSharedPreferences(STATE_FILE, Context.MODE_PRIVATE)
+        try {
+            val opened = encryptedPrefs(app)
+            state.edit().putInt(KEY_OPEN_FAILURES, 0).apply()
+            return opened
+        } catch (t: Throwable) { note("Opening secure storage", t) }
+
+        // One failure can be temporary (the Keystore is busy right after boot or unlock). Saved keys are only
+        // replaced once opening has failed several times in a row, counted across app restarts.
+        val nowMs = System.currentTimeMillis()
+        var failures = state.getInt(KEY_OPEN_FAILURES, 0)
+        if (VaultRecoveryPolicy.countsAsNewFailure(state.getLong(KEY_LAST_FAILURE_AT, 0L), nowMs)) {
+            failures += 1
+            state.edit().putInt(KEY_OPEN_FAILURES, failures).putLong(KEY_LAST_FAILURE_AT, nowMs).apply()
+        }
+        if (!VaultRecoveryPolicy.shouldReplaceStore(failures)) return null
+
+        // The store has kept failing, so its keys are unreadable. Keep a copy of the encrypted file, then start clean.
+        backup(app)
         try {
             wipe(app)
-            return encryptedPrefs(app)
+            val fresh = encryptedPrefs(app)
+            state.edit().putInt(KEY_OPEN_FAILURES, 0).apply()
+            return fresh
         } catch (t: Throwable) { note("Recreating secure storage", t) }
         try { return DirectKeystoreStore(app) } catch (t: Throwable) { note("Keystore fallback", t) }
         return null
+    }
+
+    /** Copies the encrypted preferences file (ciphertext only) aside before the store is replaced. */
+    private fun backup(app: Context) {
+        runCatching {
+            val source = java.io.File(app.applicationInfo.dataDir, "shared_prefs/$FILE.xml")
+            if (!source.exists()) return@runCatching
+            val dir = java.io.File(app.filesDir, BACKUP_DIR).apply { mkdirs() }
+            source.copyTo(java.io.File(dir, "$FILE.${System.currentTimeMillis()}.xml"), overwrite = true)
+            // Keep only the three newest copies.
+            dir.listFiles()?.sortedByDescending { it.lastModified() }?.drop(3)?.forEach { it.delete() }
+        }
     }
 
     private fun encryptedPrefs(app: Context): SecretStore {
@@ -188,4 +224,18 @@ internal object SecureBackend {
 
         override fun remove(key: String): Boolean = prefs.edit().remove(key).commit()
     }
+}
+
+/** Decides when an unreadable key store may be replaced. Kept free of Android code so it can be unit tested. */
+internal object VaultRecoveryPolicy {
+    /** Failed opens in a row (across restarts) before the unreadable store is replaced. */
+    const val FAILURES_BEFORE_REPLACE = 3
+
+    fun shouldReplaceStore(consecutiveFailures: Int): Boolean = consecutiveFailures >= FAILURES_BEFORE_REPLACE
+
+    /** Failures closer together than this are one bad moment, not several (retries during one screen visit). */
+    const val FAILURE_SPACING_MS = 30_000L
+
+    fun countsAsNewFailure(lastFailureAtMs: Long, nowMs: Long): Boolean =
+        lastFailureAtMs <= 0L || nowMs - lastFailureAtMs >= FAILURE_SPACING_MS
 }
