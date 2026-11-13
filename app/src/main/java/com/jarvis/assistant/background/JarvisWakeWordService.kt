@@ -467,9 +467,11 @@ class JarvisWakeWordService : Service() {
         }
 
         // 1. Check Autonomous Project Creation (Websites, Games, Apps)
-        if (AutonomousProjectOrchestrator.isProjectWorkflowActive() ||
+        if (com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
+            com.jarvis.assistant.background.WebBuildOrchestrator.wantsInput(command) ||
+            AutonomousProjectOrchestrator.isProjectWorkflowActive() ||
             com.jarvis.assistant.util.MultilingualCommandHelper.isProjectCreationRequest(command)) {
-            val handled = AutonomousProjectOrchestrator.handleVoiceTurn(this, command)
+            val handled = com.jarvis.assistant.background.WebBuildOrchestrator.handle(this, command, null)
             if (handled) {
                 scheduleRestart(RESTART_DELAY_AFTER_COMMAND_MS) { startWakeWordListening() }
                 return

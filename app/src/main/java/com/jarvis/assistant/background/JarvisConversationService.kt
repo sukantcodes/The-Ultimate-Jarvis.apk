@@ -116,6 +116,10 @@ class JarvisConversationService : Service() {
             return true
         }
 
+        fun flushActiveAudio() {
+            activeInstance?.flushLiveAudio()
+        }
+
         private val _isSessionOn = MutableStateFlow(false)
         val isSessionOn: StateFlow<Boolean> = _isSessionOn.asStateFlow()
 
@@ -1252,9 +1256,12 @@ class JarvisConversationService : Service() {
                             lastRealInteractionTime = lastUserSpeechDetectedTime
                             announcementOnlySession = false
                             val trimmed = textChunk.trim()
-                            if (com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive() ||
+                            if (com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
+                                com.jarvis.assistant.background.WebBuildOrchestrator.wantsInput(trimmed) ||
+                                com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive() ||
                                 com.jarvis.assistant.util.MultilingualCommandHelper.isProjectCreationRequest(trimmed)) {
                                 suppressAudioUntilTurnComplete = true
+                                audioPlayer?.flush()
                                 currentTurnWakeAuthorized = true
                             }
                             if (trimmed.isNotEmpty()) {
@@ -3707,6 +3714,24 @@ class JarvisConversationService : Service() {
                         }
                     }
 
+                    "build_website_or_game" -> {
+                        val req = args.optString("request", "")
+                        val qualityArg = args.optString("quality", "")
+                        val timeArg = args.optInt("time_minutes", 0)
+                        var command = req
+                        if (qualityArg.isNotBlank() && !command.contains(qualityArg, ignoreCase = true)) {
+                            command += " with $qualityArg quality"
+                        }
+                        if (timeArg > 0 && !command.contains("$timeArg min", ignoreCase = true)) {
+                            command += " in $timeArg minutes"
+                        }
+                        suppressAudioUntilTurnComplete = true
+                        audioPlayer?.flush()
+                        val handled = com.jarvis.assistant.background.WebBuildOrchestrator.handle(applicationContext, command, null)
+                        result.put("success", handled)
+                        result.put("message", if (handled) "Project build orchestrator initiated. Jarvis is supervising the build." else "Build could not be started.")
+                    }
+
                     else -> {
                         val shared = com.jarvis.assistant.tools.ToolRuntime.get(applicationContext)
                         if (shared.registry.get(name) != null) {
@@ -4954,6 +4979,12 @@ class JarvisConversationService : Service() {
     @Volatile private var pendingAnnouncement: String? = null
     @Volatile private var announcementOnlySession = false
 
+    fun flushLiveAudio() {
+        audioPlayer?.flush()
+        try { tts?.stop() } catch (_: Exception) {}
+        suppressAudioUntilTurnComplete = true
+    }
+
     private fun announcementPrompt(text: String): String =
         "SYSTEM EVENT (not from the user): Say this to the user now in one short natural sentence, " +
             "in your own voice and persona, and nothing else: \"" + text + "\""
@@ -5235,7 +5266,7 @@ class JarvisConversationService : Service() {
     private fun scheduleAutomationMatch() {
         automationMatchJob?.cancel()
         automationMatchJob = serviceScope.launch {
-            kotlinx.coroutines.delay(450)
+            kotlinx.coroutines.delay(250)
             val text = currentTurnUserText.toString().trim()
             if (isCurrentVoiceTurnAuthorized() && text.isNotEmpty()) {
                 if (tryActionableTaskDelegation(text)) return@launch
@@ -5250,14 +5281,16 @@ class JarvisConversationService : Service() {
         if (automationHandledTurn || hasExecutedCommandInCurrentTurn) return false
 
         // 1. Sovereign Autonomous Project Orchestration (Websites, Games, Apps)
-        if (com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive() ||
+        if (com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
+            com.jarvis.assistant.background.WebBuildOrchestrator.wantsInput(text) ||
+            com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive() ||
             com.jarvis.assistant.util.MultilingualCommandHelper.isProjectCreationRequest(text)) {
-            val handled = com.jarvis.assistant.background.AutonomousProjectOrchestrator.handleVoiceTurn(applicationContext, text)
+            suppressAudioUntilTurnComplete = true
+            audioPlayer?.flush()
+            val handled = com.jarvis.assistant.background.WebBuildOrchestrator.handle(applicationContext, text, null)
             if (handled) {
                 automationHandledTurn = true
                 hasExecutedCommandInCurrentTurn = true
-                suppressAudioUntilTurnComplete = true
-                audioPlayer?.flush()
                 return true
             }
         }

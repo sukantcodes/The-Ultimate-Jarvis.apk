@@ -945,6 +945,30 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 22. build_website_or_game
+                        put(JSONObject().apply {
+                            put("name", "build_website_or_game")
+                            put("description", "Builds, codes, previews, and launches a complete interactive website or browser game using the supervised project build engine (e.g. \"create a website\", \"build a game\", \"make a landing page\", \"website banao\", \"snake game bana do\"). Use whenever the user asks to create, build, or code any website, web page, or game.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("request", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "The website or game request, e.g. \"modern portfolio website\", \"snake game with audio and scoring\".")
+                                    })
+                                    put("quality", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Optional quality level, e.g. \"High Detail\" or \"Standard\".")
+                                    })
+                                    put("time_minutes", JSONObject().apply {
+                                        put("type", "INTEGER")
+                                        put("description", "Optional target time duration in minutes (e.g. 2, 5, 10).")
+                                    })
+                                })
+                                put("required", JSONArray().put("request"))
+                            })
+                        })
+
 
 
                         // 23. Amazon App Mastery (search, compare, cart, checkout preparation, confirmed order)

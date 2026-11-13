@@ -67,11 +67,11 @@ object AutonomousProjectOrchestrator {
     @Volatile private var activeBuildJob: Job? = null
 
     fun isProjectWorkflowActive(): Boolean = synchronized(lock) {
-        currentStage != Stage.IDLE
+        currentStage != Stage.IDLE || WebBuildOrchestrator.isActive()
     }
 
     fun isBuilding(): Boolean = synchronized(lock) {
-        currentStage == Stage.BUILDING
+        currentStage == Stage.BUILDING || WebBuildOrchestrator.phase == WebBuildOrchestrator.Phase.BUILDING
     }
 
     fun getStage(): Stage = currentStage
@@ -102,6 +102,11 @@ object AutonomousProjectOrchestrator {
     fun handleVoiceTurn(context: Context, utterance: String): Boolean {
         val clean = utterance.trim()
         if (clean.isBlank()) return false
+
+        // Sovereign WebBuildOrchestrator handles supervised builds, engine selection, and model prompts
+        if (WebBuildOrchestrator.handle(context, clean, null)) {
+            return true
+        }
 
         synchronized(lock) {
             when (currentStage) {

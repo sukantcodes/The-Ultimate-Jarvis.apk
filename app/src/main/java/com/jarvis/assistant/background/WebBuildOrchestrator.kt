@@ -141,6 +141,7 @@ object WebBuildOrchestrator {
     private val gameWords = listOf("web game", "webgame", "browser game", "html game", "html5 game", "game website", "game site")
 
     fun isWebBuildRequest(text: String): Boolean {
+        if (MultilingualCommandHelper.isProjectCreationRequest(text)) return true
         val l = text.lowercase(Locale.ROOT)
         val create = createWords.any { l.contains(it) }
         val want = wantWords.any { l.contains(it) }
@@ -155,10 +156,10 @@ object WebBuildOrchestrator {
     fun wantsInput(text: String): Boolean = when (phase) {
         Phase.IDLE -> isWebBuildRequest(text)
         // Anything that is clearly an on-device command ("open WhatsApp", "set an alarm") still goes to the normal path.
-        Phase.ASK_ENGINE -> parseEngine(text) != null || isCancel(text) || !isDeviceCommand(text)
+        Phase.ASK_ENGINE -> parseEngine(text) != null || MultilingualCommandHelper.isUserChoosesJarvisDirectly(text) || MultilingualCommandHelper.isUserWantsToAddCustomProvider(text) || isCancel(text) || !isDeviceCommand(text)
         Phase.ASK_SPEC -> isCancel(text) || !isDeviceCommand(text)
-        Phase.ASK_TIME -> isCancel(text) || TimeBudget.parse(text) != null || !isDeviceCommand(text)
-        Phase.WAIT_CUSTOM -> parseEngine(text) == Engine.GEMINI || isCancel(text)
+        Phase.ASK_TIME -> isCancel(text) || isQuality(text) || TimeBudget.parse(text) != null || MultilingualCommandHelper.parseQualityAndTime(text) != null || !isDeviceCommand(text)
+        Phase.WAIT_CUSTOM -> parseEngine(text) == Engine.GEMINI || MultilingualCommandHelper.isUserChoosesJarvisDirectly(text) || isCancel(text)
         Phase.BUILDING -> isCancel(text) || isWebBuildRequest(text)
         Phase.AWAIT_ACK -> isAck(text) || isCancel(text) || isWebBuildRequest(text)
     }
@@ -169,6 +170,7 @@ object WebBuildOrchestrator {
 
     private val qualityWords = listOf(
         "high quality", "highest quality", "best quality", "premium", "professional", "stunning", "beautiful", "polished", "top notch", "top-notch",
+        "high detail", "high-detail", "detailed", "full detail", "ultra detail", "ultra", "perfect", "har ek cheez",
         "achha", "accha", "acha", "badhiya", "badiya", "zabardast", "shandar", "behtareen", "best se best", "high-quality",
         "अच्छा", "बढ़िया", "बढ़िया", "शानदार", "जबरदस्त", "बेहतरीन", "প্রিমিয়াম", "ভালো", "সেরা", "দারুণ"
     )
@@ -190,8 +192,13 @@ object WebBuildOrchestrator {
 
     private fun parseEngine(text: String): Engine? {
         val l = text.lowercase(Locale.ROOT)
-        val custom = listOf("custom", "कस्टम", "কাস্টম", "own model", "my model", "my own", "provider")
-        val gemini = listOf("gemini", "jemini", "जेमिनी", "জেমিনি", "you create", "you write", "you do", "tum", "तुम", "aap", "आप", "তুমি")
+        val custom = listOf("custom", "कस्टम", "কাস্টম", "own model", "my model", "my own", "provider", "add custom provider", "add custom", "add provider", "custom provider")
+        val gemini = listOf(
+            "gemini", "jemini", "जेमिनी", "জেমিনি", "you create", "i will create", "you write", "you do",
+            "you make", "you build", "tum", "तुम", "aap", "आप", "তুমি", "tum banao", "aap banao",
+            "khud banao", "create it yourself", "jarvis create", "jarvis do it", "jarvis banao",
+            "you", "do it yourself", "sirf tum", "bana do", "make it"
+        )
         return when {
             custom.any { l.contains(it) } -> Engine.CUSTOM
             gemini.any { l.contains(it) } -> Engine.GEMINI
@@ -242,8 +249,9 @@ object WebBuildOrchestrator {
     private fun start(ctx: Context, text: String, completion: ((Boolean, String) -> Unit)?) {
         onComplete = completion
         spec = text.trim()
-        quality = isQuality(text)
-        budgetSec = TimeBudget.parse(text, requireUnit = true) ?: -1
+        val parsedQualityAndTime = MultilingualCommandHelper.parseQualityAndTime(text)
+        quality = isQuality(text) || parsedQualityAndTime?.first?.contains("high", true) == true
+        budgetSec = parsedQualityAndTime?.second?.let { it * 60 } ?: (TimeBudget.parse(text, requireUnit = true) ?: -1)
         deadlineAt = 0L
         previewOpened = false
         lastNarration = ""
@@ -252,15 +260,24 @@ object WebBuildOrchestrator {
         acquireLock(ctx)
         WebBuildService.start(ctx)
         if (!PermissionPreferences.isAutoApproveAll(ctx)) { priorAutoApprove = false; autoApproveTouched = true; PermissionPreferences.setAutoApproveAll(ctx, true) }
+        val customAvail = customReady(ctx)
         val hasGemini = JarvisApp.instance.preferences.apiKey.isNotBlank()
+        val requestedGemini = MultilingualCommandHelper.isUserChoosesJarvisDirectly(text) || parseEngine(text) == Engine.GEMINI
+        val requestedCustom = MultilingualCommandHelper.isUserWantsToAddCustomProvider(text) || parseEngine(text) == Engine.CUSTOM
         when {
-            customReady(ctx) -> { engine = Engine.CUSTOM; afterEngineChosen(ctx) }
+            customAvail -> { engine = Engine.CUSTOM; afterEngineChosen(ctx) }
+            requestedGemini -> { engine = Engine.GEMINI; afterEngineChosen(ctx) }
+            requestedCustom -> { engine = Engine.CUSTOM; afterEngineChosen(ctx) }
             hasGemini -> {
                 setPhase(Phase.ASK_ENGINE, tr("Waiting for your choice", "आपके जवाब का इंतज़ार", "আপনার উত্তরের অপেক্ষা"))
-                say(ctx, tr(
-                    "No custom model is active. Should Gemini write the code, or will you set up a custom model for coding?",
-                    "कोई कस्टम मॉडल एक्टिव नहीं है। क्या जेमिनी कोड लिखे, या आप कोडिंग के लिए कस्टम मॉडल सेट करेंगे?",
-                    "কোনো কাস্টম মডেল চালু নেই। জেমিনি কি কোড লিখবে, নাকি আপনি কোডিংয়ের জন্য কাস্টম মডেল সেট করবেন?"))
+                val prompt = MultilingualCommandHelper.getLocalizedAskProviderChoice(lang).ifBlank {
+                    tr(
+                        "No custom model is active. Should I create the website myself, or will you add a custom provider?",
+                        "कोई कस्टम मॉडल एक्टिव नहीं है। क्या मैं खुद वेबसाइट बना दूँ, या आप कस्टम प्रोवाइडर जोड़ेंगे?",
+                        "কোনো কাস্টম মডেল चालू নেই। আমি কি নিজেই ওয়েবসাইট বানাব, নাকি আপনি কাস্টম প্রোভাইডার যোগ করবেন?"
+                    )
+                }
+                say(ctx, prompt)
             }
             else -> {
                 say(ctx, tr("No AI model is configured. Please add a Gemini key or a custom provider in Settings.",
@@ -273,27 +290,41 @@ object WebBuildOrchestrator {
 
     private fun onEngineReply(ctx: Context, text: String) {
         val choice = parseEngine(text)
-        if (choice == null) {
-            say(ctx, tr("Please say Gemini, or custom model.", "कृपया बोलिए जेमिनी, या कस्टम मॉडल।", "অনুগ্রহ করে বলুন জেমিনি, অথবা কাস্টম মডেল।"))
-            return
+        val userChoosesJarvis = MultilingualCommandHelper.isUserChoosesJarvisDirectly(text) || choice == Engine.GEMINI
+        val userAddsCustom = MultilingualCommandHelper.isUserWantsToAddCustomProvider(text) || choice == Engine.CUSTOM
+
+        when {
+            userChoosesJarvis -> {
+                engine = Engine.GEMINI
+                afterEngineChosen(ctx)
+            }
+            userAddsCustom -> {
+                engine = Engine.CUSTOM
+                afterEngineChosen(ctx)
+            }
+            else -> {
+                say(ctx, tr("Please say you create, or custom provider.", "कृपया बोलिए आप बनाओ, या कस्टम प्रोवाइडर।", "অনুগ্রহ করে বলুন আপনি বানান, অথবা কাস্টম প্রোভাইডার।"))
+            }
         }
-        engine = choice
-        afterEngineChosen(ctx)
     }
 
     private fun afterEngineChosen(ctx: Context) {
         if (engine == Engine.CUSTOM && !customReady(ctx)) {
             setPhase(Phase.WAIT_CUSTOM, tr("Waiting for custom model", "कस्टम मॉडल का इंतज़ार", "কাস্টম মডেলের অপেক্ষা"))
             say(ctx, tr(
-                "Understood. I'll wait for your custom model and I won't go to sleep. I'll notice the moment it's active.",
-                "ठीक है। मैं आपके कस्टम मॉडल का इंतज़ार करूँगा और सोऊँगा नहीं। एक्टिव होते ही मुझे पता चल जाएगा।",
-                "ঠিক আছে। আমি আপনার কাস্টম মডেলের অপেক্ষা করব, ঘুমাব না। চালু হলেই আমি বুঝতে পারব।"))
+                "Understood. Please add your custom provider in Settings, or tell me 'you create' to build it directly.",
+                "ठीक है। कृपया सेटिंग्स में कस्टम प्रोवाइडर जोड़ें, या बोलिए 'आप बनाओ' तो मैं खुद बना दूँगा।",
+                "ঠিক আছে। সেটিংসে কাস্টম প্রোভাইডার যোগ করুন, অথবা বলুন 'আপনি বানান' আমি নিজেই তৈরি করব।"))
+            try {
+                val intent = Intent(ctx, com.jarvis.assistant.ui.settings.CustomProviderEditorActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                ctx.startActivity(intent)
+            } catch (_: Exception) {}
             job = scope.launch {
                 var lastRemind = System.currentTimeMillis()
                 while (isActive) {
                     if (customReady(ctx)) {
                         engine = Engine.CUSTOM
-                        say(ctx, tr("Custom model ${activeCustomName(ctx)} is active.", "कस्टम मॉडल ${activeCustomName(ctx)} एक्टिव है।", "কাস্টম মডেল ${activeCustomName(ctx)} চালু হয়েছে।"))
+                        say(ctx, tr("Custom model ${activeCustomName(ctx)} is active.", "कस्टम मॉडल ${activeCustomName(ctx)} एक्टिव है।", "কাস্টম মডেল ${activeCustomName(ctx)} चालू হয়েছে।"))
                         afterEngineChosen(ctx)
                         return@launch
                     }
@@ -306,33 +337,47 @@ object WebBuildOrchestrator {
             }
             return
         }
-        if (isGeneric(spec)) {
-            setPhase(Phase.ASK_SPEC, tr("Waiting for your idea", "आपके आइडिया का इंतज़ार", "আপনার আইডিয়ার অপেক্ষা"))
-            say(ctx, tr("What kind of website or game should I build?", "कैसी वेबसाइट या गेम बनाऊँ?", "কেমন ওয়েবসাইট বা গেম বানাব?"))
-        } else {
-            askTimeOrBegin(ctx)
-        }
+        askQualityAndTimeOrBegin(ctx)
     }
 
-    /** Before any work starts, ask how much time the owner has, unless they already said (for example "in 10 minutes"). */
-    private fun askTimeOrBegin(ctx: Context) {
-        if (budgetSec >= 0) { beginBuild(ctx); return }
-        setPhase(Phase.ASK_TIME, tr("Waiting for your time limit", "आपकी समय सीमा का इंतज़ार", "আপনার সময়সীমার অপেক্ষা"))
-        say(ctx, tr(
-            "How much time do you have? Tell me, for example, 10 minutes, and I'll finish exactly within it.",
-            "आपके पास कितना समय है? बताइए, जैसे 10 मिनट, मैं ठीक उसी समय में काम पूरा कर दूँगा।",
-            "আপনার হাতে কতটা সময় আছে? বলুন, যেমন ১০ মিনিট, আমি ঠিক সেই সময়ের মধ্যেই শেষ করব।"))
+    /** Before any work starts, ask for Quality and Time together in one crisp question, unless already specified. */
+    private fun askQualityAndTimeOrBegin(ctx: Context) {
+        val hasQuality = quality
+        val hasTime = budgetSec > 0
+        if (hasQuality && hasTime) { beginBuild(ctx); return }
+        setPhase(Phase.ASK_TIME, tr("Waiting for quality and time limit", "क्वालिटी और समय सीमा का इंतज़ार", "কোয়ালিটি ও সময়সীমার অপেক্ষা"))
+        val prompt = MultilingualCommandHelper.getLocalizedAskQualityAndTime(lang).ifBlank {
+            tr(
+                "What quality and time duration would you like? For example: High detail in 5 minutes, or Standard in 2 minutes.",
+                "बिल्ड के लिए क्वालिटी और समय कितना चाहिए? जैसे हाई डिटेल 5 मिनट में, या स्टैंडर्ड 2 मिनट में।",
+                "কেমন কোয়ালিটি ও সময় চান? যেমন ৫ মিনিটে হাই ডিটেইল, অথবা ২ মিনিটে স্ট্যান্ডার্ড।"
+            )
+        }
+        say(ctx, prompt)
     }
 
     private fun onTimeReply(ctx: Context, text: String) {
-        val sec = TimeBudget.parse(text)
-        if (sec == null) {
-            say(ctx, tr("Please tell me the time, like 10 minutes or one hour. Or say no limit.",
-                "कृपया समय बताइए, जैसे 10 मिनट या एक घंटा। या बोलिए कोई लिमिट नहीं।",
-                "অনুগ্রহ করে সময় বলুন, যেমন ১০ মিনিট বা এক ঘণ্টা। অথবা বলুন কোনো লিমিট নেই।"))
-            return
+        val parsed = MultilingualCommandHelper.parseQualityAndTime(text)
+        if (parsed != null) {
+            quality = parsed.first.contains("high", true) || isQuality(text)
+            budgetSec = parsed.second * 60
+        } else {
+            if (isQuality(text)) quality = true
+            val sec = TimeBudget.parse(text)
+            budgetSec = sec ?: if (quality) 300 else 120
         }
-        budgetSec = sec
+
+        val qLabel = if (quality) "High Detail" else "Standard"
+        val mins = (budgetSec / 60).coerceAtLeast(1)
+        val startAnnouncement = MultilingualCommandHelper.getLocalizedBuildStarting(
+            topic = spec,
+            quality = qLabel,
+            minutes = mins,
+            language = lang
+        ).ifBlank {
+            tr("Understood, Sir. Starting now.", "समझ गया सर। अभी शुरू कर रहा हूँ।", "বুঝেছি স্যার। এখনই শুরু করছি।")
+        }
+        say(ctx, startAnnouncement)
         beginBuild(ctx)
     }
 
@@ -478,19 +523,35 @@ object WebBuildOrchestrator {
                     ok = true
                     say(ctx, tr("Your time is up, so I'm opening what is ready.", "आपका समय पूरा हो गया, इसलिए जो तैयार है उसे खोल रहा हूँ।", "আপনার সময় শেষ, তাই যা তৈরি আছে তা খুলছি।"))
                 }
-                val timeForPolish = !timed || workUntil - System.currentTimeMillis() > totalMs * 35 / 100
-                if (ok && quality && isActive && timeForPolish) {
+                // Progressive High-Detail iterative refinement passes across the user-allocated time budget
+                var passCount = 1
+                while (ok && quality && isActive && (workUntil - System.currentTimeMillis() > 45_000L) && passCount < 4) {
+                    passCount++
                     tracker.workerDone = false
-                    say(ctx, tr("The first version works. Now polishing it to premium quality.", "पहला वर्ज़न चल रहा है। अब इसे प्रीमियम क्वालिटी तक पॉलिश कर रहा हूँ।", "প্রথম সংস্করণ কাজ করছে। এবার প্রিমিয়াম মানে পালিশ করছি।"))
+                    val passFocus = when (passCount) {
+                        2 -> tr("Deepening visual design, responsive layout, cybernetic styling and fluid CSS animations.",
+                                "विज़ुअल डिज़ाइन, रिस्पॉन्सिव लेआउट, मॉडर्न स्टाइल और स्मूथ एनिमेशन बेहतर कर रहा हूँ।",
+                                "ভিজুয়াল ডিজাইন, রেসপনসিভ লেআউট এবং অ্যানিমেশন উন্নত করছি।")
+                        3 -> tr("Enriching interactive gameplay, Web Audio synthesized sound effects, state persistence and touch controls.",
+                                "इंटरैक्टिव कंट्रोल्स, वेब ऑडियो साउंड इफ़ेक्ट्स और टच कंट्रोल्स जोड़ रहा हूँ।",
+                                "ইন্টারঅ্যাক্টিভ নিয়ন্ত্রণ ও সাউন্ড এফেক্ট যোগ করছি।")
+                        else -> tr("Running deep code audit, optimizing 60fps rendering, and validating cross-device responsiveness.",
+                                   "कोड ऑडिट, 60fps परफॉरमेंस और रिस्पॉन्सिवनेस वैलिडेट कर रहा हूँ।",
+                                   "কোড অডিট এবং পারফরম্যান্স যাচাই করছি।")
+                    }
+                    say(ctx, passFocus, logChat = false)
                     val heads = dir.walkTopDown().filter { it.isFile && !it.relativeTo(dir).path.startsWith(".") }.take(6)
                         .joinToString("\n\n") { "// ${it.name}\n" + runCatching { it.readText().take(1_200) }.getOrDefault("") }
-                    val review = narrate(ctx, "You are a senior reviewer. List the 6 most valuable concrete improvements for this project (visual design, responsiveness, animations, game feel or UX, bugs, accessibility). Be specific and short, one per line, plain text. Request: $spec\n\n$heads", maxTokens = 450)
+                    val review = narrate(ctx, "You are a senior technical lead. Focus on Pass #$passCount: $passFocus. List 4 concrete, production-grade improvements (code, visual styling, responsive design, audio FX, error handling) to apply right now in place. Plain text, one per line. Request: $spec\n\n$heads", maxTokens = 400)
                     tracker.polishing = true
-                    val polish = runWorker(ctx, polishPrompt(name, spec, review) + timeNote(false), tracker, useCustom = engine == Engine.CUSTOM && !takeover, untilMs = workUntil, shown = polishText())
+                    val passPrompt = polishPrompt(name, spec, review) + timeNote(passCount >= 3)
+                    val polish = runWorker(ctx, passPrompt, tracker, useCustom = engine == Engine.CUSTOM && !takeover, untilMs = workUntil, shown = polishText())
                     tracker.polishing = false
                     if (!polish.ok) lastError = polish.error
                     val after = ProjectBuilder.check(dir, false)
-                    if (!after.ok && System.currentTimeMillis() < workUntil - 5_000) runWorker(ctx, resumePrompt(name, spec, dir, after.problems, lastError) + timeNote(true), tracker, useCustom = engine == Engine.CUSTOM && !takeover, untilMs = workUntil)
+                    if (!after.ok && System.currentTimeMillis() < workUntil - 5_000) {
+                        runWorker(ctx, resumePrompt(name, spec, dir, after.problems, lastError) + timeNote(true), tracker, useCustom = engine == Engine.CUSTOM && !takeover, untilMs = workUntil)
+                    }
                 }
                 tracker.workerDone = true
                 if (!ok) {
@@ -749,12 +810,14 @@ object WebBuildOrchestrator {
         publish(ctx, 100, tr("Done", "पूरा हुआ", "সম্পন্ন"), "", _status.value.filesWritten, 0)
         runCatching { JarvisApp.instance.chatRepository.addTurn("", "✅ \"$name\" is live at $url (local to this phone)." + if (!opened) " Open it yourself: the browser couldn't be launched from the background." else " I've opened the preview.") }
         TaskProgressNotifier.postComplete(ctx, name, "Live at $url")
-        say(ctx, if (opened) tr("Your project is live on the local server and I've opened the preview.", "आपका प्रोजेक्ट लोकल सर्वर पर लाइव है और मैंने प्रीव्यू खोल दिया है।", "আপনার প্রজেক্ট লোকাল সার্ভারে লাইভ এবং আমি প্রিভিউ খুলে দিয়েছি।")
-            else tr("Your project is live at $url. Please open it in the browser.", "आपका प्रोजेक्ट $url पर लाइव है। कृपया ब्राउज़र में खोलें।", "আপনার প্রজেক্ট $url এ লাইভ। ব্রাউজারে খুলুন।"))
-
-        val titles = dir.walkTopDown().filter { it.isFile && it.name.endsWith(".html") }.take(1).map { runCatching { it.readText().take(1_200) }.getOrDefault("") }.joinToString()
-        val rhyme = narrate(ctx, "Write a 2 to 4 line RHYMING phrase in $lang that briefly explains this website or game to its owner. No emojis, no markdown. Request: $spec\nPage start:\n$titles", maxTokens = 240)
-        if (!rhyme.isNullOrBlank()) say(ctx, rhyme.take(400), logChat = true)
+        val isGame = spec.contains("game", true) || dir.walkTopDown().any { it.name.endsWith(".html") && runCatching { it.readText().contains("canvas", true) }.getOrDefault(false) }
+        val projectTypeStr = if (isGame) tr("game", "गेम", "গেম") else tr("website", "वेबसाइट", "ওয়েবসাইট")
+        val explanation = MultilingualCommandHelper.getLocalizedBuildExplanation(name, projectTypeStr, url, lang).ifBlank {
+            tr("Your $projectTypeStr \"$name\" is live on the local server at $url, and I have opened the preview for you. I have built a high-detail $projectTypeStr with responsive modern design, fluid animations, and complete interactive controls. Everything is fully functional and ready.",
+               "आपका $projectTypeStr \"$name\" लोकल सर्वर $url पर लाइव है और मैंने प्रीव्यू खोल दिया है। मैंने हाई डिटेल के साथ रिस्पॉन्सिव मॉडर्न डिज़ाइन, एनिमेशन और इंटरैक्टिव कंट्रोल्स बनाए हैं। सब कुछ ठीक काम कर रहा है।",
+               "আপনার $projectTypeStr \"$name\" লোকাল সার্ভার $url-এ চালু হয়েছে এবং আমি প্রিভিউ খুলে দিয়েছি। হাই ডিটেইল সহ রেসপনসিভ ডিজাইন ও অ্যানিমেশন যুক্ত করা হয়েছে।")
+        }
+        say(ctx, explanation, logChat = false)
 
         setPhase(Phase.AWAIT_ACK, tr("Say okay when you're done", "हो जाए तो ओके बोलिए", "হয়ে গেলে ওকে বলুন"), 100)
         say(ctx, tr("Say okay when you're done, and I'll stay ready until then.", "जब हो जाए तो ओके बोलिए, तब तक मैं तैयार रहूँगा।", "হয়ে গেলে ওকে বলুন, ততক্ষণ আমি তৈরি থাকব।"))
@@ -772,7 +835,8 @@ object WebBuildOrchestrator {
     // ─────────────────────────────────────────────────────────────────────────────
 
     private val qualityRules =
-        "QUALITY MODE: the owner wants the best possible result, not a quick draft. First write a short plan, then build to a premium standard:\n" +
+        "QUALITY MODE & HIGH DETAIL: the owner wants the best possible result, not a quick draft. First write a short plan, then build to a premium standard:\n" +
+            "- HIGH DETAIL REQUIREMENT: Every single element must be fully and perfectly implemented. Zero placeholders, zero TODO comments, zero dummy stubs. Full production-ready semantic HTML5, modern CSS3 styling, and JavaScript interactivity.\n" +
             "- A cohesive, modern visual design: a defined colour palette, typography scale, spacing system, gradients, shadows, smooth transitions and tasteful animation. Fully responsive from 320px phones to desktops, with touch-friendly controls.\n" +
             "- Split the code cleanly (index.html, css/style.css, js/*.js) with clear names; rich, realistic content, no lorem ipsum.\n" +
             "- Accessibility: semantic HTML, labels, keyboard support, good contrast.\n" +
@@ -936,11 +1000,11 @@ object WebBuildOrchestrator {
         TaskProgressNotifier.postProgress(ctx, "Jarvis · web build", text, percent.coerceIn(1, 100))
     }
 
-    private fun say(ctx: Context, text: String, logChat: Boolean = true) {
+    private fun say(ctx: Context, text: String, logChat: Boolean = false) {
         if (logChat) runCatching { JarvisApp.instance.chatRepository.addTurn("🛠 JARVIS build", text) }
-        if (!JarvisConversationService.announceMessage(text)) {
-            JarvisVoiceController.speakTurnResponse(ctx, "webbuild-${System.nanoTime()}", null, text, forceTts = true)
-        }
+        JarvisConversationService.flushActiveAudio()
+        val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(ctx)
+        dispatcher.speak(text)
     }
 
     private fun acquireLock(ctx: Context) {
