@@ -283,6 +283,7 @@ class HomeFragment : Fragment() {
                         ConversationState.IDLE -> if (loadedElepticalOrb && taskActive) "working" else "idle"
                     }
                     setOrbState(state)
+                    maybePlayOrbGreeting()
                 }
             }
 
@@ -335,7 +336,8 @@ class HomeFragment : Fragment() {
         binding.orbWebView.loadUrl(
             when {
                 wantsAurora -> "file:///android_asset/aurora_orb.html?hud=0&state=idle"
-                wantsEleptical -> "file:///android_asset/eleptical_orb.html"
+                // "first=1" starts on the amoeba so the greeting can be played the moment Home is really on screen.
+                wantsEleptical -> "file:///android_asset/eleptical_orb.html" + (if (preferences.orbGreetingShown) "" else "?first=1")
                 else -> "file:///android_asset/orb.html?embedded=1"
             }
         )
@@ -465,9 +467,34 @@ class HomeFragment : Fragment() {
         setOrbStyle(preferences.orbAnimation)
         applyOrbLook()
         updateHomeHeaderAndVoiceStatus()
+        maybePlayOrbGreeting()
 
         if (PermissionHelper.hasLocationPermission(requireContext())) {
             fetchLiveWeather()
+        }
+    }
+
+    private var greetingJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * Plays the particle greeting "WELCOME TO J.A.R.V.I.S BY SUKANT" once, the first time the Elliptical Orb is
+     * really on screen (page loaded, Home resumed and focused). It waits instead of firing blindly, so it is not
+     * spent while a tutorial or intro is still covering Home.
+     */
+    private fun maybePlayOrbGreeting() {
+        if (preferences.orbGreetingShown || !loadedElepticalOrb || _binding == null) return
+        if (greetingJob?.isActive == true) return
+        greetingJob = viewLifecycleOwner.lifecycleScope.launch {
+            repeat(60) {
+                kotlinx.coroutines.delay(700)
+                val b = _binding ?: return@launch
+                if (preferences.orbGreetingShown) return@launch
+                if (isPageLoaded && isResumed && !isHidden && b.root.hasWindowFocus() && b.orbWebView.isShown) {
+                    preferences.orbGreetingShown = true
+                    b.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.showGreeting && window.JarvisOrb.showGreeting(8);", null)
+                    return@launch
+                }
+            }
         }
     }
 

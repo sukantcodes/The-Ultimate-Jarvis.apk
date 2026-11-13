@@ -83,6 +83,7 @@ class AppPreferences(context: Context) {
         private const val KEY_CUSTOM_THEME_COLOR_2 = "key_custom_theme_color_2"
         private const val KEY_ORB_ANIMATION = "key_orb_animation"
         private const val KEY_ORB_ELEPTICAL_MIGRATED = "key_orb_eleptical_default_v1"
+        private const val KEY_ORB_GREETING_SHOWN = "key_orb_greeting_shown_v1"
         private const val KEY_ORB_SPEED = "key_orb_speed"
         private const val KEY_ORB_GLOW = "key_orb_glow"
         private const val KEY_ORB_SCALE = "key_orb_scale"
@@ -416,6 +417,11 @@ class AppPreferences(context: Context) {
     var touchGlowEnabled: Boolean
         get() = prefs.getBoolean(KEY_TOUCH_GLOW_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_TOUCH_GLOW_ENABLED, value).apply()
+
+    /** The orb's "WELCOME TO J.A.R.V.I.S BY SUKANT" particle greeting has played once. */
+    var orbGreetingShown: Boolean
+        get() = prefs.getBoolean(KEY_ORB_GREETING_SHOWN, false)
+        set(value) = prefs.edit().putBoolean(KEY_ORB_GREETING_SHOWN, value).apply()
 
     /** The cinematic welcome sequence is shown once after the first successful app entry. */
     var hasSeenWelcomeIntro: Boolean

@@ -367,7 +367,13 @@ if (isEmbedded) {
    - Touch Fission: Touching/dragging splits the amoeba into 5 living sub-orbs
      that orbit and later coalesce back together.
    ============================================================================ */
-const FOV = 45, VIS = 3.55, COUNT = 45000, MAX_BLOBS = 5;
+/* Particle budget follows the phone: flagship 45k, mid-range 32k, entry level 22k. Point size is
+   compensated so every tier looks equally full while the GPU does far less work on weaker phones. */
+const MEM = navigator.deviceMemory || 4, CORES = navigator.hardwareConcurrency || 4;
+const COUNT = (MEM >= 6 && CORES >= 8) ? 45000 : (MEM >= 4 && CORES >= 6) ? 32000 : 22000;
+const SIZE_BOOST = Math.min(1.4, Math.sqrt(45000 / COUNT) * 0.86);
+const FIRST_RUN = /[?&]first=1/.test(location.search);
+const FOV = 45, VIS = 3.55, MAX_BLOBS = 5;
 const ARC_CHAINS = 16, ARC_SEGS = 20;
 
 const STATES = {
@@ -403,6 +409,7 @@ const SHAPE_LABELS = {
   hypercube: "3D HOURGLASS",
   merkaba: "3D STAR CORE",
   welcome: "WELCOME",
+  greeting: "WELCOME TO J.A.R.V.I.S BY SUKANT",
   done: "DONE",
   custom: "CUSTOM 3D SHAPE"
 };
@@ -501,20 +508,7 @@ function computeNormal(x, y, z) {
 /* Rasterizes any text string (+ optional subtitle/icon) onto a high-res canvas and
    extrudes it into a realistic 3D volumetric particle sculpture with bevel normals! */
 function generate3DTextSculpture(mainText, subText, withCheckmark) {
-  const pos = new Float32Array(COUNT * 3);
-  const norm = new Float32Array(COUNT * 3);
-
-  const cw = 720, ch = 320;
-  const offCanvas = document.createElement("canvas");
-  offCanvas.width = cw;
-  offCanvas.height = ch;
-  const ctx = offCanvas.getContext("2d");
-
-  ctx.clearRect(0, 0, cw, ch);
-  ctx.fillStyle = "#ffffff";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
+  return sculptFromDrawing(720, 320, function (ctx, cw, ch) {
   if (withCheckmark) {
     /* Draw a bold 3D checkmark emblem above "DONE" */
     ctx.strokeStyle = "#ffffff";
@@ -539,6 +533,73 @@ function generate3DTextSculpture(mainText, subText, withCheckmark) {
     ctx.font = "900 " + fontSize + "px Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif";
     ctx.fillText(mainText, cw / 2, ch / 2);
   }
+  });
+}
+
+/* First-open greeting: "WELCOME TO" in a light tracked sans, "J.A.R.V.I.S" large and bold, an ornamental
+   divider, and "BY SUKANT" in a high-contrast italic serif. Each letter is drawn one by one so the wide
+   letter-spacing works on every WebView, and the big title is shrunk until it fits the frame. */
+function drawGreeting(ctx, cw, ch) {
+  const SANS = "'Helvetica Neue', Roboto, 'Segoe UI', sans-serif";
+  const SERIF = "'Playfair Display', Didot, 'Bodoni 72', Georgia, 'Noto Serif', serif";
+  function tracked(text, cx, y, spacing) {
+    const chars = Array.from(text);
+    const widths = chars.map(c => ctx.measureText(c).width);
+    const total = widths.reduce((a, b) => a + b, 0) + spacing * (chars.length - 1);
+    let x = cx - total / 2;
+    ctx.textAlign = "left";
+    chars.forEach((c, i) => { ctx.fillText(c, x, y); x += widths[i] + spacing; });
+    ctx.textAlign = "center";
+    return total;
+  }
+  function measure(text, spacing) {
+    const chars = Array.from(text);
+    return chars.reduce((a, c) => a + ctx.measureText(c).width, 0) + spacing * (chars.length - 1);
+  }
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = "#ffffff";
+
+  ctx.font = "300 56px " + SANS;
+  tracked("WELCOME TO", cw / 2, 118, 18);
+
+  let size = 168;
+  ctx.font = "800 " + size + "px " + SANS;
+  while (size > 70 && measure("J.A.R.V.I.S", size * 0.07) > cw * 0.88) {
+    size -= 4;
+    ctx.font = "800 " + size + "px " + SANS;
+  }
+  tracked("J.A.R.V.I.S", cw / 2, 246, size * 0.07);
+
+  const dy = 338;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(cw * 0.28, dy); ctx.lineTo(cw * 0.46, dy);
+  ctx.moveTo(cw * 0.54, dy); ctx.lineTo(cw * 0.72, dy);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cw / 2, dy - 11); ctx.lineTo(cw / 2 + 11, dy); ctx.lineTo(cw / 2, dy + 11); ctx.lineTo(cw / 2 - 11, dy);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.font = "italic 500 64px " + SERIF;
+  tracked("BY SUKANT", cw / 2, 410, 22);
+}
+
+function sculptFromDrawing(cw, ch, draw) {
+  const pos = new Float32Array(COUNT * 3);
+  const norm = new Float32Array(COUNT * 3);
+
+  const offCanvas = document.createElement("canvas");
+  offCanvas.width = cw;
+  offCanvas.height = ch;
+  const ctx = offCanvas.getContext("2d", { willReadFrequently: true });
+
+  ctx.clearRect(0, 0, cw, ch);
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  draw(ctx, cw, ch);
 
   const imgData = ctx.getImageData(0, 0, cw, ch).data;
   const pixels = [];
@@ -609,6 +670,9 @@ function generateRealistic3DShape(shapeName, customFn) {
   }
   if (shapeName === "done") {
     return generate3DTextSculpture("DONE", null, true);
+  }
+  if (shapeName === "greeting") {
+    return sculptFromDrawing(1024, 512, drawGreeting);
   }
 
   const pos = new Float32Array(COUNT * 3);
@@ -902,17 +966,35 @@ function generateRealistic3DShape(shapeName, customFn) {
 }
 
 /* Precompute all 3D shapes + WELCOME + DONE for instant zero-lag transformations */
+/* Only the shapes needed right now are built at start-up (the first screen and the amoeba); the others are
+   built one at a time while the phone is idle, or instantly if asked for earlier. That keeps the first
+   frame fast instead of generating ten 45,000-particle shapes before anything appears. */
 const shapeCache = {};
-[...SHAPE_NAMES, "welcome", "done"].forEach(name => {
-  shapeCache[name] = generateRealistic3DShape(name);
-});
+const SHAPE_KEYS = new Set([...SHAPE_NAMES, "welcome", "done", "greeting"]);
+function getShape(name) {
+  return shapeCache[name] || (shapeCache[name] = generateRealistic3DShape(name));
+}
+const START_KEY = FIRST_RUN ? "amoeba" : "welcome";
+getShape("amoeba");
+getShape(START_KEY);
+(function warmShapes() {
+  /* On the very first run the greeting is built first so it appears the instant the app asks for it. */
+  const queue = [...(FIRST_RUN ? ["greeting"] : []), ...SHAPE_NAMES, "done", "welcome"].filter(k => !shapeCache[k]);
+  function next() {
+    if (!queue.length) return;
+    getShape(queue.shift());
+    setTimeout(next, 450);
+  }
+  setTimeout(next, FIRST_RUN ? 500 : 1800);
+})();
+const isTextKey = k => k === "welcome" || k === "done" || k === "greeting" || k === "custom_text";
 
-let currentShape = "welcome";
+let currentShape = START_KEY;
 let morphActive = false;
 let morphProgress = 0;
 let autoMorph = true;
 let autoMorphTimer = 0;
-let messageHoldTimer = 3.6; /* Hold initial WELCOME message for 3.6s on first open! */
+let messageHoldTimer = FIRST_RUN ? 0 : 3.6; /* Hold the WELCOME message for 3.6s on open; on the very first run the greeting is played by the app instead */
 
 /* ---------- 2. Realistic 3D Lit & Shaded Particle Shader ---------- */
 const partV = `
@@ -1124,7 +1206,7 @@ void main() {
 
 function buildParticles() {
   /* Start on first open directly in the 3D "WELCOME" particle sculpture! */
-  const welcomeData = shapeCache.welcome;
+  const welcomeData = getShape(START_KEY);
   const initialPos = new Float32Array(welcomeData.pos);
   const targetPos = new Float32Array(welcomeData.pos);
   const initialNorm = new Float32Array(welcomeData.norm);
@@ -1134,7 +1216,7 @@ function buildParticles() {
   const layer = new Float32Array(COUNT);
   const cluster = new Float32Array(COUNT);
 
-  const amoebaPos = shapeCache.amoeba.pos;
+  const amoebaPos = getShape("amoeba").pos;
   for (let i = 0; i < COUNT; i++) {
     rnd[i] = Math.random();
     const layerSeed = (i * 0.6180339887) % 1;
@@ -1303,8 +1385,9 @@ createGlow();
 createOrbitSpores();
 
 /* ---------- Realistic 3D Morph & Text Sculpture Controller ---------- */
-let targetAmoebaFactor = 0.04; /* Start sharp on WELCOME */
-let targetIsText = 1.0;
+let targetAmoebaFactor = FIRST_RUN ? 1.0 : 0.04; /* Start sharp on WELCOME */
+let targetIsText = FIRST_RUN ? 0.0 : 1.0;
+if (FIRST_RUN) { U.uAmoeba.value = 1.0; U.uIsText.value = 0.0; }
 let targetHeartBeat = 0.0;
 
 function morphToShapeData(shapeObj, labelText, shapeKey) {
@@ -1335,7 +1418,7 @@ function morphToShapeData(shapeObj, labelText, shapeKey) {
   morphProgress = 0;
   morphActive = true;
 
-  const isTextShape = (shapeKey === "welcome" || shapeKey === "done" || shapeKey === "custom_text");
+  const isTextShape = isTextKey(shapeKey);
   targetIsText = isTextShape ? 1.0 : 0.0;
   targetAmoebaFactor = shapeKey === "amoeba" ? 1.0 : isTextShape ? 0.03 : 0.14;
   targetHeartBeat = shapeKey === "infinity" ? 1.0 : 0.0;
@@ -1346,10 +1429,10 @@ function morphToShapeData(shapeObj, labelText, shapeKey) {
 
 function setOrbShape(name) {
   const key = (name || "amoeba").toLowerCase();
-  if (!shapeCache[key]) return;
+  if (!SHAPE_KEYS.has(key)) return;
   currentShape = key;
   morphToShapeData(
-    shapeCache[key],
+    getShape(key),
     SHAPE_LABELS[key] || key.toUpperCase(),
     key
   );
@@ -1363,6 +1446,18 @@ function showWelcomeMessage(holdSeconds) {
   messageHoldTimer = holdSeconds !== undefined ? holdSeconds : 3.4;
   autoMorphTimer = 0;
   setOrbShape("welcome");
+}
+
+/* The first-open greeting. After the hold the orb melts into the amoeba and the auto-morph then flows
+   through the other 3D shapes. */
+function showGreetingMessage(holdSeconds) {
+  splitTimer = 0;
+  messageHoldTimer = holdSeconds !== undefined ? holdSeconds : 7.5;
+  autoMorphTimer = -2.5;
+  fusionFlash = 0.6;
+  shockOrigin.set(0, 0, 0);
+  shockWave = 0.0;
+  setOrbShape("greeting");
 }
 
 function showDoneMessage(holdSeconds) {
@@ -1396,7 +1491,7 @@ function morphToCustomShape(fn, customLabel) {
 /* ---------- Quantum Swarm Fission (Touch Separation) & Recombination ---------- */
 function triggerAmoebaSplit(worldHitPoint, lobeCount) {
   /* If currently displaying WELCOME or DONE, morph into the Elliptical Amoeba as it splits! */
-  if (currentShape === "welcome" || currentShape === "done" || currentShape === "custom_text") {
+  if (isTextKey(currentShape)) {
     messageHoldTimer = 0;
     setOrbShape("amoeba");
   }
@@ -1585,7 +1680,7 @@ function setOrbState(s, skipDoneTrigger) {
     showDoneMessage(2.8);
   } else if (s === "listening" || s === "speaking" || s === "talking" || s === "thinking" || s === "working") {
     /* If user starts speaking or Jarvis starts thinking while WELCOME/DONE is up, morph to Amoeba */
-    if (currentShape === "welcome" || currentShape === "done") {
+    if (isTextKey(currentShape)) {
       messageHoldTimer = 0;
       setOrbShape("amoeba");
     }
@@ -2091,7 +2186,7 @@ function handleResize() {
   U.uCamZ.value = camera.position.z;
   camera.updateProjectionMatrix();
   pxPerUnit = h / visH;
-  U.uPx.value = h * pr / (2 * tan);
+  U.uPx.value = h * pr / (2 * tan) * SIZE_BOOST;
   shadowEl.style.top = Math.round(h / 2 + pxPerUnit * 1.05) + "px";
 }
 
@@ -2160,6 +2255,7 @@ window.JarvisOrb = {
   },
   setShape: setOrbShape,
   showWelcome: showWelcomeMessage,
+  showGreeting: showGreetingMessage,
   showDone: showDoneMessage,
   completeTask: showDoneMessage,
   showMessage: showCustomTextMessage,
@@ -2216,7 +2312,7 @@ applyTheme("light");
 setOrbState("idle", true);
 /* First-open experience: start with all 45,000 particles forming the 3D "WELCOME" hologram,
    then smoothly morph into the living Elliptical Amoeba! */
-showWelcomeMessage(3.5);
+if (!FIRST_RUN) showWelcomeMessage(3.5);
 requestAnimationFrame(animate);
 })();
 </script>
