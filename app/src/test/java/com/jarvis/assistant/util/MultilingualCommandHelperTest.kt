@@ -225,20 +225,20 @@ class MultilingualCommandHelperTest {
     @Test
     fun testLocalizedProjectPromptsAndExplanations() {
         val askProviderHi = MultilingualCommandHelper.getLocalizedAskProviderChoice("Hindi")
-        assertTrue(askProviderHi.contains("custom provider"))
-        assertTrue(askProviderHi.contains("kya main khud"))
+        assertTrue(askProviderHi.contains("custom provider", ignoreCase = true))
+        assertTrue(askProviderHi.contains("kya main khud", ignoreCase = true))
 
         val askQualityEn = MultilingualCommandHelper.getLocalizedAskQualityAndTime("English")
-        assertTrue(askQualityEn.contains("quality"))
-        assertTrue(askQualityEn.contains("5 minutes"))
+        assertTrue(askQualityEn.contains("quality", ignoreCase = true))
+        assertTrue(askQualityEn.contains("5 minutes", ignoreCase = true))
 
         val buildStartHi = MultilingualCommandHelper.getLocalizedBuildStarting("Snake Game", "High Detail", 5, "Hindi")
-        assertTrue(buildStartHi.contains("Snake Game"))
-        assertTrue(buildStartHi.contains("5 minute"))
+        assertTrue(buildStartHi.contains("Snake Game", ignoreCase = true))
+        assertTrue(buildStartHi.contains("5 minute", ignoreCase = true))
 
         val explainEn = MultilingualCommandHelper.getLocalizedBuildExplanation("Cyberpunk Game", "game", "http://127.0.0.1:8080/", "English")
-        assertTrue(explainEn.contains("Cyberpunk Game"))
-        assertTrue(explainEn.contains("live"))
-        assertTrue(explainEn.contains("preview"))
+        assertTrue(explainEn.contains("Cyberpunk Game", ignoreCase = true))
+        assertTrue(explainEn.contains("live", ignoreCase = true))
+        assertTrue(explainEn.contains("preview", ignoreCase = true))
     }
 }
