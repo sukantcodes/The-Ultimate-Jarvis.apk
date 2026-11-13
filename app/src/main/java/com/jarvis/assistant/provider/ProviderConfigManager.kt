@@ -42,7 +42,8 @@ object WorkClassifier {
     private val CODE_HINTS = listOf(
         "```", "stack trace", "exception", "compile error", "build error", "fix this bug", "debug", "refactor",
         "unit test", "kotlin", "python", "javascript", "typescript", "gradle", "function ", "class ", "regex",
-        "clone", "repo", "github", "git ", "server", "terminal", "shell", "preview", "build", "compile", "npm ", "pip ", "bash"
+        "clone", "repo", "github", "git ", "server", "terminal", "shell", "preview", "build", "compile", "npm ", "pip ", "bash",
+        "website", "web page", "web site", "game", "landing page", "html", "css", "frontend", "canvas"
     )
 
     fun classify(text: String, attachments: List<ChatAttachment>, hasDocument: Boolean): WorkCategory {

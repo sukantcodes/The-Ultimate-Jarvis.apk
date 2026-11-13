@@ -117,8 +117,133 @@ object MultilingualCommandHelper {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Intent Matching: Actionable Tasks (Websites, Apps, Servers)
     // ─────────────────────────────────────────────────────────────────────────
+    // Intent Matching: Actionable Tasks (Websites, Games, Apps, Servers)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    data class ProjectRequestDetails(
+        val type: String,          // "website", "game", "app"
+        val topic: String,         // "portfolio website", "space shooter", etc.
+        val quality: String?,      // "High Detail", "Standard", etc.
+        val minutes: Int?          // 5, 2, etc.
+    )
+
+    fun isProjectCreationRequest(prompt: String): Boolean {
+        val lower = prompt.trim().lowercase(Locale.ROOT)
+        val hasCreationAction = lower.contains("create") || lower.contains("build") || lower.contains("make") ||
+                lower.contains("banao") || lower.contains("bana do") || lower.contains("banado") || lower.contains("banaye") ||
+                lower.contains("design") || lower.contains("develop") || lower.contains("chalu karo") ||
+                lower.contains("crear") || lower.contains("hacer") || lower.contains("construir") ||
+                lower.contains("erstelle") || lower.contains("bauen") || lower.contains("作成") ||
+                lower.contains("తయారు") || lower.contains("உருவாக்கு") || lower.contains("তৈরি")
+
+        val hasTarget = lower.contains("website") || lower.contains("web site") || lower.contains("site") ||
+                lower.contains("game") || lower.contains("gaming") || lower.contains("khel") || lower.contains("landing page") ||
+                lower.contains("webseite") || lower.contains("sitio web") || lower.contains("juego") || lower.contains("jeu") ||
+                lower.contains("spiel") || lower.contains("app") || lower.contains("application") ||
+                lower.contains("वेबसाइट") || lower.contains("गेम") || lower.contains("खेल") ||
+                lower.contains("వెబ్‌సైట్") || lower.contains("ఆట") || lower.contains("வலைத்தளம்") ||
+                lower.contains("விளையாட்டு") || lower.contains("ওয়েবসাইট") || lower.contains("খেলা") ||
+                lower.contains("ウェブサイト") || lower.contains("ゲーム")
+
+        if (hasCreationAction && hasTarget) return true
+
+        val directPhrases = listOf(
+            "website banao", "website bana do", "ek website banao", "game banao", "game bana do", "ek game banao",
+            "create a website", "create website", "build a website", "build website", "make a website", "make website",
+            "create a game", "create game", "build a game", "build game", "make a game", "make game",
+            "crear un sitio web", "crear sitio web", "crear un juego", "crear juego",
+            "créer un site web", "créer un jeu", "erstelle eine website", "erstelle ein spiel",
+            "ウェブサイトを作成", "ゲームを作成", "வெబ్‌సైట్ తయారు చేయి", "வலைத்தளத்தை உருவாக்கு"
+        )
+        return directPhrases.any { lower.contains(it) }
+    }
+
+    fun parseProjectDetails(prompt: String): ProjectRequestDetails {
+        val lower = prompt.trim().lowercase(Locale.ROOT)
+        val isGame = lower.contains("game") || lower.contains("gaming") || lower.contains("khel") ||
+                lower.contains("juego") || lower.contains("jeu") || lower.contains("spiel") ||
+                lower.contains("गेम") || lower.contains("खेल") || lower.contains("ゲーム") ||
+                lower.contains("ఆట") || lower.contains("விளையாட்டு") || lower.contains("খেলা")
+        val isApp = !isGame && (lower.contains("app") || lower.contains("application") || lower.contains("dashboard") || lower.contains("tool"))
+        val type = when {
+            isGame -> "game"
+            isApp -> "app"
+            else -> "website"
+        }
+
+        val (quality, minutes) = parseQualityAndTime(prompt)
+
+        var topic = prompt.trim()
+        val removePrefixes = listOf(
+            "jarvis", "hey jarvis", "ok jarvis", "please", "can you", "could you",
+            "create a", "create an", "create", "build a", "build an", "build",
+            "make a", "make an", "make", "ek", "naya", "naye"
+        )
+        for (pref in removePrefixes) {
+            if (topic.lowercase(Locale.ROOT).startsWith("$pref ")) {
+                topic = topic.substring(pref.length + 1).trim()
+            }
+        }
+        val cleanTopic = if (topic.isNotBlank()) topic.take(50).trim() else if (isGame) "interactive game" else "modern website"
+
+        return ProjectRequestDetails(type, cleanTopic, quality, minutes)
+    }
+
+    fun parseQualityAndTime(prompt: String): Pair<String?, Int?> {
+        val lower = prompt.trim().lowercase(Locale.ROOT)
+
+        val isHighDetail = lower.contains("high detail") || lower.contains("high quality") ||
+                lower.contains("high-detail") || lower.contains("high-quality") ||
+                lower.contains("detailed") || lower.contains("full detail") ||
+                lower.contains("ultra") || lower.contains("best quality") ||
+                lower.contains("har ek cheez") || lower.contains("perfect")
+        val isStandard = lower.contains("standard") || lower.contains("normal") || lower.contains("basic") || lower.contains("simple")
+        val quality = when {
+            isHighDetail -> "High Detail"
+            isStandard -> "Standard"
+            else -> null
+        }
+
+        var minutes: Int? = null
+        val minRegex = Regex("(\\d+)\\s*(?:minutes?|mins?|m|minute|minut)\\b", RegexOption.IGNORE_CASE)
+        val matchMin = minRegex.find(lower)
+        if (matchMin != null) {
+            minutes = matchMin.groupValues[1].toIntOrNull()
+        } else {
+            val secRegex = Regex("(\\d+)\\s*(?:seconds?|secs?|s)\\b", RegexOption.IGNORE_CASE)
+            val matchSec = secRegex.find(lower)
+            if (matchSec != null) {
+                val secs = matchSec.groupValues[1].toIntOrNull() ?: 60
+                minutes = maxOf(1, secs / 60)
+            }
+        }
+
+        return Pair(quality, minutes)
+    }
+
+    fun isUserChoosesJarvisDirectly(prompt: String): Boolean {
+        val lower = prompt.trim().lowercase(Locale.ROOT)
+        val tokens = listOf(
+            "you create", "i will create", "you do it", "you make it", "you build", "you build it",
+            "jarvis create", "jarvis do it", "jarvis banao", "jarvis banaye", "jarvis khud banao",
+            "tum banao", "aap banao", "khud banao", "khud bana do", "tu bana", "tu banao",
+            "you make", "create it yourself", "make it yourself", "build it yourself",
+            "sirf tum banao", "jarvis tum", "tum hi banao", "aap hi banao", "bana do", "create karo",
+            "tu bana de", "aap banaye", "you do", "do it yourself"
+        )
+        return tokens.any { lower.contains(it) } || lower == "you" || lower == "jarvis" || lower == "tum" || lower == "aap"
+    }
+
+    fun isUserWantsToAddCustomProvider(prompt: String): Boolean {
+        val lower = prompt.trim().lowercase(Locale.ROOT)
+        val tokens = listOf(
+            "add custom provider", "add provider", "custom provider add", "custom provider",
+            "i will add", "add key", "provider add", "custom model", "settings kholo", "open settings",
+            "main add karunga", "custom provider use karenge", "custom provider jodenge", "provider settings"
+        )
+        return tokens.any { lower.contains(it) }
+    }
 
     fun isActionableTask(prompt: String): Boolean {
         val lower = prompt.trim().lowercase(Locale.ROOT)
@@ -452,6 +577,62 @@ object MultilingualCommandHelper {
             "german" -> "Besitzer-Sprachverifizierung für Nachrichtenversand erforderlich, Sir."
             "japanese" -> "メッセージを送信するには所有者の音声認証が必要です、サー。"
             else -> "Voice verification required for message dispatch, Sir."
+        }
+    }
+
+    fun getLocalizedAskProviderChoice(language: String): String {
+        return when (language.lowercase(Locale.ROOT)) {
+            "hindi", "hinglish" -> "Sir, abhi custom provider configured nahi hai. Kya main khud project bana doon, ya aap custom provider add karenge?"
+            "spanish" -> "Señor, no hay un proveedor personalizado configurado. ¿Desea que cree el proyecto yo mismo o agregará un proveedor personalizado?"
+            "french" -> "Monsieur, aucun fournisseur personnalisé n'est configuré. Dois-je créer le projet moi-même ou allez-vous ajouter un fournisseur personnalisé ?"
+            "german" -> "Sir, es ist kein benutzerdefinierter Anbieter konfiguriert. Soll ich das Projekt selbst erstellen oder möchten Sie einen Anbieter hinzufügen?"
+            "japanese" -> "サー、カスタムプロバイダーが設定されていません。私が直接作成しますか、それともカスタムプロバイダーを追加しますか？"
+            "telugu" -> "సర్, కస్టమ్ ప్రొవైడర్ కాన్ఫిగర్ చేయబడలేదు. ప్రాజెక్ట్‌ను నేనే తయారు చేయమంటారా లేదా మీరు కస్టమ్ ప్రొవైడర్‌ను జోడిస్తారా?"
+            "tamil" -> "சார், தனிப்பயன் வழங்குநர் எதுவும் கட்டமைக்கப்படவில்லை. திட்டத்தை நானே உருவாக்கவா அல்லது நீங்கள் சேர்ப்பீர்களா?"
+            "bengali" -> "স্যার, কাস্টম প্রদানকারী কনফিগার করা নেই। আমি কি নিজেই প্রজেক্ট তৈরি করব, নাকি আপনি কাস্টম প্রদানকারী যোগ করবেন?"
+            else -> "Sir, no custom provider is currently configured. Should I create the project myself, or would you like to add a custom provider?"
+        }
+    }
+
+    fun getLocalizedAskQualityAndTime(language: String): String {
+        return when (language.lowercase(Locale.ROOT)) {
+            "hindi", "hinglish" -> "Sir, build ke liye quality aur time duration kitna chahiye? Jaise high detail 5 minute mein, ya standard 2 minute mein?"
+            "spanish" -> "Señor, ¿qué calidad y duración de tiempo desea para esta construcción? Por ejemplo: alto detalle en 5 minutos o estándar en 2 minutos."
+            "french" -> "Monsieur, quelle qualité et durée souhaitez-vous pour cette création ? Par exemple : haut détail en 5 minutes ou standard en 2 minutes."
+            "german" -> "Sir, welche Qualität und Zeitdauer wünschen Sie? Zum Beispiel: Hohe Detailgenauigkeit in 5 Minuten oder Standard in 2 Minuten."
+            "japanese" -> "サー、品質と作業時間はどうなさいますか？例えば、5分間で高精細、または2分間で標準などです。"
+            "telugu" -> "సర్, ఈ బిల్డ్ కోసం ఎంత నాణ్యత మరియు సమయం కావాలి? ఉదాహరణకు: 5 నిమిషాల్లో హై డీటైల్, లేదా 2 నిమిషాల్లో స్టాండర్డ్?"
+            "tamil" -> "சார், எந்த தரம் மற்றும் நேரம் வேண்டும்? உதாரணமாக: 5 நிமிடங்களில் உயர் விவரம், அல்லது 2 நிமிடங்களில் நிலையானது?"
+            "bengali" -> "স্যার, এই বিল্ডের জন্য কী গুণমান এবং সময় চান? যেমন: ৫ মিনিটে উচ্চ বিস্তারিত, বা ২ মিনিটে সাধারণ?"
+            else -> "What quality and time duration would you like for this build, Sir? For example: High detail in 5 minutes, or Standard in 2 minutes?"
+        }
+    }
+
+    fun getLocalizedBuildStarting(topic: String, quality: String, minutes: Int, language: String): String {
+        return when (language.lowercase(Locale.ROOT)) {
+            "hindi", "hinglish" -> "Samajh gaya Sir. $topic ka $quality build shuru kar raha hoon. $minutes minute ka time budget set hai. Main aapko continuously update karta rahoonga."
+            "spanish" -> "Entendido, Señor. Iniciando la construcción con $quality para $topic. Tiempo asignado: $minutes minutos. Lo mantendré actualizado."
+            "french" -> "Compris, Monsieur. Lancement de la création $quality pour $topic. Durée allouée : $minutes minutes. Je vous tiens informé."
+            "german" -> "Verstanden, Sir. Starte den $quality Bau für $topic. Zugeordnete Zeit: $minutes Minuten. Ich halte Sie auf dem Laufenden."
+            "japanese" -> "承知いたしました、サー。$topic の $quality 構築を開始します。割り当て時間は $minutes 分です。随時進捗をお知らせします。"
+            "telugu" -> "అర్థమైంది సర్. $topic కోసం $quality బిల్డ్ ప్రారంభిస్తున్నాను. $minutes నిమిషాలు కేటాయించబడింది. పురోగతిని తెలియజేస్తుంటాను."
+            "tamil" -> "புரிந்தது சார். $topic க்கான $quality உருவாக்கத்தைத் தொடங்குகிறேன். ஒதுக்கப்பட்ட நேரம் $minutes நிமிடங்கள். புதுப்பிப்புகளைத் தெரிவிக்கிறேன்."
+            "bengali" -> "বুঝেছি স্যার। $topic এর জন্য $quality বিল্ড শুরু করছি। সময় বরাদ্দ: $minutes মিনিট। আপনাকে অগ্রগতি জানাব।"
+            else -> "Understood, Sir. Starting $quality build for your $topic now. Allocated duration is $minutes minutes. I will keep you updated on progress."
+        }
+    }
+
+    fun getLocalizedBuildExplanation(title: String, type: String, url: String, language: String): String {
+        return when (language.lowercase(Locale.ROOT)) {
+            "hindi", "hinglish" -> "Sir, aapka '$title' $type local server par live start ho gaya hai aur maine preview screen par open kar diya hai. Maine high detail ke saath complete responsive design, fluid animations, dynamic controls aur interactive logic implement kiya hai. Sab kuch perfectly kaam kar raha hai."
+            "spanish" -> "Señor, su $type '$title' ya está activo en el servidor local y he abierto la vista previa para usted. He implementado un diseño totalmente adaptable con alto nivel de detalle, animaciones fluidas y controles interactivos completos. Todo funciona a la perfección."
+            "french" -> "Monsieur, votre $type '$title' est maintenant en ligne sur le serveur local et j'ai lancé l'aperçu. J'ai intégré une conception réactive de haute précision, des animations fluides et des fonctionnalités interactives complètes. Tout fonctionne à merveille."
+            "german" -> "Sir, Ihr $type '$title' ist jetzt auf dem lokalen Server aktiv und ich habe die Vorschau geöffnet. Ich habe ein hochdetailliertes, responsives Design mit flüssigen Animationen und vollständiger interaktiver Logik implementiert. Alles funktioniert einwandfrei."
+            "japanese" -> "サー、$type『$title』がローカルサーバーで起動し、プレビュー画面を開きました。高精細なレスポンシブデザイン、滑らかなアニメーション、完全なインタラクティブ機能を実装しています。すべて完璧に動作しています。"
+            "telugu" -> "సర్, మీ $type '$title' లోకల్ సర్వర్‌లో లైవ్ అయ్యింది మరియు ప్రివ్యూ ఓపెన్ చేశాను. హై డీటైల్‌తో రెస్పాన్సివ్ డిజైన్, యానిమేషన్లు మరియు పూర్తి ఇంటరాక్టివ్ ఫీచర్లను అమలు చేశాను. అంతా అద్భుతంగా పనిచేస్తోంది."
+            "tamil" -> "சார், உங்கள் $type '$title' உள்ளூர் சேவையகத்தில் இயங்குகிறது மற்றும் முன்னோட்டத்தைத் திறந்துள்ளேன். உயர் விவரத்துடன் பொறுப்பான வடிவமைப்பு, அனிமேஷன்கள் மற்றும் முழுமையான கட்டுப்பாடுகளை செயல்படுத்தியுள்ளேன்."
+            "bengali" -> "স্যার, আপনার $type '$title' লোকাল সার্ভারে লাইভ হয়েছে এবং প্রিভিউ ওপেন করেছি। উচ্চ বিশদসহ রেসপন্সিভ ডিজাইন, অ্যানিমেশন এবং সম্পূর্ণ ইন্টারেক্টিভ লজিক বাস্তবায়ন করেছি। সবকিছু নিখুঁতভাবে কাজ করছে।"
+            else -> "Sir, your $type '$title' is now live on the local server and I have opened the preview for you. I have implemented a high-detail, fully responsive layout with fluid animations and interactive controls. Everything is operating perfectly and ready for you."
         }
     }
 }

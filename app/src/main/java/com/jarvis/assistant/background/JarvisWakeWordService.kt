@@ -465,9 +465,19 @@ class JarvisWakeWordService : Service() {
         if (com.jarvis.assistant.voice.JarvisVoiceController.shouldInterruptForPhrase(command)) {
             com.jarvis.assistant.voice.JarvisVoiceController.interruptIfSpeaking("Stop phrase received in command: $command")
         }
+
+        // 1. Check Autonomous Project Creation (Websites, Games, Apps)
+        if (AutonomousProjectOrchestrator.isProjectWorkflowActive() ||
+            com.jarvis.assistant.util.MultilingualCommandHelper.isProjectCreationRequest(command)) {
+            val handled = AutonomousProjectOrchestrator.handleVoiceTurn(this, command)
+            if (handled) {
+                scheduleRestart(RESTART_DELAY_AFTER_COMMAND_MS) { startWakeWordListening() }
+                return
+            }
+        }
+
         val appMod = com.jarvis.assistant.selfaware.AppModificationEngine.processCommand(this, command)
         if (appMod is com.jarvis.assistant.selfaware.AppModificationEngine.ModificationResult.Success) {
-            com.jarvis.assistant.JarvisApp.instance.chatRepository.addTurn(command, appMod.message)
             com.jarvis.assistant.voice.JarvisVoiceController.speakTurnResponse(
                 context = this,
                 turnId = "self_mod_${System.currentTimeMillis()}",
@@ -489,14 +499,19 @@ class JarvisWakeWordService : Service() {
         }
 
         if (AutonomousBackgroundExecutor.isActionableTask(command)) {
-            com.jarvis.assistant.JarvisApp.instance.chatRepository.addTurn(command, "Starting task in background…")
             AutonomousBackgroundExecutor.execute(this, command) { _, _ ->
                 scheduleRestart(RESTART_DELAY_AFTER_COMMAND_MS) { startWakeWordListening() }
             }
             return
         }
 
-        JarvisConversationService.sendTextMessage(command)
+        // Conversational voice command: activate live voice session instead of dumping into text ChatBox
+        val service = JarvisConversationService.activeInstance
+        if (service != null) {
+            service.beginActiveConversation(wakeTriggered = true)
+        } else {
+            JarvisConversationService.startVoiceService(this)
+        }
         scheduleRestart(RESTART_DELAY_AFTER_COMMAND_MS) { startWakeWordListening() }
     }
 
@@ -531,7 +546,6 @@ class JarvisWakeWordService : Service() {
         val success = com.jarvis.assistant.notifications.JarvisNotificationListener.sendVoiceReply(this, replyText)
         val response = com.jarvis.assistant.util.MultilingualCommandHelper.getLocalizedVoiceReplyConfirm(sender, replyText, success, lang)
 
-        com.jarvis.assistant.JarvisApp.instance.chatRepository.addTurn(command, response)
         com.jarvis.assistant.voice.JarvisVoiceController.speakTurnResponse(
             context = this,
             turnId = "reply_sent_${System.currentTimeMillis()}",
@@ -560,7 +574,6 @@ class JarvisWakeWordService : Service() {
             else -> com.jarvis.assistant.telemetry.HardwareTelemetryEngine.generateIronManSpeechReport(snap, lang)
         }
 
-        com.jarvis.assistant.JarvisApp.instance.chatRepository.addTurn(command, response)
         com.jarvis.assistant.voice.JarvisVoiceController.speakTurnResponse(
             context = this,
             turnId = "telemetry_${System.currentTimeMillis()}",

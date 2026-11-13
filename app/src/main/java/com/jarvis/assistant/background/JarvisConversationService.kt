@@ -1252,6 +1252,11 @@ class JarvisConversationService : Service() {
                             lastRealInteractionTime = lastUserSpeechDetectedTime
                             announcementOnlySession = false
                             val trimmed = textChunk.trim()
+                            if (com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive() ||
+                                com.jarvis.assistant.util.MultilingualCommandHelper.isProjectCreationRequest(trimmed)) {
+                                suppressAudioUntilTurnComplete = true
+                                currentTurnWakeAuthorized = true
+                            }
                             if (trimmed.isNotEmpty()) {
                                 val startsNewUserTurn = currentTurnUserText.isEmpty()
                                 if (startsNewUserTurn) {
@@ -1471,12 +1476,6 @@ class JarvisConversationService : Service() {
                             if (ownerVoiceGateOn() && !isCurrentTurnOwnerVoiceVerified && !isLeaseActive && hasActualSpeechInThisTurn) {
                                 val nonOwnerUtterance = currentTurnUserText.toString().trim()
                                 Log.w("JarvisService", "Turn completed by NON-OWNER: Suppressing response and logging ignored.")
-                                val app = application as? JarvisApp
-                                val loggedQuery = if (nonOwnerUtterance.isNotEmpty()) nonOwnerUtterance else "(Unrecognized voice)"
-                                app?.chatRepository?.addTurn(
-                                    userText = "[Non-Owner Voice]: $loggedQuery",
-                                    jarvisText = "[IGNORED] Voice not recognized as owner"
-                                )
                                 audioPlayer?.flush()
                                 currentTurnAssistantText.clear()
                                 currentTurnUserText.clear()
@@ -1891,13 +1890,7 @@ class JarvisConversationService : Service() {
                             if (totalVoicedFramesInCurrentUtterance >= VAD_MIN_UTTERANCE_FRAMES || currentTurnUserText.trim().isNotEmpty()) {
                                 if (ownerVoiceGateOn() && !isCurrentTurnOwnerVoiceVerified) {
                                     val nonOwnerQuery = currentTurnUserText.toString().trim()
-                                    Log.w("JarvisService", "Non-owner speech ended: '$nonOwnerQuery'; IGNORING utterance, suppressing reply, and recording to history.")
-                                    val app = application as? JarvisApp
-                                    val loggedQuery = if (nonOwnerQuery.isNotEmpty()) nonOwnerQuery else "(Unrecognized voice)"
-                                    app?.chatRepository?.addTurn(
-                                        userText = "[Non-Owner Voice]: $loggedQuery",
-                                        jarvisText = "[IGNORED] Voice not recognized as owner"
-                                    )
+                                    Log.w("JarvisService", "Non-owner speech ended: '$nonOwnerQuery'; IGNORING utterance, suppressing reply.")
                                     audioPlayer?.flush()
                                     currentTurnAssistantText.clear()
                                     currentTurnUserText.clear()
@@ -2298,7 +2291,7 @@ class JarvisConversationService : Service() {
                 currentTurnAssistantText.append(answer)
                 _liveAssistantResponse.value = answer
                 val app = application as? JarvisApp
-                app?.chatRepository?.addTurn(clean, answer)
+                // Spoken offline conversation should not pollute ChatBox (ChatBox is for work purpose only)
                 app?.memoryManager?.addShortTermTurn(clean, answer)
                 if (answer.isBlank()) {
                     // e.g. "stop": nothing to say.
@@ -4297,10 +4290,8 @@ class JarvisConversationService : Service() {
         if (reply.isNotEmpty() && app != null) {
             val isOwnerCheckPassed = !ownerVoiceGateOn() || isCurrentTurnOwnerVoiceVerified
             if (isOwnerCheckPassed) {
-                app.chatRepository.addTurn(
-                    userText = query.ifEmpty { "Spoken user query" },
-                    jarvisText = reply
-                )
+                // Spoken conversational queries and Jarvis voice responses do NOT go into ChatBox.
+                // ChatBox is strictly reserved for Work Purpose (autonomous tasks, builds, code, and typed messages).
                 com.jarvis.assistant.activitylog.ActivityLog.get(applicationContext).logConversation(query, reply)
                 app.memoryManager.addShortTermTurn(
                     userText = query.ifEmpty { "Spoken user query" },
@@ -5256,8 +5247,23 @@ class JarvisConversationService : Service() {
     }
 
     private suspend fun tryActionableTaskDelegation(text: String): Boolean {
-        if (!com.jarvis.assistant.background.AutonomousBackgroundExecutor.isActionableTask(text)) return false
         if (automationHandledTurn || hasExecutedCommandInCurrentTurn) return false
+
+        // 1. Sovereign Autonomous Project Orchestration (Websites, Games, Apps)
+        if (com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive() ||
+            com.jarvis.assistant.util.MultilingualCommandHelper.isProjectCreationRequest(text)) {
+            val handled = com.jarvis.assistant.background.AutonomousProjectOrchestrator.handleVoiceTurn(applicationContext, text)
+            if (handled) {
+                automationHandledTurn = true
+                hasExecutedCommandInCurrentTurn = true
+                suppressAudioUntilTurnComplete = true
+                audioPlayer?.flush()
+                return true
+            }
+        }
+
+        // 2. General actionable background tasks
+        if (!com.jarvis.assistant.background.AutonomousBackgroundExecutor.isActionableTask(text)) return false
 
         val manager = com.jarvis.assistant.provider.ProviderRuntime.manager(applicationContext)
         val activeProfile = manager.activeProfile()

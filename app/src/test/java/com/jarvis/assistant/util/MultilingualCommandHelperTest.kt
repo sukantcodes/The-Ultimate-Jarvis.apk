@@ -152,4 +152,93 @@ class MultilingualCommandHelperTest {
         val esConfirm = MultilingualCommandHelper.getLocalizedVoiceReplyConfirm("Carlos", "Voy", true, "Spanish")
         assertEquals("Respuesta enviada a Carlos: \"Voy\", Señor.", esConfirm)
     }
+
+    @Test
+    fun testProjectCreationIntentDetection() {
+        // English
+        assertTrue(MultilingualCommandHelper.isProjectCreationRequest("create a website for my business"))
+        assertTrue(MultilingualCommandHelper.isProjectCreationRequest("build a snake game in 5 minutes"))
+        assertTrue(MultilingualCommandHelper.isProjectCreationRequest("make an interactive portfolio website"))
+        assertTrue(MultilingualCommandHelper.isProjectCreationRequest("create a web app"))
+
+        // Hindi / Hinglish
+        assertTrue(MultilingualCommandHelper.isProjectCreationRequest("ek website banao"))
+        assertTrue(MultilingualCommandHelper.isProjectCreationRequest("mere liye ek game bana do"))
+        assertTrue(MultilingualCommandHelper.isProjectCreationRequest("portfolio website create karo"))
+        assertTrue(MultilingualCommandHelper.isProjectCreationRequest("ek badhiya snake game banao"))
+
+        // Spanish / French / German
+        assertTrue(MultilingualCommandHelper.isProjectCreationRequest("crear un sitio web moderno"))
+        assertTrue(MultilingualCommandHelper.isProjectCreationRequest("crear un juego de carreras"))
+        assertTrue(MultilingualCommandHelper.isProjectCreationRequest("créer un site web professionnel"))
+        assertTrue(MultilingualCommandHelper.isProjectCreationRequest("erstelle eine website bitte"))
+
+        // Non project creations
+        assertFalse(MultilingualCommandHelper.isProjectCreationRequest("what is the weather today"))
+        assertFalse(MultilingualCommandHelper.isProjectCreationRequest("tell me a joke"))
+    }
+
+    @Test
+    fun testParseProjectDetails() {
+        val web = MultilingualCommandHelper.parseProjectDetails("create a high detail portfolio website in 5 minutes")
+        assertEquals("website", web.type)
+        assertEquals("High Detail", web.quality)
+        assertEquals(5, web.minutes)
+        assertTrue(web.topic.contains("portfolio"))
+
+        val game = MultilingualCommandHelper.parseProjectDetails("build a cyberpunk snake game in 3 minutes")
+        assertEquals("game", game.type)
+        assertEquals(3, game.minutes)
+        assertTrue(game.topic.contains("snake game"))
+    }
+
+    @Test
+    fun testQualityAndTimeParsing() {
+        val (q1, m1) = MultilingualCommandHelper.parseQualityAndTime("high detail and 5 minutes")
+        assertEquals("High Detail", q1)
+        assertEquals(5, m1)
+
+        val (q2, m2) = MultilingualCommandHelper.parseQualityAndTime("standard in 2 min")
+        assertEquals("Standard", q2)
+        assertEquals(2, m2)
+
+        val (q3, m3) = MultilingualCommandHelper.parseQualityAndTime("high quality 10 minutes")
+        assertEquals("High Detail", q3)
+        assertEquals(10, m3)
+    }
+
+    @Test
+    fun testUserChoiceOnProvider() {
+        assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("you create"))
+        assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("i will create"))
+        assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("jarvis create"))
+        assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("you do it"))
+        assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("tum banao"))
+        assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("aap banao"))
+        assertTrue(MultilingualCommandHelper.isUserChoosesJarvisDirectly("khud bana do"))
+
+        assertTrue(MultilingualCommandHelper.isUserWantsToAddCustomProvider("add custom provider"))
+        assertTrue(MultilingualCommandHelper.isUserWantsToAddCustomProvider("i will add custom provider"))
+        assertTrue(MultilingualCommandHelper.isUserWantsToAddCustomProvider("custom provider add karunga"))
+    }
+
+    @Test
+    fun testLocalizedProjectPromptsAndExplanations() {
+        val askProviderHi = MultilingualCommandHelper.getLocalizedAskProviderChoice("Hindi")
+        assertTrue(askProviderHi.contains("custom provider"))
+        assertTrue(askProviderHi.contains("kya main khud"))
+
+        val askQualityEn = MultilingualCommandHelper.getLocalizedAskQualityAndTime("English")
+        assertTrue(askQualityEn.contains("quality"))
+        assertTrue(askQualityEn.contains("5 minutes"))
+
+        val buildStartHi = MultilingualCommandHelper.getLocalizedBuildStarting("Snake Game", "High Detail", 5, "Hindi")
+        assertTrue(buildStartHi.contains("Snake Game"))
+        assertTrue(buildStartHi.contains("5 minute"))
+
+        val explainEn = MultilingualCommandHelper.getLocalizedBuildExplanation("Cyberpunk Game", "game", "http://127.0.0.1:8080/", "English")
+        assertTrue(explainEn.contains("Cyberpunk Game"))
+        assertTrue(explainEn.contains("live"))
+        assertTrue(explainEn.contains("preview"))
+    }
 }
