@@ -29,6 +29,7 @@ import com.jarvis.assistant.provider.LiveToolStep
 import com.jarvis.assistant.provider.ModelInfo
 import com.jarvis.assistant.provider.ProviderChatEngine
 import com.jarvis.assistant.provider.ProviderChatBridge
+import com.jarvis.assistant.provider.ProviderErrorKind
 import com.jarvis.assistant.provider.ProviderException
 import com.jarvis.assistant.provider.ProviderProtocol
 import com.jarvis.assistant.provider.ProviderRuntime
@@ -97,7 +98,7 @@ object WebBuildOrchestrator {
         val previewUrl: String = ""
     )
 
-    private class WorkerResult(val ok: Boolean, val error: String? = null, val timedOut: Boolean = false)
+    private class WorkerResult(val ok: Boolean, val error: String? = null, val timedOut: Boolean = false, val limitHit: Boolean = false)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val _status = MutableStateFlow(Status())
@@ -361,6 +362,8 @@ object WebBuildOrchestrator {
         @Volatile var workerDone = false
         @Volatile var chatTurns = 0
         @Volatile var polishing = false
+        /** What the ChatBox shows as the owner's message for the current step: only their words, never the rules. */
+        @Volatile var shown = ""
         @Volatile var polishOps = 0
         fun bump(p: Int) { if (p > percent) percent = p.coerceIn(0, 100) }
     }
@@ -379,7 +382,7 @@ object WebBuildOrchestrator {
         if (resuming) {
             say(ctx, tr("I'm back. Continuing the build from the files already saved.", "मैं वापस आ गया। सेव हुई फ़ाइलों से बिल्ड आगे बढ़ा रहा हूँ।", "আমি ফিরে এসেছি। সংরক্ষিত ফাইল থেকে বিল্ড চালিয়ে যাচ্ছি।"))
         } else {
-            runCatching { JarvisApp.instance.chatRepository.addTurn(spec, "🛠 Building \"$name\" with $label" + (if (quality) " in high-quality mode" else "") + ". I'll host it on the local server and open the preview automatically.") }
+            runCatching { JarvisApp.instance.chatRepository.addTurn("", "🛠 Building \"$name\" with $label" + (if (quality) " in high-quality mode" else "") + ". I'll host it on the local server and open the preview automatically.") }
             say(ctx, if (quality) tr(
                 "Understood, high quality it is. $label will build it to a premium standard and I'll supervise every step.",
                 "समझ गया, हाई क्वालिटी बनेगी। $label इसे प्रीमियम स्तर पर बनाएगा और मैं हर कदम पर निगरानी रखूँगा।",
@@ -418,11 +421,14 @@ object WebBuildOrchestrator {
             var lastError: String? = null
             var prompt = (if (resuming) resumePrompt(name, spec, dir, emptyList(), "the app was restarted") else buildPrompt(name, spec)) + timeNote(false)
             var ok = false
+            var firstRun = true
             try {
                 while (isActive) {
                     if (System.currentTimeMillis() >= workUntil) { outOfTime = true; break }
                     val result = runWorker(ctx, prompt, tracker, useCustom = engine == Engine.CUSTOM && !takeover,
-                        untilMs = if (wrapping) workUntil else minOf(wrapAt, workUntil))
+                        untilMs = if (wrapping) workUntil else minOf(wrapAt, workUntil),
+                        shown = if (firstRun && !resuming) askedText() else continuedText())
+                    firstRun = false
                     if (result.timedOut) {
                         if (!wrapping && System.currentTimeMillis() < workUntil - 5_000) {
                             wrapping = true
@@ -439,9 +445,20 @@ object WebBuildOrchestrator {
                     if (!result.ok) lastError = result.error
                     val report = if (File(dir, "index.html").isFile || dir.walkTopDown().any { it.isFile }) ProjectBuilder.check(dir, false) else null
                     if (report != null && report.ok) { ok = true; break }
+                    val geminiAvailable = JarvisApp.instance.preferences.apiKey.isNotBlank()
+                    // The custom provider hit its limit (every key used up): Gemini carries on at once from the saved files.
+                    if (result.limitHit && engine == Engine.CUSTOM && !takeover && geminiAvailable) {
+                        takeover = true
+                        tracker.workerDone = false
+                        _status.value = _status.value.copy(engineLabel = "Gemini")
+                        say(ctx, tr("The custom model's key limit is reached. Gemini is taking over from ${tracker.lastTarget.ifBlank { "the last file" }} and will finish the work.",
+                            "कस्टम मॉडल की की-लिमिट पूरी हो गई। जेमिनी ${tracker.lastTarget.ifBlank { "आखिरी फ़ाइल" }} से काम संभालकर पूरा करेगा।",
+                            "কাস্টম মডেলের কী-লিমিট শেষ। জেমিনি ${tracker.lastTarget.ifBlank { "শেষ ফাইল" }} থেকে কাজ নিয়ে শেষ করবে।"))
+                        prompt = resumePrompt(name, spec, dir, report?.problems.orEmpty(), lastError) + timeNote(wrapping)
+                        continue
+                    }
                     attempt++
                     if (attempt > MAX_RESUMES) break
-                    val geminiAvailable = JarvisApp.instance.preferences.apiKey.isNotBlank()
                     if (engine == Engine.CUSTOM && !takeover && attempt >= CUSTOM_RETRIES_BEFORE_TAKEOVER && geminiAvailable) {
                         takeover = true
                         say(ctx, tr("The custom model keeps failing. I'm taking over from ${tracker.lastTarget.ifBlank { "the last file" }}.",
@@ -469,7 +486,7 @@ object WebBuildOrchestrator {
                         .joinToString("\n\n") { "// ${it.name}\n" + runCatching { it.readText().take(1_200) }.getOrDefault("") }
                     val review = narrate(ctx, "You are a senior reviewer. List the 6 most valuable concrete improvements for this project (visual design, responsiveness, animations, game feel or UX, bugs, accessibility). Be specific and short, one per line, plain text. Request: $spec\n\n$heads", maxTokens = 450)
                     tracker.polishing = true
-                    val polish = runWorker(ctx, polishPrompt(name, spec, review) + timeNote(false), tracker, useCustom = engine == Engine.CUSTOM && !takeover, untilMs = workUntil)
+                    val polish = runWorker(ctx, polishPrompt(name, spec, review) + timeNote(false), tracker, useCustom = engine == Engine.CUSTOM && !takeover, untilMs = workUntil, shown = polishText())
                     tracker.polishing = false
                     if (!polish.ok) lastError = polish.error
                     val after = ProjectBuilder.check(dir, false)
@@ -506,7 +523,8 @@ object WebBuildOrchestrator {
         }
     }
 
-    private suspend fun runWorker(ctx: Context, prompt: String, tracker: Tracker, useCustom: Boolean, untilMs: Long = Long.MAX_VALUE): WorkerResult {
+    private suspend fun runWorker(ctx: Context, prompt: String, tracker: Tracker, useCustom: Boolean, untilMs: Long = Long.MAX_VALUE, shown: String = continuedText()): WorkerResult {
+        tracker.shown = shown
         suspend fun once() = if (useCustom) runCustomWorker(ctx, prompt, tracker) else runGeminiWorker(ctx, prompt, tracker)
         if (untilMs == Long.MAX_VALUE) return once()
         val remaining = untilMs - System.currentTimeMillis()
@@ -517,6 +535,13 @@ object WebBuildOrchestrator {
             WorkerResult(false, "The time budget was reached.", timedOut = true)
         }
     }
+
+    /** The owner's own request as the ChatBox should show it: their words, plus the time if they gave one. High quality is already in their words. */
+    private fun askedText(): String = spec.trim() + if (budgetSec > 0) "  ⏱ ${spokenDuration(budgetSec, langIndex())}" else ""
+
+    private fun continuedText(): String = "↻ " + tr("Continuing from where it stopped", "जहाँ रुका था वहीं से जारी", "যেখানে থেমেছিল সেখান থেকে চালিয়ে যাচ্ছি")
+
+    private fun polishText(): String = "✨ " + tr("Polishing to high quality", "हाई क्वालिटी के लिए पॉलिश", "হাই কোয়ালিটির জন্য পালিশ")
 
     private fun timeRules(secs: Int, lastPass: Boolean): String =
         "\nTIME LIMIT: the owner gave a hard time limit. You have about ${spokenDuration(secs, 0)} left to finish everything, including project_check. " +
@@ -530,19 +555,27 @@ object WebBuildOrchestrator {
         while (eng.isBusy && waited < 600) { delay(300); waited++ }
         val feeder = scopeFeed(eng, tracker)
         try {
-            return when (val out = eng.send(prompt)) {
+            // The ChatBox shows only the owner's words; the full instructions go to the model but never into the chat.
+            return when (val out = eng.send(tracker.shown.ifBlank { spec }, prompt, categoryOverride = WorkCategory.CODING)) {
                 is SendOutcome.Started -> {
                     while (eng.isBusy) delay(300)
                     val st = eng.state.value
-                    if (st is EngineState.Failed) WorkerResult(false, st.error.message) else WorkerResult(true)
+                    if (st is EngineState.Failed) WorkerResult(false, st.error.message, limitHit = isLimit(st.error.kind, st.error.message)) else WorkerResult(true)
                 }
-                is SendOutcome.Blocked -> WorkerResult(false, out.reason)
-                SendOutcome.NotActive -> WorkerResult(false, "The custom model is no longer active.")
+                // Every key of the custom provider is resting or refused: that is a limit, and Gemini carries on.
+                is SendOutcome.Blocked -> WorkerResult(false, out.reason, limitHit = true)
+                SendOutcome.NotActive -> WorkerResult(false, "The custom model is no longer active.", limitHit = true)
                 SendOutcome.Busy -> WorkerResult(false, "The custom model is busy.")
             }
         } finally {
             feeder.cancel()
         }
+    }
+
+    private fun isLimit(kind: ProviderErrorKind, message: String): Boolean {
+        if (kind == ProviderErrorKind.RATE_LIMITED || kind == ProviderErrorKind.AUTH_FAILED || kind == ProviderErrorKind.KEY_REJECTED) return true
+        val l = message.lowercase(Locale.ROOT)
+        return listOf("quota", "limit", "exhaust", "billing", "credit", "resting", "no usable", "insufficient").any { l.contains(it) }
     }
 
     private fun scopeFeed(eng: ProviderChatEngine, tracker: Tracker): Job = scope.launch {
@@ -562,7 +595,7 @@ object WebBuildOrchestrator {
             val loop = GeminiToolLoop(ProviderRuntime.transport(), backend)
             // Show the work in ChatBox exactly like a custom model's: code and terminal blocks that appear live.
             val store = ProviderChatBridge(JarvisApp.instance.chatRepository)
-            val turnId = store.begin(if (tracker.chatTurns++ == 0) "🛠 Gemini is building: $spec" else "🛠 Gemini continues the build", null)
+            val turnId = store.begin(tracker.shown.ifBlank { spec }, null)
             val blocks = LinkedHashMap<String, String>()
             try {
                 val res = loop.run(

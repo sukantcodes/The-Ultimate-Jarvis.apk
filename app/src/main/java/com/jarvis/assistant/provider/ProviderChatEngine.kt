@@ -124,11 +124,13 @@ class ProviderChatEngine(
         displayText: String,
         sendText: String = displayText,
         attachments: List<ChatAttachment> = emptyList(),
-        attachmentRef: AttachmentRef? = null
+        attachmentRef: AttachmentRef? = null,
+        /** Forces the kind of work (for example CODING) instead of guessing it from the visible text. */
+        categoryOverride: WorkCategory? = null
     ): SendOutcome {
         synchronized(lock) {
             if (isBusy) return SendOutcome.Busy
-            val category = WorkClassifier.classify(displayText, attachments, hasDocument = attachmentRef != null || sendText != displayText)
+            val category = categoryOverride ?: WorkClassifier.classify(displayText, attachments, hasDocument = attachmentRef != null || sendText != displayText)
             val provider = when (val r = config.resolveChat(category)) {
                 ChatResolution.NotActive -> return SendOutcome.NotActive
                 is ChatResolution.Blocked -> return SendOutcome.Blocked("${r.providerName}: ${r.reason}")
