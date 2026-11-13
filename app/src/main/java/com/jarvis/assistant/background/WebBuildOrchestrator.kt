@@ -108,6 +108,8 @@ object WebBuildOrchestrator {
     @Volatile private var engine = Engine.GEMINI
     @Volatile private var spec = ""
     @Volatile private var quality = false
+    /** True once the owner has said (or been asked) whether they want standard or high detail. */
+    @Volatile private var qualityChosen = false
     /** The owner's time allowance in seconds: -1 not asked yet, 0 no limit, otherwise the exact budget. */
     @Volatile private var budgetSec = -1
     /** Epoch millis when the budget runs out; 0 when there is no limit. Saved so a restart keeps the same deadline. */
@@ -174,7 +176,19 @@ object WebBuildOrchestrator {
         "achha", "accha", "acha", "badhiya", "badiya", "zabardast", "shandar", "behtareen", "best se best", "high-quality",
         "अच्छा", "बढ़िया", "बढ़िया", "शानदार", "जबरदस्त", "बेहतरीन", "প্রিমিয়াম", "ভালো", "সেরা", "দারুণ"
     )
-    private fun isQuality(text: String): Boolean = text.lowercase(Locale.ROOT).let { l -> qualityWords.any { l.contains(it) } }
+    private fun isQuality(text: String): Boolean = text.lowercase(Locale.ROOT).let { l -> qualityWords.any { l.contains(it) } || l.contains("high detail") || l.contains("highly detailed") || l.contains("every detail") || l.contains("perfect") }
+
+    private val standardWords = listOf("standard", "normal quality", "normal", "basic", "simple", "quick", "medium", "regular", "sadharan", "साधारण", "सामान्य", "সাধারণ")
+    private fun isStandard(text: String): Boolean = text.lowercase(Locale.ROOT).let { l -> standardWords.any { l.contains(it) } }
+
+    /** Starts the supervised build for [text] when none is running (used by the Live "build_web_project" tool). */
+    fun begin(context: Context, text: String, completion: ((Boolean, String) -> Unit)?): Boolean {
+        if (phase != Phase.IDLE) return false
+        val ctx = context.applicationContext
+        appCtx = ctx
+        start(ctx, text, completion)
+        return true
+    }
 
     private fun isCancel(text: String): Boolean {
         val l = text.lowercase(Locale.ROOT)
@@ -411,6 +425,9 @@ object WebBuildOrchestrator {
         /** What the ChatBox shows as the owner's message for the current step: only their words, never the rules. */
         @Volatile var shown = ""
         @Volatile var polishOps = 0
+        /** The refinement window (epoch millis): progress during refinement follows the real clock inside it. */
+        @Volatile var windowStart = 0L
+        @Volatile var windowEnd = 0L
         fun bump(p: Int) { if (p > percent) percent = p.coerceIn(0, 100) }
     }
 
@@ -430,9 +447,9 @@ object WebBuildOrchestrator {
         } else {
             runCatching { JarvisApp.instance.chatRepository.addTurn("", "🛠 Building \"$name\" with $label" + (if (quality) " in high-quality mode" else "") + ". I'll host it on the local server and open the preview automatically.") }
             say(ctx, if (quality) tr(
-                "Understood, high quality it is. $label will build it to a premium standard and I'll supervise every step.",
-                "समझ गया, हाई क्वालिटी बनेगी। $label इसे प्रीमियम स्तर पर बनाएगा और मैं हर कदम पर निगरानी रखूँगा।",
-                "বুঝেছি, হাই কোয়ালিটি হবে। $label প্রিমিয়াম মানে বানাবে আর আমি প্রতিটি ধাপে নজর রাখব।")
+                "High detail it is. $label will implement every single detail and I'll supervise each step.",
+                "हाई डिटेल बनेगा। $label हर एक चीज़ पूरी तरह लागू करेगा और मैं हर कदम पर निगरानी रखूँगा।",
+                "হাই ডিটেইল হবে। $label প্রতিটি জিনিস পুরোপুরি বানাবে আর আমি প্রতিটি ধাপে নজর রাখব।")
             else tr(
                 "Starting now. $label will write the code and I'll supervise it live.",
                 "अभी शुरू करता हूँ। $label कोड लिखेगा और मैं लाइव निगरानी करूँगा।",
@@ -440,9 +457,9 @@ object WebBuildOrchestrator {
         }
 
         if (!resuming && budgetSec > 0) {
-            say(ctx, tr("You gave me ${spokenDuration(budgetSec, 0)}. I'll finish and open the preview within that time.",
-                "आपने ${spokenDuration(budgetSec, 1)} दिए हैं। मैं उसी समय में काम पूरा करके प्रीव्यू खोल दूँगा।",
-                "আপনি ${spokenDuration(budgetSec, 2)} দিয়েছেন। আমি সেই সময়ের মধ্যেই কাজ শেষ করে প্রিভিউ খুলব।"))
+            say(ctx, tr("You gave me ${spokenDuration(budgetSec, 0)}. I'll use all of it: build first, keep improving, then open the preview right at the end.",
+                "आपने ${spokenDuration(budgetSec, 1)} दिए हैं। मैं पूरा समय लगाऊँगा: पहले बनाऊँगा, फिर सुधारता रहूँगा, और आखिर में प्रीव्यू खोलूँगा।",
+                "আপনি ${spokenDuration(budgetSec, 2)} দিয়েছেন। আমি পুরো সময় ব্যবহার করব: আগে বানাব, তারপর উন্নত করতে থাকব, শেষে প্রিভিউ খুলব।"))
         }
 
         job = scope.launch {
@@ -450,14 +467,16 @@ object WebBuildOrchestrator {
             val timed = deadlineAt > 0
             val totalMs = budgetSec * 1000L
             val startedAt = if (timed) deadlineAt - totalMs else System.currentTimeMillis()
-            // Writing stops early enough to leave time to check, host and open the preview before the deadline.
-            val workUntil = if (timed) deadlineAt - maxOf(8_000L, totalMs / 12) else Long.MAX_VALUE
-            // The first pass aims to finish well inside the budget; past this point Jarvis tells the model to wrap up.
-            val wrapAt = if (timed) startedAt + totalMs * 65 / 100 else Long.MAX_VALUE
-            fun timeNote(lastPass: Boolean): String {
+            // Only the last few seconds are kept to check, host and open the preview; everything before is real working time.
+            val workUntil = if (timed) deadlineAt - maxOf(8_000L, totalMs / 20) else Long.MAX_VALUE
+            // The first complete version is written within about 70% of the working time; refinement rounds use the rest.
+            val wrapAt = if (timed) startedAt + (workUntil - startedAt) * 70 / 100 else Long.MAX_VALUE
+            /** mode 0: first pass, 1: wrap up now, 2: refinement round. */
+            fun timeNote(mode: Int): String {
                 if (!timed) return ""
-                val secs = (((if (lastPass) workUntil else wrapAt) - System.currentTimeMillis()) / 1000).toInt().coerceAtLeast(10)
-                return timeRules(secs, lastPass)
+                val target = if (mode == 0) wrapAt else workUntil
+                val secs = ((target - System.currentTimeMillis()) / 1000).toInt().coerceAtLeast(10)
+                return timeRules(secs, mode)
             }
             var wrapping = false
             var outOfTime = false
@@ -465,7 +484,7 @@ object WebBuildOrchestrator {
             var attempt = 0
             var takeover = false
             var lastError: String? = null
-            var prompt = (if (resuming) resumePrompt(name, spec, dir, emptyList(), "the app was restarted") else buildPrompt(name, spec)) + timeNote(false)
+            var prompt = (if (resuming) resumePrompt(name, spec, dir, emptyList(), "the app was restarted") else buildPrompt(name, spec)) + timeNote(0)
             var ok = false
             var firstRun = true
             try {
@@ -479,84 +498,127 @@ object WebBuildOrchestrator {
                         if (!wrapping && System.currentTimeMillis() < workUntil - 5_000) {
                             wrapping = true
                             tracker.workerDone = false
-                            say(ctx, tr("Time is getting short. I'm telling $label to wrap up with a working version now.",
+                            sayWork(ctx, tr("Time is getting short. I'm telling $label to finish a working version now.",
                                 "समय कम हो रहा है। मैं $label से अभी चलने वाला वर्ज़न पूरा करने को कह रहा हूँ।",
                                 "সময় কমে আসছে। আমি $label-কে এখনই চালু থাকা সংস্করণ শেষ করতে বলছি।"))
-                            prompt = resumePrompt(name, spec, dir, emptyList(), "the time budget is nearly used") + timeNote(true)
+                            prompt = resumePrompt(name, spec, dir, emptyList(), "the time for the first version is nearly used") + timeNote(1)
                             continue
                         }
                         outOfTime = true
                         break
                     }
-                    if (!result.ok) lastError = result.error
-                    var report = if (File(dir, "index.html").isFile || dir.walkTopDown().any { it.isFile }) ProjectBuilder.check(dir, false) else null
+                    if (!result.ok) {
+                        lastError = result.error
+                        if (attempt == 0 && !result.error.isNullOrBlank()) {
+                            val why = result.error.take(160)
+                            sayWork(ctx, tr("$label reported a problem: $why. I'll continue from where it stopped.", "$label में समस्या आई: $why। जहाँ रुका वहीं से आगे बढ़ा रहा हूँ।", "$label-এ সমস্যা হয়েছে: $why। যেখানে থেমেছে সেখান থেকে এগোচ্ছি।"))
+                        }
+                    }
+                    var hasFiles = dir.walkTopDown().any { it.isFile && !it.relativeTo(dir).path.startsWith(".") }
+                    var report = if (hasFiles) ProjectBuilder.check(dir, false) else null
                     if (report == null || !report.ok) {
+                        // Some models answer with code blocks instead of tool calls: save those as files.
                         extractCodeBlocksFromRecentChat(dir)
-                        report = if (File(dir, "index.html").isFile || dir.walkTopDown().any { it.isFile }) ProjectBuilder.check(dir, false) else null
+                        hasFiles = dir.walkTopDown().any { it.isFile && !it.relativeTo(dir).path.startsWith(".") }
+                        report = if (hasFiles) ProjectBuilder.check(dir, false) else null
                     }
                     if (report != null && report.ok) { ok = true; break }
                     val geminiAvailable = JarvisApp.instance.preferences.apiKey.isNotBlank()
+                    // The model answered but wrote nothing: it is not doing the work (for example it cannot use tools).
+                    if (result.ok && !hasFiles && engine == Engine.CUSTOM && !takeover) {
+                        lastError = "$label answered but wrote no files, so it is not doing the build."
+                        if (geminiAvailable) {
+                            takeover = true
+                            tracker.workerDone = false
+                            _status.value = _status.value.copy(engineLabel = "Gemini")
+                            sayWork(ctx, tr("$label did not write any files, so Gemini is building it instead.", "$label ने कोई फ़ाइल नहीं लिखी, इसलिए अब जेमिनी इसे बना रहा है।", "$label কোনো ফাইল লেখেনি, তাই এখন জেমিনি এটি বানাচ্ছে।"))
+                            prompt = resumePrompt(name, spec, dir, emptyList(), lastError) + timeNote(if (wrapping) 1 else 0)
+                            continue
+                        }
+                        sayWork(ctx, tr("$label did not write any files. I'll try again, and if it keeps happening please check that this model supports tools.", "$label ने कोई फ़ाइल नहीं लिखी। मैं दोबारा कोशिश करता हूँ; ऐसा बार-बार हो तो जाँचें कि यह मॉडल टूल्स सपोर्ट करता है।", "$label কোনো ফাইল লেখেনি। আমি আবার চেষ্টা করছি; বারবার হলে দেখুন এই মডেল টুল সাপোর্ট করে কি না।"))
+                    }
                     // The custom provider hit its limit (every key used up): Gemini carries on at once from the saved files.
                     if (result.limitHit && engine == Engine.CUSTOM && !takeover && geminiAvailable) {
                         takeover = true
                         tracker.workerDone = false
                         _status.value = _status.value.copy(engineLabel = "Gemini")
-                        say(ctx, tr("The custom model's key limit is reached. Gemini is taking over from ${tracker.lastTarget.ifBlank { "the last file" }} and will finish the work.",
+                        sayWork(ctx, tr("The custom model's key limit is reached. Gemini is taking over from ${tracker.lastTarget.ifBlank { "the last file" }} and will finish the work.",
                             "कस्टम मॉडल की की-लिमिट पूरी हो गई। जेमिनी ${tracker.lastTarget.ifBlank { "आखिरी फ़ाइल" }} से काम संभालकर पूरा करेगा।",
                             "কাস্টম মডেলের কী-লিমিট শেষ। জেমিনি ${tracker.lastTarget.ifBlank { "শেষ ফাইল" }} থেকে কাজ নিয়ে শেষ করবে।"))
-                        prompt = resumePrompt(name, spec, dir, report?.problems.orEmpty(), lastError) + timeNote(wrapping)
+                        prompt = resumePrompt(name, spec, dir, report?.problems.orEmpty(), lastError) + timeNote(if (wrapping) 1 else 0)
                         continue
                     }
                     attempt++
                     if (attempt > MAX_RESUMES) break
                     if (engine == Engine.CUSTOM && !takeover && attempt >= CUSTOM_RETRIES_BEFORE_TAKEOVER && geminiAvailable) {
                         takeover = true
-                        say(ctx, tr("The custom model keeps failing. I'm taking over from ${tracker.lastTarget.ifBlank { "the last file" }}.",
+                        sayWork(ctx, tr("The custom model keeps failing. I'm taking over from ${tracker.lastTarget.ifBlank { "the last file" }}.",
                             "कस्टम मॉडल बार-बार फेल हो रहा है। मैं ${tracker.lastTarget.ifBlank { "आखिरी फ़ाइल" }} से काम संभाल रहा हूँ।",
                             "কাস্টম মডেল বারবার ব্যর্থ হচ্ছে। আমি ${tracker.lastTarget.ifBlank { "শেষ ফাইল" }} থেকে কাজ নিচ্ছি।"))
                     } else {
-                        say(ctx, tr("${label} stopped at ${tracker.lastTarget.ifBlank { "the planning step" }}. Restarting from exactly there.",
+                        sayWork(ctx, tr("${label} stopped at ${tracker.lastTarget.ifBlank { "the planning step" }}. Restarting from exactly there.",
                             "$label ${tracker.lastTarget.ifBlank { "प्लानिंग स्टेप" }} पर रुक गया। ठीक वहीं से दोबारा शुरू कर रहा हूँ।",
                             "$label ${tracker.lastTarget.ifBlank { "প্ল্যানিং ধাপে" }} থেমে গেছে। ঠিক সেখান থেকেই আবার শুরু করছি।"))
                     }
                     tracker.workerDone = false
-                    prompt = resumePrompt(name, spec, dir, report?.problems.orEmpty(), lastError) + timeNote(wrapping)
+                    prompt = resumePrompt(name, spec, dir, report?.problems.orEmpty(), lastError) + timeNote(if (wrapping) 1 else 0)
                     delay(1_500L * attempt)
                 }
                 // Out of time but something runnable exists: open that rather than nothing.
                 if (!ok && outOfTime && File(dir, "index.html").isFile) {
                     ok = true
-                    say(ctx, tr("Your time is up, so I'm opening what is ready.", "आपका समय पूरा हो गया, इसलिए जो तैयार है उसे खोल रहा हूँ।", "আপনার সময় শেষ, তাই যা তৈরি আছে তা খুলছি।"))
+                    sayWork(ctx, tr("Your time is up, so I'm opening what is ready.", "आपका समय पूरा हो गया, इसलिए जो तैयार है उसे खोल रहा हूँ।", "আপনার সময় শেষ, তাই যা তৈরি আছে তা খুলছি।"))
                 }
-                // Progressive High-Detail iterative refinement passes across the user-allocated time budget
-                var passCount = 1
-                while (ok && quality && isActive && (workUntil - System.currentTimeMillis() > 45_000L) && passCount < 4) {
-                    passCount++
-                    tracker.workerDone = false
-                    val passFocus = when (passCount) {
-                        2 -> tr("Deepening visual design, responsive layout, cybernetic styling and fluid CSS animations.",
-                                "विज़ुअल डिज़ाइन, रिस्पॉन्सिव लेआउट, मॉडर्न स्टाइल और स्मूथ एनिमेशन बेहतर कर रहा हूँ।",
-                                "ভিজুয়াল ডিজাইন, রেসপনসিভ লেআউট এবং অ্যানিমেশন উন্নত করছি।")
-                        3 -> tr("Enriching interactive gameplay, Web Audio synthesized sound effects, state persistence and touch controls.",
-                                "इंटरैक्टिव कंट्रोल्स, वेब ऑडियो साउंड इफ़ेक्ट्स और टच कंट्रोल्स जोड़ रहा हूँ।",
-                                "ইন্টারঅ্যাক্টিভ নিয়ন্ত্রণ ও সাউন্ড এফেক্ট যোগ করছি।")
-                        else -> tr("Running deep code audit, optimizing 60fps rendering, and validating cross-device responsiveness.",
-                                   "कोड ऑडिट, 60fps परफॉरमेंस और रिस्पॉन्सिवनेस वैलिडेट कर रहा हूँ।",
-                                   "কোড অডিট এবং পারফরম্যান্স যাচাই করছি।")
+                // Use the time that was given (and the detail that was asked for): keep improving the working project
+                // round after round until the working time is nearly gone. A round that breaks the project is undone.
+                if (ok && isActive && (timed || quality)) {
+                    val maxRounds = if (timed) 12 else 1
+                    var round = 0
+                    var failedRounds = 0
+                    while (isActive && round < maxRounds) {
+                        val now0 = System.currentTimeMillis()
+                        if (timed && workUntil - now0 < 40_000L) break
+                        round++
+                        tracker.workerDone = false
+                        tracker.polishing = true
+                        tracker.polishOps = 0
+                        tracker.windowStart = now0
+                        tracker.windowEnd = if (timed) workUntil else 0L
+                        val snap = snapshot(ctx, dir, name)
+                        sayWork(ctx, if (round == 1) tr(
+                            if (timed) "The first version works. I'll keep improving it until your time is used." else "The first version works. Now polishing it to high detail.",
+                            if (timed) "पहला वर्ज़न चल रहा है। आपका समय पूरा होने तक इसे और बेहतर करता रहूँगा।" else "पहला वर्ज़न चल रहा है। अब इसे हाई डिटेल तक पॉलिश कर रहा हूँ।",
+                            if (timed) "প্রথম সংস্করণ কাজ করছে। আপনার সময় শেষ না হওয়া পর্যন্ত এটি আরও ভালো করব।" else "প্রথম সংস্করণ কাজ করছে। এবার হাই ডিটেইলে পালিশ করছি।")
+                        else tr("Improvement round $round.", "सुधार का राउंड $round।", "উন্নতির রাউন্ড $round।"))
+                        var review: String? = null
+                        if (!timed || workUntil - System.currentTimeMillis() > 90_000L) {
+                            val heads = dir.walkTopDown().filter { it.isFile && !it.relativeTo(dir).path.startsWith(".") }.take(6)
+                                .joinToString("\n\n") { "// ${it.name}\n" + runCatching { it.readText().take(1_200) }.getOrDefault("") }
+                            review = narrate(ctx, "You are a senior reviewer. List the 8 most valuable concrete improvements still missing in this project (missing features or details, visual design, responsiveness, animations, game feel or UX, bugs, accessibility). Be specific and short, one per line, plain text. Request: $spec\n\n$heads", maxTokens = 500)
+                        }
+                        val polish = runWorker(ctx, refinePrompt(name, spec, review, round) + timeNote(2), tracker, useCustom = engine == Engine.CUSTOM && !takeover, untilMs = workUntil, shown = polishText(round))
+                        tracker.polishing = false
+                        if (!polish.ok && !polish.timedOut) lastError = polish.error
+                        var after = ProjectBuilder.check(dir, false)
+                        if (!after.ok && (!timed || workUntil - System.currentTimeMillis() > 15_000L)) {
+                            runWorker(ctx, resumePrompt(name, spec, dir, after.problems, lastError) + timeNote(if (timed) 1 else 0), tracker, useCustom = engine == Engine.CUSTOM && !takeover, untilMs = workUntil, shown = continuedText())
+                            after = ProjectBuilder.check(dir, false)
+                        }
+                        if (!after.ok) {
+                            restoreSnapshot(snap, dir)
+                            sayWork(ctx, tr("That change broke the project, so I restored the last working version.", "उस बदलाव से प्रोजेक्ट टूट गया, इसलिए पिछला चलने वाला वर्ज़न वापस लगा दिया।", "ওই পরিবর্তনে প্রজেক্ট ভেঙে গেছে, তাই আগের চালু সংস্করণ ফিরিয়ে দিয়েছি।"))
+                            failedRounds++
+                        } else if (!polish.ok && !polish.timedOut) failedRounds++ else failedRounds = 0
+                        if (polish.timedOut || failedRounds >= 2) break
+                        if (polish.limitHit && engine == Engine.CUSTOM && !takeover) {
+                            if (JarvisApp.instance.preferences.apiKey.isNotBlank()) {
+                                takeover = true
+                                _status.value = _status.value.copy(engineLabel = "Gemini")
+                                sayWork(ctx, tr("The custom model's key limit is reached. Gemini continues the improvements.", "कस्टम मॉडल की की-लिमिट पूरी हो गई। जेमिनी सुधार जारी रखेगा।", "কাস্টম মডেলের কী-লিমিট শেষ। জেমিনি উন্নতির কাজ চালিয়ে যাবে।"))
+                            } else break
+                        }
                     }
-                    say(ctx, passFocus, logChat = false)
-                    val heads = dir.walkTopDown().filter { it.isFile && !it.relativeTo(dir).path.startsWith(".") }.take(6)
-                        .joinToString("\n\n") { "// ${it.name}\n" + runCatching { it.readText().take(1_200) }.getOrDefault("") }
-                    val review = narrate(ctx, "You are a senior technical lead. Focus on Pass #$passCount: $passFocus. List 4 concrete, production-grade improvements (code, visual styling, responsive design, audio FX, error handling) to apply right now in place. Plain text, one per line. Request: $spec\n\n$heads", maxTokens = 400)
-                    tracker.polishing = true
-                    val passPrompt = polishPrompt(name, spec, review) + timeNote(passCount >= 3)
-                    val polish = runWorker(ctx, passPrompt, tracker, useCustom = engine == Engine.CUSTOM && !takeover, untilMs = workUntil, shown = polishText())
                     tracker.polishing = false
-                    if (!polish.ok) lastError = polish.error
-                    val after = ProjectBuilder.check(dir, false)
-                    if (!after.ok && System.currentTimeMillis() < workUntil - 5_000) {
-                        runWorker(ctx, resumePrompt(name, spec, dir, after.problems, lastError) + timeNote(true), tracker, useCustom = engine == Engine.CUSTOM && !takeover, untilMs = workUntil)
-                    }
                 }
                 tracker.workerDone = true
                 if (timed && quality && (workUntil - System.currentTimeMillis() > 6_000L)) {
@@ -567,7 +629,7 @@ object WebBuildOrchestrator {
                 }
                 if (!ok) {
                     monitor.cancel()
-                    say(ctx, if (outOfTime) tr("Your time ran out before anything runnable was ready. Your files are saved in the project $name.",
+                    sayWork(ctx, if (outOfTime) tr("Your time ran out before anything runnable was ready. Your files are saved in the project $name.",
                         "आपका समय खत्म हो गया और चलने लायक कुछ तैयार नहीं हो सका। आपकी फ़ाइलें प्रोजेक्ट $name में सुरक्षित हैं।",
                         "আপনার সময় শেষ হয়ে গেছে, চালানোর মতো কিছু তৈরি হয়নি। আপনার ফাইল $name প্রজেক্টে সংরক্ষিত আছে।") else tr("I couldn't finish the build after several restarts. Your files are saved in the project $name.",
                         "कई बार दोबारा कोशिश के बाद भी बिल्ड पूरा नहीं हो सका। आपकी फ़ाइलें प्रोजेक्ट $name में सुरक्षित हैं।",
@@ -579,7 +641,7 @@ object WebBuildOrchestrator {
                 monitor.cancel()
                 if (timed) {
                     val used = ((System.currentTimeMillis() - startedAt) / 1000).toInt()
-                    say(ctx, tr("Done in ${spokenDuration(used, 0)} of your ${spokenDuration(budgetSec, 0)}.",
+                    sayWork(ctx, tr("Done in ${spokenDuration(used, 0)} of your ${spokenDuration(budgetSec, 0)}.",
                         "आपके ${spokenDuration(budgetSec, 1)} में से ${spokenDuration(used, 1)} में पूरा हो गया।",
                         "আপনার ${spokenDuration(budgetSec, 2)} এর মধ্যে ${spokenDuration(used, 2)}-এ শেষ হয়েছে।"))
                 }
@@ -591,9 +653,26 @@ object WebBuildOrchestrator {
             } catch (e: Exception) {
                 Log.e(TAG, "Build supervision failed", e)
                 monitor.cancel()
-                say(ctx, tr("The build hit an unexpected problem, but your files are preserved.", "बिल्ड में अनपेक्षित समस्या आई, पर आपकी फ़ाइलें सुरक्षित हैं।", "বিল্ডে অপ্রত্যাশিত সমস্যা হয়েছে, তবে ফাইল সুরক্ষিত আছে।"))
+                sayWork(ctx, tr("The build hit an unexpected problem, but your files are preserved.", "बिल्ड में अनपेक्षित समस्या आई, पर आपकी फ़ाइलें सुरक्षित हैं।", "বিল্ডে অপ্রত্যাশিত সমস্যা হয়েছে, তবে ফাইল সুরক্ষিত আছে।"))
                 finish(ctx, false, e.message ?: "Error")
             }
+        }
+    }
+
+    private fun sayWork(ctx: Context, text: String) = say(ctx, text, logChat = true)
+
+    private fun snapshot(ctx: Context, dir: File, name: String): File? = runCatching {
+        val snap = File(ctx.cacheDir, "jarvis-snapshot/$name")
+        snap.deleteRecursively()
+        dir.copyRecursively(snap, overwrite = true)
+        snap
+    }.getOrNull()
+
+    private fun restoreSnapshot(snap: File?, dir: File) {
+        if (snap == null || !snap.isDirectory) return
+        runCatching {
+            dir.walkTopDown().filter { it.isFile && !it.relativeTo(dir).path.startsWith(".") && !File(snap, it.relativeTo(dir).path).exists() }.toList().forEach { it.delete() }
+            snap.copyRecursively(dir, overwrite = true)
         }
     }
 
@@ -615,13 +694,21 @@ object WebBuildOrchestrator {
 
     private fun continuedText(): String = "↻ " + tr("Continuing from where it stopped", "जहाँ रुका था वहीं से जारी", "যেখানে থেমেছিল সেখান থেকে চালিয়ে যাচ্ছি")
 
-    private fun polishText(): String = "✨ " + tr("Polishing to high quality", "हाई क्वालिटी के लिए पॉलिश", "হাই কোয়ালিটির জন্য পালিশ")
+    private fun polishText(round: Int): String = "✨ " + tr("Improving it, round $round", "इसे बेहतर कर रहा हूँ, राउंड $round", "আরও ভালো করছি, রাউন্ড $round")
 
-    private fun timeRules(secs: Int, lastPass: Boolean): String =
-        "\nTIME LIMIT: the owner gave a hard time limit. You have about ${spokenDuration(secs, 0)} left to finish everything, including project_check. " +
-            "Work fast and scale the scope to fit: fewer sections or features is fine, but everything you write must work. " +
-            "Write files in this order: index.html, style.css, script.js, one tool call per file, with no long planning and no extra polish until the core works." +
-            (if (lastPass) " This is the last pass: finish the smallest complete working version right now and stop." else "")
+    private fun timeRules(secs: Int, mode: Int): String =
+        "\nTIME: the owner set a time budget and Jarvis uses all of it. About ${spokenDuration(secs, 0)} remain for this step. " +
+            when (mode) {
+                0 -> "First write a complete, working version of the whole request within that time (every feature, no placeholders, one tool call per file in the order index.html, style.css, script.js, with no long planning). Improvement rounds follow, so do not cut features and do not stop early."
+                1 -> "This is the final stretch: finish everything that is missing, make sure it all works, run project_check, and stop. Add nothing new and risky."
+                else -> "Use the whole time to make the project better in the ways asked; keep everything that already works and finish cleanly before the time is gone."
+            }
+
+    private fun refinePrompt(name: String, request: String, review: String?, round: Int): String =
+        "The project \"$name\" (request: \"$request\") already works. This is improvement round $round: raise it further by editing the existing files in place. Never recreate the project and never remove a feature that works.\n" +
+            (if (!review.isNullOrBlank()) "Reviewer notes to apply:\n$review\n" else "") +
+            (if (quality) qualityRules else "- Fix bugs, complete anything that feels unfinished or placeholder-like, and polish the visual design, responsiveness and interactions.\n") +
+            "Then run project_check on \"$name\" and fix any problem. Do not start the preview."
 
     private suspend fun runCustomWorker(ctx: Context, prompt: String, tracker: Tracker): WorkerResult {
         val eng = ProviderRuntime.chatEngine(ctx)
@@ -708,8 +795,15 @@ object WebBuildOrchestrator {
      */
     private fun workPercent(dir: File, files: List<File>, tracker: Tracker): Int {
         if (tracker.workerDone) return 88
-        val writeEnd = if (quality) 60 else 80
-        if (tracker.polishing) return writeEnd + minOf(80 - writeEnd - 1, tracker.polishOps * 3)
+        val writeEnd = if (quality || deadlineAt > 0) 60 else 80
+        if (tracker.polishing) {
+            val byOps = writeEnd + minOf(80 - writeEnd - 1, tracker.polishOps * 3)
+            if (tracker.windowEnd > tracker.windowStart) {
+                val frac = ((System.currentTimeMillis() - tracker.windowStart).toDouble() / (tracker.windowEnd - tracker.windowStart)).coerceIn(0.0, 1.0)
+                return minOf(86, maxOf(byOps, writeEnd + (26 * frac).toInt()))
+            }
+            return byOps
+        }
         val plan = File(dir, ".plan")
         val planned = if (plan.isFile) parsePlan(plan) else emptyList()
         val rel = files.map { it.relativeTo(dir).path.replace('\\', '/') to it }
@@ -880,7 +974,7 @@ object WebBuildOrchestrator {
             "- Use the project name \"$name\". Create it with project_create (template static), then write EVERY file with the file tools (index.html, style.css, script.js, and any others needed). Write each file in full, no placeholders or TODOs.\n" +
             "- It must run offline in a plain browser: no build step, no external CDN dependencies.\n" +
             "- Right after project_create, write a file named .plan inside the project folder (same path style as the other files). It has one line per file you will create, written as path|estimated number of lines, and nothing else. Jarvis uses it to show exact progress, so list every file and then write exactly those files.\n" +
-            "- Be fast: put the .plan and ALL the write_file calls in ONE response (parallel tool calls, .plan first) instead of one file per turn, and do not deliberate at length.\n" +
+            "- Put the .plan and ALL the write_file calls in ONE response (parallel tool calls, .plan first) instead of one file per turn" + (if (quality) ", but think carefully so that every detail is right.\n" else ", and do not deliberate at length.\n")) +
             "- When all files are written, run project_check on \"$name\" and fix every problem it reports.\n" +
             "- Do NOT start the preview or open a browser: Jarvis hosts and opens it automatically.\n" +
             "- Finish with a two-line summary of what you built."

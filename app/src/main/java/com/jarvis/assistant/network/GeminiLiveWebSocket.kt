@@ -653,6 +653,22 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 14c2. send_to_chatbox
+                        put(JSONObject().apply {
+                            put("name", "send_to_chatbox")
+                            put("description", "Sends a work task to the ChatBox, where the active custom provider model does it with its tools (writing code, editing files, long research or analysis). Use it when the user asks you to give a job to the custom provider or the ChatBox. Spoken conversation never goes to the ChatBox; only work does.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("task", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "The complete task for the custom provider model.")
+                                    })
+                                })
+                                put("required", JSONArray().apply { put("task") })
+                            })
+                        })
+
                         // 14d. call_control
                         put(JSONObject().apply {
                             put("name", "call_control")

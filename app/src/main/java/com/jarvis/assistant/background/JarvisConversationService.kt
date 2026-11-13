@@ -110,9 +110,9 @@ class JarvisConversationService : Service() {
         private val pendingTextChatMessages = java.util.concurrent.ConcurrentLinkedQueue<String>()
 
         /** Speaks a short announcement (such as a new-message alert). Returns false when the service is not running. */
-        fun announceMessage(text: String): Boolean {
+        fun announceMessage(text: String, full: Boolean = false): Boolean {
             val instance = activeInstance ?: return false
-            instance.speakAnnouncement(text)
+            instance.speakAnnouncement(text, full)
             return true
         }
 
@@ -3199,6 +3199,34 @@ class JarvisConversationService : Service() {
                         }
                     }
 
+                    "send_to_chatbox" -> {
+                        val task = args.optString("task", "").trim()
+                        if (task.isBlank()) {
+                            result.put("success", false)
+                            result.put("message", "No task was given.")
+                        } else {
+                            val sent = try { com.jarvis.assistant.provider.ProviderRuntime.chatEngine(applicationContext).send(task) } catch (e: Exception) { null }
+                            when (sent) {
+                                is com.jarvis.assistant.provider.SendOutcome.Started -> {
+                                    result.put("success", true)
+                                    result.put("message", "The task was sent to the ChatBox and ${sent.providerLabel} is working on it. Tell the user in one short sentence.")
+                                }
+                                com.jarvis.assistant.provider.SendOutcome.Busy -> {
+                                    result.put("success", false)
+                                    result.put("message", "The ChatBox model is still working on the previous task.")
+                                }
+                                is com.jarvis.assistant.provider.SendOutcome.Blocked -> {
+                                    result.put("success", false)
+                                    result.put("message", "The custom provider cannot answer right now: ${sent.reason}")
+                                }
+                                else -> {
+                                    result.put("success", false)
+                                    result.put("message", "No custom provider is active. The user can add one in Settings.")
+                                }
+                            }
+                        }
+                    }
+
                     "lock_device" -> {
                         val said = currentTurnUserText.toString().lowercase(Locale.ROOT)
                         val lockService = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance
@@ -5012,8 +5040,10 @@ class JarvisConversationService : Service() {
         suppressAudioUntilTurnComplete = true
     }
 
-    private fun announcementPrompt(text: String): String =
-        "SYSTEM EVENT (not from the user): Say this to the user now in one short natural sentence, " +
+    private fun announcementPrompt(text: String, full: Boolean = false): String =
+        if (full) "SYSTEM EVENT (not from the user): Say all of the following to the user now, in the same language as the text, " +
+            "in your own natural voice and persona, covering every point and leaving nothing out, and nothing else: \"" + text + "\""
+        else "SYSTEM EVENT (not from the user): Say this to the user now in one short natural sentence, " +
             "in your own voice and persona, and nothing else: \"" + text + "\""
 
     /**
@@ -5021,7 +5051,7 @@ class JarvisConversationService : Service() {
      * session is open, or by waking a short session when Jarvis is in standby (it goes back to sleep after about
      * 20 seconds if you do not answer). If that cannot start, or the setting is off, the phone's voice is used.
      */
-    fun speakAnnouncement(text: String) {
+    fun speakAnnouncement(text: String, full: Boolean = false) {
         val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(applicationContext)
         val isOfflineTtsActive = dispatcher.isOfflineVoiceUsable()
 
@@ -5032,7 +5062,7 @@ class JarvisConversationService : Service() {
 
         val socket = liveWebSocket
         if (socket != null && socket.isSessionReady()) {
-            socket.sendClientContent(announcementPrompt(text))
+            socket.sendClientContent(announcementPrompt(text, full))
             return
         }
         val queued = pendingAnnouncement
