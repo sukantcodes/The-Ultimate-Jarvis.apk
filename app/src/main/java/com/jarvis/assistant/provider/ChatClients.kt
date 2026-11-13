@@ -22,13 +22,35 @@ sealed class ChatEvent {
     object Done : ChatEvent()
 }
 
+/** How long a Gemini model may "think" before answering. Less thinking is much faster for coding and short spoken lines. */
+enum class Thinking { DEFAULT, LOW, MINIMAL }
+
+internal object GeminiThinking {
+    /** The thinkingConfig for [modelId], or null when the model family has no setting that is safe to send. */
+    fun config(modelId: String, effort: Thinking): com.google.gson.JsonObject? {
+        if (effort == Thinking.DEFAULT) return null
+        val id = modelId.lowercase()
+        return when {
+            "gemini-3" in id -> com.google.gson.JsonObject().apply {
+                // Pro models do not offer "minimal".
+                addProperty("thinkingLevel", if (effort == Thinking.MINIMAL && "pro" !in id) "minimal" else "low")
+            }
+            "gemini-2.5" in id && "pro" !in id -> com.google.gson.JsonObject().apply { addProperty("thinkingBudget", 0) }
+            else -> null
+        }
+    }
+
+    fun isRejection(code: Int, body: String): Boolean = code == 400 && body.contains("thinking", ignoreCase = true)
+}
+
 class ChatRequest(
     val provider: ResolvedProvider,
     val system: String,
     val messages: List<ChatMessage>,
     val maxTokens: Int? = null,
     /** Adds a harmless dummy tool so a probe can learn whether the model accepts tool definitions. */
-    val includeProbeTool: Boolean = false
+    val includeProbeTool: Boolean = false,
+    val thinking: Thinking = Thinking.DEFAULT
 )
 
 class ChatCompletion(val text: String, val hadToolCall: Boolean)
@@ -297,6 +319,7 @@ class GeminiChatClient(private val transport: HttpTransport) : ChatProviderClien
         val generation = JsonObject()
         p.temperature?.let { generation.addProperty("temperature", it) }
         (request.maxTokens ?: p.maxTokens)?.let { generation.addProperty("maxOutputTokens", it) }
+        GeminiThinking.config(p.modelId, request.thinking)?.let { generation.add("thinkingConfig", it) }
         if (generation.size() > 0) root.add("generationConfig", generation)
         if (request.includeProbeTool) {
             root.add("tools", JsonArray().apply {

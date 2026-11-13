@@ -187,6 +187,9 @@ class OpenAiToolLoop(private val transport: HttpTransport, backend: ToolBackend,
 class GeminiToolLoop(private val transport: HttpTransport, backend: ToolBackend, maxRounds: Int = 50, maxResultChars: Int = 32_000) : ToolChatLoop(backend, maxRounds, maxResultChars) {
     private class State(val contents: JsonArray)
 
+    /** Set when the model refused a thinking setting, so later rounds are sent without it. */
+    @Volatile private var thinkingRejected = false
+
     override fun newState(request: ChatRequest): Any? {
         val c = JsonArray()
         for (x in request.messages) c.add(JsonObject().apply {
@@ -204,14 +207,23 @@ class GeminiToolLoop(private val transport: HttpTransport, backend: ToolBackend,
         })
         val p = request.provider
         val base = (ProviderUrl.validateBase(p.baseUrl) as? ProviderUrl.Check.Ok)?.url ?: throw ProviderException(ProviderError(ProviderErrorKind.INVALID_ENDPOINT, "The provider's endpoint URL is not valid."))
-        val body = JsonObject().apply {
+        val tools = JsonArray().apply { add(JsonObject().apply { add("functionDeclarations", ToolSchemas.toGemini(backend.specs())) }) }
+        fun bodyJson(withThinking: Boolean) = JsonObject().apply {
             if (request.system.isNotBlank()) add("systemInstruction", JsonObject().apply { add("parts", JsonArray().apply { add(JsonObject().apply { addProperty("text", request.system) }) }) })
             add("contents", st.contents)
-            add("tools", JsonArray().apply { add(JsonObject().apply { add("functionDeclarations", ToolSchemas.toGemini(backend.specs())) }) })
+            add("tools", tools)
+            if (withThinking) GeminiThinking.config(p.modelId, request.thinking)?.let { add("generationConfig", JsonObject().apply { add("thinkingConfig", it) }) }
         }
         val url = ProviderUrl.join(base, "${ProviderUrl.geminiModelName(p.modelId)}:generateContent")
-        val spec = prepare(HttpRequestSpec("POST", url, mapOf("Accept" to "application/json"), HttpBody.Text(JSON_TYPE, body.toString()), 120_000L), p)
-        val resp = try { transport.execute(spec) } catch (e: TransportException) { throw ProviderException(ProviderErrors.fromTransport(e)) }
+        fun send(withThinking: Boolean): HttpResponse {
+            val spec = prepare(HttpRequestSpec("POST", url, mapOf("Accept" to "application/json"), HttpBody.Text(JSON_TYPE, bodyJson(withThinking).toString()), 120_000L), p)
+            return try { transport.execute(spec) } catch (e: TransportException) { throw ProviderException(ProviderErrors.fromTransport(e)) }
+        }
+        var resp = send(!thinkingRejected)
+        if (!thinkingRejected && !resp.isSuccessful && GeminiThinking.isRejection(resp.code, resp.body)) {
+            thinkingRejected = true
+            resp = send(false)
+        }
         if (!resp.isSuccessful) throw ProviderException(ProviderErrors.fromHttp(resp.code, resp.body, secretOf(p), ErrorContext.CHAT, resp.headers.entries.firstOrNull { it.key.equals("retry-after", true) }?.value))
         val root = parseObject(resp.body) ?: throw ProviderException(ProviderErrors.invalidResponse("Expected a JSON answer."))
         val content = root.getAsJsonArrayOrNull("candidates")?.firstOrNull()?.takeIf { it.isJsonObject }?.asJsonObject?.getAsJsonObjectOrNull("content")

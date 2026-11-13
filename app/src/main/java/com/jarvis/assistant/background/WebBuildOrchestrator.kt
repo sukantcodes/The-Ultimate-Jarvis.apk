@@ -34,6 +34,7 @@ import com.jarvis.assistant.provider.ProviderProtocol
 import com.jarvis.assistant.provider.ProviderRuntime
 import com.jarvis.assistant.provider.ResolvedProvider
 import com.jarvis.assistant.provider.SendOutcome
+import com.jarvis.assistant.provider.Thinking
 import com.jarvis.assistant.provider.TokenModeStore
 import com.jarvis.assistant.provider.TransportException
 import com.jarvis.assistant.provider.ProviderErrors
@@ -359,11 +360,13 @@ object WebBuildOrchestrator {
         @Volatile var percent = 0
         @Volatile var workerDone = false
         @Volatile var chatTurns = 0
+        @Volatile var polishing = false
+        @Volatile var polishOps = 0
         fun bump(p: Int) { if (p > percent) percent = p.coerceIn(0, 100) }
     }
 
     private fun beginBuild(ctx: Context, resuming: Boolean = false) {
-        setPhase(Phase.BUILDING, tr("Starting", "शुरू कर रहा हूँ", "শুরু করছি"), 3)
+        setPhase(Phase.BUILDING, tr("Starting", "शुरू कर रहा हूँ", "শুরু করছি"), 1)
         val built = ToolRuntime.get(ctx)
         val name = if (resuming && projectName.isNotBlank()) projectName else uniqueProjectName(built.workspace.resolve("projects"), spec)
         projectName = name
@@ -465,7 +468,9 @@ object WebBuildOrchestrator {
                     val heads = dir.walkTopDown().filter { it.isFile && !it.relativeTo(dir).path.startsWith(".") }.take(6)
                         .joinToString("\n\n") { "// ${it.name}\n" + runCatching { it.readText().take(1_200) }.getOrDefault("") }
                     val review = narrate(ctx, "You are a senior reviewer. List the 6 most valuable concrete improvements for this project (visual design, responsiveness, animations, game feel or UX, bugs, accessibility). Be specific and short, one per line, plain text. Request: $spec\n\n$heads", maxTokens = 450)
+                    tracker.polishing = true
                     val polish = runWorker(ctx, polishPrompt(name, spec, review) + timeNote(false), tracker, useCustom = engine == Engine.CUSTOM && !takeover, untilMs = workUntil)
+                    tracker.polishing = false
                     if (!polish.ok) lastError = polish.error
                     val after = ProjectBuilder.check(dir, false)
                     if (!after.ok && System.currentTimeMillis() < workUntil - 5_000) runWorker(ctx, resumePrompt(name, spec, dir, after.problems, lastError) + timeNote(true), tracker, useCustom = engine == Engine.CUSTOM && !takeover, untilMs = workUntil)
@@ -561,7 +566,7 @@ object WebBuildOrchestrator {
             val blocks = LinkedHashMap<String, String>()
             try {
                 val res = loop.run(
-                    ChatRequest(provider, system, listOf(ChatMessage(ChatRole.USER, prompt)), maxTokens = TokenModeStore.get(ctx).maxTokens),
+                    ChatRequest(provider, system, listOf(ChatMessage(ChatRole.USER, prompt)), maxTokens = TokenModeStore.get(ctx).maxTokens, thinking = if (quality) Thinking.DEFAULT else Thinking.LOW),
                     "web-build",
                     onActivity = { },
                     onStep = { s: LiveToolStep ->
@@ -589,6 +594,47 @@ object WebBuildOrchestrator {
         }
     }
 
+    /**
+     * The real percentage, from what exists on disk. The model first writes a .plan (one "path|lines" line per file),
+     * so progress is the share of planned work whose files are written. Scale: 1-4 starting, 5-80 writing files
+     * (5-60 then 60-80 polishing in high-quality mode), 88 checking, 92 hosting, 97 opening the preview, 100 done.
+     */
+    private fun workPercent(dir: File, files: List<File>, tracker: Tracker): Int {
+        if (tracker.workerDone) return 88
+        val writeEnd = if (quality) 60 else 80
+        if (tracker.polishing) return writeEnd + minOf(80 - writeEnd - 1, tracker.polishOps * 3)
+        val plan = File(dir, ".plan")
+        val planned = if (plan.isFile) parsePlan(plan) else emptyList()
+        val rel = files.map { it.relativeTo(dir).path.replace('\\', '/') to it }
+        val fraction: Double
+        if (planned.isNotEmpty()) {
+            val since = plan.lastModified()
+            var done = 0.0
+            var total = 0.0
+            planned.forEach { (path, est) ->
+                total += est
+                val p = path.removePrefix("./").trimStart('/')
+                val f = rel.firstOrNull { (r, _) -> r == p || p.endsWith("/$r") || r.endsWith("/$p") }?.second
+                if (f != null && f.length() > 0 && f.lastModified() >= since) done += est
+            }
+            fraction = if (total > 0) done / total else 0.0
+        } else if (files.isEmpty()) {
+            return if (tracker.lastTool.isBlank()) 1 else 3
+        } else {
+            // No plan was written: a typical site is three files, and the bar never claims to be finished before the checks.
+            fraction = minOf(0.9, files.size.toDouble() / maxOf(3, files.size + 1))
+        }
+        return if (planned.isNotEmpty()) 5 + ((writeEnd - 5) * fraction).toInt() else 4 + ((writeEnd - 5) * fraction).toInt()
+    }
+
+    private fun parsePlan(plan: File): List<Pair<String, Int>> = runCatching {
+        plan.readLines().mapNotNull { line ->
+            val parts = line.trim().split('|', ':', ',').map { it.trim() }
+            val path = parts.firstOrNull()?.takeIf { it.isNotBlank() && !it.startsWith("#") } ?: return@mapNotNull null
+            path to (parts.getOrNull(1)?.filter { it.isDigit() }?.toIntOrNull() ?: 80).coerceIn(20, 2_000)
+        }.take(12)
+    }.getOrDefault(emptyList())
+
     /** Reads the project folder every two seconds so progress, file and size are real, not guessed. */
     private suspend fun monitor(ctx: Context, dir: File, tracker: Tracker, startedAt: Long) {
         val narrator = BuildNarrator(
@@ -608,16 +654,16 @@ object WebBuildOrchestrator {
             }
         )
         var narration: Job? = null
+        var lastKey = ""
         try {
         while (true) {
             val files = dir.walkTopDown().filter { it.isFile && !it.relativeTo(dir).path.startsWith(".") }.toList()
             val latest = files.maxByOrNull { it.lastModified() }
-            val expected = maxOf(if (quality) 7 else 4, files.size + (if (tracker.workerDone) 0 else 1))
-            val base = if (files.isEmpty()) 6 else 15 + (55 * files.size / expected)
-            tracker.bump(if (tracker.workerDone) maxOf(base, 72) else minOf(base, 70))
+            val key = tracker.lastTool + "|" + tracker.lastTarget
+            if (key != lastKey) { lastKey = key; if (tracker.polishing && tracker.lastTarget.isNotBlank()) tracker.polishOps++ }
+            tracker.bump(workPercent(dir, files, tracker))
             val timed = deadlineAt > 0
             val now = System.currentTimeMillis()
-            if (timed) { val total = budgetSec * 1000L; tracker.bump(minOf(((now - (deadlineAt - total)) * 100 / total).toInt(), 97)) }
             val current = latest?.name ?: tracker.lastTarget
             val lines = latest?.let { runCatching { it.readLines().size }.getOrDefault(0) } ?: 0
             val elapsed = ((System.currentTimeMillis() - startedAt) / 1000).toInt()
@@ -651,14 +697,14 @@ object WebBuildOrchestrator {
     }
 
     private suspend fun hostAndPreview(ctx: Context, dir: File, name: String) {
-        publish(ctx, 85, tr("Starting local server", "लोकल सर्वर चालू कर रहा हूँ", "লোকাল সার্ভার চালু করছি"), "", _status.value.filesWritten, 10)
+        publish(ctx, 92, tr("Starting local server", "लोकल सर्वर चालू कर रहा हूँ", "লোকাল সার্ভার চালু করছি"), "", _status.value.filesWritten, 10)
         val built = ToolRuntime.get(ctx)
         val serveDir = listOf("dist", "build").map { File(dir, it) }.firstOrNull { File(it, "index.html").isFile } ?: dir
         val url = try { built.servers.servers.start(name, serveDir, false).url } catch (e: Exception) {
             say(ctx, tr("I couldn't start the local server: ${e.message}", "लोकल सर्वर चालू नहीं हो सका: ${e.message}", "লোকাল সার্ভার চালু করা যায়নি: ${e.message}"))
             finish(ctx, false, "Server failed"); return
         }
-        publish(ctx, 95, tr("Opening preview", "प्रीव्यू खोल रहा हूँ", "প্রিভিউ খুলছি"), "", _status.value.filesWritten, 3)
+        publish(ctx, 97, tr("Opening preview", "प्रीव्यू खोल रहा हूँ", "প্রিভিউ খুলছি"), "", _status.value.filesWritten, 3)
         val uri = Uri.parse(url)
         val base = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val opened = if (previewOpened) true else (ActivityLauncherHelper.startActivitySafely(ctx, Intent(base).setPackage("com.android.chrome")) ||
@@ -712,6 +758,8 @@ object WebBuildOrchestrator {
             "Rules:\n" +
             "- Use the project name \"$name\". Create it with project_create (template static), then write EVERY file with the file tools (index.html, style.css, script.js, and any others needed). Write each file in full, no placeholders or TODOs.\n" +
             "- It must run offline in a plain browser: no build step, no external CDN dependencies.\n" +
+            "- Right after project_create, write a file named .plan inside the project folder (same path style as the other files). It has one line per file you will create, written as path|estimated number of lines, and nothing else. Jarvis uses it to show exact progress, so list every file and then write exactly those files.\n" +
+            "- Be fast: put the .plan and ALL the write_file calls in ONE response (parallel tool calls, .plan first) instead of one file per turn, and do not deliberate at length.\n" +
             "- When all files are written, run project_check on \"$name\" and fix every problem it reports.\n" +
             "- Do NOT start the preview or open a browser: Jarvis hosts and opens it automatically.\n" +
             "- Finish with a two-line summary of what you built."
@@ -760,7 +808,7 @@ object WebBuildOrchestrator {
             val sb = StringBuilder()
             withTimeoutOrNull(25_000L) {
                 ChatClientFactory.create(provider.protocol, ProviderRuntime.transport())
-                    .stream(ChatRequest(provider, system, listOf(ChatMessage(ChatRole.USER, prompt)), maxTokens = maxTokens))
+                    .stream(ChatRequest(provider, system, listOf(ChatMessage(ChatRole.USER, prompt)), maxTokens = maxTokens, thinking = Thinking.MINIMAL))
                     .collect { ev -> if (ev is ChatEvent.Delta) sb.append(ev.text) }
             }
             sb.toString().trim().ifBlank { null }

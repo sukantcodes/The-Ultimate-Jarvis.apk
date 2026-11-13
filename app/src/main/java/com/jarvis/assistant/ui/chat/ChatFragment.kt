@@ -596,7 +596,10 @@ class ChatFragment : Fragment() {
                 launch {
                     com.jarvis.assistant.background.WebBuildOrchestrator.status.collect { st ->
                         if (_binding == null) return@collect
-                        if (st.phase == com.jarvis.assistant.background.WebBuildOrchestrator.Phase.IDLE) return@collect
+                        if (st.phase == com.jarvis.assistant.background.WebBuildOrchestrator.Phase.IDLE) {
+                            if (!providerEngine.workProgress.value.isWorking) binding.layoutWorkProgress.visibility = View.GONE
+                            return@collect
+                        }
                         val eta = if (st.etaSec > 0) " · ~" + (if (st.etaSec < 60) "${st.etaSec}s" else "${(st.etaSec + 30) / 60}m") else ""
                         val file = if (st.currentFile.isNotBlank()) " · ${st.currentFile}" else ""
                         binding.tvChatStatus.text = "● ${st.stage.uppercase()} ${st.percent}%$file$eta"
@@ -609,6 +612,8 @@ class ChatFragment : Fragment() {
                     providerEngine.workProgress.collect { progress ->
                         if (_binding == null) return@collect
                         handleWorkProgress(progress)
+                        // During a supervised build the bar belongs to the build's exact progress, not the engine's own estimate.
+                        if (com.jarvis.assistant.background.WebBuildOrchestrator.isActive()) return@collect
                         if (progress.isWorking) {
                             binding.layoutWorkProgress.visibility = View.VISIBLE
                             binding.pbWorkProgress.progress = progress.percent
