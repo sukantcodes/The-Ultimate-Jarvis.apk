@@ -215,7 +215,7 @@ class GeminiToolLoop(private val transport: HttpTransport, backend: ToolBackend,
             if (withThinking) GeminiThinking.config(p.modelId, request.thinking)?.let { add("generationConfig", JsonObject().apply { add("thinkingConfig", it) }) }
         }
         val url = ProviderUrl.join(base, "${ProviderUrl.geminiModelName(p.modelId)}:generateContent")
-        fun send(withThinking: Boolean): HttpResponse {
+        suspend fun send(withThinking: Boolean): HttpResponse {
             val spec = prepare(HttpRequestSpec("POST", url, mapOf("Accept" to "application/json"), HttpBody.Text(JSON_TYPE, bodyJson(withThinking).toString()), 120_000L), p)
             return try { transport.execute(spec) } catch (e: TransportException) { throw ProviderException(ProviderErrors.fromTransport(e)) }
         }
