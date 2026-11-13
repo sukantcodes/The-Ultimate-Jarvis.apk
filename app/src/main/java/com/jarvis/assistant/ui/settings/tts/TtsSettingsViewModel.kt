@@ -97,10 +97,36 @@ class TtsSettingsViewModel(application: Application) : AndroidViewModel(applicat
                     SpeakerProfile.defaultFor(engine).also { _selectedSpeaker.value = it }
                 }
                 dispatcher.setActiveSpeaker(speakerToSet)
+                reportEngineHealth(engine)
                 try {
                     testVoiceValidation()
                 } catch (e: Exception) {
                     Log.w(TAG, "Test voice validation threw exception following deploy", e)
+                }
+            }
+        }
+    }
+
+    /**
+     * Starts the chosen offline voice and, if it cannot start, tells the user why instead of staying silent.
+     * Runs off the main thread because loading the model takes a moment.
+     */
+    private fun reportEngineHealth(engine: VoiceEngineType) {
+        if (!engine.isLocal) return
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+            val started = try {
+                dispatcher.sherpaEngine.initializeEngine(engine)
+            } catch (e: Throwable) {
+                false
+            }
+            if (!started) {
+                val reason = dispatcher.sherpaEngine.lastError ?: "unknown reason"
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        getApplication<Application>(),
+                        "Offline voice could not start: $reason",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         }
@@ -123,6 +149,7 @@ class TtsSettingsViewModel(application: Application) : AndroidViewModel(applicat
         dispatcher.setActiveEngineType(engine)
         dispatcher.setActiveSpeaker(speaker)
         dispatcher.setSpeechSpeed(_speechSpeed.value)
+        reportEngineHealth(engine)
         try {
             testVoiceValidation()
         } catch (e: Exception) {

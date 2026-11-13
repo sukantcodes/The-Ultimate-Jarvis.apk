@@ -108,6 +108,9 @@ class JarvisApp : Application() {
             try { com.jarvis.assistant.provider.ProviderRuntime.manager(this) } catch (_: Throwable) { }
         }, "provider-prewarm").start()
 
+        // Load the offline voice model in the background so Jarvis speaks without a first-reply delay.
+        com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(this).prewarm()
+
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             private var startedActivities = 0
             override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) {

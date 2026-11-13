@@ -15,33 +15,38 @@ import com.k2fsa.sherpa.onnx.OfflineTtsConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import kotlin.math.abs
-import kotlin.math.max
 
 /**
- * Production-grade local neural speech engine powered by Sherpa-ONNX.
+ * Local neural speech engine powered by Sherpa-ONNX.
  *
- * Implements:
- * 1. Zero flash wear: Directly pipes synthesized PCM FloatArray into memory-backed AudioTrack.
- * 2. Sub-50 ms start-to-speech latency without touching disk.
- * 3. Dynamic runtime switching between Kokoro-82M Multi-Lang and Piper VITS.
- * 4. High-frequency amplitude streaming to drive the HUD Holographic Waveform Visualizer.
- * 5. Lifecycle and native pointer safety with explicit mutex locks.
+ * - The reply is cut into sentences. Sentence N+1 is synthesised while sentence N is playing, so speech starts after
+ *   the first sentence is ready instead of after the whole reply.
+ * - Audio goes straight from memory into an AudioTrack (no files).
+ * - Switching between Kokoro-82M Multi-Lang and Piper VITS unloads the previous model first.
+ * - Amplitude is streamed to the HUD waveform visualizer.
+ * - The native model is only touched under [initLock], one sentence at a time, so stop and release stay safe.
+ * - When the model cannot start, [lastError] says why and [lastInitFailed] is true so callers can use another voice.
  */
 class SherpaTtsEngine(private val context: Context) {
 
     companion object {
         private const val TAG = "SherpaTtsEngine"
+        private const val SYNTH_THREADS = 4
     }
 
     private val engineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -52,53 +57,67 @@ class SherpaTtsEngine(private val context: Context) {
     @Volatile private var currentAudioTrack: AudioTrack? = null
     @Volatile private var isPlayingAudio: Boolean = false
 
+    /** Why the last attempt to start the model failed, in plain words; null when the last attempt worked. */
+    @Volatile var lastError: String? = null
+        private set
+
+    /** True when the last attempt to start the model failed. A later successful attempt clears it. */
+    @Volatile var lastInitFailed: Boolean = false
+        private set
+
     private var playbackJob: Job? = null
 
     /**
      * Initializes or switches the active local engine (Kokoro or Piper).
-     * Strictly enforces memory safety: checks available RAM and unloads previous engine first.
+     * Unloads the previous engine first, then checks free memory, so the check sees the memory that was just freed.
      */
     fun initializeEngine(engineType: VoiceEngineType): Boolean = synchronized(initLock) {
         if (!engineType.isLocal) return false
         if (offlineTts != null && currentEngineType == engineType) return true
 
-        // Strict 1 GB / Available RAM Guard: check system memory before native initialization
+        // Unload existing engine first to immediately release native heap allocations
+        releaseNativeTts()
+
         val actManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
         val memInfo = android.app.ActivityManager.MemoryInfo()
         actManager?.getMemoryInfo(memInfo)
         val availMemMb = memInfo.availMem / (1024L * 1024L)
 
-        // Unload existing engine first to immediately release native heap allocations
-        releaseNativeTts()
-
         if (memInfo.lowMemory || availMemMb < 150L) {
-            Log.w(TAG, "Critical memory constraint: only ${availMemMb}MB free RAM (lowMemory=${memInfo.lowMemory}). Aborting native allocation for ${engineType.displayName}.")
-            return false
+            return fail("Not enough free memory (${availMemMb} MB free). Close other apps and try again.")
         }
 
         val engineDir = TtsModelDownloader.resolveModelDir(context, engineType)
         if (engineDir == null || !TtsModelDownloader.isEngineInstalled(context, engineType)) {
-            Log.w(TAG, "Cannot initialize ${engineType.displayName}: Model files not installed")
-            return false
+            return fail("The ${engineType.displayName} files are missing or incomplete. Download the voice again.")
         }
 
         try {
             val ttsConfig = createConfigForEngine(engineType, engineDir)
             offlineTts = OfflineTts(null, ttsConfig)
             currentEngineType = engineType
-            Log.i(TAG, "Successfully initialized Sherpa-ONNX native core for ${engineType.displayName} (${availMemMb}MB RAM available)")
+            lastError = null
+            lastInitFailed = false
+            Log.i(TAG, "Initialized Sherpa-ONNX core for ${engineType.displayName} (${availMemMb}MB RAM available)")
             true
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to instantiate OfflineTts native core for ${engineType.displayName}", e)
             offlineTts = null
             currentEngineType = null
-            false
+            fail("The voice engine could not start (${e.javaClass.simpleName}${e.message?.let { ": " + it.take(100) } ?: ""}).")
         }
+    }
+
+    private fun fail(reason: String): Boolean {
+        Log.w(TAG, reason)
+        lastError = reason
+        lastInitFailed = true
+        return false
     }
 
     private fun createConfigForEngine(engineType: VoiceEngineType, dir: File): OfflineTtsConfig {
         val modelConfig = OfflineTtsModelConfig().apply {
-            numThreads = 2
+            numThreads = SYNTH_THREADS
             debug = false
             provider = "cpu"
         }
@@ -166,13 +185,13 @@ class SherpaTtsEngine(private val context: Context) {
     }
 
     /**
-     * Synthesizes and plays speech entirely in RAM using AudioTrack.
+     * Synthesizes and plays speech entirely in RAM, sentence by sentence.
      *
      * @param text Clean sanitized plain speech text.
      * @param speakerProfile Speaker profile defining sid and engine type.
      * @param speed Speech speed rate (1.0f normal).
      * @param onAmplitude Callback delivering normalized audio RMS amplitude (0.0f..1.0f) for HUD visualizer.
-     * @param onComplete Callback invoked upon speech completion or cancellation.
+     * @param onComplete Callback invoked once when speech completes. Not invoked when speech is stopped.
      */
     fun speak(
         text: String,
@@ -189,183 +208,188 @@ class SherpaTtsEngine(private val context: Context) {
         stop()
 
         playbackJob = engineScope.launch {
-            try {
-                // Ensure correct engine is initialized
-                if (currentEngineType != speakerProfile.engineType || offlineTts == null) {
-                    val ready = initializeEngine(speakerProfile.engineType)
-                    if (!ready || offlineTts == null) {
-                        Log.e(TAG, "Local neural engine could not be readied for synthesis; graceful fallback to system TTS")
-                        withContext(Dispatchers.Main) {
-                            com.jarvis.assistant.voice.JarvisVoiceController.speakSystemTts(context, text)
-                            onComplete?.invoke()
-                        }
-                        return@launch
-                    }
-                }
-
-                val tts = offlineTts ?: run {
-                    withContext(Dispatchers.Main) {
-                        com.jarvis.assistant.voice.JarvisVoiceController.speakSystemTts(context, text)
-                        onComplete?.invoke()
-                    }
-                    return@launch
-                }
-
-                // Sub-50 ms in-memory neural synthesis
-                val generatedAudio: GeneratedAudio = synchronized(initLock) {
-                    tts.generate(text, speakerProfile.speakerId, speed)
-                }
-
-                val samples: FloatArray = generatedAudio.samples
-                val sampleRate: Int = generatedAudio.sampleRate
-
-                if (samples.isEmpty()) {
-                    Log.w(TAG, "Generated audio waveform was empty; fallback to system TTS")
-                    withContext(Dispatchers.Main) {
-                        com.jarvis.assistant.voice.JarvisVoiceController.speakSystemTts(context, text)
-                        onComplete?.invoke()
-                    }
-                    return@launch
-                }
-
-                playPcmInMemory(samples, sampleRate, onAmplitude)
-            } catch (e: Exception) {
-                Log.e(TAG, "Synthesis or in-memory playback failed; graceful fallback to system TTS", e)
+            var completed = false
+            var spokeAnything = false
+            suspend fun fallBackToSystemVoice() {
                 withContext(Dispatchers.Main) {
                     com.jarvis.assistant.voice.JarvisVoiceController.speakSystemTts(context, text)
                 }
+            }
+            try {
+                val ready = (offlineTts != null && currentEngineType == speakerProfile.engineType) ||
+                    initializeEngine(speakerProfile.engineType)
+                val tts = offlineTts
+                if (!ready || tts == null) {
+                    Log.e(TAG, "Local neural engine could not be readied (${lastError}); falling back to the system voice")
+                    fallBackToSystemVoice()
+                    return@launch
+                }
+
+                val pieces = SpeechChunker.split(text)
+                spokeAnything = synthesizeAndPlay(tts, pieces, speakerProfile.speakerId, speed, onAmplitude)
+                if (!spokeAnything) {
+                    Log.w(TAG, "Generated audio waveform was empty; falling back to the system voice")
+                    fallBackToSystemVoice()
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                Log.e(TAG, "Synthesis or in-memory playback failed", e)
+                if (!spokeAnything) {
+                    try { fallBackToSystemVoice() } catch (_: Exception) {}
+                }
             } finally {
-                withContext(Dispatchers.Main) {
-                    onAmplitude?.invoke(0f)
-                    onComplete?.invoke()
+                if (isActive && !completed) {
+                    completed = true
+                    withContext(Dispatchers.Main) {
+                        onAmplitude?.invoke(0f)
+                        onComplete?.invoke()
+                    }
                 }
             }
         }
     }
 
     /**
-     * Streams raw PCM FloatArray converted to 16-bit PCM directly into AudioTrack with zero disk degradation.
-     * Guarantees 100% universal Android hardware DAC compatibility, full audio playback without cut-off,
-     * and real-time amplitude synchrony with HUD Holographic Visualizer.
+     * Synthesizes the pieces one after another on a producer coroutine and plays each as soon as it arrives.
+     * Returns true when at least one piece was played.
      */
-    private suspend fun playPcmInMemory(
-        samples: FloatArray,
-        sampleRate: Int,
+    private suspend fun synthesizeAndPlay(
+        tts: OfflineTts,
+        pieces: List<String>,
+        speakerId: Int,
+        speed: Float,
         onAmplitude: ((Float) -> Unit)?
-    ) = withContext(Dispatchers.IO) {
-        if (samples.isEmpty()) return@withContext
-
-        // Convert FloatArray [-1.0f, 1.0f] to ShortArray 16-bit PCM for universal hardware compatibility
-        val shortSamples = ShortArray(samples.size) { i ->
-            (samples[i].coerceIn(-1.0f, 1.0f) * 32767f).toInt().toShort()
-        }
-
-        // Check if device media volume is muted
-        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-        val currentVol = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 1
-        if (currentVol == 0) {
-            Log.w(TAG, "Device STREAM_MUSIC volume is currently 0 (muted)")
-            withContext(Dispatchers.Main) {
-                Toast.makeText(
-                    context,
-                    "Media volume is muted. Turn up volume to hear Jarvis.",
-                    Toast.LENGTH_SHORT
-                ).show()
+    ): Boolean = coroutineScope {
+        val ready = Channel<GeneratedAudio>(capacity = 2)
+        val producer = launch(Dispatchers.Default) {
+            try {
+                for (piece in pieces) {
+                    ensureActive()
+                    // One sentence at a time under the lock, so stop() and release() wait at most one sentence.
+                    val audio: GeneratedAudio = synchronized(initLock) {
+                        if (offlineTts !== tts) throw CancellationException("Voice engine was switched or released")
+                        tts.generate(piece, speakerId, speed)
+                    }
+                    if (audio.samples.isNotEmpty()) ready.send(audio)
+                }
+            } finally {
+                ready.close()
             }
         }
 
-        val audioAttributes = AudioAttributes.Builder()
+        var player: StreamPlayer? = null
+        var played = false
+        try {
+            withContext(Dispatchers.IO) {
+                for (audio in ready) {
+                    val current = player ?: StreamPlayer(audio.sampleRate).also { player = it }
+                    current.write(audio.samples, onAmplitude)
+                    played = true
+                }
+                player?.drain()
+            }
+        } finally {
+            producer.cancel()
+            player?.release()
+        }
+        played
+    }
+
+    /** One AudioTrack kept open for the whole reply; sentences are written into it back to back. */
+    private inner class StreamPlayer(private val sampleRate: Int) {
+        private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        private val audioAttributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
             .build()
+        private var focusRequest: android.media.AudioFocusRequest? = null
+        private var totalFrames = 0L
+        val track: AudioTrack
 
-        val audioFormat = AudioFormat.Builder()
-            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-            .setSampleRate(sampleRate)
-            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-            .build()
+        init {
+            val currentVol = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 1
+            if (currentVol == 0) {
+                Log.w(TAG, "Device STREAM_MUSIC volume is currently 0 (muted)")
+                engineScope.launch(Dispatchers.Main) {
+                    Toast.makeText(context, "Media volume is muted. Turn up volume to hear Jarvis.", Toast.LENGTH_SHORT).show()
+                }
+            }
 
-        val minBufferSize = AudioTrack.getMinBufferSize(
-            sampleRate,
-            AudioFormat.CHANNEL_OUT_MONO,
-            AudioFormat.ENCODING_PCM_16BIT
-        )
-
-        val bufferSize = maxOf(minBufferSize * 2, 8192)
-
-        val track = AudioTrack.Builder()
-            .setAudioAttributes(audioAttributes)
-            .setAudioFormat(audioFormat)
-            .setBufferSizeInBytes(bufferSize)
-            .setTransferMode(AudioTrack.MODE_STREAM)
-            .build()
-
-        currentAudioTrack = track
-        isPlayingAudio = true
-
-        var focusRequest: android.media.AudioFocusRequest? = null
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
-                .setAudioAttributes(audioAttributes)
-                .setAcceptsDelayedFocusGain(false)
-                .setOnAudioFocusChangeListener { /* Ducking handled by framework */ }
+            val audioFormat = AudioFormat.Builder()
+                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                .setSampleRate(sampleRate)
+                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                 .build()
-            audioManager?.requestAudioFocus(focusRequest)
-        } else {
-            @Suppress("DEPRECATION")
-            audioManager?.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            val minBufferSize = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
+            track = AudioTrack.Builder()
+                .setAudioAttributes(audioAttributes)
+                .setAudioFormat(audioFormat)
+                .setBufferSizeInBytes(maxOf(minBufferSize * 2, 8192))
+                .setTransferMode(AudioTrack.MODE_STREAM)
+                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
+                .build()
+
+            currentAudioTrack = track
+            isPlayingAudio = true
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val request = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                    .setAudioAttributes(audioAttributes)
+                    .setAcceptsDelayedFocusGain(false)
+                    .setOnAudioFocusChangeListener { /* Ducking handled by framework */ }
+                    .build()
+                focusRequest = request
+                audioManager?.requestAudioFocus(request)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager?.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            }
+            track.play()
         }
 
-        try {
-            track.play()
+        private suspend fun stillPlaying(): Boolean = currentCoroutineContext().isActive && isPlayingAudio
 
-            // Stream chunks while computing real-time RMS for the holographic visualizer
+        suspend fun write(samples: FloatArray, onAmplitude: ((Float) -> Unit)?) {
+            val shortSamples = ShortArray(samples.size) { i ->
+                (samples[i].coerceIn(-1.0f, 1.0f) * 32767f).toInt().toShort()
+            }
             val chunkSize = 1024
             var offset = 0
-            val total = shortSamples.size
-
-            while (offset < total && isActive && isPlayingAudio) {
-                val count = minOf(chunkSize, total - offset)
+            while (offset < shortSamples.size && stillPlaying()) {
+                val count = minOf(chunkSize, shortSamples.size - offset)
                 val written = track.write(shortSamples, offset, count, AudioTrack.WRITE_BLOCKING)
                 if (written < 0) {
                     Log.e(TAG, "AudioTrack write failed: $written")
                     break
                 }
-
-                // Compute peak/RMS amplitude for this chunk
                 var sumSq = 0.0f
                 for (i in offset until (offset + count)) {
-                    val s = samples[i]
-                    sumSq += s * s
+                    val v = samples[i]
+                    sumSq += v * v
                 }
                 val rms = kotlin.math.sqrt(sumSq / count).coerceIn(0f, 1f)
                 val visualAmplitude = (rms * 2.8f).coerceIn(0f, 1f)
-
-                onAmplitude?.let { cb ->
-                    withContext(Dispatchers.Main) {
-                        cb(visualAmplitude)
-                    }
-                }
-
+                onAmplitude?.let { cb -> withContext(Dispatchers.Main) { cb(visualAmplitude) } }
                 offset += count
             }
+            totalFrames += shortSamples.size
+        }
 
-            // Await full audio completion by verifying playback head position
-            val totalFrames = shortSamples.size
-            val estimatedDurationMs = ((totalFrames.toDouble() / sampleRate) * 1000).toLong()
-            val maxWaitDeadlineMs = System.currentTimeMillis() + estimatedDurationMs + 1500L
-
-            while (isActive && isPlayingAudio && System.currentTimeMillis() < maxWaitDeadlineMs) {
-                if (track.playbackHeadPosition >= totalFrames) {
-                    break
-                }
+        /** Waits until everything written has actually been played. */
+        suspend fun drain() {
+            val head = try { track.playbackHeadPosition.toLong() } catch (_: Exception) { 0L }
+            val remainingMs = (((totalFrames - head).coerceAtLeast(0L)).toDouble() / sampleRate * 1000).toLong()
+            val deadline = System.currentTimeMillis() + remainingMs + 1500L
+            while (stillPlaying() && System.currentTimeMillis() < deadline) {
+                if (track.playbackHeadPosition.toLong() >= totalFrames) break
                 delay(25)
             }
-        } finally {
+        }
+
+        fun release() {
             try {
-                if (track.playState == AudioTrack.PLAYSTATE_PLAYING) {
-                    track.stop()
-                }
+                if (track.playState == AudioTrack.PLAYSTATE_PLAYING) track.stop()
                 track.release()
             } catch (_: Exception) {}
             if (currentAudioTrack == track) {

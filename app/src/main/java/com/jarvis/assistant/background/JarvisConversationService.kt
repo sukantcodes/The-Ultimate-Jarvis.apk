@@ -1185,8 +1185,7 @@ class JarvisConversationService : Service() {
                             // If an offline neural voice model (Kokoro/Piper) is installed & active,
                             // suppress Gemini server audio bytes so Kokoro can synthesize the clean speech
                             val voiceDisp = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(applicationContext)
-                            val activeEng = voiceDisp.getActiveEngineType()
-                            if (activeEng.isLocal && com.jarvis.assistant.tts.engine.TtsModelDownloader.isEngineInstalled(applicationContext, activeEng)) {
+                            if (voiceDisp.isOfflineVoiceUsable()) {
                                 return
                             }
                             // Silent execution applies to task narration, while leaving ordinary
@@ -1406,8 +1405,7 @@ class JarvisConversationService : Service() {
                             audioChunksReceivedInTurn = 0
 
                             val voiceDisp = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(applicationContext)
-                            val activeEng = voiceDisp.getActiveEngineType()
-                            val offlineTtsActive = activeEng.isLocal && com.jarvis.assistant.tts.engine.TtsModelDownloader.isEngineInstalled(applicationContext, activeEng)
+                            val offlineTtsActive = voiceDisp.isOfflineVoiceUsable()
                             if (offlineTtsActive && !textChatTurnActive && assistantTurnText.isNotBlank() && !preferences.isSilentExecutionMode) {
                                 setConversationState(ConversationState.SPEAKING)
                                 voiceDisp.speak(assistantTurnText) {
@@ -4976,8 +4974,7 @@ class JarvisConversationService : Service() {
      */
     fun speakAnnouncement(text: String) {
         val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(applicationContext)
-        val activeEngine = dispatcher.getActiveEngineType()
-        val isOfflineTtsActive = activeEngine.isLocal && com.jarvis.assistant.tts.engine.TtsModelDownloader.isEngineInstalled(applicationContext, activeEngine)
+        val isOfflineTtsActive = dispatcher.isOfflineVoiceUsable()
 
         if (isOfflineTtsActive) {
             dispatcher.speak(text)

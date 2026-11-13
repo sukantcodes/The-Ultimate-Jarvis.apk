@@ -78,6 +78,32 @@ class JarvisVoiceDispatcher private constructor(private val context: Context) {
         return VoiceEngineType.NONE
     }
 
+    /**
+     * Loads the active offline voice in the background so the first sentence of the first reply is not delayed by
+     * model loading. Safe to call at any time; does nothing when no offline voice is active.
+     */
+    fun prewarm() {
+        scope.launch {
+            try {
+                val engine = getActiveEngineType()
+                if (engine.isLocal && TtsModelDownloader.isEngineInstalled(context, engine)) {
+                    sherpaEngine.initializeEngine(engine)
+                }
+            } catch (e: Throwable) {
+                Log.w(TAG, "Offline voice prewarm skipped", e)
+            }
+        }
+    }
+
+    /**
+     * True when an offline voice is installed, active, and has not failed to start. While it is false, other
+     * voices (Gemini's own audio, then the phone's voice) must stay available so Jarvis is never silent.
+     */
+    fun isOfflineVoiceUsable(): Boolean {
+        val engine = getActiveEngineType()
+        return engine.isLocal && TtsModelDownloader.isEngineInstalled(context, engine) && !sherpaEngine.lastInitFailed
+    }
+
     fun setActiveEngineType(engineType: VoiceEngineType) {
         prefs.edit().putString(KEY_ACTIVE_ENGINE, engineType.id).apply()
         if (engineType.isLocal && TtsModelDownloader.isEngineInstalled(context, engineType)) {

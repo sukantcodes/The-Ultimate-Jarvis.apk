@@ -172,6 +172,8 @@ class TtsModelDownloader(private val context: Context) {
         val cacheDir = context.cacheDir
         val tempArchiveFile = File(cacheDir, "${engineType.archiveName}_${System.currentTimeMillis()}.download.tmp")
         val targetExtractDir = getEngineDir(context, engineType)
+        // The working install is moved here while the new one is put in place, and restored if anything fails.
+        val previousInstallDir = File(targetExtractDir.parentFile, targetExtractDir.name + ".previous")
 
         try {
             _downloadState.value = DownloadState.Downloading(0, 0L, 0L)
@@ -245,8 +247,11 @@ class TtsModelDownloader(private val context: Context) {
                     throw IOException("Model integrity validation failed: extracted weights for ${engineType.displayName} are corrupt or incomplete.")
                 }
 
+                if (previousInstallDir.exists()) previousInstallDir.deleteRecursively()
                 if (targetExtractDir.exists()) {
-                    targetExtractDir.deleteRecursively()
+                    if (!targetExtractDir.renameTo(previousInstallDir)) {
+                        targetExtractDir.deleteRecursively()
+                    }
                 }
                 if (!tempExtractDir.renameTo(targetExtractDir)) {
                     tempExtractDir.copyRecursively(targetExtractDir, overwrite = true)
@@ -258,6 +263,7 @@ class TtsModelDownloader(private val context: Context) {
                 }
             }
 
+            if (previousInstallDir.exists()) previousInstallDir.deleteRecursively()
             notifyEnginesChanged(context)
 
             Log.i(TAG, "Extraction completed successfully into ${targetExtractDir.absolutePath}")
@@ -268,7 +274,11 @@ class TtsModelDownloader(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Download or extraction failed for ${engineType.displayName}", e)
             _downloadState.value = DownloadState.Error("Installation failed: ${e.message}", e)
-            if (targetExtractDir.exists()) {
+            if (previousInstallDir.exists()) {
+                // Put the working install back; a failed download must not remove it.
+                if (targetExtractDir.exists()) targetExtractDir.deleteRecursively()
+                previousInstallDir.renameTo(targetExtractDir)
+            } else if (targetExtractDir.exists() && !isEngineInstalled(context, engineType)) {
                 targetExtractDir.deleteRecursively()
             }
             notifyEnginesChanged(context)
