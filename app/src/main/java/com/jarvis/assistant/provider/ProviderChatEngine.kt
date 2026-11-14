@@ -271,6 +271,31 @@ class ProviderChatEngine(
                                     partial.append(res.text)
                                 }
                                 res.stoppedEarly?.let { partial.append("\n\n").append(it) }
+
+                                val hasHtmlOutput = executedBlocks.keys.any { it.endsWith(".html", ignoreCase = true) } ||
+                                        executedBlocks.values.any { it.contains("<!DOCTYPE html", ignoreCase = true) || it.contains("<html", ignoreCase = true) }
+                                if (hasHtmlOutput) {
+                                    try {
+                                        val app = com.jarvis.assistant.JarvisApp.instance
+                                        val runtime = com.jarvis.assistant.tools.ToolRuntime.get(app)
+                                        val wsRoot = runtime.workspace.root
+                                        val htmlFile = wsRoot.walkTopDown().firstOrNull { it.name.equals("index.html", ignoreCase = true) }
+                                            ?: wsRoot.walkTopDown().firstOrNull { it.name.endsWith(".html", ignoreCase = true) }
+                                        if (htmlFile != null) {
+                                            val serveDir = htmlFile.parentFile ?: wsRoot
+                                            val server = runtime.servers.servers.start(serveDir.name.ifBlank { "preview" }, serveDir, false)
+                                            val url = server.url
+                                            val uri = android.net.Uri.parse(url)
+                                            val base = android.content.Intent(android.content.Intent.ACTION_VIEW, uri).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            val opened = com.jarvis.assistant.util.ActivityLauncherHelper.startActivitySafely(app, android.content.Intent(base).setPackage("com.android.chrome")) ||
+                                                com.jarvis.assistant.util.ActivityLauncherHelper.startActivitySafely(app, base)
+                                            partial.append("\n\n✅ Preview live at $url (hosted on localhost" + (if (opened) " and opened in Chrome browser" else "") + ")")
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("ProviderChatEngine", "Auto-hosting preview failed", e)
+                                    }
+                                }
+
                                 lease?.let { pool?.reportSuccess(it.keyId) }
                                 _workProgress.value = LiveWorkProgress(isWorking = false, percent = 100, actionText = "Done")
                                 break

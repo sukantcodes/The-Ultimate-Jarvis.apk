@@ -253,9 +253,21 @@ object WebBuildOrchestrator {
             Phase.ASK_TIME -> onTimeReply(ctx, text)
             Phase.AWAIT_ACK -> if (isAck(text)) { say(ctx, tr("Alright, Sir. I'm here whenever you need me.", "ठीक है सर, मैं यहीं हूँ।", "ঠিক আছে স্যার, আমি এখানেই আছি।")); finish(ctx, true, "Acknowledged") }
                 else { finish(ctx, true, "Next request"); start(ctx, text, completion) }
-            Phase.BUILDING -> say(ctx, tr("I'm still building the current project. Say cancel if you want me to stop it.",
-                "मैं अभी मौजूदा प्रोजेक्ट बना रहा हूँ। रोकना हो तो बोलिए कैंसिल।",
-                "আমি এখনও বর্তমান প্রজেক্ট বানাচ্ছি। থামাতে চাইলে বলুন বাতিল।"))
+            Phase.BUILDING -> {
+                if (isCancel(text)) {
+                    say(ctx, tr("Stopping the build as requested, Sir.", "बिल्ड रोक रहा हूँ, सर।", "বিল্ড থামাচ্ছি, স্যার।"))
+                    finish(ctx, false, "Cancelled by user")
+                } else {
+                    val file = _status.value.currentFile.ifBlank { "project files" }
+                    val pct = _status.value.percent
+                    val updateMsg = tr(
+                        "Custom model is currently working on $file ($pct% complete). Everything is progressing smoothly, Sir.",
+                        "कस्टम मॉडल अभी $file पर काम कर रहा है ($pct% पूरा)। सब कुछ ठीक से आगे बढ़ रहा है, सर।",
+                        "কাস্টম মডেল বর্তমানে $file-এ কাজ করছে ($pct% সম্পন্ন)। সবকিছু ঠিকমতো এগোচ্ছে, স্যার।"
+                    )
+                    say(ctx, updateMsg)
+                }
+            }
         }
         return true
     }
@@ -355,20 +367,11 @@ object WebBuildOrchestrator {
         askQualityAndTimeOrBegin(ctx)
     }
 
-    /** Before any work starts, ask for Quality and Time together in one crisp question, unless already specified. */
+    /** ChatBox & Autonomous builds enforce zero time limits and proceed straight to high-detail build. */
     private fun askQualityAndTimeOrBegin(ctx: Context) {
-        val hasQuality = quality
-        val hasTime = budgetSec > 0
-        if (hasQuality && hasTime) { beginBuild(ctx); return }
-        setPhase(Phase.ASK_TIME, tr("Waiting for quality and time limit", "क्वालिटी और समय सीमा का इंतज़ार", "কোয়ালিটি ও সময়সীমার অপেক্ষা"))
-        val prompt = MultilingualCommandHelper.getLocalizedAskQualityAndTime(lang).ifBlank {
-            tr(
-                "What quality and time duration would you like? For example: High detail in 5 minutes, or Standard in 2 minutes.",
-                "बिल्ड के लिए क्वालिटी और समय कितना चाहिए? जैसे हाई डिटेल 5 मिनट में, या स्टैंडर्ड 2 मिनट में।",
-                "কেমন কোয়ালিটি ও সময় চান? যেমন ৫ মিনিটে হাই ডিটেইল, অথবা ২ মিনিটে স্ট্যান্ডার্ড।"
-            )
-        }
-        say(ctx, prompt)
+        quality = true
+        budgetSec = 0 // Zero time limit, builds run until fully complete
+        beginBuild(ctx)
     }
 
     private fun onTimeReply(ctx: Context, text: String) {

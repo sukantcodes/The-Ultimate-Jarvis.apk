@@ -246,6 +246,12 @@ class JarvisVoiceDispatcher private constructor(private val context: Context) {
         }
 
         val hasGemini = (context.applicationContext as? JarvisApp)?.preferences?.apiKey?.trim()?.isNotEmpty() == true
+        if (hasGemini && speaker.engineType != VoiceEngineType.CLOUD_ELEVENLABS) {
+            Log.i(TAG, "Direct Gemini Key configured. Using Gemini Cloud Voice.")
+            cloudEngine.speak(cleanSpeech, SpeakerProfile.defaultFor(VoiceEngineType.CLOUD_GEMINI), amplitudeCallback, completionCallback)
+            return
+        }
+
         when (speaker.engineType) {
             VoiceEngineType.LOCAL_KOKORO, VoiceEngineType.LOCAL_PIPER -> {
                 if (TtsModelDownloader.isEngineInstalled(context, speaker.engineType)) {

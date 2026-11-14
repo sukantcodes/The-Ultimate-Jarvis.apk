@@ -99,6 +99,7 @@ class JarvisConversationService : Service() {
         /** Starts the session for typed ChatBox messages only: the microphone is NOT opened until the user asks for voice. */
         const val ACTION_START_TEXT_CHAT = "com.jarvis.assistant.START_TEXT_CHAT"
         const val ACTION_ENTER_STANDBY = "com.jarvis.assistant.ENTER_STANDBY"
+        const val EXTRA_VOICE_PROMPT = "com.jarvis.assistant.EXTRA_VOICE_PROMPT"
 
         private const val CHANNEL_ID = "jarvis_conversation"
         private const val NOTIFICATION_ID = 41
@@ -857,8 +858,18 @@ class JarvisConversationService : Service() {
         when (intent?.action) {
             ACTION_START_CONVERSATION -> {
                 textOnlySession = false
+                val prompt = intent?.getStringExtra(EXTRA_VOICE_PROMPT)?.trim().orEmpty()
+                if (prompt.isNotBlank()) {
+                    wakeAuthorizationArmed = false
+                    currentTurnWakeAuthorized = true
+                    pendingAuthorizedVoiceUserText = prompt
+                    pendingAuthorizedVoicePrompt = prompt
+                }
                 com.jarvis.assistant.audio.JarvisSoundEffects.playWakeSound()
-                beginActiveConversation()
+                beginActiveConversation(wakeTriggered = true)
+                if (prompt.isNotBlank()) {
+                    dispatchPendingAuthorizedVoiceCommand()
+                }
             }
             ACTION_START_TEXT_CHAT -> {
                 textOnlySession = true
@@ -1196,11 +1207,12 @@ class JarvisConversationService : Service() {
                                 if (audioPlayer?.isPlaying() == true) audioPlayer?.flush()
                                 return
                             }
-                            // If an offline neural voice model (Kokoro/Piper) is installed & active,
-                            // suppress Gemini server audio bytes so Kokoro can synthesize the clean speech.
-                            // Cached: checking the model files for every audio chunk made playback stutter.
-                            if (offlineVoiceUsableCached()) {
+                            // If user has configured a direct Gemini key, stream authentic Gemini Live audio directly.
+                            // Never suppress it for offline TTS or device TTS!
+                            val hasDirectGeminiKey = preferences.apiKey.trim().isNotBlank()
+                            if (!hasDirectGeminiKey && offlineVoiceUsableCached()) {
                                 return
+                            }
                             }
                             // Silent execution applies to task narration, while leaving ordinary
                             // conversation audible. Read the preference dynamically so toggling
@@ -1781,34 +1793,36 @@ class JarvisConversationService : Service() {
 
                 if (isSpeakerActive) {
                     val hasHeadset = headsetAudioRouter?.isHeadsetConnected() == true
-                    // Voice barge-in works on both headset and phone speaker.
-                    // Loudspeaker uses a higher amplitude threshold to reduce false triggers from audio leakage.
-                    val interruptThreshold = if (hasHeadset) 0.22f else maxOf(0.36f, ambientNoiseFloor * 3.2f)
-                    if (amplitude > interruptThreshold) {
-                        consecutiveVoicedFrames++
-                        val requiredFrames = if (hasHeadset) 3 else 6
-                        if (consecutiveVoicedFrames >= requiredFrames) {
-                            Log.i("JarvisService", "Voice barge-in: user spoke over assistant (headset=$hasHeadset, amp=$amplitude)")
-                            audioPlayer?.flush()
-                            try { tts?.stop() } catch (_: Exception) {}
-                            consecutiveVoicedFrames = 0
-                            setConversationState(ConversationState.LISTENING)
-                            lastUserSpeechDetectedTime = now
-                            hasSpeechInCurrentUtterance = true
-                            hasSignalledUtteranceEnd = false
-                            currentTurnUserText.clear()
-                            currentTurnAssistantText.clear()
-                            _liveUserTranscript.value = ""
-                            _liveAssistantResponse.value = ""
-                            hasExecutedCommandInCurrentTurn = false
-                            totalVoicedFramesInCurrentUtterance = requiredFrames
-                            synchronized(currentUtteranceAudioStream) {
-                                currentUtteranceAudioStream.reset()
-                                currentUtteranceAudioStream.write(chunk)
+                    // Voice barge-in works reliably on headset where speaker audio doesn't leak into mic.
+                    // On loudspeaker, pure amplitude trigger causes acoustic self-interruption from phone's own speaker.
+                    if (hasHeadset) {
+                        val interruptThreshold = 0.22f
+                        if (amplitude > interruptThreshold) {
+                            consecutiveVoicedFrames++
+                            val requiredFrames = 3
+                            if (consecutiveVoicedFrames >= requiredFrames) {
+                                Log.i("JarvisService", "Voice barge-in: user spoke over assistant (headset=true, amp=$amplitude)")
+                                audioPlayer?.flush()
+                                try { tts?.stop() } catch (_: Exception) {}
+                                consecutiveVoicedFrames = 0
+                                setConversationState(ConversationState.LISTENING)
+                                lastUserSpeechDetectedTime = now
+                                hasSpeechInCurrentUtterance = true
+                                hasSignalledUtteranceEnd = false
+                                currentTurnUserText.clear()
+                                currentTurnAssistantText.clear()
+                                _liveUserTranscript.value = ""
+                                _liveAssistantResponse.value = ""
+                                hasExecutedCommandInCurrentTurn = false
+                                totalVoicedFramesInCurrentUtterance = requiredFrames
+                                synchronized(currentUtteranceAudioStream) {
+                                    currentUtteranceAudioStream.reset()
+                                    currentUtteranceAudioStream.write(chunk)
+                                }
+                                isCurrentTurnOwnerVoiceVerified = true
+                                strictOwnerMatchedThisTurn = false
+                                return@AudioRecorder
                             }
-                            isCurrentTurnOwnerVoiceVerified = true
-                            strictOwnerMatchedThisTurn = false
-                            return@AudioRecorder
                         }
                     } else {
                         consecutiveVoicedFrames = 0
@@ -5667,8 +5681,10 @@ class JarvisConversationService : Service() {
     private val voiceModeStore by lazy { com.jarvis.assistant.security.VoiceModeStore(applicationContext) }
 
     /** True when only the enrolled owner's voice should be accepted (needs a voice profile and the Owner Voice Only switch on). */
-    private fun ownerVoiceGateOn(): Boolean =
-        preferences.isOwnerVoiceEnabled && preferences.hasOwnerVoiceProfile() && voiceModeStore.ownerOnly
+    private fun ownerVoiceGateOn(): Boolean {
+        if (preferences.apiKey.trim().isNotBlank()) return false
+        return preferences.isOwnerVoiceEnabled && preferences.hasOwnerVoiceProfile() && voiceModeStore.ownerOnly
+    }
 
     @Volatile private var phoneStatePermissionAsked = false
 

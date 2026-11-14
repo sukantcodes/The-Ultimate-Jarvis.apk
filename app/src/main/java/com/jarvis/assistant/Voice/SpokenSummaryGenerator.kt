@@ -55,7 +55,7 @@ object SpokenSummaryGenerator {
             }
         }
 
-        // Clean conversational text for short executive speech
+        // Clean conversational text for spoken speech
         val cleaned = text
             .replace(CODE_FENCE_REGEX, " ")
             .replace(URL_REGEX, " ")
@@ -68,29 +68,7 @@ object SpokenSummaryGenerator {
             return "I've completed your task and prepared the workspace."
         }
 
-        // Extract first 1 or 2 clean sentences
-        val sentences = cleaned.split(Regex("(?<=[.!?])\\s+"))
-            .map { it.trim() }
-            .filter { it.isNotBlank() && !it.startsWith("$") && !it.startsWith("-") && !it.startsWith("*") }
-
-        if (sentences.isNotEmpty()) {
-            val first = sentences[0]
-            val words = first.split(Regex("\\s+"))
-            if (words.size <= 25 && sentences.size > 1) {
-                val second = sentences[1]
-                val combined = "$first $second"
-                val combinedWords = combined.split(Regex("\\s+"))
-                if (combinedWords.size <= 32) {
-                    return combined
-                }
-            }
-            if (words.size <= 30) {
-                return first
-            }
-            // If the sentence is excessively long, truncate politely
-            return words.take(25).joinToString(" ") + "."
-        }
-
-        return "I've answered your question and updated the chat, Sir."
+        // Deliver the complete answer without cutting off or truncating mid-sentence
+        return cleaned
     }
 }

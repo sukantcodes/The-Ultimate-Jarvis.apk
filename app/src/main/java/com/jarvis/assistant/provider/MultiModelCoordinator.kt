@@ -87,7 +87,7 @@ object MultiModelCoordinator {
                 if (caps.hasCustom) EngineTarget.CUSTOM else EngineTarget.GEMINI
             }
             else -> {
-                if (caps.hasCustom) EngineTarget.CUSTOM else if (caps.hasGemini) EngineTarget.GEMINI else EngineTarget.OFFLINE
+                if (caps.hasGemini) EngineTarget.GEMINI else if (caps.hasCustom) EngineTarget.CUSTOM else EngineTarget.OFFLINE
             }
         }
     }

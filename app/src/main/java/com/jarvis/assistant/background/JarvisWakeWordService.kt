@@ -439,7 +439,8 @@ class JarvisWakeWordService : Service() {
         }
 
         val prefs = com.jarvis.assistant.JarvisApp.instance.preferences
-        if (prefs.isOwnerVoiceEnabled && prefs.hasOwnerVoiceProfile()) {
+        val hasDirectGeminiKey = prefs.apiKey.trim().isNotBlank()
+        if (!hasDirectGeminiKey && prefs.isOwnerVoiceEnabled && prefs.hasOwnerVoiceProfile()) {
             val audioBytes = synchronized(audioBufferLock) { recentAudioBuffer.toByteArray() }
             val match = com.jarvis.assistant.audio.OwnerVoiceManager.verifyOwnerForWakeWord(audioBytes, prefs)
             if (!match.isMatch) {
@@ -507,9 +508,10 @@ class JarvisWakeWordService : Service() {
             return
         }
 
-        // Conversational voice command: activate live voice session instead of dumping into text ChatBox
+        // Conversational voice command: activate live voice session and deliver the spoken prompt directly to Gemini
         val intent = Intent(this, JarvisConversationService::class.java).apply {
             action = JarvisConversationService.ACTION_START_CONVERSATION
+            putExtra(JarvisConversationService.EXTRA_VOICE_PROMPT, command)
         }
         startService(intent)
         scheduleRestart(RESTART_DELAY_AFTER_COMMAND_MS) { startWakeWordListening() }
