@@ -373,12 +373,12 @@ object ProjectCodeAnalyzer {
 
         return when {
             isHi -> {
-                "Sir, aapki nayi website '$topic' ka jaadu dekhiye, " +
-                "Design hai shaandar aur features anokhe paaiye! " +
-                "Code mein $compStr sajaya hai bemisaal, " +
-                "$styleStr ke sang $animStrHi animations lag rahe kamaal. " +
-                "Logic layer mein $mechStrHi ka fast flow hai, " +
-                "Localhost par preview ab live hai aur roop iska shaan se dhal raha!"
+                "Sir, aapka '$topic' ${a.projectType} local server par live chal raha hai aur preview open ho gaya, " +
+                "Design hai bemisaal aur features ka naya rang khil gaya! " +
+                "Code mein $compStr sajaya hai shaan se, " +
+                "$styleStr ke sang $animStrHi animations chamak rahe armaan se. " +
+                "Logic layer mein $mechStrHi ka anokha flow hai, " +
+                "Aapki website local server par live chamak rahi aur iska har ek feature super-fast chal raha!"
             }
             isBn -> {
                 "স্যার, আপনার '$topic' ${a.projectType} লোকাল সার্ভারে চালু হয়েছে এবং প্রিভিউ ওপেন করা হয়েছে। " +
