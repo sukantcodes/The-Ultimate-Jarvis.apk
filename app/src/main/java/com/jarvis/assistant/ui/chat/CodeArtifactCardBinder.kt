@@ -36,6 +36,10 @@ object CodeArtifactCardBinder {
         isWriting: Boolean
     ) {
         val context = binding.root.context
+        // The code window takes half of the screen width; the header is compact so every option stays visible.
+        val halfWidthPx = (context.resources.displayMetrics.widthPixels * 0.5f).toInt()
+            .coerceAtLeast((200f * context.resources.displayMetrics.density).toInt())
+        binding.root.layoutParams = (binding.root.layoutParams ?: android.view.ViewGroup.MarginLayoutParams(halfWidthPx, android.view.ViewGroup.LayoutParams.WRAP_CONTENT)).also { it.width = halfWidthPx }
         val hasTarget = language.contains(':')
         val baseLang = if (hasTarget) language.substringBefore(':').trim() else language.trim()
         val targetName = if (hasTarget) language.substringAfter(':').trim() else ""
@@ -106,8 +110,8 @@ object CodeArtifactCardBinder {
         // Lines are cut to what fits so every code line stays one row and the window never grows.
         val density = res.displayMetrics.density
         val charW = binding.tvPreviewCode.paint.measureText("M").coerceAtLeast(1f)
-        val columnPx = minOf(res.displayMetrics.widthPixels.toFloat(), 780f * density)
-        val maxChars = ((columnPx - 96f * density) / charW).toInt().coerceIn(20, 140)
+        val columnPx = halfWidthPx.toFloat()
+        val maxChars = ((columnPx - 64f * density) / charW).toInt().coerceIn(12, 140)
         fun cut(l: String) = if (l.length > maxChars) l.take(maxChars - 1) + "…" else l
 
         fun render(from: Int, end: Int, cursor: Boolean) {
@@ -120,7 +124,8 @@ object CodeArtifactCardBinder {
 
         fun updateToggleText() {
             val isVisible = binding.layoutMiniTerminal.visibility == View.VISIBLE
-            binding.tvToggleTagText.text = if (isVisible) "▲ Hide $tagPrefix" else "▼ $tagPrefix Window"
+            binding.tvToggleTagText.text = if (isVisible) "▲" else "▼"
+            binding.btnToggleMiniTerminal.contentDescription = if (isVisible) "Hide the $tagPrefix window" else "Show the $tagPrefix window"
         }
 
         binding.btnToggleMiniTerminal.setOnClickListener {

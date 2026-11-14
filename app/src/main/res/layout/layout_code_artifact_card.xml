@@ -16,8 +16,8 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:background="@drawable/bg_code_header"
-        android:paddingStart="10dp"
-        android:paddingEnd="8dp">
+        android:paddingStart="8dp"
+        android:paddingEnd="4dp">
 
         <!-- Claude-style reactive animated icon frame -->
         <FrameLayout
@@ -39,34 +39,35 @@
 
         <TextView
             android:id="@+id/tvCardLanguage"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:maxLines="1"
+            android:ellipsize="end"
             android:text="CODE"
             android:textColor="#E0E6ED"
             android:textSize="11sp"
             android:textStyle="bold"
-            android:letterSpacing="0.08"
+            android:letterSpacing="0.04"
             android:fontFamily="sans-serif-medium" />
 
         <TextView
             android:id="@+id/tvWritingStatus"
             android:layout_width="wrap_content"
             android:layout_height="22dp"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="4dp"
+            android:maxWidth="56dp"
+            android:maxLines="1"
+            android:ellipsize="end"
             android:gravity="center"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
             android:background="@drawable/bg_code_writing_badge"
             android:text="✦ Writing code…"
             android:textColor="#64B5F6"
             android:textSize="10sp"
             android:textStyle="bold"
             android:visibility="gone" />
-
-        <View
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="1" />
 
         <!-- Down arrow / Tag toggle button -->
         <LinearLayout
@@ -76,9 +77,11 @@
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:background="@drawable/bg_auto_approve_chip"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:layout_marginEnd="4dp"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:layout_marginStart="2dp"
+            android:layout_marginEnd="2dp"
+            android:contentDescription="Show or hide the code window"
             android:clickable="true"
             android:focusable="true">
 
@@ -86,7 +89,7 @@
                 android:id="@+id/tvToggleTagText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="▼ Code Window"
+                android:text="▼"
                 android:textColor="#80D8FF"
                 android:textSize="10sp"
                 android:textStyle="bold" />
@@ -94,9 +97,9 @@
 
         <ImageView
             android:id="@+id/btnCardCopy"
-            android:layout_width="32dp"
+            android:layout_width="30dp"
             android:layout_height="32dp"
-            android:padding="7dp"
+            android:padding="6dp"
             android:src="@drawable/ic_cc_copy"
             app:tint="#90A4AE"
             android:background="?attr/selectableItemBackgroundBorderless"
@@ -106,14 +109,14 @@
 
         <TextView
             android:id="@+id/btnCardExpand"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Open ↗"
+            android:layout_width="30dp"
+            android:layout_height="32dp"
+            android:gravity="center"
+            android:text="↗"
             android:textColor="#64B5F6"
-            android:textSize="11sp"
+            android:textSize="15sp"
             android:textStyle="bold"
-            android:paddingStart="6dp"
-            android:paddingEnd="6dp"
+            android:contentDescription="Open fullscreen viewer"
             android:clickable="true"
             android:focusable="true" />
     </LinearLayout>

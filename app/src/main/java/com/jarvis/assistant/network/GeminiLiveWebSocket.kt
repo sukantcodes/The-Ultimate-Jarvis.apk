@@ -656,7 +656,7 @@ open class GeminiLiveWebSocket(
                         // 14c2. send_to_chatbox
                         put(JSONObject().apply {
                             put("name", "send_to_chatbox")
-                            put("description", "Sends a work task to the ChatBox, where the active custom provider model does it with its tools (writing code, editing files, long research or analysis). Use it when the user asks you to give a job to the custom provider or the ChatBox. Spoken conversation never goes to the ChatBox; only work does.")
+                            put("description", "Writes ONE work prompt into the ChatBox, where the custom model does the whole job by itself with its tools (website, game, file, code, long research) and opens the preview itself. Write the prompt in the same language the user speaks (English, Hindi or Hinglish). For a change request, send only what is wrong or what to change, never a full re-creation. Send it once; never retry. Spoken conversation never goes to the ChatBox; only work does.")
                             put("parameters", JSONObject().apply {
                                 put("type", "OBJECT")
                                 put("properties", JSONObject().apply {
@@ -961,31 +961,15 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
-                        // 22. build_website_or_game
+                        // 22. chatbox_status
                         put(JSONObject().apply {
-                            put("name", "build_website_or_game")
-                            put("description", "Builds, codes, previews, and launches a complete interactive website or browser game using the supervised project build engine (e.g. \"create a website\", \"build a game\", \"make a landing page\", \"website banao\", \"snake game bana do\"). MUST BE CALLED IMMEDIATELY whenever the user asks to create, build, or code any website, web page, or game. NEVER chatter or give empty spoken replies.")
+                            put("name", "chatbox_status")
+                            put("description", "Tells how the work you gave to the ChatBox is going (working, percent, what it is doing now, finished, stopped, or failed). Call it ONLY when the user asks how much is done or what is happening with that work. Never call it on your own.")
                             put("parameters", JSONObject().apply {
                                 put("type", "OBJECT")
-                                put("properties", JSONObject().apply {
-                                    put("request", JSONObject().apply {
-                                        put("type", "STRING")
-                                        put("description", "The website or game request, e.g. \"modern portfolio website\", \"snake game with audio and scoring\".")
-                                    })
-                                    put("quality", JSONObject().apply {
-                                        put("type", "STRING")
-                                        put("description", "Optional quality level, e.g. \"High Detail\" or \"Standard\".")
-                                    })
-                                    put("time_minutes", JSONObject().apply {
-                                        put("type", "INTEGER")
-                                        put("description", "Optional target time duration in minutes (e.g. 2, 5, 10).")
-                                    })
-                                })
-                                put("required", JSONArray().put("request"))
+                                put("properties", JSONObject())
                             })
                         })
-
-
 
                         // 23. Amazon App Mastery (search, compare, cart, checkout preparation, confirmed order)
                         com.jarvis.assistant.automation.amazon.AmazonTools.declarations().forEach { put(it) }

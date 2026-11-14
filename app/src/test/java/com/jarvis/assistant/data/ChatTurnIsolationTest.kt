@@ -62,39 +62,4 @@ class ChatTurnIsolationTest {
         assertTrue(turn.userTranscript.isBlank())
         assertFalse(turn.userTranscript.contains("Audio query"))
     }
-
-    @Test
-    fun testCodeBlockExtractionFromModelMarkdown() {
-        val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "test_extract_${System.currentTimeMillis()}")
-        tempDir.mkdirs()
-        try {
-            val markdown = """
-                Sure! Here is the code for the web project:
-                ```html
-                <!DOCTYPE html>
-                <html>
-                <head><title>Test App</title></head>
-                <body><h1>Hello Jarvis</h1></body>
-                </html>
-                ```
-                And the styles:
-                ```css
-                body { background: #000; color: #fff; }
-                ```
-                And the script:
-                ```javascript
-                console.log("Ready");
-                ```
-            """.trimIndent()
-
-            val success = com.jarvis.assistant.background.WebBuildOrchestrator.extractAndWriteFiles(tempDir, markdown)
-            assertTrue(success)
-            assertTrue(java.io.File(tempDir, "index.html").isFile)
-            assertTrue(java.io.File(tempDir, "style.css").isFile)
-            assertTrue(java.io.File(tempDir, "script.js").isFile)
-            assertTrue(java.io.File(tempDir, "index.html").readText().contains("Hello Jarvis"))
-        } finally {
-            tempDir.deleteRecursively()
-        }
-    }
 }

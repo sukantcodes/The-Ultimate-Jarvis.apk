@@ -55,17 +55,8 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
         var total = 0; val seen = HashMap<String, Int>(); val collected = StringBuilder()
         for (n in 1..maxRounds) {
             currentCoroutineContext().ensureActive()
-            var r: Round? = null
-            var roundAttempts = 0
-            while (r == null) {
-                try {
-                    r = round(request, state, results)
-                } catch (e: Exception) {
-                    if (e is kotlinx.coroutines.CancellationException) throw e
-                    if (++roundAttempts >= 4) throw e
-                    kotlinx.coroutines.delay(1000L * roundAttempts)
-                }
-            }
+            // No automatic retry: if a round fails the work stops and the owner decides whether to retry.
+            val r: Round = round(request, state, results)
             state = r.state
             if (r.text.isNotBlank()) { if (collected.isNotEmpty()) collected.append("\n\n"); collected.append(r.text.trim()) }
             if (r.calls.isEmpty()) return ToolChatResult(collected.toString(), total, n, null)

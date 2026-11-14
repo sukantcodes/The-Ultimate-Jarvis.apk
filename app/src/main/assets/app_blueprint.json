@@ -33,7 +33,7 @@
     },
     "background_tasks": {
       "service": "background/JarvisConversationService.kt",
-      "executor": "background/AutonomousBackgroundExecutor.kt",
+      "chatbox_handoff": "background/ChatboxHandoffTracker.kt",
       "description": "Background AI task execution"
     },
     "skills": {

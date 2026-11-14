@@ -204,7 +204,6 @@ class JarvisConversationService : Service() {
                 try { service.tts?.stop() } catch (_: Exception) {}
                 service.cancelAllActiveTools()
                 service.pendingToolCalls.clear()
-                service.suppressAudioUntilTurnComplete = true
                 service.textChatTurnActive = false
                 service.currentTextChatPrompt = ""
                 synchronized(service.currentTurnAssistantText) { service.currentTurnAssistantText.clear() }
@@ -1196,13 +1195,11 @@ class JarvisConversationService : Service() {
                             // Jarvis's own announcements (build questions, progress, the explanation) are spoken by the
                             // live voice even while a build is running; only the model's ordinary chatter is held back.
                             val announcing = System.currentTimeMillis() < announcementAudioUntil
-                            if (!announcing && (suppressAudioUntilTurnComplete ||
-                                com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
-                                com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive())) {
+                            if (!announcing && suppressAudioUntilTurnComplete) {
                                 val nowMs = System.currentTimeMillis()
                                 if (nowMs - lastSuppressedAudioLogAt > 3_000L) {
                                     lastSuppressedAudioLogAt = nowMs
-                                    Log.d("JarvisService", "onAudioDataReceived: audio held back (orchestrator or turn active)")
+                                    Log.d("JarvisService", "onAudioDataReceived: audio held back until the current turn completes")
                                 }
                                 if (audioPlayer?.isPlaying() == true) audioPlayer?.flush()
                                 return
@@ -1241,10 +1238,6 @@ class JarvisConversationService : Service() {
 
                         override fun onAssistantTextReceived(textChunk: String) {
                             if (textChunk.isEmpty()) return
-                            if (com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
-                                com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive()) {
-                                return
-                            }
                             if (!isCurrentVoiceTurnAuthorized() && !isAutonomousTaskRunning && !announcementOnlySession) {
                                 Log.d("JarvisService", "Suppressing assistant text: no explicit Jarvis activation")
                                 return
@@ -1281,23 +1274,6 @@ class JarvisConversationService : Service() {
                             lastRealInteractionTime = lastUserSpeechDetectedTime
                             announcementOnlySession = false
                             val trimmed = textChunk.trim()
-                            val fullUtteranceSoFar = (currentTurnUserText.toString() + " " + trimmed).trim()
-                            val isProjectActive = com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
-                                com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive()
-                            val isProjectReq = com.jarvis.assistant.util.MultilingualCommandHelper.isProjectCreationRequest(fullUtteranceSoFar) ||
-                                com.jarvis.assistant.background.WebBuildOrchestrator.isWebBuildRequest(fullUtteranceSoFar) ||
-                                (isProjectActive && com.jarvis.assistant.background.WebBuildOrchestrator.wantsInput(fullUtteranceSoFar)) ||
-                                com.jarvis.assistant.util.MultilingualCommandHelper.isProjectCreationRequest(trimmed) ||
-                                (isProjectActive && com.jarvis.assistant.background.WebBuildOrchestrator.wantsInput(trimmed))
-
-                            if (isProjectActive || isProjectReq) {
-                                suppressAudioUntilTurnComplete = true
-                                audioPlayer?.flush()
-                                try { tts?.stop() } catch (_: Exception) {}
-                                currentTurnWakeAuthorized = true
-                                synchronized(currentTurnAssistantText) { currentTurnAssistantText.clear() }
-                                _liveAssistantResponse.value = ""
-                            }
                             if (trimmed.isNotEmpty()) {
                                 val startsNewUserTurn = currentTurnUserText.isEmpty()
                                 if (startsNewUserTurn) {
@@ -1400,9 +1376,7 @@ class JarvisConversationService : Service() {
                             }
                             thinkingTimeoutJob?.cancel()
                             thinkingTimeoutJob = null
-                            val projectWorkflowActive = com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
-                                com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive()
-                            suppressAudioUntilTurnComplete = projectWorkflowActive
+                            suppressAudioUntilTurnComplete = false
                             val isActivelyPlaying = (audioPlayer?.isPlaying() == true) || (audioPlayer?.hasQueuedAudio() == true)
                             if (!isActivelyPlaying) {
                                 audioPlayer?.flush()
@@ -1455,9 +1429,7 @@ class JarvisConversationService : Service() {
 
                             val voiceDisp = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(applicationContext)
                             val offlineTtsActive = voiceDisp.isOfflineVoiceUsable()
-                            val buildActive = com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
-                                com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive()
-                            if (offlineTtsActive && !textChatTurnActive && !automationHandledTurn && !buildActive &&
+                            if (offlineTtsActive && !textChatTurnActive && !automationHandledTurn &&
                                 assistantTurnText.isNotBlank() && !preferences.isSilentExecutionMode) {
                                 setConversationState(ConversationState.SPEAKING)
                                 voiceDisp.speak(assistantTurnText) {
@@ -1483,9 +1455,7 @@ class JarvisConversationService : Service() {
                                     dispatchNextPendingTextChatMessage()
                                 }
                             }
-                            val projectWorkflowActive = com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
-                                com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive()
-                            suppressAudioUntilTurnComplete = projectWorkflowActive
+                            suppressAudioUntilTurnComplete = false
                             automationHandledTurn = false
                             hasSpeechInCurrentUtterance = false
                             hasSignalledUtteranceEnd = false
@@ -3124,7 +3094,7 @@ class JarvisConversationService : Service() {
                         if (!userAskedForStandby) {
                             result.put("success", false)
                             result.put("message", "REFUSED: The user's current request did not explicitly ask Jarvis to go to standby. Keep the conversation active and continue the requested task.")
-                        } else if (isAutonomousTaskRunning || com.jarvis.assistant.background.WebBuildOrchestrator.isActive()) {
+                        } else if (isAutonomousTaskRunning) {
                             // Going to standby mid-task stopped the conversation and left the task unfinished.
                             result.put("success", false)
                             result.put("message", "REFUSED: a task is still running. Do NOT go to background. Continue the task, or tell the user honestly what is blocking it.")
@@ -3194,26 +3164,36 @@ class JarvisConversationService : Service() {
                             result.put("success", false)
                             result.put("message", "No task was given.")
                         } else {
+                            // One hand-off, never repeated: no retry, no improvement rounds, no second attempt.
                             val sent = try { com.jarvis.assistant.provider.ProviderRuntime.chatEngine(applicationContext).send(task) } catch (e: Exception) { null }
                             when (sent) {
                                 is com.jarvis.assistant.provider.SendOutcome.Started -> {
+                                    val spokenLanguage = com.jarvis.assistant.util.MultilingualCommandHelper.resolveLanguage(applicationContext, currentTurnUserText.toString())
+                                    ChatboxHandoffTracker.begin(applicationContext, sent.providerLabel) {
+                                        speakAnnouncement(ChatboxHandoffTracker.completionLine(spokenLanguage))
+                                    }
                                     result.put("success", true)
-                                    result.put("message", "The task was sent to the ChatBox and ${sent.providerLabel} is working on it. Tell the user in one short sentence.")
+                                    result.put("message", "The task was written into the ChatBox and ${sent.providerLabel} is working on it by itself, including opening the preview. Tell the user ONCE, in one short sentence in their language, that you gave the work to the ChatBox. Then go on talking normally. Do not report progress unless the user asks. Do not send it again.")
                                 }
                                 com.jarvis.assistant.provider.SendOutcome.Busy -> {
                                     result.put("success", false)
-                                    result.put("message", "The ChatBox model is still working on the previous task.")
+                                    result.put("message", "The ChatBox model is still working on the previous task. Do not send another one; tell the user.")
                                 }
                                 is com.jarvis.assistant.provider.SendOutcome.Blocked -> {
                                     result.put("success", false)
-                                    result.put("message", "The custom provider cannot answer right now: ${sent.reason}")
+                                    result.put("message", "The custom model cannot answer right now: ${sent.reason}")
                                 }
                                 else -> {
                                     result.put("success", false)
-                                    result.put("message", "No custom provider is active. The user can add one in Settings.")
+                                    result.put("message", "No custom model is active. Tell the user to add a custom model first.")
                                 }
                             }
                         }
+                    }
+
+                    "chatbox_status" -> {
+                        result.put("success", true)
+                        result.put("message", ChatboxHandoffTracker.statusText(applicationContext))
                     }
 
                     "lock_device" -> {
@@ -3752,24 +3732,6 @@ class JarvisConversationService : Service() {
                             val key = clockKeys.next()
                             result.put(key, clock.get(key))
                         }
-                    }
-
-                    "build_website_or_game" -> {
-                        val req = args.optString("request", "")
-                        val qualityArg = args.optString("quality", "")
-                        val timeArg = args.optInt("time_minutes", 0)
-                        var command = req
-                        if (qualityArg.isNotBlank() && !command.contains(qualityArg, ignoreCase = true)) {
-                            command += " with $qualityArg quality"
-                        }
-                        if (timeArg > 0 && !command.contains("$timeArg min", ignoreCase = true)) {
-                            command += " in $timeArg minutes"
-                        }
-                        suppressAudioUntilTurnComplete = true
-                        audioPlayer?.flush()
-                        val handled = com.jarvis.assistant.background.WebBuildOrchestrator.handle(applicationContext, command, null)
-                        result.put("success", handled)
-                        result.put("message", if (handled) "Project build orchestrator initiated. Jarvis is supervising the build." else "Build could not be started.")
                     }
 
                     else -> {
@@ -4444,7 +4406,7 @@ class JarvisConversationService : Service() {
                 val timeoutMs = configuredMs
                 if (timeoutMs <= 0L) continue
                 val busy = isAutonomousTaskRunning ||
-                    com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
+                    ChatboxHandoffTracker.isWorking() ||
                     com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value != null ||
                     autonomousLoopJob?.isActive == true || autonomousWaitingForUser ||
                     activeToolJobs.any { it.isActive } || isExecutingTool ||
@@ -4721,11 +4683,7 @@ class JarvisConversationService : Service() {
             currentTurnWakeAuthorized = true
             pendingAuthorizedVoiceUserText = commandText
             pendingAuthorizedVoicePrompt = authorizedPrompt
-            if (AutonomousBackgroundExecutor.isActionableTask(commandText)) {
-                AutonomousBackgroundExecutor.execute(applicationContext, commandText)
-            } else {
-                dispatchPendingAuthorizedVoiceCommand()
-            }
+            dispatchPendingAuthorizedVoiceCommand()
         }
     }
 
@@ -4859,15 +4817,7 @@ class JarvisConversationService : Service() {
     private fun dispatchPendingAuthorizedVoiceCommand() {
         if (!_isSessionOn.value || offlineLocalMode) return
         val session = liveWebSocket
-        if (session == null || !session.isSessionReady()) {
-            val userText = pendingAuthorizedVoiceUserText ?: pendingAuthorizedVoicePrompt
-            if (!userText.isNullOrBlank() && AutonomousBackgroundExecutor.isActionableTask(userText)) {
-                pendingAuthorizedVoicePrompt = null
-                pendingAuthorizedVoiceUserText = null
-                AutonomousBackgroundExecutor.execute(applicationContext, userText)
-            }
-            return
-        }
+        if (session == null || !session.isSessionReady()) return
         val prompt = pendingAuthorizedVoicePrompt ?: return
         val userText = pendingAuthorizedVoiceUserText ?: prompt
 
@@ -4904,7 +4854,7 @@ class JarvisConversationService : Service() {
             }
             if (_isSessionOn.value && returnToStandbyAfterAuthorizedTurn &&
                 !isAutonomousTaskRunning && !autonomousWaitingForUser &&
-                !com.jarvis.assistant.background.WebBuildOrchestrator.isActive() &&
+                !ChatboxHandoffTracker.isWorking() &&
                 pendingToolCalls.isEmpty() && activeToolJobs.isEmpty() &&
                 !isExecutingTool && macroJob?.isActive != true) {
                 returnToStandbyAfterAuthorizedTurn = false
@@ -4968,7 +4918,7 @@ class JarvisConversationService : Service() {
                     custom = provider
                 ).also { session ->
                     session.userTextInterceptor = { text ->
-                        if (tryActionableTaskDelegation(text)) true else tryLocalAutomation(text)
+                        tryLocalAutomation(text)
                     }
                 }
             }
@@ -4992,7 +4942,7 @@ class JarvisConversationService : Service() {
             groqListener = listener
         ).also { session ->
             session.userTextInterceptor = { text ->
-                if (tryActionableTaskDelegation(text)) true else tryLocalAutomation(text)
+                tryLocalAutomation(text)
             }
         }
     }
@@ -5398,71 +5348,14 @@ class JarvisConversationService : Service() {
     private fun scheduleAutomationMatch() {
         automationMatchJob?.cancel()
         automationMatchJob = serviceScope.launch {
-            val fullText = currentTurnUserText.toString().trim()
-            val isProjectActive = com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
-                com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive()
-            val isProjectReq = com.jarvis.assistant.util.MultilingualCommandHelper.isProjectCreationRequest(fullText) ||
-                com.jarvis.assistant.background.WebBuildOrchestrator.isWebBuildRequest(fullText) ||
-                (isProjectActive && com.jarvis.assistant.background.WebBuildOrchestrator.wantsInput(fullText))
-            // A build request is acted on only after the owner has stopped talking (every new word restarts this wait),
-            // so Jarvis never starts work from half a sentence. Short answers to its questions are quicker.
-            val delayMs = when {
-                isProjectReq && !isProjectActive -> 1_100L
-                isProjectActive -> 650L
-                else -> 250L
-            }
-            kotlinx.coroutines.delay(delayMs)
+            kotlinx.coroutines.delay(250L)
             val text = currentTurnUserText.toString().trim()
             if (isCurrentVoiceTurnAuthorized() && text.isNotEmpty()) {
-                if (tryActionableTaskDelegation(text)) return@launch
                 if (!tryInstantSocialCommand(text)) {
                     tryLocalAutomation(text)
                 }
             }
         }
-    }
-
-    private suspend fun tryActionableTaskDelegation(text: String): Boolean {
-        if (automationHandledTurn || hasExecutedCommandInCurrentTurn) return false
-
-        // 1. Sovereign Autonomous Project Orchestration (Websites, Games, Apps)
-        if (com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
-            com.jarvis.assistant.background.WebBuildOrchestrator.wantsInput(text) ||
-            com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive() ||
-            com.jarvis.assistant.background.WebBuildOrchestrator.isWebBuildRequest(text) ||
-            com.jarvis.assistant.util.MultilingualCommandHelper.isProjectCreationRequest(text)) {
-            suppressAudioUntilTurnComplete = true
-            audioPlayer?.flush()
-            try { tts?.stop() } catch (_: Exception) {}
-            val handled = com.jarvis.assistant.background.WebBuildOrchestrator.handle(applicationContext, text, null)
-            if (handled) {
-                automationHandledTurn = true
-                hasExecutedCommandInCurrentTurn = true
-                return true
-            }
-        }
-
-        // 2. General actionable background tasks
-        if (!com.jarvis.assistant.background.AutonomousBackgroundExecutor.isActionableTask(text)) return false
-
-        val manager = com.jarvis.assistant.provider.ProviderRuntime.manager(applicationContext)
-        val activeProfile = manager.activeProfile()
-        val customModelActive = activeProfile != null && (manager.hasKey(activeProfile.id) || activeProfile.authMethod == com.jarvis.assistant.provider.AuthMethod.NONE)
-
-        automationHandledTurn = true
-        hasExecutedCommandInCurrentTurn = true
-        suppressAudioUntilTurnComplete = true
-        audioPlayer?.flush()
-
-        val providerName = if (customModelActive) activeProfile?.displayName ?: "Custom Model" else "Workspace Engine"
-        val lang = com.jarvis.assistant.util.MultilingualCommandHelper.resolveLanguage(applicationContext, text)
-        val ack = com.jarvis.assistant.util.MultilingualCommandHelper.getLocalizedAck(lang).ifBlank {
-            "Understood, Sir. Delegating task to $providerName in your workspace. I will monitor execution and update you continuously."
-        }
-        speakAnnouncement(ack)
-
-        com.jarvis.assistant.background.AutonomousBackgroundExecutor.execute(applicationContext, text)
-        return true
     }
 
     // ---------------------------------------------------------------------------------------------

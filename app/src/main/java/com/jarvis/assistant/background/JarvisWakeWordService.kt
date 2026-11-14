@@ -467,18 +467,6 @@ class JarvisWakeWordService : Service() {
             com.jarvis.assistant.voice.JarvisVoiceController.interruptIfSpeaking("Stop phrase received in command: $command")
         }
 
-        // 1. Check Autonomous Project Creation (Websites, Games, Apps)
-        if (com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
-            com.jarvis.assistant.background.WebBuildOrchestrator.wantsInput(command) ||
-            AutonomousProjectOrchestrator.isProjectWorkflowActive() ||
-            com.jarvis.assistant.util.MultilingualCommandHelper.isProjectCreationRequest(command)) {
-            val handled = com.jarvis.assistant.background.WebBuildOrchestrator.handle(this, command, null)
-            if (handled) {
-                scheduleRestart(RESTART_DELAY_AFTER_COMMAND_MS) { startWakeWordListening() }
-                return
-            }
-        }
-
         val appMod = com.jarvis.assistant.selfaware.AppModificationEngine.processCommand(this, command)
         if (appMod is com.jarvis.assistant.selfaware.AppModificationEngine.ModificationResult.Success) {
             com.jarvis.assistant.voice.JarvisVoiceController.speakTurnResponse(
@@ -498,13 +486,6 @@ class JarvisWakeWordService : Service() {
 
         if (tryHandleHardwareTelemetry(command)) {
             scheduleRestart(RESTART_DELAY_AFTER_COMMAND_MS) { startWakeWordListening() }
-            return
-        }
-
-        if (AutonomousBackgroundExecutor.isActionableTask(command)) {
-            AutonomousBackgroundExecutor.execute(this, command) { _, _ ->
-                scheduleRestart(RESTART_DELAY_AFTER_COMMAND_MS) { startWakeWordListening() }
-            }
             return
         }
 

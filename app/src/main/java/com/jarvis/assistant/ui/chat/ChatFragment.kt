@@ -278,6 +278,7 @@ class ChatFragment : Fragment() {
             binding.etMessageInput.hint = "Message JARVIS…"
         }
         binding.btnStopChat.onSafeClick {
+            com.jarvis.assistant.background.ChatboxHandoffTracker.noteUserStop()
             offlineGenerationJob?.cancel()
             offlineGenerationJob = null
             fileAnalysisJob?.cancel()
@@ -597,26 +598,9 @@ class ChatFragment : Fragment() {
                     }
                 }
                 launch {
-                    com.jarvis.assistant.background.WebBuildOrchestrator.status.collect { st ->
-                        if (_binding == null) return@collect
-                        if (st.phase == com.jarvis.assistant.background.WebBuildOrchestrator.Phase.IDLE) {
-                            if (!providerEngine.workProgress.value.isWorking) binding.layoutWorkProgress.visibility = View.GONE
-                            return@collect
-                        }
-                        val eta = if (st.etaSec > 0) " · ~" + (if (st.etaSec < 60) "${st.etaSec}s" else "${(st.etaSec + 30) / 60}m") else ""
-                        val file = if (st.currentFile.isNotBlank()) " · ${st.currentFile}" else ""
-                        binding.tvChatStatus.text = "● ${st.stage.uppercase()} ${st.percent}%$file$eta"
-                        binding.layoutWorkProgress.visibility = View.VISIBLE
-                        binding.pbWorkProgress.progress = st.percent
-                        binding.tvWorkProgressPercent.text = "${st.percent}%"
-                    }
-                }
-                launch {
                     providerEngine.workProgress.collect { progress ->
                         if (_binding == null) return@collect
                         handleWorkProgress(progress)
-                        // During a supervised build the bar belongs to the build's exact progress, not the engine's own estimate.
-                        if (com.jarvis.assistant.background.WebBuildOrchestrator.isActive()) return@collect
                         if (progress.isWorking) {
                             binding.layoutWorkProgress.visibility = View.VISIBLE
                             binding.pbWorkProgress.progress = progress.percent
@@ -686,13 +670,6 @@ class ChatFragment : Fragment() {
     private fun sendMessage() {
         clearWorkSteps()
         val text = binding.etMessageInput.text?.toString()?.trim().orEmpty()
-        // Typed website / web-game requests (and replies to the build questions) use the same supervised build as
-        // voice, so they work with Jarvis asleep: live code shows here, the project is hosted and the preview opens.
-        if (selectedDocument == null && text.isNotBlank() && com.jarvis.assistant.background.WebBuildOrchestrator.wantsInput(text)) {
-            binding.etMessageInput.text?.clear()
-            com.jarvis.assistant.background.AutonomousBackgroundExecutor.execute(requireContext().applicationContext, text)
-            return
-        }
         if (customProviderActive()) {
             sendViaProvider(text)
             return
