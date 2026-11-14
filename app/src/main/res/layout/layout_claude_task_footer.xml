@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <!-- Claude-style Contemplating / Reasoning Bar -->
+    <LinearLayout
+        android:id="@+id/layoutContemplating"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <ImageView
+            android:id="@+id/ivContemplatingIcon"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:src="@drawable/ic_contemplating_sparkle"
+            app:tint="?attr/themeWarning"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:id="@+id/tvContemplatingText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="Contemplating"
+            android:textColor="?attr/themeTextSecondary"
+            android:textSize="13.5sp"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/tvContemplatingDuration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:textColor="?attr/themeTextMuted"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif"
+            tools:text="5m 12s" />
+
+        <ImageView
+            android:id="@+id/ivContemplatingChevron"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:layout_marginStart="4dp"
+            android:src="@drawable/ic_chevron_down"
+            app:tint="?attr/themeTextMuted"
+            android:importantForAccessibility="no" />
+    </LinearLayout>
+
+    <!-- Claude Large Bordered Task Plan Panel -->
+    <FrameLayout
+        android:id="@+id/cardTaskPlanPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/bg_claude_task_panel"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvWorkSteps"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false"
+            android:overScrollMode="never" />
+    </FrameLayout>
+
+    <!-- Claude Context Compaction Presentation -->
+    <LinearLayout
+        android:id="@+id/layoutContextCompaction"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="24dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <TextView
+            android:id="@+id/tvCompactionMessage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Compacting our conversation so we can keep chatting…"
+            android:textColor="?attr/themeTextSecondary"
+            android:textSize="13.5sp"
+            android:fontFamily="sans-serif"
+            android:layout_marginBottom="14dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ProgressBar
+                android:id="@+id/pbCompactionProgress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="0dp"
+                android:layout_height="4dp"
+                android:layout_weight="1"
+                android:max="100"
+                android:progress="0"
+                android:progressDrawable="@drawable/bg_compaction_progress_track" />
+
+            <TextView
+                android:id="@+id/tvCompactionPercent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:text="0%"
+                android:textColor="?attr/themeTextSecondary"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.02" />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

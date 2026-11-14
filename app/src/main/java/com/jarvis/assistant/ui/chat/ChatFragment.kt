@@ -24,6 +24,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.ConcatAdapter
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.R
 import com.jarvis.assistant.background.JarvisConversationService
@@ -87,6 +88,8 @@ class ChatFragment : Fragment() {
     private var rvWorkSteps: RecyclerView? = null
     private val workStepAdapter = WorkStepAdapter()
     private val workSteps = mutableListOf<WorkStepCard>()
+    private val taskFooterAdapter by lazy { ClaudeTaskFooterAdapter(workStepAdapter) }
+    private val concatAdapter by lazy { ConcatAdapter(chatAdapter, taskFooterAdapter) }
 
     private val voicePermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
@@ -253,8 +256,21 @@ class ChatFragment : Fragment() {
             stackFromEnd = true
         }
         (binding.rvChatMessages.itemAnimator as? androidx.recyclerview.widget.SimpleItemAnimator)?.supportsChangeAnimations = false
-        binding.rvChatMessages.adapter = chatAdapter
+        binding.rvChatMessages.adapter = concatAdapter
         setupWorkStepsRecyclerView(view)
+
+        binding.layoutTitleDropdown.onSafeClick { showQuickSettingsDropdown() }
+        binding.layoutTaskStepIndicator.onSafeClick { scrollToTaskPlan() }
+        binding.layoutShare.onSafeClick { binding.btnChatTools.performClick() }
+        binding.layoutVoiceInputCluster.onSafeClick {
+            if (isVoiceListening) {
+                stopVoiceRecognitionAndSend()
+            } else {
+                checkVoicePermissionAndStart()
+            }
+        }
+        binding.tvModelSelector.onSafeClick { showChatModePicker() }
+        binding.tvModeSelector.onSafeClick { toggleChatMode() }
 
         // "offline" was a saved choice in older versions; the offline brain no longer exists, so it means Auto now.
         selectedChatMode = chatModePrefs.getString("chat_mode", "auto")?.takeIf { it == "auto" || it == "gemini" } ?: "auto"
@@ -466,24 +482,71 @@ class ChatFragment : Fragment() {
             .show()
     }
 
-    // The visible Auto/Jarvis selector chips were removed from the composer.
-    // Keep the existing routing preference and provider status logic intact.
     private fun refreshChatModeLabel() {
         refreshProviderLabel()
+        if (_binding != null) {
+            binding.tvModeSelector.text = if (selectedChatMode == "auto") "Auto" else "Manual"
+        }
     }
 
     /** Shows which provider and model will answer, so the user is never unsure which brain is in use. */
     private fun refreshProviderLabel() {
         if (_binding == null) return
-        val view = binding.tvProviderModel
         val active = providerManager.activeProfile()
+        val model = active?.chatModel?.id ?: "Gemini 2.5 Flash"
+        val cleanModel = when {
+            model.contains("gemini", ignoreCase = true) -> model.substringAfterLast("/").replace("-latest", "").replace("-preview", "").replace("-", " ")
+            model.contains("claude", ignoreCase = true) -> model.replace("-", " ")
+            model.contains("gpt", ignoreCase = true) -> model.uppercase(java.util.Locale.US)
+            else -> model
+        }
+        binding.tvModelSelector.text = cleanModel
+        val view = binding.tvProviderModel
         if (active == null) {
             view.visibility = View.GONE
             return
         }
-        val model = active.chatModel?.id ?: "no model selected"
         view.text = "Provider: ${active.displayName} · $model"
         view.visibility = View.VISIBLE
+    }
+
+    private fun showQuickSettingsDropdown() {
+        val options = arrayOf(
+            "💬  New Conversation",
+            "⚡  ${binding.tvChatTokens.text.ifBlank { "Token Ledger" }}",
+            "📊  Hardware Telemetry HUD",
+            "🔊  Auto Voice Reply: ${if (autoVoiceReplyEnabled) "Enabled" else "Muted"}",
+            "⚙️  Choose Chat Brain / Provider"
+        )
+        AlertDialog.Builder(requireContext())
+            .setTitle("Jarvis Workspace")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> binding.btnChatNew.performClick()
+                    1 -> binding.tvChatTokens.performClick()
+                    2 -> binding.tvHardwareTelemetry.performClick()
+                    3 -> binding.btnVoiceSpeaker.performClick()
+                    4 -> showChatModePicker()
+                }
+            }
+            .show()
+    }
+
+    private fun scrollToTaskPlan() {
+        if (workSteps.isNotEmpty()) {
+            val lastPos = concatAdapter.itemCount - 1
+            if (lastPos >= 0) binding.rvChatMessages.smoothScrollToPosition(lastPos)
+        } else {
+            Toast.makeText(requireContext(), "No active multi-step task running.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun toggleChatMode() {
+        selectedChatMode = if (selectedChatMode == "auto") "gemini" else "auto"
+        chatModePrefs.edit().putString("chat_mode", selectedChatMode).apply()
+        refreshChatModeLabel()
+        val label = if (selectedChatMode == "auto") "Auto" else "Manual"
+        Toast.makeText(requireContext(), "Chat mode: $label", Toast.LENGTH_SHORT).show()
     }
 
     private fun customProviderActive(): Boolean {
@@ -624,11 +687,13 @@ class ChatFragment : Fragment() {
                     when (state) {
                         is EngineState.Streaming -> {
                             binding.btnStopChat.visibility = View.VISIBLE
+                            binding.btnSendMessage.visibility = View.GONE
                             binding.btnSendMessage.isEnabled = false
                             binding.tvChatStatus.text = "● ANSWERING"
                         }
                         is EngineState.Failed -> {
                             binding.btnStopChat.visibility = View.GONE
+                            binding.btnSendMessage.visibility = View.VISIBLE
                             binding.btnSendMessage.isEnabled = true
                             binding.tvChatStatus.text = "● ERROR"
                             retrySnackbar = com.google.android.material.snackbar.Snackbar
@@ -644,6 +709,7 @@ class ChatFragment : Fragment() {
                         }
                         EngineState.Idle -> if (fileAnalysisJob == null) {
                             binding.btnStopChat.visibility = View.GONE
+                            binding.btnSendMessage.visibility = View.VISIBLE
                             binding.btnSendMessage.isEnabled = true
                             binding.tvChatStatus.text = "● READY"
                         }
@@ -683,6 +749,7 @@ class ChatFragment : Fragment() {
                 } finally {
                     fileAnalysisJob = null
                     if (_binding != null) {
+                        binding.btnSendMessage.visibility = View.VISIBLE
                         binding.btnSendMessage.isEnabled = true
                         binding.btnStopChat.visibility = View.GONE
                         binding.tvChatStatus.text = "● READY"
@@ -702,6 +769,7 @@ class ChatFragment : Fragment() {
         if (!JarvisConversationService.isServiceRunning()) JarvisConversationService.startTextChatSession(requireContext().applicationContext)
         JarvisConversationService.sendTextMessage(text)
         binding.etMessageInput.text?.clear()
+        binding.btnSendMessage.visibility = View.GONE
         binding.btnSendMessage.isEnabled = false
         binding.btnStopChat.visibility = View.VISIBLE
         binding.tvChatStatus.text = "● THINKING"
@@ -738,6 +806,7 @@ class ChatFragment : Fragment() {
                         val pending = turns.lastOrNull()?.jarvisResponse.isNullOrBlank() || providerEngine.isBusy
                         if (!pending && fileAnalysisJob == null && selectedDocument == null) {
                             binding.btnStopChat.visibility = View.GONE
+                            binding.btnSendMessage.visibility = View.VISIBLE
                             binding.btnSendMessage.isEnabled = true
                             binding.tvChatStatus.text = "● READY"
 
@@ -756,6 +825,7 @@ class ChatFragment : Fragment() {
                             }
                         } else if (pending) {
                             binding.btnStopChat.visibility = View.VISIBLE
+                            binding.btnSendMessage.visibility = View.GONE
                             binding.btnSendMessage.isEnabled = false
                             binding.tvChatStatus.text = "● THINKING"
                         }
@@ -787,6 +857,7 @@ class ChatFragment : Fragment() {
             binding.tvChatTokens.setTextColor(accent)
             binding.btnSendMessage.imageTintList = ColorStateList.valueOf(accent)
             refreshProviderLabel()
+            refreshChatModeLabel()
             updateAutoApproveHeaderStatus()
         }
     }
@@ -933,8 +1004,8 @@ class ChatFragment : Fragment() {
             binding.layoutVoiceListening.visibility = View.VISIBLE
             binding.voiceWaveView.start()
             binding.tvVoiceTranscript.text = "Listening… speak now"
-            binding.btnVoiceInput.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_cc_send)
-            binding.btnVoiceInput.setColorFilter(android.graphics.Color.WHITE)
+            val accent = try { ThemeManager.getThemeAccentColor() } catch (_: Exception) { Color.parseColor("#00E5FF") }
+            binding.btnVoiceInput.setColorFilter(accent)
         } catch (e: Exception) {
             hideVoiceListening()
             Toast.makeText(requireContext(), "Could not start voice: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -961,7 +1032,6 @@ class ChatFragment : Fragment() {
         if (_binding != null) {
             binding.layoutVoiceListening.visibility = View.GONE
             binding.voiceWaveView.stop()
-            binding.btnVoiceInput.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_chat_attach_button)
             binding.btnVoiceInput.clearColorFilter()
         }
     }
@@ -975,10 +1045,72 @@ class ChatFragment : Fragment() {
 
     private fun handleWorkProgress(progress: com.jarvis.assistant.provider.LiveWorkProgress) {
         if (_binding == null) return
-        // The floating work-step bubbles are intentionally gone: Jarvis reports real progress by voice, the
-        // notification and the header status instead.
-        if (workSteps.isNotEmpty()) clearWorkSteps()
-        rvWorkSteps?.visibility = View.GONE
+        if (progress.isWorking) {
+            binding.tvTaskStepIndicator.text = "Step ${progress.currentStep} of ${progress.totalSteps}"
+            if (progress.target.isNotBlank()) {
+                val clean = progress.target.substringAfterLast('/')
+                binding.tvChatTitle.text = clean.ifBlank { "Jarvis" }
+            }
+
+            val stepId = "step-${progress.currentStep}-${progress.actionText}"
+            val existingIndex = workSteps.indexOfFirst { it.id == stepId }
+            val desc = progress.stepName
+            val reqCode = if (progress.isWriting) progress.codeOrOutput.takeIf { it.isNotBlank() } else null
+            val respCode = if (!progress.isWriting) progress.codeOrOutput.takeIf { it.isNotBlank() } else null
+            val status = if (progress.isError) WorkStepStatus.ERROR else if (progress.isWriting) WorkStepStatus.IN_PROGRESS else WorkStepStatus.DONE
+
+            if (existingIndex >= 0) {
+                val prev = workSteps[existingIndex]
+                workSteps[existingIndex] = prev.copy(
+                    title = desc.ifBlank { prev.title },
+                    status = status,
+                    requestCode = reqCode ?: prev.requestCode,
+                    responseCode = respCode ?: prev.responseCode
+                )
+            } else {
+                workSteps.add(
+                    WorkStepCard(
+                        id = stepId,
+                        type = WorkActionType.resolve(progress.language, progress.target),
+                        title = desc,
+                        status = status,
+                        requestCode = reqCode,
+                        responseCode = respCode
+                    )
+                )
+            }
+            workStepAdapter.submitList(workSteps.toList())
+            taskFooterAdapter.updateState(
+                ClaudeTaskFooterAdapter.FooterState(
+                    isContemplating = true,
+                    contemplationStartTime = if (taskFooterAdapter.itemCount > 0) 0L else System.currentTimeMillis(),
+                    contemplationLabel = "Contemplating",
+                    hasTaskSteps = workSteps.isNotEmpty(),
+                    isCompacting = progress.isCompacting,
+                    compactionProgress = progress.compactPercent
+                )
+            )
+        } else if (progress.percent == 100) {
+            markAllWorkStepsDone()
+            binding.tvTaskStepIndicator.text = "Completed"
+            taskFooterAdapter.updateState(
+                ClaudeTaskFooterAdapter.FooterState(
+                    isContemplating = false,
+                    hasTaskSteps = workSteps.isNotEmpty(),
+                    isCompacting = progress.isCompacting,
+                    compactionProgress = progress.compactPercent
+                )
+            )
+        } else {
+            taskFooterAdapter.updateState(
+                ClaudeTaskFooterAdapter.FooterState(
+                    isContemplating = false,
+                    hasTaskSteps = workSteps.isNotEmpty(),
+                    isCompacting = progress.isCompacting,
+                    compactionProgress = progress.compactPercent
+                )
+            )
+        }
     }
 
     private fun markAllWorkStepsDone() {
@@ -997,7 +1129,18 @@ class ChatFragment : Fragment() {
     private fun clearWorkSteps() {
         workSteps.clear()
         workStepAdapter.submitList(emptyList())
-        rvWorkSteps?.visibility = View.GONE
+        taskFooterAdapter.updateState(
+            ClaudeTaskFooterAdapter.FooterState(
+                isContemplating = false,
+                hasTaskSteps = false,
+                isCompacting = false,
+                compactionProgress = 0
+            )
+        )
+        if (_binding != null) {
+            binding.tvTaskStepIndicator.text = "Step 1 of 1"
+            binding.tvChatTitle.text = "Jarvis"
+        }
     }
 
     override fun onDestroyView() {

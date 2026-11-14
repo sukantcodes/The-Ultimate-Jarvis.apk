@@ -2,9 +2,7 @@ package com.jarvis.assistant.ui.chat
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
-import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
-import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -14,7 +12,7 @@ import android.view.animation.AnimationSet
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.TranslateAnimation
 import android.widget.ImageView
-import android.widget.ProgressBar
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -22,177 +20,177 @@ import androidx.recyclerview.widget.RecyclerView
 import com.jarvis.assistant.R
 
 /**
- * Adapter for rendering Claude-style animated Work Step Cards with collapsible code blocks.
+ * Enterprise-grade adapter for replicating Claude mobile working interface task rows.
+ * Features:
+ * - Large bordered panel compatibility
+ * - Inline smooth expand/collapse animations
+ * - 90-degree chevron rotation
+ * - Request/Response code syntax highlighting via ClaudeCodeHighlighter
+ * - Full-width dividers, hidden on the final row
+ * - Zero static hex colors, completely dynamic theme synchronization
  */
 class WorkStepAdapter : ListAdapter<WorkStepCard, WorkStepAdapter.ViewHolder>(DIFF) {
+
+    private val expandedIds = mutableSetOf<String>()
 
     companion object {
         private val DIFF = object : DiffUtil.ItemCallback<WorkStepCard>() {
             override fun areItemsTheSame(a: WorkStepCard, b: WorkStepCard) = a.id == b.id
-            override fun areContentsTheSame(a: WorkStepCard, b: WorkStepCard) = a == b
+            override fun areContentsTheSame(a: WorkStepCard, b: WorkStepCard) =
+                a.id == b.id && a.title == b.title && a.status == b.status &&
+                a.requestCode == b.requestCode && a.responseCode == b.responseCode &&
+                a.codeSnippet == b.codeSnippet && a.isExpanded == b.isExpanded
         }
     }
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        val ivWorkIcon: ImageView = itemView.findViewById(R.id.ivWorkIcon)
-        val ivWorkFrame: View = itemView.findViewById(R.id.ivWorkFrame)
-        val tvWorkStepTitle: TextView = itemView.findViewById(R.id.tvWorkStepTitle)
-        val tvWorkStepStatus: TextView = itemView.findViewById(R.id.tvWorkStepStatus)
-        val pbWorkStep: ProgressBar = itemView.findViewById(R.id.pbWorkStep)
-        val ivWorkCheck: ImageView = itemView.findViewById(R.id.ivWorkCheck)
-        val layoutCodeBlock: ViewGroup = itemView.findViewById(R.id.layoutCodeBlock)
-        val tvCodeToggle: TextView = itemView.findViewById(R.id.tvCodeToggle)
-        val scrollCodeContent: View = itemView.findViewById(R.id.scrollCodeContent)
-        val tvCodeContent: TextView = itemView.findViewById(R.id.tvCodeContent)
+        val layoutRowHeader: LinearLayout = itemView.findViewById(R.id.layoutRowHeader)
+        val tvTaskDescription: TextView = itemView.findViewById(R.id.tvTaskDescription)
+        val tvTaskStatusBadge: TextView = itemView.findViewById(R.id.tvTaskStatusBadge)
+        val ivTaskChevron: ImageView = itemView.findViewById(R.id.ivTaskChevron)
+        val layoutRowExpandedContent: LinearLayout = itemView.findViewById(R.id.layoutRowExpandedContent)
+        val layoutRequestBlock: LinearLayout = itemView.findViewById(R.id.layoutRequestBlock)
+        val tvRequestCode: TextView = itemView.findViewById(R.id.tvRequestCode)
+        val layoutResponseBlock: LinearLayout = itemView.findViewById(R.id.layoutResponseBlock)
+        val tvResponseCode: TextView = itemView.findViewById(R.id.tvResponseCode)
+        val viewRowDivider: View = itemView.findViewById(R.id.viewRowDivider)
 
-        private var isCodeExpanded = false
-        private var pulseAnimator: ObjectAnimator? = null
+        private var activeAnimator: ValueAnimator? = null
 
-        fun bind(card: WorkStepCard) {
-            tvWorkStepTitle.text = card.title
+        fun bind(card: WorkStepCard, isLastItem: Boolean) {
+            val context = itemView.context
+            tvTaskDescription.text = card.title
 
-            val isDone = card.status == WorkStepStatus.DONE
-            val isWriting = card.status == WorkStepStatus.IN_PROGRESS
-
-            // Animate work icon using WorkIconAnimator
-            WorkIconAnimator.applyWorkAnimation(
-                iconView = ivWorkIcon,
-                frameView = ivWorkFrame,
-                type = card.type,
-                isWriting = isWriting
-            )
-
-            // Dynamic status badge text
-            val badgeText = when (card.status) {
-                WorkStepStatus.IN_PROGRESS -> card.type.activeBadgeText(card.title)
-                WorkStepStatus.DONE        -> card.type.doneBadgeText(card.title)
-                WorkStepStatus.ERROR       -> "✗ Error"
-            }
-            tvWorkStepStatus.text = badgeText
-
-            // State indicators
-            when (card.status) {
-                WorkStepStatus.IN_PROGRESS -> {
-                    pbWorkStep.visibility = View.VISIBLE
-                    ivWorkCheck.visibility = View.GONE
-                    startPulse()
-                }
-                WorkStepStatus.DONE, WorkStepStatus.ERROR -> {
-                    stopPulse()
-                    pbWorkStep.visibility = View.GONE
-                    ivWorkCheck.visibility = View.VISIBLE
-                }
+            // Failed status badge
+            if (card.status == WorkStepStatus.ERROR) {
+                tvTaskStatusBadge.visibility = View.VISIBLE
+                tvTaskStatusBadge.text = "Failed"
+            } else {
+                tvTaskStatusBadge.visibility = View.GONE
             }
 
-            // Collapsible code block
-            val hasCode = !card.codeSnippet.isNullOrBlank()
-            if (hasCode) {
-                layoutCodeBlock.visibility = View.VISIBLE
-                tvCodeContent.text = card.codeSnippet
+            // Divider: visible for all rows except the last one in the panel
+            viewRowDivider.visibility = if (isLastItem) View.GONE else View.VISIBLE
 
-                // Reset state to collapsed
-                isCodeExpanded = false
-                tvCodeToggle.text = "▶ CODE"
-                scrollCodeContent.visibility = View.GONE
-                val lp = scrollCodeContent.layoutParams
-                lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
-                scrollCodeContent.layoutParams = lp
+            // Code content preparation
+            val req = card.requestCode?.trim()
+            val resp = (card.responseCode ?: card.codeSnippet)?.trim()
+            val hasContent = !req.isNullOrBlank() || !resp.isNullOrBlank()
 
-                tvCodeToggle.setOnClickListener {
-                    if (isCodeExpanded) {
-                        collapseCode()
-                    } else {
-                        expandCode()
-                    }
+            if (!req.isNullOrBlank()) {
+                layoutRequestBlock.visibility = View.VISIBLE
+                tvRequestCode.text = ClaudeCodeHighlighter.highlight(context, req)
+            } else {
+                layoutRequestBlock.visibility = View.GONE
+            }
+
+            if (!resp.isNullOrBlank()) {
+                layoutResponseBlock.visibility = View.VISIBLE
+                tvResponseCode.text = ClaudeCodeHighlighter.highlight(context, resp)
+            } else {
+                layoutResponseBlock.visibility = View.GONE
+            }
+
+            val isExpanded = expandedIds.contains(card.id) || card.isExpanded
+            if (isExpanded && hasContent) {
+                layoutRowExpandedContent.visibility = View.VISIBLE
+                ivTaskChevron.rotation = 90f
+            } else {
+                layoutRowExpandedContent.visibility = View.GONE
+                ivTaskChevron.rotation = 0f
+            }
+
+            if (hasContent) {
+                layoutRowHeader.setOnClickListener {
+                    toggleExpansion(card)
                 }
             } else {
-                layoutCodeBlock.visibility = View.GONE
-                tvCodeToggle.setOnClickListener(null)
+                layoutRowHeader.setOnClickListener(null)
             }
         }
 
-        private fun startPulse() {
-            if (pulseAnimator == null) {
-                pulseAnimator = ObjectAnimator.ofFloat(pbWorkStep, "alpha", 0.35f, 1.0f).apply {
-                    duration = 650
-                    repeatMode = ValueAnimator.REVERSE
-                    repeatCount = ValueAnimator.INFINITE
-                    start()
-                }
+        private fun toggleExpansion(card: WorkStepCard) {
+            val willExpand = !expandedIds.contains(card.id) && !card.isExpanded
+            if (willExpand) {
+                expandedIds.add(card.id)
+                card.isExpanded = true
+                expandInline()
+            } else {
+                expandedIds.remove(card.id)
+                card.isExpanded = false
+                collapseInline()
             }
         }
 
-        private fun stopPulse() {
-            pulseAnimator?.cancel()
-            pulseAnimator = null
-            pbWorkStep.alpha = 1f
-        }
-
-        private fun expandCode() {
-            isCodeExpanded = true
-            tvCodeToggle.text = "▼ CODE"
-            scrollCodeContent.visibility = View.VISIBLE
-            scrollCodeContent.measure(
-                View.MeasureSpec.makeMeasureSpec(itemView.width, View.MeasureSpec.AT_MOST),
+        private fun expandInline() {
+            activeAnimator?.cancel()
+            layoutRowExpandedContent.visibility = View.VISIBLE
+            layoutRowExpandedContent.measure(
+                View.MeasureSpec.makeMeasureSpec(itemView.width, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
             )
-            val maxHeightPx = (120 * itemView.resources.displayMetrics.density).toInt()
-            val measuredH = scrollCodeContent.measuredHeight
-            val targetHeight = if (measuredH > 0) minOf(measuredH, maxHeightPx) else maxHeightPx
+            val targetHeight = layoutRowExpandedContent.measuredHeight.coerceAtLeast(1)
 
             val anim = ValueAnimator.ofInt(0, targetHeight).apply {
+                duration = 220
+                interpolator = DecelerateInterpolator()
+                addUpdateListener { va ->
+                    val lp = layoutRowExpandedContent.layoutParams
+                    lp.height = va.animatedValue as Int
+                    layoutRowExpandedContent.layoutParams = lp
+                }
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        val lp = layoutRowExpandedContent.layoutParams
+                        lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                        layoutRowExpandedContent.layoutParams = lp
+                    }
+                })
+            }
+            activeAnimator = anim
+            anim.start()
+
+            // Smooth 90-degree chevron rotation
+            ivTaskChevron.animate().rotation(90f).setDuration(200).start()
+        }
+
+        private fun collapseInline() {
+            activeAnimator?.cancel()
+            val initialHeight = layoutRowExpandedContent.height
+            val anim = ValueAnimator.ofInt(initialHeight, 0).apply {
                 duration = 200
                 interpolator = DecelerateInterpolator()
                 addUpdateListener { va ->
-                    val lp = scrollCodeContent.layoutParams
+                    val lp = layoutRowExpandedContent.layoutParams
                     lp.height = va.animatedValue as Int
-                    scrollCodeContent.layoutParams = lp
+                    layoutRowExpandedContent.layoutParams = lp
                 }
                 addListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
-                        val lp = scrollCodeContent.layoutParams
+                        layoutRowExpandedContent.visibility = View.GONE
+                        val lp = layoutRowExpandedContent.layoutParams
                         lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
-                        scrollCodeContent.layoutParams = lp
+                        layoutRowExpandedContent.layoutParams = lp
                     }
                 })
             }
+            activeAnimator = anim
             anim.start()
-        }
 
-        private fun collapseCode() {
-            isCodeExpanded = false
-            tvCodeToggle.text = "▶ CODE"
-            val initialHeight = scrollCodeContent.height
-            val anim = ValueAnimator.ofInt(initialHeight, 0).apply {
-                duration = 180
-                interpolator = DecelerateInterpolator()
-                addUpdateListener { va ->
-                    val lp = scrollCodeContent.layoutParams
-                    lp.height = va.animatedValue as Int
-                    scrollCodeContent.layoutParams = lp
-                }
-                addListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) {
-                        scrollCodeContent.visibility = View.GONE
-                        val lp = scrollCodeContent.layoutParams
-                        lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
-                        scrollCodeContent.layoutParams = lp
-                    }
-                })
-            }
-            anim.start()
+            // Smooth chevron rotation back to 0 degrees
+            ivTaskChevron.animate().rotation(0f).setDuration(200).start()
         }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_work_step_card, parent, false)
-        // Slide-up + fade-in entrance animation
+            .inflate(R.layout.item_claude_task_row, parent, false)
+        // Subtle slide-up + fade-in entrance animation
         val slideUp = TranslateAnimation(
             Animation.RELATIVE_TO_SELF, 0f, Animation.RELATIVE_TO_SELF, 0f,
-            Animation.RELATIVE_TO_SELF, 0.25f, Animation.RELATIVE_TO_SELF, 0f
-        ).apply { duration = 260 }
-        val fadeIn = AlphaAnimation(0f, 1f).apply { duration = 260 }
+            Animation.RELATIVE_TO_SELF, 0.15f, Animation.RELATIVE_TO_SELF, 0f
+        ).apply { duration = 200 }
+        val fadeIn = AlphaAnimation(0f, 1f).apply { duration = 200 }
         view.startAnimation(AnimationSet(false).apply {
             addAnimation(slideUp)
             addAnimation(fadeIn)
@@ -201,6 +199,7 @@ class WorkStepAdapter : ListAdapter<WorkStepCard, WorkStepAdapter.ViewHolder>(DI
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        val isLast = position == itemCount - 1
+        holder.bind(getItem(position), isLast)
     }
 }

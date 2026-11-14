@@ -2,202 +2,196 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/themeBg"
-    android:paddingStart="12dp"
-    android:paddingEnd="12dp"
-    android:paddingTop="10dp"
-    android:paddingBottom="94dp">
+    android:background="?attr/themeBg">
 
+    <!-- 1. TOP FIXED TOOLBAR — EXACT CLAUDE MOBILE REPLICATION -->
     <LinearLayout
         android:id="@+id/layoutChatHeader"
-        android:layout_width="0dp"
-        app:layout_constraintWidth_max="@dimen/chat_content_max_width"
-        android:layout_height="68dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:background="@drawable/bg_chat_hero"
-        android:paddingStart="10dp"
-        android:paddingEnd="10dp"
-        android:elevation="5dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="?attr/themeCardBg"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <ImageButton
-            android:id="@+id/btnChatMenu"
-            android:layout_width="48dp"
-        android:padding="3dp"
-            android:layout_height="48dp"
-            android:background="@drawable/bg_chat_header_icon"
-            android:src="@drawable/ic_menu"
-            app:tint="#FFFFFF"
-            android:contentDescription="Open navigation" />
-
         <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:layout_marginStart="12dp">
-
-            <TextView
-                android:id="@+id/tvChatTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="JARVIS AI"
-                android:letterSpacing="0.10"
-                android:textColor="#FFFFFF"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:fontFamily="sans-serif-medium" />
-
-            <TextView
-                android:id="@+id/tvChatSubtitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Your intelligent workspace  ·  Ready"
-                android:textColor="#DDEBFF"
-                android:textSize="11sp"
-                android:fontFamily="sans-serif" />
-
-            <TextView
-                android:id="@+id/tvProviderModel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:maxLines="1"
-                android:ellipsize="end"
-                android:visibility="gone"
-                android:textColor="#9FE8FF"
-                android:textSize="10sp"
-                android:fontFamily="sans-serif-medium" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/layoutWorkProgress"
-            android:layout_width="wrap_content"
-            android:layout_height="30dp"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:background="@drawable/bg_work_progress_badge"
             android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:layout_marginEnd="6dp"
-            android:visibility="gone">
+            android:paddingEnd="12dp">
 
-            <ProgressBar
-                android:id="@+id/pbWorkProgress"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="40dp"
-                android:layout_height="6dp"
-                android:max="100"
-                android:progress="0"
-                android:progressTint="#00E5FF" />
+            <!-- 1. Sidebar/task-navigation icon -->
+            <ImageButton
+                android:id="@+id/btnChatMenu"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:padding="11dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_sidebar"
+                app:tint="?attr/themeTextSecondary"
+                android:contentDescription="Open navigation drawer" />
 
-            <TextView
-                android:id="@+id/tvWorkProgressPercent"
+            <!-- 2. Task title with truncated text & 3. Small downward arrow beside title -->
+            <LinearLayout
+                android:id="@+id/layoutTitleDropdown"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="5dp"
-                android:text="0%"
-                android:textColor="#00E5FF"
-                android:textSize="10sp"
-                android:textStyle="bold"
-                android:letterSpacing="0.04" />
+                android:layout_height="44dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="4dp"
+                android:paddingEnd="6dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <TextView
+                    android:id="@+id/tvChatTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:maxWidth="130dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:text="Jarvis"
+                    android:textColor="?attr/themeTextPrimary"
+                    android:textSize="14.5sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:textStyle="bold" />
+
+                <ImageView
+                    android:id="@+id/ivTitleDropdown"
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:layout_marginStart="4dp"
+                    android:src="@drawable/ic_chevron_down"
+                    app:tint="?attr/themeTextSecondary"
+                    android:importantForAccessibility="no" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <!-- 4. Checklist/list icon & 5. Step indicator (e.g. "Step 2 of 5") -->
+            <LinearLayout
+                android:id="@+id/layoutTaskStepIndicator"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:id="@+id/ivChecklistIcon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_checklist_bullet"
+                    app:tint="?attr/themeTextSecondary"
+                    android:importantForAccessibility="no" />
+
+                <TextView
+                    android:id="@+id/tvTaskStepIndicator"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:text="Step 1 of 1"
+                    android:textColor="?attr/themeTextSecondary"
+                    android:textSize="12.5sp"
+                    android:fontFamily="sans-serif"
+                    android:maxLines="1" />
+            </LinearLayout>
+
+            <!-- 6. Share icon and Share label -->
+            <LinearLayout
+                android:id="@+id/layoutShare"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="10dp"
+                android:paddingEnd="8dp"
+                android:layout_marginStart="6dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="Share or export conversation">
+
+                <ImageView
+                    android:id="@+id/ivShareIcon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_share_tray"
+                    app:tint="?attr/themeTextPrimary"
+                    android:importantForAccessibility="no" />
+
+                <TextView
+                    android:id="@+id/tvShareLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:text="Share"
+                    android:textColor="?attr/themeTextPrimary"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium" />
+            </LinearLayout>
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvChatTokens"
-            android:layout_width="wrap_content"
-            android:layout_height="30dp"
-            android:gravity="center"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:layout_marginEnd="6dp"
-            android:background="@drawable/bg_chat_token_badge"
-            android:text="⚡ 0 TOKENS"
-            android:textColor="#E1F5FE"
-            android:textSize="10sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.05"
-            android:clickable="true"
-            android:focusable="true"
-            android:contentDescription="Live used tokens in this conversation" />
+        <!-- Thin subtle bottom separator -->
+        <View
+            android:id="@+id/viewHeaderDivider"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?attr/themeCardBorder" />
 
-        <TextView
-            android:id="@+id/tvHardwareTelemetry"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:minWidth="44dp"
-            android:minHeight="44dp"
-            android:gravity="center"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:layout_marginEnd="6dp"
-            android:background="@drawable/bg_chat_token_badge"
-            android:text="⚡ HUD"
-            android:textColor="?attr/themeAccent"
-            android:textSize="10sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.05"
-            android:clickable="true"
-            android:focusable="true"
-            android:contentDescription="Open Iron-Man Cybernetic Hardware Telemetry HUD" />
-
-        <ImageButton
-            android:id="@+id/btnVoiceSpeaker"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:padding="6dp"
-            android:layout_marginEnd="6dp"
-            android:background="@drawable/bg_chat_token_badge"
-            android:src="@drawable/ic_cc_volume"
-            app:tint="#00E5FF"
-            android:contentDescription="Auto voice reply toggle" />
-
-        <TextView
-            android:id="@+id/tvChatStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="30dp"
-            android:gravity="center"
-            android:paddingStart="10dp"
-            android:paddingEnd="10dp"
-            android:background="@drawable/bg_chat_status"
-            android:text="● READY"
-            android:textColor="#D9FFF7"
-            android:textSize="10sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.06" />
-
-        <ImageButton
-            android:id="@+id/btnChatNew"
-            android:layout_width="48dp"
-        android:padding="3dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="7dp"
-            android:background="@drawable/bg_chat_header_icon"
-            android:src="@drawable/ic_plus"
-            app:tint="#FFFFFF"
-            android:contentDescription="Start new conversation" />
+        <!-- Hidden legacy views preserved for full backward compatibility & zero crashes -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone">
+            <TextView android:id="@+id/tvChatSubtitle" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <TextView android:id="@+id/tvProviderModel" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <LinearLayout android:id="@+id/layoutWorkProgress" android:layout_width="wrap_content" android:layout_height="wrap_content">
+                <ProgressBar android:id="@+id/pbWorkProgress" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                <TextView android:id="@+id/tvWorkProgressPercent" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            </LinearLayout>
+            <TextView android:id="@+id/tvChatTokens" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <TextView android:id="@+id/tvHardwareTelemetry" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <ImageButton android:id="@+id/btnVoiceSpeaker" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <TextView android:id="@+id/tvChatStatus" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <ImageButton android:id="@+id/btnChatNew" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <TextView android:id="@+id/btnChatTools" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <ImageButton android:id="@+id/btnCamera" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+        </LinearLayout>
     </LinearLayout>
 
+    <!-- 2. SCROLLABLE CENTRAL CONVERSATION & TASK AREA -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvChatMessages"
         android:layout_width="0dp"
-        app:layout_constraintWidth_max="@dimen/chat_content_max_width"
         android:layout_height="0dp"
+        app:layout_constraintWidth_max="@dimen/chat_content_max_width"
         android:clipToPadding="false"
-        android:paddingTop="18dp"
-        android:paddingBottom="16dp"
-        android:layout_marginTop="10dp"
-        android:layout_marginBottom="10dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
         app:layout_constraintTop_toBottomOf="@id/layoutChatHeader"
         app:layout_constraintBottom_toTopOf="@id/cardInputContainer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- Welcome screen when conversation has no messages -->
     <LinearLayout
         android:id="@+id/layoutChatWelcome"
         android:layout_width="0dp"
@@ -219,7 +213,7 @@
             android:gravity="center"
             android:background="@drawable/bg_chat_orb"
             android:text="J"
-            android:textColor="#FFFFFF"
+            android:textColor="?attr/themeTextPrimary"
             android:textSize="36sp"
             android:textStyle="bold"
             android:fontFamily="sans-serif-black" />
@@ -291,77 +285,37 @@
             android:focusable="true" />
     </LinearLayout>
 
+    <!-- Hidden compatibility view for rvWorkSteps if referenced before ConcatAdapter bind -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvWorkSteps"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:maxHeight="260dp"
-        app:layout_constraintBottom_toTopOf="@id/cardInputContainer"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:paddingStart="4dp"
-        android:paddingEnd="4dp"
-        android:layout_marginBottom="4dp"
-        android:visibility="gone" />
+        app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- 3. FIXED BOTTOM CHAT COMPOSER — EXACT CLAUDE MOBILE REPLICATION -->
     <LinearLayout
         android:id="@+id/cardInputContainer"
         android:layout_width="0dp"
-        app:layout_constraintWidth_max="@dimen/chat_content_max_width"
         android:layout_height="wrap_content"
+        app:layout_constraintWidth_max="@dimen/chat_content_max_width"
         android:orientation="vertical"
-        android:background="@drawable/bg_cc_composer"
-        android:elevation="2dp"
-        android:paddingStart="14dp"
+        android:background="?attr/themeBg"
+        android:paddingStart="12dp"
         android:paddingEnd="12dp"
-        android:paddingTop="12dp"
-        android:paddingBottom="10dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:id="@+id/btnChatTools"
-                android:layout_width="wrap_content"
-                android:layout_height="30dp"
-                android:background="@drawable/bg_chat_tool_chip"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:paddingStart="11dp"
-                android:paddingEnd="11dp"
-                android:text="✦  CHAT TOOLS"
-                android:textColor="?attr/themeTextPrimary"
-                android:textSize="10sp"
-                android:textStyle="bold"
-                android:contentDescription="Open chat tools" />
-
-            <View
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:layout_weight="1" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="AI ASSISTANT"
-                android:textColor="?attr/themeTextMuted"
-                android:textSize="10sp"
-                android:letterSpacing="0.10"
-                android:textStyle="bold" />
-        </LinearLayout>
-
+        <!-- Attachment Preview Bar (shown when file is selected) -->
         <LinearLayout
             android:id="@+id/layoutAttachmentPreview"
             android:layout_width="match_parent"
             android:layout_height="40dp"
-            android:layout_marginTop="8dp"
+            android:layout_marginBottom="6dp"
             android:background="@drawable/bg_chat_attachment"
             android:gravity="center_vertical"
             android:paddingStart="10dp"
@@ -389,15 +343,16 @@
 
             <ImageButton
                 android:id="@+id/btnRemoveAttachment"
-                android:layout_width="48dp"
-                android:padding="7dp"
-                android:layout_height="48dp"
-                android:background="@drawable/bg_chat_header_icon"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:padding="10dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_close"
                 app:tint="?attr/themeTextSecondary"
                 android:contentDescription="Remove attachment" />
         </LinearLayout>
 
+        <!-- Voice listening visualizer bar -->
         <LinearLayout
             android:id="@+id/layoutVoiceListening"
             android:layout_width="match_parent"
@@ -409,7 +364,7 @@
             android:paddingEnd="8dp"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
-            android:layout_marginTop="8dp"
+            android:layout_marginBottom="6dp"
             android:visibility="gone">
 
             <com.jarvis.assistant.ui.chat.VoiceWaveView
@@ -424,7 +379,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Listening… speak now"
-                android:textColor="#E1F5FE"
+                android:textColor="?attr/themeTextPrimary"
                 android:textSize="13sp"
                 android:fontFamily="sans-serif-medium"
                 android:maxLines="2"
@@ -436,7 +391,7 @@
                 android:layout_height="36dp"
                 android:background="@drawable/bg_cc_send"
                 android:src="@drawable/ic_cc_arrow_up"
-                app:tint="#FFFFFF"
+                app:tint="?attr/themeTextPrimary"
                 android:padding="6dp"
                 android:layout_marginStart="8dp"
                 android:contentDescription="Finish and send voice message" />
@@ -445,7 +400,7 @@
                 android:id="@+id/btnVoiceCancel"
                 android:layout_width="36dp"
                 android:layout_height="36dp"
-                android:background="@drawable/bg_chat_header_icon"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_close"
                 app:tint="?attr/themeTextSecondary"
                 android:padding="6dp"
@@ -453,26 +408,26 @@
                 android:contentDescription="Cancel voice recording" />
         </LinearLayout>
 
-        <!-- Row 1: Message input with subtle left accent line -->
+        <!-- Claude Pill Input Container -->
         <LinearLayout
+            android:id="@+id/layoutClaudeInputBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:minHeight="48dp"
             android:orientation="horizontal"
-            android:layout_marginTop="8dp">
-
-            <View
-                android:layout_width="3dp"
-                android:layout_height="match_parent"
-                android:background="?attr/themeAccent"
-                android:alpha="0.45"
-                android:layout_marginEnd="10dp" />
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_claude_composer_input"
+            android:paddingStart="18dp"
+            android:paddingEnd="10dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp">
 
             <EditText
                 android:id="@+id/etMessageInput"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:hint="Message JARVIS…"
+                android:hint="Reply"
                 android:textColorHint="?attr/themeTextMuted"
                 android:textColor="?attr/themeTextPrimary"
                 android:textSize="15sp"
@@ -482,77 +437,124 @@
                 android:maxLines="5"
                 android:inputType="textCapSentences|textMultiLine"
                 android:imeOptions="actionSend"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp" />
+                android:paddingTop="6dp"
+                android:paddingBottom="6dp" />
+
+            <!-- Stop generation square button (visible during streaming) -->
+            <ImageButton
+                android:id="@+id/btnStopChat"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:padding="8dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_stop_white_square"
+                app:tint="?attr/themeTextPrimary"
+                android:visibility="gone"
+                android:contentDescription="Stop response" />
+
+            <!-- Send button (arrow up) -->
+            <ImageButton
+                android:id="@+id/btnSendMessage"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:padding="7dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_cc_arrow_up"
+                app:tint="?attr/themeAccent"
+                android:contentDescription="Send message" />
         </LinearLayout>
 
-        <!-- Row 2: Action buttons - left cluster | spacer | right cluster -->
+        <!-- Claude Bottom Action Toolbar -->
         <LinearLayout
+            android:id="@+id/layoutClaudeBottomBar"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="44dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginTop="4dp">
+            android:layout_marginTop="2dp">
 
-            <ImageButton
-                android:id="@+id/btnCamera"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:padding="10dp"
-                android:background="@drawable/bg_chat_attach_button"
-                android:src="@drawable/ic_chat_camera"
-                app:tint="?attr/themeTextSecondary"
-                android:layout_marginEnd="4dp"
-                android:contentDescription="Take a photo with camera" />
-
+            <!-- Plus attachment button -->
             <ImageButton
                 android:id="@+id/btnAttach"
                 android:layout_width="44dp"
                 android:layout_height="44dp"
-                android:padding="10dp"
-                android:background="@drawable/bg_chat_attach_button"
-                android:src="@drawable/ic_cc_plus"
+                android:padding="11dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_plus"
                 app:tint="?attr/themeTextSecondary"
-                android:layout_marginEnd="4dp"
-                android:contentDescription="Attach a file" />
+                android:contentDescription="Attach photo, image, or document" />
 
-            <ImageButton
-                android:id="@+id/btnVoiceInput"
-                android:layout_width="44dp"
+            <!-- Microphone with small dropdown chevron -->
+            <LinearLayout
+                android:id="@+id/layoutVoiceInputCluster"
+                android:layout_width="wrap_content"
                 android:layout_height="44dp"
-                android:padding="10dp"
-                android:background="@drawable/bg_chat_attach_button"
-                android:src="@drawable/ic_mic_jarvis"
-                app:tint="?attr/themeTextSecondary"
-                android:contentDescription="Voice to text input" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="6dp"
+                android:paddingEnd="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Voice to text input">
 
-            <!-- Flexible spacer -->
+                <ImageView
+                    android:id="@+id/btnVoiceInput"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_mic_jarvis"
+                    app:tint="?attr/themeTextSecondary"
+                    android:importantForAccessibility="no" />
+
+                <ImageView
+                    android:id="@+id/ivVoiceDropdown"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:layout_marginStart="2dp"
+                    android:src="@drawable/ic_chevron_down"
+                    app:tint="?attr/themeTextSecondary"
+                    android:importantForAccessibility="no" />
+            </LinearLayout>
+
             <View
                 android:layout_width="0dp"
                 android:layout_height="1dp"
                 android:layout_weight="1" />
 
-            <ImageButton
-                android:id="@+id/btnStopChat"
-                android:layout_width="44dp"
+            <!-- Model selector (displays actual active Jarvis model) -->
+            <TextView
+                android:id="@+id/tvModelSelector"
+                android:layout_width="wrap_content"
                 android:layout_height="44dp"
-                android:padding="8dp"
-                android:background="@drawable/bg_cc_send"
-                android:src="@drawable/ic_cc_stop"
-                app:tint="#FFFFFF"
-                android:layout_marginEnd="6dp"
-                android:visibility="gone"
-                android:contentDescription="Stop JARVIS response" />
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:text="Gemini 2.5 Flash"
+                android:textColor="?attr/themeTextSecondary"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-medium"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="Change AI Model" />
 
-            <ImageButton
-                android:id="@+id/btnSendMessage"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:padding="4dp"
-                android:background="@drawable/bg_cc_send"
-                android:src="@drawable/ic_cc_arrow_up"
-                app:tint="#FFFFFF"
-                android:contentDescription="Send message" />
+            <!-- Mode selector (e.g. "Manual" / "Auto") -->
+            <TextView
+                android:id="@+id/tvModeSelector"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:layout_marginStart="6dp"
+                android:text="Manual"
+                android:textColor="?attr/themeTextSecondary"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-medium"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="Change Execution Mode" />
         </LinearLayout>
     </LinearLayout>
 

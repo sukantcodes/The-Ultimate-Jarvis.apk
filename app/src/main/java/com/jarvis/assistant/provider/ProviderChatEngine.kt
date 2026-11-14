@@ -65,7 +65,16 @@ data class LiveWorkProgress(
     val isWorking: Boolean,
     val percent: Int,
     val actionText: String = "",
-    val target: String = ""
+    val target: String = "",
+    val toolName: String = "",
+    val codeOrOutput: String = "",
+    val language: String = "",
+    val isWriting: Boolean = false,
+    val isError: Boolean = false,
+    val isCompacting: Boolean = false,
+    val compactPercent: Int = 0,
+    val currentStep: Int = 1,
+    val totalSteps: Int = 1
 )
 
 /**
@@ -250,7 +259,13 @@ class ProviderChatEngine(
                                             isWorking = true,
                                             percent = if (!step.isWriting) minOf(98, pct + 8) else pct,
                                             actionText = step.toolName,
-                                            target = step.target
+                                            target = step.target,
+                                            toolName = step.toolName,
+                                            codeOrOutput = step.codeOrOutput,
+                                            language = step.language,
+                                            isWriting = step.isWriting,
+                                            currentStep = step.round,
+                                            totalSteps = maxOf(step.round, minOf(step.maxRounds, 5))
                                         )
                                         if (step.codeOrOutput.isNotBlank() && (step.toolName in listOf("write_file", "terminal_run", "edit_file", "search_web", "web_search", "read_file"))) {
                                             val fence = "```${step.language}:${step.target}\n${step.codeOrOutput}\n```"

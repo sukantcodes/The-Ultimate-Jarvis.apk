@@ -4,10 +4,13 @@ import com.jarvis.assistant.provider.LiveWorkProgress
 
 data class WorkStepCard(
     val id: String,
-    val type: WorkActionType,
+    val type: WorkActionType = WorkActionType.ANALYZE,
     val title: String,
-    val status: WorkStepStatus,
-    val codeSnippet: String? = null
+    val status: WorkStepStatus = WorkStepStatus.IN_PROGRESS,
+    val codeSnippet: String? = null,
+    val requestCode: String? = null,
+    val responseCode: String? = null,
+    var isExpanded: Boolean = false
 )
 
 enum class WorkStepStatus { IN_PROGRESS, DONE, ERROR }
@@ -22,4 +25,4 @@ val LiveWorkProgress.stepName: String
     }
 
 val LiveWorkProgress.codeSnippet: String?
-    get() = null
+    get() = codeOrOutput.takeIf { it.isNotBlank() }
