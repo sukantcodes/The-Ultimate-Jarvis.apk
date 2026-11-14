@@ -1672,6 +1672,7 @@ class JarvisConversationService : Service() {
                             if (offlineLocalMode) return // already switched to the on-device brain
                             Log.e("JarvisService", "GeminiLive onError: fatal=$isFatal, code=$errorCode, msg=$message")
                             updateNotification()
+                            if ((errorCode == "QUOTA_EXCEEDED" || errorCode == "API_KEY_INVALID") && rotateGeminiKey(errorCode, message)) return
                             serviceScope.launch { _events.emit(message) }
                             when (errorCode) {
                                 "API_KEY_INVALID" -> {
@@ -5038,6 +5039,53 @@ class JarvisConversationService : Service() {
         audioPlayer?.flush()
         try { tts?.stop() } catch (_: Exception) {}
         suppressAudioUntilTurnComplete = true
+    }
+
+    @Volatile private var geminiRotations = 0
+    @Volatile private var geminiRotationWindowStart = 0L
+
+    /**
+     * Gemini rejected the key in use (quota used up or key rejected): move to the next usable Gemini key saved in the
+     * Key Manager, mark the failed one so it rests, and reconnect. Returns false when there is no other key to use.
+     */
+    private fun rotateGeminiKey(errorCode: String, detail: String): Boolean {
+        return try {
+            val now = System.currentTimeMillis()
+            if (now - geminiRotationWindowStart > 120_000L) { geminiRotationWindowStart = now; geminiRotations = 0 }
+            if (geminiRotations >= 6) return false
+            val rotation = com.jarvis.assistant.provider.ProviderRuntime.keyRotation(applicationContext)
+            if (!rotation.hasKeys("gemini")) return false
+            val current = preferences.apiKey.trim()
+            val kind = if (errorCode == "API_KEY_INVALID") com.jarvis.assistant.provider.ProviderErrorKind.KEY_REJECTED
+                else com.jarvis.assistant.provider.ProviderErrorKind.RATE_LIMITED
+            val tried = HashSet<String>()
+            var next: String? = null
+            var nextLabel = ""
+            for (i in 0 until 8) {
+                val lease = rotation.lease("gemini", tried) ?: break
+                val text = lease.secret.reveal().trim()
+                lease.secret.wipe()
+                if (text == current) {
+                    // This is the key that just failed: let it rest and ask for the next one.
+                    rotation.reportFailure(lease.keyId, com.jarvis.assistant.provider.ProviderError(kind, detail.take(200)))
+                    tried += lease.keyId
+                } else {
+                    next = text; nextLabel = lease.label
+                    break
+                }
+            }
+            val key = next ?: return false
+            geminiRotations++
+            preferences.apiKey = key
+            serviceScope.launch { _events.emit("Gemini key limit reached. Switched to your next saved key (\"$nextLabel\") and reconnecting.") }
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                try { stopActiveConversation(); beginActiveConversation() } catch (e: Exception) { Log.w("JarvisService", "Reconnect after key switch failed: ${e.message}") }
+            }, 500L)
+            true
+        } catch (e: Exception) {
+            Log.w("JarvisService", "Gemini key rotation failed: ${e.message}")
+            false
+        }
     }
 
     private fun announcementPrompt(text: String, full: Boolean = false): String =
