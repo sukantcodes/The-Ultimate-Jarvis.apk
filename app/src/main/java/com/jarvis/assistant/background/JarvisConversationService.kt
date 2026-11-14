@@ -1779,23 +1779,21 @@ class JarvisConversationService : Service() {
                 val now = System.currentTimeMillis()
 
                 // Acoustic Echo Decay Protection (AEDP):
-                // For 500ms after speaker audio stops, discard mic chunks so room reverberation
+                // For 200ms after speaker audio stops, discard mic chunks so room reverberation
                 // does not bounce into Gemini Live/STT and cause false self-interruption or echo loops.
-                if (now - lastPlaybackEndTime < 500L) {
+                if (now - lastPlaybackEndTime < 200L) {
                     consecutiveVoicedFrames = 0
                     return@AudioRecorder
                 }
 
-                // Assistant is speaking / AudioTrack or TTS is actively playing or model is thinking:
+                // Assistant is speaking / AudioTrack or voice engine is actively rendering sound:
                 val isSpeakerActive = (audioPlayer?.isPlaying() == true) || (tts?.isSpeaking == true) ||
                         (_conversationState.value == ConversationState.SPEAKING) ||
-                        (_conversationState.value == ConversationState.THINKING) ||
-                        (audioPlayer?.hasQueuedAudio() == true) ||
                         com.jarvis.assistant.voice.JarvisVoiceController.isSpeaking()
 
                 if (isSpeakerActive) {
                     consecutiveVoicedFrames = 0
-                    // Suppress mic audio from streaming to Gemini while assistant is thinking or speaking.
+                    // Suppress mic audio from streaming to Gemini while assistant is actively speaking.
                     // Jarvis completes speaking its entire answer first before listening to the next question.
                     return@AudioRecorder
                 }
@@ -5108,14 +5106,6 @@ class JarvisConversationService : Service() {
      * 20 seconds if you do not answer). If that cannot start, or the setting is off, the phone's voice is used.
      */
     fun speakAnnouncement(text: String, full: Boolean = false) {
-        val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(applicationContext)
-        val isOfflineTtsActive = dispatcher.isOfflineVoiceUsable()
-
-        if (isOfflineTtsActive) {
-            dispatcher.speak(text)
-            return
-        }
-
         val socket = liveWebSocket
         if (socket != null && socket.isSessionReady()) {
             // Open a window in which the live voice may speak even though a build is running.
@@ -5125,19 +5115,44 @@ class JarvisConversationService : Service() {
             socket.sendClientContent(announcementPrompt(text, full))
             return
         }
+
+        val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(applicationContext)
+        val hasDirectGeminiKey = preferences.apiKey.trim().isNotBlank()
+        if (hasDirectGeminiKey) {
+            // Direct Gemini Cloud Voice - authentic voice, zero device TTS
+            dispatcher.cloudEngine.speak(
+                dispatcher.sanitizeForSpeech(text),
+                com.jarvis.assistant.tts.model.SpeakerProfile.defaultFor(com.jarvis.assistant.tts.model.VoiceEngineType.CLOUD_GEMINI)
+            )
+            return
+        }
+
+        val isOfflineTtsActive = dispatcher.isOfflineVoiceUsable()
+        if (isOfflineTtsActive) {
+            dispatcher.speak(text)
+            return
+        }
+
         val queued = pendingAnnouncement
         pendingAnnouncement = if (queued.isNullOrEmpty()) text else queued + " " + text
         if (!_isSessionOn.value) {
             announcementOnlySession = true
             serviceScope.launch(Dispatchers.Main) { beginActiveConversation(wakeTriggered = false) }
         }
-        // If the live session never gets ready, the voice dispatcher says it so the announcement is never lost.
+        // If the live session never gets ready, use cloud engine or offline dispatcher (never device TTS)
         serviceScope.launch {
             kotlinx.coroutines.delay(15_000)
             val stillPending = pendingAnnouncement
             if (stillPending != null) {
                 pendingAnnouncement = null
-                dispatcher.speak(stillPending)
+                if (preferences.apiKey.trim().isNotBlank()) {
+                    dispatcher.cloudEngine.speak(
+                        dispatcher.sanitizeForSpeech(stillPending),
+                        com.jarvis.assistant.tts.model.SpeakerProfile.defaultFor(com.jarvis.assistant.tts.model.VoiceEngineType.CLOUD_GEMINI)
+                    )
+                } else if (dispatcher.isOfflineVoiceUsable()) {
+                    dispatcher.speak(stillPending)
+                }
             }
         }
     }

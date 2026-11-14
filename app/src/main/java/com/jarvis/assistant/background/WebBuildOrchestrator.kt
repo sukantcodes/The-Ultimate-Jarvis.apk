@@ -289,72 +289,45 @@ object WebBuildOrchestrator {
         WebBuildService.start(ctx)
         if (!PermissionPreferences.isAutoApproveAll(ctx)) { priorAutoApprove = false; autoApproveTouched = true; PermissionPreferences.setAutoApproveAll(ctx, true) }
         val customAvail = customReady(ctx)
-        val hasGemini = JarvisApp.instance.preferences.apiKey.isNotBlank()
-        val requestedCustom = MultilingualCommandHelper.isUserWantsToAddCustomProvider(text) || parseEngine(text) == Engine.CUSTOM
-        val requestedGemini = MultilingualCommandHelper.isUserChoosesJarvisDirectly(text) || parseEngine(text) == Engine.GEMINI
-        when {
-            requestedCustom -> { engine = Engine.CUSTOM; afterEngineChosen(ctx) }
-            customAvail && !requestedGemini -> { engine = Engine.CUSTOM; afterEngineChosen(ctx) }
-            hasGemini -> { engine = Engine.GEMINI; afterEngineChosen(ctx) }
-            customAvail -> { engine = Engine.CUSTOM; afterEngineChosen(ctx) }
-            else -> {
-                say(ctx, tr("No AI model is configured. Please add a Gemini key or a custom provider in Settings.",
-                    "कोई AI मॉडल सेट नहीं है। कृपया सेटिंग्स में जेमिनी की या कस्टम प्रोवाइडर जोड़ें।",
-                    "কোনো AI মডেল সেট করা নেই। সেটিংসে জেমিনি কী বা কাস্টম প্রোভাইডার যোগ করুন।"))
-                finish(ctx, false, "No model")
-            }
+        if (!customAvail) {
+            say(ctx, tr(
+                "I cannot create a website right now. Please add a custom model in Settings first.",
+                "मैं वेबसाइट नहीं बना सकता। कृपया पहले सेटिंग्स में जाकर एक कस्टम मॉडल जोड़ें।",
+                "আমি ওয়েবসাইট তৈরি করতে পারব না। অনুগ্রহ করে প্রথমে সেটিংসে একটি কাস্টম মডেল যোগ করুন।"
+            ))
+            finish(ctx, false, "No custom provider configured")
+            completion?.invoke(false, "No custom provider configured")
+            return
         }
+        engine = Engine.CUSTOM
+        afterEngineChosen(ctx)
     }
 
     private fun onEngineReply(ctx: Context, text: String) {
-        val choice = parseEngine(text)
-        val userChoosesJarvis = MultilingualCommandHelper.isUserChoosesJarvisDirectly(text) || choice == Engine.GEMINI
-        val userAddsCustom = MultilingualCommandHelper.isUserWantsToAddCustomProvider(text) || choice == Engine.CUSTOM
-
-        when {
-            userChoosesJarvis -> {
-                engine = Engine.GEMINI
-                afterEngineChosen(ctx)
-            }
-            userAddsCustom -> {
-                engine = Engine.CUSTOM
-                afterEngineChosen(ctx)
-            }
-            else -> {
-                say(ctx, tr("Please say you create, or custom provider.", "कृपया बोलिए आप बनाओ, या कस्टम प्रोवाइडर।", "অনুগ্রহ করে বলুন আপনি বানান, অথবা কাস্টম প্রোভাইডার।"))
-            }
+        if (!customReady(ctx)) {
+            say(ctx, tr(
+                "I cannot create websites without a custom model. Please add a custom provider in Settings.",
+                "मैं बिना कस्टम मॉडल के वेबसाइट नहीं बना सकता। कृपया सेटिंग्स में कस्टम प्रोवाइडर जोड़ें।",
+                "কাস্টম মডেল ছাড়া আমি ওয়েবসাইট তৈরি করতে পারি না। দয়া করে সেটিংসে কাস্টম প্রোভাইডার যোগ করুন।"
+            ))
+            finish(ctx, false, "No custom provider configured")
+            return
         }
+        engine = Engine.CUSTOM
+        afterEngineChosen(ctx)
     }
 
     private fun afterEngineChosen(ctx: Context) {
-        if (engine == Engine.CUSTOM && !customReady(ctx)) {
-            setPhase(Phase.WAIT_CUSTOM, tr("Waiting for custom model", "कस्टम मॉडल का इंतज़ार", "কাস্টম মডেলের অপেক্ষা"))
+        if (!customReady(ctx)) {
             say(ctx, tr(
-                "Understood. Please add your custom provider in Settings, or tell me 'you create' to build it directly.",
-                "ठीक है। कृपया सेटिंग्स में कस्टम प्रोवाइडर जोड़ें, या बोलिए 'आप बनाओ' तो मैं खुद बना दूँगा।",
-                "ঠিক আছে। সেটিংসে কাস্টম প্রোভাইডার যোগ করুন, অথবা বলুন 'আপনি বানান' আমি নিজেই তৈরি করব।"))
-            try {
-                val intent = Intent(ctx, com.jarvis.assistant.ui.settings.CustomProviderEditorActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                ctx.startActivity(intent)
-            } catch (_: Exception) {}
-            job = scope.launch {
-                var lastRemind = System.currentTimeMillis()
-                while (isActive) {
-                    if (customReady(ctx)) {
-                        engine = Engine.CUSTOM
-                        say(ctx, tr("Custom model ${activeCustomName(ctx)} is active.", "कस्टम मॉडल ${activeCustomName(ctx)} एक्टिव है।", "কাস্টম মডেল ${activeCustomName(ctx)} चालू হয়েছে।"))
-                        afterEngineChosen(ctx)
-                        return@launch
-                    }
-                    delay(1_500)
-                    if (System.currentTimeMillis() - lastRemind > 180_000) {
-                        lastRemind = System.currentTimeMillis()
-                        say(ctx, tr("Still waiting for the custom model, Sir.", "अभी भी कस्टम मॉडल का इंतज़ार है सर।", "এখনও কাস্টম মডেলের অপেক্ষায় আছি স্যার।"))
-                    }
-                }
-            }
+                "I cannot create a website right now. Please add a custom model in Settings first.",
+                "मैं वेबसाइट नहीं बना सकता। कृपया पहले सेटिंग्स में जाकर एक कस्टम मॉडल जोड़ें।",
+                "আমি ওয়েবসাইট তৈরি করতে পারব না। অনুগ্রহ করে প্রথমে সেটিংসে একটি কাস্টম মডেল जोड़ें।"
+            ))
+            finish(ctx, false, "No custom provider configured")
             return
         }
+        engine = Engine.CUSTOM
         askQualityAndTimeOrBegin(ctx)
     }
 
@@ -439,10 +412,6 @@ object WebBuildOrchestrator {
         if (resuming) {
             say(ctx, tr("I'm back. Continuing the build from the files already saved.", "मैं वापस आ गया। सेव हुई फ़ाइलों से बिल्ड आगे बढ़ा रहा हूँ।", "আমি ফিরে এসেছি। সংরক্ষিত ফাইল থেকে বিল্ড চালিয়ে যাচ্ছি।"))
         } else {
-            runCatching {
-                val cleanUserPrompt = spec.trim().ifBlank { "Create a complete website or game" }
-                JarvisApp.instance.chatRepository.addTurn(cleanUserPrompt, "🛠 Building \"$name\" with $label" + (if (quality) " in high-quality mode" else "") + ". I'll host it on the local server and open the preview automatically.")
-            }
             say(ctx, if (quality) tr(
                 "High detail it is. $label will implement every single detail and I'll supervise each step.",
                 "हाई डिटेल बनेगा। $label हर एक चीज़ पूरी तरह लागू करेगा और मैं हर कदम पर निगरानी रखूँगा।",
@@ -504,12 +473,14 @@ object WebBuildOrchestrator {
                         outOfTime = true
                         break
                     }
-                    if (!result.ok) {
-                        lastError = result.error
-                        if (attempt == 0 && !result.error.isNullOrBlank()) {
-                            val why = result.error.take(160)
-                            sayWork(ctx, tr("$label reported a problem: $why. I'll continue from where it stopped.", "$label में समस्या आई: $why। जहाँ रुका वहीं से आगे बढ़ा रहा हूँ।", "$label-এ সমস্যা হয়েছে: $why। যেখানে থেমেছে সেখান থেকে এগোচ্ছি।"))
-                        }
+                    if (!result.ok || result.limitHit) {
+                        lastError = result.error.orEmpty().ifBlank { "Custom model error" }
+                        val why = lastError.take(160)
+                        sayWork(ctx, tr("Build stopped. Reason: $why", "बिल्ड रुक गया है। कारण: $why", "বিল্ড থেমে গেছে। কারণ: $why"))
+                        monitor.cancel()
+                        finish(ctx, false, lastError)
+                        completion?.invoke(false, lastError)
+                        return@launch
                     }
                     var hasFiles = dir.walkTopDown().any { it.isFile && !it.relativeTo(dir).path.startsWith(".") }
                     var report = if (hasFiles) ProjectBuilder.check(dir, false) else null
@@ -520,43 +491,20 @@ object WebBuildOrchestrator {
                         report = if (hasFiles) ProjectBuilder.check(dir, false) else null
                     }
                     if (report != null && report.ok) { ok = true; break }
-                    val geminiAvailable = JarvisApp.instance.preferences.apiKey.isNotBlank()
-                    // The model answered but wrote nothing: it is not doing the work (for example it cannot use tools).
-                    if (result.ok && !hasFiles && engine == Engine.CUSTOM && !takeover) {
-                        lastError = "$label answered but wrote no files, so it is not doing the build."
-                        if (geminiAvailable) {
-                            takeover = true
-                            tracker.workerDone = false
-                            _status.value = _status.value.copy(engineLabel = "Gemini")
-                            sayWork(ctx, tr("$label did not write any files, so Gemini is building it instead.", "$label ने कोई फ़ाइल नहीं लिखी, इसलिए अब जेमिनी इसे बना रहा है।", "$label কোনো ফাইল লেখেনি, তাই এখন জেমিনি এটি বানাচ্ছে।"))
-                            prompt = resumePrompt(name, spec, dir, emptyList(), lastError) + timeNote(if (wrapping) 1 else 0)
-                            continue
-                        }
-                        sayWork(ctx, tr("$label did not write any files. I'll try again, and if it keeps happening please check that this model supports tools.", "$label ने कोई फ़ाइल नहीं लिखी। मैं दोबारा कोशिश करता हूँ; ऐसा बार-बार हो तो जाँचें कि यह मॉडल टूल्स सपोर्ट करता है।", "$label কোনো ফাইল লেখেনি। আমি আবার চেষ্টা করছি; বারবার হলে দেখুন এই মডেল টুল সাপোর্ট করে কি না।"))
+                    if (!hasFiles) {
+                        lastError = "$label answered but wrote no files"
+                        sayWork(ctx, tr("Build stopped. Reason: $label did not write any files.", "बिल्ड रुक गया है। कारण: $label ने कोई फ़ाइल नहीं बनाई।", "বিল্ড থেমে গেছে। কারণ: $label কোনো ফাইল তৈরি করেনি।"))
+                        monitor.cancel()
+                        finish(ctx, false, lastError)
+                        completion?.invoke(false, lastError)
+                        return@launch
                     }
-                    // The custom provider hit its limit (every key used up): Gemini carries on at once from the saved files.
-                    if (result.limitHit && engine == Engine.CUSTOM && !takeover && geminiAvailable) {
-                        takeover = true
-                        tracker.workerDone = false
-                        _status.value = _status.value.copy(engineLabel = "Gemini")
-                        sayWork(ctx, tr("The custom model's key limit is reached. Gemini is taking over from ${tracker.lastTarget.ifBlank { "the last file" }} and will finish the work.",
-                            "कस्टम मॉडल की की-लिमिट पूरी हो गई। जेमिनी ${tracker.lastTarget.ifBlank { "आखिरी फ़ाइल" }} से काम संभालकर पूरा करेगा।",
-                            "কাস্টম মডেলের কী-লিমিট শেষ। জেমিনি ${tracker.lastTarget.ifBlank { "শেষ ফাইল" }} থেকে কাজ নিয়ে শেষ করবে।"))
-                        prompt = resumePrompt(name, spec, dir, report?.problems.orEmpty(), lastError) + timeNote(if (wrapping) 1 else 0)
-                        continue
-                    }
+
                     attempt++
                     if (attempt > MAX_RESUMES) break
-                    if (engine == Engine.CUSTOM && !takeover && attempt >= CUSTOM_RETRIES_BEFORE_TAKEOVER && geminiAvailable) {
-                        takeover = true
-                        sayWork(ctx, tr("The custom model keeps failing. I'm taking over from ${tracker.lastTarget.ifBlank { "the last file" }}.",
-                            "कस्टम मॉडल बार-बार फेल हो रहा है। मैं ${tracker.lastTarget.ifBlank { "आखिरी फ़ाइल" }} से काम संभाल रहा हूँ।",
-                            "কাস্টম মডেল বারবার ব্যর্থ হচ্ছে। আমি ${tracker.lastTarget.ifBlank { "শেষ ফাইল" }} থেকে কাজ নিচ্ছি।"))
-                    } else {
-                        sayWork(ctx, tr("${label} stopped at ${tracker.lastTarget.ifBlank { "the planning step" }}. Restarting from exactly there.",
-                            "$label ${tracker.lastTarget.ifBlank { "प्लानिंग स्टेप" }} पर रुक गया। ठीक वहीं से दोबारा शुरू कर रहा हूँ।",
-                            "$label ${tracker.lastTarget.ifBlank { "প্ল্যানিং ধাপে" }} থেমে গেছে। ঠিক সেখান থেকেই আবার শুরু করছি।"))
-                    }
+                    sayWork(ctx, tr("${label} stopped at ${tracker.lastTarget.ifBlank { "the planning step" }}. Restarting from exactly there.",
+                        "$label ${tracker.lastTarget.ifBlank { "प्लानिंग स्टेप" }} पर रुक गया। ठीक वहीं से दोबारा शुरू कर रहा हूँ।",
+                        "$label ${tracker.lastTarget.ifBlank { "প্ল্যানিং ধাপে" }} থেমে গেছে। ঠিক সেখান থেকেই আবার শুরু করছি।"))
                     tracker.workerDone = false
                     prompt = resumePrompt(name, spec, dir, report?.problems.orEmpty(), lastError) + timeNote(if (wrapping) 1 else 0)
                     delay(1_500L * attempt)
@@ -607,12 +555,10 @@ object WebBuildOrchestrator {
                             failedRounds++
                         } else if (!polish.ok && !polish.timedOut) failedRounds++ else failedRounds = 0
                         if (polish.timedOut || failedRounds >= 2) break
-                        if (polish.limitHit && engine == Engine.CUSTOM && !takeover) {
-                            if (JarvisApp.instance.preferences.apiKey.isNotBlank()) {
-                                takeover = true
-                                _status.value = _status.value.copy(engineLabel = "Gemini")
-                                sayWork(ctx, tr("The custom model's key limit is reached. Gemini continues the improvements.", "कस्टम मॉडल की की-लिमिट पूरी हो गई। जेमिनी सुधार जारी रखेगा।", "কাস্টম মডেলের কী-লিমিট শেষ। জেমিনি উন্নতির কাজ চালিয়ে যাবে।"))
-                            } else break
+                        if (polish.limitHit || (!polish.ok && !polish.timedOut)) {
+                            val why = polish.error.orEmpty().ifBlank { "Custom model error" }
+                            sayWork(ctx, tr("Build stopped. Reason: $why", "बिल्ड रुक गया है। कारण: $why", "বিল্ড থেমে গেছে। कारण: $why"))
+                            break
                         }
                     }
                     tracker.polishing = false
@@ -675,13 +621,13 @@ object WebBuildOrchestrator {
 
     private suspend fun runWorker(ctx: Context, prompt: String, tracker: Tracker, useCustom: Boolean, untilMs: Long = Long.MAX_VALUE, shown: String = continuedText()): WorkerResult {
         tracker.shown = shown
-        suspend fun once() = if (useCustom) runCustomWorker(ctx, prompt, tracker) else runGeminiWorker(ctx, prompt, tracker)
+        suspend fun once() = runCustomWorker(ctx, prompt, tracker)
         if (untilMs == Long.MAX_VALUE) return once()
         val remaining = untilMs - System.currentTimeMillis()
         if (remaining <= 0) return WorkerResult(false, "The time budget is used up.", timedOut = true)
         // A worker that is still going when its slice ends is stopped; what it already wrote stays on disk.
         return withTimeoutOrNull(remaining) { once() } ?: run {
-            if (useCustom) runCatching { ProviderRuntime.chatEngine(ctx).cancel() }
+            runCatching { ProviderRuntime.chatEngine(ctx).cancel() }
             WorkerResult(false, "The time budget was reached.", timedOut = true)
         }
     }
@@ -1215,12 +1161,11 @@ object WebBuildOrchestrator {
     }
 
     /**
-     * Everything the supervisor says is spoken in Jarvis's own voice (the live Gemini voice, or the installed offline
-     * Jarvis voice). The phone's plain text-to-speech is used only when Jarvis's voice cannot be reached at all.
+     * Spoken in Jarvis's own authentic voice (Gemini Live or Gemini Cloud Voice).
+     * Device system TextToSpeech and ChatBox message logging are strictly prohibited.
      */
     private fun say(ctx: Context, text: String, logChat: Boolean = false) {
         if (text.isBlank()) return
-        if (logChat) runCatching { JarvisApp.instance.chatRepository.addTurn("🛠 JARVIS build", text) }
         val spokenInFull = text.length > 140
         if (!JarvisConversationService.announceMessage(text, spokenInFull)) {
             com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(ctx).speak(text)
@@ -1229,7 +1174,7 @@ object WebBuildOrchestrator {
 
     private suspend fun saySuspending(ctx: Context, text: String, logChat: Boolean = false) {
         if (text.isBlank()) return
-        say(ctx, text, logChat)
+        say(ctx, text, false)
         // The live voice reports no "finished" callback, so give it roughly the time the sentence takes to say.
         delay((2_000L + text.length * 70L).coerceAtMost(45_000L))
     }

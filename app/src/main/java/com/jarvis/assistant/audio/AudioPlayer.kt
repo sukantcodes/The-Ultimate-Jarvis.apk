@@ -134,11 +134,11 @@ class AudioPlayer(
                     } else {
                         silenceCounter++
                         // Clean turn completion:
-                        // 1. If Gemini signaled turnComplete: wait 12 cycles (~240ms) of empty queue
+                        // 1. If Gemini signaled turnComplete: wait 6 cycles (~120ms) of empty queue
                         //    so the hardware AudioTrack buffer has rendered out to the speaker cleanly.
-                        // 2. If Gemini is still generating (turnComplete not yet received): wait 125 cycles (~2500ms)
+                        // 2. If Gemini is still generating (turnComplete not yet received): wait 25 cycles (~500ms)
                         //    to tolerate normal chunk gaps and network jitter without cutting off speech.
-                        val shouldFinish = (isTurnComplete.get() && silenceCounter >= 12) || (silenceCounter >= 125)
+                        val shouldFinish = (isTurnComplete.get() && silenceCounter >= 6) || (silenceCounter >= 25)
 
                         if (shouldFinish && isPlayingState.get()) {
                             isPlayingState.set(false)

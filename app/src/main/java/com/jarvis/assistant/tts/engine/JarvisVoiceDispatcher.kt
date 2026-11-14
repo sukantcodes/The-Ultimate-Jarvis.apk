@@ -260,8 +260,7 @@ class JarvisVoiceDispatcher private constructor(private val context: Context) {
                     Log.i(TAG, "Local engine ${speaker.engineType.displayName} not installed. Using Gemini Cloud Voice.")
                     cloudEngine.speak(cleanSpeech, SpeakerProfile.defaultFor(VoiceEngineType.CLOUD_GEMINI), amplitudeCallback, completionCallback)
                 } else {
-                    Log.w(TAG, "Local engine ${speaker.engineType.displayName} not installed and no Gemini key. Falling back to system TTS.")
-                    JarvisVoiceController.speakSystemTts(context, cleanSpeech)
+                    Log.w(TAG, "Local engine ${speaker.engineType.displayName} not installed and no Gemini key.")
                     completionCallback()
                 }
             }
@@ -273,8 +272,7 @@ class JarvisVoiceDispatcher private constructor(private val context: Context) {
                     Log.i(TAG, "Offline TTS not active. Using Gemini Voice.")
                     cloudEngine.speak(cleanSpeech, SpeakerProfile.defaultFor(VoiceEngineType.CLOUD_GEMINI), amplitudeCallback, completionCallback)
                 } else {
-                    Log.i(TAG, "Offline TTS engine is deactivated. Delegating to system voice.")
-                    JarvisVoiceController.speakSystemTts(context, cleanSpeech)
+                    Log.i(TAG, "Voice engine is deactivated.")
                     completionCallback()
                 }
             }

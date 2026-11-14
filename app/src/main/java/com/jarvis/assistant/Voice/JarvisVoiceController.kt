@@ -179,13 +179,8 @@ object JarvisVoiceController {
             lastSpokenTurnId = turnId
         }
 
-        // Explicit fallback/system TTS request: execute immediately and do NOT dispatch recursively
-        if (forceTts) {
-            speakSystemTts(context, shortSpokenText)
-            return
-        }
-
-        // Master Voice Dispatcher (Offline Neural Kokoro/Piper, Gemini Voice, or System Fallback)
+        // Device TTS is completely disabled per user mandate.
+        // Route speech strictly through Master Voice Dispatcher (Gemini Cloud Voice or Offline Neural)
         try {
             val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(context)
             notifySpeakingState(true)
@@ -193,27 +188,20 @@ object JarvisVoiceController {
                 notifySpeakingState(false)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "JarvisVoiceDispatcher speak failed; falling back to system TTS", e)
-            speakSystemTts(context, shortSpokenText)
+            Log.e(TAG, "JarvisVoiceDispatcher speak failed", e)
+            notifySpeakingState(false)
         }
     }
 
     /**
-     * Directly speaks via the Android system TextToSpeech engine with zero recursive dispatching.
+     * Device system TextToSpeech is completely disabled per user mandate.
      */
     fun speakSystemTts(context: Context, text: String) {
-        prewarm(context)
-        speakViaTts(text)
+        Log.i(TAG, "Device TTS is disabled; ignoring speakSystemTts")
     }
 
     private fun speakViaTts(text: String) {
-        val engine = ttsEngine
-        if (engine != null && isTtsReady) {
-            engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis_voice_response")
-            notifySpeakingState(true)
-        } else {
-            pendingSpeech = text
-        }
+        // Device TTS disabled
     }
 
     /**
