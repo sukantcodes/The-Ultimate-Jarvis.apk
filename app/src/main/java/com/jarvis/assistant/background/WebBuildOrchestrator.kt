@@ -296,7 +296,6 @@ object WebBuildOrchestrator {
                 "আমি ওয়েবসাইট তৈরি করতে পারব না। অনুগ্রহ করে প্রথমে সেটিংসে একটি কাস্টম মডেল যোগ করুন।"
             ))
             finish(ctx, false, "No custom provider configured")
-            completion?.invoke(false, "No custom provider configured")
             return
         }
         engine = Engine.CUSTOM
@@ -479,7 +478,6 @@ object WebBuildOrchestrator {
                         sayWork(ctx, tr("Build stopped. Reason: $why", "बिल्ड रुक गया है। कारण: $why", "বিল্ড থেমে গেছে। কারণ: $why"))
                         monitor.cancel()
                         finish(ctx, false, lastError)
-                        completion?.invoke(false, lastError)
                         return@launch
                     }
                     var hasFiles = dir.walkTopDown().any { it.isFile && !it.relativeTo(dir).path.startsWith(".") }
@@ -496,7 +494,6 @@ object WebBuildOrchestrator {
                         sayWork(ctx, tr("Build stopped. Reason: $label did not write any files.", "बिल्ड रुक गया है। कारण: $label ने कोई फ़ाइल नहीं बनाई।", "বিল্ড থেমে গেছে। কারণ: $label কোনো ফাইল তৈরি করেনি।"))
                         monitor.cancel()
                         finish(ctx, false, lastError)
-                        completion?.invoke(false, lastError)
                         return@launch
                     }
 
