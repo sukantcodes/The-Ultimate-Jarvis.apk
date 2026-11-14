@@ -79,7 +79,7 @@ object WebBuildOrchestrator {
     private const val TAG = "WebBuildOrchestrator"
     private const val MAX_RESUMES = 6
     private const val CUSTOM_RETRIES_BEFORE_TAKEOVER = 3
-    private const val SPEAK_EVERY_MS = 15_000L
+    private const val SPEAK_EVERY_MS = 30_000L
     private const val NUDGE_AFTER_MS = 60_000L
     private const val ACK_WAIT_MS = 15 * 60_000L
     private const val LOCK_TIMEOUT_MS = 6 * 60 * 60_000L
@@ -289,23 +289,13 @@ object WebBuildOrchestrator {
         if (!PermissionPreferences.isAutoApproveAll(ctx)) { priorAutoApprove = false; autoApproveTouched = true; PermissionPreferences.setAutoApproveAll(ctx, true) }
         val customAvail = customReady(ctx)
         val hasGemini = JarvisApp.instance.preferences.apiKey.isNotBlank()
-        val requestedGemini = MultilingualCommandHelper.isUserChoosesJarvisDirectly(text) || parseEngine(text) == Engine.GEMINI
+        val requestedGemini = MultilingualCommandHelper.isUserChoosesJarvisDirectly(text) || parseEngine(text) == Engine.GEMINI || text.contains("gemini", ignoreCase = true)
         val requestedCustom = MultilingualCommandHelper.isUserWantsToAddCustomProvider(text) || parseEngine(text) == Engine.CUSTOM
         when {
             requestedGemini -> { engine = Engine.GEMINI; afterEngineChosen(ctx) }
             requestedCustom -> { engine = Engine.CUSTOM; afterEngineChosen(ctx) }
             customAvail -> { engine = Engine.CUSTOM; afterEngineChosen(ctx) }
-            hasGemini -> {
-                setPhase(Phase.ASK_ENGINE, tr("Waiting for your choice", "आपके जवाब का इंतज़ार", "আপনার উত্তরের অপেক্ষা"))
-                val prompt = MultilingualCommandHelper.getLocalizedAskProviderChoice(lang).ifBlank {
-                    tr(
-                        "No custom model is active. Should I create the website myself, or will you add a custom provider?",
-                        "कोई कस्टम मॉडल एक्टिव नहीं है। क्या मैं खुद वेबसाइट बना दूँ, या आप कस्टम प्रोवाइडर जोड़ेंगे?",
-                        "কোনো কাস্টম মডেল चालू নেই। আমি কি নিজেই ওয়েবসাইট বানাব, নাকি আপনি কাস্টম প্রোভাইডার যোগ করবেন?"
-                    )
-                }
-                say(ctx, prompt)
-            }
+            hasGemini -> { engine = Engine.GEMINI; afterEngineChosen(ctx) }
             else -> {
                 say(ctx, tr("No AI model is configured. Please add a Gemini key or a custom provider in Settings.",
                     "कोई AI मॉडल सेट नहीं है। कृपया सेटिंग्स में जेमिनी की या कस्टम प्रोवाइडर जोड़ें।",
@@ -448,7 +438,10 @@ object WebBuildOrchestrator {
         if (resuming) {
             say(ctx, tr("I'm back. Continuing the build from the files already saved.", "मैं वापस आ गया। सेव हुई फ़ाइलों से बिल्ड आगे बढ़ा रहा हूँ।", "আমি ফিরে এসেছি। সংরক্ষিত ফাইল থেকে বিল্ড চালিয়ে যাচ্ছি।"))
         } else {
-            runCatching { JarvisApp.instance.chatRepository.addTurn("", "🛠 Building \"$name\" with $label" + (if (quality) " in high-quality mode" else "") + ". I'll host it on the local server and open the preview automatically.") }
+            runCatching {
+                val cleanUserPrompt = spec.trim().ifBlank { "Create a complete website or game" }
+                JarvisApp.instance.chatRepository.addTurn(cleanUserPrompt, "🛠 Building \"$name\" with $label" + (if (quality) " in high-quality mode" else "") + ". I'll host it on the local server and open the preview automatically.")
+            }
             say(ctx, if (quality) tr(
                 "High detail it is. $label will implement every single detail and I'll supervise each step.",
                 "हाई डिटेल बनेगा। $label हर एक चीज़ पूरी तरह लागू करेगा और मैं हर कदम पर निगरानी रखूँगा।",
@@ -753,15 +746,18 @@ object WebBuildOrchestrator {
 
     private suspend fun runGeminiWorker(ctx: Context, prompt: String, tracker: Tracker): WorkerResult {
         val backend = ToolRuntime.backend(ctx) ?: return WorkerResult(false, "Workspace tools are unavailable.")
-        val provider = geminiProvider(ctx, forBuild = true) ?: return WorkerResult(false, "No Gemini API key is saved.")
         val system = ChatContext.systemPrompt(JarvisApp.instance.preferences.userName, TokenModeStore.get(ctx)) + ProviderChatEngine.TOOL_PROMPT
-        return try {
-            val loop = GeminiToolLoop(ProviderRuntime.transport(), backend)
-            // Show the work in ChatBox exactly like a custom model's: code and terminal blocks that appear live.
-            val store = ProviderChatBridge(JarvisApp.instance.chatRepository)
-            val turnId = store.begin(tracker.shown.ifBlank { spec }, null)
-            val blocks = LinkedHashMap<String, String>()
+        // Show the work in ChatBox exactly like a custom model's: code and terminal blocks that appear live.
+        val store = ProviderChatBridge(JarvisApp.instance.chatRepository)
+        val turnId = store.begin(tracker.shown.ifBlank { spec }, null)
+        val blocks = LinkedHashMap<String, String>()
+
+        var lastErrorMsg = "Gemini build failed"
+        // Try up to 3 times strictly with Google AI Studio authorized API keys
+        for (attempt in 1..3) {
+            val provider = geminiProvider(ctx, forBuild = true) ?: return WorkerResult(false, "No Gemini API key is saved.")
             try {
+                val loop = GeminiToolLoop(ProviderRuntime.transport(), backend)
                 val res = loop.run(
                     ChatRequest(provider, system, listOf(ChatMessage(ChatRole.USER, prompt)), maxTokens = TokenModeStore.get(ctx).maxTokens, thinking = if (quality) Thinking.DEFAULT else Thinking.LOW),
                     "web-build",
@@ -776,19 +772,29 @@ object WebBuildOrchestrator {
                     }
                 )
                 store.finish(turnId, (blocks.values.joinToString("\n\n") + "\n\n" + res.text.trim()).trim().ifBlank { "Done." })
+                return WorkerResult(true)
             } catch (e: CancellationException) {
                 store.finish(turnId, (blocks.values.joinToString("\n\n") + "\n\n⏱ Stopped to stay within the time limit; Jarvis is wrapping up.").trim())
                 throw e
             } catch (e: Exception) {
-                store.fail(turnId, blocks.values.joinToString("\n\n"), ProviderChatEngine.ERROR_PREFIX + (if (e is ProviderException) e.error.message else (e.message ?: "Build step failed")))
-                throw e
+                lastErrorMsg = if (e is ProviderException) e.error.message else (e.message ?: "Google AI Studio API error")
+                Log.w(TAG, "runGeminiWorker Google AI Studio attempt $attempt failed: $lastErrorMsg", e)
+                rotateToNextGoogleAiStudioKey(ctx)
+                if (attempt < 3) {
+                    delay(1_000L * attempt)
+                }
             }
-            WorkerResult(true)
-        } catch (e: ProviderException) {
-            WorkerResult(false, e.error.message)
-        } catch (e: TransportException) {
-            WorkerResult(false, ProviderErrors.fromTransport(e).message)
         }
+
+        // All 3 attempts failed: mark failure in ChatBox and announce exact error out loud
+        store.fail(turnId, blocks.values.joinToString("\n\n"), ProviderChatEngine.ERROR_PREFIX + lastErrorMsg)
+        val spokenError = tr(
+            "Gemini build attempt failed after 3 tries. Error: $lastErrorMsg",
+            "जेमिनी बिल्ड 3 बार कोशिश के बाद भी असफल रहा। एरर: $lastErrorMsg",
+            "৩ বার চেষ্টার পরও জেমিনি বিল্ড ব্যর্থ হয়েছে। এরর: $lastErrorMsg"
+        )
+        say(ctx, spokenError, logChat = true)
+        return WorkerResult(false, lastErrorMsg)
     }
 
     /**
@@ -1063,13 +1069,44 @@ object WebBuildOrchestrator {
     private fun geminiProvider(ctx: Context, forBuild: Boolean): ResolvedProvider? {
         val key = JarvisApp.instance.preferences.apiKey.trim()
         if (key.isBlank()) return null
-        val saved = ProviderRuntime.routing(ctx).get(WorkCategory.CODING)
-        val modelId = if (saved?.isGemini == true && saved.modelId.isNotBlank()) saved.modelId else GeminiConstants.MODEL_3_1_FLASH_AGENT
+        // Strictly use official Google AI Studio Gemini API endpoint and model
+        val modelId = GeminiConstants.MODEL_3_1_FLASH_AGENT
         return ResolvedProvider(
             profileId = "gemini-builtin", name = "Gemini", baseUrl = "https://generativelanguage.googleapis.com/v1beta",
             protocol = ProviderProtocol.GEMINI, auth = AuthSpec(AuthMethod.X_GOOG_API_KEY, "", ApiKeySecret(key.toCharArray())),
             modelId = modelId, model = ModelInfo(id = modelId, manual = true), realtimeUrl = "", sttModelId = "", settings = emptyMap()
         )
+    }
+
+    private fun rotateToNextGoogleAiStudioKey(ctx: Context): Boolean {
+        return try {
+            val rotation = ProviderRuntime.keyRotation(ctx)
+            if (!rotation.hasKeys("gemini")) return false
+            val current = JarvisApp.instance.preferences.apiKey.trim()
+            val tried = HashSet<String>()
+            var next: String? = null
+            var nextLabel = ""
+            for (i in 0 until 8) {
+                val lease = rotation.lease("gemini", tried) ?: break
+                val text = lease.secret.reveal().trim()
+                lease.secret.wipe()
+                if (text == current) {
+                    rotation.reportFailure(lease.keyId, ProviderError(ProviderErrorKind.RATE_LIMITED, "Google AI Studio quota or rate limit reached during build"))
+                    tried += lease.keyId
+                } else {
+                    next = text
+                    nextLabel = lease.label
+                    break
+                }
+            }
+            val key = next ?: return false
+            JarvisApp.instance.preferences.apiKey = key
+            Log.i(TAG, "Rotated Google AI Studio key to '$nextLabel'")
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "Google AI Studio key rotation failed: ${e.message}")
+            false
+        }
     }
 
     /** Short side-calls for the live review and the rhyme. Gemini when a key exists, otherwise the active custom model. */

@@ -292,11 +292,19 @@ object ProjectCodeAnalyzer {
 
         // If an AI model callback is provided, attempt live contextual AI synthesis first
         if (askAi != null) {
-            val system = "You are JARVIS. You have just built a website or game and launched the preview. " +
-                    "Explain the website or game to the owner aloud in $language (if Hinglish, use natural Hindi written in Roman script). " +
-                    "Keep it to 3 or 4 clear, intelligent spoken sentences: no markdown, no emojis, no bullet points. " +
-                    "Do NOT speak generic placeholder text. Analyze the real code details provided and describe what was created, " +
-                    "the visual styling, the specific CSS animations used, and the interactive JavaScript/Audio features implemented."
+            val isHi = l.contains("hindi") || l.contains("hinglish")
+            val system = if (isHi) {
+                "You are JARVIS. You have just built a website or game and launched the preview. " +
+                "Explain how wonderful the website or game is to the owner aloud in Hindi (Roman script/Hinglish or Hindi) in a beautiful, catchy rhyming poem / kavita style (melodious tukbandi / shayari couplets). " +
+                "Rhyme the lines rhythmically while praising the design, colors, glowing CSS animations, and interactive JavaScript features. " +
+                "Keep it to 4 to 6 rhyming lines: plain spoken text only, no markdown, no emojis, no bullet points."
+            } else {
+                "You are JARVIS. You have just built a website or game and launched the preview. " +
+                "Explain the website or game to the owner aloud in $language (if Hinglish, use natural Hindi written in Roman script). " +
+                "Keep it to 3 or 4 clear, intelligent spoken sentences: no markdown, no emojis, no bullet points. " +
+                "Do NOT speak generic placeholder text. Analyze the real code details provided and describe what was created, " +
+                "the visual styling, the specific CSS animations used, and the interactive JavaScript/Audio features implemented."
+            }
 
             val prompt = buildString {
                 append("Project: \"$topic\" (Type: ${analysis.projectType})\n")
@@ -365,9 +373,12 @@ object ProjectCodeAnalyzer {
 
         return when {
             isHi -> {
-                "Sir, aapka '$topic' ${a.projectType} local server par live chal raha hai aur preview open ho chuka hai. " +
-                        "Maine code analyze kiya hai: ismein $compStr shamil hain. Visuals ke liye $styleStr ke saath $animStrHi animations add kiye gaye hain. " +
-                        "Logic layer mein $mechStrHi implement kiya hai, jisse sabhi features live perfectly perform kar rahe hain."
+                "Sir, aapki nayi website '$topic' ka jaadu dekhiye, " +
+                "Design hai shaandar aur features anokhe paaiye! " +
+                "Code mein $compStr sajaya hai bemisaal, " +
+                "$styleStr ke sang $animStrHi animations lag rahe kamaal. " +
+                "Logic layer mein $mechStrHi ka fast flow hai, " +
+                "Localhost par preview ab live hai aur roop iska shaan se dhal raha!"
             }
             isBn -> {
                 "স্যার, আপনার '$topic' ${a.projectType} লোকাল সার্ভারে চালু হয়েছে এবং প্রিভিউ ওপেন করা হয়েছে। " +

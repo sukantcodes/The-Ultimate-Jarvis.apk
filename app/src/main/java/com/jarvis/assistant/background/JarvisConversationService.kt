@@ -1403,7 +1403,8 @@ class JarvisConversationService : Service() {
                             val projectWorkflowActive = com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
                                 com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive()
                             suppressAudioUntilTurnComplete = projectWorkflowActive
-                            if (hasHeadset || _conversationState.value != ConversationState.SPEAKING) {
+                            val isActivelyPlaying = (audioPlayer?.isPlaying() == true) || (audioPlayer?.hasQueuedAudio() == true)
+                            if (!isActivelyPlaying) {
                                 audioPlayer?.flush()
                                 currentTurnAssistantText.clear()
                                 _liveAssistantResponse.value = ""
@@ -1778,55 +1779,24 @@ class JarvisConversationService : Service() {
                 val now = System.currentTimeMillis()
 
                 // Acoustic Echo Decay Protection (AEDP):
-                // For 300ms after speaker audio stops, discard mic chunks so room reverberation
+                // For 500ms after speaker audio stops, discard mic chunks so room reverberation
                 // does not bounce into Gemini Live/STT and cause false self-interruption or echo loops.
-                if (now - lastPlaybackEndTime < 300L) {
+                if (now - lastPlaybackEndTime < 500L) {
                     consecutiveVoicedFrames = 0
                     return@AudioRecorder
                 }
 
-                // Assistant is speaking / AudioTrack or TTS is actively playing:
+                // Assistant is speaking / AudioTrack or TTS is actively playing or model is thinking:
                 val isSpeakerActive = (audioPlayer?.isPlaying() == true) || (tts?.isSpeaking == true) ||
                         (_conversationState.value == ConversationState.SPEAKING) ||
+                        (_conversationState.value == ConversationState.THINKING) ||
+                        (audioPlayer?.hasQueuedAudio() == true) ||
                         com.jarvis.assistant.voice.JarvisVoiceController.isSpeaking()
 
                 if (isSpeakerActive) {
-                    val hasHeadset = headsetAudioRouter?.isHeadsetConnected() == true
-                    // Voice barge-in works reliably on headset where speaker audio doesn't leak into mic.
-                    // On loudspeaker, pure amplitude trigger causes acoustic self-interruption from phone's own speaker.
-                    if (hasHeadset) {
-                        val interruptThreshold = 0.22f
-                        if (amplitude > interruptThreshold) {
-                            consecutiveVoicedFrames++
-                            val requiredFrames = 3
-                            if (consecutiveVoicedFrames >= requiredFrames) {
-                                Log.i("JarvisService", "Voice barge-in: user spoke over assistant (headset=true, amp=$amplitude)")
-                                audioPlayer?.flush()
-                                try { tts?.stop() } catch (_: Exception) {}
-                                consecutiveVoicedFrames = 0
-                                setConversationState(ConversationState.LISTENING)
-                                lastUserSpeechDetectedTime = now
-                                hasSpeechInCurrentUtterance = true
-                                hasSignalledUtteranceEnd = false
-                                currentTurnUserText.clear()
-                                currentTurnAssistantText.clear()
-                                _liveUserTranscript.value = ""
-                                _liveAssistantResponse.value = ""
-                                hasExecutedCommandInCurrentTurn = false
-                                totalVoicedFramesInCurrentUtterance = requiredFrames
-                                synchronized(currentUtteranceAudioStream) {
-                                    currentUtteranceAudioStream.reset()
-                                    currentUtteranceAudioStream.write(chunk)
-                                }
-                                isCurrentTurnOwnerVoiceVerified = true
-                                strictOwnerMatchedThisTurn = false
-                                return@AudioRecorder
-                            }
-                        }
-                    } else {
-                        consecutiveVoicedFrames = 0
-                    }
-                    // Suppress mic audio from streaming to Gemini ONLY while assistant is physically speaking over loudspeaker.
+                    consecutiveVoicedFrames = 0
+                    // Suppress mic audio from streaming to Gemini while assistant is thinking or speaking.
+                    // Jarvis completes speaking its entire answer first before listening to the next question.
                     return@AudioRecorder
                 }
 
