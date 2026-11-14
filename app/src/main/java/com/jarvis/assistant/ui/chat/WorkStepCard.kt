@@ -7,7 +7,11 @@ data class WorkStepCard(
     val type: WorkActionType,
     val title: String,
     val status: WorkStepStatus,
-    val codeSnippet: String? = null
+    val codeSnippet: String? = null,
+    /** What was asked of the tool (shown under "Request" when the row is opened). */
+    val request: String? = null,
+    /** What came back (shown under "Response"). */
+    val response: String? = null
 )
 
 enum class WorkStepStatus { IN_PROGRESS, DONE, ERROR }

@@ -18,7 +18,9 @@ data class LiveToolStep(
     val codeOrOutput: String,
     val isWriting: Boolean,
     val round: Int,
-    val maxRounds: Int
+    val maxRounds: Int,
+    /** Set on the finishing report of a step whose tool failed or was refused. */
+    val failed: Boolean = false
 )
 
 /**
@@ -112,7 +114,7 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
                     "edit_file" -> if (content.isNotBlank()) content else res.text
                     else -> content
                 }
-                onStep(LiveToolStep(c.name, target, lang, finalOutput, isWriting = false, n, maxRounds))
+                onStep(LiveToolStep(c.name, target, lang, finalOutput, isWriting = false, n, maxRounds, failed = !res.isOk))
                 val activityDone = when (c.name) {
                     "write_file" -> "Created $target"
                     "edit_file" -> "Updated $target"

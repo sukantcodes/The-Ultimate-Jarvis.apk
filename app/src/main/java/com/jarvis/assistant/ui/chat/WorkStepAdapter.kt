@@ -4,17 +4,12 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
-import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.animation.AlphaAnimation
-import android.view.animation.Animation
-import android.view.animation.AnimationSet
 import android.view.animation.DecelerateInterpolator
-import android.view.animation.TranslateAnimation
-import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -22,185 +17,161 @@ import androidx.recyclerview.widget.RecyclerView
 import com.jarvis.assistant.R
 
 /**
- * Adapter for rendering Claude-style animated Work Step Cards with collapsible code blocks.
+ * The live list of what Jarvis is doing: one compact line per step. A new line slides up and fades in, the line that
+ * is running breathes, a failed one gets a red "Failed" tag, and a finished line can be tapped to open the request
+ * that was sent and the response that came back (the arrow turns and the panel grows open).
  */
 class WorkStepAdapter : ListAdapter<WorkStepCard, WorkStepAdapter.ViewHolder>(DIFF) {
+
+    private val expanded = HashSet<String>()
+    private val entered = HashSet<String>()
+
+    /** Forget which rows were opened or already slid in; called when the list starts over. */
+    fun resetState() {
+        expanded.clear()
+        entered.clear()
+    }
 
     companion object {
         private val DIFF = object : DiffUtil.ItemCallback<WorkStepCard>() {
             override fun areItemsTheSame(a: WorkStepCard, b: WorkStepCard) = a.id == b.id
             override fun areContentsTheSame(a: WorkStepCard, b: WorkStepCard) = a == b
         }
+        private const val MAX_DETAIL_CHARS = 2500
     }
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        val ivWorkIcon: ImageView = itemView.findViewById(R.id.ivWorkIcon)
-        val ivWorkFrame: View = itemView.findViewById(R.id.ivWorkFrame)
-        val tvWorkStepTitle: TextView = itemView.findViewById(R.id.tvWorkStepTitle)
-        val tvWorkStepStatus: TextView = itemView.findViewById(R.id.tvWorkStepStatus)
-        val pbWorkStep: ProgressBar = itemView.findViewById(R.id.pbWorkStep)
-        val ivWorkCheck: ImageView = itemView.findViewById(R.id.ivWorkCheck)
-        val layoutCodeBlock: ViewGroup = itemView.findViewById(R.id.layoutCodeBlock)
-        val tvCodeToggle: TextView = itemView.findViewById(R.id.tvCodeToggle)
-        val scrollCodeContent: View = itemView.findViewById(R.id.scrollCodeContent)
-        val tvCodeContent: TextView = itemView.findViewById(R.id.tvCodeContent)
-
-        private var isCodeExpanded = false
-        private var pulseAnimator: ObjectAnimator? = null
+        private val rowMain: View = itemView.findViewById(R.id.layoutRowMain)
+        private val title: TextView = itemView.findViewById(R.id.tvWorkStepTitle)
+        private val status: TextView = itemView.findViewById(R.id.tvWorkStepStatus)
+        private val chevron: TextView = itemView.findViewById(R.id.tvWorkStepChevron)
+        private val detail: ViewGroup = itemView.findViewById(R.id.layoutDetail)
+        private val requestBody: TextView = itemView.findViewById(R.id.tvRequestBody)
+        private val responseLabel: TextView = itemView.findViewById(R.id.tvResponseLabel)
+        private val responseBody: TextView = itemView.findViewById(R.id.tvResponseBody)
+        private var pulse: ObjectAnimator? = null
+        private var boundId: String? = null
 
         fun bind(card: WorkStepCard) {
-            tvWorkStepTitle.text = card.title
+            boundId = card.id
+            title.text = card.title
+            status.visibility = if (card.status == WorkStepStatus.ERROR) View.VISIBLE else View.GONE
 
-            val isDone = card.status == WorkStepStatus.DONE
-            val isWriting = card.status == WorkStepStatus.IN_PROGRESS
+            if (card.status == WorkStepStatus.IN_PROGRESS) startPulse() else stopPulse()
 
-            // Animate work icon using WorkIconAnimator
-            WorkIconAnimator.applyWorkAnimation(
-                iconView = ivWorkIcon,
-                frameView = ivWorkFrame,
-                type = card.type,
-                isWriting = isWriting
-            )
+            val hasRequest = !card.request.isNullOrBlank()
+            val hasResponse = !card.response.isNullOrBlank()
+            val canOpen = (hasRequest || hasResponse) && card.status != WorkStepStatus.IN_PROGRESS
+            if (hasRequest) requestBody.text = clip(card.request.orEmpty())
+            requestBody.visibility = if (hasRequest) View.VISIBLE else View.GONE
+            itemView.findViewById<View>(R.id.tvRequestLabel).visibility = if (hasRequest) View.VISIBLE else View.GONE
+            if (hasResponse) responseBody.text = clip(card.response.orEmpty())
+            responseBody.visibility = if (hasResponse) View.VISIBLE else View.GONE
+            responseLabel.visibility = if (hasResponse) View.VISIBLE else View.GONE
 
-            // Dynamic status badge text
-            val badgeText = when (card.status) {
-                WorkStepStatus.IN_PROGRESS -> card.type.activeBadgeText(card.title)
-                WorkStepStatus.DONE        -> card.type.doneBadgeText(card.title)
-                WorkStepStatus.ERROR       -> "✗ Error"
-            }
-            tvWorkStepStatus.text = badgeText
+            val open = canOpen && card.id in expanded
+            chevron.visibility = if (canOpen) View.VISIBLE else View.GONE
+            chevron.rotation = if (open) 90f else 0f
+            detail.visibility = if (open) View.VISIBLE else View.GONE
+            detail.layoutParams = detail.layoutParams.also { it.height = ViewGroup.LayoutParams.WRAP_CONTENT }
 
-            // State indicators
-            when (card.status) {
-                WorkStepStatus.IN_PROGRESS -> {
-                    pbWorkStep.visibility = View.VISIBLE
-                    ivWorkCheck.visibility = View.GONE
-                    startPulse()
-                }
-                WorkStepStatus.DONE, WorkStepStatus.ERROR -> {
-                    stopPulse()
-                    pbWorkStep.visibility = View.GONE
-                    ivWorkCheck.visibility = View.VISIBLE
-                }
-            }
+            rowMain.isClickable = canOpen
+            rowMain.setOnClickListener(if (canOpen) View.OnClickListener { toggle(card.id) } else null)
+            enter(card.id)
+        }
 
-            // Collapsible code block
-            val hasCode = !card.codeSnippet.isNullOrBlank()
-            if (hasCode) {
-                layoutCodeBlock.visibility = View.VISIBLE
-                tvCodeContent.text = card.codeSnippet
+        private fun clip(text: String): String = if (text.length > MAX_DETAIL_CHARS) text.take(MAX_DETAIL_CHARS) + "\n… (${text.length - MAX_DETAIL_CHARS} more characters)" else text
 
-                // Reset state to collapsed
-                isCodeExpanded = false
-                tvCodeToggle.text = "▶ CODE"
-                scrollCodeContent.visibility = View.GONE
-                val lp = scrollCodeContent.layoutParams
-                lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
-                scrollCodeContent.layoutParams = lp
-
-                tvCodeToggle.setOnClickListener {
-                    if (isCodeExpanded) {
-                        collapseCode()
-                    } else {
-                        expandCode()
-                    }
-                }
+        private fun enter(id: String) {
+            itemView.animate().cancel()
+            if (entered.add(id)) {
+                itemView.alpha = 0f
+                itemView.translationY = 10f * itemView.resources.displayMetrics.density
+                itemView.animate().alpha(1f).translationY(0f).setDuration(240).setInterpolator(DecelerateInterpolator()).start()
             } else {
-                layoutCodeBlock.visibility = View.GONE
-                tvCodeToggle.setOnClickListener(null)
+                itemView.alpha = 1f
+                itemView.translationY = 0f
             }
         }
 
         private fun startPulse() {
-            if (pulseAnimator == null) {
-                pulseAnimator = ObjectAnimator.ofFloat(pbWorkStep, "alpha", 0.35f, 1.0f).apply {
-                    duration = 650
-                    repeatMode = ValueAnimator.REVERSE
-                    repeatCount = ValueAnimator.INFINITE
-                    start()
-                }
+            if (pulse != null) return
+            pulse = ObjectAnimator.ofFloat(title, "alpha", 0.5f, 1f).apply {
+                duration = 800
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+                start()
             }
         }
 
         private fun stopPulse() {
-            pulseAnimator?.cancel()
-            pulseAnimator = null
-            pbWorkStep.alpha = 1f
+            pulse?.cancel()
+            pulse = null
+            title.alpha = 1f
         }
 
-        private fun expandCode() {
-            isCodeExpanded = true
-            tvCodeToggle.text = "▼ CODE"
-            scrollCodeContent.visibility = View.VISIBLE
-            scrollCodeContent.measure(
-                View.MeasureSpec.makeMeasureSpec(itemView.width, View.MeasureSpec.AT_MOST),
+        private fun toggle(id: String) {
+            if (boundId != id) return
+            if (id in expanded) { expanded.remove(id); collapse() } else { expanded.add(id); expand() }
+        }
+
+        private fun expand() {
+            chevron.animate().rotation(90f).setDuration(180).start()
+            detail.visibility = View.VISIBLE
+            detail.measure(
+                View.MeasureSpec.makeMeasureSpec(itemView.width.coerceAtLeast(1), View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
             )
-            val maxHeightPx = (120 * itemView.resources.displayMetrics.density).toInt()
-            val measuredH = scrollCodeContent.measuredHeight
-            val targetHeight = if (measuredH > 0) minOf(measuredH, maxHeightPx) else maxHeightPx
+            animateHeight(0, detail.measuredHeight, hideAtEnd = false)
+        }
 
-            val anim = ValueAnimator.ofInt(0, targetHeight).apply {
+        private fun collapse() {
+            chevron.animate().rotation(0f).setDuration(180).start()
+            animateHeight(detail.height, 0, hideAtEnd = true)
+        }
+
+        private fun animateHeight(from: Int, to: Int, hideAtEnd: Boolean) {
+            ValueAnimator.ofInt(from, to).apply {
                 duration = 200
                 interpolator = DecelerateInterpolator()
                 addUpdateListener { va ->
-                    val lp = scrollCodeContent.layoutParams
+                    val lp = detail.layoutParams
                     lp.height = va.animatedValue as Int
-                    scrollCodeContent.layoutParams = lp
+                    detail.layoutParams = lp
                 }
                 addListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
-                        val lp = scrollCodeContent.layoutParams
+                        val lp = detail.layoutParams
                         lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
-                        scrollCodeContent.layoutParams = lp
+                        detail.layoutParams = lp
+                        if (hideAtEnd) detail.visibility = View.GONE
                     }
                 })
+                start()
             }
-            anim.start()
-        }
-
-        private fun collapseCode() {
-            isCodeExpanded = false
-            tvCodeToggle.text = "▶ CODE"
-            val initialHeight = scrollCodeContent.height
-            val anim = ValueAnimator.ofInt(initialHeight, 0).apply {
-                duration = 180
-                interpolator = DecelerateInterpolator()
-                addUpdateListener { va ->
-                    val lp = scrollCodeContent.layoutParams
-                    lp.height = va.animatedValue as Int
-                    scrollCodeContent.layoutParams = lp
-                }
-                addListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) {
-                        scrollCodeContent.visibility = View.GONE
-                        val lp = scrollCodeContent.layoutParams
-                        lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
-                        scrollCodeContent.layoutParams = lp
-                    }
-                })
-            }
-            anim.start()
         }
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_work_step_card, parent, false)
-        // Slide-up + fade-in entrance animation
-        val slideUp = TranslateAnimation(
-            Animation.RELATIVE_TO_SELF, 0f, Animation.RELATIVE_TO_SELF, 0f,
-            Animation.RELATIVE_TO_SELF, 0.25f, Animation.RELATIVE_TO_SELF, 0f
-        ).apply { duration = 260 }
-        val fadeIn = AlphaAnimation(0f, 1f).apply { duration = 260 }
-        view.startAnimation(AnimationSet(false).apply {
-            addAnimation(slideUp)
-            addAnimation(fadeIn)
-        })
-        return ViewHolder(view)
-    }
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
+        ViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_work_step_card, parent, false))
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         holder.bind(getItem(position))
+    }
+}
+
+/** A thin line between steps (none under the last one), drawn at paint time so adding a step never needs a rebind. */
+class StepDividerDecoration(color: Int, private val thicknessPx: Int) : RecyclerView.ItemDecoration() {
+    private val paint = Paint().also { it.color = color }
+
+    override fun onDrawOver(c: Canvas, parent: RecyclerView, state: RecyclerView.State) {
+        val total = parent.adapter?.itemCount ?: return
+        for (i in 0 until parent.childCount) {
+            val child = parent.getChildAt(i)
+            val pos = parent.getChildAdapterPosition(child)
+            if (pos == RecyclerView.NO_POSITION || pos >= total - 1) continue
+            val y = child.bottom + child.translationY
+            c.drawRect(0f, y - thicknessPx, parent.width.toFloat(), y, paint)
+        }
     }
 }

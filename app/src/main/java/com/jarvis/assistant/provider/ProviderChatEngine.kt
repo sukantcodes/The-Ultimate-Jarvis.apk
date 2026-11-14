@@ -104,6 +104,10 @@ class ProviderChatEngine(
     /** Honest step-by-step status of the answer or build in progress, shown as the status card in ChatBox. */
     val build = BuildStatusTracker()
 
+    /** Every tool step as it starts and finishes (start: isWriting=true, finish: isWriting=false). A shared flow, so no step is skipped. */
+    private val _steps = MutableSharedFlow<LiveToolStep>(extraBufferCapacity = 128)
+    val steps: SharedFlow<LiveToolStep> = _steps.asSharedFlow()
+
     private var job: Job? = null
     private val lock = Any()
 
@@ -251,6 +255,7 @@ class ProviderChatEngine(
                                     },
                                     onStep = { step ->
                                         build.toolStep(step.toolName, step.target, step.isWriting)
+                                        _steps.tryEmit(step)
                                         val pct = minOf(95, 15 + ((step.round - 1) * 20) + (if (executedBlocks.isEmpty()) 10 else 18))
                                         _workProgress.value = LiveWorkProgress(
                                             isWorking = true,

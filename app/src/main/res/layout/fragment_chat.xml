@@ -304,18 +304,55 @@
             android:focusable="true" />
     </LinearLayout>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvWorkSteps"
-        android:layout_width="match_parent"
+    <!-- Live activity: the spinner header, an optional progress bar and one compact line per step -->
+    <LinearLayout
+        android:id="@+id/layoutWorkActivity"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:maxHeight="260dp"
+        android:orientation="vertical"
+        android:background="@drawable/bg_work_activity_panel"
+        android:clipToOutline="true"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="6dp"
+        android:visibility="gone"
+        app:layout_constrainedHeight="true"
+        app:layout_constraintHeight_max="300dp"
+        app:layout_constraintWidth_max="@dimen/chat_content_max_width"
         app:layout_constraintBottom_toTopOf="@id/cardInputContainer"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:paddingStart="4dp"
-        android:paddingEnd="4dp"
-        android:layout_marginBottom="4dp"
-        android:visibility="gone" />
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <com.jarvis.assistant.ui.chat.WorkActivityHeaderView
+            android:id="@+id/workActivityHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <View
+            android:id="@+id/workActivityDivider"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#26808080"
+            android:visibility="gone" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvWorkSteps"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:overScrollMode="never"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- The small floating indicator above the activity panel while Jarvis is working -->
+    <com.jarvis.assistant.ui.chat.ThinkingPillView
+        android:id="@+id/thinkingPill"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/layoutWorkActivity"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <LinearLayout
         android:id="@+id/cardInputContainer"

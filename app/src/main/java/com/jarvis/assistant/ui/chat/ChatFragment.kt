@@ -91,6 +91,9 @@ class ChatFragment : Fragment() {
     private var rvWorkSteps: RecyclerView? = null
     private val workStepAdapter = WorkStepAdapter()
     private val workSteps = mutableListOf<WorkStepCard>()
+    private var stepSeq = 0
+    private var workActivityRunning = false
+    private var activityHideJob: Job? = null
 
     private val voicePermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
@@ -611,6 +614,9 @@ class ChatFragment : Fragment() {
                     }
                 }
                 launch {
+                    providerEngine.steps.collect { step -> if (_binding != null) onToolStep(step) }
+                }
+                launch {
                     // The status card: honest, step-by-step view of whether the request really went to the provider.
                     providerEngine.build.status.collect { st ->
                         if (_binding != null) binding.buildStatusCard.bind(st)
@@ -656,11 +662,13 @@ class ChatFragment : Fragment() {
                     if (_binding == null) return@collect
                     when (state) {
                         is EngineState.Streaming -> {
+                            startWorkActivity()
                             binding.btnStopChat.visibility = View.VISIBLE
                             binding.btnSendMessage.isEnabled = false
                             binding.tvChatStatus.text = "● ANSWERING"
                         }
                         is EngineState.Failed -> {
+                            finishWorkActivity(true)
                             binding.btnStopChat.visibility = View.GONE
                             binding.btnSendMessage.isEnabled = true
                             binding.tvChatStatus.text = "● ERROR"
@@ -675,10 +683,13 @@ class ChatFragment : Fragment() {
                                 }
                             retrySnackbar?.show()
                         }
-                        EngineState.Idle -> if (offlineGenerationJob == null && fileAnalysisJob == null) {
-                            binding.btnStopChat.visibility = View.GONE
-                            binding.btnSendMessage.isEnabled = true
-                            binding.tvChatStatus.text = "● READY"
+                        EngineState.Idle -> {
+                            finishWorkActivity(false)
+                            if (offlineGenerationJob == null && fileAnalysisJob == null) {
+                                binding.btnStopChat.visibility = View.GONE
+                                binding.btnSendMessage.isEnabled = true
+                                binding.tvChatStatus.text = "● READY"
+                            }
                         }
                     }
                 }
@@ -1037,15 +1048,109 @@ class ChatFragment : Fragment() {
         val targetRv = binding.rvWorkSteps
         targetRv.layoutManager = LinearLayoutManager(requireContext())
         targetRv.adapter = workStepAdapter
+        targetRv.itemAnimator = null
+        targetRv.addItemDecoration(StepDividerDecoration(0x26808080, resources.displayMetrics.density.toInt().coerceAtLeast(1)))
         rvWorkSteps = targetRv
+        binding.workActivityHeader.onToggle = { updateStepsVisibility() }
     }
 
     private fun handleWorkProgress(progress: com.jarvis.assistant.provider.LiveWorkProgress) {
         if (_binding == null) return
-        // The floating work-step bubbles are intentionally gone: Jarvis reports real progress by voice, the
-        // notification and the header status instead.
-        if (workSteps.isNotEmpty()) clearWorkSteps()
-        rvWorkSteps?.visibility = View.GONE
+        when {
+            progress.isWorking -> {
+                if (!workActivityRunning) startWorkActivity()
+                binding.workActivityHeader.setProgress(progress.percent, "Working on your request…")
+            }
+            progress.percent >= 100 && workActivityRunning -> binding.workActivityHeader.setProgress(100, "Finished")
+            else -> binding.workActivityHeader.setProgress(null, null)
+        }
+    }
+
+    private fun activityAccent(): Int = try { ThemeManager.getThemeAccentColor() } catch (_: Exception) { Color.parseColor("#00E5FF") }
+
+    /** Shows the live activity panel (spinner, verbs, timer) and the floating dots while Jarvis works. */
+    private fun startWorkActivity() {
+        if (_binding == null || workActivityRunning) return
+        workActivityRunning = true
+        activityHideJob?.cancel()
+        binding.layoutWorkActivity.animate().cancel()
+        binding.layoutWorkActivity.alpha = 1f
+        binding.layoutWorkActivity.visibility = View.VISIBLE
+        binding.workActivityHeader.startRun(activityAccent())
+        binding.thinkingPill.dotColor = activityAccent()
+        binding.thinkingPill.visibility = View.VISIBLE
+        updateStepsVisibility()
+    }
+
+    /** Turns the panel into "Worked for 1m 12s", then fades it away a few seconds later. */
+    private fun finishWorkActivity(failed: Boolean) {
+        if (_binding == null || !workActivityRunning) return
+        workActivityRunning = false
+        markAllWorkStepsDone()
+        binding.workActivityHeader.finishRun(failed)
+        binding.thinkingPill.visibility = View.GONE
+        activityHideJob?.cancel()
+        activityHideJob = viewLifecycleOwner.lifecycleScope.launch {
+            kotlinx.coroutines.delay(if (failed) 12_000L else 7_000L)
+            if (_binding != null && !workActivityRunning) hideWorkActivity()
+        }
+    }
+
+    private fun hideWorkActivity() {
+        val panel = binding.layoutWorkActivity
+        panel.animate().alpha(0f).setDuration(220).withEndAction {
+            if (_binding != null && !workActivityRunning) {
+                panel.visibility = View.GONE
+                panel.alpha = 1f
+                clearWorkSteps()
+            }
+        }.start()
+    }
+
+    private fun updateStepsVisibility() {
+        if (_binding == null) return
+        val show = workSteps.isNotEmpty() && binding.workActivityHeader.expanded
+        rvWorkSteps?.visibility = if (show) View.VISIBLE else View.GONE
+        binding.workActivityDivider.visibility = if (show) View.VISIBLE else View.GONE
+    }
+
+    private fun stepTitle(type: WorkActionType, target: String, done: Boolean): String {
+        val raw = if (done) type.doneBadgeText(target) else type.activeBadgeText(target)
+        return raw.removePrefix("✦ ").removePrefix("✓ ").trimEnd('…', '.').ifBlank { target }
+    }
+
+    private fun stepRequest(step: com.jarvis.assistant.provider.LiveToolStep): String = buildString {
+        append(step.toolName).append(' ').append(step.target.take(300))
+        if (step.toolName in WRITE_STEP_TOOLS && step.codeOrOutput.isNotBlank()) append("\n\n").append(step.codeOrOutput)
+    }
+
+    /** One tool step starting or finishing: adds a line, or settles the running one (done, or Failed). */
+    private fun onToolStep(step: com.jarvis.assistant.provider.LiveToolStep) {
+        if (_binding == null) return
+        if (!workActivityRunning) startWorkActivity()
+        val type = WorkActionType.resolve(step.language, step.target, step.toolName)
+        if (step.isWriting) {
+            markAllWorkStepsDone()
+            workSteps += WorkStepCard(
+                id = "step-${++stepSeq}",
+                type = type,
+                title = stepTitle(type, step.target, done = false),
+                status = WorkStepStatus.IN_PROGRESS,
+                request = stepRequest(step)
+            )
+        } else {
+            val idx = workSteps.indexOfLast { it.status == WorkStepStatus.IN_PROGRESS && it.type == type }
+            if (idx >= 0) {
+                val writes = step.toolName in WRITE_STEP_TOOLS || step.toolName in setOf("make_directory", "delete_path", "move_path")
+                workSteps[idx] = workSteps[idx].copy(
+                    title = stepTitle(type, step.target, done = true),
+                    status = if (step.failed) WorkStepStatus.ERROR else WorkStepStatus.DONE,
+                    response = if (writes) (if (step.failed) "The tool reported an error." else null) else step.codeOrOutput
+                )
+            }
+        }
+        workStepAdapter.submitList(workSteps.toList()) { rvWorkSteps?.scrollToPosition((workSteps.size - 1).coerceAtLeast(0)) }
+        updateStepsVisibility()
     }
 
     private fun markAllWorkStepsDone() {
@@ -1063,8 +1168,17 @@ class ChatFragment : Fragment() {
 
     private fun clearWorkSteps() {
         workSteps.clear()
+        workStepAdapter.resetState()
         workStepAdapter.submitList(emptyList())
         rvWorkSteps?.visibility = View.GONE
+        if (_binding != null) {
+            binding.workActivityDivider.visibility = View.GONE
+            if (!workActivityRunning) {
+                activityHideJob?.cancel()
+                binding.layoutWorkActivity.visibility = View.GONE
+                binding.workActivityHeader.reset()
+            }
+        }
     }
 
     override fun onDestroyView() {
@@ -1081,3 +1195,6 @@ class ChatFragment : Fragment() {
         _binding = null
     }
 }
+
+/** Tools whose request already carries the content they write, so the row shows no separate response. */
+private val WRITE_STEP_TOOLS = setOf("write_file", "edit_file")
