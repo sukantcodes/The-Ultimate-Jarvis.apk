@@ -43,6 +43,18 @@ class ToolChatLoopTest {
         assertTrue(sentBodies()[0].has("tools")); assertTrue(seen.any { it.contains("write_file") })
     }
 
+    @Test fun everyRoundReportsTheProvidersTokenCount() {
+        val first = toolCallBody("c1", "list_files", """{"path":"."}""").removeSuffix("}") + ""","usage":{"prompt_tokens":100,"completion_tokens":10,"total_tokens":110}}"""
+        val second = Fixtures.completion("done").removeSuffix("}") + ""","usage":{"prompt_tokens":150,"completion_tokens":5,"total_tokens":155}}"""
+        script(first, second)
+        val used = ArrayList<TokenUsage>()
+        val loop = OpenAiToolLoop(tr, backend)
+        loop.onUsage = { used += it }
+        val r = runBlocking { loop.run(req, "t") }
+        assertEquals("done", r.text)
+        assertEquals(listOf(110L, 155L), used.map { it.total })
+    }
+
     @Test fun deniedToolIsReportedToTheModelAndNothingHappens() {
         confirmer.answer = Decision.DENY
         script(toolCallBody("c1", "delete_path", """{"path":"x.txt"}"""), Fixtures.completion("I could not delete it."))

@@ -336,6 +336,47 @@ class ManagerEngineTest {
         assertEquals(listOf("system", "user"), body["messages"].asJsonArray.map { it.asJsonObject["role"].asString })
     }
 
+    private class MemoryTotal : ChatTokenLedger.Store {
+        override var total: Int = 0
+        override var approximate: Boolean = false
+    }
+
+    private fun usageStream(text: String, total: Int): List<String> =
+        Fixtures.sse(text).dropLast(2) + listOf(
+            """data: {"choices":[],"usage":{"prompt_tokens":${total - 10},"completion_tokens":10,"total_tokens":$total}}""", "",
+            "data: [DONE]", ""
+        )
+
+    @Test fun the_chat_total_adds_exactly_what_the_provider_reports_for_each_answer() {
+        activate()
+        val totals = MemoryTotal()
+        ChatTokenLedger.attach(totals)
+        ChatTokenLedger.reset()
+        val s = FakeChatStore(); val e = engine(s)
+
+        transport.stream(FakeTransport.StreamRule({ true }, usageStream("Hello", 50)))
+        e.send("first"); awaitIdle(e)
+        assertEquals(50, totals.total)
+
+        transport.clearStreams()
+        transport.stream(FakeTransport.StreamRule({ true }, usageStream("Again", 90)))
+        e.send("second"); awaitIdle(e)
+        assertEquals(140, totals.total)
+        assertFalse("provider numbers are exact, nothing was estimated", totals.approximate)
+    }
+
+    @Test fun an_answer_without_usage_is_added_as_an_estimate_and_marks_the_total_approximate() {
+        activate()
+        val totals = MemoryTotal()
+        ChatTokenLedger.attach(totals)
+        ChatTokenLedger.reset()
+        transport.stream(FakeTransport.StreamRule({ true }, Fixtures.sse("Hello there my friend")))
+        val e = engine(FakeChatStore())
+        e.send("a question"); awaitIdle(e)
+        assertTrue(totals.total > 0)
+        assertTrue(totals.approximate)
+    }
+
     @Test fun follow_up_questions_include_earlier_turns_but_never_failed_ones() {
         activate()
         val s = FakeChatStore()

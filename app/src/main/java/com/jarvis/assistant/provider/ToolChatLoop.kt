@@ -31,6 +31,13 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
     protected abstract fun newState(request: ChatRequest): Any?
     protected class Round(val text: String, val calls: List<ToolCall>, val state: Any?)
 
+    /** Receives the provider's own token count for every answer it sends back, including answers that are then retried. */
+    var onUsage: ((TokenUsage) -> Unit)? = null
+
+    protected fun report(usage: TokenUsage?) {
+        if (usage != null) onUsage?.invoke(usage)
+    }
+
     suspend fun run(
         request: ChatRequest,
         source: String,
@@ -167,6 +174,7 @@ class OpenAiToolLoop(private val transport: HttpTransport, backend: ToolBackend,
         val resp = try { transport.execute(spec) } catch (e: TransportException) { throw ProviderException(ProviderErrors.fromTransport(e)) }
         if (!resp.isSuccessful) throw ProviderException(ProviderErrors.fromHttp(resp.code, resp.body, secretOf(p), ErrorContext.CHAT, resp.headers.entries.firstOrNull { it.key.equals("retry-after", true) }?.value))
         val root = parseObject(resp.body) ?: throw ProviderException(ProviderErrors.invalidResponse("Expected a JSON chat completion."))
+        report(TokenUsageParser.openAi(root))
         val msg = root.getAsJsonArrayOrNull("choices")?.firstOrNull()?.takeIf { it.isJsonObject }?.asJsonObject?.getAsJsonObjectOrNull("message")
             ?: throw ProviderException(ProviderErrors.invalidResponse("The answer had no choices."))
         val content = msg.get("content")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
@@ -226,6 +234,7 @@ class GeminiToolLoop(private val transport: HttpTransport, backend: ToolBackend,
         }
         if (!resp.isSuccessful) throw ProviderException(ProviderErrors.fromHttp(resp.code, resp.body, secretOf(p), ErrorContext.CHAT, resp.headers.entries.firstOrNull { it.key.equals("retry-after", true) }?.value))
         val root = parseObject(resp.body) ?: throw ProviderException(ProviderErrors.invalidResponse("Expected a JSON answer."))
+        report(TokenUsageParser.gemini(root))
         val content = root.getAsJsonArrayOrNull("candidates")?.firstOrNull()?.takeIf { it.isJsonObject }?.asJsonObject?.getAsJsonObjectOrNull("content")
         val parts = content?.getAsJsonArrayOrNull("parts") ?: JsonArray()
         val text = StringBuilder(); val fcs = JsonArray()

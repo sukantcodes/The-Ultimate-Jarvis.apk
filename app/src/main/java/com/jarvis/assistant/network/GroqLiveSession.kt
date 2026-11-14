@@ -455,6 +455,8 @@ class GroqLiveSession(
                 Triple(it.code, it.body?.string().orEmpty(), it.header("retry-after"))
             }
             if (code in 200..299) {
+                // Count what the provider says this request used, whether or not the answer turns out to be readable.
+                com.jarvis.assistant.provider.TokenUsageParser.openAiFromText(raw)?.let { com.jarvis.assistant.provider.ChatTokenLedger.record(it) }
                 return try {
                     JSONObject(raw).getJSONArray("choices").getJSONObject(0).getJSONObject("message")
                 } catch (e: Exception) {

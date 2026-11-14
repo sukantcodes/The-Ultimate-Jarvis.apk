@@ -67,6 +67,15 @@ class JarvisApp : Application() {
         SecurityManager.verify(this)
         instance = this
         preferences = AppPreferences(this)
+        // The chat's token total is kept in preferences so it survives a restart and is cleared with the chat.
+        com.jarvis.assistant.provider.ChatTokenLedger.attach(object : com.jarvis.assistant.provider.ChatTokenLedger.Store {
+            override var total: Int
+                get() = preferences.cumulativeChatTokens
+                set(value) { preferences.cumulativeChatTokens = value }
+            override var approximate: Boolean
+                get() = preferences.chatTokensApproximate
+                set(value) { preferences.chatTokensApproximate = value }
+        })
         // Each genuinely new app process begins with the logo-only opening animation pending.
         preferences.openingAnimationPending = true
         com.jarvis.assistant.auth.AuthManager.init(this)

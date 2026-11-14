@@ -45,6 +45,8 @@ import com.jarvis.assistant.voice.JarvisVoiceController
 import java.io.File
 import java.io.FileOutputStream
 import com.jarvis.assistant.provider.AttachmentRef
+import com.jarvis.assistant.provider.ChatTokenLedger
+import com.jarvis.assistant.provider.TokenEstimator
 import com.jarvis.assistant.provider.EngineState
 import com.jarvis.assistant.provider.ProviderRuntime
 import com.jarvis.assistant.provider.SendOutcome
@@ -301,6 +303,7 @@ class ChatFragment : Fragment() {
                     JarvisConversationService.stopCurrentResponseImmediately()
                     selectedDocument?.savedPath?.let { path -> runCatching { java.io.File(path).delete() } }
                     JarvisApp.instance.chatRepository.clearHistory()
+                    ChatTokenLedger.reset()
                     selectedDocument = null
                     totalUsedTokens = 0
                     clearWorkSteps()
@@ -789,6 +792,14 @@ class ChatFragment : Fragment() {
     }
 
     private fun observeChatTurns() {
+        // Keeps the badge moving while an answer (or a long tool run) is still going, not only when a turn is saved.
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                ChatTokenLedger.state.collect {
+                    if (_binding != null) updateTokenUsage(chatAdapter.currentList)
+                }
+            }
+        }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.chatTurns.collect { turns ->
@@ -875,32 +886,33 @@ class ChatFragment : Fragment() {
         }
     }
 
-    private fun estimateTokens(text: String?): Int {
-        if (text.isNullOrBlank()) return 0
-        val chars = text.length
-        val words = text.trim().split(Regex("\\s+")).size
-        return maxOf((words * 1.33f).toInt(), (chars / 3.8f).toInt()).coerceAtLeast(1)
-    }
-
     private fun updateTokenUsage(turns: List<com.jarvis.assistant.data.model.ChatTurn>) {
         if (_binding == null) return
-        var turnsTokens = 0
-        for (turn in turns) {
-            turnsTokens += estimateTokens(turn.userTranscript)
-            turnsTokens += estimateTokens(turn.jarvisResponse)
-        }
-        val prefs = try { (activity?.application as? JarvisApp)?.preferences } catch (_: Exception) { null }
-        val cumulative = prefs?.cumulativeChatTokens ?: 0
-        val totalTokens = maxOf(cumulative, turnsTokens)
-        if (prefs != null && totalTokens > cumulative) {
-            prefs.cumulativeChatTokens = totalTokens
+        // The total is the sum of the provider's own usage numbers (input + output of every request in this chat),
+        // so it matches the provider dashboard. See ChatTokenLedger.
+        ChatTokenLedger.refresh()
+        val snapshot = ChatTokenLedger.state.value
+        var totalTokens = snapshot.total
+        var approximate = snapshot.approximate
+        if (totalTokens == 0) {
+            // Nothing reported for this chat yet (for example turns answered by an engine that reports no usage).
+            var estimated = 0
+            for (turn in turns) {
+                estimated += TokenEstimator.estimate(turn.userTranscript)
+                estimated += TokenEstimator.estimate(turn.jarvisResponse)
+            }
+            if (estimated > 0) {
+                totalTokens = estimated
+                approximate = true
+            }
         }
         totalUsedTokens = totalTokens
-        val display = if (totalTokens < 1000) {
-            "⚡ $totalTokens TOKENS"
+        val number = if (totalTokens < 10_000_000) {
+            java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(totalTokens.toLong())
         } else {
-            "⚡ ${"%.1f".format(totalTokens / 1000.0)}K TOKENS"
+            "${"%.1f".format(java.util.Locale.US, totalTokens / 1_000_000.0)}M"
         }
+        val display = "⚡ ${if (approximate) "≈" else ""}$number TOKENS"
         binding.tvChatTokens.text = display
         val themeAccent = try { ThemeManager.getThemeAccentColor() } catch (_: Exception) { Color.parseColor("#00E5FF") }
         binding.tvChatTokens.setTextColor(themeAccent)

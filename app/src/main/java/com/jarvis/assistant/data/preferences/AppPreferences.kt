@@ -44,6 +44,7 @@ class AppPreferences(context: Context) {
         private const val KEY_API_KEY = "key_api_key"
         private const val KEY_ELEVENLABS_API_KEY = "key_elevenlabs_api_key"
         private const val KEY_CUMULATIVE_CHAT_TOKENS = "key_cumulative_chat_tokens"
+        private const val KEY_CHAT_TOKENS_APPROXIMATE = "key_chat_tokens_approximate"
         private const val KEY_MODEL = "key_model"
         private const val KEY_VOICE = "key_voice"
         private const val KEY_PERSONALITY = "key_personality"
@@ -608,8 +609,13 @@ class AppPreferences(context: Context) {
         }
     }
 
+    /** True when part of [cumulativeChatTokens] is an estimate because a provider reported no usage. */
+    var chatTokensApproximate: Boolean
+        get() = prefs.getBoolean(KEY_CHAT_TOKENS_APPROXIMATE, false)
+        set(value) = prefs.edit().putBoolean(KEY_CHAT_TOKENS_APPROXIMATE, value).apply()
+
     fun resetChatTokens() {
-        prefs.edit().putInt(KEY_CUMULATIVE_CHAT_TOKENS, 0).apply()
+        prefs.edit().putInt(KEY_CUMULATIVE_CHAT_TOKENS, 0).putBoolean(KEY_CHAT_TOKENS_APPROXIMATE, false).apply()
     }
 
     var hasCompletedSetupTutorial: Boolean

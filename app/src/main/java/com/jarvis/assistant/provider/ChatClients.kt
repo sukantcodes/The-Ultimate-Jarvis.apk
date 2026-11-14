@@ -19,6 +19,8 @@ class ChatMessage(val role: ChatRole, val text: String, val attachments: List<Ch
 
 sealed class ChatEvent {
     class Delta(val text: String) : ChatEvent()
+    /** The provider's own token count for the request. Sent once, just before [Done], when the provider reports it. */
+    class Usage(val usage: TokenUsage) : ChatEvent()
     object Done : ChatEvent()
 }
 
@@ -53,7 +55,7 @@ class ChatRequest(
     val thinking: Thinking = Thinking.DEFAULT
 )
 
-class ChatCompletion(val text: String, val hadToolCall: Boolean)
+class ChatCompletion(val text: String, val hadToolCall: Boolean, val usage: TokenUsage? = null)
 
 /** One implementation per wire protocol. Neither knows about screens or services. */
 interface ChatProviderClient {
@@ -94,7 +96,7 @@ private fun interrupted(): ProviderException = ProviderException(
 
 class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClient {
 
-    private fun body(request: ChatRequest, stream: Boolean, tokenParam: String): String {
+    private fun body(request: ChatRequest, stream: Boolean, tokenParam: String, includeUsage: Boolean): String {
         val p = request.provider
         val messages = JsonArray()
         if (request.system.isNotBlank()) {
@@ -130,7 +132,11 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
         val root = JsonObject()
         root.addProperty("model", p.modelId)
         root.add("messages", messages)
-        if (stream) root.addProperty("stream", true)
+        if (stream) {
+            root.addProperty("stream", true)
+            // Without this, a streamed answer carries no token count at all.
+            if (includeUsage) root.add("stream_options", JsonObject().apply { addProperty("include_usage", true) })
+        }
         p.temperature?.let { root.addProperty("temperature", it) }
         (request.maxTokens ?: p.maxTokens)?.let { root.addProperty(tokenParam, it) }
         if (request.includeProbeTool) {
@@ -152,14 +158,14 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
         return root.toString()
     }
 
-    private fun spec(request: ChatRequest, stream: Boolean, tokenParam: String): HttpRequestSpec {
+    private fun spec(request: ChatRequest, stream: Boolean, tokenParam: String, includeUsage: Boolean = false): HttpRequestSpec {
         val base = (ProviderUrl.validateBase(request.provider.baseUrl) as? ProviderUrl.Check.Ok)?.url
             ?: throw ProviderException(ProviderError(ProviderErrorKind.INVALID_ENDPOINT, "The provider's endpoint URL is not valid."))
         val headers = HashMap<String, String>()
         headers["Accept"] = if (stream) "text/event-stream" else "application/json"
         val raw = HttpRequestSpec(
             "POST", ProviderUrl.join(base, "chat/completions"), headers,
-            HttpBody.Text(JSON_TYPE, body(request, stream, tokenParam)),
+            HttpBody.Text(JSON_TYPE, body(request, stream, tokenParam, includeUsage)),
             if (stream) STREAM_TIMEOUT_MS else COMPLETE_TIMEOUT_MS
         )
         return prepare(raw, request.provider)
@@ -205,7 +211,7 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
         if (text.isBlank() && !hadTool) {
             throw ProviderException(ProviderErrors.invalidResponse("The model returned an empty answer."))
         }
-        return ChatCompletion(text, hadTool)
+        return ChatCompletion(text, hadTool, TokenUsageParser.openAi(root))
     }
 
     override fun stream(request: ChatRequest): Flow<ChatEvent> = flow {
@@ -213,11 +219,11 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
         var emitted = false
         val rawOther = StringBuilder()
         var tokenParam = "max_tokens"
-        var attempt = 0
+        var includeUsage = true
+        var usage: TokenUsage? = null
         while (true) {
-            attempt++
             try {
-                transport.streamLines(spec(request, true, tokenParam)).collect { line ->
+                transport.streamLines(spec(request, true, tokenParam, includeUsage)).collect { line ->
                     val trimmed = line.trim()
                     if (trimmed.isEmpty() || trimmed.startsWith(":") || trimmed.startsWith("event:") || trimmed.startsWith("id:") || trimmed.startsWith("retry:")) {
                         return@collect
@@ -232,6 +238,7 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
                     if (obj.has("error") && !obj.get("error").isJsonNull) {
                         throw ProviderException(ProviderErrors.fromHttp(400, payload, secret, ErrorContext.CHAT))
                     }
+                    TokenUsageParser.openAi(obj)?.let { usage = it }
                     val choice = obj.getAsJsonArrayOrNull("choices")?.firstOrNull()?.takeIf { it.isJsonObject }?.asJsonObject
                     val delta = choice?.getAsJsonObjectOrNull("delta")
                     val piece = delta?.let {
@@ -248,10 +255,17 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
                 }
                 break
             } catch (e: HttpStatusException) {
-                if (attempt == 1 && !emitted && e.code == 400 && e.body.contains("max_completion_tokens") &&
+                if (tokenParam == "max_tokens" && !emitted && e.code == 400 && e.body.contains("max_completion_tokens") &&
                     (request.maxTokens ?: request.provider.maxTokens) != null
                 ) {
                     tokenParam = "max_completion_tokens"
+                    continue
+                }
+                // A gateway that does not know stream_options: ask again without it (that answer then has no token count).
+                if (includeUsage && !emitted && (e.code == 400 || e.code == 422) &&
+                    (e.body.contains("stream_options", ignoreCase = true) || e.body.contains("include_usage", ignoreCase = true))
+                ) {
+                    includeUsage = false
                     continue
                 }
                 throw ProviderException(ProviderErrors.fromHttp(e.code, e.body, secret, ErrorContext.CHAT, e.retryAfter))
@@ -259,11 +273,13 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
                 throw if (emitted) interrupted() else ProviderException(ProviderErrors.fromTransport(e))
             }
         }
+        usage?.let { emit(ChatEvent.Usage(it)) }
         if (!emitted) {
             // Some gateways ignore stream=true and return one JSON document.
             val whole = rawOther.toString().takeIf { it.isNotBlank() }
             if (whole != null) {
                 val completion = parseCompletion(whole)
+                completion.usage?.let { emit(ChatEvent.Usage(it)) }
                 if (completion.text.isNotEmpty()) emit(ChatEvent.Delta(completion.text))
                 emit(ChatEvent.Done)
                 return@flow
@@ -363,13 +379,14 @@ class GeminiChatClient(private val transport: HttpTransport) : ChatProviderClien
         val root = parseObject(response.body) ?: throw ProviderException(ProviderErrors.invalidResponse("Expected a JSON answer."))
         val (text, tool) = extract(root)
         if (text.isBlank() && !tool) throw ProviderException(blockedOrEmpty(root))
-        return ChatCompletion(text, tool)
+        return ChatCompletion(text, tool, TokenUsageParser.gemini(root))
     }
 
     override fun stream(request: ChatRequest): Flow<ChatEvent> = flow {
         val secret = secretOf(request.provider)
         var emitted = false
         var lastBlock: ProviderError? = null
+        var usage: TokenUsage? = null
         try {
             transport.streamLines(spec(request, true)).collect { line ->
                 val trimmed = line.trim()
@@ -380,6 +397,7 @@ class GeminiChatClient(private val transport: HttpTransport) : ChatProviderClien
                 if (obj.has("error") && !obj.get("error").isJsonNull) {
                     throw ProviderException(ProviderErrors.fromHttp(400, payload, secret, ErrorContext.CHAT))
                 }
+                TokenUsageParser.gemini(obj)?.let { usage = it }
                 val (text, _) = extract(obj)
                 if (text.isNotEmpty()) {
                     emitted = true
@@ -393,6 +411,7 @@ class GeminiChatClient(private val transport: HttpTransport) : ChatProviderClien
         } catch (e: TransportException) {
             throw if (emitted) interrupted() else ProviderException(ProviderErrors.fromTransport(e))
         }
+        usage?.let { emit(ChatEvent.Usage(it)) }
         if (!emitted) throw ProviderException(lastBlock ?: ProviderErrors.invalidResponse("The model returned an empty answer."))
         emit(ChatEvent.Done)
     }

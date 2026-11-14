@@ -193,11 +193,20 @@ class ProviderChatEngine(
         job = scope.launch {
             val partial = StringBuilder()
             var lastUi = 0L
+            // The provider's own token counts go straight into the chat total. Only when it reports none is an estimate added.
+            var usageRecorded = false
+            var inputEstimate = 0
+            fun settleUsage(output: String) {
+                if (usageRecorded || output.isBlank()) return
+                usageRecorded = true
+                ChatTokenLedger.recordEstimate(inputEstimate + TokenEstimator.estimate(output))
+            }
             try {
                 val tokenMode = tokenModeProvider?.invoke() ?: TokenMode.HIGH
                 val history = store.completedTurns(excludingId = id).map { it.copy(user = sentText[it.id] ?: it.user) }
                 val messages = ChatContext.build(history, text, attachments, budgetChars = tokenMode.budgetChars)
                 val sys0 = systemPrompt() + (try { extraContext?.invoke(text) } catch (e: Exception) { null }.orEmpty())
+                inputEstimate = TokenEstimator.estimate(sys0) + messages.sumOf { TokenEstimator.estimate(it.text) }
                 val client = ChatClientFactory.create(provider.protocol, transport)
                 val pool = keyRotation?.takeIf { it.hasKeys(provider.profileId) }
                 val tried = HashSet<String>()
@@ -225,6 +234,10 @@ class ProviderChatEngine(
                         if (backend != null) {
                             try {
                                 val loop = if (active.protocol == ProviderProtocol.GEMINI) GeminiToolLoop(transport, backend) else OpenAiToolLoop(transport, backend)
+                                loop.onUsage = { used ->
+                                    usageRecorded = true
+                                    ChatTokenLedger.record(used)
+                                }
                                 val res = loop.run(
                                     ChatRequest(active, sys0 + TOOL_PROMPT, messages, maxTokens = active.maxTokens ?: tokenMode.maxTokens),
                                     "chat-task-" + id,
@@ -281,6 +294,10 @@ class ProviderChatEngine(
                                             store.updatePartial(id, partial.toString())
                                         }
                                     }
+                                    is ChatEvent.Usage -> {
+                                        usageRecorded = true
+                                        ChatTokenLedger.record(event.usage)
+                                    }
                                     ChatEvent.Done -> Unit
                                 }
                             }
@@ -303,11 +320,13 @@ class ProviderChatEngine(
                         lease?.secret?.wipe()
                     }
                 }
+                settleUsage(partial.toString())
                 store.finish(id, partial.toString())
                 _state.value = EngineState.Idle
                 _workProgress.value = LiveWorkProgress(isWorking = false, percent = 0)
             } catch (e: CancellationException) {
                 _workProgress.value = LiveWorkProgress(isWorking = false, percent = 0)
+                settleUsage(partial.toString())
                 val kept = partial.toString().trim()
                 if (kept.isNotEmpty()) {
                     store.finish(id, kept + "\n\n(stopped)")
@@ -318,11 +337,14 @@ class ProviderChatEngine(
                 _state.value = EngineState.Idle
                 throw e
             } catch (e: ProviderException) {
+                settleUsage(partial.toString())
                 fail(id, partial.toString(), e.error)
             } catch (e: TransportException) {
+                settleUsage(partial.toString())
                 fail(id, partial.toString(), ProviderErrors.fromTransport(e))
             } catch (e: Exception) {
                 // A malformed provider answer must never crash the app.
+                settleUsage(partial.toString())
                 fail(id, partial.toString(), ProviderErrors.invalidResponse("Unexpected problem: ${e.javaClass.simpleName}."))
             }
         }
