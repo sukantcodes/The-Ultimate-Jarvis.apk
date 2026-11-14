@@ -974,7 +974,7 @@ object WebBuildOrchestrator {
             "- Use the project name \"$name\". Create it with project_create (template static), then write EVERY file with the file tools (index.html, style.css, script.js, and any others needed). Write each file in full, no placeholders or TODOs.\n" +
             "- It must run offline in a plain browser: no build step, no external CDN dependencies.\n" +
             "- Right after project_create, write a file named .plan inside the project folder (same path style as the other files). It has one line per file you will create, written as path|estimated number of lines, and nothing else. Jarvis uses it to show exact progress, so list every file and then write exactly those files.\n" +
-            "- Put the .plan and ALL the write_file calls in ONE response (parallel tool calls, .plan first) instead of one file per turn" + (if (quality) ", but think carefully so that every detail is right.\n" else ", and do not deliberate at length.\n")) +
+            "- Put the .plan and ALL the write_file calls in ONE response (parallel tool calls, .plan first) instead of one file per turn" + (if (quality) ", but think carefully so that every detail is right.\n" else ", and do not deliberate at length.\n") +
             "- When all files are written, run project_check on \"$name\" and fix every problem it reports.\n" +
             "- Do NOT start the preview or open a browser: Jarvis hosts and opens it automatically.\n" +
             "- Finish with a two-line summary of what you built."
