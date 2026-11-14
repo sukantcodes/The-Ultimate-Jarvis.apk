@@ -150,7 +150,13 @@
 ### Phase 2: Workspace & Developer Tools (Next Up)
 - [ ] **In-App Live Web Inspector & Mini-Browser**: Floating or split mini-browser to preview websites, HTML files, or localhost dev servers started by Jarvis terminal with mobile/tablet/desktop viewports and live reload without leaving the app.
 - [ ] **Visual Git Diff & Dashboard Sheet**: Interactive color-coded git diff (additions/deletions), 1-tap commit/push with AI-generated commit message, and branch switcher.
-- [ ] **Live Interactive Terminal Drawer**: Slide-out live terminal output drawer with active daemon process manager, port bindings, and 1-tap kill/restart controls.
+- [ ] **Live Interactive Terminal Drawer & Cybernetic Console**:
+  - **Active Termux IPC Bridge**: Connect `TermuxBridgeSpec` to execute `git`, `node`, `npm`, `python3`, and `cargo` via `com.termux.RUN_COMMAND`.
+  - **ANSI 256/RGB Color Streamer**: Real-time ANSI escape parser and carriage return (`\r`) spinner deduplication.
+  - **Mobile Virtual Accessory Row**: Touch keyboard extension for `ESC`, `TAB`, `CTRL`, `ALT`, `|`, `-`, `/`, `~`, arrow keys, and `Ctrl+C`/`Ctrl+D` signals.
+  - **Localhost Port Detection & Preview**: Automatic detection of dev server ports (e.g. `127.0.0.1:5173`) with a floating `[ 🚀 Open Live Preview ]` launcher.
+  - **Inline 'Fix with Jarvis' Error Diagnostics**: 1-tap failure analysis button on non-zero exit codes.
+  - **Daemon Process Manager & WakeLock**: Background process table with memory/runtime telemetry and Android foreground wake-lock.
 - [ ] **Workspace File Tree Drawer (`📁 Explorer`)**: Directory tree view of workspace files, file size & modified badges, and 1-tap zip export.
 - [ ] **Search & Filter in Chat History**: Full-text keyword and code snippet search across saved conversation turns.
 - [ ] **Pinned Prompts & Custom Workflows**: Customizable shortcut chips for repetitive tasks.
