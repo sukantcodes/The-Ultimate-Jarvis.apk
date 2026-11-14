@@ -30,9 +30,6 @@ import com.jarvis.assistant.background.JarvisConversationService
 import com.jarvis.assistant.databinding.FragmentChatBinding
 import com.jarvis.assistant.ui.home.MainActivity
 import com.jarvis.assistant.ui.home.MainViewModel
-import com.jarvis.assistant.offline.OfflineLlm
-import com.jarvis.assistant.offline.OfflineModelDownloader
-import com.jarvis.assistant.ui.offline.OfflineModelActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -75,7 +72,6 @@ class ChatFragment : Fragment() {
     private val viewModel: MainViewModel get() = (requireActivity() as MainActivity).viewModel
     private var selectedDocument: DocumentAnalysisClient.SelectedDocument? = null
     private var pendingExportText: String = ""
-    private var offlineGenerationJob: Job? = null
     private var fileAnalysisJob: Job? = null
     private val chatModePrefs by lazy { requireContext().getSharedPreferences("jarvis_chatbox_preferences", android.content.Context.MODE_PRIVATE) }
     private var selectedChatMode: String = "auto"
@@ -260,7 +256,8 @@ class ChatFragment : Fragment() {
         binding.rvChatMessages.adapter = chatAdapter
         setupWorkStepsRecyclerView(view)
 
-        selectedChatMode = chatModePrefs.getString("chat_mode", "auto") ?: "auto"
+        // "offline" was a saved choice in older versions; the offline brain no longer exists, so it means Auto now.
+        selectedChatMode = chatModePrefs.getString("chat_mode", "auto")?.takeIf { it == "auto" || it == "gemini" } ?: "auto"
         refreshChatModeLabel()
         updateAutoApproveHeaderStatus()
         binding.btnSendMessage.onSafeClick { sendMessage() }
@@ -279,8 +276,6 @@ class ChatFragment : Fragment() {
         }
         binding.btnStopChat.onSafeClick {
             com.jarvis.assistant.background.ChatboxHandoffTracker.noteUserStop()
-            offlineGenerationJob?.cancel()
-            offlineGenerationJob = null
             fileAnalysisJob?.cancel()
             fileAnalysisJob = null
             providerEngine.cancel()
@@ -297,7 +292,6 @@ class ChatFragment : Fragment() {
                 .setMessage("Start a new conversation and clear current history?")
                 .setPositiveButton("New Chat") { _, _ ->
                     if (_binding == null) return@setPositiveButton
-                    offlineGenerationJob?.cancel()
                     fileAnalysisJob?.cancel()
                     providerEngine.cancel()
                     retrySnackbar?.dismiss()
@@ -455,10 +449,9 @@ class ChatFragment : Fragment() {
         val active = providerManager.activeProfile()
         val labels = arrayOf(
             if (active != null) "Auto · ${active.displayName} (custom provider)" else "Auto · choose available brain",
-            "Gemini Live · online",
-            "Offline Brain · on-device"
+            "Gemini Live · online"
         )
-        val values = arrayOf("auto", "gemini", "offline")
+        val values = arrayOf("auto", "gemini")
         val selected = values.indexOf(selectedChatMode).coerceAtLeast(0)
         AlertDialog.Builder(requireContext())
             .setTitle("Choose chat engine")
@@ -468,12 +461,6 @@ class ChatFragment : Fragment() {
                 chatModePrefs.edit().putString("chat_mode", selectedChatMode).apply()
                 refreshChatModeLabel()
                 dialog.dismiss()
-                if (selectedChatMode == "offline" &&
-                    !OfflineModelDownloader.isModelValid(OfflineModelDownloader.modelFile(requireContext()))
-                ) {
-                    Toast.makeText(requireContext(), "Download the Offline Brain model once to use this mode.", Toast.LENGTH_LONG).show()
-                    startActivity(Intent(requireContext(), OfflineModelActivity::class.java))
-                }
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -495,13 +482,12 @@ class ChatFragment : Fragment() {
             return
         }
         val model = active.chatModel?.id ?: "no model selected"
-        view.text = if (selectedChatMode != "offline") "Provider: ${active.displayName} · $model"
-        else "Offline Brain selected · custom provider ${active.displayName} is not used"
+        view.text = "Provider: ${active.displayName} · $model"
         view.visibility = View.VISIBLE
     }
 
     private fun customProviderActive(): Boolean {
-        if (selectedChatMode == "offline" || providerManager.activeProfile() == null) return false
+        if (providerManager.activeProfile() == null) return false
         // The user may have routed normal chat to Gemini explicitly; then the built-in Gemini path answers.
         val route = ProviderRuntime.routing(requireContext()).get(com.jarvis.assistant.provider.WorkCategory.CHAT)
         return route?.isGemini != true
@@ -656,7 +642,7 @@ class ChatFragment : Fragment() {
                                 }
                             retrySnackbar?.show()
                         }
-                        EngineState.Idle -> if (offlineGenerationJob == null && fileAnalysisJob == null) {
+                        EngineState.Idle -> if (fileAnalysisJob == null) {
                             binding.btnStopChat.visibility = View.GONE
                             binding.btnSendMessage.isEnabled = true
                             binding.tvChatStatus.text = "● READY"
@@ -707,43 +693,9 @@ class ChatFragment : Fragment() {
         }
 
         if (text.isBlank()) return
-        val appContext = requireContext().applicationContext
-        val engineStore = com.jarvis.assistant.security.AiEngineStore(appContext)
-        val selectedProviderHasKey = if (engineStore.useGroq) engineStore.hasGroqKey() else JarvisApp.instance.preferences.apiKey.isNotBlank()
-        val forceOffline = selectedChatMode == "offline"
         val forceGemini = selectedChatMode == "gemini"
         if (forceGemini && JarvisApp.instance.preferences.apiKey.isBlank()) {
             Toast.makeText(requireContext(), "Add your Gemini API key in Settings before choosing Gemini mode.", Toast.LENGTH_LONG).show()
-            return
-        }
-        if (forceOffline || (!forceGemini && (!selectedProviderHasKey || !OfflineModelDownloader.isInternetAvailable(appContext)))) {
-            val modelFile = OfflineModelDownloader.modelFile(appContext)
-            if (!OfflineModelDownloader.isModelValid(modelFile)) {
-                Toast.makeText(requireContext(), "Offline Brain needs its model downloaded once. Open Offline JARVIS to download it; no API key is required.", Toast.LENGTH_LONG).show()
-                startActivity(Intent(requireContext(), OfflineModelActivity::class.java))
-                return
-            }
-            binding.etMessageInput.text?.clear()
-            binding.btnSendMessage.isEnabled = false
-            binding.btnStopChat.visibility = View.VISIBLE
-            binding.tvChatStatus.text = "● THINKING"
-            offlineGenerationJob = viewLifecycleOwner.lifecycleScope.launch {
-                try {
-                    val answer = OfflineLlm.generate(appContext, text)
-                    JarvisApp.instance.chatRepository.addTurn(text, answer)
-                } catch (error: kotlinx.coroutines.CancellationException) {
-                    throw error
-                } catch (error: Exception) {
-                    JarvisApp.instance.chatRepository.addTurn(text, "Offline JARVIS could not start the local model. Open Offline JARVIS in the navigation menu and check model status. (" + (error.message ?: "unknown error") + ")")
-                } finally {
-                    offlineGenerationJob = null
-                    if (_binding != null) {
-                        binding.btnSendMessage.isEnabled = true
-                        binding.btnStopChat.visibility = View.GONE
-                        binding.tvChatStatus.text = "● READY"
-                    }
-                }
-            }
             return
         }
         // Typing never opens the microphone: start a text-only session; voice needs the mic button or the activation phrase.
@@ -784,7 +736,7 @@ class ChatFragment : Fragment() {
                         updateTokenUsage(turns)
                         binding.layoutChatWelcome.visibility = if (turns.isEmpty()) View.VISIBLE else View.GONE
                         val pending = turns.lastOrNull()?.jarvisResponse.isNullOrBlank() || providerEngine.isBusy
-                        if (!pending && offlineGenerationJob == null && fileAnalysisJob == null && selectedDocument == null) {
+                        if (!pending && fileAnalysisJob == null && selectedDocument == null) {
                             binding.btnStopChat.visibility = View.GONE
                             binding.btnSendMessage.isEnabled = true
                             binding.tvChatStatus.text = "● READY"

@@ -504,67 +504,9 @@ class SettingsFragment : Fragment() {
 
     private fun setupVoiceSection() {
         binding.rowVoiceGender.setOnClickListener { showVoiceGenderDialog() }
-        binding.rowPocketTts.setOnClickListener { open(com.jarvis.assistant.ui.settings.tts.TtsSettingsActivity::class.java) }
-        binding.rowPocketTts.setOnLongClickListener {
-            val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(requireContext())
-            if (dispatcher.getActiveEngineType().isLocal) {
-                com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("Offline TTS Active")
-                    .setMessage("Active Engine: ${dispatcher.getActiveEngineType().displayName}\n\nDeactivate offline voice, release microphone, and free memory?")
-                    .setPositiveButton("Deactivate") { _, _ ->
-                        dispatcher.deactivateOfflineTts()
-                        updateTtsSubtitle()
-                        toast("Offline TTS deactivated & memory freed")
-                    }
-                    .setNegativeButton("Cancel", null)
-                    .show()
-                true
-            } else {
-                false
-            }
-        }
         binding.rowNoiseCancel.setOnClickListener { showNoiseCancelDialog() }
         binding.rowAutoSleep.setOnClickListener { showAutoSleepDialog() }
         binding.rowDefaultAssistant.setOnClickListener { requestDefaultAssistant() }
-    }
-
-    /**
-     * Prefer opening Pocket TTS itself. JARVIS also selects this engine directly for synthesis
-     * when the engine package is installed; the Android panel is only the setup fallback.
-     */
-    private fun openPocketTtsSettings() {
-        val context = requireContext()
-        val enginePackage = "org.pockettts.android.engine"
-        val launchIntent = try {
-            context.packageManager.getLaunchIntentForPackage(enginePackage)
-        } catch (_: Exception) {
-            null
-        }
-        if (launchIntent != null) {
-            startActivity(launchIntent)
-            Toast.makeText(context, "Pocket TTS opened. Import a supported voice pack there; JARVIS will request this engine directly when speaking offline.", Toast.LENGTH_LONG).show()
-            return
-        }
-
-        // Pocket TTS is a separate Android system engine and its language weights are
-        // distributed as model packs. Direct users to the upstream release page rather than
-        // falsely implying that opening Android settings installs the runtime.
-        val releaseIntent = android.content.Intent(
-            android.content.Intent.ACTION_VIEW,
-            android.net.Uri.parse("https://github.com/The-unknown-Shadowman/PocketTTS-Android-Engine/releases/latest")
-        )
-        try {
-            startActivity(releaseIntent)
-            Toast.makeText(context, "Install Pocket TTS Android Engine from its official releases, import a language pack, then reopen JARVIS. Until then, JARVIS uses the device's available TTS voice.", Toast.LENGTH_LONG).show()
-        } catch (error: android.content.ActivityNotFoundException) {
-            val settingsIntent = android.content.Intent("com.android.settings.TTS_SETTINGS")
-            try {
-                startActivity(settingsIntent)
-                Toast.makeText(context, "Pocket TTS is not installed. Android speech settings cannot install it.", Toast.LENGTH_LONG).show()
-            } catch (_: android.content.ActivityNotFoundException) {
-                Toast.makeText(context, "Pocket TTS is not installed and no browser or speech settings app is available.", Toast.LENGTH_LONG).show()
-            }
-        }
     }
 
     // ------------------------------------------------------------------------------------------
@@ -782,7 +724,6 @@ class SettingsFragment : Fragment() {
         refreshSwitchStates()
         updateAiEngineSubtitle()
         updateVoiceGenderSubtitle()
-        updateTtsSubtitle()
         updateNoiseCancelSubtitle()
         updateAutoSleepSubtitle()
         updateNotificationAccessSubtitle()
@@ -873,15 +814,6 @@ class SettingsFragment : Fragment() {
 
     private fun updateVoiceGenderSubtitle() {
         binding.tvVoiceGenderSubtitle.text = VoiceGenderStore(requireContext()).summary()
-    }
-
-    private fun updateTtsSubtitle() {
-        try {
-            val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(requireContext())
-            val engine = dispatcher.getActiveEngineType()
-            val speaker = dispatcher.getActiveSpeaker()
-            binding.tvPocketTtsSubtitle.text = "${engine.displayName} • ${speaker.displayName}"
-        } catch (_: Exception) {}
     }
 
     private fun updateNoiseCancelSubtitle() {

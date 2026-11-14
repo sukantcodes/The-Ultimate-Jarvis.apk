@@ -15,68 +15,6 @@ data class SpeakerProfile(
     val cloudVoiceIdentifier: String = ""
 ) {
     companion object {
-        val KOKORO_SPEAKERS = listOf(
-            SpeakerProfile(
-                id = "kokoro_bm_george",
-                speakerId = 11,
-                displayName = "George (Classic Jarvis)",
-                language = "British English (en-GB)",
-                gender = "Male",
-                tone = "Authoritative, Formal, Refined",
-                engineType = VoiceEngineType.LOCAL_KOKORO,
-                isDefault = true
-            ),
-            SpeakerProfile(
-                id = "kokoro_bm_lewis",
-                speakerId = 12,
-                displayName = "Lewis",
-                language = "British English (en-GB)",
-                gender = "Male",
-                tone = "Professional, Crisp, Articulate",
-                engineType = VoiceEngineType.LOCAL_KOKORO
-            ),
-            SpeakerProfile(
-                id = "kokoro_af_bella",
-                speakerId = 1,
-                displayName = "Bella",
-                language = "American English (en-US)",
-                gender = "Female",
-                tone = "Friendly, Conversational, Dynamic",
-                engineType = VoiceEngineType.LOCAL_KOKORO
-            ),
-            SpeakerProfile(
-                id = "kokoro_bf_emma",
-                speakerId = 7,
-                displayName = "Emma",
-                language = "British English (en-GB)",
-                gender = "Female",
-                tone = "Calm, Composed, Natural",
-                engineType = VoiceEngineType.LOCAL_KOKORO
-            ),
-            SpeakerProfile(
-                id = "kokoro_am_adam",
-                speakerId = 5,
-                displayName = "Adam",
-                language = "American English (en-US)",
-                gender = "Male",
-                tone = "Modern, Clear, Confident",
-                engineType = VoiceEngineType.LOCAL_KOKORO
-            )
-        )
-
-        val PIPER_SPEAKERS = listOf(
-            SpeakerProfile(
-                id = "piper_alan",
-                speakerId = 0,
-                displayName = "Alan (Medium VITS)",
-                language = "British English (en-GB)",
-                gender = "Male",
-                tone = "Ultra-Fast Offline, Balanced, Direct",
-                engineType = VoiceEngineType.LOCAL_PIPER,
-                isDefault = true
-            )
-        )
-
         val GEMINI_VOICES = listOf(
             SpeakerProfile(
                 id = "gemini_charon",
@@ -157,8 +95,6 @@ data class SpeakerProfile(
         )
 
         fun speakersFor(engineType: VoiceEngineType): List<SpeakerProfile> = when (engineType) {
-            VoiceEngineType.LOCAL_KOKORO -> KOKORO_SPEAKERS
-            VoiceEngineType.LOCAL_PIPER -> PIPER_SPEAKERS
             VoiceEngineType.CLOUD_GEMINI -> GEMINI_VOICES
             VoiceEngineType.CLOUD_ELEVENLABS -> ELEVENLABS_VOICES
             VoiceEngineType.NONE -> listOf(NONE_SPEAKER)
@@ -166,12 +102,12 @@ data class SpeakerProfile(
 
         fun defaultFor(engineType: VoiceEngineType): SpeakerProfile =
             if (engineType == VoiceEngineType.NONE) NONE_SPEAKER
-            else speakersFor(engineType).firstOrNull { it.isDefault } ?: speakersFor(engineType).firstOrNull() ?: KOKORO_SPEAKERS.first()
+            else speakersFor(engineType).firstOrNull { it.isDefault } ?: speakersFor(engineType).firstOrNull() ?: GEMINI_VOICES.first()
 
         fun findById(id: String?): SpeakerProfile? {
             if (id.isNullOrBlank()) return null
             if (id == NONE_SPEAKER.id) return NONE_SPEAKER
-            return (KOKORO_SPEAKERS + PIPER_SPEAKERS + GEMINI_VOICES + ELEVENLABS_VOICES).firstOrNull { it.id == id }
+            return (GEMINI_VOICES + ELEVENLABS_VOICES).firstOrNull { it.id == id }
         }
     }
 }

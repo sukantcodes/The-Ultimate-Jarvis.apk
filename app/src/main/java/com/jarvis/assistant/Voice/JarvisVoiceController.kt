@@ -180,7 +180,7 @@ object JarvisVoiceController {
         }
 
         // Device TTS is completely disabled per user mandate.
-        // Route speech strictly through Master Voice Dispatcher (Gemini Cloud Voice or Offline Neural)
+        // Route speech strictly through Master Voice Dispatcher (Gemini or ElevenLabs cloud voice)
         try {
             val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(context)
             notifySpeakingState(true)

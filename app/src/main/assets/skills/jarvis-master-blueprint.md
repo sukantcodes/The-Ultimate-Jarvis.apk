@@ -27,7 +27,7 @@ Use the current navigation graph, layout IDs and Activity/Fragment source as the
 - Launcher / app shell: ui.home.MainActivity; fragments/tabs: Home, Chat, Settings, Updates. MainActivity setupNavigationDock() and setupDrawerNavigation() define current navigation actions.
 - Authentication: ui.auth.AuthActivity (login/register/guest and OAuth callback).
 - Chat: ui.chat.ChatFragment (text conversation, attachment selection, file analysis, response actions, stop/new-chat, speech playback).
-- Settings: ui.settings.SettingsActivity; related pages include ApiConnectionActivity, PersonaActivity, MoreThemeColoursActivity, PocketTtsSetupActivity, MayaModeActivity, OfflineModelActivity, OverlayAvatarActivity, PrivacyShieldActivity, HandsFreeActivity, FaceLockActivity, ScreenUnlockActivity, PhonePermissionActivity.
+- Settings: ui.settings.SettingsActivity; related pages include ApiConnectionActivity, PersonaActivity, MoreThemeColoursActivity, MayaModeActivity, OverlayAvatarActivity, PrivacyShieldActivity, HandsFreeActivity, FaceLockActivity, ScreenUnlockActivity, PhonePermissionActivity.
 - Permissions: ui.permission.PermissionActivity.
 - Skills: ui.skills.SkillStoreActivity.
 - Memory: ui.memory.MemoryActivity.

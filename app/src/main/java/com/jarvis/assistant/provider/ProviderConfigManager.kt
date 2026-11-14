@@ -302,7 +302,7 @@ class ProviderConfigManager(
     fun resolveVoice(): VoiceResolution {
         val voiceRoute = routes?.get(WorkCategory.VOICE)
         if (voiceRoute != null) {
-            if (voiceRoute.isGemini || voiceRoute.isOfflineTts) {
+            if (voiceRoute.isGemini) {
                 return VoiceResolution.NotActive
             }
             if (voiceRoute.providerId.isNotBlank()) {

@@ -12,8 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 /**
  * Process-wide view of "does this phone have a working internet connection right now?".
  *
- * JARVIS uses it to switch between the cloud brain and the on-device Qwen3 brain the moment the
- * connection is lost or comes back, instead of only checking once when a conversation starts.
+ * JARVIS uses it to show whether the connection is lost or back, instead of only checking once.
  * "Working" means Android has validated the connection (a Wi-Fi network with no internet, or a
  * captive portal, counts as offline).
  */
@@ -25,18 +24,26 @@ object NetworkStateMonitor {
 
     private var callback: ConnectivityManager.NetworkCallback? = null
 
+    fun isInternetAvailable(context: Context): Boolean {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+        val network = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
     @Synchronized
     fun start(context: Context) {
         if (callback != null) return
         val appContext = context.applicationContext
         val manager = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
 
-        _isOnline.value = OfflineModelDownloader.isInternetAvailable(appContext)
+        _isOnline.value = isInternetAvailable(appContext)
 
         val networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 // Capabilities (including "validated") arrive separately, so just re-read the current state.
-                _isOnline.value = OfflineModelDownloader.isInternetAvailable(appContext)
+                _isOnline.value = isInternetAvailable(appContext)
             }
 
             override fun onLost(network: Network) {

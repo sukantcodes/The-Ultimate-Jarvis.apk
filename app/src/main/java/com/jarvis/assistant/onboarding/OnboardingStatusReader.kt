@@ -7,7 +7,6 @@ import androidx.core.content.ContextCompat
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.audio.VoskModelManager
 import com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService
-import com.jarvis.assistant.offline.OfflineModelDownloader
 import com.jarvis.assistant.security.AiEngineStore
 import com.jarvis.assistant.util.PermissionHelper
 
@@ -48,9 +47,6 @@ object OnboardingStatusReader {
             profileSaved = store.profileSaved,
             speechModelReady = VoskModelManager.isModelReady.value,
             ownerVoiceEnrolled = safely { prefs.hasOwnerVoiceProfile() },
-            offlineModelInstalled = safely {
-                OfflineModelDownloader.isModelValid(OfflineModelDownloader.modelFile(app))
-            },
             installedApps = installed
         )
     }
