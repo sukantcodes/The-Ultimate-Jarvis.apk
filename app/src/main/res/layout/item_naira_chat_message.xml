@@ -114,6 +114,8 @@
             android:fontFamily="sans-serif"
             android:textSize="15sp"
             android:lineSpacingExtra="5dp"
+            android:breakStrategy="high_quality"
+            android:hyphenationFrequency="none"
             android:textIsSelectable="true" />
 
         <LinearLayout

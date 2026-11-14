@@ -185,6 +185,17 @@ class TerminalSession(
 
     fun clear() { buffer.clear(); synchronized(lock) { readCursor = buffer.endOffset } }
 
+    /**
+     * Writes a line of text into the session's output (buffer and live flow) without running anything. The
+     * Jarvis Terminal screen uses it to show the typed command and its exit status, so whoever reads this session
+     * later (including Jarvis) sees the same transcript as the person.
+     */
+    fun note(text: String) {
+        val safe = redactor.redact(text)
+        buffer.append(safe)
+        _output.tryEmit(safe)
+    }
+
     fun close() { cancel() }
 
     // ---- internals ----------------------------------------------------------------------------------

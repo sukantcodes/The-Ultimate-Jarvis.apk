@@ -128,6 +128,38 @@ class ChatRepository(private val preferences: AppPreferences) {
         persist(currentList)
     }
 
+    /** Turns that are finished and saved (a streaming answer is left alone). Oldest first. */
+    @Synchronized
+    fun savedTurns(): List<ChatTurn> = _turns.value.filter { it.id !in pendingIds }
+
+    /** Removes one saved turn and its attachment file. A turn whose answer is still streaming can not be removed. */
+    @Synchronized
+    fun deleteTurn(id: String): Boolean {
+        if (id in pendingIds) return false
+        val turn = _turns.value.firstOrNull { it.id == id } ?: return false
+        turn.attachmentPath?.let { path -> try { File(path).delete() } catch (_: Exception) { } }
+        val list = _turns.value.filter { it.id != id }
+        _turns.value = list
+        persist(list)
+        return true
+    }
+
+    /** Rewrites the text of a saved turn. Null leaves that side as it is. A streaming turn can not be edited. */
+    @Synchronized
+    fun editTurn(id: String, userText: String?, jarvisText: String?): Boolean {
+        if (id in pendingIds || _turns.value.none { it.id == id }) return false
+        val list = _turns.value.map {
+            if (it.id != id) it
+            else it.copy(
+                userTranscript = userText?.trim()?.ifEmpty { null } ?: it.userTranscript,
+                jarvisResponse = jarvisText?.trim()?.ifEmpty { null } ?: it.jarvisResponse
+            )
+        }
+        _turns.value = list
+        persist(list)
+        return true
+    }
+
     @Synchronized
     fun clearHistory() {
         _turns.value.forEach { turn ->

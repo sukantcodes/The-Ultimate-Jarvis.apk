@@ -152,6 +152,10 @@ class JarvisChatAdapter(
         private val binding: ItemNairaChatMessageBinding
     ) : RecyclerView.ViewHolder(binding.root) {
 
+        init {
+            MarkdownRenderer.attachLinkTouch(binding.tvAssistantMessage)
+        }
+
         /**
          * Fast partial rebind during streaming. Updates only the assistant text and hides the thinking
          * indicator without touching user bubble, attachments, or triggering full view re-layouts.

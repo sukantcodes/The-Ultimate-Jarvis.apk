@@ -10,7 +10,7 @@ private fun JsonObject.b(n: String): Boolean? = get(n)?.takeIf { it.isJsonPrimit
 object TerminalTools {
     fun all(m: TerminalManager): List<Tool> = listOf(
         TerminalRun(m), TerminalRead(m), TerminalStop(m), TerminalSessions(m), TerminalEnvironmentTool(m), ProcessList(m), ProcessKill(m)
-    )
+    ) + TerminalAdminTools.all(m)
 
     class TerminalRun(private val m: TerminalManager) : Tool {
         override val spec = ToolSpec(

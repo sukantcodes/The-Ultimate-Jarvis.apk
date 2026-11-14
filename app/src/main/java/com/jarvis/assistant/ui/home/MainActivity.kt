@@ -504,6 +504,7 @@ class MainActivity : AppCompatActivity() {
             when (item.itemId) {
                 R.id.drawerHome -> selectTab(TAB_HOME)
                 R.id.drawerChat -> selectTab(TAB_CHAT)
+                R.id.drawerTerminal -> startActivity(Intent(this, com.jarvis.assistant.ui.terminal.JarvisTerminalActivity::class.java))
                 R.id.drawerSettings -> selectTab(TAB_SETTINGS)
                 R.id.drawerUpdates -> selectTab(TAB_UPDATES)
                 R.id.drawerAutomation -> startActivity(Intent(this, com.jarvis.assistant.studio.ui.AutomationStudioActivity::class.java))

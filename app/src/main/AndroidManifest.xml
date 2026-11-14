@@ -306,6 +306,11 @@
             android:exported="false" />
 
         <activity
+            android:name=".ui.terminal.JarvisTerminalActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".studio.ui.AutomationEditorActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

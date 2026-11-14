@@ -101,6 +101,9 @@ class ProviderChatEngine(
     private val _state = MutableStateFlow<EngineState>(EngineState.Idle)
     val state: StateFlow<EngineState> = _state.asStateFlow()
 
+    /** Honest step-by-step status of the answer or build in progress, shown as the status card in ChatBox. */
+    val build = BuildStatusTracker()
+
     private var job: Job? = null
     private val lock = Any()
 
@@ -190,6 +193,7 @@ class ProviderChatEngine(
 
     private fun launch(id: String, provider: ResolvedProvider, text: String, attachments: List<ChatAttachment>) {
         _state.value = EngineState.Streaming(id, provider.label)
+        build.begin(id, provider.label, provider.modelId)
         job = scope.launch {
             val partial = StringBuilder()
             var lastUi = 0L
@@ -238,6 +242,7 @@ class ProviderChatEngine(
                                     usageRecorded = true
                                     ChatTokenLedger.record(used)
                                 }
+                                build.requestSent()
                                 val res = loop.run(
                                     ChatRequest(active, sys0 + TOOL_PROMPT, messages, maxTokens = active.maxTokens ?: tokenMode.maxTokens),
                                     "chat-task-" + id,
@@ -245,6 +250,7 @@ class ProviderChatEngine(
                                         _activity.tryEmit(line)
                                     },
                                     onStep = { step ->
+                                        build.toolStep(step.toolName, step.target, step.isWriting)
                                         val pct = minOf(95, 15 + ((step.round - 1) * 20) + (if (executedBlocks.isEmpty()) 10 else 18))
                                         _workProgress.value = LiveWorkProgress(
                                             isWorking = true,
@@ -309,9 +315,11 @@ class ProviderChatEngine(
                             }
                         }
                         if (backend == null || toolLoopFailed) {
+                            build.requestSent()
                             client.stream(ChatRequest(active, sys0, messages, maxTokens = active.maxTokens ?: tokenMode.maxTokens)).collect { event ->
                                 when (event) {
                                     is ChatEvent.Delta -> {
+                                        if (partial.isEmpty()) build.generating()
                                         partial.append(event.text)
                                         val now = System.nanoTime() / 1_000_000L
                                         if (now - lastUi >= uiThrottleMs) {
@@ -347,9 +355,11 @@ class ProviderChatEngine(
                 }
                 settleUsage(partial.toString())
                 store.finish(id, partial.toString())
+                build.done()
                 _state.value = EngineState.Idle
                 _workProgress.value = LiveWorkProgress(isWorking = false, percent = 0)
             } catch (e: CancellationException) {
+                build.stopped()
                 _workProgress.value = LiveWorkProgress(isWorking = false, percent = 0)
                 settleUsage(partial.toString())
                 val kept = partial.toString().trim()
@@ -376,6 +386,7 @@ class ProviderChatEngine(
     }
 
     private fun fail(id: String, partial: String, error: ProviderError) {
+        build.failed(error.message)
         failedTurns.add(id)
         store.fail(id, partial, ERROR_PREFIX + error.message)
         _state.value = EngineState.Failed(id, error)

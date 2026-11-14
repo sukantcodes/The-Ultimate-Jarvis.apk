@@ -277,6 +277,19 @@ class ChatFragment : Fragment() {
             updateAttachmentPreview()
             binding.etMessageInput.hint = "Message JARVIS…"
         }
+        binding.buildStatusCard.onStop = { binding.btnStopChat.performClick() }
+        binding.buildStatusCard.onRetry = {
+            val turnId = providerEngine.build.status.value.turnId
+            if (turnId != null) {
+                retrySnackbar?.dismiss()
+                when (val o = providerEngine.retry(turnId)) {
+                    is SendOutcome.Blocked -> showBlocked(o.reason)
+                    SendOutcome.NotActive -> Toast.makeText(requireContext(), "No custom provider is active.", Toast.LENGTH_LONG).show()
+                    else -> Unit
+                }
+            }
+        }
+        binding.buildStatusCard.onDismiss = { providerEngine.build.hide() }
         binding.btnStopChat.onSafeClick {
             com.jarvis.assistant.background.ChatboxHandoffTracker.noteUserStop()
             offlineGenerationJob?.cancel()
@@ -595,6 +608,12 @@ class ChatFragment : Fragment() {
                     // "Switched to API key X because Y hit its limit" - the conversation continues on the next key.
                     providerEngine.keyNotices.collect { notice ->
                         if (_binding != null) com.google.android.material.snackbar.Snackbar.make(binding.root, notice, com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show()
+                    }
+                }
+                launch {
+                    // The status card: honest, step-by-step view of whether the request really went to the provider.
+                    providerEngine.build.status.collect { st ->
+                        if (_binding != null) binding.buildStatusCard.bind(st)
                     }
                 }
                 launch {

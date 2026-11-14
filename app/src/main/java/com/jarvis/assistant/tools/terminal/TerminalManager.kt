@@ -39,6 +39,20 @@ class TerminalManager(
 
     fun get(id: String): TerminalSession? = sessions[id]
 
+    /**
+     * A new tab for the Jarvis Terminal screen. Tabs the person opens are named "me1", "me2" ... so they never
+     * collide with the sessions Jarvis uses ("main" and whatever it names). Jarvis can still list, read, run in,
+     * clear and close every one of them.
+     */
+    @Synchronized fun createUserSession(): TerminalSession {
+        var n = 1
+        while (sessions.containsKey("$USER_PREFIX$n")) n++
+        return create(title = "Terminal $USER_PREFIX$n", id = "$USER_PREFIX$n")
+    }
+
+    /** True for a tab opened from the Jarvis Terminal screen. */
+    fun isUserSession(id: String): Boolean = id.startsWith(USER_PREFIX) && id.drop(USER_PREFIX.length).all { it.isDigit() } && id.length > USER_PREFIX.length
+
     fun list(): List<TerminalSession> = sessions.values.sortedBy { it.createdAt }
 
     fun close(id: String): Boolean {
@@ -66,6 +80,7 @@ class TerminalManager(
 
     companion object {
         const val DEFAULT_ID = "main"
+        const val USER_PREFIX = "me"
         private val ID_RE = Regex("^[A-Za-z0-9_-]{1,24}$")
     }
 }
