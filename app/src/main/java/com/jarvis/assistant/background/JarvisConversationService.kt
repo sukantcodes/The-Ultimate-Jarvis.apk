@@ -1178,21 +1178,28 @@ class JarvisConversationService : Service() {
                                 Log.d("JarvisService", "Suppressing assistant audio: no explicit Jarvis activation")
                                 return
                             }
-                            if (textChatTurnActive) {
+                            if (textChatTurnActive && System.currentTimeMillis() >= announcementAudioUntil) {
                                 Log.d("JarvisService", "Suppressing generated audio for text-only Chatbox turn")
                                 return
                             }
-                            if (suppressAudioUntilTurnComplete ||
+                            // Jarvis's own announcements (build questions, progress, the explanation) are spoken by the
+                            // live voice even while a build is running; only the model's ordinary chatter is held back.
+                            val announcing = System.currentTimeMillis() < announcementAudioUntil
+                            if (!announcing && (suppressAudioUntilTurnComplete ||
                                 com.jarvis.assistant.background.WebBuildOrchestrator.isActive() ||
-                                com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive()) {
-                                Log.w("JarvisService", "onAudioDataReceived: Audio suppressed (orchestrator or turn active)")
-                                audioPlayer?.flush()
+                                com.jarvis.assistant.background.AutonomousProjectOrchestrator.isProjectWorkflowActive())) {
+                                val nowMs = System.currentTimeMillis()
+                                if (nowMs - lastSuppressedAudioLogAt > 3_000L) {
+                                    lastSuppressedAudioLogAt = nowMs
+                                    Log.d("JarvisService", "onAudioDataReceived: audio held back (orchestrator or turn active)")
+                                }
+                                if (audioPlayer?.isPlaying() == true) audioPlayer?.flush()
                                 return
                             }
                             // If an offline neural voice model (Kokoro/Piper) is installed & active,
-                            // suppress Gemini server audio bytes so Kokoro can synthesize the clean speech
-                            val voiceDisp = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(applicationContext)
-                            if (voiceDisp.isOfflineVoiceUsable()) {
+                            // suppress Gemini server audio bytes so Kokoro can synthesize the clean speech.
+                            // Cached: checking the model files for every audio chunk made playback stutter.
+                            if (offlineVoiceUsableCached()) {
                                 return
                             }
                             // Silent execution applies to task narration, while leaving ordinary
@@ -5041,6 +5048,24 @@ class JarvisConversationService : Service() {
         suppressAudioUntilTurnComplete = true
     }
 
+    /** While now is before this time, the live voice may speak an announcement even during a build. */
+    @Volatile private var announcementAudioUntil = 0L
+    @Volatile private var lastSuppressedAudioLogAt = 0L
+    @Volatile private var offlineVoiceCheckedAt = 0L
+    @Volatile private var offlineVoiceUsableValue = false
+
+    /** Whether an offline voice is in use, looked up at most every few seconds instead of for every audio chunk. */
+    private fun offlineVoiceUsableCached(): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - offlineVoiceCheckedAt > 4_000L) {
+            offlineVoiceUsableValue = try {
+                com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(applicationContext).isOfflineVoiceUsable()
+            } catch (e: Exception) { false }
+            offlineVoiceCheckedAt = now
+        }
+        return offlineVoiceUsableValue
+    }
+
     @Volatile private var geminiRotations = 0
     @Volatile private var geminiRotationWindowStart = 0L
 
@@ -5110,6 +5135,10 @@ class JarvisConversationService : Service() {
 
         val socket = liveWebSocket
         if (socket != null && socket.isSessionReady()) {
+            // Open a window in which the live voice may speak even though a build is running.
+            val spokenMs = 6_000L + text.length * 90L
+            announcementAudioUntil = maxOf(announcementAudioUntil, System.currentTimeMillis() + minOf(spokenMs, 150_000L))
+            suppressAudioUntilTurnComplete = false
             socket.sendClientContent(announcementPrompt(text, full))
             return
         }
@@ -5377,7 +5406,13 @@ class JarvisConversationService : Service() {
             val isProjectReq = com.jarvis.assistant.util.MultilingualCommandHelper.isProjectCreationRequest(fullText) ||
                 com.jarvis.assistant.background.WebBuildOrchestrator.isWebBuildRequest(fullText) ||
                 (isProjectActive && com.jarvis.assistant.background.WebBuildOrchestrator.wantsInput(fullText))
-            val delayMs = if (isProjectActive || isProjectReq) 50L else 250L
+            // A build request is acted on only after the owner has stopped talking (every new word restarts this wait),
+            // so Jarvis never starts work from half a sentence. Short answers to its questions are quicker.
+            val delayMs = when {
+                isProjectReq && !isProjectActive -> 1_100L
+                isProjectActive -> 650L
+                else -> 250L
+            }
             kotlinx.coroutines.delay(delayMs)
             val text = currentTurnUserText.toString().trim()
             if (isCurrentVoiceTurnAuthorized() && text.isNotEmpty()) {

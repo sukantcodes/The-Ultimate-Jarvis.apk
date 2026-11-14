@@ -61,6 +61,8 @@ class AudioPlayer(
     }
 
     private val isTurnComplete = AtomicBoolean(false)
+    /** Bumped by every flush so audio picked up before an interruption is never played after it. */
+    private val flushGeneration = java.util.concurrent.atomic.AtomicInteger(0)
 
     fun notifyTurnComplete() {
         isTurnComplete.set(true)
@@ -82,6 +84,18 @@ class AudioPlayer(
                         val firstChunk = audioQueue.poll(30, TimeUnit.MILLISECONDS)
                         if (firstChunk != null && firstChunk.isNotEmpty()) {
                             isTurnComplete.set(false)
+                            // Short jitter buffer: collect about a quarter of a second of speech before starting, so a
+                            // slow network does not make the first words stutter.
+                            val generation = flushGeneration.get()
+                            val pending = ArrayList<ByteArray>()
+                            pending.add(firstChunk)
+                            var buffered = firstChunk.size
+                            val prebufferUntil = System.nanoTime() + 250_000_000L
+                            while (buffered < 12_000 && System.nanoTime() < prebufferUntil && !isTurnComplete.get()) {
+                                val more = audioQueue.poll(15, TimeUnit.MILLISECONDS) ?: continue
+                                if (more.isNotEmpty()) { pending.add(more); buffered += more.size }
+                            }
+                            if (generation != flushGeneration.get()) continue
                             isPlayingState.set(true)
                             silenceCounter = 0
                             onPlaybackStateChanged(true)
@@ -99,7 +113,10 @@ class AudioPlayer(
                                 }
                             }
 
-                            writeToTrack(firstChunk)
+                            for (piece in pending) {
+                                if (generation != flushGeneration.get()) break
+                                writeToTrack(piece)
+                            }
                             val amplitude = AudioUtils.calculateRmsNormalized(firstChunk, firstChunk.size)
                             onPlaybackAmplitude(amplitude)
                         }
@@ -153,6 +170,7 @@ class AudioPlayer(
      * Instantly flushes audio playback upon interruption.
      */
     fun flush() {
+        flushGeneration.incrementAndGet()
         audioQueue.clear()
         isTurnComplete.set(true)
         synchronized(trackLock) {

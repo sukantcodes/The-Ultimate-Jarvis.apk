@@ -995,11 +995,12 @@ object WebBuildOrchestrator {
     // ─────────────────────────────────────────────────────────────────────────────
 
     private fun customReady(ctx: Context): Boolean {
+        // Exactly the check the ChatBox makes before it sends: a provider is "set" only when it has a model and a
+        // usable key. A half-configured or placeholder provider must not be treated as ready.
         val m = ProviderRuntime.manager(ctx)
-        val p = m.activeProfile() ?: return false
-        val hasModel = p.chatModel != null || p.models.isNotEmpty() || p.selectedModelId.isNotBlank()
-        val hasKey = m.hasKey(p.id) || ProviderRuntime.keyRotation(ctx).hasKeys(p.id) || p.authMethod == AuthMethod.NONE
-        return hasModel && hasKey
+        val coding = m.resolveChat(WorkCategory.CODING)
+        val resolved = if (coding is ChatResolution.NotActive) m.resolveChat() else coding
+        return resolved is ChatResolution.Ready
     }
 
     private fun extractCodeBlocksFromRecentChat(dir: File) {
@@ -1172,25 +1173,24 @@ object WebBuildOrchestrator {
         TaskProgressNotifier.postProgress(ctx, "Jarvis · web build", text, percent.coerceIn(1, 100))
     }
 
+    /**
+     * Everything the supervisor says is spoken in Jarvis's own voice (the live Gemini voice, or the installed offline
+     * Jarvis voice). The phone's plain text-to-speech is used only when Jarvis's voice cannot be reached at all.
+     */
     private fun say(ctx: Context, text: String, logChat: Boolean = false) {
+        if (text.isBlank()) return
         if (logChat) runCatching { JarvisApp.instance.chatRepository.addTurn("🛠 JARVIS build", text) }
-        JarvisConversationService.flushActiveAudio()
-        val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(ctx)
-        dispatcher.speak(text)
+        val spokenInFull = text.length > 140
+        if (!JarvisConversationService.announceMessage(text, spokenInFull)) {
+            com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(ctx).speak(text)
+        }
     }
 
     private suspend fun saySuspending(ctx: Context, text: String, logChat: Boolean = false) {
         if (text.isBlank()) return
-        if (logChat) runCatching { JarvisApp.instance.chatRepository.addTurn("🛠 JARVIS build", text) }
-        JarvisConversationService.flushActiveAudio()
-        val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(ctx)
-        withTimeoutOrNull(120_000L) {
-            kotlinx.coroutines.suspendCancellableCoroutine<Unit> { cont ->
-                dispatcher.speak(text) {
-                    if (cont.isActive) cont.resume(Unit) {}
-                }
-            }
-        }
+        say(ctx, text, logChat)
+        // The live voice reports no "finished" callback, so give it roughly the time the sentence takes to say.
+        delay((2_000L + text.length * 70L).coerceAtMost(45_000L))
     }
 
     private fun acquireLock(ctx: Context) {
