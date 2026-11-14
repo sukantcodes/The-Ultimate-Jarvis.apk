@@ -1071,7 +1071,7 @@ class ChatFragment : Fragment() {
                 workSteps.add(
                     WorkStepCard(
                         id = stepId,
-                        type = WorkActionType.resolve(progress.language, progress.target),
+                        type = WorkActionType.resolve(progress.language, progress.target, progress.toolName),
                         title = desc,
                         status = status,
                         requestCode = reqCode,

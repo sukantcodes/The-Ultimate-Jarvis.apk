@@ -4,7 +4,7 @@ import com.jarvis.assistant.provider.LiveWorkProgress
 
 data class WorkStepCard(
     val id: String,
-    val type: WorkActionType = WorkActionType.ANALYZE,
+    val type: WorkActionType = WorkActionType.CODE_SYNTHESIS,
     val title: String,
     val status: WorkStepStatus = WorkStepStatus.IN_PROGRESS,
     val codeSnippet: String? = null,
