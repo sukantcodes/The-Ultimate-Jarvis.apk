@@ -1213,7 +1213,6 @@ class JarvisConversationService : Service() {
                             if (!hasDirectGeminiKey && offlineVoiceUsableCached()) {
                                 return
                             }
-                            }
                             // Silent execution applies to task narration, while leaving ordinary
                             // conversation audible. Read the preference dynamically so toggling
                             // it during a session takes effect immediately.
