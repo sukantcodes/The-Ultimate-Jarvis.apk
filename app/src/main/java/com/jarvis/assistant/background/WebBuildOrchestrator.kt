@@ -29,6 +29,7 @@ import com.jarvis.assistant.provider.LiveToolStep
 import com.jarvis.assistant.provider.ModelInfo
 import com.jarvis.assistant.provider.ProviderChatEngine
 import com.jarvis.assistant.provider.ProviderChatBridge
+import com.jarvis.assistant.provider.ProviderError
 import com.jarvis.assistant.provider.ProviderErrorKind
 import com.jarvis.assistant.provider.ProviderException
 import com.jarvis.assistant.provider.ProviderProtocol

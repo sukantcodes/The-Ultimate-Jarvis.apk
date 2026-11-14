@@ -410,7 +410,7 @@ class KeyManagerActivity : AppCompatActivity() {
             dlg.setOnShowListener {
                 val accent = ThemeManager.getThemeAccentColor()
                 dlg.getButton(android.content.DialogInterface.BUTTON_POSITIVE)?.setTextColor(accent)
-                dlg.getButton(android.content.DialogInterface.BUTTON_NEGATIVE)?.setTextColor(ThemeManager.getThemeTextSecondaryColor())
+                dlg.getButton(android.content.DialogInterface.BUTTON_NEGATIVE)?.setTextColor(UiKit.color(this, R.attr.themeTextSecondary))
                 val positiveBtn = dlg.getButton(android.content.DialogInterface.BUTTON_POSITIVE)
                 positiveBtn?.setOnClickListener {
                     try {
