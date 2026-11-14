@@ -289,13 +289,13 @@ object WebBuildOrchestrator {
         if (!PermissionPreferences.isAutoApproveAll(ctx)) { priorAutoApprove = false; autoApproveTouched = true; PermissionPreferences.setAutoApproveAll(ctx, true) }
         val customAvail = customReady(ctx)
         val hasGemini = JarvisApp.instance.preferences.apiKey.isNotBlank()
-        val requestedGemini = MultilingualCommandHelper.isUserChoosesJarvisDirectly(text) || parseEngine(text) == Engine.GEMINI || text.contains("gemini", ignoreCase = true)
         val requestedCustom = MultilingualCommandHelper.isUserWantsToAddCustomProvider(text) || parseEngine(text) == Engine.CUSTOM
+        val requestedGemini = MultilingualCommandHelper.isUserChoosesJarvisDirectly(text) || parseEngine(text) == Engine.GEMINI
         when {
-            requestedGemini -> { engine = Engine.GEMINI; afterEngineChosen(ctx) }
             requestedCustom -> { engine = Engine.CUSTOM; afterEngineChosen(ctx) }
-            customAvail -> { engine = Engine.CUSTOM; afterEngineChosen(ctx) }
+            customAvail && !requestedGemini -> { engine = Engine.CUSTOM; afterEngineChosen(ctx) }
             hasGemini -> { engine = Engine.GEMINI; afterEngineChosen(ctx) }
+            customAvail -> { engine = Engine.CUSTOM; afterEngineChosen(ctx) }
             else -> {
                 say(ctx, tr("No AI model is configured. Please add a Gemini key or a custom provider in Settings.",
                     "कोई AI मॉडल सेट नहीं है। कृपया सेटिंग्स में जेमिनी की या कस्टम प्रोवाइडर जोड़ें।",

@@ -1,44 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Shared app-wide Material dialogs. Colours resolve from the currently active JARVIS theme. -->
-    <style name="ShapeAppearanceOverlay.Jarvis.Dialog" parent="ShapeAppearance.Material3.LargeComponent">
-        <item name="cornerSize">30dp</item>
+    <!-- Shared app-wide Material dialogs. Colours resolve dynamically from the currently active JARVIS theme. -->
+    <style name="ShapeAppearanceOverlay.Jarvis.Dialog" parent="">
+        <item name="cornerSize">24dp</item>
     </style>
 
-    <style name="TextAppearance.Jarvis.DialogTitle" parent="TextAppearance.Jarvis.Headline">
+    <style name="TextAppearance.Jarvis.DialogTitle" parent="TextAppearance.Material3.TitleLarge">
         <item name="android:fontFamily">sans-serif-black</item>
-        <item name="android:textSize">24sp</item>
+        <item name="android:textSize">22sp</item>
         <item name="android:letterSpacing">0.01</item>
-        <item name="android:textColor">#FFFFFFFF</item>
+        <item name="android:textColor">?attr/themeTextPrimary</item>
         <item name="android:includeFontPadding">false</item>
     </style>
 
-    <style name="TextAppearance.Jarvis.DialogBody" parent="TextAppearance.Jarvis.Body">
+    <style name="TextAppearance.Jarvis.DialogBody" parent="TextAppearance.Material3.BodyMedium">
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:textSize">15sp</item>
         <item name="android:lineSpacingExtra">3dp</item>
-        <item name="android:textColor">#FFB8C4E0</item>
+        <item name="android:textColor">?attr/themeTextSecondary</item>
     </style>
 
     <style name="Widget.Jarvis.Dialog.EditText" parent="Widget.AppCompat.EditText">
-        <item name="android:background">@drawable/bg_jarvis_dialog_input_premium</item>
-        <item name="android:textColor">#FFFFFFFF</item>
-        <item name="android:textColorHint">#99C8D4F0</item>
-        <item name="android:textSize">17sp</item>
+        <item name="android:textColor">?attr/themeTextPrimary</item>
+        <item name="android:textColorHint">?attr/themeTextMuted</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:fontFamily">sans-serif-medium</item>
         <item name="android:includeFontPadding">false</item>
-        <item name="android:paddingStart">15dp</item>
-        <item name="android:paddingEnd">15dp</item>
-        <item name="android:paddingTop">13dp</item>
-        <item name="android:paddingBottom">13dp</item>
-        <item name="android:minHeight">54dp</item>
+        <item name="android:minHeight">48dp</item>
     </style>
 
     <style name="Widget.Jarvis.Dialog.ActionButton" parent="Widget.Material3.Button.TextButton">
-        <item name="android:fontFamily">sans-serif-black</item>
-        <item name="android:textSize">13.5sp</item>
-        <item name="android:letterSpacing">0.08</item>
-        <item name="android:textAllCaps">true</item>
+        <item name="android:fontFamily">sans-serif-bold</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:letterSpacing">0.05</item>
         <item name="android:minHeight">48dp</item>
     </style>
 
@@ -48,32 +42,23 @@
     </style>
 
     <style name="ThemeOverlay.Jarvis.MaterialDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
-        <item name="android:windowBackground">@drawable/bg_jarvis_dialog_premium</item>
-        <item name="colorSurface">#FF121630</item>
-        <item name="colorOnSurface">#FFEAF0FF</item>
-        <item name="colorOnSurfaceVariant">#FFB8C4E0</item>
-        <item name="android:textColorPrimary">#FFEAF0FF</item>
-        <item name="android:textColorSecondary">#FFB8C4E0</item>
-        <item name="android:textColorAlertDialogListItem">#FFEAF0FF</item>
-        <item name="android:colorAccent">?attr/themeAccent</item>
+        <item name="colorSurface">?attr/themeCardBg</item>
+        <item name="colorOnSurface">?attr/themeTextPrimary</item>
+        <item name="colorOnSurfaceVariant">?attr/themeTextSecondary</item>
+        <item name="android:textColorPrimary">?attr/themeTextPrimary</item>
+        <item name="android:textColorSecondary">?attr/themeTextSecondary</item>
+        <item name="android:textColorAlertDialogListItem">?attr/themeTextPrimary</item>
         <item name="colorPrimary">?attr/themeAccent</item>
-        <item name="colorSecondary">?attr/themeAccent2</item>
-        <item name="colorTertiary">?attr/themeAccent3</item>
-        <item name="android:fontFamily">sans-serif</item>
-        <item name="android:editTextStyle">@style/Widget.Jarvis.Dialog.EditText</item>
-        <item name="materialButtonStyle">@style/Widget.Jarvis.Dialog.ActionButton</item>
-        <item name="shapeAppearanceOverlay">@style/ShapeAppearanceOverlay.Jarvis.Dialog</item>
+        <item name="colorSecondary">?attr/themeAccent</item>
         <item name="materialAlertDialogTitleTextStyle">@style/TextAppearance.Jarvis.DialogTitle</item>
         <item name="materialAlertDialogBodyTextStyle">@style/TextAppearance.Jarvis.DialogBody</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearanceOverlay.Jarvis.Dialog</item>
         <item name="android:windowAnimationStyle">@style/Jarvis.Dialog.WindowAnimation</item>
         <item name="android:windowSoftInputMode">adjustResize</item>
-        <item name="android:windowMinWidthMajor">87%</item>
-        <item name="android:windowMinWidthMinor">87%</item>
     </style>
 
     <style name="Widget.Jarvis.BottomSheet" parent="Widget.Material3.BottomSheet.Modal">
-        <item name="android:background">@drawable/bg_jarvis_dialog_surface</item>
-        <item name="backgroundTint">?attr/themeSurface</item>
+        <item name="backgroundTint">?attr/themeCardBg</item>
         <item name="shapeAppearance">@style/ShapeAppearanceOverlay.Jarvis.Dialog</item>
         <item name="android:elevation">20dp</item>
     </style>

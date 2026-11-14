@@ -275,7 +275,7 @@ class KeyManagerActivity : AppCompatActivity() {
                 null
             }
             render()
-            MaterialAlertDialogBuilder(this@KeyManagerActivity, R.style.ThemeOverlay_Jarvis_MaterialDialog)
+            MaterialAlertDialogBuilder(this@KeyManagerActivity)
                 .setTitle(if (report?.ok == true) "Key Operational" else "Key Test Failed")
                 .setMessage(report?.summary ?: "This key could not be tested. Check network connectivity and credentials.")
                 .setPositiveButton("OK", null)
@@ -284,7 +284,7 @@ class KeyManagerActivity : AppCompatActivity() {
     }
 
     private fun confirmDelete(rec: KeyRecord) {
-        MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_Jarvis_MaterialDialog)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Delete ${rec.label}?")
             .setMessage("The key will be safely removed from secure storage.")
             .setPositiveButton("Delete") { _, _ ->
@@ -400,7 +400,7 @@ class KeyManagerActivity : AppCompatActivity() {
                 return true
             }
 
-            val dlg = MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_Jarvis_MaterialDialog)
+            val dlg = MaterialAlertDialogBuilder(this)
                 .setTitle(if (rec == null) "Add API Key (${profile.displayName})" else "Edit ${rec.label}")
                 .setView(ScrollView(this).apply { addView(form) })
                 .setPositiveButton("Save", null)
@@ -408,6 +408,9 @@ class KeyManagerActivity : AppCompatActivity() {
                 .create()
 
             dlg.setOnShowListener {
+                val accent = ThemeManager.getThemeAccentColor()
+                dlg.getButton(android.content.DialogInterface.BUTTON_POSITIVE)?.setTextColor(accent)
+                dlg.getButton(android.content.DialogInterface.BUTTON_NEGATIVE)?.setTextColor(ThemeManager.getThemeTextSecondaryColor())
                 val positiveBtn = dlg.getButton(android.content.DialogInterface.BUTTON_POSITIVE)
                 positiveBtn?.setOnClickListener {
                     try {

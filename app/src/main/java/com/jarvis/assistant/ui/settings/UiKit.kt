@@ -56,6 +56,9 @@ object UiKit {
             setTextColor(color(ctx, R.attr.themeTextPrimary))
             setHintTextColor(color(ctx, R.attr.themeTextMuted))
             setSingleLine(true)
+            val p = dp(ctx, 12)
+            setPadding(p, p, p, p)
+            minHeight = dp(ctx, 48)
             inputType = when {
                 number -> android.text.InputType.TYPE_CLASS_NUMBER
                 secret -> android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
