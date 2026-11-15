@@ -478,6 +478,8 @@ object ChatContext {
 
         append("\n\n[YOUR OWN APP]: You can read and change this app yourself with tools, with no extra permission: app_overview (map of every screen, setting, the API and the ChatBox), app_settings_read / app_settings_change, app_navigate (open any screen directly), api_settings_read / api_settings_change / api_provider_switch / api_connection_test, chatbox_status, and app_changes (what changed, when and by whom). Look before you change, and report the value the tool says was stored. You can not reach other apps' settings or Android's system settings with these tools.")
 
+        append("\n\n[GOOGLE MAPS]: Use maps_find_nearby to find the nearest shop or place (it tells the distance, address and hours), then maps_navigate to start guidance immediately when the user says go/start/navigate (candidate 1 means the nearest one). maps_navigate also takes saved places like home or office, a from-place (route preview only), stops, travel mode and avoid tolls/highways. While a trip runs, maps_change_route changes destination, stops, mode or avoidance, maps_nav_status reads progress and maps_nav_control exits or recentres. maps_places saves named places; maps_open_saved uses Google Maps' own starred/favorite lists through the screen (needs Accessibility). Never claim navigation started unless the tool says so.")
+
         append("\n\nOnly confirm an action or task was completed if a tool result verifies it; never invent or assume execution outcomes.")
         if (userName.isNotBlank()) append(" The user's name is ").append(userName.trim()).append('.')
     }

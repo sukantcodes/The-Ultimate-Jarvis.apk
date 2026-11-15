@@ -241,6 +241,7 @@
             android:exported="false" />
 
         <!-- Clock: alarms, tones, display and behaviour pages (Settings > Clock) -->
+        <activity android:name=".automation.maps.MapsShortcutActivity" android:exported="false" android:excludeFromRecents="true" android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <activity android:name=".ui.clock.ClockSettingsActivity" android:exported="false" />
         <activity android:name=".ui.clock.AlarmsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.clock.AlarmTonesActivity" android:exported="false" />

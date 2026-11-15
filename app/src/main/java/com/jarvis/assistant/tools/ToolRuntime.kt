@@ -85,6 +85,9 @@ object ToolRuntime {
         val terminal = try { TerminalManager(workspace, ProcessBackend(), redactor) } catch (e: Exception) { null }
         terminal?.let { TerminalTools.all(it).forEach(registry::register) }
         com.jarvis.assistant.tools.chat.ChatAccessTools.all { com.jarvis.assistant.JarvisApp.instance.chatRepository }.forEach(registry::register)
+        com.jarvis.assistant.automation.maps.MapsTools.all(
+            com.jarvis.assistant.automation.maps.MapsTools.deps(app, ProviderRuntime.transport())
+        ).forEach(registry::register)
         com.jarvis.assistant.tools.appcontrol.AppControlTools.all(
             com.jarvis.assistant.tools.appcontrol.AppControlTools.Deps(
                 app = app,

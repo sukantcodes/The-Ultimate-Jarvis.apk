@@ -48,6 +48,8 @@ class AppNavigatorTest {
         val policy = PermissionPolicy(settings)
         assertEquals(Mode.ALLOW, policy.modeFor(Risk.WRITE, PermissionPolicy.APP_CONTROL_GROUP))
         assertEquals(Mode.ASK, policy.modeFor(Risk.DESTRUCTIVE, PermissionPolicy.APP_CONTROL_GROUP))
+        assertEquals(Mode.ALLOW, policy.modeFor(Risk.WRITE, PermissionPolicy.MAPS_GROUP))
+        assertEquals(Mode.ASK, policy.modeFor(Risk.DESTRUCTIVE, PermissionPolicy.MAPS_GROUP))
         // Other groups keep their normal rule.
         assertEquals(Mode.ASK, policy.modeFor(Risk.WRITE, "files"))
     }
