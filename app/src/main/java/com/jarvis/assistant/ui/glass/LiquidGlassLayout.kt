@@ -16,7 +16,6 @@ import android.os.Build
 import android.util.AttributeSet
 import android.view.View
 import android.view.ViewOutlineProvider
-import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import androidx.annotation.RequiresApi
 import com.jarvis.assistant.R
@@ -170,19 +169,25 @@ class LiquidGlassLayout @JvmOverloads constructor(
         bc.restore()
     }
 
-    private val preDraw = ViewTreeObserver.OnPreDrawListener {
-        if (autoRefresh && isShown && !capturing) invalidate()
-        true
+    // Refresh the backdrop at ~30 fps (not once per display frame: 90/120 Hz phones would capture twice as often).
+    private val tick = object : Runnable {
+        override fun run() {
+            if (!isAttachedToWindow) return
+            val visible = isShown
+            if (autoRefresh && visible && !capturing) invalidate()
+            postDelayed(this, if (visible) 33L else 250L)
+        }
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         source = if (sourceId != View.NO_ID) rootView.findViewById(sourceId) else rootView
-        viewTreeObserver.addOnPreDrawListener(preDraw)
+        removeCallbacks(tick)
+        post(tick)
     }
 
     override fun onDetachedFromWindow() {
-        viewTreeObserver.removeOnPreDrawListener(preDraw)
+        removeCallbacks(tick)
         source = null
         super.onDetachedFromWindow()
     }
@@ -194,7 +199,6 @@ class LiquidGlassLayout @JvmOverloads constructor(
         val inset = 0.6f * density
         rimRect.set(inset, inset, w - inset, h - inset)
 
-        bmp?.recycle()
         val b = Bitmap.createBitmap(
             max(1, (w * BACKDROP_SCALE).toInt()), max(1, (h * BACKDROP_SCALE).toInt()), Bitmap.Config.ARGB_8888
         )
