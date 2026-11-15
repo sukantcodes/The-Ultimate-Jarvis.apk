@@ -22,7 +22,7 @@ class PersonaActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityPersonaBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        ThemeManager.applyDynamicBackground(binding.root)
+        ThemeManager.applyDynamicBackground(binding.root); com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(binding.root, withBase = true); com.jarvis.assistant.ui.glass.LiquidGlass.glassify(binding.root)
 
         setupUI()
         loadInitialState()

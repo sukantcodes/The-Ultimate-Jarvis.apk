@@ -179,7 +179,7 @@ class MayaModeActivity : AppCompatActivity() {
         }
         root.addView(activationButton, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(12) })
         setContentView(root)
-        ThemeManager.applyDynamicBackground(root)
+        ThemeManager.applyDynamicBackground(root); com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(root, withBase = true); com.jarvis.assistant.ui.glass.LiquidGlass.glassify(root)
     }
 
     private fun cardParams() = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) }

@@ -262,12 +262,10 @@
                 android:text="@string/set_section_ai" />
 
             <LinearLayout
+                android:id="@+id/glassCardAi"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_settings_card_ai"
-                android:elevation="2dp"
-                android:clipToOutline="true"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -548,12 +546,10 @@
                 android:text="@string/set_section_voice" />
 
             <LinearLayout
+                android:id="@+id/glassCardVoice"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_settings_card_voice"
-                android:elevation="2dp"
-                android:clipToOutline="true"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -779,12 +775,10 @@
                 android:text="@string/set_section_security" />
 
             <LinearLayout
+                android:id="@+id/glassCardSecurity"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_settings_card_security"
-                android:elevation="2dp"
-                android:clipToOutline="true"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -1071,12 +1065,10 @@
                 android:text="@string/set_section_alerts" />
 
             <LinearLayout
+                android:id="@+id/glassCardAlerts"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_settings_card_alerts"
-                android:elevation="2dp"
-                android:clipToOutline="true"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -1403,12 +1395,10 @@
                 android:text="@string/set_section_memory" />
 
             <LinearLayout
+                android:id="@+id/glassCardMemory"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_settings_card_memory"
-                android:elevation="2dp"
-                android:clipToOutline="true"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -1576,12 +1566,10 @@
                 android:text="@string/set_section_permissions" />
 
             <LinearLayout
+                android:id="@+id/glassCardPermissions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_settings_card_permissions"
-                android:elevation="2dp"
-                android:clipToOutline="true"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -2064,12 +2052,10 @@
                 android:text="@string/set_section_appearance" />
 
             <LinearLayout
+                android:id="@+id/glassCardAppearance"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_settings_card_appearance"
-                android:elevation="2dp"
-                android:clipToOutline="true"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -2295,12 +2281,10 @@
                 android:text="@string/set_section_about" />
 
             <LinearLayout
+                android:id="@+id/glassCardAbout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_settings_card_about"
-                android:elevation="2dp"
-                android:clipToOutline="true"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -2417,11 +2401,11 @@
                 android:text="@string/set_section_owner" />
 
             <LinearLayout
+                android:id="@+id/glassCardOwner"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="22dp"
-                android:background="@drawable/bg_settings_card_owner"
-                android:orientation="vertical"
+                                android:orientation="vertical"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp">
 

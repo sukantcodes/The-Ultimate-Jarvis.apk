@@ -28,7 +28,7 @@ class WorkRoutingActivity : AppCompatActivity() {
         ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        ThemeManager.applyDynamicBackground(root)
+        ThemeManager.applyDynamicBackground(root); com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(root, withBase = true); com.jarvis.assistant.ui.glass.LiquidGlass.glassify(root)
         val bar = UiKit.row(this).apply { setPadding(UiKit.dp(this@WorkRoutingActivity, 8), UiKit.dp(this@WorkRoutingActivity, 12), UiKit.dp(this@WorkRoutingActivity, 16), UiKit.dp(this@WorkRoutingActivity, 8)) }
         bar.addView(UiKit.button(this, "‹ Back") { finish() })
         bar.addView(UiKit.text(this, "  Work Routing", 20f, bold = true))

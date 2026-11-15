@@ -31,7 +31,7 @@ object UiKit {
 
     fun card(ctx: Context): LinearLayout = LinearLayout(ctx).apply {
         orientation = LinearLayout.VERTICAL
-        setBackgroundResource(R.drawable.bg_jarvis_card)
+        com.jarvis.assistant.ui.glass.LiquidGlass.apply(this, 24f)
         val p = dp(ctx, 16); setPadding(p, p, p, p)
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { bottomMargin = dp(ctx, 12) }
@@ -56,6 +56,7 @@ object UiKit {
             setTextColor(color(ctx, R.attr.themeTextPrimary))
             setHintTextColor(color(ctx, R.attr.themeTextMuted))
             setSingleLine(true)
+            com.jarvis.assistant.ui.glass.LiquidGlass.applySoft(this, 16f)
             val p = dp(ctx, 12)
             setPadding(p, p, p, p)
             minHeight = dp(ctx, 48)

@@ -33,7 +33,7 @@ class ToolSettingsActivity : AppCompatActivity() {
         ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        ThemeManager.applyDynamicBackground(root)
+        ThemeManager.applyDynamicBackground(root); com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(root, withBase = true); com.jarvis.assistant.ui.glass.LiquidGlass.glassify(root)
         val bar = UiKit.row(this).apply { setPadding(UiKit.dp(context, 8), UiKit.dp(context, 12), UiKit.dp(context, 16), UiKit.dp(context, 8)) }
         bar.addView(UiKit.button(this, "‹ Back") { finish() })
         bar.addView(UiKit.text(this, "  Workspace & Tools", 20f, bold = true))

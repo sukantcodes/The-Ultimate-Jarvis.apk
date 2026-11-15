@@ -42,7 +42,7 @@ class ApiConnectionActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityApiConnectionBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root)
+        com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root); com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(binding.root, withBase = true); com.jarvis.assistant.ui.glass.LiquidGlass.glassify(binding.root)
 
         setupUI()
         loadCurrentPreferences()

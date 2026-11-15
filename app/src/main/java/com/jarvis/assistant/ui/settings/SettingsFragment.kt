@@ -140,7 +140,7 @@ class SettingsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        ThemeManager.applyFragmentBackground(binding.root)
+        com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(binding.root)
 
         // Secret Maya companion settings: long-press the Settings heading to open.
         binding.tvSettingsTitle.setOnLongClickListener {
@@ -167,10 +167,34 @@ class SettingsFragment : Fragment() {
         setupAppearanceSection()
         setupAboutSection()
         setupOwnerSection()
+        applyLiquidGlassSurfaces()
         applyLiquidGlassStrength(binding.root)
         applyDimensionalIconColors(binding.root)
 
         refreshState()
+    }
+
+    /**
+     * iOS-style liquid glass for the whole Settings screen: the search field, the profile card and all nine section
+     * cards become glass surfaces that refract the drifting aurora behind them. Each section keeps its own accent
+     * as the glow in the card's lower corner.
+     */
+    private fun applyLiquidGlassSurfaces() {
+        val ctx = requireContext()
+        fun accent(res: Int) = androidx.core.content.ContextCompat.getColor(ctx, res)
+        val glass = com.jarvis.assistant.ui.glass.LiquidGlass
+        glass.apply(binding.etSettingsSearch, 27f, soft = false, elevationDp = 3f)
+        glass.apply(binding.cardProfile, 30f, elevationDp = 6f)
+        glass.apply(binding.glassCardAi, 28f, accent(R.color.set_accent_ai))
+        glass.apply(binding.glassCardVoice, 28f, accent(R.color.set_accent_voice))
+        glass.apply(binding.glassCardSecurity, 28f, accent(R.color.set_accent_security))
+        glass.apply(binding.glassCardAlerts, 28f, accent(R.color.set_accent_alerts))
+        glass.apply(binding.glassCardMemory, 28f, accent(R.color.set_accent_memory))
+        glass.apply(binding.glassCardPermissions, 28f, accent(R.color.set_accent_permissions))
+        glass.apply(binding.glassCardAppearance, 28f, accent(R.color.set_accent_appearance))
+        glass.apply(binding.glassCardAbout, 28f, accent(R.color.set_accent_about))
+        glass.apply(binding.glassCardOwner, 28f, accent(R.color.set_accent_owner))
+        glass.styleSwitches(binding.root)
     }
 
     /**
@@ -251,7 +275,7 @@ class SettingsFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         if (_binding != null) {
-            ThemeManager.applyFragmentBackground(binding.root)
+            com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(binding.root)
             applyDimensionalIconColors(binding.root)
             refreshState()
         }
@@ -262,7 +286,7 @@ class SettingsFragment : Fragment() {
         if (_binding == null) return
         if (!hidden) {
             binding.root.visibility = View.VISIBLE
-            ThemeManager.applyFragmentBackground(binding.root)
+            com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(binding.root)
             refreshState()
         } else {
             binding.root.visibility = View.GONE

@@ -129,7 +129,6 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
         val cardView = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            background = glassCardDrawable(ctx, a1, a2)
             setPadding(ctx.dp(22f).toInt(), overhang + ctx.dp(8f).toInt(), ctx.dp(22f).toInt(), ctx.dp(20f).toInt())
             elevation = ctx.dp(22f)
             clipChildren = false
@@ -140,6 +139,15 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
             }
         }
         card = cardView
+        // iOS-style liquid glass body: a dark scrim keeps the light text readable on any theme, and the glass
+        // material (lens, prism rim, specular highlight) sits on top of it.
+        com.jarvis.assistant.ui.glass.LiquidGlass.apply(cardView, 30f, a2, elevationDp = 22f)
+        val glassBody = cardView.background
+        val scrim = GradientDrawable().apply {
+            setColor(Color.argb(150, 6, 8, 20))
+            cornerRadius = ctx.dp(30f)
+        }
+        cardView.background = LayerDrawable(arrayOf(scrim, glassBody))
 
         val screenW = ctx.resources.displayMetrics.widthPixels
         val cardW = min(screenW - ctx.dp(36f).toInt(), ctx.dp(420f).toInt())
@@ -234,13 +242,13 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
             w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             w.setGravity(Gravity.CENTER)
             w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            w.setDimAmount(0.66f)
+            w.setDimAmount(0.42f)
             w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
             if (Build.VERSION.SDK_INT >= 31) {
                 try {
                     w.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
                     val attrs = w.attributes
-                    attrs.blurBehindRadius = 26
+                    attrs.blurBehindRadius = ctx.dp(22f).toInt()
                     w.attributes = attrs
                 } catch (_: Throwable) {
                 }
@@ -822,37 +830,6 @@ private fun keycap(ctx: Context, top: Int, bottom: Int, edge: Int, radius: Float
     layers.setLayerInset(2, ctx.dp(1f).toInt(), ctx.dp(1f).toInt(), ctx.dp(1f).toInt(), lift)
     layers.setLayerGravity(2, Gravity.TOP)
     layers.setLayerHeight(2, ctx.dp(22f).toInt())
-    return layers
-}
-
-private fun glassCardDrawable(ctx: Context, a1: Int, a2: Int): Drawable {
-    val radius = ctx.dp(30f)
-    val rim = GradientDrawable(
-        GradientDrawable.Orientation.TL_BR,
-        intArrayOf(Color.argb(235, 255, 255, 255), withAlpha(a1, 170), Color.argb(40, 255, 255, 255), withAlpha(a2, 210))
-    ).apply { cornerRadius = radius }
-    val body = GradientDrawable(
-        GradientDrawable.Orientation.TOP_BOTTOM,
-        intArrayOf(Color.rgb(34, 41, 82), Color.rgb(17, 21, 47), Color.rgb(9, 12, 30))
-    ).apply { cornerRadius = radius - ctx.dp(1.6f) }
-    val tint = GradientDrawable(
-        GradientDrawable.Orientation.BL_TR,
-        intArrayOf(withAlpha(a2, 46), Color.TRANSPARENT, withAlpha(a1, 40))
-    ).apply { cornerRadius = radius - ctx.dp(1.6f) }
-    val sheen = GradientDrawable(
-        GradientDrawable.Orientation.TOP_BOTTOM,
-        intArrayOf(Color.argb(46, 255, 255, 255), Color.TRANSPARENT)
-    ).apply {
-        val r = radius - ctx.dp(1.6f)
-        cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
-    }
-    val layers = LayerDrawable(arrayOf(rim, body, tint, sheen))
-    val inset = ctx.dp(1.6f).toInt()
-    layers.setLayerInset(1, inset, inset, inset, inset)
-    layers.setLayerInset(2, inset, inset, inset, inset)
-    layers.setLayerInset(3, inset, inset, inset, inset)
-    layers.setLayerGravity(3, Gravity.TOP)
-    layers.setLayerHeight(3, ctx.dp(110f).toInt())
     return layers
 }
 

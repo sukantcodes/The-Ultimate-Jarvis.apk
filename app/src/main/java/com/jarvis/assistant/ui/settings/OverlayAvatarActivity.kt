@@ -26,7 +26,8 @@ class OverlayAvatarActivity : AppCompatActivity() {
         ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_overlay_avatar)
-        ThemeManager.applyDynamicBackground(findViewById(R.id.overlayAvatarRoot))
+        val avatarRoot = findViewById<android.view.View>(R.id.overlayAvatarRoot)
+        ThemeManager.applyDynamicBackground(avatarRoot); com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(avatarRoot, withBase = true); com.jarvis.assistant.ui.glass.LiquidGlass.glassify(avatarRoot)
 
         findViewById<android.view.View>(R.id.btnBack).setOnClickListener { finish() }
         overlaySwitch = findViewById(R.id.switchOverlayEnabled)

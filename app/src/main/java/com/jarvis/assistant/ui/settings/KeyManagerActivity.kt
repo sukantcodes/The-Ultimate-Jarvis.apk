@@ -48,7 +48,7 @@ class KeyManagerActivity : AppCompatActivity() {
         ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        ThemeManager.applyDynamicBackground(root)
+        ThemeManager.applyDynamicBackground(root); com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(root, withBase = true); com.jarvis.assistant.ui.glass.LiquidGlass.glassify(root)
 
         val bar = UiKit.row(this).apply {
             setPadding(
@@ -279,7 +279,7 @@ class KeyManagerActivity : AppCompatActivity() {
                 .setTitle(if (report?.ok == true) "Key Operational" else "Key Test Failed")
                 .setMessage(report?.summary ?: "This key could not be tested. Check network connectivity and credentials.")
                 .setPositiveButton("OK", null)
-                .show()
+                .create().also { com.jarvis.assistant.ui.glass.LiquidGlass.styleDialog(it) }.show()
         }
     }
 
@@ -292,7 +292,7 @@ class KeyManagerActivity : AppCompatActivity() {
                 render()
             }
             .setNegativeButton("Cancel", null)
-            .show()
+            .create().also { com.jarvis.assistant.ui.glass.LiquidGlass.styleDialog(it) }.show()
     }
 
     /** Add (rec == null) or edit existing API key. Safe from null pointer exceptions. */
@@ -422,6 +422,7 @@ class KeyManagerActivity : AppCompatActivity() {
                     }
                 }
             }
+            com.jarvis.assistant.ui.glass.LiquidGlass.styleDialog(dlg)
             dlg.show()
         } catch (t: Throwable) {
             android.util.Log.e("KeyManagerActivity", "Failed to open key editor dialog", t)

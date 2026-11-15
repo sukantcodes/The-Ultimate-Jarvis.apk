@@ -50,7 +50,7 @@ class ScreenUnlockActivity : AppCompatActivity() {
 
         binding = ActivityScreenUnlockBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        ThemeManager.applyDynamicBackground(binding.root)
+        ThemeManager.applyDynamicBackground(binding.root); com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(binding.root, withBase = true); com.jarvis.assistant.ui.glass.LiquidGlass.glassify(binding.root)
 
         store = UnlockCredentialStore(applicationContext)
 
@@ -100,7 +100,7 @@ class ScreenUnlockActivity : AppCompatActivity() {
                     .setNegativeButton("Cancel") { _, _ -> setSwitchSilently(false) }
                     .setPositiveButton("Turn on") { _, _ -> store.allowWithoutVoiceMatch = true }
                     .setOnCancelListener { setSwitchSilently(false) }
-                    .show()
+                    .create().also { com.jarvis.assistant.ui.glass.LiquidGlass.styleDialog(it) }.show()
             } else {
                 store.allowWithoutVoiceMatch = false
             }
@@ -249,7 +249,7 @@ class ScreenUnlockActivity : AppCompatActivity() {
                 refreshStatus()
                 toast("Saved screen lock deleted.")
             }
-            .show()
+            .create().also { com.jarvis.assistant.ui.glass.LiquidGlass.styleDialog(it) }.show()
     }
 
     private fun confirmTest() {
@@ -269,7 +269,7 @@ class ScreenUnlockActivity : AppCompatActivity() {
             .setMessage("Jarvis will lock your phone, wait a few seconds, then try to wake and unlock it with the saved screen lock. Please do not touch the phone during the test.")
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Start") { _, _ -> runTest(service) }
-            .show()
+            .create().also { com.jarvis.assistant.ui.glass.LiquidGlass.styleDialog(it) }.show()
     }
 
     private fun runTest(service: JarvisAccessibilityService) {

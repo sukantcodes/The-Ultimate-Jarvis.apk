@@ -32,6 +32,20 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         return binding.root
     }
 
+    /** The sheet itself becomes an iOS-style glass pane and the screen behind it is blurred. */
+    private fun applyLiquidGlassSheet() {
+        val sheetDialog = dialog as? BottomSheetDialog ?: return
+        com.jarvis.assistant.ui.glass.LiquidGlass.blurBehind(sheetDialog, radiusDp = 24f, dim = 0.28f)
+        sheetDialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.background =
+            android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+        com.jarvis.assistant.ui.glass.LiquidGlass.apply(binding.root, 32f, topOnly = true, elevationDp = 0f)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (_binding != null) applyLiquidGlassSheet()
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val currentTheme = preferences.appTheme

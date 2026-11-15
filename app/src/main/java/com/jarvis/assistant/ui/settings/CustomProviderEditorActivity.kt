@@ -59,7 +59,7 @@ class CustomProviderEditorActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityCustomProviderEditorBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root)
+        com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(binding.root); com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(binding.root, withBase = true); com.jarvis.assistant.ui.glass.LiquidGlass.glassify(binding.root)
 
         binding.etEndpointKey.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
         binding.spAuth.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, authMethods.map { it.label })
@@ -332,7 +332,7 @@ class CustomProviderEditorActivity : AppCompatActivity() {
                 refreshSummary()
             }
             .setNegativeButton("Cancel", null)
-            .show()
+            .create().also { com.jarvis.assistant.ui.glass.LiquidGlass.styleDialog(it) }.show()
     }
 
     private fun refreshSummary() {
@@ -471,7 +471,7 @@ class CustomProviderEditorActivity : AppCompatActivity() {
                 finish()
             }
             .setNegativeButton("Cancel", null)
-            .show()
+            .create().also { com.jarvis.assistant.ui.glass.LiquidGlass.styleDialog(it) }.show()
     }
 
     companion object {
