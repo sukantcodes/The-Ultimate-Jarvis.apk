@@ -267,7 +267,7 @@ class ShimmerTextView @JvmOverloads constructor(context: Context, attrs: Attribu
             if (value) start() else stop()
             invalidate()
         }
-    var highlightColor: Int = 0xFFFFFFFF.toInt()
+    var shimmerColor: Int = 0xFFFFFFFF.toInt()
 
     private val shaderMatrix = Matrix()
     private var shader: LinearGradient? = null
@@ -308,11 +308,11 @@ class ShimmerTextView @JvmOverloads constructor(context: Context, attrs: Attribu
         if (shimmering && width > 0) {
             val base = currentTextColor
             val band = max(width * 0.55f, 48f)
-            if (shader == null || shaderBase != base || shaderBand != band || shaderHighlight != highlightColor) {
-                shader = LinearGradient(0f, 0f, band, 0f, intArrayOf(base, highlightColor, base), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
+            if (shader == null || shaderBase != base || shaderBand != band || shaderHighlight != shimmerColor) {
+                shader = LinearGradient(0f, 0f, band, 0f, intArrayOf(base, shimmerColor, base), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
                 shaderBase = base
                 shaderBand = band
-                shaderHighlight = highlightColor
+                shaderHighlight = shimmerColor
             }
             shaderMatrix.setTranslate(phase * (width + band) - band, 0f)
             shader?.setLocalMatrix(shaderMatrix)
@@ -563,7 +563,7 @@ class ActivityStepRow(private val context: Context, parent: ViewGroup) {
         val running = step.state == StepState.RUNNING
         divider.visibility = if (showDivider) View.VISIBLE else View.GONE
         title.text = titleOf(step)
-        title.highlightColor = themeColor(context, R.attr.themeTextPrimary, Color.WHITE)
+        title.shimmerColor = themeColor(context, R.attr.themeTextPrimary, Color.WHITE)
         title.shimmering = running
         scan.color = accent
         scan.visibility = if (running) View.VISIBLE else View.GONE
@@ -926,7 +926,7 @@ class InlineActivityView @JvmOverloads constructor(context: Context, attrs: Attr
         val primary = themeColor(context, R.attr.themeTextPrimary, 0xFFE0E6EA.toInt())
         val muted = themeColor(context, R.attr.themeTextSecondary, 0xFF90A4AE.toInt())
         verb.setTextColor(primary)
-        verb.highlightColor = accent
+        verb.shimmerColor = accent
         timer.setTextColor(muted)
         timer.background = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(ColorUtils.setAlphaComponent(muted, 38)) }
         stepsInfo.setTextColor(muted)
