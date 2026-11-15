@@ -476,6 +476,8 @@ object ChatContext {
 
         append("\n\n[").append(mode.promptInstruction).append("]")
 
+        append("\n\n[YOUR OWN APP]: You can read and change this app yourself with tools, with no extra permission: app_overview (map of every screen, setting, the API and the ChatBox), app_settings_read / app_settings_change, app_navigate (open any screen directly), api_settings_read / api_settings_change / api_provider_switch / api_connection_test, chatbox_status, and app_changes (what changed, when and by whom). Look before you change, and report the value the tool says was stored. You can not reach other apps' settings or Android's system settings with these tools.")
+
         append("\n\nOnly confirm an action or task was completed if a tool result verifies it; never invent or assume execution outcomes.")
         if (userName.isNotBlank()) append(" The user's name is ").append(userName.trim()).append('.')
     }

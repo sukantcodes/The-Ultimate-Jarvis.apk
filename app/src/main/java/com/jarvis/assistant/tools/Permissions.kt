@@ -64,6 +64,9 @@ class PermissionPolicy(private val store: SettingsStore) {
         if (isAutoApproveAll()) return Mode.ALLOW
         store.get("mode.$group.${risk.name}")?.let { v -> Mode.values().firstOrNull { it.name == v }?.let { return enforce(risk, it) } }
         store.get("mode.${risk.name}")?.let { v -> Mode.values().firstOrNull { it.name == v }?.let { return enforce(risk, it) } }
+        // Changing the app's own settings is what the user asked Jarvis to do, so it does not ask each time. Anything
+        // destructive still asks, and the user can still set this group to ASK or DENY with an explicit rule above.
+        if (group == APP_CONTROL_GROUP && risk == Risk.WRITE) return Mode.ALLOW
         return defaultFor(risk)
     }
 
@@ -93,6 +96,9 @@ class PermissionPolicy(private val store: SettingsStore) {
     companion object {
         const val KEY_AUTO_APPROVE_ALL = "auto_approve_all"
         const val KEY_INTERNET_ENABLED = "internet_enabled"
+
+        /** Tools that read and change Jarvis's own app (settings, API configuration, screens). */
+        const val APP_CONTROL_GROUP = "app_control"
 
         /** Tool groups that reach the internet whatever their risk label says (GitHub pushes are "destructive", not "network"). */
         val INTERNET_GROUPS = setOf("web", "github", "browser")

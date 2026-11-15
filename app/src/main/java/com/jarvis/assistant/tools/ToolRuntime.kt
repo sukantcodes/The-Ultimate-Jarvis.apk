@@ -85,6 +85,17 @@ object ToolRuntime {
         val terminal = try { TerminalManager(workspace, ProcessBackend(), redactor) } catch (e: Exception) { null }
         terminal?.let { TerminalTools.all(it).forEach(registry::register) }
         com.jarvis.assistant.tools.chat.ChatAccessTools.all { com.jarvis.assistant.JarvisApp.instance.chatRepository }.forEach(registry::register)
+        com.jarvis.assistant.tools.appcontrol.AppControlTools.all(
+            com.jarvis.assistant.tools.appcontrol.AppControlTools.Deps(
+                app = app,
+                journal = com.jarvis.assistant.tools.appcontrol.AppChangeWatcher.start(app),
+                audit = audit,
+                redactor = redactor,
+                prefs = { com.jarvis.assistant.JarvisApp.instance.preferences },
+                chat = { com.jarvis.assistant.JarvisApp.instance.chatRepository },
+                providers = { ProviderRuntime.manager(app) }
+            )
+        ).forEach(registry::register)
 
         val memory = com.jarvis.assistant.tools.memory.MemoryStore(File(app.filesDir, "memory/memories.json"))
         memory.enabled = app.getSharedPreferences("tool_permissions", Context.MODE_PRIVATE).getBoolean("memory_enabled", true)
