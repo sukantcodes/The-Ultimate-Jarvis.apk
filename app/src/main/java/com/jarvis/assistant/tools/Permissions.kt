@@ -66,7 +66,7 @@ class PermissionPolicy(private val store: SettingsStore) {
         store.get("mode.${risk.name}")?.let { v -> Mode.values().firstOrNull { it.name == v }?.let { return enforce(risk, it) } }
         // Changing the app's own settings is what the user asked Jarvis to do, so it does not ask each time. Anything
         // destructive still asks, and the user can still set this group to ASK or DENY with an explicit rule above.
-        if (group == APP_CONTROL_GROUP && risk == Risk.WRITE) return Mode.ALLOW
+        if (group in TRUSTED_WRITE_GROUPS && risk == Risk.WRITE) return Mode.ALLOW
         return defaultFor(risk)
     }
 
@@ -99,6 +99,11 @@ class PermissionPolicy(private val store: SettingsStore) {
 
         /** Tools that read and change Jarvis's own app (settings, API configuration, screens). */
         const val APP_CONTROL_GROUP = "app_control"
+
+        /** Tools that start navigation or save a named place: the user's spoken request is the permission. */
+        const val MAPS_GROUP = "maps"
+
+        private val TRUSTED_WRITE_GROUPS = setOf(APP_CONTROL_GROUP, MAPS_GROUP)
 
         /** Tool groups that reach the internet whatever their risk label says (GitHub pushes are "destructive", not "network"). */
         val INTERNET_GROUPS = setOf("web", "github", "browser")
