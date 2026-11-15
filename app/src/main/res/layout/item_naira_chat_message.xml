@@ -95,6 +95,14 @@
             android:layout_height="wrap_content" />
     </FrameLayout>
 
+    <!-- What Jarvis is doing (or did) for this message: spinner, steps, progress. Shown inline like Claude. -->
+    <com.jarvis.assistant.ui.chat.InlineActivityView
+        android:id="@+id/inlineActivity"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:visibility="gone" />
+
     <!-- Assistant message: plain text on the background, no bubble -->
     <LinearLayout
         android:id="@+id/layoutAssistantContainer"

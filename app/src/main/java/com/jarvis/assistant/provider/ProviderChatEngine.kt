@@ -104,9 +104,8 @@ class ProviderChatEngine(
     /** Honest step-by-step status of the answer or build in progress, shown as the status card in ChatBox. */
     val build = BuildStatusTracker()
 
-    /** Every tool step as it starts and finishes (start: isWriting=true, finish: isWriting=false). A shared flow, so no step is skipped. */
-    private val _steps = MutableSharedFlow<LiveToolStep>(extraBufferCapacity = 128)
-    val steps: SharedFlow<LiveToolStep> = _steps.asSharedFlow()
+    /** What Jarvis is doing or did for each chat turn: shown inline in that turn's message in the ChatBox. */
+    val turnWork = WorkActivityStore()
 
     private var job: Job? = null
     private val lock = Any()
@@ -198,6 +197,7 @@ class ProviderChatEngine(
     private fun launch(id: String, provider: ResolvedProvider, text: String, attachments: List<ChatAttachment>) {
         _state.value = EngineState.Streaming(id, provider.label)
         build.begin(id, provider.label, provider.modelId)
+        turnWork.begin(id)
         job = scope.launch {
             val partial = StringBuilder()
             var lastUi = 0L
@@ -255,7 +255,7 @@ class ProviderChatEngine(
                                     },
                                     onStep = { step ->
                                         build.toolStep(step.toolName, step.target, step.isWriting)
-                                        _steps.tryEmit(step)
+                                        turnWork.onStep(id, step)
                                         val pct = minOf(95, 15 + ((step.round - 1) * 20) + (if (executedBlocks.isEmpty()) 10 else 18))
                                         _workProgress.value = LiveWorkProgress(
                                             isWorking = true,
@@ -263,6 +263,7 @@ class ProviderChatEngine(
                                             actionText = step.toolName,
                                             target = step.target
                                         )
+                                        turnWork.setProgress(id, if (!step.isWriting) minOf(98, pct + 8) else pct)
                                         if (step.codeOrOutput.isNotBlank() && (step.toolName in listOf("write_file", "terminal_run", "edit_file", "search_web", "web_search", "read_file"))) {
                                             val fence = "```${step.language}:${step.target}\n${step.codeOrOutput}\n```"
                                             executedBlocks[step.target] = fence
@@ -361,10 +362,12 @@ class ProviderChatEngine(
                 settleUsage(partial.toString())
                 store.finish(id, partial.toString())
                 build.done()
+                turnWork.finish(id, failed = false)
                 _state.value = EngineState.Idle
                 _workProgress.value = LiveWorkProgress(isWorking = false, percent = 0)
             } catch (e: CancellationException) {
                 build.stopped()
+                turnWork.finish(id, failed = false)
                 _workProgress.value = LiveWorkProgress(isWorking = false, percent = 0)
                 settleUsage(partial.toString())
                 val kept = partial.toString().trim()
@@ -392,6 +395,7 @@ class ProviderChatEngine(
 
     private fun fail(id: String, partial: String, error: ProviderError) {
         build.failed(error.message)
+        turnWork.finish(id, failed = true)
         failedTurns.add(id)
         store.fail(id, partial, ERROR_PREFIX + error.message)
         _state.value = EngineState.Failed(id, error)

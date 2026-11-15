@@ -4,38 +4,62 @@
     android:layout_height="wrap_content"
     android:orientation="vertical">
 
-    <!-- One compact row: step title (one line) | optional status tag | chevron -->
+    <View
+        android:id="@+id/viewRowDivider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#1F808080"
+        android:visibility="gone" />
+
+    <!-- One row: tool icon | title (one line) | tag / tick | arrow -->
     <LinearLayout
         android:id="@+id/layoutRowMain"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="14dp"
-        android:paddingTop="11dp"
-        android:paddingBottom="11dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="9dp"
+        android:paddingBottom="9dp"
         android:background="?attr/selectableItemBackground"
         android:clickable="true"
         android:focusable="true">
 
-        <TextView
+        <FrameLayout
+            android:id="@+id/ivWorkFrame"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:background="@drawable/bg_work_icon_frame">
+
+            <ImageView
+                android:id="@+id/ivWorkIcon"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center"
+                android:scaleType="centerInside"
+                android:contentDescription="@null" />
+        </FrameLayout>
+
+        <com.jarvis.assistant.ui.chat.ShimmerTextView
             android:id="@+id/tvWorkStepTitle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:layout_marginStart="10dp"
             android:maxLines="1"
             android:ellipsize="end"
-            android:textSize="14sp"
+            android:textSize="13.5sp"
             android:textColor="?attr/themeTextSecondary"
-            android:text="Working…" />
+            android:text="Working" />
 
         <TextView
             android:id="@+id/tvWorkStepStatus"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:textSize="13sp"
+            android:textSize="12.5sp"
+            android:textStyle="bold"
             android:textColor="#FF6E6E"
             android:visibility="gone"
             android:text="Failed" />
@@ -52,15 +76,21 @@
             android:visibility="gone" />
     </LinearLayout>
 
+    <com.jarvis.assistant.ui.chat.ScanLineView
+        android:id="@+id/viewScanLine"
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:visibility="gone" />
+
     <!-- Opens when the row is tapped: what was asked and what came back -->
     <LinearLayout
         android:id="@+id/layoutDetail"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="12dp"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="10dp"
         android:visibility="gone">
 
         <TextView
@@ -68,7 +98,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Request"
-            android:textSize="12sp"
+            android:textSize="11.5sp"
+            android:textStyle="bold"
             android:textColor="?attr/themeTextSecondary"
             android:paddingStart="4dp" />
 
@@ -90,7 +121,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:text="Response"
-            android:textSize="12sp"
+            android:textSize="11.5sp"
+            android:textStyle="bold"
             android:textColor="?attr/themeTextSecondary"
             android:paddingStart="4dp" />
 

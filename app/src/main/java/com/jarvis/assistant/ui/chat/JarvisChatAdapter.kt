@@ -116,6 +116,7 @@ class JarvisChatAdapter(
 
     companion object DiffCallback : DiffUtil.ItemCallback<ChatTurn>() {
         const val PAYLOAD_RESPONSE_UPDATE = "PAYLOAD_RESPONSE_UPDATE"
+        const val PAYLOAD_ACTIVITY = "PAYLOAD_ACTIVITY"
 
         override fun areItemsTheSame(oldItem: ChatTurn, newItem: ChatTurn): Boolean = oldItem.id == newItem.id
         override fun areContentsTheSame(oldItem: ChatTurn, newItem: ChatTurn): Boolean = oldItem == newItem
@@ -140,8 +141,22 @@ class JarvisChatAdapter(
         holder.bind(getItem(position))
     }
 
+    /** Looks up what Jarvis did for a turn (set by the ChatBox from the chat engine). */
+    var activityLookup: ((String) -> com.jarvis.assistant.provider.TurnActivity?)? = null
+
+    /** The theme accent used to colour the activity block. */
+    var activityAccent: () -> Int = { 0xFF00E5FF.toInt() }
+
+    /** Redraws only the activity block of one turn: no full rebind, no text flicker. */
+    fun refreshActivity(turnId: String) {
+        val pos = currentList.indexOfFirst { it.id == turnId }
+        if (pos >= 0) notifyItemChanged(pos, PAYLOAD_ACTIVITY)
+    }
+
     override fun onBindViewHolder(holder: MessageViewHolder, position: Int, payloads: MutableList<Any>) {
-        if (payloads.contains(PAYLOAD_RESPONSE_UPDATE)) {
+        if (payloads.contains(PAYLOAD_ACTIVITY)) {
+            holder.bindActivity(getItem(position))
+        } else if (payloads.contains(PAYLOAD_RESPONSE_UPDATE)) {
             holder.bindResponseUpdate(getItem(position))
         } else {
             super.onBindViewHolder(holder, position, payloads)
@@ -163,6 +178,18 @@ class JarvisChatAdapter(
         fun bindResponseUpdate(turn: ChatTurn) {
             binding.layoutThinking.visibility = View.GONE
             renderAssistantContent(turn, isStreaming = true)
+        }
+
+        /** Shows or updates the inline activity (spinner, steps, progress) for this turn. Returns true when it is shown. */
+        fun bindActivity(turn: ChatTurn): Boolean {
+            val activity = activityLookup?.invoke(turn.id)
+            if (activity == null) {
+                binding.inlineActivity.visibility = View.GONE
+                return false
+            }
+            binding.inlineActivity.bind(activity, activityAccent())
+            if (binding.inlineActivity.visibility == View.VISIBLE) binding.layoutThinking.visibility = View.GONE
+            return binding.inlineActivity.visibility == View.VISIBLE
         }
 
         private fun renderAssistantContent(turn: ChatTurn, isStreaming: Boolean) {
@@ -242,10 +269,13 @@ class JarvisChatAdapter(
             val isLast = bindingAdapterPosition == itemCount - 1
             val pending = turn.jarvisResponse.isBlank() && turn.userTranscript.isNotBlank() &&
                 isLast && System.currentTimeMillis() - turn.timestamp < 180_000L
-            binding.layoutThinking.visibility = if (pending) View.VISIBLE else View.GONE
-            if (pending) {
+            val activityShown = bindActivity(turn)
+            val hasActivity = activityLookup?.invoke(turn.id) != null
+            binding.layoutThinking.visibility = if (pending && !hasActivity) View.VISIBLE else View.GONE
+            if (pending && !hasActivity) {
                 binding.thinkingIndicator.startTimeMs = turn.timestamp
             }
+            if (activityShown) binding.layoutThinking.visibility = View.GONE
             val attachmentPath = turn.attachmentPath
             val attachmentName = turn.attachmentName.orEmpty()
             val attachmentMime = turn.attachmentMimeType.orEmpty()
