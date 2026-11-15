@@ -676,8 +676,9 @@ class InlineActivityView @JvmOverloads constructor(context: Context, attrs: Attr
 
     private val spinner = OrbitSpinnerView(context)
     private val verb = ShimmerTextView(context).apply {
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 14.5f)
-        typeface = Typeface.DEFAULT_BOLD
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 15.5f)
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        letterSpacing = 0.01f
         maxLines = 1
     }
     private val timer = TextView(context).apply {
@@ -694,8 +695,8 @@ class InlineActivityView @JvmOverloads constructor(context: Context, attrs: Attr
         rotation = 90f
     }
     private val ticker = TextView(context).apply {
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-        typeface = Typeface.MONOSPACE
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
         maxLines = 1
         ellipsize = android.text.TextUtils.TruncateAt.END
     }
@@ -706,7 +707,6 @@ class InlineActivityView @JvmOverloads constructor(context: Context, attrs: Attr
     private val stepsList = LinearLayout(context).apply { orientation = VERTICAL }
     private val stepsScroll = MaxHeightNestedScrollView(context).apply { isVerticalScrollBarEnabled = false; overScrollMode = OVER_SCROLL_NEVER }
     private val stepsFrame = FrameLayout(context).apply { visibility = GONE; clipToOutline = true }
-    private val cardBg = GradientDrawable().apply { cornerRadius = dp(14).toFloat() }
 
     private val verbTick = object : Runnable {
         override fun run() {
@@ -728,7 +728,7 @@ class InlineActivityView @JvmOverloads constructor(context: Context, attrs: Attr
         orientation = VERTICAL
         visibility = GONE
         val header = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        header.addView(spinner, LayoutParams(dp(22), dp(22)))
+        header.addView(spinner, LayoutParams(dp(24), dp(24)))
         header.addView(verb, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply { marginStart = dp(10) })
         header.addView(timer, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply { marginStart = dp(8) })
         header.addView(View(context), LayoutParams(0, 1, 1f))
@@ -743,19 +743,18 @@ class InlineActivityView @JvmOverloads constructor(context: Context, attrs: Attr
         }
         addView(header, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
-        addView(ticker, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4); marginStart = dp(32) })
+        addView(ticker, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4); marginStart = dp(34) })
 
-        progressBlock.addView(caption)
         val barRow = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        barRow.addView(bar, LayoutParams(0, dp(10), 1f))
+        barRow.addView(bar, LayoutParams(0, dp(8), 1f))
         barRow.addView(percentLabel, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply { marginStart = dp(8) })
-        progressBlock.addView(barRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { topMargin = dp(3) })
-        addView(progressBlock, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6); marginStart = dp(32) })
+        progressBlock.addView(barRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        addView(progressBlock, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8); marginStart = dp(34) })
 
         stepsScroll.addView(stepsList, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        stepsFrame.background = cardBg
+        stepsFrame.background = Glass.inset(context, 16f)
         stepsFrame.addView(stepsScroll, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT))
-        addView(stepsFrame, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { topMargin = dp(10) })
+        addView(stepsFrame, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) })
         ticker.visibility = GONE
     }
 
@@ -820,7 +819,7 @@ class InlineActivityView @JvmOverloads constructor(context: Context, attrs: Attr
         val liveStep = activity.steps.lastOrNull { it.state == StepState.RUNNING }
         if (activity.running && liveStep != null) {
             ticker.visibility = VISIBLE
-            val line = "▸ " + (rows[liveStep.id]?.titleOf(liveStep) ?: liveStep.target)
+            val line = "● " + (rows[liveStep.id]?.titleOf(liveStep) ?: liveStep.target)
             if (ticker.text.toString() != line) {
                 ticker.alpha = 0f
                 ticker.text = line
@@ -832,7 +831,6 @@ class InlineActivityView @JvmOverloads constructor(context: Context, attrs: Attr
 
         if (activity.running && activity.percent >= 0) {
             progressBlock.visibility = VISIBLE
-            caption.text = "Working on your request…"
             bar.accent = accent
             bar.setPercent(activity.percent)
             percentLabel.text = "${activity.percent}%"
@@ -902,22 +900,10 @@ class InlineActivityView @JvmOverloads constructor(context: Context, attrs: Attr
         }
     }
 
+    /** The step list keeps a calm, still edge; all the motion lives in the spinner, the shimmer and the running row. */
     private fun updateCardPulse(on: Boolean) {
-        if (!on) {
-            cardPulse?.cancel()
-            cardPulse = null
-            cardBg.setStroke(dp(1), ColorUtils.setAlphaComponent(accent, 60))
-            return
-        }
-        if (cardPulse != null) return
-        cardPulse = ValueAnimator.ofInt(45, 150).apply {
-            duration = 1300
-            repeatMode = ValueAnimator.REVERSE
-            repeatCount = ValueAnimator.INFINITE
-            interpolator = AccelerateDecelerateInterpolator()
-            addUpdateListener { cardBg.setStroke(dp(1), ColorUtils.setAlphaComponent(accent, it.animatedValue as Int)) }
-            start()
-        }
+        cardPulse?.cancel()
+        cardPulse = null
     }
 
     // ---- look -------------------------------------------------------------------------------------
@@ -934,7 +920,6 @@ class InlineActivityView @JvmOverloads constructor(context: Context, attrs: Attr
         ticker.setTextColor(ColorUtils.setAlphaComponent(accent, 230))
         caption.setTextColor(muted)
         percentLabel.setTextColor(muted)
-        cardBg.setColor(ColorUtils.setAlphaComponent(primary, 15))
     }
 
     // ---- verbs and timer --------------------------------------------------------------------------

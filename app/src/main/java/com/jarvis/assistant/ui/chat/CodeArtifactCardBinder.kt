@@ -36,10 +36,12 @@ object CodeArtifactCardBinder {
         isWriting: Boolean
     ) {
         val context = binding.root.context
-        // The code window takes half of the screen width; the header is compact so every option stays visible.
-        val halfWidthPx = (context.resources.displayMetrics.widthPixels * 0.5f).toInt()
-            .coerceAtLeast((200f * context.resources.displayMetrics.density).toInt())
-        binding.root.layoutParams = (binding.root.layoutParams ?: android.view.ViewGroup.MarginLayoutParams(halfWidthPx, android.view.ViewGroup.LayoutParams.WRAP_CONTENT)).also { it.width = halfWidthPx }
+        // The file card spans the answer panel and sits on its own frosted-glass sheet; its buttons are glass chips.
+        binding.root.background = Glass.inset(context, 18f)
+        binding.btnToggleMiniTerminal.background = Glass.inset(context, 12f)
+        binding.btnCardCopy.background = Glass.inset(context, 12f)
+        binding.btnCardExpand.background = Glass.inset(context, 12f)
+        val halfWidthPx = (context.resources.displayMetrics.widthPixels - 96f * context.resources.displayMetrics.density).toInt()
         val hasTarget = language.contains(':')
         val baseLang = if (hasTarget) language.substringBefore(':').trim() else language.trim()
         val targetName = if (hasTarget) language.substringAfter(':').trim() else ""

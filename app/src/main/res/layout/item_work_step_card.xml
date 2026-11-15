@@ -8,7 +8,7 @@
         android:id="@+id/viewRowDivider"
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="#1F808080"
+        android:background="#26FFFFFF"
         android:visibility="gone" />
 
     <!-- One row: tool icon | title (one line) | tag / tick | arrow -->
@@ -20,8 +20,8 @@
         android:gravity="center_vertical"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
-        android:paddingTop="9dp"
-        android:paddingBottom="9dp"
+        android:paddingTop="11dp"
+        android:paddingBottom="11dp"
         android:background="?attr/selectableItemBackground"
         android:clickable="true"
         android:focusable="true">
@@ -49,7 +49,8 @@
             android:layout_marginStart="10dp"
             android:maxLines="1"
             android:ellipsize="end"
-            android:textSize="13.5sp"
+            android:textSize="14sp"
+            android:fontFamily="sans-serif-medium"
             android:textColor="?attr/themeTextSecondary"
             android:text="Working" />
 

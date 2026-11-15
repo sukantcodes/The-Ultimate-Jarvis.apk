@@ -5,27 +5,25 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@drawable/bg_code_artifact_card"
-    android:layout_marginTop="8dp"
-    android:layout_marginBottom="8dp">
+    android:layout_marginTop="10dp"
+    android:layout_marginBottom="6dp">
 
     <!-- Header bar -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="40dp"
+        android:layout_height="52dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="@drawable/bg_code_header"
-        android:paddingStart="8dp"
-        android:paddingEnd="4dp">
+        android:paddingStart="10dp"
+        android:paddingEnd="8dp">
 
         <!-- Claude-style reactive animated icon frame -->
         <FrameLayout
             android:id="@+id/flCardIconContainer"
-            android:layout_width="26dp"
-            android:layout_height="26dp"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
             android:background="@drawable/bg_work_icon_frame"
-            android:layout_marginEnd="8dp">
+            android:layout_marginEnd="10dp">
 
             <ImageView
                 android:id="@+id/ivCardIcon"
@@ -45,10 +43,8 @@
             android:maxLines="1"
             android:ellipsize="end"
             android:text="CODE"
-            android:textColor="#E0E6ED"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.04"
+            android:textColor="?attr/themeTextPrimary"
+            android:textSize="14sp"
             android:fontFamily="sans-serif-medium" />
 
         <TextView
@@ -56,7 +52,7 @@
             android:layout_width="wrap_content"
             android:layout_height="22dp"
             android:layout_marginStart="4dp"
-            android:maxWidth="56dp"
+            android:maxWidth="120dp"
             android:maxLines="1"
             android:ellipsize="end"
             android:gravity="center"
@@ -64,8 +60,8 @@
             android:paddingEnd="6dp"
             android:background="@drawable/bg_code_writing_badge"
             android:text="✦ Writing code…"
-            android:textColor="#64B5F6"
-            android:textSize="10sp"
+            android:textColor="?attr/themeAccent"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:visibility="gone" />
 
@@ -73,13 +69,13 @@
         <LinearLayout
             android:id="@+id/btnToggleMiniTerminal"
             android:layout_width="wrap_content"
-            android:layout_height="26dp"
+            android:layout_height="32dp"
+            android:minWidth="32dp"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="@drawable/bg_auto_approve_chip"
-            android:paddingStart="6dp"
-            android:paddingEnd="6dp"
-            android:layout_marginStart="2dp"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:layout_marginStart="6dp"
             android:layout_marginEnd="2dp"
             android:contentDescription="Show or hide the code window"
             android:clickable="true"
@@ -90,30 +86,31 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="▼"
-                android:textColor="#80D8FF"
+                android:textColor="?attr/themeTextMuted"
                 android:textSize="10sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
         <ImageView
             android:id="@+id/btnCardCopy"
-            android:layout_width="30dp"
+            android:layout_width="32dp"
             android:layout_height="32dp"
-            android:padding="6dp"
+            android:layout_marginStart="6dp"
+            android:padding="8dp"
             android:src="@drawable/ic_cc_copy"
-            app:tint="#90A4AE"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="?attr/themeTextMuted"
             android:contentDescription="Copy code"
             android:clickable="true"
             android:focusable="true" />
 
         <TextView
             android:id="@+id/btnCardExpand"
-            android:layout_width="30dp"
+            android:layout_width="32dp"
             android:layout_height="32dp"
+            android:layout_marginStart="6dp"
             android:gravity="center"
             android:text="↗"
-            android:textColor="#64B5F6"
+            android:textColor="?attr/themeAccent"
             android:textSize="15sp"
             android:textStyle="bold"
             android:contentDescription="Open fullscreen viewer"
@@ -127,7 +124,11 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="#080C14"
+        android:background="@drawable/bg_code_window"
+        android:clipToOutline="true"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="8dp"
         android:visibility="visible">
 
         <!-- Mini Terminal Top Bar with macOS/Terminal dots -->

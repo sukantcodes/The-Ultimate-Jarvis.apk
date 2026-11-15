@@ -169,6 +169,22 @@ class JarvisChatAdapter(
 
         init {
             MarkdownRenderer.attachLinkTouch(binding.tvAssistantMessage)
+            binding.tvUserMessage.background = Glass.panel(binding.root.context, 20f)
+            binding.tvUserAttachment.background = Glass.inset(binding.root.context, 16f)
+        }
+
+        /** The glass panel only shows when it has something inside, and the answer gets space above it only under the activity block. */
+        private fun syncGlass() {
+            val activityShown = binding.inlineActivity.visibility == View.VISIBLE
+            val thinking = binding.layoutThinking.visibility == View.VISIBLE
+            val text = binding.layoutAssistantContainer.visibility == View.VISIBLE
+            binding.layoutAssistantGlass.visibility = if (activityShown || thinking || text) View.VISIBLE else View.GONE
+            val lp = binding.layoutAssistantContainer.layoutParams as? ViewGroup.MarginLayoutParams ?: return
+            val top = if (activityShown || thinking) (12 * binding.root.resources.displayMetrics.density).toInt() else 0
+            if (lp.topMargin != top) {
+                lp.topMargin = top
+                binding.layoutAssistantContainer.layoutParams = lp
+            }
         }
 
         /**
@@ -178,6 +194,7 @@ class JarvisChatAdapter(
         fun bindResponseUpdate(turn: ChatTurn) {
             binding.layoutThinking.visibility = View.GONE
             renderAssistantContent(turn, isStreaming = true)
+            syncGlass()
         }
 
         /** Shows or updates the inline activity (spinner, steps, progress) for this turn. Returns true when it is shown. */
@@ -185,10 +202,12 @@ class JarvisChatAdapter(
             val activity = activityLookup?.invoke(turn.id)
             if (activity == null) {
                 binding.inlineActivity.visibility = View.GONE
+                syncGlass()
                 return false
             }
             binding.inlineActivity.bind(activity, activityAccent())
             if (binding.inlineActivity.visibility == View.VISIBLE) binding.layoutThinking.visibility = View.GONE
+            syncGlass()
             return binding.inlineActivity.visibility == View.VISIBLE
         }
 
@@ -295,6 +314,7 @@ class JarvisChatAdapter(
             }
 
             renderAssistantContent(turn, isStreaming = false)
+            syncGlass()
         }
 
         private fun copyToClipboard(context: Context, label: String, text: String) {

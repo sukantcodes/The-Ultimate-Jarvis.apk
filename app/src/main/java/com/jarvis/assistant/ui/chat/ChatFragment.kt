@@ -271,19 +271,8 @@ class ChatFragment : Fragment() {
             updateAttachmentPreview()
             binding.etMessageInput.hint = "Message JARVIS…"
         }
-        binding.buildStatusCard.onStop = { binding.btnStopChat.performClick() }
-        binding.buildStatusCard.onRetry = {
-            val turnId = providerEngine.build.status.value.turnId
-            if (turnId != null) {
-                retrySnackbar?.dismiss()
-                when (val o = providerEngine.retry(turnId)) {
-                    is SendOutcome.Blocked -> showBlocked(o.reason)
-                    SendOutcome.NotActive -> Toast.makeText(requireContext(), "No custom provider is active.", Toast.LENGTH_LONG).show()
-                    else -> Unit
-                }
-            }
-        }
-        binding.buildStatusCard.onDismiss = { providerEngine.build.hide() }
+        // The ChatBox composer is a frosted-glass pill with an iridescent rim.
+        binding.cardInputContainer.background = Glass.panel(requireContext(), 30f)
         binding.btnStopChat.onSafeClick {
             com.jarvis.assistant.background.ChatboxHandoffTracker.noteUserStop()
             fileAnalysisJob?.cancel()
@@ -592,12 +581,6 @@ class ChatFragment : Fragment() {
                     }
                 }
                 launch { observeInlineActivity() }
-                launch {
-                    // The status card: honest, step-by-step view of whether the request really went to the provider.
-                    providerEngine.build.status.collect { st ->
-                        if (_binding != null) binding.buildStatusCard.bind(st)
-                    }
-                }
                 launch {
                     providerEngine.workProgress.collect { progress ->
                         if (_binding == null) return@collect
