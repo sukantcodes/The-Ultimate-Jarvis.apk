@@ -12,7 +12,7 @@
     "voice": {
       "controller": "Voice/JarvisVoiceController.kt",
       "dispatcher": "tts/JarvisVoiceDispatcher.kt",
-      "description": "Neural TTS with Kokoro, Piper, Gemini, ElevenLabs"
+      "description": "Cloud voice with Gemini and ElevenLabs"
     },
     "wake_word": {
       "service": "background/JarvisWakeWordService.kt",
@@ -39,10 +39,6 @@
     "skills": {
       "catalog": "Studio/ActionCatalog.kt",
       "description": "Extensible skill catalog"
-    },
-    "tts_settings": {
-      "activity": "ui/settings/tts/TtsSettingsActivity.kt",
-      "description": "Neural TTS voice configuration"
     },
     "voice_enrollment": {
       "activity": "ui/voice/VoiceEnrollmentActivity.kt",

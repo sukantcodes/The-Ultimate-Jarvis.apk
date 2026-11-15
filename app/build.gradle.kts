@@ -30,7 +30,6 @@ val releaseSigningReady = listOf(releaseStorePath, releaseStorePassword, release
 android {
     namespace = "com.jarvis.assistant"
     compileSdk = 34
-    ndkVersion = "27.2.12479018"
 
     defaultConfig {
         applicationId = "com.jarvis.assistant"
@@ -40,7 +39,6 @@ android {
         versionName = configuredVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
         buildConfigField("String", "DEVELOPER_NAME", buildConfigString(developerName.ifBlank { "Unverified developer" }))
         buildConfigField("String", "COPYRIGHT_OWNER", buildConfigString(copyrightOwner.ifBlank { "Unconfigured" }))
         buildConfigField("String", "PINNED_RELEASE_CERT_SHA256", buildConfigString(releaseCertSha256))
@@ -72,13 +70,6 @@ android {
         }
     }
 
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.31.6"
-        }
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -97,17 +88,6 @@ android {
         // AndroidX Lifecycle 2.8.6's NullSafeMutableLiveData detector crashes under this project's Kotlin 2.0 UAST.
         // Keep all other lint checks enabled while that upstream detector is incompatible.
         disable += "NullSafeMutableLiveData"
-    }
-
-    packaging {
-        jniLibs {
-            pickFirsts += listOf(
-                "**/libonnxruntime.so",
-                "**/libsherpa-onnx-c-api.so",
-                "**/libsherpa-onnx-cxx-api.so",
-                "**/libsherpa-onnx-jni.so"
-            )
-        }
     }
 }
 
@@ -165,10 +145,6 @@ dependencies {
 
     // Security Crypto for EncryptedSharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
-
-    // Neural TTS: Sherpa-ONNX on-device inference & Apache Commons Compress
-    implementation("com.github.k2-fsa.sherpa-onnx:sherpa-onnx:v2.0.1")
-    implementation("org.apache.commons:commons-compress:1.26.2")
 
     testImplementation("junit:junit:4.13.2")
     // Real org.json for JVM unit tests (the Android stub throws); used by the task ledger codec tests.

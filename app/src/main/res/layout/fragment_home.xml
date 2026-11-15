@@ -303,56 +303,6 @@
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/btnHomeOffline"
-                android:layout_width="126dp"
-                android:layout_height="match_parent"
-                android:layout_marginEnd="8dp"
-                android:background="@drawable/bg_home_card_premium"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingHorizontal="12dp"
-                android:contentDescription="Open Offline JARVIS">
-
-                <ImageView
-                    android:layout_width="34dp"
-                    android:layout_height="34dp"
-                    android:padding="7dp"
-                    android:background="@drawable/bg_home_badge_green"
-                    android:src="@drawable/ic_sparkle"
-                    app:tint="#34D399"
-                    android:contentDescription="@null" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Offline AI"
-                        android:textColor="?attr/themeTextPrimary"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:fontFamily="sans-serif-medium"
-                        android:maxLines="1" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Local assistant"
-                        android:textColor="?attr/themeTextMuted"
-                        android:textSize="10sp"
-                        android:fontFamily="sans-serif-light"
-                        android:maxLines="1" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <LinearLayout
                 android:id="@+id/btnHomeMaya"
                 android:layout_width="126dp"
                 android:layout_height="match_parent"

@@ -8,7 +8,6 @@ import com.jarvis.assistant.audio.JarvisWakeWordGrammar
 import com.jarvis.assistant.onboarding.LiveStatus
 import com.jarvis.assistant.onboarding.OnboardingStep
 import com.jarvis.assistant.onboarding.PermissionKey
-import com.jarvis.assistant.ui.offline.OfflineModelActivity
 import com.jarvis.assistant.ui.onboarding.Palette
 import com.jarvis.assistant.ui.onboarding.StepFragment
 import com.jarvis.assistant.ui.onboarding.StepScaffold
@@ -42,7 +41,6 @@ class VoiceStepFragment : StepFragment() {
     private val modeChips = mutableListOf<TextView>()
     private lateinit var micPill: TextView
     private lateinit var speechPill: TextView
-    private lateinit var offlineAiPill: TextView
     private lateinit var enrollPill: TextView
     private var mode = 1
 
@@ -107,22 +105,18 @@ class VoiceStepFragment : StepFragment() {
 
         // --- Offline recognition
         val offline = card(ctx)
-        offline.addView(text(ctx, "Offline speech recognition", 16f, Palette.TEXT, bold = true), lp())
+        offline.addView(text(ctx, "On-device speech recognition", 16f, Palette.TEXT, bold = true), lp())
         offline.addView(
             text(
                 ctx,
-                "Speech recognition and wake detection can run on this phone with the bundled speech model. That does not make JARVIS's " +
-                    "answers offline: replies still use the internet and your Gemini key, unless you also download the optional offline AI model " +
-                    "(a small model, about 484 MB, that is far less capable).",
+                "Speech recognition and wake detection run on this phone with the bundled speech model. " +
+                    "JARVIS's answers still use the internet and your Google AI Studio (Gemini) key or your custom model.",
                 13.5f, Palette.TEXT_DIM
             ),
             lp(topDp = 6, context = ctx)
         )
         speechPill = pill(ctx, "…", Palette.TEXT_DIM)
-        offlineAiPill = pill(ctx, "…", Palette.TEXT_DIM)
         offline.addView(speechPill, lp(topDp = 10, context = ctx))
-        offline.addView(offlineAiPill, lp(topDp = 6, context = ctx))
-        offline.addView(secondaryButton(ctx, "Offline JARVIS settings") { open(OfflineModelActivity::class.java) }, lp(topDp = 12, context = ctx))
         scaffold.addBody(offline, 14)
 
         // --- Voice security
@@ -170,8 +164,6 @@ class VoiceStepFragment : StepFragment() {
         else restyle(micPill, "MICROPHONE NOT ALLOWED", Palette.AMBER)
         if (live.speechModelReady) restyle(speechPill, "ON-DEVICE SPEECH MODEL READY", Palette.MINT)
         else restyle(speechPill, "SPEECH MODEL NOT READY YET", Palette.AMBER)
-        if (live.offlineModelInstalled) restyle(offlineAiPill, "OFFLINE AI MODEL INSTALLED", Palette.MINT)
-        else restyle(offlineAiPill, "OFFLINE AI MODEL NOT DOWNLOADED (OPTIONAL)", Palette.TEXT_DIM)
         if (live.ownerVoiceEnrolled) restyle(enrollPill, "YOUR VOICE IS ENROLLED", Palette.MINT)
         else restyle(enrollPill, "VOICE NOT ENROLLED (OPTIONAL)", Palette.TEXT_DIM)
     }

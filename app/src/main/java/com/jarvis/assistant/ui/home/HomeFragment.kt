@@ -208,10 +208,6 @@ class HomeFragment : Fragment() {
             startActivity(Intent(requireContext(), com.jarvis.assistant.studio.ui.AutomationStudioActivity::class.java))
         }
 
-        binding.btnHomeOffline.setOnClickListener {
-            startActivity(Intent(requireContext(), com.jarvis.assistant.ui.offline.OfflineModelActivity::class.java))
-        }
-
         binding.btnHomeMaya.setOnClickListener {
             startActivity(Intent(requireContext(), com.jarvis.assistant.ui.settings.MayaModeActivity::class.java))
         }

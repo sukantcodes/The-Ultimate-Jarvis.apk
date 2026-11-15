@@ -24,16 +24,14 @@ enum class WorkCategory(val id: String, val label: String) {
 
 /**
  * Where one category of work goes. [providerId] is a custom provider's id, [GEMINI] for the built-in Gemini
- * engine, [OFFLINE_TTS] for on-device neural voice, or blank for "whichever custom provider is active".
+ * engine, or blank for "whichever custom provider is active".
  * A blank [modelId] means that provider's own model.
  */
 data class Route(val providerId: String = "", val modelId: String = "") {
     val isGemini: Boolean get() = providerId == GEMINI
-    val isOfflineTts: Boolean get() = providerId == OFFLINE_TTS
-    val isCustom: Boolean get() = providerId.isNotBlank() && !isGemini && !isOfflineTts
+    val isCustom: Boolean get() = providerId.isNotBlank() && !isGemini
     companion object {
         const val GEMINI = "gemini"
-        const val OFFLINE_TTS = "offline_tts"
     }
 }
 
@@ -68,6 +66,8 @@ class RoutingStore(private val store: KeyValueStore) {
                 val cat = WorkCategory.fromId(k) ?: continue
                 if (!v.isJsonObject) continue
                 val o = v.asJsonObject
+                // A route saved by an older version for the removed offline voice simply follows the active provider.
+                if (o.get("p")?.takeIf { it.isJsonPrimitive }?.asString == "offline_tts") continue
                 out[cat] = Route(o.get("p")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty(), o.get("m")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty())
             }
             out

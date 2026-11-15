@@ -2,11 +2,6 @@ package com.jarvis.assistant.provider
 
 import android.content.Context
 import com.jarvis.assistant.JarvisApp
-import com.jarvis.assistant.offline.OfflineModelDownloader
-import com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher
-import com.jarvis.assistant.tts.engine.TtsModelDownloader
-import com.jarvis.assistant.tts.model.SpeakerProfile
-import com.jarvis.assistant.tts.model.VoiceEngineType
 
 /**
  * Task types requiring independent execution route resolution.
@@ -29,12 +24,6 @@ enum class TaskType(val id: String, val displayName: String, val category: WorkC
 sealed class TaskRouteResolution {
     data class Gemini(val modelId: String = "") : TaskRouteResolution()
     data class Custom(val provider: ResolvedProvider) : TaskRouteResolution()
-    data class HybridVoice(
-        val customProvider: ResolvedProvider?,
-        val voiceEngineType: VoiceEngineType,
-        val speakerProfile: SpeakerProfile
-    ) : TaskRouteResolution()
-    data class Offline(val reason: String = "") : TaskRouteResolution()
     data class Blocked(val title: String, val message: String) : TaskRouteResolution()
 }
 
@@ -67,8 +56,6 @@ object TaskRouter {
             is ChatResolution.NotActive -> {
                 if (hasGeminiKey) {
                     TaskRouteResolution.Gemini(savedRoute?.modelId.orEmpty())
-                } else if (OfflineModelDownloader.isModelValid(OfflineModelDownloader.modelFile(app))) {
-                    TaskRouteResolution.Offline("Offline Brain active")
                 } else {
                     TaskRouteResolution.Blocked(
                         title = "NO AI PROVIDER CONFIGURED",
@@ -86,18 +73,10 @@ object TaskRouter {
         savedRoute: Route?,
         hasGeminiKey: Boolean
     ): TaskRouteResolution {
-        val dispatcher = JarvisVoiceDispatcher.getInstance(context)
-        val activeEngineType = dispatcher.getActiveEngineType()
-        val isOfflineTtsActive = activeEngineType.isLocal && TtsModelDownloader.isEngineInstalled(context, activeEngineType)
-        val activeSpeaker = dispatcher.getActiveSpeaker()
-
         // 1. Explicit Gemini route in Work Routing
         if (savedRoute != null && savedRoute.isGemini) {
             if (hasGeminiKey) {
                 return TaskRouteResolution.Gemini(savedRoute.modelId)
-            }
-            if (isOfflineTtsActive) {
-                return TaskRouteResolution.HybridVoice(null, activeEngineType, activeSpeaker)
             }
             return TaskRouteResolution.Blocked(
                 title = "GEMINI API KEY REQUIRED",
@@ -105,39 +84,11 @@ object TaskRouter {
             )
         }
 
-        // 2. Explicit Offline TTS route in Work Routing
-        if (savedRoute != null && savedRoute.isOfflineTts) {
-            val engine = VoiceEngineType.fromId(savedRoute.modelId.ifBlank { activeEngineType.id })
-            val installed = TtsModelDownloader.isEngineInstalled(context, engine)
-            if (installed) {
-                // If Gemini key is available, use Gemini as the parent brain while offline TTS handles synthesis
-                if (hasGeminiKey) {
-                    return TaskRouteResolution.Gemini(savedRoute.modelId)
-                }
-                val customProvider = (manager.resolveChat(WorkCategory.CHAT) as? ChatResolution.Ready)?.provider
-                return TaskRouteResolution.HybridVoice(customProvider, engine, activeSpeaker)
-            }
-        }
-
-        // 3. User explicitly routed Voice to a Custom Provider
+        // 2. User explicitly routed Voice to a Custom Provider
         if (savedRoute != null && savedRoute.isCustom) {
-            val customVoice = manager.resolveVoice()
-            when (customVoice) {
-                is VoiceResolution.Ready -> {
-                    if (customVoice.mode == VoiceMode.REALTIME_GEMINI_LIVE || customVoice.mode == VoiceMode.TURN_BASED) {
-                        return TaskRouteResolution.Custom(customVoice.provider)
-                    }
-                    if (isOfflineTtsActive) {
-                        return TaskRouteResolution.HybridVoice(customVoice.provider, activeEngineType, activeSpeaker)
-                    }
-                    return TaskRouteResolution.Custom(customVoice.provider)
-                }
+            when (val customVoice = manager.resolveVoice()) {
+                is VoiceResolution.Ready -> return TaskRouteResolution.Custom(customVoice.provider)
                 is VoiceResolution.Blocked -> {
-                    if (isOfflineTtsActive) {
-                        val chatRes = manager.resolveChat(WorkCategory.CHAT)
-                        val customChatProvider = (chatRes as? ChatResolution.Ready)?.provider
-                        return TaskRouteResolution.HybridVoice(customChatProvider, activeEngineType, activeSpeaker)
-                    }
                     if (hasGeminiKey) {
                         return TaskRouteResolution.Gemini()
                     }
@@ -147,50 +98,19 @@ object TaskRouter {
             }
         }
 
-        // 4. Default Master Orchestration: Gemini is ALWAYS the primary brain when Gemini key is configured
+        // 3. Default: Gemini is the primary brain whenever a Gemini key is configured
         if (hasGeminiKey) {
             return TaskRouteResolution.Gemini(savedRoute?.modelId.orEmpty())
         }
 
-        // 5. Fallback paths only when no Gemini key is configured
-        val customVoice = manager.resolveVoice()
-        when (customVoice) {
-            is VoiceResolution.Ready -> {
-                // If it can run real-time or turn-based voice natively
-                if (customVoice.mode == VoiceMode.REALTIME_GEMINI_LIVE || customVoice.mode == VoiceMode.TURN_BASED) {
-                    return TaskRouteResolution.Custom(customVoice.provider)
-                }
-                // Hybrid turn-based voice with Offline TTS
-                if (isOfflineTtsActive) {
-                    return TaskRouteResolution.HybridVoice(customVoice.provider, activeEngineType, activeSpeaker)
-                }
-                return TaskRouteResolution.Custom(customVoice.provider)
-            }
-            is VoiceResolution.Blocked -> {
-                // If text-only custom provider (e.g. DeepSeek v4.1 Flash) but Offline TTS is active:
-                // Enable the Custom AI + Offline Voice Hybrid Pipeline!
-                if (isOfflineTtsActive) {
-                    val chatRes = manager.resolveChat(WorkCategory.CHAT)
-                    val customChatProvider = (chatRes as? ChatResolution.Ready)?.provider
-                    return TaskRouteResolution.HybridVoice(customChatProvider, activeEngineType, activeSpeaker)
-                }
-                return TaskRouteResolution.Blocked(customVoice.providerName, customVoice.reason)
-            }
-            VoiceResolution.NotActive -> {
-                // Follow active provider is not set, or no custom provider active
-                if (isOfflineTtsActive) {
-                    val chatRes = manager.resolveChat(WorkCategory.CHAT)
-                    val customChatProvider = (chatRes as? ChatResolution.Ready)?.provider
-                    return TaskRouteResolution.HybridVoice(customChatProvider, activeEngineType, activeSpeaker)
-                }
-                if (OfflineModelDownloader.isModelValid(OfflineModelDownloader.modelFile(context))) {
-                    return TaskRouteResolution.Offline("Offline Brain active")
-                }
-                return TaskRouteResolution.Blocked(
-                    title = "VOICE ENGINE UNAVAILABLE",
-                    message = "Please configure a Gemini API key or download an Offline Neural Voice model in Settings."
-                )
-            }
+        // 4. Only when there is no Gemini key: the active custom provider, if it can handle voice
+        return when (val customVoice = manager.resolveVoice()) {
+            is VoiceResolution.Ready -> TaskRouteResolution.Custom(customVoice.provider)
+            is VoiceResolution.Blocked -> TaskRouteResolution.Blocked(customVoice.providerName, customVoice.reason)
+            VoiceResolution.NotActive -> TaskRouteResolution.Blocked(
+                title = "NO AI PROVIDER CONFIGURED",
+                message = "Please configure a Gemini API key (AI Studio) or add a Custom AI Provider in Settings."
+            )
         }
     }
 }

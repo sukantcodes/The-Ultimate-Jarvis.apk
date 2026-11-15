@@ -39,7 +39,6 @@ data class LiveStatus(
     val profileSaved: Boolean = false,
     val speechModelReady: Boolean = false,
     val ownerVoiceEnrolled: Boolean = false,
-    val offlineModelInstalled: Boolean = false,
     val installedApps: Map<String, Boolean> = emptyMap()
 ) {
     fun isGranted(key: PermissionKey): Boolean = permissionGranted[key] == true

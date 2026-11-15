@@ -311,11 +311,6 @@ class JarvisConversationService : Service() {
 
     // --- Active-conversation components ---
     private var audioRecorder: AudioRecorder? = null
-    @Volatile private var offlineLocalMode = false
-    @Volatile private var offlineRecognizer: Recognizer? = null
-    private var offlineGenerationJob: Job? = null
-    @Volatile private var lastOfflineTranscript = ""
-    @Volatile private var lastOfflineTranscriptAt = 0L
     private var audioPlayer: AudioPlayer? = null
     private var liveWebSocket: GeminiLiveWebSocket? = null
     private var inactivityJob: Job? = null
@@ -599,7 +594,6 @@ class JarvisConversationService : Service() {
         }
         createChannel()
         initTts()
-        observeNetworkForBrainSwitch()
         val announcer = com.jarvis.assistant.util.SpeechAnnouncer(applicationContext)
         batteryAnnouncer = announcer
         batteryWatcher = com.jarvis.assistant.power.BatteryWatcher(applicationContext, announcer).also { it.start() }
@@ -672,35 +666,7 @@ class JarvisConversationService : Service() {
     }
 
     private fun initTts() {
-        val pocketEngine = "org.pockettts.android.engine"
-        val pocketInstalled = try {
-            packageManager.getPackageInfo(pocketEngine, 0)
-            true
-        } catch (_: Exception) {
-            false
-        }
-
-        if (!pocketInstalled) {
-            Log.i("JarvisService", "Pocket TTS engine is not installed; using Android's configured TTS engine.")
-            startDefaultTts("Pocket TTS is not installed")
-            return
-        }
-
-        try {
-            Log.i("JarvisService", "Pocket TTS engine detected; requesting it directly through Android TextToSpeech.")
-            tts = TextToSpeech(applicationContext, { status ->
-                if (status != TextToSpeech.SUCCESS) {
-                    startDefaultTts("Pocket TTS initialization failed (status=$status)")
-                } else if (!configureTtsEngine(status, "Pocket TTS")) {
-                    // An installed engine may still have no imported voice pack for the chosen
-                    // language. Do not leave speech silent: fall back to the device's default.
-                    startDefaultTts("Pocket TTS has no usable voice for the selected language")
-                }
-            }, pocketEngine)
-        } catch (error: Exception) {
-            Log.e("JarvisService", "Failed to initialize Pocket TTS: ${error.message}", error)
-            startDefaultTts("Pocket TTS could not be initialized")
-        }
+        startDefaultTts("Using the Android text-to-speech engine")
     }
 
     private fun startDefaultTts(reason: String) {
@@ -739,7 +705,6 @@ class JarvisConversationService : Service() {
                 languageResult != TextToSpeech.LANG_NOT_SUPPORTED
             if (!usableLanguage) {
                 Log.w("JarvisService", "$engineLabel does not support $requestedLocale.")
-                if (engineLabel == "Pocket TTS") return false
                 val fallbackResult = tts?.setLanguage(Locale.US) ?: TextToSpeech.LANG_NOT_SUPPORTED
                 if (fallbackResult == TextToSpeech.LANG_MISSING_DATA ||
                     fallbackResult == TextToSpeech.LANG_NOT_SUPPORTED
@@ -972,7 +937,6 @@ class JarvisConversationService : Service() {
             }
             is com.jarvis.assistant.provider.TaskRouteResolution.Gemini -> {
                 customVoice = null
-                offlineLocalMode = false
                 apiKey = preferences.apiKey.trim()
             }
             is com.jarvis.assistant.provider.TaskRouteResolution.Custom -> {
@@ -981,46 +945,19 @@ class JarvisConversationService : Service() {
                     mode = com.jarvis.assistant.provider.VoiceMode.TURN_BASED,
                     explanation = "Custom provider voice"
                 )
-                offlineLocalMode = false
-            }
-            is com.jarvis.assistant.provider.TaskRouteResolution.HybridVoice -> {
-                if (voiceRoute.customProvider != null) {
-                    customVoice = com.jarvis.assistant.provider.VoiceResolution.Ready(
-                        provider = voiceRoute.customProvider,
-                        mode = com.jarvis.assistant.provider.VoiceMode.TURN_BASED,
-                        explanation = "Hybrid Custom AI + Offline Voice"
-                    )
-                    offlineLocalMode = false
-                } else if (preferences.apiKey.trim().isNotBlank()) {
-                    customVoice = null
-                    offlineLocalMode = false
-                    apiKey = preferences.apiKey.trim()
-                } else {
-                    offlineLocalMode = true
-                }
-            }
-            is com.jarvis.assistant.provider.TaskRouteResolution.Offline -> {
-                offlineLocalMode = true
             }
         }
 
-        if (!offlineLocalMode && customVoice == null && apiKey.isBlank()) {
-            offlineLocalMode = true
-        }
-
-        if (offlineLocalMode) {
-            val localModel = com.jarvis.assistant.offline.OfflineModelDownloader.modelFile(applicationContext)
-            if (!com.jarvis.assistant.offline.OfflineModelDownloader.isModelValid(localModel)) {
-                _liveError.value = JarvisLiveError(
-                    title = "OFFLINE BRAIN NOT READY",
-                    message = "JARVIS selected Offline Brain because the online provider is unavailable or there is no internet connection, but the local Qwen3 model is not installed. Open Offline JARVIS and download the model once.",
-                    errorCode = "OFFLINE_MODEL_REQUIRED",
-                    actionText = "OPEN OFFLINE JARVIS"
-                )
-                serviceScope.launch { _events.emit("Offline Brain needs its model downloaded once. Open Offline JARVIS; no API key is required.") }
-                fullStop()
-                return
-            }
+        if (customVoice == null && apiKey.isBlank()) {
+            _liveError.value = JarvisLiveError(
+                title = "NO AI PROVIDER CONFIGURED",
+                message = "Please add your Google AI Studio (Gemini) API key or a custom AI provider in Settings.",
+                errorCode = "NO_PROVIDER",
+                actionText = "OPEN SETTINGS"
+            )
+            serviceScope.launch { _events.emit("Add your AI Studio API key in Settings first.") }
+            fullStop()
+            return
         }
 
         if (!PermissionHelper.hasAllRequiredPermissions(this)) {
@@ -1084,38 +1021,6 @@ class JarvisConversationService : Service() {
         ).apply { start() }
 
         serviceScope.launch(Dispatchers.IO) {
-            if (offlineLocalMode) {
-                try {
-                    VoskModelManager.init(applicationContext, serviceScope)
-                    withTimeout(60_000L) {
-                        while (!VoskModelManager.isModelReady.value) delay(150L)
-                    }
-                    val model = VoskModelManager.model ?: error("Local speech model is unavailable.")
-                    offlineRecognizer?.close()
-                    offlineRecognizer = Recognizer(model, 16000.0f)
-                    withContext(Dispatchers.Main) {
-                        if (!_isSessionOn.value) return@withContext
-                        _connectionStatus.value = "OFFLINE"
-                        _liveError.value = null
-                        isPendingWakeGreeting = false
-                        _events.emit("Offline Brain ready. Speak naturally; responses are generated on this phone.")
-                    }
-                } catch (error: Exception) {
-                    Log.e("JarvisService", "Offline voice initialization failed", error)
-                    withContext(Dispatchers.Main) {
-                        _liveError.value = JarvisLiveError(
-                            title = "OFFLINE BRAIN FAILED",
-                            message = error.message ?: "Could not initialize the local speech/model engine.",
-                            errorCode = "OFFLINE_INIT_FAILED",
-                            actionText = "RETRY"
-                        )
-                        _events.emit("Offline Brain could not start: " + (error.message ?: "initialization failed"))
-                        fullStop()
-                    }
-                }
-                return@launch
-            }
-
             val systemPrompt = generateCurrentSystemPrompt()
 
             withContext(Dispatchers.Main) {
@@ -1129,7 +1034,6 @@ class JarvisConversationService : Service() {
                     systemPrompt = systemPrompt,
                     listener = object : GeminiLiveWebSocket.Listener {
                         override fun onConnectionStateChanged(status: String) {
-                            if (offlineLocalMode) return
                             _connectionStatus.value = status
                             updateNotification()
                             if (status == "LIVE") {
@@ -1202,12 +1106,6 @@ class JarvisConversationService : Service() {
                                     Log.d("JarvisService", "onAudioDataReceived: audio held back until the current turn completes")
                                 }
                                 if (audioPlayer?.isPlaying() == true) audioPlayer?.flush()
-                                return
-                            }
-                            // If user has configured a direct Gemini key, stream authentic Gemini Live audio directly.
-                            // Never suppress it for offline TTS or device TTS!
-                            val hasDirectGeminiKey = preferences.apiKey.trim().isNotBlank()
-                            if (!hasDirectGeminiKey && offlineVoiceUsableCached()) {
                                 return
                             }
                             // Silent execution applies to task narration, while leaving ordinary
@@ -1427,17 +1325,6 @@ class JarvisConversationService : Service() {
                             audioPlayer?.notifyTurnComplete()
                             audioChunksReceivedInTurn = 0
 
-                            val voiceDisp = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(applicationContext)
-                            val offlineTtsActive = voiceDisp.isOfflineVoiceUsable()
-                            if (offlineTtsActive && !textChatTurnActive && !automationHandledTurn &&
-                                assistantTurnText.isNotBlank() && !preferences.isSilentExecutionMode) {
-                                setConversationState(ConversationState.SPEAKING)
-                                voiceDisp.speak(assistantTurnText) {
-                                    if (_isSessionOn.value) {
-                                        setConversationState(ConversationState.IDLE)
-                                    }
-                                }
-                            }
                             if (textChatTurnActive) {
                                 val prompt = currentTextChatPrompt
                                 if (prompt.isNotBlank()) {
@@ -1658,7 +1545,6 @@ class JarvisConversationService : Service() {
                         }
 
                         override fun onError(message: String, isFatal: Boolean, errorCode: String?) {
-                            if (offlineLocalMode) return // already switched to the on-device brain
                             Log.e("JarvisService", "GeminiLive onError: fatal=$isFatal, code=$errorCode, msg=$message")
                             updateNotification()
                             if ((errorCode == "QUOTA_EXCEEDED" || errorCode == "API_KEY_INVALID") && rotateGeminiKey(errorCode, message)) return
@@ -1768,12 +1654,9 @@ class JarvisConversationService : Service() {
                     return@AudioRecorder
                 }
 
-                // Route audio to the selected brain. Offline mode feeds local Vosk instead of
-                // opening a cloud socket; online mode retains the existing streaming path.
+                // Stream the cleaned microphone audio to the live voice session.
                 val cleanedChunk = cleanForModel(chunk)
-                if (offlineLocalMode) {
-                    if (cleanedChunk.isNotEmpty()) handleOfflineAudioChunk(cleanedChunk)
-                } else if (!suppressMicUploadUntilVoiceCommandComplete && liveWebSocket?.isSessionReady() == true) {
+                if (!suppressMicUploadUntilVoiceCommandComplete && liveWebSocket?.isSessionReady() == true) {
                     while (!preConnectAudioQueue.isEmpty()) {
                         val queued = preConnectAudioQueue.poll() ?: break
                         liveWebSocket?.sendAudioChunk(queued)
@@ -1943,511 +1826,6 @@ class JarvisConversationService : Service() {
         val rec = audioRecorder ?: return
         rec.setMuted(preferences.isMicMuted)
         rec.start(serviceScope)
-    }
-
-    /**
-     * Execute deterministic, on-device commands before asking the local LLM.
-     * This keeps common device actions fast and prevents the offline model from
-     * having to invent tool calls. Message sending remains confirmation-based.
-     */
-    private val offlineActions by lazy {
-        com.jarvis.assistant.offline.OfflineActionExecutor(
-            applicationContext,
-            object : com.jarvis.assistant.offline.OfflineActionExecutor.Hooks {
-                override suspend fun unlock(): String = offlineUnlock()
-                override fun goStandby() {
-                    // Let the spoken reply finish first, then drop back to listening for "Hey Jarvis".
-                    serviceScope.launch(Dispatchers.Main) {
-                        delay(2_500L)
-                        if (_isSessionOn.value) enterStandby(announce = false)
-                    }
-                }
-                override fun stopSpeaking() {
-                    try { tts?.stop() } catch (_: Exception) {}
-                    audioPlayer?.flush()
-                }
-            }
-        )
-    }
-
-    /** Unlock with the saved credential, but only for the owner (voice check applies when it is turned on). */
-    private suspend fun offlineUnlock(): String {
-        val accessibility = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance
-        val store = com.jarvis.assistant.security.UnlockCredentialStore(applicationContext)
-        if (!store.hasCredential()) return "For security, save your screen-lock credential in JARVIS Settings > Screen Unlock first."
-        val voiceAllowed = if (ownerVoiceGateOn()) isCurrentTurnOwnerVoiceVerified else store.allowWithoutVoiceMatch
-        if (!voiceAllowed) return "For security, I couldn't verify the owner's voice. The phone will stay locked. Enroll your voice or review Screen Unlock settings."
-        if (accessibility == null) return "I can't unlock the phone until JARVIS Accessibility is enabled in Android Settings."
-        val result = withContext(Dispatchers.Main) { accessibility.unlockDevice() }
-        return result.message
-    }
-
-    private suspend fun executeOfflineLocalCommand(text: String): String? {
-        // Alarm clock first, in any supported language: it answers (or asks AM/PM, which alarm) from the shared engine.
-        if (com.jarvis.assistant.clock.ClockAssistant.hasPendingQuestion(applicationContext) ||
-            com.jarvis.assistant.clock.voice.ClockCommandParser.looksLikeClockCommand(text)) {
-            val reply = withContext(Dispatchers.IO) {
-                com.jarvis.assistant.clock.ClockAssistant.handleText(applicationContext, text)
-            }
-            if (reply != null) return reply
-        }
-        // Fast path: plain pattern matching, no language model. This is what makes offline commands instant.
-        com.jarvis.assistant.offline.OfflineIntentParser.parse(text)?.let { intent ->
-            offlineActions.execute(intent)?.let { return it }
-        }
-        val clean = text.trim()
-        val lower = clean.lowercase(Locale.ROOT)
-        val accessibility = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance
-
-        if (lower.matches(Regex("^(?:hey\\s+)?jarvis[, ]*\\s*(?:lock (?:the )?(?:screen|phone|device)|lock my phone)$"))) {
-            return withContext(Dispatchers.Main) {
-                when {
-                    accessibility == null -> "I can't lock the screen until JARVIS Accessibility is enabled in Android Settings."
-                    Build.VERSION.SDK_INT < Build.VERSION_CODES.P -> "Screen locking requires Android 9 or newer."
-                    accessibility.lockScreenNow() -> "Done. The screen is locked."
-                    else -> "Android did not lock the screen. Please check the JARVIS Accessibility permission."
-                }
-            }
-        }
-
-        if (lower.matches(Regex("^(?:hey\\s+)?jarvis[, ]*\\s*(?:unlock (?:the )?(?:screen|phone|device)|unlock my phone)$"))) {
-            return offlineUnlock()
-        }
-
-        val typeMatch = Regex("^(?:hey\\s+)?jarvis[, ]*\\s*(?:type|enter|write)\\s+(.+)$", RegexOption.IGNORE_CASE).find(clean)
-        if (typeMatch != null) {
-            val textToType = typeMatch.groupValues[1].trim()
-            if (textToType.isBlank()) return "Tell me what text to type."
-            return withContext(Dispatchers.Main) {
-                if (accessibility == null) "Enable JARVIS Accessibility and focus a text field first."
-                else if (accessibility.typeText(textToType)) "Typed the requested text."
-                else "I couldn't type because no supported text field is focused. Open the target app and tap its text field first."
-            }
-        }
-
-        val mediaKeyCode = when {
-            lower.matches(Regex("^(?:pause|pause music|pause playback|stop music|stop playback)$")) -> android.view.KeyEvent.KEYCODE_MEDIA_PAUSE
-            lower.matches(Regex("^(?:resume|resume music|continue music|play music|start playback)$")) -> android.view.KeyEvent.KEYCODE_MEDIA_PLAY
-            lower.matches(Regex("^(?:next|next song|next track|skip song)$")) -> android.view.KeyEvent.KEYCODE_MEDIA_NEXT
-            lower.matches(Regex("^(?:previous|previous song|previous track|back track)$")) -> android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS
-            else -> null
-        }
-        if (mediaKeyCode != null) {
-            return withContext(Dispatchers.Main) {
-                try {
-                    val manager = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
-                    manager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, mediaKeyCode))
-                    manager.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, mediaKeyCode))
-                    when (mediaKeyCode) {
-                        android.view.KeyEvent.KEYCODE_MEDIA_PAUSE -> "Sent pause to the active music player."
-                        android.view.KeyEvent.KEYCODE_MEDIA_PLAY -> "Sent play to the active music player."
-                        android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> "Skipped to the next track."
-                        else -> "Requested the previous track."
-                    }
-                } catch (error: Exception) {
-                    "I couldn't control the active music player. Make sure a music app is open."
-                }
-            }
-        }
-
-        val settingsAction = when {
-            lower.matches(Regex("^(?:open|show) (?:the )?(?:device )?settings$")) -> android.provider.Settings.ACTION_SETTINGS
-            lower.matches(Regex("^(?:open|show) (?:the )?wi.?fi settings$")) -> android.provider.Settings.ACTION_WIFI_SETTINGS
-            lower.matches(Regex("^(?:open|show) (?:the )?bluetooth settings$")) -> android.provider.Settings.ACTION_BLUETOOTH_SETTINGS
-            lower.matches(Regex("^(?:open|show) (?:the )?display settings$")) -> android.provider.Settings.ACTION_DISPLAY_SETTINGS
-            lower.matches(Regex("^(?:open|show) (?:the )?sound settings$")) -> android.provider.Settings.ACTION_SOUND_SETTINGS
-            lower.matches(Regex("^(?:open|show) (?:the )?accessibility settings$")) -> android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS
-            else -> null
-        }
-        if (settingsAction != null) {
-            return withContext(Dispatchers.Main) {
-                try {
-                    startActivity(Intent(settingsAction).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    "Opening the requested Android settings."
-                } catch (error: Exception) {
-                    "I couldn't open those settings on this Android version."
-                }
-            }
-        }
-
-        // Launch installed apps locally without sending the request to a cloud model.
-        val launchMatch = Regex("^(?:(?:hey\\s+)?jarvis[, ]*\\s*)?(?:open|launch|start)\\s+(?:the\\s+)?(.+)$", RegexOption.IGNORE_CASE)
-            .find(clean)
-        if (launchMatch != null) {
-            val requestedApp = launchMatch.groupValues[1].trim().lowercase(Locale.ROOT)
-            if (requestedApp.isNotBlank()) {
-                return withContext(Dispatchers.Main) {
-                    try {
-                        val pm = packageManager
-                        val installed = pm.getInstalledApplications(android.content.pm.PackageManager.GET_META_DATA)
-                        val matches = installed.mapNotNull { info ->
-                            val label = pm.getApplicationLabel(info).toString()
-                            val launchIntent = pm.getLaunchIntentForPackage(info.packageName)
-                            if (launchIntent == null) null else Triple(label, info.packageName, launchIntent)
-                        }
-                        val exact = matches.filter { it.first.equals(requestedApp, ignoreCase = true) }
-                        val candidates = if (exact.isNotEmpty()) exact else matches.filter {
-                            it.first.lowercase(Locale.ROOT).startsWith(requestedApp) ||
-                                it.first.lowercase(Locale.ROOT).contains(requestedApp)
-                        }
-                        when {
-                            candidates.size == 1 -> {
-                                startActivity(candidates.single().third.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                                "Opening ${candidates.single().first}."
-                            }
-                            candidates.size > 1 -> "I found multiple apps matching '$requestedApp': ${candidates.take(4).joinToString { it.first }}. Say the exact app name."
-                            else -> "I couldn't find an installed app named '$requestedApp'."
-                        }
-                    } catch (error: Exception) {
-                        Log.e("JarvisService", "Offline app launch failed", error)
-                        "I couldn't open that app on this device."
-                    }
-                }
-            }
-        }
-
-        val app = application as? JarvisApp ?: return null
-        val awaitingConfirmation = app.whatsAppAssistant.hasPendingDraft() || pendingGenericCommand != null
-        val parsed = com.jarvis.assistant.automation.command.CommandParser.parse(
-            input = clean,
-            isAwaitingConfirmation = awaitingConfirmation,
-            isAwaitingDisambiguation = app.whatsAppAssistant.isAwaitingDisambiguation()
-        )
-        val command = parsed.command ?: return null
-        if (parsed.confidence < 0.90f) return null
-
-        return when (command) {
-            is com.jarvis.assistant.automation.command.JarvisCommand.WhatsAppMessage -> {
-                // Prepare a draft first; do not send it until the user confirms.
-                app.whatsAppAssistant.createDraft(command.contact, command.message)
-            }
-            is com.jarvis.assistant.automation.command.JarvisCommand.PhoneCall ->
-                openDialerForOfflineCall(command.contactOrNumber)
-            is com.jarvis.assistant.automation.command.JarvisCommand.WhatsAppCall,
-            is com.jarvis.assistant.automation.command.JarvisCommand.WhatsAppDeleteMessage,
-            is com.jarvis.assistant.automation.command.JarvisCommand.SocialAppAction,
-            is com.jarvis.assistant.automation.command.JarvisCommand.SearchSocialApp,
-            is com.jarvis.assistant.automation.command.JarvisCommand.SearchYouTube,
-            is com.jarvis.assistant.automation.command.JarvisCommand.PlayYouTube,
-            is com.jarvis.assistant.automation.command.JarvisCommand.OpenWebUrls,
-            is com.jarvis.assistant.automation.command.JarvisCommand.SearchWeb -> null
-            else -> {
-                hasExecutedCommandInCurrentTurn = false
-                try {
-                    app.commandExecutor.execute(command)
-                } catch (error: Exception) {
-                    Log.e("JarvisService", "Offline local command failed: $command", error)
-                    "I couldn't complete that device action: " + (error.message ?: "action failed")
-                }
-            }
-        }
-    }
-
-    /**
-     * Offline call commands open the dialer for user review; JARVIS never places a call silently.
-     */
-    private suspend fun openDialerForOfflineCall(contactOrNumber: String): String = withContext(Dispatchers.Main) {
-        val query = contactOrNumber.trim()
-        if (query.isBlank()) return@withContext "Tell me the contact name or phone number to call."
-        val numberPattern = Regex("^[+0-9() .-]{5,}$")
-        val number = if (numberPattern.matches(query) && query.any { it.isDigit() }) {
-            query.filter { it.isDigit() || it == '+' }
-        } else {
-            if (androidx.core.content.ContextCompat.checkSelfPermission(
-                    this@JarvisConversationService,
-                    android.Manifest.permission.READ_CONTACTS
-                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-            ) {
-                return@withContext "Enable Contacts permission for JARVIS to find that person, or say their phone number."
-            }
-            try {
-                val projection = arrayOf(
-                    android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                    android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER
-                )
-                val found = mutableListOf<Pair<String, String>>()
-                contentResolver.query(
-                    android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                    projection,
-                    "${android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ?",
-                    arrayOf("%$query%"),
-                    android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " COLLATE NOCASE ASC"
-                )?.use { cursor ->
-                    val nameColumn = cursor.getColumnIndexOrThrow(android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                    val numberColumn = cursor.getColumnIndexOrThrow(android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER)
-                    while (cursor.moveToNext()) {
-                        val name = cursor.getString(nameColumn).orEmpty()
-                        val phone = cursor.getString(numberColumn).orEmpty()
-                        if (phone.isNotBlank()) found += name to phone
-                    }
-                }
-                val unique = found.distinctBy { it.second }
-                when {
-                    unique.isEmpty() -> return@withContext "I couldn't find a phone number for '$query' in your contacts."
-                    unique.size > 1 -> return@withContext "I found multiple numbers for '$query': ${unique.take(4).joinToString { "${it.first} (${it.second})" }}. Say the exact contact."
-                    else -> unique.single().second.filter { it.isDigit() || it == '+' }
-                }
-            } catch (error: Exception) {
-                Log.e("JarvisService", "Offline contact lookup failed", error)
-                return@withContext "I couldn't read that contact. Check Contacts permission and try again."
-            }
-        }
-        try {
-            startActivity(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            "I opened the dialer for $query. Review the number and tap Call when you're ready."
-        } catch (error: Exception) {
-            Log.e("JarvisService", "Could not open dialer for offline call", error)
-            "I couldn't open the phone dialer on this device."
-        }
-    }
-
-    private fun handleOfflineAudioChunk(chunk: ByteArray) {
-        if (!offlineLocalMode || chunk.isEmpty()) return
-        try {
-            val recognizer = offlineRecognizer ?: return
-            if (recognizer.acceptWaveForm(chunk, chunk.size)) {
-                val text = JSONObject(recognizer.result).optString("text").trim()
-                if (text.isNotBlank()) processOfflineTranscript(text)
-            } else {
-                val partial = JSONObject(recognizer.partialResult).optString("partial").trim()
-                if (partial.isNotBlank()) _liveUserTranscript.value = partial
-            }
-        } catch (error: Exception) {
-            Log.w("JarvisService", "Offline speech recognition chunk failed: " + error.message)
-        }
-    }
-
-    private val offlineNoiseWords = setOf("the", "a", "uh", "um", "huh", "oh", "ah", "hmm", "mm", "eh", "and", "it")
-
-    private fun processOfflineTranscript(text: String) {
-        val clean = text.trim()
-        if (clean.isBlank() || !offlineLocalMode || offlineGenerationJob?.isActive == true) return
-        val authorized = VoiceIntentGate.isAuthorized(clean, wakeAuthorizationArmed)
-        if (!authorized) {
-            Log.i("JarvisService", "Ignoring offline overheard speech without explicit Jarvis activation")
-            return
-        }
-        wakeAuthorizationArmed = false
-        currentTurnWakeAuthorized = true
-        if (VoiceIntentGate.isWakeOnly(clean)) wakeAuthorizationArmed = true
-        // The unrestricted offline recognizer turns background noise into one-word "sentences".
-        if (clean.length < 3 || clean.lowercase(Locale.ROOT) in offlineNoiseWords) return
-        val now = System.currentTimeMillis()
-        // Ignore duplicate final/partial recognizer callbacks briefly, but allow the user to
-        // ask the same question again after the debounce window.
-        if (clean.equals(lastOfflineTranscript, ignoreCase = true) && now - lastOfflineTranscriptAt < 2_500L) return
-        lastOfflineTranscript = clean
-        lastOfflineTranscriptAt = now
-        lastRealInteractionTime = now
-        lastUserSpeechDetectedTime = now
-        currentTurnUserText.clear()
-        currentTurnUserText.append(clean)
-        currentTurnAssistantText.clear()
-        _liveUserTranscript.value = clean
-        _liveAssistantResponse.value = "Thinking locally…"
-        setConversationState(ConversationState.THINKING)
-        offlineGenerationJob = serviceScope.launch(Dispatchers.IO) {
-            val answer = try {
-                if (com.jarvis.assistant.offline.OfflineIntentParser.isOnlyWakePhrase(clean)) {
-                    "Yes?"
-                } else withTimeout(120_000L) {
-                    executeOfflineLocalCommand(clean)
-                        ?: com.jarvis.assistant.offline.OfflineLlm.generate(applicationContext, clean) { partial, generated, total ->
-                            if (generated < 0) {
-                                _events.tryEmit("Loading the offline language model into memory…")
-                            } else if (generated == 0) {
-                                _events.tryEmit("Offline model loaded. Preparing your response…")
-                            } else {
-                                if (partial.isNotBlank()) _liveAssistantResponse.value = partial
-                                if (generated % 8 == 0 || generated == total) {
-                                    _events.tryEmit("Generating offline response: $generated/$total tokens")
-                                }
-                            }
-                        }
-                }
-            } catch (error: TimeoutCancellationException) {
-                Log.e("JarvisService", "Offline response exceeded the 120-second safety limit", error)
-                "The offline model did not finish within two minutes. It may still be loading or may not have enough available memory. Try again after closing other apps."
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                Log.e("JarvisService", "Offline command/model execution failed", error)
-                "I couldn't complete that offline request: " + (error.message ?: "local model error")
-            }
-            withContext(Dispatchers.Main) {
-                if (!_isSessionOn.value || !offlineLocalMode) return@withContext
-                currentTurnAssistantText.clear()
-                currentTurnAssistantText.append(answer)
-                _liveAssistantResponse.value = answer
-                val app = application as? JarvisApp
-                // Spoken offline conversation should not pollute ChatBox (ChatBox is for work purpose only)
-                app?.memoryManager?.addShortTermTurn(clean, answer)
-                if (answer.isBlank()) {
-                    // e.g. "stop": nothing to say.
-                    setConversationState(ConversationState.IDLE)
-                    return@withContext
-                }
-                setConversationState(ConversationState.SPEAKING)
-                speakOffline(answer)
-                serviceScope.launch {
-                    var waited = 0
-                    delay(300) // give the speech engine a moment to start before polling isSpeaking
-                    while (_isSessionOn.value && offlineLocalMode && tts?.isSpeaking == true && waited < 90_000) {
-                        delay(100)
-                        waited += 100
-                    }
-                    lastPlaybackEndTime = System.currentTimeMillis()
-                    // Drop any of JARVIS's own voice the recognizer may have half-heard.
-                    try { offlineRecognizer?.reset() } catch (_: Exception) {}
-                    if (_isSessionOn.value && offlineLocalMode) {
-                        setConversationState(ConversationState.IDLE)
-                        if (returnToStandbyAfterAuthorizedTurn || suppressMicUploadUntilVoiceCommandComplete) {
-                            returnToStandbyAfterAuthorizedTurn = false
-                            suppressMicUploadUntilVoiceCommandComplete = false
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /** Speaks with the device's text-to-speech right away, preferring a voice that works without internet. */
-    private fun speakOffline(text: String) {
-        if (text.isBlank()) return
-        try {
-            ensureOfflineTtsVoice()
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "offline_jarvis_reply")
-        } catch (error: Exception) {
-            Log.w("JarvisService", "Offline TTS failed: " + error.message)
-        }
-    }
-
-    private fun ensureOfflineTtsVoice() {
-        val engine = tts ?: return
-        try {
-            val current = engine.voice
-            if (current != null && !current.isNetworkConnectionRequired) return
-            val language = (current?.locale ?: Locale.getDefault()).language
-            val local = engine.voices
-                ?.filter {
-                    !it.isNetworkConnectionRequired &&
-                        !it.features.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) &&
-                        it.locale.language == language
-                }
-                ?.minByOrNull { it.latency }
-            if (local != null) engine.setVoice(local)
-        } catch (error: Exception) {
-            Log.w("JarvisService", "Could not pick an offline voice: " + error.message)
-        }
-    }
-
-    // ---------------------------------------------------------------------
-    // Automatic online <-> offline brain switching
-    // ---------------------------------------------------------------------
-
-    private fun hasOnlineProvider(): Boolean {
-        val voiceRoute = com.jarvis.assistant.provider.TaskRouter.getRouteForTask(
-            applicationContext,
-            com.jarvis.assistant.provider.TaskType.VOICE_CONVERSATION
-        )
-        return when (voiceRoute) {
-            is com.jarvis.assistant.provider.TaskRouteResolution.Gemini -> true
-            is com.jarvis.assistant.provider.TaskRouteResolution.Custom -> true
-            is com.jarvis.assistant.provider.TaskRouteResolution.HybridVoice -> voiceRoute.customProvider != null
-            else -> false
-        }
-    }
-
-    private fun observeNetworkForBrainSwitch() {
-        com.jarvis.assistant.offline.NetworkStateMonitor.start(applicationContext)
-        serviceScope.launch(Dispatchers.Main) {
-            com.jarvis.assistant.offline.NetworkStateMonitor.isOnline.collectLatest { online ->
-                delay(1_500L) // ignore brief signal blips; a newer change cancels this wait
-                onNetworkChanged(online)
-            }
-        }
-    }
-
-    private suspend fun onNetworkChanged(online: Boolean) {
-        if (!online) {
-            Log.i("JarvisService", "Network lost: preparing the offline brain")
-            // Warm both engines now (also while only listening for the wake word) so the first
-            // offline command does not wait for the model to load.
-            prepareOfflineBrain()
-            if (_isSessionOn.value && !offlineLocalMode) switchToOfflineBrain()
-        } else if (_isSessionOn.value && offlineLocalMode && hasOnlineProvider()) {
-            var waited = 0
-            while (_isSessionOn.value && _conversationState.value != ConversationState.IDLE && waited < 15_000) {
-                delay(250)
-                waited += 250
-            }
-            if (_isSessionOn.value && offlineLocalMode &&
-                com.jarvis.assistant.offline.NetworkStateMonitor.isOnline.value
-            ) {
-                switchToOnlineBrain()
-            }
-        }
-    }
-
-    private fun prepareOfflineBrain() {
-        val model = com.jarvis.assistant.offline.OfflineModelDownloader.modelFile(applicationContext)
-        if (!com.jarvis.assistant.offline.OfflineModelDownloader.isModelValid(model)) return
-        serviceScope.launch(Dispatchers.IO) {
-            try {
-                VoskModelManager.init(applicationContext, serviceScope)
-                com.jarvis.assistant.offline.OfflineLlm.warmUp(applicationContext)
-            } catch (error: Exception) {
-                Log.w("JarvisService", "Offline warm-up failed: " + error.message)
-            }
-        }
-    }
-
-    private fun switchToOfflineBrain() {
-        val model = com.jarvis.assistant.offline.OfflineModelDownloader.modelFile(applicationContext)
-        if (!com.jarvis.assistant.offline.OfflineModelDownloader.isModelValid(model)) {
-            serviceScope.launch { _events.emit("No internet, and the offline model isn't installed. Open Offline JARVIS and download it once.") }
-            return
-        }
-        Log.i("JarvisService", "Switching to the offline brain")
-        offlineLocalMode = true
-        liveWebSocket?.disconnect()
-        liveWebSocket = null
-        audioPlayer?.flush()
-        preConnectAudioQueue.clear()
-        _liveError.value = null
-        _connectionStatus.value = "OFFLINE"
-        setConversationState(ConversationState.IDLE)
-        serviceScope.launch(Dispatchers.IO) {
-            try {
-                VoskModelManager.init(applicationContext, serviceScope)
-                withTimeout(60_000L) {
-                    while (!VoskModelManager.isModelReady.value) delay(150L)
-                }
-                val speechModel = VoskModelManager.model ?: error("Local speech model is unavailable.")
-                offlineRecognizer?.close()
-                offlineRecognizer = Recognizer(speechModel, 16000.0f)
-                withContext(Dispatchers.Main) {
-                    if (!_isSessionOn.value || !offlineLocalMode) return@withContext
-                    _liveError.value = null
-                    _events.emit("Internet lost. Switched to the offline brain; I can still run your phone.")
-                    speakOffline("Internet is gone. I'm in offline mode, but I can still run your phone.")
-                }
-            } catch (error: Exception) {
-                Log.e("JarvisService", "Could not start the offline brain", error)
-                withContext(Dispatchers.Main) {
-                    _events.emit("Offline mode could not start: " + (error.message ?: "initialization failed"))
-                }
-            }
-        }
-    }
-
-    private fun switchToOnlineBrain() {
-        Log.i("JarvisService", "Internet is back: returning to the online brain")
-        serviceScope.launch(Dispatchers.Main) {
-            _events.emit("Back online.")
-            stopActiveConversation()
-            beginActiveConversation()
-        }
     }
 
     private var lastHandledCommandText = ""
@@ -4367,12 +3745,6 @@ class JarvisConversationService : Service() {
 
         audioRecorder?.stop()
         audioRecorder = null
-        offlineGenerationJob?.cancel()
-        offlineGenerationJob = null
-        try { offlineRecognizer?.close() } catch (_: Exception) {}
-        offlineRecognizer = null
-        offlineLocalMode = false
-        lastOfflineTranscript = ""
 
         audioPlayer?.flush()
         audioPlayer?.release()
@@ -4676,15 +4048,11 @@ class JarvisConversationService : Service() {
 
         val relevantContext = ambientContextStore.contextForExplicitRequest(commandText)
         val authorizedPrompt = if (relevantContext.isBlank()) commandText else "$commandText\n\n$relevantContext"
-        if (offlineLocalMode) {
-            processOfflineTranscript(authorizedPrompt) // consumes the one-shot wake authorization
-        } else {
-            wakeAuthorizationArmed = false
-            currentTurnWakeAuthorized = true
-            pendingAuthorizedVoiceUserText = commandText
-            pendingAuthorizedVoicePrompt = authorizedPrompt
-            dispatchPendingAuthorizedVoiceCommand()
-        }
+        wakeAuthorizationArmed = false
+        currentTurnWakeAuthorized = true
+        pendingAuthorizedVoiceUserText = commandText
+        pendingAuthorizedVoicePrompt = authorizedPrompt
+        dispatchPendingAuthorizedVoiceCommand()
     }
 
     private fun refreshAmbientContextModeInternal() {
@@ -4815,7 +4183,7 @@ class JarvisConversationService : Service() {
      * Unlike Chatbox text messages, this path keeps spoken assistant output enabled.
      */
     private fun dispatchPendingAuthorizedVoiceCommand() {
-        if (!_isSessionOn.value || offlineLocalMode) return
+        if (!_isSessionOn.value) return
         val session = liveWebSocket
         if (session == null || !session.isSessionReady()) return
         val prompt = pendingAuthorizedVoicePrompt ?: return
@@ -4865,7 +4233,7 @@ class JarvisConversationService : Service() {
     }
 
     private fun dispatchNextPendingTextChatMessage() {
-        if (textChatTurnActive || !_isSessionOn.value || offlineLocalMode) return
+        if (textChatTurnActive || !_isSessionOn.value) return
         val session = liveWebSocket ?: return
         if (!session.isSessionReady()) return
         val prompt = pendingTextChatMessages.peek() ?: return
@@ -4982,21 +4350,6 @@ class JarvisConversationService : Service() {
     /** While now is before this time, the live voice may speak an announcement even during a build. */
     @Volatile private var announcementAudioUntil = 0L
     @Volatile private var lastSuppressedAudioLogAt = 0L
-    @Volatile private var offlineVoiceCheckedAt = 0L
-    @Volatile private var offlineVoiceUsableValue = false
-
-    /** Whether an offline voice is in use, looked up at most every few seconds instead of for every audio chunk. */
-    private fun offlineVoiceUsableCached(): Boolean {
-        val now = System.currentTimeMillis()
-        if (now - offlineVoiceCheckedAt > 4_000L) {
-            offlineVoiceUsableValue = try {
-                com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(applicationContext).isOfflineVoiceUsable()
-            } catch (e: Exception) { false }
-            offlineVoiceCheckedAt = now
-        }
-        return offlineVoiceUsableValue
-    }
-
     @Volatile private var geminiRotations = 0
     @Volatile private var geminiRotationWindowStart = 0L
 
@@ -5077,19 +4430,13 @@ class JarvisConversationService : Service() {
             return
         }
 
-        val isOfflineTtsActive = dispatcher.isOfflineVoiceUsable()
-        if (isOfflineTtsActive) {
-            dispatcher.speak(text)
-            return
-        }
-
         val queued = pendingAnnouncement
         pendingAnnouncement = if (queued.isNullOrEmpty()) text else queued + " " + text
         if (!_isSessionOn.value) {
             announcementOnlySession = true
             serviceScope.launch(Dispatchers.Main) { beginActiveConversation(wakeTriggered = false) }
         }
-        // If the live session never gets ready, use cloud engine or offline dispatcher (never device TTS)
+        // If the live session never gets ready, use the cloud voice (never device TTS)
         serviceScope.launch {
             kotlinx.coroutines.delay(15_000)
             val stillPending = pendingAnnouncement
@@ -5100,8 +4447,6 @@ class JarvisConversationService : Service() {
                         dispatcher.sanitizeForSpeech(stillPending),
                         com.jarvis.assistant.tts.model.SpeakerProfile.defaultFor(com.jarvis.assistant.tts.model.VoiceEngineType.CLOUD_GEMINI)
                     )
-                } else if (dispatcher.isOfflineVoiceUsable()) {
-                    dispatcher.speak(stillPending)
                 }
             }
         }

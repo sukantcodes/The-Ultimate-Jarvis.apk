@@ -136,8 +136,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 return
             }
-            // The service selects the local offline brain when the configured online
-            // provider has no key and a valid local model is installed.
             sendServiceAction(JarvisConversationService.ACTION_START_CONVERSATION)
         }
     }

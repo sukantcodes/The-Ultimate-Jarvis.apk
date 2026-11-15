@@ -73,12 +73,10 @@ class WorkRoutingTest {
         assertEquals(setOf(WorkCategory.CHAT), routes.all().keys)
     }
 
-    @Test fun offline_tts_route_is_recognized_and_preserved() {
-        routes.set(WorkCategory.VOICE, Route(Route.OFFLINE_TTS, "local_kokoro"))
-        val saved = routes.get(WorkCategory.VOICE)
-        assertNotNull(saved)
-        assertTrue(saved!!.isOfflineTts)
-        assertEquals("local_kokoro", saved.modelId)
+    @Test fun route_saved_for_the_removed_offline_voice_follows_the_active_provider() {
+        store.putString(RoutingStore.KEY, """{"voice":{"p":"offline_tts","m":"local_kokoro"},"chat":{"p":"a"}}""")
+        assertNull(routes.get(WorkCategory.VOICE))
+        assertEquals(setOf(WorkCategory.CHAT), routes.all().keys)
     }
 
     @Test fun gemini_route_resolves_cleanly_for_voice() {
