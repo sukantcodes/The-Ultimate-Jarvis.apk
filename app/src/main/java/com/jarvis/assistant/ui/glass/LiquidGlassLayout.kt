@@ -150,7 +150,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
             fringePaint.color = 0x59FF4FD8
             canvas.save(); canvas.translate(-s, -s)
             canvas.drawRoundRect(rimRect, r, r, fringePaint); canvas.restore()
-            fringePaint.color = 0x5933E1FF
+            fringePaint.color = 0x2633E1FF
             canvas.save(); canvas.translate(s, s)
             canvas.drawRoundRect(rimRect, r, r, fringePaint); canvas.restore()
         }

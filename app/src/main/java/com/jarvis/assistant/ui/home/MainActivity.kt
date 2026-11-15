@@ -469,6 +469,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupNavigationDock() {
         listOf(binding.tabHome, binding.tabChat, binding.tabCameraScan, binding.tabUpdates).forEach { GlassChips.magnifyOnPress(it, 1.14f) }
+        GlassChips.magnifyOnPress(binding.tabMic, 1.18f)
         binding.tabHome.setOnClickListener { selectTab(TAB_HOME) }
         binding.tabChat.setOnClickListener { selectTab(TAB_CHAT) }
         binding.tabUpdates.setOnClickListener { selectTab(TAB_UPDATES) }
@@ -649,16 +650,16 @@ class MainActivity : AppCompatActivity() {
             val isSelected = tabId == tab
             val (iv, tv) = views
             if (isSelected) {
-                pill.background = GlassChips.make(this, 24f, selected = true)
-                pill.alpha = 0f
-                pill.scaleX = 0.88f
-                pill.scaleY = 0.88f
+                // The sliding glass bubble (dockBubble) marks the selected tab; the icon pops inside it.
+                pill.background = null
+                pill.alpha = 1f
+                pill.scaleX = 0.9f
+                pill.scaleY = 0.9f
                 pill.animate()
-                    .alpha(1f)
-                    .scaleX(1f)
-                    .scaleY(1f)
-                    .setDuration(240)
-                    .setInterpolator(android.view.animation.OvershootInterpolator(1.2f))
+                    .scaleX(1.08f)
+                    .scaleY(1.08f)
+                    .setDuration(320)
+                    .setInterpolator(android.view.animation.OvershootInterpolator(2.2f))
                     .start()
                 iv.imageTintList = ColorStateList.valueOf(activeTextColor)
                 tv.setTextColor(activeTextColor)
@@ -674,6 +675,16 @@ class MainActivity : AppCompatActivity() {
                 tv.alpha = 0.75f
             }
         }
+
+        binding.dockBubble.setTint(activeColor)
+        binding.dockBubble.attachTo(
+            when (tab) {
+                TAB_HOME -> binding.tabHome
+                TAB_CHAT -> binding.tabChat
+                TAB_UPDATES -> binding.tabUpdates
+                else -> null
+            }
+        )
     }
 
     fun handleMicOrOrbClick() {

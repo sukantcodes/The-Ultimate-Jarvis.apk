@@ -33,7 +33,7 @@ object GlassChips {
         val fringe = GradientDrawable().apply {
             cornerRadius = r
             setColor(Color.TRANSPARENT)
-            setStroke((1.2f * d).toInt().coerceAtLeast(1), if (selected) 0x66FF7A45 else 0x4033E1FF)
+            setStroke((1.2f * d).toInt().coerceAtLeast(1), if (selected) 0x66FF7A45 else 0x2433E1FF)
         }
         val rim = GradientDrawable().apply {
             cornerRadius = r
@@ -48,15 +48,34 @@ object GlassChips {
         return RippleDrawable(ColorStateList.valueOf(0x40FFFFFF), layers, mask)
     }
 
-    /** Apple-dock style press magnification. Does not consume the touch, clicks still work. */
+    private val wobble = java.util.WeakHashMap<View, android.animation.Animator>()
+
+    /**
+     * Bubble-like press: it squashes and swells under the finger, then releases with a springy wobble.
+     * Does not consume the touch, so clicks and long-presses still work.
+     */
     @Suppress("ClickableViewAccessibility")
     fun magnifyOnPress(view: View, scale: Float = 1.16f) {
         view.setOnTouchListener { v, e ->
             when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> v.animate().scaleX(scale).scaleY(scale)
-                    .setDuration(140).setInterpolator(OvershootInterpolator(2.2f)).start()
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> v.animate().scaleX(1f).scaleY(1f)
-                    .setDuration(220).setInterpolator(OvershootInterpolator(2.8f)).start()
+                MotionEvent.ACTION_DOWN -> {
+                    wobble.remove(v)?.cancel()
+                    v.animate().cancel()
+                    v.animate().scaleX(scale * 1.05f).scaleY(scale * 0.94f)
+                        .setDuration(130).setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    v.animate().cancel()
+                    val sx = v.scaleX
+                    val sy = v.scaleY
+                    val anim = android.animation.ObjectAnimator.ofPropertyValuesHolder(
+                        v,
+                        android.animation.PropertyValuesHolder.ofFloat(View.SCALE_X, sx, 0.93f, 1.05f, 0.99f, 1f),
+                        android.animation.PropertyValuesHolder.ofFloat(View.SCALE_Y, sy, 1.07f, 0.96f, 1.01f, 1f)
+                    ).apply { duration = 480; interpolator = android.view.animation.LinearInterpolator() }
+                    wobble[v] = anim
+                    anim.start()
+                }
             }
             false
         }

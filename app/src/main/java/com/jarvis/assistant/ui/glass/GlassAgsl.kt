@@ -64,7 +64,7 @@ half4 main(float2 coord) {
 
     // saturation lift + frosted veil
     half l = dot(col, half3(0.299, 0.587, 0.114));
-    col = mix(half3(l), col, half(1.28));
+    col = mix(half3(l), col, half(1.15));
     col = mix(col, half3(1.0), half(veil));
 
     // specular: strong top-left, softer bottom-right bounce

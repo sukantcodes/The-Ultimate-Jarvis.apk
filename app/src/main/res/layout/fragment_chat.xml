@@ -302,7 +302,7 @@
         app:lgBlur="10"
         app:lgDistortionScale="-220"
         app:lgGreenOffset="28"
-        app:lgBlueOffset="56"
+        app:lgBlueOffset="40"
         app:lgRefraction="14"
         app:lgBezel="18"
         app:lgVeil="0.10"

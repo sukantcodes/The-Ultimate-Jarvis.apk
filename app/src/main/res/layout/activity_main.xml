@@ -43,7 +43,7 @@
         app:lgBlur="12"
         app:lgDistortionScale="-220"
         app:lgGreenOffset="28"
-        app:lgBlueOffset="56"
+        app:lgBlueOffset="40"
         app:lgRefraction="18"
         app:lgBezel="20"
         app:lgVeil="0.10"
@@ -51,6 +51,11 @@
         app:layout_constraintWidth_max="560dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
+
+    <com.jarvis.assistant.ui.glass.GlassBubbleView
+        android:id="@+id/dockBubble"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
     <LinearLayout
         android:id="@+id/bottomDockRow"

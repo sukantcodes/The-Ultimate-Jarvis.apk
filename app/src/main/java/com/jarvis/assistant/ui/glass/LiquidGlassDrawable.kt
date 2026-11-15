@@ -136,7 +136,7 @@ class LiquidGlassDrawable(
         // Prism dispersion: a magenta fringe on the edge and a cyan one just inside it.
         val fringeAlpha = ((if (light) 0.22f else 0.30f) * soften * 255).toInt()
         fringeOuter.color = Color.argb(fringeAlpha, 255, 70, 205)
-        fringeInner.color = Color.argb(fringeAlpha, 40, 215, 255)
+        fringeInner.color = Color.argb((fringeAlpha * 0.55f).toInt(), 40, 215, 255)
 
         edgeLight.strokeWidth = edgeW
         hairline.strokeWidth = 0.6f * density
