@@ -29,6 +29,7 @@ import com.jarvis.assistant.background.JarvisConversationService
 import com.jarvis.assistant.data.model.ConversationState
 import com.jarvis.assistant.databinding.ActivityMainBinding
 import com.jarvis.assistant.ui.chat.ChatFragment
+import com.jarvis.assistant.ui.glass.GlassChips
 import com.jarvis.assistant.ui.settings.SettingsFragment
 import com.jarvis.assistant.util.PermissionHelper
 import com.jarvis.assistant.updates.UpdateNotificationChecker
@@ -467,6 +468,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupNavigationDock() {
+        listOf(binding.tabHome, binding.tabChat, binding.tabCameraScan, binding.tabUpdates).forEach { GlassChips.magnifyOnPress(it, 1.14f) }
         binding.tabHome.setOnClickListener { selectTab(TAB_HOME) }
         binding.tabChat.setOnClickListener { selectTab(TAB_CHAT) }
         binding.tabUpdates.setOnClickListener { selectTab(TAB_UPDATES) }
@@ -647,7 +649,7 @@ class MainActivity : AppCompatActivity() {
             val isSelected = tabId == tab
             val (iv, tv) = views
             if (isSelected) {
-                pill.setBackgroundResource(R.drawable.bg_dock_item_active)
+                pill.background = GlassChips.make(this, 24f, selected = true)
                 pill.alpha = 0f
                 pill.scaleX = 0.88f
                 pill.scaleY = 0.88f

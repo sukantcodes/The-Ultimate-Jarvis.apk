@@ -28,6 +28,7 @@ import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.R
 import com.jarvis.assistant.background.JarvisConversationService
 import com.jarvis.assistant.databinding.FragmentChatBinding
+import com.jarvis.assistant.ui.glass.GlassChips
 import com.jarvis.assistant.ui.home.MainActivity
 import com.jarvis.assistant.ui.home.MainViewModel
 import kotlinx.coroutines.Dispatchers
@@ -271,8 +272,13 @@ class ChatFragment : Fragment() {
             updateAttachmentPreview()
             binding.etMessageInput.hint = "Message JARVIS…"
         }
-        // The ChatBox composer is a frosted-glass pill with an iridescent rim.
-        binding.cardInputContainer.background = Glass.panel(requireContext(), 30f)
+        // The composer is a LiquidGlassLayout (live blur + prism refraction); controls on it get light glass chips.
+        listOf(binding.btnCamera, binding.btnAttach, binding.btnVoiceInput).forEach {
+            it.background = GlassChips.make(requireContext(), 22f)
+            GlassChips.magnifyOnPress(it)
+        }
+        binding.btnChatTools.background = GlassChips.make(requireContext(), 15f)
+        GlassChips.magnifyOnPress(binding.btnSendMessage, 1.1f)
         binding.btnStopChat.onSafeClick {
             com.jarvis.assistant.background.ChatboxHandoffTracker.noteUserStop()
             fileAnalysisJob?.cancel()

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- res/values/attrs_liquid_glass.xml -->
+<resources>
+    <declare-styleable name="LiquidGlassLayout">
+        <attr name="lgCornerRadius" format="dimension" />
+        <attr name="lgBlur" format="float" />
+        <attr name="lgDistortionScale" format="float" />
+        <attr name="lgRedOffset" format="float" />
+        <attr name="lgGreenOffset" format="float" />
+        <attr name="lgBlueOffset" format="float" />
+        <attr name="lgRefraction" format="float" />
+        <attr name="lgBezel" format="float" />
+        <attr name="lgVeil" format="float" />
+        <attr name="lgPrism" format="boolean" />
+        <attr name="lgAutoRefresh" format="boolean" />
+        <attr name="lgSource" format="reference" />
+    </declare-styleable>
+</resources>

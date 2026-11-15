@@ -30,26 +30,39 @@
         app:layout_constraintHorizontal_bias="0.5" />
 
     <!-- Sleek Liquid Glass Floating Navigation Capsule -->
-    <LinearLayout
+    <com.jarvis.assistant.ui.glass.LiquidGlassLayout
         android:id="@+id/bottomDock"
         android:layout_width="0dp"
         android:layout_height="64dp"
         android:layout_marginStart="14dp"
         android:layout_marginEnd="14dp"
         android:layout_marginBottom="16dp"
-        android:background="@drawable/bg_jarvis_dock"
-        android:elevation="12dp"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        app:lgCornerRadius="32dp"
+        app:lgBlur="12"
+        app:lgDistortionScale="-220"
+        app:lgGreenOffset="28"
+        app:lgBlueOffset="56"
+        app:lgRefraction="18"
+        app:lgBezel="20"
+        app:lgVeil="0.10"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintWidth_max="560dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+    <LinearLayout
+        android:id="@+id/bottomDockRow"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:clipChildren="false"
         android:clipToPadding="false"
         android:orientation="horizontal"
         android:paddingStart="6dp"
         android:paddingEnd="6dp"
         android:paddingTop="3dp"
-        android:paddingBottom="3dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintWidth_max="560dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        android:paddingBottom="3dp">
 
         <!-- Tab 1: Home -->
         <FrameLayout
@@ -278,6 +291,7 @@
         </FrameLayout>
 
     </LinearLayout>
+    </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
 
     <!-- Glowing Liquid Glass Curved Line arching over the center Mic button -->
     <com.jarvis.assistant.ui.widget.CurvedDockLineView
