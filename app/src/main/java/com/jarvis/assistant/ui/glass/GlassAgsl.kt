@@ -14,6 +14,21 @@ uniform float bezel;
 uniform float strength;
 uniform float3 chroma;
 uniform float veil;
+uniform float blur;
+
+half4 sampleBlur(float2 p, float2 lo, float2 hi) {
+    float d = blur * 0.7;
+    half4 c = content.eval(clamp(p, lo, hi));
+    c += content.eval(clamp(p + float2(blur, 0.0), lo, hi));
+    c += content.eval(clamp(p - float2(blur, 0.0), lo, hi));
+    c += content.eval(clamp(p + float2(0.0, blur), lo, hi));
+    c += content.eval(clamp(p - float2(0.0, blur), lo, hi));
+    c += content.eval(clamp(p + float2(d, d), lo, hi));
+    c += content.eval(clamp(p + float2(-d, d), lo, hi));
+    c += content.eval(clamp(p + float2(d, -d), lo, hi));
+    c += content.eval(clamp(p + float2(-d, -d), lo, hi));
+    return c * half(0.1111);
+}
 
 float sdRoundRect(float2 p, float2 b, float r) {
     float2 q = abs(p) - b + r;
@@ -42,9 +57,9 @@ half4 main(float2 coord) {
 
     float2 lo = float2(0.0);
     float2 hi = size - 1.0;
-    half4 cr = content.eval(clamp(coord + off * chroma.x, lo, hi));
-    half4 cg = content.eval(clamp(coord + off * chroma.y, lo, hi));
-    half4 cb = content.eval(clamp(coord + off * chroma.z, lo, hi));
+    half4 cr = sampleBlur(coord + off * chroma.x, lo, hi);
+    half4 cg = sampleBlur(coord + off * chroma.y, lo, hi);
+    half4 cb = sampleBlur(coord + off * chroma.z, lo, hi);
     half3 col = half3(cr.r, cg.g, cb.b);
 
     // saturation lift + frosted veil
@@ -55,7 +70,7 @@ half4 main(float2 coord) {
     // specular: strong top-left, softer bottom-right bounce
     float2 L = normalize(float2(-0.55, -0.83));
     float spec = pow(max(dot(n, L), 0.0), 2.0) + 0.45 * pow(max(dot(n, -L), 0.0), 2.0);
-    col += half3(spec * edge * 0.5);
+    col += half3(spec * edge * 0.35);
 
     float aa = 1.0 - smoothstep(-1.0, 0.5, d);
     return half4(col * aa, aa);
