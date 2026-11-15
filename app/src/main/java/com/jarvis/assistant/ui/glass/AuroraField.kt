@@ -101,7 +101,7 @@ object AuroraField {
 }
 
 /**
- * One shared ~30 fps heartbeat for the aurora. It only runs while at least one glass surface or backdrop is attached,
+ * One shared ~20 fps heartbeat for the aurora. It only runs while at least one glass surface or backdrop is attached,
  * and stays still when the system has animations switched off.
  */
 object AuroraClock {
@@ -114,8 +114,8 @@ object AuroraClock {
         override fun doFrame(frameTimeNanos: Long) {
             if (!running) return
             val now = SystemClock.uptimeMillis()
-            if (now - last >= 33L) {
-                val dt = if (last == 0L) 0.033f else (now - last) / 1000f
+            if (now - last >= 50L) {
+                val dt = if (last == 0L) 0.05f else (now - last) / 1000f
                 last = now
                 if (animationsEnabled) {
                     AuroraField.phase += dt * 0.55f

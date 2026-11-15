@@ -50,22 +50,8 @@ object LiquidGlass {
             view.outlineAmbientShadowColor = shadow
             view.outlineSpotShadowColor = shadow
         }
-        if (view.getTag(TAG_KEY) == null) {
-            val tick = Runnable { if (view.isShown && view.windowVisibility == View.VISIBLE) view.invalidate() }
-            val listener = object : View.OnAttachStateChangeListener {
-                override fun onViewAttachedToWindow(v: View) {
-                    refreshAnimationSetting(v.context)
-                    AuroraClock.register(tick)
-                }
-
-                override fun onViewDetachedFromWindow(v: View) {
-                    AuroraClock.unregister(tick)
-                }
-            }
-            view.addOnAttachStateChangeListener(listener)
-            view.setTag(TAG_KEY, true)
-            if (view.isAttachedToWindow) listener.onViewAttachedToWindow(view)
-        }
+        // Glass cards are static; only the screen backdrop animates, and the cards simply show it through.
+        view.setTag(TAG_KEY, true)
     }
 
     /**
@@ -157,6 +143,7 @@ object LiquidGlass {
                 child.width >= 120 * density && child.height >= 56 * density && child.getTag(TAG_KEY) == null
             if (isShapeCard) {
                 apply(child, 24f, tint, soft = child.height < 96 * density)
+                continue // keep the contents of a glass card as they were; no glass-on-glass
             }
             glassifyChildren(child, tint)
         }
@@ -200,13 +187,6 @@ object LiquidGlass {
                 // Some vendor builds disable window blur; the glass pane still looks right without it.
             }
         }
-        refreshAnimationSetting(decor.context)
-        val tick = Runnable { if (decor.isShown) decor.invalidate() }
-        decor.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(v: View) { AuroraClock.register(tick) }
-            override fun onViewDetachedFromWindow(v: View) { AuroraClock.unregister(tick) }
-        })
-        if (decor.isAttachedToWindow) AuroraClock.register(tick)
     }
 }
 
