@@ -1,6 +1,7 @@
 package com.jarvis.assistant.ui.glass
 
 import android.app.Dialog
+import android.content.Context
 import android.graphics.Canvas
 import android.graphics.ColorFilter
 import android.graphics.PixelFormat
