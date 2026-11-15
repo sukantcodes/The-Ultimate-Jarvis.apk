@@ -12,7 +12,7 @@ import java.util.Locale
  */
 object VoiceIntentGate {
     private val wakePrefix = Regex(
-        "^(?:(?:hey|hi|hello|ok|okay)\\s+)?jarvis\\b(?:[,.!?;:]|\\s|$)",
+        "^(?:(?:hey|hi|hello|ok|okay|suno|sunno|sunao|sun|सुनो|सुन)\\s+)?(?:jarvis|jervis|jarvish|jarwis|जार्विस|जारविस|जारवीस)(?:[,.!?;:।]|\\s|$)",
         RegexOption.IGNORE_CASE
     )
 

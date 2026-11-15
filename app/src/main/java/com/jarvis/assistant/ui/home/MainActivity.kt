@@ -411,6 +411,13 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
     }
 
+    /** Opening Jarvis makes sure "Hey Jarvis" is listening in the background (it keeps going after the app is closed). */
+    private fun ensureWakeListening() {
+        if (!PermissionHelper.hasRecordAudioPermission(this)) return
+        if (JarvisConversationService.isSessionOn.value || JarvisConversationService.isStandby.value) return
+        com.jarvis.assistant.background.WakeKeepAlive.startStandby(this, "app opened")
+    }
+
     override fun onResume() {
         super.onResume()
         com.jarvis.assistant.tools.AndroidConfirmer.attach(this)
@@ -419,6 +426,7 @@ class MainActivity : AppCompatActivity() {
         showUpdateRestartPrompt(force = false)
         viewModel.refreshSettings()
         updateAccountMenuItem()
+        ensureWakeListening()
         lifecycleScope.launch {
             // Refresh an expired access token when returning to the app. A rejected refresh token ends the
             // session; being offline does not.
@@ -439,6 +447,7 @@ class MainActivity : AppCompatActivity() {
                     lastAccessCheckMs = System.currentTimeMillis()
                     binding.rootMainLayout.visibility = View.VISIBLE
                 } else {
+                    com.jarvis.assistant.background.WakeKeepAlive.setEnabled(this@MainActivity, false)
                     stopService(Intent(this@MainActivity, JarvisConversationService::class.java))
                     MaterialAlertDialogBuilder(this@MainActivity, com.jarvis.assistant.R.style.ThemeOverlay_Jarvis_MaterialDialog)
                         .setTitle("JARVIS access restricted")

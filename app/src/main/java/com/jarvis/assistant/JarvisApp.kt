@@ -114,6 +114,9 @@ class JarvisApp : Application() {
 
         VoskModelManager.init(this, CoroutineScope(Dispatchers.Default))
 
+        // Keep the "Hey Jarvis" check-in alarm armed whenever the person wants Jarvis listening.
+        com.jarvis.assistant.background.WakeKeepAlive.scheduleWatchdog(this)
+
         // Open the Keystore-backed provider store off the main thread so the first Chatbox open doesn't stall.
         Thread({
             try { com.jarvis.assistant.provider.ProviderRuntime.manager(this) } catch (_: Throwable) { }

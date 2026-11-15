@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="set_keepalive_title">Keep Jarvis listening 24/7</string>
+    <string name="set_keepalive_subtitle">\"Hey Jarvis\" stays on after the app is closed or the phone restarts</string>
+</resources>

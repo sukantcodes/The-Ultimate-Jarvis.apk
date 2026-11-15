@@ -28,4 +28,21 @@ class VoiceIntentGateTest {
         assertTrue(VoiceIntentGate.isAuthorized("call Mom", oneShotWakeToken = true))
         assertTrue(VoiceIntentGate.isAuthorized("Jarvis, call Mom"))
     }
+
+    @Test
+    fun acceptsSunoJarvisAndHindiForms() {
+        assertTrue(VoiceIntentGate.hasWakePrefix("Suno Jarvis"))
+        assertTrue(VoiceIntentGate.hasWakePrefix("suno jarvis, open YouTube"))
+        assertTrue(VoiceIntentGate.hasWakePrefix("Sun Jarvis"))
+        assertTrue(VoiceIntentGate.hasWakePrefix("सुनो जार्विस"))
+        assertTrue(VoiceIntentGate.hasWakePrefix("जार्विस"))
+        assertTrue(VoiceIntentGate.isWakeOnly("Suno Jarvis"))
+        assertTrue(VoiceIntentGate.stripWakePrefix("Suno Jarvis, open YouTube").contains("open youtube"))
+    }
+
+    @Test
+    fun stillIgnoresJarvisInTheMiddleOfASentence() {
+        assertFalse(VoiceIntentGate.hasWakePrefix("I told suno to Jarvis"))
+        assertFalse(VoiceIntentGate.hasWakePrefix("jarvisx open it"))
+    }
 }

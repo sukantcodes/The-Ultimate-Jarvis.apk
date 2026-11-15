@@ -207,11 +207,22 @@ class JarvisAccessibilityService : AccessibilityService() {
     private var whatsAppDeleteArmTime = 0L
     private var deleteStage = 0
 
+    private val keepAliveHandler = Handler(Looper.getMainLooper())
+    private val keepAliveTick = object : Runnable {
+        override fun run() {
+            if (com.jarvis.assistant.background.WakeKeepAlive.isEnabled(this@JarvisAccessibilityService)) ensureJarvisServiceActive()
+            keepAliveHandler.postDelayed(this, 5 * 60_000L)
+        }
+    }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
         Log.i(TAG, "JarvisAccessibilityService connected and active")
         ensureJarvisServiceActive()
+        // The system keeps this service alive and restarts it, so it doubles as a lifeline for the wake-word listener.
+        keepAliveHandler.removeCallbacks(keepAliveTick)
+        keepAliveHandler.postDelayed(keepAliveTick, 5 * 60_000L)
     }
 
     private fun ensureJarvisServiceActive() {
@@ -358,6 +369,7 @@ class JarvisAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        keepAliveHandler.removeCallbacks(keepAliveTick)
         if (instance === this) instance = null
         super.onDestroy()
     }

@@ -595,6 +595,7 @@ class SettingsFragment : Fragment() {
         }
         binding.rowApplications.setOnClickListener { open(HandsFreeActivity::class.java) }
         binding.rowAutomationStudio.setOnClickListener { open(AutomationStudioActivity::class.java) }
+        binding.rowKeepAlive.setOnClickListener { com.jarvis.assistant.util.KeepAliveHelper.showDialog(requireActivity()) }
         binding.rowJarvisTerminal.setOnClickListener { open(com.jarvis.assistant.ui.terminal.JarvisTerminalActivity::class.java) }
         binding.rowActionRouter.setOnClickListener { open(com.jarvis.assistant.ui.debug.ActionRouterActivity::class.java) }
         binding.rowGallery.setOnClickListener { open(com.jarvis.assistant.gallery.GalleryActivity::class.java) }

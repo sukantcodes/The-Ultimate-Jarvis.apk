@@ -105,6 +105,11 @@ class JarvisConversationService : Service() {
         private const val NOTIFICATION_ID = 41
         private const val INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000L // 30 minutes before standby
         private const val STANDBY_COOLDOWN_MS = 2500L
+        /** The CPU wake lock is short and renewed every heartbeat, so it can never silently run out. */
+        private const val WAKE_LOCK_MS = 30 * 60 * 1000L
+        private const val HEARTBEAT_MS = 60_000L
+        /** The idle wake listener is rebuilt this often so a silently stalled microphone stream can never last. */
+        private const val WAKE_RECYCLE_MS = 20 * 60 * 1000L
 
         @Volatile private var activeInstance: JarvisConversationService? = null
         // Chatbox messages survive asynchronous service startup and API handshakes.
@@ -565,6 +570,572 @@ class JarvisConversationService : Service() {
 
     // --- Standby / wake-word components (Pure Vosk) ---
     private var voskSpeechService: SpeechService? = null
+    private var voskRecognizer: Recognizer? = null
+    private var heartbeatJob: Job? = null
+    private var lastWakeRecycleAt = 0L
+    private val ambientContextStore = com.jarvis.assistant.memory.AmbientConversationContextStore()
+    @Volatile private var lastAmbientTranscriptHash = 0
+    @Volatile private var lastAmbientTranscriptAt = 0L
+    private var tts: TextToSpeech? = null
+    private var batteryAnnouncer: com.jarvis.assistant.util.SpeechAnnouncer? = null
+    private var batteryWatcher: com.jarvis.assistant.power.BatteryWatcher? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
+    private var standbyActivatedTime = 0L
+
+    // Listening is not authorization. Only an explicit wake phrase or a one-shot
+    // token issued by the standby wake detector can authorize this utterance.
+    @Volatile private var wakeAuthorizationArmed = false
+    @Volatile private var currentTurnWakeAuthorized = false
+
+    private fun isCurrentVoiceTurnAuthorized(): Boolean =
+        _isSessionOn.value || currentTurnWakeAuthorized || VoiceIntentGate.hasWakePrefix(currentTurnUserText.toString())
+    @Volatile
+    private var isPendingWakeGreeting = false
+    private var headsetAudioRouter: com.jarvis.assistant.audio.HeadsetAudioRouter? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        activeInstance = this
+        com.jarvis.assistant.network.GeminiLiveWebSocket.extraDeclarations = {
+            org.json.JSONArray(com.jarvis.assistant.tools.ToolSchemas.toGemini(com.jarvis.assistant.tools.ToolRuntime.get(applicationContext).registry.specs()).toString())
+        }
+        createChannel()
+        initTts()
+        val announcer = com.jarvis.assistant.util.SpeechAnnouncer(applicationContext)
+        batteryAnnouncer = announcer
+        batteryWatcher = com.jarvis.assistant.power.BatteryWatcher(applicationContext, announcer).also { it.start() }
+        com.jarvis.assistant.studio.AutomationEvents.handler = { type, vars -> handleAutomationEvent(type, vars) }
+        try {
+            if (androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)) {
+                android.service.notification.NotificationListenerService.requestRebind(
+                    android.content.ComponentName(this, com.jarvis.assistant.notifications.JarvisNotificationListener::class.java)
+                )
+            }
+        } catch (_: Exception) {
+        }
+        headsetAudioRouter = com.jarvis.assistant.audio.HeadsetAudioRouter(applicationContext)
+        taskProgressOverlay = com.jarvis.assistant.ui.agent.TaskProgressOverlay(this)
+        taskProgressOverlayJob = serviceScope.launch(Dispatchers.Main.immediate) {
+            combine(
+                com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState,
+                JarvisApp.isAppForeground,
+                _isSessionOn,
+                _isStandby
+            ) { snapshot, appForeground, sessionOn, standbyOn ->
+                snapshot to (JarvisApp.instance.preferences.taskOverlayMode == "always" || (!appForeground && (sessionOn || standbyOn)))
+            }.collect { (snapshot, showIdleAvatar) ->
+                val shown = taskProgressOverlay?.update(snapshot, showIdleAvatar) == true
+                if (snapshot != null && !shown && overlayPermissionWarningTaskId != snapshot.taskId) {
+                    overlayPermissionWarningTaskId = snapshot.taskId
+                    _events.emit("Task progress is shown inside JARVIS Home. Allow Display over other apps if you want the floating task panel over Instagram, Spotify, and Chrome.")
+                }
+            }
+        }
+        serviceScope.launch(Dispatchers.Main.immediate) {
+            var previousAvailability: List<Any>? = null
+            while (isActive) {
+                delay(900L)
+                // Expire volatile ambient transcripts promptly even when no new speech arrives.
+                ambientContextStore.size()
+                if (_isSessionOn.value &&
+                    (!PermissionHelper.hasRecordAudioPermission(this@JarvisConversationService) ||
+                        !PermissionHelper.hasNotificationPermission(this@JarvisConversationService))) {
+                    Log.w("JarvisService", "A required runtime permission was revoked during the live session; stopping the session")
+                    stopActiveConversation()
+                    serviceScope.launch { _events.emit("Jarvis paused because a required permission was turned off. Re-enable it in System Permissions to continue.") }
+                }
+                if (com.jarvis.assistant.automation.agent.AgentTaskEngine.current() != null &&
+                    !PermissionHelper.isAccessibilityServiceEnabled(this@JarvisConversationService)) {
+                    Log.w("JarvisService", "Accessibility was disabled during an active task; clearing task progress")
+                    isAutonomousTaskRunning = false
+                    com.jarvis.assistant.automation.agent.AgentTaskEngine.resetForSession()
+                }
+                val snapshot = com.jarvis.assistant.automation.agent.AgentTaskEngine.taskState.value
+                val prefs = (application as JarvisApp).preferences
+                val appForeground = JarvisApp.isAppForeground.value
+                val showIdleAvatar = prefs.taskOverlayMode == "always" || (!appForeground && (_isSessionOn.value || _isStandby.value))
+                val availability = listOf(
+                    prefs.isTaskOverlayEnabled,
+                    PermissionHelper.hasOverlayPermission(this@JarvisConversationService),
+                    prefs.taskOverlayAvatar,
+                    prefs.taskOverlayMode,
+                    prefs.taskOverlayEdge,
+                    appForeground,
+                    _isSessionOn.value,
+                    _isStandby.value
+                )
+                if (availability != previousAvailability) {
+                    previousAvailability = availability
+                    taskProgressOverlay?.update(snapshot, showIdleAvatar)
+                }
+            }
+        }
+    }
+
+    private fun initTts() {
+        startDefaultTts("Using the Android text-to-speech engine")
+    }
+
+    private fun startDefaultTts(reason: String) {
+        Log.w("JarvisService", "$reason; falling back to Android's configured TTS engine.")
+        try {
+            try { tts?.shutdown() } catch (_: Exception) {}
+            tts = TextToSpeech(applicationContext) { status ->
+                configureTtsEngine(status, "Android default TTS")
+            }
+        } catch (error: Exception) {
+            Log.e("JarvisService", "Failed to initialize Android default TTS: ${error.message}", error)
+        }
+    }
+
+    private fun configureTtsEngine(status: Int, engineLabel: String): Boolean {
+        if (status != TextToSpeech.SUCCESS) {
+            Log.e("JarvisService", "$engineLabel initialization failed (status=$status)")
+            return false
+        }
+        return try {
+            val selectedLanguage = preferences.language.lowercase(Locale.ROOT)
+            val requestedLocale = when {
+                selectedLanguage.contains("hindi") || selectedLanguage.contains("हिन्दी") -> Locale("hi", "IN")
+                selectedLanguage.contains("bengali") || selectedLanguage.contains("বাংলা") -> Locale("bn", "IN")
+                selectedLanguage.contains("english") -> Locale.US
+                selectedLanguage.contains("spanish") -> Locale("es", "ES")
+                selectedLanguage.contains("french") -> Locale.FRENCH
+                selectedLanguage.contains("german") -> Locale.GERMAN
+                selectedLanguage.contains("italian") -> Locale.ITALIAN
+                selectedLanguage.contains("portuguese") -> Locale("pt", "PT")
+                selectedLanguage.contains("dutch") -> Locale("nl", "NL")
+                else -> Locale.getDefault()
+            }
+            val languageResult = tts?.setLanguage(requestedLocale) ?: TextToSpeech.LANG_NOT_SUPPORTED
+            val usableLanguage = languageResult != TextToSpeech.LANG_MISSING_DATA &&
+                languageResult != TextToSpeech.LANG_NOT_SUPPORTED
+            if (!usableLanguage) {
+                Log.w("JarvisService", "$engineLabel does not support $requestedLocale.")
+                val fallbackResult = tts?.setLanguage(Locale.US) ?: TextToSpeech.LANG_NOT_SUPPORTED
+                if (fallbackResult == TextToSpeech.LANG_MISSING_DATA ||
+                    fallbackResult == TextToSpeech.LANG_NOT_SUPPORTED
+                ) {
+                    Log.e("JarvisService", "Android default TTS has no available voice for $requestedLocale or US English.")
+                    return false
+                }
+            }
+            tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {
+                    Log.d("JarvisService", "$engineLabel onStart: $utteranceId")
+                }
+
+                override fun onDone(utteranceId: String?) {
+                    Log.d("JarvisService", "$engineLabel onDone: $utteranceId")
+                    handleTtsDone(utteranceId)
+                }
+
+                @Deprecated("Deprecated in Java")
+                override fun onError(utteranceId: String?) {
+                    Log.e("JarvisService", "$engineLabel onError: $utteranceId")
+                    handleTtsDone(utteranceId)
+                }
+
+                override fun onError(utteranceId: String?, errorCode: Int) {
+                    Log.e("JarvisService", "$engineLabel onError: $utteranceId code: $errorCode")
+                    handleTtsDone(utteranceId)
+                }
+            })
+            Log.i("JarvisService", "$engineLabel initialized successfully.")
+            true
+        } catch (error: Exception) {
+            Log.e("JarvisService", "Failed to configure $engineLabel: ${error.message}", error)
+            false
+        }
+    }
+
+    private fun handleTtsDone(utteranceId: String?) {
+        // Robotic system announcements disabled; all speech is handled via natural Gemini Live neural audio.
+    }
+
+    /** Puts the service in the foreground with the microphone type. Returns false when Android refused. */
+    private fun ensureMicrophoneForegroundService(): Boolean {
+        val notification = buildNotification()
+        var combinedTypes = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
+            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+        } else {
+            0
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q &&
+            com.jarvis.assistant.vision.ScreenCaptureManager.getInstance().isSharing.value) {
+            combinedTypes = combinedTypes or android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+        }
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            try {
+                startForeground(NOTIFICATION_ID, notification, combinedTypes)
+                Log.d("JarvisService", "startForeground elevated to types=$combinedTypes")
+                return true
+            } catch (e: Exception) {
+                Log.w("JarvisService", "startForeground with combined types failed: ${e.message}")
+            }
+            try {
+                startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                return true
+            } catch (_: Exception) { }
+            return try {
+                startForeground(NOTIFICATION_ID, notification)
+                true
+            } catch (_: Exception) {
+                false
+            }
+        }
+        startForeground(NOTIFICATION_ID, notification)
+        return true
+    }
+
+    fun elevateToMediaProjection(): Boolean {
+            return activeInstance?.elevateToMediaProjection() == true
+        }
+
+        fun demoteFromMediaProjection() {
+            activeInstance?.demoteFromMediaProjection()
+        }
+
+        fun startScreenCapture(projection: android.media.projection.MediaProjection, metrics: android.util.DisplayMetrics): Boolean {
+            val instance = activeInstance ?: run {
+                projection.stop()
+                return false
+            }
+            if (liveWebSocketReady(instance).not()) {
+                projection.stop()
+                return false
+            }
+            val captureManager = com.jarvis.assistant.vision.ScreenCaptureManager.getInstance()
+            captureManager.onStoppedListener = {
+                activeInstance?.demoteFromMediaProjection()
+            }
+            return captureManager.startCapture(projection, metrics) { jpegBytes ->
+                val frameInstance = activeInstance ?: return@startCapture
+                if (frameInstance.canSendVideoFrame()) {
+                    frameInstance.liveWebSocket?.sendMediaChunk(jpegBytes)
+                }
+            }
+        }
+
+        private fun liveWebSocketReady(instance: JarvisConversationService): Boolean =
+            _isSessionOn.value && instance.liveWebSocket?.isSessionReady() == true
+
+        fun sendImmediateVideoFrame(jpegBytes: ByteArray) {
+            val instance = activeInstance ?: return
+            val ws = instance.liveWebSocket ?: return
+            // Screen imagery is opt-in. Gemini Live accepts concurrent real-time modalities,
+            // including while a response or tool action is in progress.
+            if (!com.jarvis.assistant.vision.ScreenCaptureManager.getInstance().isSharing.value ||
+                !ws.isSessionReady() || jpegBytes.isEmpty()) return
+            ws.sendMediaChunk(jpegBytes)
+        }
+
+        fun stopScreenCapture() {
+            com.jarvis.assistant.vision.ScreenCaptureManager.getInstance().stopCapture()
+            activeInstance?.demoteFromMediaProjection()
+        }
+
+        /** True while a foreground instance of this service exists in any mode. */
+        fun isServiceRunning(): Boolean = activeInstance != null
+
+        fun sendTextMessage(text: String) {
+            val clean = text.trim()
+            if (clean.isBlank()) return
+            // Persist the pending row immediately, but never discard the prompt just
+            // because Android has not created the foreground service or completed
+            // the provider handshake yet.
+            JarvisApp.instance.chatRepository.addTurn(clean, "")
+            pendingTextChatMessages.add(clean)
+            val instance = activeInstance
+            if (instance != null) {
+                if (!_isSessionOn.value) instance.beginActiveConversation()
+                instance.dispatchNextPendingTextChatMessage()
+            }
+        }
+
+        fun cancelActiveTaskFromOverlay() {
+            val service = activeInstance
+            if (service != null) service.cancelAllActiveTools()
+            else com.jarvis.assistant.automation.agent.AgentTaskEngine.requestCancellation()
+        }
+
+        fun startWakeWordMonitoring(context: Context) {
+            JarvisWakeWordService.startService(context)
+        }
+
+        fun stopWakeWordMonitoring(context: Context) {
+            JarvisWakeWordService.stopService(context)
+        }
+    }
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var taskProgressOverlay: com.jarvis.assistant.ui.agent.TaskProgressOverlay? = null
+    private var taskProgressOverlayJob: Job? = null
+    private var overlayPermissionWarningTaskId: String? = null
+    private val preferences by lazy { (applicationContext as JarvisApp).preferences }
+
+    // --- Active-conversation components ---
+    private var audioRecorder: AudioRecorder? = null
+    private var audioPlayer: AudioPlayer? = null
+    private var liveWebSocket: GeminiLiveWebSocket? = null
+    private var inactivityJob: Job? = null
+    private val currentTurnAssistantText = StringBuilder()
+    private val currentTurnUserText = StringBuilder()
+    private var lastUserSpeechDetectedTime = 0L
+    private var lastPlaybackEndTime = 0L
+    private var hasSpeechInCurrentUtterance = false
+    private var hasSignalledUtteranceEnd = false
+    private var consecutiveVoicedFrames = 0
+    private var totalVoicedFramesInCurrentUtterance = 0
+    private var ambientNoiseFloor = 0.03f
+    private var thinkingTimeoutJob: Job? = null
+    private var isPendingBackgroundTransition = false
+    @Volatile
+    private var suppressAudioUntilTurnComplete = false
+    /** Chatbox messages are rendered as text and must never be played through the speaker. */
+    @Volatile private var textChatTurnActive = false
+    @Volatile private var currentTextChatPrompt: String = ""
+    @Volatile private var pendingAuthorizedVoicePrompt: String? = null
+    @Volatile private var pendingAuthorizedVoiceUserText: String? = null
+    @Volatile private var suppressMicUploadUntilVoiceCommandComplete = false
+    @Volatile private var returnToStandbyAfterAuthorizedTurn = false
+    @Volatile
+    private var isExecutingTool = false
+    private val currentUtteranceAudioStream = java.io.ByteArrayOutputStream()
+    @Volatile
+    private var isCurrentTurnOwnerVoiceVerified = false
+    /** True only when THIS turn's audio genuinely matched the enrolled owner voice (a lease alone does not count). */
+    @Volatile private var strictOwnerMatchedThisTurn = false
+    /** Sensitive-tap gate: when a purchase/install tap was last refused, and which speech turn was already confirmed. */
+    @Volatile private var sensitiveConfirmedForSpeechTime = 0L
+    @Volatile
+    private var lastOwnerVerifiedTimestamp = 0L
+    private val preSpeechRingBuffer = java.util.ArrayDeque<ByteArray>(12)
+    private val preConnectAudioQueue = java.util.concurrent.ConcurrentLinkedQueue<ByteArray>()
+    @Volatile
+    private var lastCompletedTaskSummary: String? = null
+    @Volatile private var lastVerifiedCompletionAt = 0L
+    @Volatile
+    private var lastOpenedWebUrl: String? = null
+    @Volatile
+    private var lastOpenedWebTime: Long = 0L
+
+    // Autonomous Multi-Step Chaining Engine
+    @Volatile
+    private var isAutonomousTaskRunning = false
+    @Volatile
+    private var autonomousTaskGoal = ""
+    @Volatile
+    private var bulkEndOfListVerified = false
+    @Volatile
+    private var bulkNoProgressScrollCount = 0
+    private var lastBulkScreenSignature: com.jarvis.assistant.automation.agent.ScreenSignature? = null
+    @Volatile
+    private var autonomousStepCount = 0
+    @Volatile
+    private var autonomousContinuationAttempts = 0
+    @Volatile
+    private var autonomousWaitingForUser = false
+    @Volatile
+    private var autoResumeAwaitingResponse = false
+    @Volatile
+    private var isAutonomousContinuationTurn = false
+    private val autonomousAudioLock = Any()
+    private val autonomousAudioBuffer = mutableListOf<ByteArray>()
+    private var autonomousAudioBufferBytes = 0
+    private val autonomousSpokenFingerprints = mutableListOf<String>()
+    private var autonomousSpokenUpdateCount = 0
+    @Volatile
+    private var lastResponseTimedOut = false
+    @Volatile
+    private var isGoogleFlowCreationTask = false
+    @Volatile
+    private var flowPromptVerified = false
+    @Volatile
+    private var flowGenerationVerified = false
+    @Volatile
+    private var lastVerifiedFlowPrompt = ""
+    private var autonomousLoopJob: Job? = null
+    // Mic voice-activity tuning. Raised so room noise no longer flips LISTENING/THINKING when nobody speaks.
+    private val onDeviceVad = OnDeviceVoiceActivityDetector()
+    private val VAD_MIN_THRESHOLD = 0.05f
+    private val VAD_NOISE_MULTIPLIER = 2.0f
+    private val VAD_START_FRAMES = 5
+    private val VAD_MIN_UTTERANCE_FRAMES = 10
+    // Loop guard: once tripped, ALL automation tools are refused until the user speaks again.
+    @Volatile
+    private var autonomousHardStop = false
+    @Volatile
+    private var consecutiveToolFailures = 0
+    private val MAX_CONSECUTIVE_FAILURES = 4
+    private var lastToolSignature = ""
+    private var sameToolRepeatCount = 0
+    private val toolExecutionMutex = Mutex()
+    private val activeToolJobs = CopyOnWriteArrayList<Job>()
+    private var activeToolJob: Job? = null
+
+    private fun isInstagramBulkTask(): Boolean {
+        val goal = autonomousTaskGoal.lowercase(Locale.ROOT)
+        return com.jarvis.assistant.automation.agent.TaskGoal.fromUserUtterance(goal).isBulkAction &&
+            goal.contains("instagram") &&
+            (goal.contains("like") || goal.contains("liked") || goal.contains("reel"))
+    }
+
+    private fun automationToolTimeoutMs(): Long {
+        val goal = autonomousTaskGoal.ifBlank { currentTurnUserText.toString() }.lowercase(Locale.ROOT)
+        val bulk = com.jarvis.assistant.automation.agent.TaskGoal.fromUserUtterance(goal).isBulkAction
+        return when {
+            bulk && goal.contains("instagram") -> 480_000L
+            goal.contains("spotify") && listOf("play", "bajao", "chalao").any(goal::contains) -> 120_000L
+            else -> 25_000L
+        }
+    }
+
+    private fun expectedPackageForTask(goal: String): String? {
+        val text = goal.lowercase(Locale.ROOT)
+        return when {
+            "instagram" in text -> "instagram"
+            "spotify" in text -> "spotify"
+            "youtube" in text -> "youtube"
+            "amazon" in text -> "amazon"
+            "gmail" in text || "email" in text -> "com.google.android.gm"
+            "whatsapp" in text -> "whatsapp"
+            "where is my train" in text || ("train" in text && ("station" in text || "route" in text || "secunderabad" in text || "kagaznagar" in text)) -> "whereismytrain"
+            "google photos" in text || "photos app" in text -> "photos"
+            "chrome" in text || "browser" in text || "github" in text || "repository" in text || "google search" in text -> "chrome"
+            else -> null
+        }
+    }
+
+    private fun isExplicitContinuationUtterance(text: String): Boolean {
+        val clean = text.lowercase(Locale.ROOT).replace(Regex("[^\\p{L}\\p{N} ]+"), " ")
+            .replace(Regex("\\s+"), " ").trim()
+        if (clean in setOf("yes", "yeah", "yep", "haan", "han", "ok", "okay", "theek hai", "continue", "resume", "go on")) {
+            return true
+        }
+        val hasContinuation = listOf("continue", "resume", "go on", "keep going", "aage badho", "aage karo")
+            .any { containsPhrase(clean, it) }
+        val startsNewTask = listOf("open", "search", "send", "play", "unlike", "delete", "call", "message", "type")
+            .any { containsPhrase(clean, it) }
+        return hasContinuation && !startsNewTask
+    }
+
+    /** Do not block an authorized task merely because the model phrased an update as a question. */
+    private fun assistantNeedsUserDecision(response: String): Boolean {
+        val text = response.lowercase(Locale.ROOT)
+        return listOf(
+            "need your permission", "need permission", "please confirm", "please provide",
+            "which account", "which one", "what should i", "enter the code",
+            "enter otp", "verification code", "approve this"
+        ).any(text::contains)
+    }
+
+    /** Keeps automatic task narration useful and prevents duplicate spoken blockers/statuses. */
+    private fun rememberAutonomousSpokenUpdate(text: String) {
+        val fingerprint = autonomousSpeechFingerprint(text)
+        if (fingerprint.isBlank()) return
+        synchronized(autonomousSpokenFingerprints) {
+            if (autonomousSpokenFingerprints.none { areSimilarAutonomousUpdates(it, fingerprint) }) {
+                autonomousSpokenFingerprints += fingerprint
+                if (autonomousSpokenFingerprints.size > 8) autonomousSpokenFingerprints.removeAt(0)
+                autonomousSpokenUpdateCount++
+            }
+        }
+    }
+
+    private fun shouldSpeakAutonomousUpdate(text: String, isFinalResult: Boolean): Boolean {
+        val candidate = text.ifBlank { lastCompletedTaskSummary.orEmpty() }.trim()
+        if (candidate.isBlank()) return false
+        val fingerprint = autonomousSpeechFingerprint(candidate)
+        if (fingerprint.isBlank()) return false
+        val needsDecision = assistantNeedsUserDecision(candidate)
+        synchronized(autonomousSpokenFingerprints) {
+            val repeated = autonomousSpokenFingerprints.any { areSimilarAutonomousUpdates(it, fingerprint) }
+            if (repeated && !isFinalResult) return false
+            if (autonomousSpokenUpdateCount >= 3 && !isFinalResult && !needsDecision) return false
+            if (!repeated) {
+                autonomousSpokenFingerprints += fingerprint
+                if (autonomousSpokenFingerprints.size > 8) autonomousSpokenFingerprints.removeAt(0)
+                autonomousSpokenUpdateCount++
+            }
+        }
+        return true
+    }
+
+    private fun autonomousSpeechFingerprint(text: String): String {
+        val clean = text.lowercase(Locale.ROOT).replace(Regex("[^\\p{L}\\p{N} ]+"), " ")
+            .replace(Regex("\\s+"), " ").trim()
+        if (clean.isBlank()) return ""
+        if (clean.contains("screen") && (clean.contains("share") || clean.contains("sharing"))) return "screen share status"
+        if (clean.contains("accessibility") || clean.contains("permission")) return "permission status"
+        if (clean.contains("not visible") || clean.contains("can't see") || clean.contains("cannot see") || clean.contains("nothing is showing")) return "screen visibility status"
+        val ignored = setOf("the", "a", "an", "i", "am", "is", "are", "it", "to", "and", "now", "just", "please", "your", "this", "that", "on", "in", "for", "with")
+        return clean.split(' ').filter { it.length > 2 && it !in ignored }.distinct().sorted().joinToString(" ")
+    }
+
+    private fun areSimilarAutonomousUpdates(first: String, second: String): Boolean {
+        if (first == second) return true
+        val a = first.split(' ').filter(String::isNotBlank).toSet()
+        val b = second.split(' ').filter(String::isNotBlank).toSet()
+        if (a.isEmpty() || b.isEmpty()) return false
+        val overlap = a.intersect(b).size.toFloat() / a.union(b).size.toFloat()
+        return overlap >= 0.62f
+    }
+
+    private fun setConversationState(state: ConversationState) {
+        if (_conversationState.value != state) {
+            _conversationState.value = state
+            updateNotification()
+        }
+    }
+
+    /**
+     * Immediately aborts all running and pending tool executions, resetting the automation loop.
+     */
+    fun cancelAllActiveTools() {
+        Log.i("JarvisService", "cancelAllActiveTools: Aborting all active and pending tool calls (${activeToolJobs.size} jobs)")
+        com.jarvis.assistant.automation.agent.AgentTaskEngine.requestCancellation()
+        (application as? JarvisApp)?.commandExecutor?.cancelUnifiedTask()
+        isAutonomousContinuationTurn = false
+        synchronized(autonomousAudioLock) {
+            autonomousAudioBuffer.clear()
+            autonomousAudioBufferBytes = 0
+        }
+        isAutonomousTaskRunning = false
+        autonomousStepCount = 0
+        isGoogleFlowCreationTask = false
+        flowPromptVerified = false
+        flowGenerationVerified = false
+        lastVerifiedFlowPrompt = ""
+        autonomousLoopJob?.cancel()
+        autonomousLoopJob = null
+        for (job in activeToolJobs) {
+            job.cancel()
+        }
+        activeToolJobs.clear()
+        activeToolJob = null
+        isExecutingTool = false
+        com.jarvis.assistant.automation.agent.SerializedActionExecutor.cancelAllPendingActions()
+    }
+
+    // Pending tool call queue: tool calls are queued when owner voice verification hasn't completed yet
+    private data class PendingToolCall(val callId: String, val name: String, val args: JSONObject)
+    private val pendingToolCalls = java.util.concurrent.ConcurrentLinkedQueue<PendingToolCall>()
+
+    /** Real-time video and audio are concurrent input modalities in Gemini Live. */
+    fun canSendVideoFrame(): Boolean {
+        val ws = liveWebSocket ?: return false
+        return com.jarvis.assistant.vision.ScreenCaptureManager.getInstance().isSharing.value && ws.isSessionReady()
+    }
+
+    // --- Standby / wake-word components (Pure Vosk) ---
+    private var voskSpeechService: SpeechService? = null
+    private var voskRecognizer: Recognizer? = null
+    private var heartbeatJob: Job? = null
+    private var lastWakeRecycleAt = 0L
     private val ambientContextStore = com.jarvis.assistant.memory.AmbientConversationContextStore()
     @Volatile private var lastAmbientTranscriptHash = 0
     @Volatile private var lastAmbientTranscriptAt = 0L
@@ -816,8 +1387,16 @@ class JarvisConversationService : Service() {
             stopSelf(startId)
             return START_NOT_STICKY
         }
-        ensureMicrophoneForegroundService()
+        val inForeground = ensureMicrophoneForegroundService()
+        if (!inForeground && intent?.action != ACTION_STOP_ALL) {
+            // Android would not let the service use the microphone from the background. Do not crash: leave a tap-to-resume note.
+            Log.e("JarvisService", "Could not enter the foreground with the microphone; asking the user to tap to resume")
+            WakeKeepAlive.postResumeNotification(this)
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
         acquireWakeLock()
+        startHeartbeat()
 
         when (intent?.action) {
             ACTION_START_CONVERSATION -> {
@@ -3799,7 +4378,13 @@ class JarvisConversationService : Service() {
     // ---------------------------------------------------------------------
 
     private fun enterStandby(announce: Boolean = false) {
-        if (_isStandby.value) return
+        if (_isStandby.value) {
+            // Already in standby: just make sure the wake listener is really alive.
+            if (voskSpeechService == null) startWakeListening()
+            return
+        }
+        WakeKeepAlive.setEnabled(this, true)
+        WakeKeepAlive.clearResumeNotification(this)
         abandonAudioDuckFocus()
         com.jarvis.assistant.audio.JarvisSoundEffects.playStandbySound()
         isPendingBackgroundTransition = false
@@ -3822,12 +4407,58 @@ class JarvisConversationService : Service() {
 
     private fun exitStandbyListening() {
         _isStandby.value = false
-        try {
-            voskSpeechService?.stop()
-        } catch (e: Exception) {
-            Log.e("JarvisService", "Error stopping Vosk SpeechService: ${e.message}")
-        }
+        releaseWakeEngine()
+    }
+
+    /** Stops the wake listener and frees its microphone stream and recognizer, so repeated restarts never leak. */
+    private fun releaseWakeEngine() {
+        val service = voskSpeechService
+        val recognizer = voskRecognizer
         voskSpeechService = null
+        voskRecognizer = null
+        try { service?.stop() } catch (e: Exception) { Log.w("JarvisService", "Stopping the wake listener: ${e.message}") }
+        try { service?.shutdown() } catch (_: Exception) { }
+        try { recognizer?.close() } catch (_: Exception) { }
+    }
+
+    /** Rebuilds the wake listener after a short pause (after an audio error, or as a scheduled refresh). */
+    private fun recycleWakeListening(reason: String, delayMs: Long = 400L) {
+        Log.i("JarvisService", "Restarting the wake listener: $reason")
+        releaseWakeEngine()
+        lastWakeRecycleAt = System.currentTimeMillis()
+        serviceScope.launch(Dispatchers.Main) {
+            delay(delayMs)
+            if (_isStandby.value && voskSpeechService == null) startWakeListening()
+        }
+    }
+
+    /** Every minute: renew the CPU lock, make sure standby is on, and make sure the wake listener is alive and fresh. */
+    private fun startHeartbeat() {
+        if (heartbeatJob?.isActive == true) return
+        heartbeatJob = serviceScope.launch(Dispatchers.Main) {
+            while (isActive) {
+                delay(HEARTBEAT_MS)
+                try { heartbeatTick() } catch (e: Exception) { Log.w("JarvisService", "Heartbeat: ${e.message}") }
+            }
+        }
+    }
+
+    private fun heartbeatTick() {
+        renewWakeLock()
+        if (!WakeKeepAlive.isEnabled(this) || isPhoneCallActive()) return
+        if (!_isSessionOn.value && !_isStandby.value) {
+            Log.w("JarvisService", "Heartbeat: neither a session nor standby is active; returning to standby")
+            enterStandby(announce = false)
+            return
+        }
+        if (_isStandby.value) {
+            if (voskSpeechService == null) {
+                Log.w("JarvisService", "Heartbeat: the wake listener was not running; starting it")
+                startWakeListening()
+            } else if (System.currentTimeMillis() - lastWakeRecycleAt > WAKE_RECYCLE_MS) {
+                recycleWakeListening("scheduled refresh")
+            }
+        }
     }
 
     private fun startWakeListening() {
@@ -3855,6 +4486,7 @@ class JarvisConversationService : Service() {
             val ambientEnabled = preferences.isAmbientContextEnabled
             val rec = if (ambientEnabled) Recognizer(model, 16000.0f)
                 else Recognizer(model, 16000.0f, com.jarvis.assistant.audio.JarvisWakeWordGrammar.VOSK_JSON)
+            voskRecognizer = rec
             rec.setWords(true)
             val spkModel = VoskModelManager.speakerModel
             if (spkModel != null) {
@@ -3864,14 +4496,17 @@ class JarvisConversationService : Service() {
             val service = SpeechService(rec, 16000.0f)
             service.startListening(voskListener)
             voskSpeechService = service
+            lastWakeRecycleAt = System.currentTimeMillis()
             Log.i("JarvisService", if (ambientEnabled) "Local ambient context listening active; provider session closed" else "Strict local wake-word listening active")
         } catch (e: Exception) {
             Log.e("JarvisService", "Failed to start Vosk SpeechService: ${e.message}", e)
-            try {
-                voskSpeechService?.stop()
-            } catch (_: Exception) {}
-            voskSpeechService = null
+            releaseWakeEngine()
             serviceScope.launch { _events.emit("Mic error: ${e.message}") }
+            // Do not give up: the microphone may be busy for a moment (a call, another recorder). Try again soon.
+            serviceScope.launch(Dispatchers.Main) {
+                delay(5_000)
+                if (_isStandby.value && voskSpeechService == null) startWakeListening()
+            }
         }
     }
 
@@ -3891,20 +4526,12 @@ class JarvisConversationService : Service() {
 
         override fun onError(exception: Exception?) {
             Log.e("JarvisService", "Vosk error: ${exception?.message}")
-            if (_isStandby.value) {
-                serviceScope.launch(Dispatchers.Main) {
-                    delay(1500)
-                    if (_isStandby.value && voskSpeechService == null) {
-                        startWakeListening()
-                    }
-                }
-            }
+            // The failed listener object is dead; it must be released before a new one can start.
+            if (_isStandby.value) recycleWakeListening("recognizer error", 1_500L) else releaseWakeEngine()
         }
 
         override fun onTimeout() {
-            if (_isStandby.value && voskSpeechService == null) {
-                startWakeListening()
-            }
+            if (_isStandby.value) recycleWakeListening("recognizer timeout", 300L)
         }
     }
 
@@ -4062,10 +4689,7 @@ class JarvisConversationService : Service() {
             lastAmbientTranscriptAt = 0L
         }
         if (_isStandby.value) {
-            try { voskSpeechService?.stop() } catch (error: Exception) {
-                Log.w("JarvisService", "Standby recognizer restart failed.", error)
-            }
-            voskSpeechService = null
+            releaseWakeEngine()
             startWakeListening()
         }
         updateNotification()
@@ -4094,6 +4718,8 @@ class JarvisConversationService : Service() {
     // ---------------------------------------------------------------------
 
     private fun fullStop() {
+        // An explicit stop: do not bring the listener back by itself.
+        WakeKeepAlive.setEnabled(this, false)
         textOnlySession = false
         stopActiveConversation()
         exitStandbyListening()
@@ -4108,7 +4734,7 @@ class JarvisConversationService : Service() {
         if (wakeLock?.isHeld != true) {
             wakeLock = (getSystemService(POWER_SERVICE) as PowerManager)
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "$packageName:JarvisConversation")
-                .also { it.acquire(6 * 60 * 60 * 1000L) }
+                .also { it.setReferenceCounted(false); it.acquire(WAKE_LOCK_MS) }
         }
         if (wifiLock?.isHeld != true) {
             val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as? android.net.wifi.WifiManager
@@ -4121,6 +4747,12 @@ class JarvisConversationService : Service() {
                 "$packageName:JarvisWifi"
             )?.also { it.acquire() }
         }
+    }
+
+    /** Extends the CPU wake lock; called every heartbeat so it never expires while Jarvis is meant to be listening. */
+    private fun renewWakeLock() {
+        acquireWakeLock()
+        try { wakeLock?.acquire(WAKE_LOCK_MS) } catch (_: Exception) { }
     }
 
     private fun releaseWakeLock() {
@@ -4148,12 +4780,12 @@ class JarvisConversationService : Service() {
             tts?.shutdown()
         } catch (_: Exception) {}
         tts = null
-        try {
-            voskSpeechService?.stop()
-        } catch (_: Exception) {}
-        voskSpeechService = null
+        releaseWakeEngine()
         ambientContextStore.clear()
         releaseWakeLock()
+        // If the system (not the person) ended this service, ask to be started again in a few seconds.
+        if (WakeKeepAlive.isEnabled(this)) WakeKeepAlive.scheduleWatchdog(this, 3_000L)
+        heartbeatJob?.cancel()
         serviceScope.cancel()
         if (activeInstance === this) activeInstance = null
         super.onDestroy()
@@ -5101,6 +5733,8 @@ class JarvisConversationService : Service() {
         acquireWakeLock()
         ensureMicrophoneForegroundService()
         updateNotification()
+        // Some phones kill the whole app when it is cleared from recents: line up a restart just in case.
+        WakeKeepAlive.scheduleWatchdog(this, 4_000L)
         if (!_isSessionOn.value && !_isStandby.value) {
             enterStandby(announce = false)
         }
