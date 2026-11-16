@@ -3,35 +3,60 @@ package com.jarvis.assistant.ui.glass
 import android.annotation.SuppressLint
 import android.view.MotionEvent
 import android.view.View
+import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 
 /**
- * Gives every dock option its own 3D glass bubble (see [DockPodDrawable]) inside the dock's bubble, with its own
- * spring-physics press, liquid ripple and selection glow. The touch listener only watches and never consumes,
- * so clicks and long-presses behave exactly as before.
+ * Gives a control its own 3D glass bubble (see [DockPodDrawable]) with a spring-physics press, a liquid ripple
+ * and a selection glow. Used for the dock options and the ChatBox top bar. The touch listener only watches and never
+ * consumes, so clicks and long-presses behave exactly as before.
  */
 object DockPods {
 
-    private val pods = WeakHashMap<View, DockPodDrawable>()
-
-    /** [circle] makes a round pod of [heightDp]; otherwise a pill up to [maxWidthDp] wide. [offsetYDp] lifts the pod (hero button). */
-    @SuppressLint("ClickableViewAccessibility")
-    fun install(tab: View, heightDp: Float = 46f, maxWidthDp: Float = 56f, circle: Boolean = false, offsetYDp: Float = 0f) {
-        val pod = DockPodDrawable(tab, heightDp, maxWidthDp, circle, offsetYDp)
-        tab.background = pod
-        tab.setTag(LiquidTouch.SKIP_TAG_KEY, true) // the pod does its own press; no second squish on top
-        tab.setOnTouchListener { _, e ->
-            when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> pod.press(e.x, e.y)
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> pod.release()
-            }
-            false
-        }
-        pods[tab] = pod
+    private class Entry(pod: DockPodDrawable, val group: String) {
+        val ref = WeakReference(pod)
     }
 
-    /** Lights the pod of the selected option and eases the others back. */
-    fun setActive(selected: View?) {
-        for ((tab, pod) in pods) pod.setActive(tab === selected)
+    // Weak on both sides: the drawable points at its view, so a strong value would keep every old screen alive.
+    private val pods = WeakHashMap<View, Entry>()
+
+    /**
+     * [circle] makes a round pod of [heightDp]; otherwise a pill up to [maxWidthDp] wide, [padDp] narrower than the view on each side.
+     * [offsetYDp] lifts the pod (hero button). [interactive] = false gives a static pod (no touch listener) for non-clickable badges.
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    fun install(
+        tab: View,
+        heightDp: Float = 46f,
+        maxWidthDp: Float = 56f,
+        circle: Boolean = false,
+        offsetYDp: Float = 0f,
+        padDp: Float = 8f,
+        interactive: Boolean = true,
+        group: String = "dock"
+    ) {
+        val pod = DockPodDrawable(tab, heightDp, maxWidthDp, circle, offsetYDp, padDp)
+        tab.background = pod
+        tab.setTag(LiquidTouch.SKIP_TAG_KEY, true) // the pod does its own press; no second squish or sheen on top
+        if (interactive) {
+            tab.setOnTouchListener { _, e ->
+                when (e.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> pod.press(e.x, e.y)
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> pod.release()
+                }
+                false
+            }
+        }
+        pods[tab] = Entry(pod, group)
+    }
+
+    /** Lights the pod of the selected option in [group] and eases the others of that group back. */
+    fun setActive(selected: View?, group: String = "dock") {
+        for ((tab, entry) in pods) if (entry.group == group) entry.ref.get()?.setActive(tab === selected)
+    }
+
+    /** Switches the glow of one pod on or off without touching the others. */
+    fun setGlow(view: View, on: Boolean) {
+        pods[view]?.ref?.get()?.setActive(on)
     }
 }

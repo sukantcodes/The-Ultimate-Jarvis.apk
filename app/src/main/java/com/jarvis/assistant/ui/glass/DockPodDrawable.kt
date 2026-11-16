@@ -38,7 +38,8 @@ internal class DockPodDrawable(
     private val heightDp: Float,
     private val maxWidthDp: Float,
     private val circle: Boolean,
-    private val offsetYDp: Float
+    private val offsetYDp: Float,
+    private val padDp: Float = 8f
 ) : Drawable() {
 
     private val density = host.resources.displayMetrics.density
@@ -139,7 +140,7 @@ internal class DockPodDrawable(
 
     private fun build(b: Rect) {
         val h = heightDp * density
-        val w = if (circle) h else min(maxWidthDp * density, max(h, b.width() - 8f * density))
+        val w = if (circle) h else min(maxWidthDp * density, max(h, b.width() - padDp * density))
         cx = b.exactCenterX()
         cy = b.exactCenterY() + offsetYDp * density
         pod.set(-w / 2f, -h / 2f, w / 2f, h / 2f)
