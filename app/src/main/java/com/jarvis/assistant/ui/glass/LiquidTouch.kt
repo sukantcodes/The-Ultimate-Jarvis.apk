@@ -1,0 +1,137 @@
+package com.jarvis.assistant.ui.glass
+
+import android.app.Activity
+import android.app.Application
+import android.content.Context
+import android.graphics.drawable.LayerDrawable
+import android.graphics.drawable.RippleDrawable
+import android.os.Bundle
+import android.provider.Settings
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewGroup
+import android.view.Window
+import android.widget.Button
+import android.widget.CompoundButton
+import android.widget.ImageButton
+import androidx.core.graphics.ColorUtils
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.chip.Chip
+import com.jarvis.assistant.JarvisApp
+import com.jarvis.assistant.util.ThemeManager
+
+/**
+ * App-wide liquid touch: installs, once, on every activity
+ *  1. a transparent ripple layer (see [LiquidRippleOverlay]) so every touch spreads as liquid and presses squish like jelly,
+ *  2. a 3D glass-bubble sheen ([Bubble3DSheen]) on every button, applied through the view overlay so no
+ *     background, theme colour or click behaviour of the button is changed.
+ * Both can be switched off from preferences, and both are skipped when the system has animations turned off.
+ */
+object LiquidTouch {
+
+    /** Views carrying this tag as `true` keep their own press animation / sheen and are left alone here. */
+    const val SKIP_TAG_KEY = 0x4A4C5453 // "JLTS"
+    private const val SHEEN_TAG_KEY = 0x4A4C5348 // "JLSH"
+    private const val SCAN_DELAY_MS = 350L
+
+    private var installed = false
+
+    fun install(app: Application) {
+        if (installed) return
+        installed = true
+        app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
+            override fun onActivityStarted(activity: Activity) { attach(activity) }
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+            override fun onActivityResumed(activity: Activity) {}
+            override fun onActivityPaused(activity: Activity) {}
+            override fun onActivityStopped(activity: Activity) {}
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+            override fun onActivityDestroyed(activity: Activity) {}
+        })
+    }
+
+    private fun touchEnabled(): Boolean = try { JarvisApp.instance.preferences.liquidTouchEnabled } catch (_: Throwable) { true }
+    private fun bubbleEnabled(): Boolean = try { JarvisApp.instance.preferences.bubble3dEnabled } catch (_: Throwable) { true }
+
+    private fun animationsOn(context: Context): Boolean = try {
+        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
+    } catch (_: Throwable) { true }
+
+    private fun attach(activity: Activity) {
+        try {
+            val window = activity.window
+            val decor = window.decorView as? ViewGroup ?: return
+            if (window.callback is TouchCallback) return
+            val overlay = LiquidRippleOverlay(activity)
+            decor.addView(overlay, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            window.callback = TouchCallback(window.callback, overlay, activity)
+
+            var scheduled = false
+            val scan = Runnable {
+                scheduled = false
+                if (bubbleEnabled() && animationsOn(activity)) scanForButtons(decor)
+            }
+            decor.viewTreeObserver.addOnGlobalLayoutListener {
+                if (!scheduled) { scheduled = true; decor.postDelayed(scan, SCAN_DELAY_MS) }
+            }
+            scheduled = true
+            decor.postDelayed(scan, SCAN_DELAY_MS)
+        } catch (_: Throwable) {
+            // Visual polish only: never let it break a screen.
+        }
+    }
+
+    /** Watches touches for the ripple layer and hands every event on, unchanged. */
+    private class TouchCallback(
+        private val base: Window.Callback,
+        private val overlay: LiquidRippleOverlay,
+        private val activity: Activity
+    ) : Window.Callback by base {
+        override fun dispatchTouchEvent(event: MotionEvent?): Boolean {
+            if (event != null && touchEnabled() && animationsOn(activity)) {
+                try { overlay.onTouch(event, true) } catch (_: Throwable) {}
+            }
+            return base.dispatchTouchEvent(event)
+        }
+    }
+
+    // ---- 3D bubble sheen on buttons ----
+
+    private fun scanForButtons(view: View) {
+        if (view is LiquidRippleOverlay) return
+        if (view.getTag(SHEEN_TAG_KEY) == null && qualifies(view)) applySheen(view)
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) scanForButtons(view.getChildAt(i))
+        }
+    }
+
+    private fun qualifies(v: View): Boolean {
+        if (v.visibility != View.VISIBLE || v.width == 0 || v.height == 0) return false
+        val isButton = (v is Button && v !is CompoundButton) || v is ImageButton || v is Chip
+        if (!isButton || v.getTag(SKIP_TAG_KEY) == true) return false
+        val d = v.resources.displayMetrics.density
+        if (v.height < 28f * d || v.height > 120f * d || v.background == null) return false
+        if (v is MaterialButton) {
+            val tint = v.backgroundTintList
+            if (tint != null && android.graphics.Color.alpha(tint.defaultColor) < 40) return false // text / outlined buttons
+        }
+        val bg = v.background
+        if (bg is RippleDrawable && bg.numberOfLayers > 0 && try { bg.getDrawable(0) is LayerDrawable } catch (_: Throwable) { false }) return false // already a glass chip
+        return true
+    }
+
+    private fun applySheen(v: View) {
+        val d = v.resources.displayMetrics.density
+        val light = try { ThemeManager.isCurrentThemeLight() } catch (_: Throwable) { false }
+        val corner = (v as? MaterialButton)?.cornerRadius?.toFloat() ?: 0f
+        val sheen = Bubble3DSheen(d, light, corner)
+        sheen.setBounds(0, 0, v.width, v.height)
+        v.overlay.add(sheen)
+        v.setTag(SHEEN_TAG_KEY, sheen)
+        v.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
+            val w = r - l
+            val h = b - t
+            if (w > 0 && h > 0 && (sheen.bounds.width() != w || sheen.bounds.height() != h)) sheen.setBounds(0, 0, w, h)
+        }
+    }
+}

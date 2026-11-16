@@ -354,6 +354,16 @@ class AppPreferences(context: Context) {
         get() = prefs.getInt("liquid_glass_strength", 60).coerceIn(0, 100)
         set(value) = prefs.edit().putInt("liquid_glass_strength", value.coerceIn(0, 100)).apply()
 
+    /** Liquid ripple on every touch plus the jelly squish of pressed buttons. */
+    var liquidTouchEnabled: Boolean
+        get() = prefs.getBoolean("liquid_touch_enabled", true)
+        set(value) = prefs.edit().putBoolean("liquid_touch_enabled", value).apply()
+
+    /** 3D glass-bubble shading on buttons and glass cards. */
+    var bubble3dEnabled: Boolean
+        get() = prefs.getBoolean("bubble_3d_enabled", true)
+        set(value) = prefs.edit().putBoolean("bubble_3d_enabled", value).apply()
+
     var orbAnimation: String
         get() {
             // The Eleptical Orb is the default. Removed orbs (plasma_core, holographic_pulse and their old aliases)

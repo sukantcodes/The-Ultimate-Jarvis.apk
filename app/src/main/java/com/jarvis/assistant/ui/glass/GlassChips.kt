@@ -41,8 +41,20 @@ object GlassChips {
             setStroke((1f * d).toInt().coerceAtLeast(1), 0xB3FFFFFF.toInt())
         }
         val inset = (0.8f * d).toInt()
-        val layers = LayerDrawable(arrayOf(fill, fringe, rim)).apply {
-            setLayerInset(1, inset, inset, 0, 0)
+        // 3D bubble: a convex shade on the lower half and a glossy window across the top.
+        val shade = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(0x00000000, 0x00000000, if (selected) 0x2E000000 else 0x38000000)
+        ).apply { cornerRadius = r }
+        val gloss = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(if (selected) 0x80FFFFFF.toInt() else 0x66FFFFFF, 0x05FFFFFF)
+        ).apply { cornerRadius = r * 0.8f }
+        val layers = LayerDrawable(arrayOf(fill, shade, gloss, fringe, rim)).apply {
+            setLayerInset(2, (r * 0.35f).toInt(), (1.5f * d).toInt(), (r * 0.35f).toInt(), 0)
+            setLayerGravity(2, android.view.Gravity.TOP or android.view.Gravity.FILL_HORIZONTAL)
+            setLayerHeight(2, (r * 0.85f).toInt().coerceAtLeast(1))
+            setLayerInset(3, inset, inset, 0, 0)
         }
         val mask = GradientDrawable().apply { cornerRadius = r; setColor(Color.WHITE) }
         return RippleDrawable(ColorStateList.valueOf(0x40FFFFFF), layers, mask)
@@ -56,6 +68,7 @@ object GlassChips {
      */
     @Suppress("ClickableViewAccessibility")
     fun magnifyOnPress(view: View, scale: Float = 1.16f) {
+        view.setTag(LiquidTouch.SKIP_TAG_KEY, true) // this view already has its own press wobble
         view.setOnTouchListener { v, e ->
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
