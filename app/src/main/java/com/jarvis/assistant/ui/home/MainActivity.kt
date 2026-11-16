@@ -654,14 +654,8 @@ class MainActivity : AppCompatActivity() {
                 // The sliding glass bubble (dockBubble) marks the selected tab; the icon pops inside it.
                 pill.background = null
                 pill.alpha = 1f
-                pill.scaleX = 0.9f
-                pill.scaleY = 0.9f
-                pill.animate()
-                    .scaleX(1.08f)
-                    .scaleY(1.08f)
-                    .setDuration(320)
-                    .setInterpolator(android.view.animation.OvershootInterpolator(2.2f))
-                    .start()
+                pill.animate().cancel()
+                com.jarvis.assistant.ui.glass.ViewSprings.pop(pill, 0.9f, 1.08f)
                 iv.imageTintList = ColorStateList.valueOf(activeTextColor)
                 tv.setTextColor(activeTextColor)
                 tv.alpha = 1f
@@ -669,8 +663,7 @@ class MainActivity : AppCompatActivity() {
                 pill.animate().cancel()
                 pill.setBackgroundResource(0)
                 pill.alpha = 1f
-                pill.scaleX = 1f
-                pill.scaleY = 1f
+                com.jarvis.assistant.ui.glass.ViewSprings.pop(pill, pill.scaleX, 1f, stiffness = 380f, ratio = 0.7f)
                 iv.imageTintList = ColorStateList.valueOf(inactiveColor)
                 tv.setTextColor(inactiveColor)
                 tv.alpha = 0.75f

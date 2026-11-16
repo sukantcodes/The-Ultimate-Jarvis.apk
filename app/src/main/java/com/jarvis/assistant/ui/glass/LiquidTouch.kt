@@ -42,7 +42,17 @@ object LiquidTouch {
         installed = true
         app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             override fun onActivityStarted(activity: Activity) { attach(activity) }
-            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+                // Dialogs and bottom sheets live in their own window, so each gets the same liquid layer when it opens.
+                (activity as? androidx.fragment.app.FragmentActivity)?.supportFragmentManager?.registerFragmentLifecycleCallbacks(
+                    object : androidx.fragment.app.FragmentManager.FragmentLifecycleCallbacks() {
+                        override fun onFragmentStarted(fm: androidx.fragment.app.FragmentManager, f: androidx.fragment.app.Fragment) {
+                            val dialog = (f as? androidx.fragment.app.DialogFragment)?.dialog ?: return
+                            dialog.window?.let { attachWindow(it, dialog.context) }
+                        }
+                    }, true
+                )
+            }
             override fun onActivityResumed(activity: Activity) {}
             override fun onActivityPaused(activity: Activity) {}
             override fun onActivityStopped(activity: Activity) {}
@@ -71,19 +81,20 @@ object LiquidTouch {
         Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
     } catch (_: Throwable) { true }
 
-    private fun attach(activity: Activity) {
+    private fun attach(activity: Activity) = attachWindow(activity.window, activity)
+
+    private fun attachWindow(window: Window, context: Context) {
         try {
-            val window = activity.window
             val decor = window.decorView as? ViewGroup ?: return
             if (window.callback is TouchCallback) return
-            val overlay = LiquidRippleOverlay(activity)
+            val overlay = LiquidRippleOverlay(context)
             decor.addView(overlay, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-            window.callback = TouchCallback(window.callback, overlay, activity)
+            window.callback = TouchCallback(window.callback, overlay, context)
 
             var scheduled = false
             val scan = Runnable {
                 scheduled = false
-                if (bubbleEnabled() && animationsOn(activity)) scanForButtons(decor)
+                if (bubbleEnabled() && animationsOn(context)) scanForButtons(decor)
             }
             decor.viewTreeObserver.addOnGlobalLayoutListener {
                 if (!scheduled) { scheduled = true; decor.postDelayed(scan, SCAN_DELAY_MS) }
@@ -99,13 +110,13 @@ object LiquidTouch {
     private class TouchCallback(
         private val base: Window.Callback,
         private val overlay: LiquidRippleOverlay,
-        private val activity: Activity
+        private val context: Context
     ) : Window.Callback by base {
         override fun dispatchTouchEvent(event: MotionEvent?): Boolean {
             if (event != null) {
                 val ending = event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL
                 // A gesture that started must always be able to finish, even if the setting flipped meanwhile.
-                if (ending || gestureAllowed(activity)) {
+                if (ending || gestureAllowed(context)) {
                     try { overlay.onTouch(event, true) } catch (_: Throwable) {}
                 }
             }
@@ -117,13 +128,34 @@ object LiquidTouch {
 
     private fun scanForButtons(view: View) {
         if (view is LiquidRippleOverlay) return
-        if (view.getTag(SHEEN_TAG_KEY) == null && qualifies(view)) applySheen(view)
+        if (view.getTag(SHEEN_TAG_KEY) == null) {
+            if (qualifiesAsIcon(view)) applyPod(view) else if (qualifies(view)) applySheen(view)
+        }
         if (view is ViewGroup) {
             for (i in 0 until view.childCount) scanForButtons(view.getChildAt(i))
         }
     }
 
+    /** A plain, clickable icon (no background of its own) of a normal icon-button size: it gets its own glass pod. */
+    private fun qualifiesAsIcon(v: View): Boolean {
+        if (v.getTag(SKIP_TAG_KEY) == true || DockPods.autoPod(v) != null) return false
+        val iconLike = v is ImageButton || (v is android.widget.ImageView && v.imageTintList != null)
+        if (!iconLike || !v.isClickable || !v.isEnabled || v.visibility != View.VISIBLE) return false
+        val d = v.resources.displayMetrics.density
+        val w = v.width / d
+        val h = v.height / d
+        if (w < 30f || h < 30f || w > 60f || h > 60f || maxOf(w, h) / minOf(w, h) > 1.35f) return false
+        val bg = v.background
+        return bg == null || (bg is RippleDrawable && bg.numberOfLayers == 0)
+    }
+
+    private fun applyPod(v: View) {
+        val d = v.resources.displayMetrics.density
+        DockPods.installAuto(v, (minOf(v.width, v.height) / d - 4f).coerceIn(28f, 48f))
+    }
+
     private fun qualifies(v: View): Boolean {
+        if (DockPods.autoPod(v) != null) return false
         if (v.visibility != View.VISIBLE || v.width == 0 || v.height == 0) return false
         val isButton = (v is Button && v !is CompoundButton) || v is ImageButton || v is Chip
         if (!isButton || v.getTag(SKIP_TAG_KEY) == true) return false

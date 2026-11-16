@@ -59,6 +59,8 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
     private val lastTrail = HashMap<Int, FloatArray>()
     private val squishes = ArrayList<Squish>()
     private var pressed: Squish? = null
+    private var pressedPod: DockPodDrawable? = null
+    private val tmpLoc = IntArray(2)
 
     private var lastFrame = 0L
     private var light = false
@@ -143,6 +145,8 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         lastTrail.clear()
         pressed?.release()
         pressed = null
+        pressedPod?.release()
+        pressedPod = null
     }
 
     private fun addDrop(d: Drop) {
@@ -155,6 +159,12 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
     private fun pressUnder(rawX: Float, rawY: Float) {
         val root = parent as? ViewGroup ?: return
         val target = findPressable(root, rawX.toInt(), rawY.toInt()) ?: return
+        DockPods.autoPod(target)?.let { pod ->
+            target.getLocationOnScreen(tmpLoc)
+            pod.press(rawX - tmpLoc[0], rawY - tmpLoc[1])
+            pressedPod = pod
+            return
+        }
         if (kotlin.math.abs(target.scaleX - 1f) > 0.02f || kotlin.math.abs(target.scaleY - 1f) > 0.02f) return
         val small = max(target.width, target.height) < 56f * density
         val sq = Squish(target, if (small) 0.9f else 0.955f, if (small) 0.88f else 0.925f)

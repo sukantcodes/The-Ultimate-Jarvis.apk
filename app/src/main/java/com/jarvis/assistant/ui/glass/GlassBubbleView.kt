@@ -1,6 +1,7 @@
 package com.jarvis.assistant.ui.glass
 
 import android.animation.ValueAnimator
+import android.os.SystemClock
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -39,8 +40,11 @@ class GlassBubbleView @JvmOverloads constructor(
     private var restWidth = 1f
     private var shown = false
     private var target: View? = null
-    private var animL: ValueAnimator? = null
-    private var animR: ValueAnimator? = null
+    private var springL: SpringF? = null
+    private var springR: SpringF? = null
+    private var gliding = false
+    private var lastFrame = 0L
+    private val frame = Runnable { stepGlide() }
     private var tint = 0
 
     private val body = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -63,7 +67,7 @@ class GlassBubbleView @JvmOverloads constructor(
 
     private val layoutListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
         val t = target ?: return@OnLayoutChangeListener
-        if (animL?.isRunning != true && animR?.isRunning != true) snapTo(t)
+        if (!gliding) snapTo(t)
     }
 
     /** Moves the bubble to [tab]. The first call places it without animation. */
@@ -94,23 +98,41 @@ class GlassBubbleView @JvmOverloads constructor(
     }
 
     private fun glideTo(newL: Float, newR: Float) {
-        animL?.cancel(); animR?.cancel()
         val toRight = (newL + newR) > (left + right)
         restWidth = max(1f, newR - newL)
-        val lead = 230L
-        val trail = 360L
-        animL = ValueAnimator.ofFloat(left, newL).apply {
-            duration = if (toRight) trail else lead
-            interpolator = if (toRight) DecelerateInterpolator(1.4f) else OvershootInterpolator(1.6f)
-            addUpdateListener { left = it.animatedValue as Float; invalidate() }
-            start()
+        // Two springs, one per edge: the leading edge is stiff and overshoots a little, the trailing edge is soft and
+        // lags behind, so the bubble stretches as it travels and then pulls itself together. A tap during a glide
+        // keeps the current speed of both edges, so the motion never jerks.
+        val kLead = 520f
+        val kTrail = 230f
+        val lead = SpringF.damping(kLead, 0.66f)
+        val trail = SpringF.damping(kTrail, 0.8f)
+        val oldVl = springL?.velocity ?: 0f
+        val oldVr = springR?.velocity ?: 0f
+        springL = SpringF(left, newL, if (toRight) kTrail else kLead, if (toRight) trail else lead).also { it.velocity = oldVl }
+        springR = SpringF(right, newR, if (toRight) kLead else kTrail, if (toRight) lead else trail).also { it.velocity = oldVr }
+        if (!gliding) {
+            gliding = true
+            lastFrame = SystemClock.uptimeMillis()
+            postOnAnimation(frame)
         }
-        animR = ValueAnimator.ofFloat(right, newR).apply {
-            duration = if (toRight) lead else trail
-            interpolator = if (toRight) OvershootInterpolator(1.6f) else DecelerateInterpolator(1.4f)
-            addUpdateListener { right = it.animatedValue as Float; invalidate() }
-            start()
+    }
+
+    private fun stepGlide() {
+        val l = springL ?: run { gliding = false; return }
+        val r = springR ?: run { gliding = false; return }
+        val now = SystemClock.uptimeMillis()
+        val dt = ((now - lastFrame) / 1000f).coerceIn(0.001f, 0.033f)
+        lastFrame = now
+        l.step(dt); r.step(dt)
+        if (l.atRest(0.05f) && r.atRest(0.05f)) {
+            left = l.target; right = r.target
+            gliding = false
+        } else {
+            left = l.value; right = r.value
+            postOnAnimation(frame)
         }
+        invalidate()
     }
 
     override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
@@ -182,7 +204,8 @@ class GlassBubbleView @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
-        animL?.cancel(); animR?.cancel()
+        removeCallbacks(frame)
+        gliding = false
         target?.removeOnLayoutChangeListener(layoutListener)
         super.onDetachedFromWindow()
     }

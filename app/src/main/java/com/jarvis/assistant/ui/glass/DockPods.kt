@@ -50,6 +50,20 @@ object DockPods {
         pods[tab] = Entry(pod, group)
     }
 
+    private const val AUTO_KEY = 0x4A4C4150 // "JLAP"
+
+    /**
+     * A pod for a plain icon button found anywhere in the app. It sets no touch listener of its own (it must not replace one the
+     * screen already has): the window-level touch feed presses and releases it, see [autoPod].
+     */
+    fun installAuto(view: View, sizeDp: Float) {
+        val pod = DockPodDrawable(view, sizeDp, sizeDp, true, 0f, 0f)
+        view.background = pod
+        view.setTag(AUTO_KEY, pod)
+    }
+
+    fun autoPod(view: View): DockPodDrawable? = view.getTag(AUTO_KEY) as? DockPodDrawable
+
     /** Lights the pod of the selected option in [group] and eases the others of that group back. */
     fun setActive(selected: View?, group: String = "dock") {
         for ((tab, entry) in pods) if (entry.group == group) entry.ref.get()?.setActive(tab === selected)
