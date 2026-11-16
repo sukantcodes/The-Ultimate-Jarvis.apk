@@ -53,6 +53,7 @@ class UpdatesFragment : Fragment() {
         val badge = binding.tvVersionBadge
         badge.text = "v" + BuildConfig.VERSION_NAME
         badge.contentDescription = "JARVIS version " + BuildConfig.VERSION_NAME
+        com.jarvis.assistant.ui.glass.DockPods.install(badge, heightDp = 30f, maxWidthDp = 240f, padDp = 0f, interactive = false, group = "updates")
     }
 
     private fun renderFeatureUpdates() {
@@ -222,6 +223,7 @@ class UpdatesFragment : Fragment() {
         card.addView(status)
         card.addView(progress)
         card.addView(install)
+        com.jarvis.assistant.ui.glass.LiquidTouch.decorate(card, dp(20).toFloat(), 0.6f)
 
         install.setOnClickListener {
             install.isEnabled = false
@@ -323,6 +325,7 @@ class UpdatesFragment : Fragment() {
                 setStroke(dp(1), item.accent)
             }
         }
+        com.jarvis.assistant.ui.glass.LiquidTouch.decorate(tag, 0f, 0.9f, item.accent)
         topLine.addView(category)
         topLine.addView(tag)
         body.addView(topLine)
@@ -350,6 +353,7 @@ class UpdatesFragment : Fragment() {
         cardRow.addView(edge)
         cardRow.addView(body)
         card.addView(cardRow)
+        com.jarvis.assistant.ui.glass.LiquidTouch.decorate(card, dp(19).toFloat(), 0.6f, item.accent)
         return card
     }
 

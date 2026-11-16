@@ -196,10 +196,19 @@ object LiquidTouch {
         return true
     }
 
-    private fun applySheen(v: View, cornerOverride: Float? = null, intensity: Float = 1f) {
+    /**
+     * Gives a view built in code (for example the Updates cards) the same 3D bubble look. [accent] tints the pooled light, so each
+     * card can glow in its own colour. Safe to call before the view is laid out.
+     */
+    fun decorate(v: View, cornerPx: Float, intensity: Float = 0.55f, accent: Int? = null) {
+        if (v.getTag(SHEEN_TAG_KEY) != null || !bubbleEnabled()) return
+        try { applySheen(v, cornerPx, intensity, accent) } catch (_: Throwable) {}
+    }
+
+    private fun applySheen(v: View, cornerOverride: Float? = null, intensity: Float = 1f, accentOverride: Int? = null) {
         val d = v.resources.displayMetrics.density
         val light = try { ThemeManager.isCurrentThemeLight() } catch (_: Throwable) { false }
-        val accent = try { ThemeManager.getThemeAccentColor() } catch (_: Throwable) { android.graphics.Color.WHITE }
+        val accent = accentOverride ?: try { ThemeManager.getThemeAccentColor() } catch (_: Throwable) { android.graphics.Color.WHITE }
         val corner = cornerOverride ?: ((v as? MaterialButton)?.cornerRadius?.toFloat() ?: 0f)
         val sheen = Bubble3DSheen(d, light, corner, intensity, accent)
         sheen.setBounds(0, 0, v.width, v.height)

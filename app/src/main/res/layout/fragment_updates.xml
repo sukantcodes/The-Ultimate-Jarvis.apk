@@ -10,59 +10,79 @@
     android:paddingTop="24dp"
     android:paddingBottom="100dp">
 
-    <!-- Header -->
-    <LinearLayout
+    <!-- Header: a liquid glass bubble; the version sits in its own 3D pod -->
+    <com.jarvis.assistant.ui.glass.LiquidGlassLayout
         android:id="@+id/layoutUpdatesHeader"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:layout_height="88dp"
+        app:lgCornerRadius="32dp"
+        app:lgBlur="12"
+        app:lgDistortionScale="-220"
+        app:lgGreenOffset="28"
+        app:lgBlueOffset="40"
+        app:lgRefraction="18"
+        app:lgBezel="20"
+        app:lgVeil="0.10"
         app:layout_constraintTop_toTopOf="parent">
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:clipChildren="false"
+            android:paddingStart="24dp"
+            android:paddingEnd="18dp">
 
-            <TextView
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Updates"
-                android:textColor="?attr/themeTextPrimary"
-                android:textSize="28sp"
-                android:textStyle="bold"
-                android:fontFamily="sans-serif-medium" />
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Updates"
+                    android:textColor="?attr/themeTextPrimary"
+                    android:textSize="26sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Jarvis updates &amp; announcements"
+                    android:textColor="?attr/themeTextMuted"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/tvVersionBadge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@drawable/bg_updates_version_pill"
                 android:fontFamily="sans-serif-medium"
                 android:gravity="center"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="7dp"
+                android:paddingBottom="7dp"
                 android:text="v1.8.7"
                 android:textColor="?attr/themeAccent"
                 android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Jarvis updates &amp; announcements"
-            android:textColor="?attr/themeTextMuted"
-            android:textSize="13sp"
-            android:fontFamily="sans-serif"
-            android:layout_marginTop="4dp" />
-    </LinearLayout>
+    </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
 
     <!-- Hairline divider under the header -->
     <View
         android:id="@+id/viewHeaderDivider"
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:layout_marginTop="14dp"
+        android:layout_marginTop="6dp"
+        android:visibility="invisible"
         android:background="?attr/themeCardBorder"
         app:layout_constraintTop_toBottomOf="@id/layoutUpdatesHeader" />
 
