@@ -49,6 +49,11 @@ class ChatItemAnimator : DefaultItemAnimator() {
         }
         v.setTag(TAG, a)
         a.start()
+        // Once the bubble has landed, a band of light slides across its glass.
+        val glass = v.findViewById<View>(com.jarvis.assistant.R.id.layoutAssistantGlass)?.takeIf { it.visibility == View.VISIBLE }
+        val user = v.findViewById<View>(com.jarvis.assistant.R.id.tvUserMessage)?.takeIf { it.visibility == View.VISIBLE }
+        val target = glass ?: user
+        if (target != null) GlassMotion.sweep(target, if (glass != null) 24f else 20f, delayMs = 160L)
     }
 
     override fun onAddFinished(item: RecyclerView.ViewHolder) {

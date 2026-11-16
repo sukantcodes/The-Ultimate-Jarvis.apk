@@ -557,6 +557,7 @@ class ChatFragment : Fragment() {
             input.hint = workModeHint()
             return
         }
+        GlassMotion.sweep(binding.cardInputContainer, 30f)
         val from = (bar.background as? android.graphics.drawable.ColorDrawable)?.color ?: color
         android.animation.ValueAnimator.ofObject(android.animation.ArgbEvaluator(), from, color).apply {
             duration = 380

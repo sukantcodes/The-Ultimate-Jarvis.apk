@@ -196,9 +196,21 @@ class JarvisChatAdapter(
          * indicator without touching user bubble, attachments, or triggering full view re-layouts.
          */
         fun bindResponseUpdate(turn: ChatTurn) {
+            val firstText = binding.layoutAssistantContainer.visibility != View.VISIBLE
             binding.layoutThinking.visibility = View.GONE
             renderAssistantContent(turn, isStreaming = true)
             syncGlass()
+            if (firstText && binding.layoutAssistantContainer.visibility == View.VISIBLE && GlassMotion.animationsOn(binding.root)) {
+                // The first words come into focus on the glass: they rise and clear while a band of light crosses the panel.
+                val c = binding.layoutAssistantContainer
+                val d = binding.root.resources.displayMetrics.density
+                c.animate().cancel()
+                c.alpha = 0f
+                c.translationY = 10f * d
+                c.animate().alpha(1f).translationY(0f).setDuration(380L)
+                    .setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)).start()
+                GlassMotion.sweep(binding.layoutAssistantGlass, 24f, delayMs = 60L)
+            }
         }
 
         /** Shows or updates the inline activity (spinner, steps, progress) for this turn. Returns true when it is shown. */

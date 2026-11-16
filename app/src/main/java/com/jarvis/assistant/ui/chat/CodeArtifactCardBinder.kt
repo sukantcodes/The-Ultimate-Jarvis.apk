@@ -25,6 +25,7 @@ object CodeArtifactCardBinder {
         var userToggled = false
         var entered = false
         var ticker: Runnable? = null
+        var glint: GlassMotion.Sheen? = null
     }
 
     private val ui = Handler(Looper.getMainLooper())
@@ -76,14 +77,11 @@ object CodeArtifactCardBinder {
             binding.tvWritingStatus.text = label
             binding.tvWritingStatus.setTextColor(workType.getDynamicColor())
             binding.tvWritingStatus.background = ContextCompat.getDrawable(context, R.drawable.bg_code_writing_badge)
-            val pulse = AlphaAnimation(0.35f, 1.0f).apply {
-                duration = 650
-                repeatMode = Animation.REVERSE
-                repeatCount = Animation.INFINITE
-            }
-            binding.tvWritingStatus.startAnimation(pulse)
+            binding.tvWritingStatus.clearAnimation()
+            GlassMotion.breathe(binding.tvWritingStatus)
         } else {
             binding.tvWritingStatus.clearAnimation()
+            GlassMotion.stopBreathe(binding.tvWritingStatus)
             binding.tvWritingStatus.visibility = View.VISIBLE
             val statusDone = workType.doneBadgeText(targetName.ifBlank { baseLang })
             binding.tvWritingStatus.text = statusDone
@@ -133,8 +131,12 @@ object CodeArtifactCardBinder {
         binding.btnToggleMiniTerminal.setOnClickListener {
             state.userToggled = true
             val willShow = binding.layoutMiniTerminal.visibility != View.VISIBLE
-            binding.layoutMiniTerminal.visibility = if (willShow) View.VISIBLE else View.GONE
-            updateToggleText()
+            GlassMotion.setExpanded(binding.layoutMiniTerminal, willShow, animate = true)
+            binding.tvToggleTagText.animate().cancel()
+            binding.tvToggleTagText.animate().rotationBy(180f).setDuration(240L).withEndAction {
+                binding.tvToggleTagText.rotation = 0f
+                updateToggleText()
+            }.start()
         }
 
         if (isWriting) {
@@ -142,12 +144,21 @@ object CodeArtifactCardBinder {
             binding.tvPreviewCode.minLines = windowLines
             binding.tvPreviewLineNumbers.minLines = windowLines
             binding.tvPreviewCode.maxLines = windowLines
-            if (!state.userToggled) binding.layoutMiniTerminal.visibility = View.VISIBLE
+            if (!state.userToggled) GlassMotion.setExpanded(binding.layoutMiniTerminal, true, animate = state.entered)
             if (!state.entered) {
                 state.entered = true
                 binding.root.alpha = 0f
-                binding.root.translationY = 12f * density
-                binding.root.animate().alpha(1f).translationY(0f).setDuration(220).start()
+                binding.root.translationY = 16f * density
+                binding.root.scaleX = 0.975f
+                binding.root.scaleY = 0.975f
+                binding.root.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(420)
+                    .setInterpolator(android.view.animation.PathInterpolator(0.18f, 0.9f, 0.22f, 1.06f)).start()
+            }
+            // While code is being written, a slow band of light keeps travelling across the glass card.
+            if (state.glint == null) binding.root.post {
+                if (binding.root.tag === state && state.glint == null && state.wasWriting) {
+                    state.glint = GlassMotion.Sheen(binding.root, 18f, loop = true).also { it.start() }
+                }
             }
             state.shown = if (code.startsWith(state.lastCode)) minOf(state.shown, total) else 0
             state.lastCode = code
@@ -170,8 +181,16 @@ object CodeArtifactCardBinder {
             state.lastCode = code
             state.shown = total
             render(0, minOf(total, windowLines), cursor = false)
+            val justFinished = state.wasWriting
+            state.glint?.stop()
+            state.glint = null
+            if (justFinished) {
+                // Done: one bright sweep over the card and the badge pops, then the window folds away.
+                GlassMotion.sweep(binding.root, 18f)
+                GlassMotion.pop(binding.tvWritingStatus)
+            }
             // Finished work collapses to a one-line header so the conversation stays compact; tap to reopen.
-            if (!state.userToggled) binding.layoutMiniTerminal.visibility = View.GONE
+            if (!state.userToggled) GlassMotion.setExpanded(binding.layoutMiniTerminal, false, animate = justFinished)
             state.wasWriting = false
         }
         updateToggleText()
