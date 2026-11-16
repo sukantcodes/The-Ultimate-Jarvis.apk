@@ -468,8 +468,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupNavigationDock() {
-        listOf(binding.tabHome, binding.tabChat, binding.tabCameraScan, binding.tabUpdates).forEach { GlassChips.magnifyOnPress(it, 1.14f) }
-        GlassChips.magnifyOnPress(binding.tabMic, 1.18f)
+        // Every option is its own 3D glass bubble inside the dock bubble, with a springy press and a liquid ripple.
+        listOf(binding.tabHome, binding.tabChat, binding.tabCameraScan, binding.tabUpdates).forEach { com.jarvis.assistant.ui.glass.DockPods.install(it) }
+        com.jarvis.assistant.ui.glass.DockPods.install(binding.tabMic, heightDp = 62f, circle = true, offsetYDp = -8f)
         binding.tabHome.setOnClickListener { selectTab(TAB_HOME) }
         binding.tabChat.setOnClickListener { selectTab(TAB_CHAT) }
         binding.tabUpdates.setOnClickListener { selectTab(TAB_UPDATES) }
@@ -678,6 +679,14 @@ class MainActivity : AppCompatActivity() {
 
         binding.dockBubble.setTint(activeColor)
         binding.dockBubble.attachTo(
+            when (tab) {
+                TAB_HOME -> binding.tabHome
+                TAB_CHAT -> binding.tabChat
+                TAB_UPDATES -> binding.tabUpdates
+                else -> null
+            }
+        )
+        com.jarvis.assistant.ui.glass.DockPods.setActive(
             when (tab) {
                 TAB_HOME -> binding.tabHome
                 TAB_CHAT -> binding.tabChat
