@@ -25,6 +25,8 @@ interface TerminalBackend {
     val name: String
     /** Path of the shell used, for display. */
     val shell: String
+    /** True when commands run in another app's environment (Termux): its folders are not this app's folders. */
+    val isRemote: Boolean get() = false
     /** The environment a command starts with. Built from an allow-list, never copied from the app's own environment. */
     fun environment(workspaceRoot: File): Map<String, String>
     /** Starts [script] (a shell script text) in [cwd]. Output (stdout and stderr merged) is delivered to [onOutput]. */

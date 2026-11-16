@@ -30,6 +30,10 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.tools.ToolRuntime
 import com.jarvis.assistant.tools.terminal.CommandGuard
+import com.jarvis.assistant.tools.terminal.PackageCommand
+import com.jarvis.assistant.tools.terminal.PackagePlan
+import com.jarvis.assistant.tools.terminal.SwitchingBackend
+import com.jarvis.assistant.tools.terminal.TermuxBackend
 import com.jarvis.assistant.tools.terminal.TerminalEnvironment
 import com.jarvis.assistant.tools.terminal.TerminalManager
 import com.jarvis.assistant.tools.terminal.TerminalSession
@@ -190,6 +194,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
             refreshOutput(forceBottom = true)
             return
         }
+        if (PackageCommand.handles(command)) { handlePackageCommand(session, command); return }
         val verdict = m.guard.classify(command)
         if (verdict.verdict == CommandGuard.Verdict.BLOCKED) {
             session.note("\n⛔ Refused: ${verdict.summary}. This command is never run.\n")
@@ -218,6 +223,60 @@ class JarvisTerminalActivity : AppCompatActivity() {
             }
             session.note(footer + "\n")
         }
+    }
+
+    /** `pkg install git`, `jpkg install gemini` and friends: turned into real installs in Termux. */
+    private fun handlePackageCommand(session: TerminalSession, command: String) {
+        val plan = PackageCommand.parse(command) ?: return
+        session.note("\n${session.relativeCwd()} $ $command\n")
+        val installed = TermuxBackend.isInstalled(this)
+        when (plan) {
+            is PackagePlan.Show -> session.note(plan.text + "\n")
+            is PackagePlan.Engine -> {
+                if (plan.termux && !installed) { session.note(PackageCommand.termuxRequiredText(false) + "\n"); return }
+                SwitchingBackend.setTermux(this, plan.termux)
+                session.note(if (plan.termux)
+                    "Engine: Termux. Commands now run in real Linux (git, node, npm, python, pkg).\nTermux needs allow-external-apps=true and the \"Run commands in Termux\" permission; if a command is refused, see: jpkg setup\nOutput appears when a command finishes. Commands start in ~/jarvis-workspace inside Termux.\n"
+                else "Engine: app shell (small, no installs).\n")
+                refreshOutput(forceBottom = true)
+            }
+            is PackagePlan.Run -> {
+                if (!SwitchingBackend.useTermux(this)) { session.note(PackageCommand.termuxRequiredText(installed) + "\n"); return }
+                session.note(plan.summary + "\n(Output appears when it finishes. Large installs can take several minutes.)\n")
+                runScope.launch {
+                    val r = session.run(plan.script, INSTALL_TIMEOUT_MS)
+                    session.note(when {
+                        r.rejected != null -> "⚠ ${r.rejected}"
+                        r.timedOut -> "[stopped: it ran longer than ${INSTALL_TIMEOUT_MS / 60_000} minutes]"
+                        r.cancelled -> "[stopped]"
+                        r.exitCode == 0 -> "✔ finished [${"%.1f".format(r.elapsedMs / 1000.0)} s]"
+                        else -> "✖ failed [exit code ${r.exitCode}]"
+                    } + "\n")
+                }
+            }
+        }
+    }
+
+    /** A checklist of ready-made tools and AI command-line tools; the chosen ones are installed in one go. */
+    private fun showToolPicker() {
+        val items = PackageCommand.catalog
+        val labels = items.map { "${it.title} - ${it.description}" }.toTypedArray()
+        val chosen = BooleanArray(items.size)
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Install tools")
+            .setMultiChoiceItems(labels, chosen) { _, i, on -> chosen[i] = on }
+            .setPositiveButton("Install") { _, _ ->
+                val keys = items.filterIndexed { i, _ -> chosen[i] }.map { it.key }
+                if (keys.isEmpty()) return@setPositiveButton
+                input.setText("jpkg install " + keys.joinToString(" "))
+                submit()
+            }
+            .setNeutralButton(if (SwitchingBackend.useTermux(this)) "Use app shell" else "Use Termux") { _, _ ->
+                input.setText(if (SwitchingBackend.useTermux(this)) "jpkg engine app" else "jpkg engine termux")
+                submit()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun stopRunning() {
@@ -350,6 +409,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
         }
         keys.addView(bgChip)
         keys.addView(chip("Clear", false).apply { setOnClickListener { current?.let { s -> manager?.clear(s.id); refreshOutput(true) } } })
+        keys.addView(chip("Tools", false).apply { setOnClickListener { showToolPicker() } })
         keys.addView(chip("ls", false).apply { setOnClickListener { input.setText("ls -la"); input.setSelection(input.text?.length ?: 0) } })
         root.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(keys) })
 
@@ -423,6 +483,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
 
     private companion object {
         const val COMMAND_TIMEOUT_MS = 15 * 60_000L
+        const val INSTALL_TIMEOUT_MS = 40 * 60_000L
         const val MAX_SHOWN_CHARS = 60_000
         /** Commands run here, not on the screen's lifecycle, so closing the screen does not stop them. */
         val runScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)

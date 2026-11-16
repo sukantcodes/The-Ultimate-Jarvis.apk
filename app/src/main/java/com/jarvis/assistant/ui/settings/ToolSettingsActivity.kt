@@ -199,6 +199,15 @@ class ToolSettingsActivity : AppCompatActivity() {
         c.addView(UiKit.text(this, "Size: ${size / 1024} KB", 13f))
         val t = rt.terminal
         c.addView(UiKit.text(this, if (t != null) "Terminal: ${t.backend.name} (${t.backend.shell}). Programs such as git, node or python work only if they are installed on this device." else "Terminal: no shell was found on this device.", 13f))
+        val termuxInstalled = com.jarvis.assistant.tools.terminal.TermuxBackend.isInstalled(this)
+        val termuxSwitch = Switch(this).apply {
+            text = "Run commands in Termux (git, node, npm, python, pkg)" + if (termuxInstalled) "" else " (Termux not installed)"
+            isChecked = com.jarvis.assistant.tools.terminal.SwitchingBackend.useTermux(this@ToolSettingsActivity)
+            isEnabled = termuxInstalled
+        }
+        termuxSwitch.setOnCheckedChangeListener { _, on -> com.jarvis.assistant.tools.terminal.SwitchingBackend.setTermux(this, on); toast(if (on) "Terminal now uses Termux." else "Terminal now uses the app shell."); render() }
+        c.addView(termuxSwitch)
+        c.addView(UiKit.text(this, "With Termux on, type  pkg install git nodejs  or  jpkg ai  in the Jarvis Terminal. One-time setup: " + com.jarvis.assistant.tools.terminal.TermuxBridgeSpec().userSetupSteps.joinToString(" ") + " Output appears when a command ends.", 12f, muted = true))
         c.addView(UiKit.text(this, "Termux: not connected. Running commands in Termux needs its RUN_COMMAND permission and the allow-external-apps setting turned on; the app shell above is used instead.", 12f, muted = true))
         val running = rt.servers.servers.running()
         c.addView(UiKit.text(this, if (running.isEmpty()) "No website previews are running." else "Previews: " + running.entries.joinToString { "${it.key} → ${it.value.url}" }, 13f))

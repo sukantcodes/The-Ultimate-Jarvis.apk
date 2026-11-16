@@ -82,7 +82,9 @@ object ToolRuntime {
         val gh = GitHubClient(transport, tokens, redactor, JavaNetDownloader())
         GitHubTools.all(gh, InstalledSkillRegistry(File(workspace.root, ".jarvis/skills.json")), tokens).forEach(registry::register)
 
-        val terminal = try { TerminalManager(workspace, ProcessBackend(), redactor) } catch (e: Exception) { null }
+        com.jarvis.assistant.tools.image.ImageTools.all(com.jarvis.assistant.tools.image.ImageRuntime.service(app)) { workspace }.forEach(registry::register)
+
+        val terminal = try { TerminalManager(workspace, com.jarvis.assistant.tools.terminal.SwitchingBackend(app), redactor) } catch (e: Exception) { null }
         terminal?.let { TerminalTools.all(it).forEach(registry::register) }
         com.jarvis.assistant.tools.chat.ChatAccessTools.all { com.jarvis.assistant.JarvisApp.instance.chatRepository }.forEach(registry::register)
         com.jarvis.assistant.automation.maps.MapsTools.all(

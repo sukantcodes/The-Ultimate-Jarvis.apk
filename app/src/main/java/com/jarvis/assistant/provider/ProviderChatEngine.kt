@@ -144,6 +144,8 @@ class ProviderChatEngine(
     ): SendOutcome {
         synchronized(lock) {
             if (isBusy) return SendOutcome.Busy
+            // The picture the person just attached is what "edit this" means.
+            com.jarvis.assistant.tools.image.ImageSession.noteAttachment(attachmentRef?.path, attachmentRef?.mimeType)
             // "continue" after an interrupted job carries that job on; it is never treated as a brand-new request.
             val workMode = mode ?: modeProvider?.invoke() ?: ChatWorkMode.DEFAULT
             val continueExtra = if (workMode.usesTools && attachments.isEmpty() && attachmentRef == null && sendText == displayText) ContinueIntent.match(displayText) else null

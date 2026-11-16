@@ -231,7 +231,8 @@ class ChatFragment : Fragment() {
                 putExtra(ChatAttachmentPreviewActivity.EXTRA_NAME, name)
                 putExtra(ChatAttachmentPreviewActivity.EXTRA_MIME, mime)
             })
-        }
+        },
+        onEditImage = { path -> attachPictureForEdit(path) }
     )
 
     override fun onCreateView(
@@ -743,8 +744,98 @@ class ChatFragment : Fragment() {
         }
     }
 
+    /** Puts a picture Jarvis made into the message box as the attachment to change, and asks what to change. */
+    private fun attachPictureForEdit(path: String) {
+        val file = File(path)
+        if (_binding == null || !file.isFile) return
+        selectedDocument = DocumentAnalysisClient.SelectedDocument(Uri.fromFile(file), file.name, com.jarvis.assistant.tools.image.ImageGenProtocol.mimeFor(file.name), file.absolutePath)
+        updateAttachmentPreview()
+        binding.etMessageInput.hint = "Tell JARVIS what to change in this picture…"
+        binding.etMessageInput.requestFocus()
+        val keyboard = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        keyboard.showSoftInput(binding.etMessageInput, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    /**
+     * A clear picture request ("draw a cat on the moon", or an attached photo plus "remove the background") is done
+     * right away, in every chat mode and with every provider, and the finished picture appears in the chat by itself.
+     * Returns true when the message was handled here.
+     */
+    private fun tryImageShortcut(text: String): Boolean {
+        val document = selectedDocument
+        val isImage = document != null && (document.mimeType.startsWith("image/") ||
+            document.name.substringAfterLast('.', "").lowercase() in com.jarvis.assistant.tools.image.ImageSession.IMAGE_EXTENSIONS)
+        val kind = com.jarvis.assistant.tools.image.ImageIntent.classify(text, isImage)
+        if (kind == com.jarvis.assistant.tools.image.ImageIntent.Kind.NONE) return false
+        val app = requireContext().applicationContext
+        if (providerEngine.isBusy || fileAnalysisJob != null) {
+            Toast.makeText(app, "JARVIS is still working. Stop it first or wait for it to finish.", Toast.LENGTH_SHORT).show()
+            return true
+        }
+        if (JarvisApp.instance.preferences.apiKey.isBlank()) {
+            Toast.makeText(app, "Add your Gemini (Google AI Studio) API key in Settings to create and edit pictures.", Toast.LENGTH_LONG).show()
+            return true
+        }
+        val edit = kind == com.jarvis.assistant.tools.image.ImageIntent.Kind.EDIT
+        val source = if (edit) document else null
+        val chat = JarvisApp.instance.chatRepository
+        val display = if (source != null) "📎 ${source.name}\n$text" else text
+        binding.etMessageInput.text?.clear()
+        binding.btnSendMessage.isEnabled = false
+        binding.btnStopChat.visibility = View.VISIBLE
+        binding.tvChatStatus.text = if (edit) "● EDITING PICTURE" else "● CREATING PICTURE"
+        val turnId = chat.beginPending(display, source?.savedPath, source?.name, source?.mimeType)
+        fileAnalysisJob = com.jarvis.assistant.tools.image.ImageRuntime.scope.launch {
+            var finished = false
+            try {
+                val inputs = if (source != null) {
+                    val encoded = withContext(Dispatchers.IO) { source.savedPath?.let { com.jarvis.assistant.tools.image.ImageTools.encode(File(it)) } }
+                    if (encoded == null) {
+                        chat.finishPending(turnId, "⚠ I couldn't read that picture. Please attach it again.")
+                        finished = true
+                        return@launch
+                    }
+                    listOf(encoded)
+                } else emptyList()
+                val prompt = if (source != null) com.jarvis.assistant.tools.image.ImageTools.editPrompt(text) else text
+                when (val outcome = com.jarvis.assistant.tools.image.ImageRuntime.service(app).run(prompt, inputs, null, null)) {
+                    is com.jarvis.assistant.tools.image.ImageOutcome.Done -> {
+                        com.jarvis.assistant.tools.image.ImageSession.lastGenerated = outcome.files.first().absolutePath
+                        val words = outcome.note.take(400).ifBlank { if (edit) "Here's your edited picture." else "Here's your picture." }
+                        chat.finishPending(turnId, words + "\n\n" + outcome.files.joinToString("\n") { ChatImageRefs.line(it.absolutePath, text) })
+                        finished = true
+                        if (edit) selectedDocument = null
+                    }
+                    is com.jarvis.assistant.tools.image.ImageOutcome.Failed -> {
+                        chat.finishPending(turnId, "⚠ ${outcome.message}")
+                        finished = true
+                    }
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                withContext(kotlinx.coroutines.NonCancellable) { chat.finishPending(turnId, "Stopped.") }
+                finished = true
+                throw e
+            } catch (e: Exception) {
+                chat.finishPending(turnId, "⚠ The picture could not be made: ${e.message ?: "unknown problem"}")
+                finished = true
+            } finally {
+                if (!finished) chat.finishPending(turnId, "⚠ The picture could not be made.")
+                fileAnalysisJob = null
+                if (_binding != null) {
+                    updateAttachmentPreview()
+                    if (selectedDocument == null) binding.etMessageInput.hint = workModeHint()
+                    binding.btnSendMessage.isEnabled = true
+                    binding.btnStopChat.visibility = View.GONE
+                    binding.tvChatStatus.text = "● READY"
+                }
+            }
+        }
+        return true
+    }
+
     private fun sendMessage() {
         val text = binding.etMessageInput.text?.toString()?.trim().orEmpty()
+        if (tryImageShortcut(text)) return
         if (customProviderActive()) {
             sendViaProvider(text)
             return

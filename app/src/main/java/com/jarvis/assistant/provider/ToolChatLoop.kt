@@ -62,14 +62,16 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
         var state = newState(request)
         var results: List<Pair<ToolCall, String>> = emptyList()
         var total = 0; val seen = HashMap<String, Int>(); val collected = StringBuilder()
+        // Pictures the tools made. They are added to the end of the answer so they appear in the chat by themselves.
+        val pictures = LinkedHashMap<String, String>()
         for (n in 1..maxRounds) {
             currentCoroutineContext().ensureActive()
             // No automatic retry: if a round fails the work stops and the owner decides whether to retry.
             val r: Round = round(request, state, results)
             state = r.state
             if (r.text.isNotBlank()) { if (collected.isNotEmpty()) collected.append("\n\n"); collected.append(r.text.trim()) }
-            if (r.truncated) return ToolChatResult(collected.toString(), total, n, "The model's answer was cut off by the provider's output limit, so the work is not finished.")
-            if (r.calls.isEmpty()) return ToolChatResult(collected.toString(), total, n, null)
+            if (r.truncated) return ToolChatResult(withPictures(collected.toString(), pictures), total, n, "The model's answer was cut off by the provider's output limit, so the work is not finished.")
+            if (r.calls.isEmpty()) return ToolChatResult(withPictures(collected.toString(), pictures), total, n, null)
             val out = ArrayList<Pair<ToolCall, String>>()
             for (c in r.calls.map { it.copy(source = source) }) {
                 currentCoroutineContext().ensureActive()
@@ -115,6 +117,10 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
                 onActivity(activityLabel)
 
                 val res = try { backend.execute(c) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { ToolResult.Error("${e.javaClass.simpleName}: ${e.message?.take(120)}") }
+                if (res is ToolResult.Ok) {
+                    val caption = (c.args.get("prompt") ?: c.args.get("instruction"))?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+                    res.artifacts.filter { it.mime.startsWith("image/") }.forEach { pictures[it.path] = caption }
+                }
 
                 val finalOutput = when (c.name) {
                     "terminal_run" -> "$ $target\n${res.text}"
@@ -140,7 +146,14 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
             }
             results = out
         }
-        return ToolChatResult(collected.toString(), total, maxRounds, "Completed up to round limit ($maxRounds steps). All generated code and files are saved in the workspace.")
+        return ToolChatResult(withPictures(collected.toString(), pictures), total, maxRounds, "Completed up to round limit ($maxRounds steps). All generated code and files are saved in the workspace.")
+    }
+
+    /** [text] followed by one picture line for every picture the tools made. */
+    private fun withPictures(text: String, pictures: Map<String, String>): String {
+        if (pictures.isEmpty()) return text
+        val lines = pictures.entries.joinToString("\n") { com.jarvis.assistant.ui.chat.ChatImageRefs.line(it.key, it.value.ifBlank { "Picture" }) }
+        return if (text.isBlank()) lines else text.trimEnd() + "\n\n" + lines
     }
 
     private val changingTools = setOf("write_file", "append_file", "edit_file", "delete_path", "move_path", "make_directory", "terminal_run")

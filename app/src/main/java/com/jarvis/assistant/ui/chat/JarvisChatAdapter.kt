@@ -21,7 +21,9 @@ class JarvisChatAdapter(
     private val onEditUserMessage: ((String) -> Unit)? = null,
     private val onSaveAssistantMessage: ((String) -> Unit)? = null,
     private val onOpenAttachment: ((String, String, String) -> Unit)? = null,
-    var onSpeakingStateChanged: ((Boolean) -> Unit)? = null
+    var onSpeakingStateChanged: ((Boolean) -> Unit)? = null,
+    /** Called with the picture's file path when the person taps Edit under a picture Jarvis made. */
+    private val onEditImage: ((String) -> Unit)? = null
 ) : ListAdapter<ChatTurn, JarvisChatAdapter.MessageViewHolder>(DiffCallback) {
 
     private var speechEngine: TextToSpeech? = null
@@ -47,7 +49,8 @@ class JarvisChatAdapter(
         }
     }
 
-    fun speakResponse(context: Context, text: String, autoTriggered: Boolean = false) {
+    fun speakResponse(context: Context, rawText: String, autoTriggered: Boolean = false) {
+        val text = ChatImageRefs.forSpeech(rawText)
         val cleanedText = if (autoTriggered) {
             val stripped = text
                 .replace(Regex("```[\\s\\S]*?```"), " I have written the code in the artifact window. ")
@@ -266,11 +269,26 @@ class JarvisChatAdapter(
             val context = binding.root.context
             if (turn.jarvisResponse.isBlank()) {
                 binding.layoutAssistantContainer.visibility = View.GONE
+                binding.layoutAssistantImages.visibility = View.GONE
                 return
             }
             binding.layoutAssistantContainer.visibility = View.VISIBLE
 
-            val rawResponse = turn.jarvisResponse
+            // Pictures Jarvis made are written into the answer as image lines; they are drawn as cards, the rest is text.
+            val (rawResponse, pictures) = ChatImageRefs.extract(turn.jarvisResponse)
+            ImageCardBinder.bind(
+                binding.layoutAssistantImages, pictures,
+                onOpen = { ref -> onOpenAttachment?.invoke(ref.path, java.io.File(ref.path).name, com.jarvis.assistant.tools.image.ImageGenProtocol.mimeFor(ref.path)) },
+                onEdit = { ref -> onEditImage?.invoke(ref.path) }
+            )
+            if (rawResponse.isBlank()) {
+                binding.tvAssistantMessage.visibility = View.GONE
+                binding.layoutAssistantArtifacts.visibility = View.GONE
+                binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", pictures.joinToString("\n") { it.caption }) }
+                binding.btnAssistantPlay.setOnClickListener { }
+                binding.btnAssistantSave.setOnClickListener { }
+                return
+            }
             if (rawResponse.contains("```")) {
                 val parsed = CodeBlockParser.parse(rawResponse, isActivelyStreaming = isStreaming)
                 val textBuilder = StringBuilder()

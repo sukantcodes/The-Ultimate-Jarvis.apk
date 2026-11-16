@@ -92,7 +92,12 @@ class TerminalSession(
     val runningSince: Long get() = currentStarted
     val lastExitCode: Int? get() = lastExit
 
-    fun relativeCwd(): String = workspace.relative(cwd).ifEmpty { "." }
+    /** Where a Termux command ended last (an absolute path inside Termux), or null before the first one. */
+    @Volatile private var remoteCwd: String? = null
+
+    fun relativeCwd(): String = if (backend.isRemote) {
+        remoteCwd?.replace(Regex("^/data/data/com\\.termux/files/home"), "~") ?: "~/jarvis-workspace"
+    } else workspace.relative(cwd).ifEmpty { "." }
 
     /** Moves the session to [relative] inside the workspace. Throws if the folder does not exist or is outside. */
     fun changeDirectory(relative: String) {
@@ -106,7 +111,8 @@ class TerminalSession(
         if (isRunning) return "A command is still running in session \"$id\". Wait for it, read it, or stop it first."
         if (command.isBlank()) return "The command is empty."
         if (command.length > 20_000) return "The command is too long."
-        confinementProblem(command)?.let { return it }
+        // Termux has its own folders; the workspace-confinement check only makes sense for this app's own shell.
+        if (!backend.isRemote) confinementProblem(command)?.let { return it }
         return null
     }
 
@@ -206,7 +212,10 @@ class TerminalSession(
         val marker = "__JV_CWD_" + java.lang.Long.toHexString(System.nanoTime()) + "_" + (0..9999).random() + "__"
         val sink = LineSink(marker, onChunk)
         val script = buildString {
-            append("cd ").append(ShellQuote.quote(cwd.path)).append(" || exit 97\n")
+            if (backend.isRemote) {
+                append("mkdir -p \"\$HOME/jarvis-workspace\" && cd \"\$HOME/jarvis-workspace\" || exit 97\n")
+                remoteCwd?.let { append("cd ").append(ShellQuote.quote(it)).append(" 2>/dev/null || true\n") }
+            } else append("cd ").append(ShellQuote.quote(cwd.path)).append(" || exit 97\n")
             append(command).append('\n')
             append("__jv_rc=\$?\n")
             append("printf '\\n%s%s\\n' ").append(marker).append(" \"\$(pwd)\"\n")
@@ -246,6 +255,10 @@ class TerminalSession(
 
     private fun applyMarker(run: Run) {
         val reported = run.lines.reportedCwd ?: return
+        if (backend.isRemote) {
+            remoteCwd = reported.takeIf { it.startsWith("/") && it.length < 1000 }
+            return
+        }
         val f = File(reported)
         val ok = try { f.canonicalFile.let { it == workspace.root || it.path.startsWith(workspace.root.path + File.separator) } } catch (e: Exception) { false }
         if (ok && f.isDirectory) cwd = f.canonicalFile
