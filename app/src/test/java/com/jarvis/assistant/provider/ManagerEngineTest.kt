@@ -387,7 +387,9 @@ class ManagerEngineTest {
         e.send("q2"); awaitIdle(e)
         val body = com.google.gson.JsonParser.parseString(transport.bodyOf(transport.requests.last { it.url.endsWith("/chat/completions") })).asJsonObject
         val contents = body["messages"].asJsonArray.map { it.asJsonObject["content"].asString }
-        assertEquals(listOf("SYS", "q1", "a1", "q2"), contents)
+        // The system prompt now carries the picked work mode's instruction after the base prompt.
+        assertTrue(contents.first().startsWith("SYS"))
+        assertEquals(listOf("q1", "a1", "q2"), contents.drop(1))
     }
 
     @Test fun failure_is_shown_and_keeps_the_users_message() {
