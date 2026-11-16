@@ -94,9 +94,13 @@ object LiquidTouch {
             window.callback = TouchCallback(window.callback, overlay, context)
 
             var scheduled = false
-            val scan = Runnable {
-                scheduled = false
-                if (bubbleEnabled() && animationsOn(context)) scanForButtons(decor)
+            val scan = object : Runnable {
+                override fun run() {
+                    // Never scan the view tree while a finger is down (scrolling, dragging): it waits for the touch to end.
+                    if (overlay.isBusy()) { decor.postDelayed(this, 250L); return }
+                    scheduled = false
+                    if (bubbleEnabled() && animationsOn(context)) scanForButtons(decor)
+                }
             }
             decor.viewTreeObserver.addOnGlobalLayoutListener {
                 if (!scheduled) { scheduled = true; decor.postDelayed(scan, SCAN_DELAY_MS) }

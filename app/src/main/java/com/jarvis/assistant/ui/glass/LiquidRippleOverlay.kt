@@ -63,6 +63,7 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
     private val tmpLoc = IntArray(2)
 
     private var lastFrame = 0L
+    private var lastTrailAt = 0L
     private var light = false
     private var accent = Color.WHITE
 
@@ -128,8 +129,10 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         val y = e.getY(index)
         held[id]?.let { it.px.target = x; it.py.target = y }
         val last = lastTrail[id] ?: return
-        if (hypot(x - last[0], y - last[1]) >= 22f * density) {
+        val now = SystemClock.uptimeMillis()
+        if (hypot(x - last[0], y - last[1]) >= 22f * density && now - lastTrailAt >= 45L && liveTrails() < MAX_TRAILS) {
             last[0] = x; last[1] = y
+            lastTrailAt = now
             addDrop(Drop(x, y, 9f * density, 0.55f, 0.4f, false))
         }
     }
@@ -147,6 +150,12 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         pressed = null
         pressedPod?.release()
         pressedPod = null
+    }
+
+    private fun liveTrails(): Int {
+        var n = 0
+        for (d in drops) if (!d.held) n++
+        return n
     }
 
     private fun addDrop(d: Drop) {
@@ -226,8 +235,21 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         lowQuality = slowFrames > 6
         step(dt)
         for (d in drops) drawDrop(canvas, d)
-        if (drops.isNotEmpty() || squishes.isNotEmpty()) postInvalidateOnAnimation() else lastFrame = 0L
+        // A drop under a held, still finger has settled: it is drawn as it is and needs no more frames until the finger moves.
+        if (needsFrames()) postInvalidateOnAnimation() else lastFrame = 0L
     }
+
+    private fun needsFrames(): Boolean {
+        if (squishes.isNotEmpty()) return true
+        for (d in drops) {
+            if (!d.held) return true
+            if (!d.radius.atRest(0.5f) || !d.px.atRest(0.5f) || !d.py.atRest(0.5f)) return true
+        }
+        return false
+    }
+
+    /** True while a finger is down: other work (like scanning for new buttons) waits for the touch to end. */
+    fun isBusy(): Boolean = held.isNotEmpty()
 
     private fun drawDrop(c: Canvas, d: Drop) {
         val r = d.radius.value
@@ -297,5 +319,6 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
 
     private companion object {
         const val MAX_DROPS = 28
+        const val MAX_TRAILS = 6
     }
 }
