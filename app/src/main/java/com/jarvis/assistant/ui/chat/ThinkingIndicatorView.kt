@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.RadialGradient
 import android.graphics.Shader
 import android.graphics.Typeface
 import android.provider.Settings
@@ -48,6 +49,9 @@ class ThinkingIndicatorView @JvmOverloads constructor(
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         color = baseText
     }
+    private val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var halo: RadialGradient? = null
+    private var haloKey = 0f
     private val shimmerMatrix = Matrix()
     private var shimmer: LinearGradient? = null
     private var running = false
@@ -110,9 +114,27 @@ class ThinkingIndicatorView @JvmOverloads constructor(
         // Spoke spinner: 8 round-capped spokes whose lengths ripple around the ring while it turns.
         val rot = t / 2400f * 6.2832f
         val inner = radius * 0.28f
+
+        // Soft breathing glow behind the spinner, so it reads as glass lit from inside.
+        if (!reduced) {
+            val hr = radius * 2.1f
+            if (halo == null || haloKey != hr) {
+                haloKey = hr
+                halo = RadialGradient(0f, 0f, hr, intArrayOf(accent, (accent and 0x00FFFFFF)), floatArrayOf(0f, 1f), Shader.TileMode.CLAMP)
+                haloPaint.shader = halo
+            }
+            haloPaint.alpha = (255 * (0.10f + 0.12f * (0.5f + 0.5f * sin(t / 520f)))).toInt()
+            canvas.save()
+            canvas.translate(cx, cy)
+            canvas.drawCircle(0f, 0f, hr, haloPaint)
+            canvas.restore()
+        }
+
+        // Grow-in: the spokes unfurl with a small overshoot when the indicator appears.
+        val intro = if (reduced) 1f else easeOutBack((t / 480f).coerceIn(0f, 1f))
         for (i in 0 until 8) {
             val a = rot + i * (6.2832f / 8f)
-            val len = if (reduced) 1f else 0.55f + 0.45f * (0.5f + 0.5f * sin(t / 260f - i * 0.9f))
+            val len = intro * if (reduced) 1f else 0.55f + 0.45f * (0.5f + 0.5f * sin(t / 260f - i * 0.9f))
             val outer = inner + (radius - inner) * len
             canvas.drawLine(
                 cx + cos(a) * inner, cy + sin(a) * inner,
@@ -122,6 +144,11 @@ class ThinkingIndicatorView @JvmOverloads constructor(
 
         // Status word with a light band sweeping across it.
         val verb = verbs[((t / 2400f).toInt()) % verbs.size]
+        // Each word fades and slides in, holds, then fades out before the next one, instead of switching abruptly.
+        val phase = t % 2400f
+        val wordAlpha = if (reduced) 1f else min(1f, min(phase / 280f, (2400f - phase) / 280f)).coerceIn(0f, 1f)
+        val wordDrop = (1f - wordAlpha) * 5f * density * (if (phase < 1200f) 1f else -1f)
+        val intro2 = if (reduced) 1f else (t / 320f).coerceIn(0f, 1f)
         val secs = max(0L, (System.currentTimeMillis() - startTimeMs) / 1000L)
         val label = "$verb…  ${secs}s"
         val x = cx + radius + 10f * density
@@ -145,8 +172,16 @@ class ThinkingIndicatorView @JvmOverloads constructor(
             textPaint.shader = null
             textPaint.color = baseText
         }
-        canvas.drawText(label, x, min(y, height.toFloat()), textPaint)
+        textPaint.alpha = (255 * wordAlpha * intro2).toInt()
+        canvas.drawText(label, x, min(y, height.toFloat()) + wordDrop, textPaint)
     }
 
     private var shimmerWidth = 0f
+
+    private fun easeOutBack(x: Float): Float {
+        val c1 = 1.70158f
+        val c3 = c1 + 1f
+        val p = x - 1f
+        return 1f + c3 * p * p * p + c1 * p * p
+    }
 }

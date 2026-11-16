@@ -250,7 +250,7 @@ class ChatFragment : Fragment() {
         binding.rvChatMessages.layoutManager = LinearLayoutManager(requireContext()).apply {
             stackFromEnd = true
         }
-        (binding.rvChatMessages.itemAnimator as? androidx.recyclerview.widget.SimpleItemAnimator)?.supportsChangeAnimations = false
+        binding.rvChatMessages.itemAnimator = ChatItemAnimator()
         binding.rvChatMessages.adapter = chatAdapter
         setupInlineActivity()
 
