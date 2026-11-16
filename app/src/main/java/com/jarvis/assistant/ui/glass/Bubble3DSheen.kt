@@ -1,6 +1,8 @@
 package com.jarvis.assistant.ui.glass
 
 import android.graphics.Canvas
+import android.graphics.Color
+import androidx.core.graphics.ColorUtils
 import android.graphics.ColorFilter
 import android.graphics.LinearGradient
 import android.graphics.Matrix
@@ -27,7 +29,11 @@ import kotlin.math.min
 internal class Bubble3DSheen(
     private val density: Float,
     private val light: Boolean,
-    private val cornerPx: Float
+    private val cornerPx: Float,
+    /** 1 = a button; lower values give big surfaces (cards, text fields) a quieter version of the same look. */
+    private val k: Float = 1f,
+    /** Theme colour mixed into the pooled light, so the bubble glows in every theme's own colour. */
+    private val accent: Int = Color.WHITE
 ) : Drawable() {
 
     private val shade = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -60,7 +66,9 @@ internal class Bubble3DSheen(
 
         val top = b.top.toFloat()
         val bottom = b.bottom.toFloat()
-        val shadeAlpha = if (light) 0x26 else 0x40
+        val shadeAlpha = ((if (light) 0x26 else 0x40) * k).toInt()
+        fun wc(a: Float) = ColorUtils.setAlphaComponent(ColorUtils.blendARGB(Color.WHITE, accent, 0.35f), (255 * a * k).toInt().coerceIn(0, 255))
+        fun white(a: Float) = ColorUtils.setAlphaComponent(Color.WHITE, (255 * a * k).toInt().coerceIn(0, 255))
         shade.shader = LinearGradient(
             0f, top, 0f, bottom,
             intArrayOf(0x00000000, 0x00000000, shadeAlpha shl 24), floatArrayOf(0f, 0.52f, 1f), Shader.TileMode.CLAMP
@@ -74,7 +82,7 @@ internal class Bubble3DSheen(
         matrix.postTranslate(b.exactCenterX(), bottom + ch * 0.12f)
         val causticShader = RadialGradient(
             0f, 0f, 1f,
-            intArrayOf(if (light) 0x66FFFFFF else 0x4DFFFFFF, 0x1AFFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP
+            intArrayOf(wc(if (light) 0.40f else 0.30f), wc(0.10f), Color.TRANSPARENT), floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP
         )
         causticShader.setLocalMatrix(matrix)
         caustic.shader = causticShader
@@ -86,7 +94,7 @@ internal class Bubble3DSheen(
         glossRadius = min(glossH, glossRect.width()) / 2f
         gloss.shader = LinearGradient(
             0f, glossRect.top, 0f, glossRect.bottom,
-            intArrayOf(if (light) 0xA6FFFFFF.toInt() else 0x7AFFFFFF, 0x05FFFFFF), null, Shader.TileMode.CLAMP
+            intArrayOf(white(if (light) 0.65f else 0.48f), 0x05FFFFFF), null, Shader.TileMode.CLAMP
         )
 
         // Bevel.
@@ -96,7 +104,7 @@ internal class Bubble3DSheen(
         rimRadius = max(0f, radius - rw / 2f)
         rim.shader = LinearGradient(
             0f, top, 0f, bottom,
-            intArrayOf(0xCCFFFFFF.toInt(), 0x1AFFFFFF, 0x55FFFFFF), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
+            intArrayOf(white(0.80f), white(0.10f), white(0.33f)), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
         )
 
         // Glint in the top-left corner; smaller on large buttons so it stays a detail.
@@ -115,7 +123,7 @@ internal class Bubble3DSheen(
         matrix.postTranslate(glintCx, glintCy)
         glintShader.setLocalMatrix(matrix)
         glint.shader = glintShader
-        glint.alpha = if (light) 190 else 150
+        glint.alpha = ((if (light) 190 else 150) * k).toInt()
     }
 
     override fun draw(canvas: Canvas) {

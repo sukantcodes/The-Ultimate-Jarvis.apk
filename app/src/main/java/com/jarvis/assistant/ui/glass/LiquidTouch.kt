@@ -16,7 +16,9 @@ import android.widget.CompoundButton
 import android.widget.ImageButton
 import androidx.core.graphics.ColorUtils
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.chip.Chip
+import com.google.android.material.textfield.TextInputLayout
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.util.ThemeManager
 
@@ -129,7 +131,9 @@ object LiquidTouch {
     private fun scanForButtons(view: View) {
         if (view is LiquidRippleOverlay) return
         if (view.getTag(SHEEN_TAG_KEY) == null) {
-            if (qualifiesAsIcon(view)) applyPod(view) else if (qualifies(view)) applySheen(view)
+            if (qualifiesAsIcon(view)) applyPod(view)
+            else if (qualifies(view)) applySheen(view)
+            else surfaceLook(view)?.let { (corner, k) -> applySheen(view, corner, k) }
         }
         if (view is ViewGroup) {
             for (i in 0 until view.childCount) scanForButtons(view.getChildAt(i))
@@ -147,6 +151,24 @@ object LiquidTouch {
         if (w < 30f || h < 30f || w > 60f || h > 60f || maxOf(w, h) / minOf(w, h) > 1.35f) return false
         val bg = v.background
         return bg == null || (bg is RippleDrawable && bg.numberOfLayers == 0)
+    }
+
+    /** Cards and text fields get the same 3D bubble look, quieter because they are big. Returns (corner radius px, intensity). */
+    private fun surfaceLook(v: View): Pair<Float, Float>? {
+        if (v.visibility != View.VISIBLE || v.getTag(SKIP_TAG_KEY) == true) return null
+        val d = v.resources.displayMetrics.density
+        val w = v.width / d
+        val h = v.height / d
+        if (v is MaterialCardView) {
+            if (w < 64f || h < 40f) return null
+            if (android.graphics.Color.alpha(v.cardBackgroundColor.defaultColor) < 40) return null // see-through cards stay as designed
+            return v.radius to (if (h > 220f) 0.38f else 0.55f)
+        }
+        if (v is TextInputLayout) {
+            if (w < 80f || h < 40f || h > 96f || !v.helperText.isNullOrEmpty() || v.isErrorEnabled) return null
+            return v.boxCornerRadiusTopStart to 0.36f
+        }
+        return null
     }
 
     private fun applyPod(v: View) {
@@ -170,11 +192,12 @@ object LiquidTouch {
         return true
     }
 
-    private fun applySheen(v: View) {
+    private fun applySheen(v: View, cornerOverride: Float? = null, intensity: Float = 1f) {
         val d = v.resources.displayMetrics.density
         val light = try { ThemeManager.isCurrentThemeLight() } catch (_: Throwable) { false }
-        val corner = (v as? MaterialButton)?.cornerRadius?.toFloat() ?: 0f
-        val sheen = Bubble3DSheen(d, light, corner)
+        val accent = try { ThemeManager.getThemeAccentColor() } catch (_: Throwable) { android.graphics.Color.WHITE }
+        val corner = cornerOverride ?: ((v as? MaterialButton)?.cornerRadius?.toFloat() ?: 0f)
+        val sheen = Bubble3DSheen(d, light, corner, intensity, accent)
         sheen.setBounds(0, 0, v.width, v.height)
         v.overlay.add(sheen)
         v.setTag(SHEEN_TAG_KEY, sheen)

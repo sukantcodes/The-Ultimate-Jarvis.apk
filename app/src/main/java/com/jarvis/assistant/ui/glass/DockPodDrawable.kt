@@ -256,10 +256,9 @@ internal class DockPodDrawable(
 
         canvas.drawRoundRect(pod, radius, radius, bodyLin)
         canvas.drawRoundRect(pod, radius, radius, bodyRad)
-        if (g > 0.01f) {
-            glow.color = ColorUtils.setAlphaComponent(accent, (255 * 0.30f * g).toInt().coerceIn(0, 255))
-            canvas.drawRoundRect(pod, radius, radius, glow)
-        }
+        // every pod carries a faint glow in the theme colour; the selected one blooms
+        glow.color = ColorUtils.setAlphaComponent(accent, (255 * (0.10f + 0.22f * g)).toInt().coerceIn(0, 255))
+        canvas.drawRoundRect(pod, radius, radius, glow)
         convex.alpha = (255 * (1f + 0.5f * d)).toInt().coerceIn(0, 255)
         canvas.drawRoundRect(pod, radius, radius, convex)
         canvas.drawRoundRect(pod, radius, radius, caustic)
