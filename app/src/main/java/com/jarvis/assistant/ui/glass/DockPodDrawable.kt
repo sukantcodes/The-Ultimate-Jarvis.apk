@@ -101,7 +101,7 @@ internal class DockPodDrawable(
         depth.target = 1f
         rx = (x - cx).coerceIn(-pod.width() / 2f, pod.width() / 2f)
         ry = (y - cy).coerceIn(-pod.height() / 2f, pod.height() / 2f)
-        rRadius = SpringF(0f, max(pod.width(), pod.height()) * 0.95f, 95f, SpringF.damping(95f, 0.5f))
+        rRadius = SpringF(0f, min(max(pod.width(), pod.height()) * 0.2f, 9f * density), 95f, SpringF.damping(95f, 0.5f))
         rAlpha = 1f
         rHeld = true
         kick()
@@ -270,11 +270,11 @@ internal class DockPodDrawable(
             canvas.clipPath(clip)
             val r = rRadius.value
             val a = rAlpha
-            rippleFill.color = ColorUtils.setAlphaComponent(Color.WHITE, (255 * a * 0.16f).toInt().coerceIn(0, 255))
+            rippleFill.color = ColorUtils.setAlphaComponent(Color.WHITE, (255 * a * 0.12f).toInt().coerceIn(0, 255))
             canvas.drawCircle(rx, ry, r, rippleFill)
             for (i in 0..1) {
                 val ri = r * (1f - 0.28f * i)
-                rippleRing.strokeWidth = (2.2f - 0.7f * i) * density
+                rippleRing.strokeWidth = (1.1f - 0.3f * i) * density
                 rippleRing.color = ColorUtils.setAlphaComponent(Color.WHITE, (255 * a * (0.6f - 0.2f * i)).toInt().coerceIn(0, 255))
                 canvas.drawCircle(rx, ry, ri, rippleRing)
             }

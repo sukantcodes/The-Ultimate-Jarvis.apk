@@ -13,6 +13,9 @@
         <attr name="lgVeil" format="float" />
         <attr name="lgPrism" format="boolean" />
         <attr name="lgAutoRefresh" format="boolean" />
+        <!-- Backdrop refresh rate. 30 (default) is the light timer; 60 or more follows the screen's frames and is
+             locked to 90 on a 90 Hz display, 60 otherwise. -->
+        <attr name="lgRefreshFps" format="integer" />
         <attr name="lgSource" format="reference" />
     </declare-styleable>
 </resources>

@@ -114,7 +114,7 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         val x = e.getX(index)
         val y = e.getY(index)
         held.remove(id)?.held = false
-        val drop = Drop(x, y, 120f * density, 1f, 0.95f, true)
+        val drop = Drop(x, y, 20f * density, 1f, 0.8f, true)
         held[id] = drop
         addDrop(drop)
         lastTrail[id] = floatArrayOf(x, y)
@@ -126,9 +126,9 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         val y = e.getY(index)
         held[id]?.let { it.px.target = x; it.py.target = y }
         val last = lastTrail[id] ?: return
-        if (hypot(x - last[0], y - last[1]) >= 26f * density) {
+        if (hypot(x - last[0], y - last[1]) >= 22f * density) {
             last[0] = x; last[1] = y
-            addDrop(Drop(x, y, 54f * density, 0.55f, 0.55f, false))
+            addDrop(Drop(x, y, 9f * density, 0.55f, 0.4f, false))
         }
     }
 
@@ -234,13 +234,13 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         c.drawCircle(x, y, r, lens)
         c.drawCircle(x, y, r * 0.78f, lens)
         c.drawCircle(x, y, r * 0.52f, lens)
-        ring.strokeWidth = max(1f, r * 0.16f)
+        ring.strokeWidth = max(0.8f, r * 0.12f)
         ring.color = ColorUtils.setAlphaComponent(Color.WHITE, (255 * lensA * 0.10f).toInt().coerceIn(0, 255))
         c.drawCircle(x, y, r * 0.92f, ring)
 
         // Bright droplet right under the finger while it is down.
         if (d.held) {
-            val cr = 16f * density * (1f - 0.35f * progress.coerceAtMost(1f))
+            val cr = 4.5f * density * (1f - 0.35f * progress.coerceAtMost(1f))
             core.color = ColorUtils.setAlphaComponent(Color.WHITE, (255 * a * 0.22f).toInt().coerceIn(0, 255))
             c.drawCircle(x, y, cr, core)
             core.color = ColorUtils.setAlphaComponent(Color.WHITE, (255 * a * 0.55f).toInt().coerceIn(0, 255))
@@ -255,7 +255,7 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
             if (ri < 2f) continue
             val ringA = a * (0.62f - 0.17f * i) * (1.15f - 0.5f * progress.coerceAtMost(1f))
             if (ringA <= 0.01f) continue
-            val w = (2.6f - 0.6f * i) * density
+            val w = (1.2f - 0.3f * i) * density
             if (lowQuality) {
                 ring.strokeWidth = w
                 ring.color = ColorUtils.setAlphaComponent(tint, (255 * ringA).toInt().coerceIn(0, 255))

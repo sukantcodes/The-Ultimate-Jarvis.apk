@@ -14,6 +14,7 @@ import android.graphics.RuntimeShader
 import android.graphics.Shader
 import android.os.Build
 import android.util.AttributeSet
+import android.view.Choreographer
 import android.view.View
 import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
@@ -52,6 +53,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
     private var veil = 0.10f
     private var prism = true
     private var autoRefresh = true
+    private var refreshFps = 30
     private var sourceId = View.NO_ID
 
     private var source: View? = null
@@ -86,6 +88,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
         veil = a.getFloat(R.styleable.LiquidGlassLayout_lgVeil, veil)
         prism = a.getBoolean(R.styleable.LiquidGlassLayout_lgPrism, prism)
         autoRefresh = a.getBoolean(R.styleable.LiquidGlassLayout_lgAutoRefresh, autoRefresh)
+        refreshFps = a.getInt(R.styleable.LiquidGlassLayout_lgRefreshFps, refreshFps)
         sourceId = a.getResourceId(R.styleable.LiquidGlassLayout_lgSource, View.NO_ID)
         a.recycle()
 
@@ -169,7 +172,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
         bc.restore()
     }
 
-    // Refresh the backdrop at ~30 fps (not once per display frame: 90/120 Hz phones would capture twice as often).
+    // Default: refresh the backdrop at ~30 fps from a timer (cheap; 90/120 Hz phones would otherwise capture twice as often).
     private val tick = object : Runnable {
         override fun run() {
             if (!isAttachedToWindow) return
@@ -179,15 +182,42 @@ class LiquidGlassLayout @JvmOverloads constructor(
         }
     }
 
+    // Locked refresh (lgRefreshFps above 30, used by the dock): one capture per display frame on 60 and 90 Hz
+    // screens, and every second frame on faster ones, so the glass always updates at a steady 60 or 90 and never at 30.
+    private var frameStep = 1
+    private var frameCount = 0
+    private val frameTick = object : Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            if (!isAttachedToWindow) return
+            if (!isShown) {
+                // Off screen: stop spending frames, look again shortly.
+                postDelayed({ if (isAttachedToWindow) startLockedRefresh() }, 250L)
+                return
+            }
+            if (frameCount++ % frameStep == 0 && autoRefresh && !capturing) invalidate()
+            Choreographer.getInstance().postFrameCallback(this)
+        }
+    }
+
+    private fun startLockedRefresh() {
+        val displayHz = display?.refreshRate ?: 60f
+        // 60 Hz -> every frame (60); 90 Hz -> every frame (90); 120 Hz -> every second frame (60); 144 Hz -> every second (72).
+        frameStep = max(1, Math.ceil((displayHz / 90f - 0.05f).toDouble()).toInt())
+        frameCount = 0
+        Choreographer.getInstance().removeFrameCallback(frameTick)
+        Choreographer.getInstance().postFrameCallback(frameTick)
+    }
+
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         source = if (sourceId != View.NO_ID) rootView.findViewById(sourceId) else rootView
         removeCallbacks(tick)
-        post(tick)
+        if (refreshFps > 30) startLockedRefresh() else post(tick)
     }
 
     override fun onDetachedFromWindow() {
         removeCallbacks(tick)
+        Choreographer.getInstance().removeFrameCallback(frameTick)
         source = null
         super.onDetachedFromWindow()
     }

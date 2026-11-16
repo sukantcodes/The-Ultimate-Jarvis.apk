@@ -40,6 +40,7 @@
         android:clipChildren="false"
         android:clipToPadding="false"
         app:lgCornerRadius="32dp"
+        app:lgRefreshFps="90"
         app:lgBlur="12"
         app:lgDistortionScale="-220"
         app:lgGreenOffset="28"
