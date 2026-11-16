@@ -3,11 +3,8 @@ package com.jarvis.assistant.ui.glass
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.RadialGradient
 import android.graphics.Rect
-import android.graphics.Shader
 import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
@@ -67,22 +64,15 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
     private var light = false
     private var accent = Color.WHITE
 
-    private val lens = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val core = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val lens = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val core = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val relief = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
-    private val m = Matrix()
     private val rect = Rect()
-    private val loc = IntArray(2)
 
-    private val lensShader = RadialGradient(
-        0f, 0f, 1f,
-        intArrayOf(0x00FFFFFF, 0x0DFFFFFF, 0x3DFFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.55f, 0.9f, 1f), Shader.TileMode.CLAMP
-    )
-    private val coreShader = RadialGradient(
-        0f, 0f, 1f,
-        intArrayOf(0xF2FFFFFF.toInt(), 0x66FFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.4f, 1f), Shader.TileMode.CLAMP
-    )
+    /** Set when frames run slow: fewer rings and no fringe/relief, so the effect never costs smoothness. */
+    private var lowQuality = false
+    private var slowFrames = 0
 
     init {
         isClickable = false
@@ -219,10 +209,12 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         val now = SystemClock.uptimeMillis()
-        val dt = if (lastFrame == 0L) 0.016f else ((now - lastFrame) / 1000f).coerceIn(0.001f, 0.033f)
+        val raw = if (lastFrame == 0L) 0.016f else (now - lastFrame) / 1000f
+        val dt = raw.coerceIn(0.001f, 0.033f)
         lastFrame = now
+        if (raw > 0.026f) slowFrames++ else if (slowFrames > 0) slowFrames--
+        lowQuality = slowFrames > 6
         step(dt)
-        getLocationOnScreen(loc)
         for (d in drops) drawDrop(canvas, d)
         if (drops.isNotEmpty() || squishes.isNotEmpty()) postInvalidateOnAnimation() else lastFrame = 0L
     }
@@ -236,31 +228,40 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         val y = d.py.value
         val progress = (r / d.maxR).coerceIn(0f, 1.3f)
 
-        // Meniscus: the lens of liquid that spreads from the finger.
-        m.reset(); m.postScale(r, r); m.postTranslate(x, y)
-        lensShader.setLocalMatrix(m)
-        lens.shader = lensShader
-        lens.alpha = (255 * a * (if (light) 0.8f else 1f)).toInt().coerceIn(0, 255)
+        // Meniscus: a soft lens of liquid (stacked translucent discs, no shaders) with a brighter edge.
+        val lensA = a * (if (light) 0.8f else 1f)
+        lens.color = ColorUtils.setAlphaComponent(Color.WHITE, (255 * lensA * 0.035f).toInt().coerceIn(0, 255))
         c.drawCircle(x, y, r, lens)
+        c.drawCircle(x, y, r * 0.78f, lens)
+        c.drawCircle(x, y, r * 0.52f, lens)
+        ring.strokeWidth = max(1f, r * 0.16f)
+        ring.color = ColorUtils.setAlphaComponent(Color.WHITE, (255 * lensA * 0.10f).toInt().coerceIn(0, 255))
+        c.drawCircle(x, y, r * 0.92f, ring)
 
         // Bright droplet right under the finger while it is down.
         if (d.held) {
             val cr = 16f * density * (1f - 0.35f * progress.coerceAtMost(1f))
-            m.reset(); m.postScale(cr, cr); m.postTranslate(x, y)
-            coreShader.setLocalMatrix(m)
-            core.shader = coreShader
-            core.alpha = (200 * a).toInt().coerceIn(0, 255)
+            core.color = ColorUtils.setAlphaComponent(Color.WHITE, (255 * a * 0.22f).toInt().coerceIn(0, 255))
             c.drawCircle(x, y, cr, core)
+            core.color = ColorUtils.setAlphaComponent(Color.WHITE, (255 * a * 0.55f).toInt().coerceIn(0, 255))
+            c.drawCircle(x, y, cr * 0.45f, core)
         }
 
         // Three wave rings, each a little behind the one before.
         val tint = ColorUtils.blendARGB(Color.WHITE, accent, 0.22f)
-        for (i in 0..2) {
+        val ringCount = if (lowQuality) 1 else 3
+        for (i in 0 until ringCount) {
             val ri = r * (1f - 0.2f * i)
             if (ri < 2f) continue
             val ringA = a * (0.62f - 0.17f * i) * (1.15f - 0.5f * progress.coerceAtMost(1f))
             if (ringA <= 0.01f) continue
             val w = (2.6f - 0.6f * i) * density
+            if (lowQuality) {
+                ring.strokeWidth = w
+                ring.color = ColorUtils.setAlphaComponent(tint, (255 * ringA).toInt().coerceIn(0, 255))
+                c.drawCircle(x, y, ri, ring)
+                continue
+            }
             // relief: a darker band just outside the crest gives the wave depth
             relief.strokeWidth = w * 2.2f
             relief.color = ColorUtils.setAlphaComponent(Color.BLACK, (255 * ringA * (if (light) 0.22f else 0.16f)).toInt().coerceIn(0, 255))

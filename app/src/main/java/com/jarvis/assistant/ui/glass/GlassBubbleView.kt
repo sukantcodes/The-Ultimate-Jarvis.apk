@@ -130,6 +130,7 @@ class GlassBubbleView @JvmOverloads constructor(
             intArrayOf(0x4DFFFFFF, 0x1FFFFFFF.toInt() or 0, 0x2EFFFFFF), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP
         )
         bounce.color = 0x1FFFFFFF
+        shade.shader = LinearGradient(0f, top, 0f, bottom, intArrayOf(0x00000000, 0x00000000, 0x33000000), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
         rim.strokeWidth = 1.2f * density
         rim.shader = LinearGradient(
             0f, top, 0f, bottom,
@@ -158,7 +159,6 @@ class GlassBubbleView @JvmOverloads constructor(
         canvas.drawRoundRect(rect, r, r, body)
         // convex shade + caustic so the bubble reads as a 3D dome
         val shadeH = rect.height()
-        shade.shader = LinearGradient(0f, rect.top, 0f, rect.bottom, intArrayOf(0x00000000, 0x00000000, 0x33000000), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
         canvas.drawRoundRect(rect, r, r, shade)
         m.reset(); m.postScale(rect.width() * 0.42f, shadeH * 0.5f); m.postTranslate(rect.centerX(), rect.bottom + shadeH * 0.08f)
         unitRadial.setLocalMatrix(m); spec.shader = unitRadial; spec.alpha = 90

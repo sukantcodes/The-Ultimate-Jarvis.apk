@@ -58,10 +58,6 @@ class LiquidGlassDrawable(
     private val domeRect = RectF()
     private val bevelRect = RectF()
     private val unitMatrix = android.graphics.Matrix()
-    private val unitGlint = RadialGradient(
-        0f, 0f, 1f,
-        intArrayOf(0xFFFFFFFF.toInt(), 0x66FFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
-    )
     private var domeRadius = 0f
     private var bevelRadius = 0f
     private var glintCx = 0f
@@ -216,6 +212,14 @@ class LiquidGlassDrawable(
         // On large cards the glint stays a quiet detail; on buttons and pills it is the bubble's catch-light.
         val sizeFactor = ((radiusPx * 2f) / kotlin.math.min(w, h)).coerceIn(0.3f, 1f)
         glintAlpha = (((if (light) 0.8f else 0.55f) * c3 * sizeFactor) * 255).toInt().coerceIn(0, 255)
+        val glintShader = RadialGradient(
+            0f, 0f, 1f,
+            intArrayOf(0xFFFFFFFF.toInt(), 0x66FFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
+        )
+        unitMatrix.reset(); unitMatrix.postScale(glintRx, glintRy); unitMatrix.postTranslate(glintCx, glintCy)
+        glintShader.setLocalMatrix(unitMatrix)
+        glint.shader = glintShader
+        glint.alpha = glintAlpha
         builtBubble = cachedBubble
 
         builtLight = light
@@ -253,10 +257,6 @@ class LiquidGlassDrawable(
             canvas.drawPath(outerPath, caustic)
             canvas.drawRoundRect(bevelRect, bevelRadius, bevelRadius, bevel)
             canvas.drawRoundRect(domeRect, domeRadius, domeRadius, dome)
-            unitMatrix.reset(); unitMatrix.postScale(glintRx, glintRy); unitMatrix.postTranslate(glintCx, glintCy)
-            unitGlint.setLocalMatrix(unitMatrix)
-            glint.shader = unitGlint
-            glint.alpha = glintAlpha
             canvas.drawOval(glintCx - glintRx, glintCy - glintRy, glintCx + glintRx, glintCy + glintRy, glint)
         }
 

@@ -49,11 +49,6 @@ internal class Bubble3DSheen(
     private var glintRy = 0f
     private var alphaValue = 255
 
-    private val unitRadial = RadialGradient(
-        0f, 0f, 1f,
-        intArrayOf(0xFFFFFFFF.toInt(), 0x66FFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
-    )
-
     override fun onBoundsChange(b: Rect) {
         super.onBoundsChange(b)
         if (b.isEmpty) return
@@ -110,6 +105,17 @@ internal class Bubble3DSheen(
         glintCy = top + max(h * 0.2f, g * 0.9f)
         glintRx = g * 1.5f
         glintRy = g * 0.6f
+        // Built once per size: changing a shader's matrix while drawing forces the GPU to rebuild it every frame.
+        val glintShader = RadialGradient(
+            0f, 0f, 1f,
+            intArrayOf(0xFFFFFFFF.toInt(), 0x66FFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
+        )
+        matrix.reset()
+        matrix.postScale(glintRx, glintRy)
+        matrix.postTranslate(glintCx, glintCy)
+        glintShader.setLocalMatrix(matrix)
+        glint.shader = glintShader
+        glint.alpha = if (light) 190 else 150
     }
 
     override fun draw(canvas: Canvas) {
@@ -119,12 +125,6 @@ internal class Bubble3DSheen(
         canvas.drawPath(body, caustic)
         canvas.drawRoundRect(glossRect, glossRadius, glossRadius, gloss)
         canvas.drawRoundRect(rimRect, rimRadius, rimRadius, rim)
-        matrix.reset()
-        matrix.postScale(glintRx, glintRy)
-        matrix.postTranslate(glintCx, glintCy)
-        unitRadial.setLocalMatrix(matrix)
-        glint.shader = unitRadial
-        glint.alpha = if (light) 190 else 150
         canvas.drawOval(glintCx - glintRx, glintCy - glintRy, glintCx + glintRx, glintCy + glintRy, glint)
         canvas.restoreToCount(layer)
     }

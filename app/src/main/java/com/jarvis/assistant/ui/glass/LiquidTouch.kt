@@ -32,7 +32,8 @@ object LiquidTouch {
     /** Views carrying this tag as `true` keep their own press animation / sheen and are left alone here. */
     const val SKIP_TAG_KEY = 0x4A4C5453 // "JLTS"
     private const val SHEEN_TAG_KEY = 0x4A4C5348 // "JLSH"
-    private const val SCAN_DELAY_MS = 350L
+    private const val SCAN_DELAY_MS = 600L
+    private const val FLAG_CACHE_MS = 1500L
 
     private var installed = false
 
@@ -52,6 +53,19 @@ object LiquidTouch {
 
     private fun touchEnabled(): Boolean = try { JarvisApp.instance.preferences.liquidTouchEnabled } catch (_: Throwable) { true }
     private fun bubbleEnabled(): Boolean = try { JarvisApp.instance.preferences.bubble3dEnabled } catch (_: Throwable) { true }
+
+    private var flagsAt = 0L
+    private var gestureOn = true
+
+    /** Preference + system animation setting, read at most every 1.5 s instead of on every touch event. */
+    private fun gestureAllowed(context: Context): Boolean {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - flagsAt > FLAG_CACHE_MS) {
+            flagsAt = now
+            gestureOn = touchEnabled() && animationsOn(context)
+        }
+        return gestureOn
+    }
 
     private fun animationsOn(context: Context): Boolean = try {
         Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
@@ -88,8 +102,12 @@ object LiquidTouch {
         private val activity: Activity
     ) : Window.Callback by base {
         override fun dispatchTouchEvent(event: MotionEvent?): Boolean {
-            if (event != null && touchEnabled() && animationsOn(activity)) {
-                try { overlay.onTouch(event, true) } catch (_: Throwable) {}
+            if (event != null) {
+                val ending = event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL
+                // A gesture that started must always be able to finish, even if the setting flipped meanwhile.
+                if (ending || gestureAllowed(activity)) {
+                    try { overlay.onTouch(event, true) } catch (_: Throwable) {}
+                }
             }
             return base.dispatchTouchEvent(event)
         }
