@@ -195,7 +195,42 @@ class JarvisChatAdapter(
          * Fast partial rebind during streaming. Updates only the assistant text and hides the thinking
          * indicator without touching user bubble, attachments, or triggering full view re-layouts.
          */
+        private var actionsHiddenFor: String? = null
+
+        private fun assistantActions() = listOf(binding.btnAssistantCopy, binding.btnAssistantPlay, binding.btnAssistantSave)
+
+        /** While an answer is being written its action icons wait; they spring in one after another when it is done. */
+        private fun hideActionsWhileWriting(turn: ChatTurn) {
+            if (!GlassMotion.animationsOn(binding.root) || actionsHiddenFor == turn.id.toString()) return
+            actionsHiddenFor = turn.id.toString()
+            for (v in assistantActions()) {
+                v.animate().cancel()
+                com.jarvis.assistant.ui.glass.ViewSprings.cancel(v)
+                v.alpha = 0f
+                v.scaleX = 0.6f
+                v.scaleY = 0.6f
+            }
+        }
+
+        private fun settleActions(turn: ChatTurn) {
+            val reveal = actionsHiddenFor == turn.id.toString()
+            actionsHiddenFor = null
+            assistantActions().forEachIndexed { i, v ->
+                v.animate().cancel()
+                if (reveal) {
+                    v.postDelayed({
+                        v.animate().alpha(1f).setDuration(220L).start()
+                        com.jarvis.assistant.ui.glass.ViewSprings.pop(v, 0.6f, 1f, 480f, 0.5f)
+                    }, 70L * i)
+                } else if (v.alpha != 1f || v.scaleX != 1f) {
+                    com.jarvis.assistant.ui.glass.ViewSprings.cancel(v)
+                    v.alpha = 1f; v.scaleX = 1f; v.scaleY = 1f
+                }
+            }
+        }
+
         fun bindResponseUpdate(turn: ChatTurn) {
+            hideActionsWhileWriting(turn)
             val firstText = binding.layoutAssistantContainer.visibility != View.VISIBLE
             binding.layoutThinking.visibility = View.GONE
             renderAssistantContent(turn, isStreaming = true)
@@ -256,7 +291,7 @@ class JarvisChatAdapter(
                 }
 
                 if (rendered.isNotBlank()) {
-                    binding.tvAssistantMessage.text = rendered
+                    binding.tvAssistantMessage.text = StreamFade.apply(binding.tvAssistantMessage, rendered, isStreaming)
                     binding.tvAssistantMessage.visibility = View.VISIBLE
                 } else {
                     binding.tvAssistantMessage.visibility = View.GONE
@@ -287,7 +322,7 @@ class JarvisChatAdapter(
                 } catch (_: Throwable) {
                     rawResponse
                 }
-                binding.tvAssistantMessage.text = rendered
+                binding.tvAssistantMessage.text = StreamFade.apply(binding.tvAssistantMessage, rendered, isStreaming)
             }
 
             binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", rawResponse) }
@@ -330,6 +365,7 @@ class JarvisChatAdapter(
             }
 
             renderAssistantContent(turn, isStreaming = false)
+            settleActions(turn)
             syncGlass()
         }
 
