@@ -62,7 +62,7 @@ object DockPods {
         view.setTag(AUTO_KEY, pod)
     }
 
-    fun autoPod(view: View): DockPodDrawable? = view.getTag(AUTO_KEY) as? DockPodDrawable
+    internal fun autoPod(view: View): DockPodDrawable? = view.getTag(AUTO_KEY) as? DockPodDrawable
 
     /** Lights the pod of the selected option in [group] and eases the others of that group back. */
     fun setActive(selected: View?, group: String = "dock") {
