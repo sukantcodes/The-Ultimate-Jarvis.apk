@@ -32,4 +32,12 @@ class TokenModeTest {
         val maxPrompt = ChatContext.systemPrompt("User", TokenMode.MAX)
         assertTrue(maxPrompt.contains("TOKEN BUDGET: MAX"))
     }
+
+    @Test
+    fun high_is_the_default_and_neither_high_nor_max_caps_the_answer() {
+        assertEquals(TokenMode.HIGH, TokenMode.fromKey(null))
+        assertNull("High must work at full potential", TokenMode.HIGH.maxTokens)
+        assertNull(TokenMode.MAX.maxTokens)
+        assertTrue(ChatContext.systemPrompt("U", TokenMode.HIGH).contains("keep working until the whole task is finished"))
+    }
 }

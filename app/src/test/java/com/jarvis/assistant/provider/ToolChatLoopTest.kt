@@ -71,6 +71,32 @@ class ToolChatLoopTest {
         assertTrue(sentBodies()[1].getAsJsonArray("messages").last().asJsonObject.get("content").asString.startsWith("Error"))
     }
 
+    @Test fun rereadingAFileAfterChangingItIsNotTreatedAsALoop() {
+        File(dir, "a.txt").writeText("x")
+        script(
+            toolCallBody("1", "read_file", """{"path":"a.txt"}"""),
+            toolCallBody("2", "read_file", """{"path":"a.txt"}"""),
+            toolCallBody("3", "append_file", """{"path":"a.txt","content":"y"}"""),
+            toolCallBody("4", "read_file", """{"path":"a.txt"}"""),
+            toolCallBody("5", "read_file", """{"path":"a.txt"}"""),
+            Fixtures.completion("done")
+        )
+        val r = runBlocking { OpenAiToolLoop(tr, backend).run(req, "t") }
+        assertNull(r.stoppedEarly); assertEquals("done", r.text)
+        val toolReplies = sentBodies().flatMap { b -> b.getAsJsonArray("messages").filter { it.asJsonObject.get("role").asString == "tool" }.map { it.asJsonObject.get("content").asString } }
+        assertTrue(toolReplies.none { it.startsWith("Error: this exact call") })
+    }
+
+    @Test fun anAnswerCutOffByTheProvidersOutputLimitIsReportedAsUnfinishedNotAsDone() {
+        script("""{"choices":[{"finish_reason":"length","message":{"role":"assistant","content":"function start() {"}}]}""")
+        val r = runBlocking { OpenAiToolLoop(tr, backend).run(req, "t") }
+        assertNotNull(r.stoppedEarly); assertTrue(r.stoppedEarly!!.contains("not finished"))
+    }
+
+    @Test fun theRoundBudgetIsLargeEnoughForARealBuild() {
+        assertTrue(DEFAULT_MAX_ROUNDS >= 300)
+    }
+
     @Test fun identicalRepeatedCallsAreStoppedAndRoundLimitIsHonest() {
         script(toolCallBody("a", "list_files", """{"path":"."}"""))   // the model never stops asking
         val r = runBlocking { OpenAiToolLoop(tr, backend, maxRounds = 6).run(req, "t") }

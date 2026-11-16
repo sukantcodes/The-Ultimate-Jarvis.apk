@@ -7,7 +7,8 @@ enum class TokenMode(
     val label: String,
     val tierLabel: String,
     val progressPercent: Int,
-    val maxTokens: Int,
+    /** Output cap for plain chat answers, or null for no cap (the provider's own full limit). Work with tools is never capped. */
+    val maxTokens: Int?,
     val budgetChars: Int,
     val summary: String,
     val promptInstruction: String
@@ -27,20 +28,20 @@ enum class TokenMode(
         label = "High",
         tierLabel = "✦ Balanced Tier (Default)",
         progressPercent = 66,
-        maxTokens = 4096,
+        maxTokens = null,
         budgetChars = 48_000,
-        summary = "Balanced: fast on simple queries, deep thinking on complex tasks.",
-        promptInstruction = "TOKEN BUDGET: HIGH (Balanced work). Answer simple queries in 1-2 direct sentences. Use deep thinking and complete code for complex tasks."
+        summary = "Full power by default: instant on simple queries, deep thinking and complete code on complex tasks, no output cap.",
+        promptInstruction = "TOKEN BUDGET: HIGH (Full power). Answer simple queries in 1-2 direct sentences. For any real task use your full capability: think deeply, follow the user's prompt exactly, write complete production-grade code with no placeholders or shortcuts, and keep working until the whole task is finished."
     ),
     MAX(
         key = "max",
         label = "Max",
         tierLabel = "★ PREMIUM UNLIMITED",
         progressPercent = 100,
-        maxTokens = 16384,
+        maxTokens = null,
         budgetChars = 96_000,
         summary = "Premium depth: maximum reasoning capacity, full context & zero shortcuts.",
-        promptInstruction = "TOKEN BUDGET: MAX (Premium). Deepest reasoning, full analysis, exhaustive code implementations and edge-case coverage."
+        promptInstruction = "TOKEN BUDGET: MAX (Premium). Deepest reasoning, full analysis, exhaustive code implementations and edge-case coverage. Keep working until the whole task is finished."
     );
 
     companion object {

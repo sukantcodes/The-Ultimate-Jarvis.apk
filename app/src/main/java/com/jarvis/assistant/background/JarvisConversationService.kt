@@ -2590,6 +2590,33 @@ class JarvisConversationService : Service() {
                         }
                     }
 
+                    "continue_chatbox_work" -> {
+                        val extra = args.optString("extra_instruction", "").trim()
+                        val sent = try { com.jarvis.assistant.provider.ProviderRuntime.chatEngine(applicationContext).resumeLast(extra) } catch (e: Exception) { null }
+                        when (sent) {
+                            is com.jarvis.assistant.provider.SendOutcome.Started -> {
+                                val spokenLanguage = com.jarvis.assistant.util.MultilingualCommandHelper.resolveLanguage(applicationContext, currentTurnUserText.toString())
+                                ChatboxHandoffTracker.begin(applicationContext, sent.providerLabel) {
+                                    speakAnnouncement(ChatboxHandoffTracker.completionLine(spokenLanguage))
+                                }
+                                result.put("success", true)
+                                result.put("message", "The ChatBox work is continuing from the exact place it stopped; nothing is being recreated. Tell the user ONCE, in one short sentence in their language, that it is continuing from where it stopped. Then go on talking normally and do not report progress unless asked.")
+                            }
+                            com.jarvis.assistant.provider.SendOutcome.Busy -> {
+                                result.put("success", false)
+                                result.put("message", "The ChatBox model is already working. Tell the user it is still running.")
+                            }
+                            is com.jarvis.assistant.provider.SendOutcome.Blocked -> {
+                                result.put("success", false)
+                                result.put("message", sent.reason)
+                            }
+                            else -> {
+                                result.put("success", false)
+                                result.put("message", "No custom model is active. Tell the user to add a custom model first.")
+                            }
+                        }
+                    }
+
                     "chatbox_status" -> {
                         result.put("success", true)
                         result.put("message", ChatboxHandoffTracker.statusText(applicationContext))

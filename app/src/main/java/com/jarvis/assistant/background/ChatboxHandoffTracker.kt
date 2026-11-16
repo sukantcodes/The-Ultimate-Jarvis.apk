@@ -70,8 +70,8 @@ object ChatboxHandoffTracker {
                     (if (doing.isNotBlank()) ". Right now: $doing." else ".")
             }
             Phase.DONE -> "The ChatBox work is finished."
-            Phase.STOPPED -> "The ChatBox work was stopped by the owner. It was not restarted."
-            Phase.FAILED -> "The ChatBox work stopped with an error. It was not retried; the owner can retry it in the ChatBox."
+            Phase.STOPPED -> "The ChatBox work was stopped by the owner. It was not restarted. Its progress is saved, so if the owner says continue it carries on from where it stopped."
+            Phase.FAILED -> "The ChatBox work stopped with an error. It was not retried on its own. Its progress is saved, so if the owner says continue (or taps Retry in the ChatBox) it carries on from the exact place it stopped."
         }
     }
 

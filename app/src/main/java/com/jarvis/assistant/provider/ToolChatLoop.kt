@@ -9,6 +9,12 @@ import com.jarvis.assistant.tools.ToolSchemas
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
+/** Large builds need many steps; this is a safety net against a confused model, not a limit on real work. */
+const val DEFAULT_MAX_ROUNDS = 400
+
+/** One tool round writes whole files while the model thinks, so it may legitimately take several minutes. */
+const val TOOL_ROUND_TIMEOUT_MS = 600_000L
+
 class ToolChatResult(val text: String, val toolCalls: Int, val rounds: Int, val stoppedEarly: String?)
 
 data class LiveToolStep(
@@ -28,10 +34,11 @@ data class LiveToolStep(
  * [ToolBackend]) → give it the results → repeat until it answers in words. Bounded in rounds, in repeated identical
  * calls, and in result size, so a confused model can never loop forever.
  */
-abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxRounds: Int = 50, private val maxResultChars: Int = 32_000) {
+abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxRounds: Int = DEFAULT_MAX_ROUNDS, private val maxResultChars: Int = 32_000) {
     protected abstract suspend fun round(request: ChatRequest, state: Any?, results: List<Pair<ToolCall, String>>): Round
     protected abstract fun newState(request: ChatRequest): Any?
-    protected class Round(val text: String, val calls: List<ToolCall>, val state: Any?)
+    /** [truncated] is true when the provider cut the answer off at its own output limit, so the work is not complete. */
+    protected class Round(val text: String, val calls: List<ToolCall>, val state: Any?, val truncated: Boolean = false)
 
     /** Receives the provider's own token count for every answer it sends back, including answers that are then retried. */
     var onUsage: ((TokenUsage) -> Unit)? = null
@@ -61,6 +68,7 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
             val r: Round = round(request, state, results)
             state = r.state
             if (r.text.isNotBlank()) { if (collected.isNotEmpty()) collected.append("\n\n"); collected.append(r.text.trim()) }
+            if (r.truncated) return ToolChatResult(collected.toString(), total, n, "The model's answer was cut off by the provider's output limit, so the work is not finished.")
             if (r.calls.isEmpty()) return ToolChatResult(collected.toString(), total, n, null)
             val out = ArrayList<Pair<ToolCall, String>>()
             for (c in r.calls.map { it.copy(source = source) }) {
@@ -71,14 +79,14 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
                 if (times > 2) { out += c to "Error: this exact call was already made $times times with the same arguments. Do not repeat it; answer with what you have or try something different."; continue }
 
                 val target = when (c.name) {
-                    "write_file", "read_file", "edit_file", "delete_path" -> c.args.get("path")?.takeIf { it.isJsonPrimitive }?.asString ?: "file"
+                    "write_file", "append_file", "read_file", "edit_file", "delete_path" -> c.args.get("path")?.takeIf { it.isJsonPrimitive }?.asString ?: "file"
                     "terminal_run" -> c.args.get("command")?.takeIf { it.isJsonPrimitive }?.asString ?: "terminal"
                     "make_directory" -> c.args.get("path")?.takeIf { it.isJsonPrimitive }?.asString ?: "folder"
                     "search_web", "web_search" -> c.args.get("query")?.takeIf { it.isJsonPrimitive }?.asString ?: "web search"
                     else -> c.name
                 }
                 val content = when (c.name) {
-                    "write_file" -> c.args.get("content")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
+                    "write_file", "append_file" -> c.args.get("content")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
                     "edit_file" -> c.args.get("replacement")?.takeIf { it.isJsonPrimitive }?.asString ?: c.args.get("content")?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
                     "terminal_run" -> "$ $target"
                     "search_web", "web_search" -> "Searching: $target…"
@@ -96,6 +104,7 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
                 onStep(LiveToolStep(c.name, target, lang, content, isWriting = true, n, maxRounds))
                 val activityStart = when (c.name) {
                     "write_file" -> "Creating $target…"
+                    "append_file" -> "Adding to $target…"
                     "edit_file" -> "Editing $target…"
                     "terminal_run" -> "Terminal: $target…"
                     "search_web", "web_search" -> "Searching web: $target…"
@@ -126,11 +135,15 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
                 onActivity(activityDone)
 
                 out += c to clip(res.text)
+                // Reading or running the same thing again is fine once something was changed in between.
+                if (res.isOk && c.name in changingTools) seen.clear()
             }
             results = out
         }
         return ToolChatResult(collected.toString(), total, maxRounds, "Completed up to round limit ($maxRounds steps). All generated code and files are saved in the workspace.")
     }
+
+    private val changingTools = setOf("write_file", "append_file", "edit_file", "delete_path", "move_path", "make_directory", "terminal_run")
 
     private fun clip(s: String) = if (s.length <= maxResultChars) s else s.take(maxResultChars) + "\n… (${s.length - maxResultChars} more characters were not sent to the model)"
 
@@ -138,7 +151,7 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
 }
 
 /** OpenAI-compatible tool calling: `tools` + `tool_calls` + `role: tool` messages, one non-streaming request per round. */
-class OpenAiToolLoop(private val transport: HttpTransport, backend: ToolBackend, maxRounds: Int = 50, maxResultChars: Int = 32_000) : ToolChatLoop(backend, maxRounds, maxResultChars) {
+class OpenAiToolLoop(private val transport: HttpTransport, backend: ToolBackend, maxRounds: Int = DEFAULT_MAX_ROUNDS, maxResultChars: Int = 32_000) : ToolChatLoop(backend, maxRounds, maxResultChars) {
     private class State(val messages: JsonArray)
 
     override fun newState(request: ChatRequest): Any? {
@@ -163,7 +176,7 @@ class OpenAiToolLoop(private val transport: HttpTransport, backend: ToolBackend,
             add("tools", ToolSchemas.toOpenAi(backend.specs())); addProperty("tool_choice", "auto")
             p.temperature?.let { addProperty("temperature", it) }
         }
-        val spec = prepare(HttpRequestSpec("POST", ProviderUrl.join(base, "chat/completions"), mapOf("Accept" to "application/json"), HttpBody.Text(JSON_TYPE, body.toString()), 120_000L), p)
+        val spec = prepare(HttpRequestSpec("POST", ProviderUrl.join(base, "chat/completions"), mapOf("Accept" to "application/json"), HttpBody.Text(JSON_TYPE, body.toString()), TOOL_ROUND_TIMEOUT_MS), p)
         val resp = try { transport.execute(spec) } catch (e: TransportException) { throw ProviderException(ProviderErrors.fromTransport(e)) }
         if (!resp.isSuccessful) throw ProviderException(ProviderErrors.fromHttp(resp.code, resp.body, secretOf(p), ErrorContext.CHAT, resp.headers.entries.firstOrNull { it.key.equals("retry-after", true) }?.value))
         val root = parseObject(resp.body) ?: throw ProviderException(ProviderErrors.invalidResponse("Expected a JSON chat completion."))
@@ -180,12 +193,13 @@ class OpenAiToolLoop(private val transport: HttpTransport, backend: ToolBackend,
             msg.get("function_call")?.let { add("function_call", it) }
         })
         if (content.isBlank() && calls.isEmpty()) throw ProviderException(ProviderErrors.invalidResponse("The model returned an empty answer."))
-        return Round(content, calls, st)
+        val cutOff = root.getAsJsonArrayOrNull("choices")?.firstOrNull()?.takeIf { it.isJsonObject }?.asJsonObject?.stringOrNull("finish_reason") == "length"
+        return Round(content, calls, st, truncated = cutOff)
     }
 }
 
 /** Gemini function calling over generateContent: `functionDeclarations`, `functionCall` parts, `functionResponse` parts. */
-class GeminiToolLoop(private val transport: HttpTransport, backend: ToolBackend, maxRounds: Int = 50, maxResultChars: Int = 32_000) : ToolChatLoop(backend, maxRounds, maxResultChars) {
+class GeminiToolLoop(private val transport: HttpTransport, backend: ToolBackend, maxRounds: Int = DEFAULT_MAX_ROUNDS, maxResultChars: Int = 32_000) : ToolChatLoop(backend, maxRounds, maxResultChars) {
     private class State(val contents: JsonArray)
 
     /** Set when the model refused a thinking setting, so later rounds are sent without it. */
@@ -217,7 +231,7 @@ class GeminiToolLoop(private val transport: HttpTransport, backend: ToolBackend,
         }
         val url = ProviderUrl.join(base, "${ProviderUrl.geminiModelName(p.modelId)}:generateContent")
         suspend fun send(withThinking: Boolean): HttpResponse {
-            val spec = prepare(HttpRequestSpec("POST", url, mapOf("Accept" to "application/json"), HttpBody.Text(JSON_TYPE, bodyJson(withThinking).toString()), 120_000L), p)
+            val spec = prepare(HttpRequestSpec("POST", url, mapOf("Accept" to "application/json"), HttpBody.Text(JSON_TYPE, bodyJson(withThinking).toString()), TOOL_ROUND_TIMEOUT_MS), p)
             return try { transport.execute(spec) } catch (e: TransportException) { throw ProviderException(ProviderErrors.fromTransport(e)) }
         }
         var resp = send(!thinkingRejected)
@@ -238,6 +252,7 @@ class GeminiToolLoop(private val transport: HttpTransport, backend: ToolBackend,
         if (text.isBlank() && calls.isEmpty()) throw ProviderException(ProviderErrors.invalidResponse("The model returned no answer (it may have been blocked)."))
         // Keep the model's own turn (including its function calls) in the conversation.
         content?.let { st.contents.add(it) }
-        return Round(text.toString(), calls, st)
+        val cutOff = root.getAsJsonArrayOrNull("candidates")?.firstOrNull()?.takeIf { it.isJsonObject }?.asJsonObject?.stringOrNull("finishReason") == "MAX_TOKENS"
+        return Round(text.toString(), calls, st, truncated = cutOff)
     }
 }

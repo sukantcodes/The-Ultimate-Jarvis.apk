@@ -971,6 +971,21 @@ open class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 22b. continue_chatbox_work
+                        put(JSONObject().apply {
+                            put("name", "continue_chatbox_work")
+                            put("description", "Carries the ChatBox work on from the exact place it stopped (same files, next missing line) after an error such as an API timeout or too many requests, or after a stop. Call it when the user says continue, resume, carry on, or the same in Hindi or Bengali, about work that stopped. Never use send_to_chatbox for this, because that would start the work again from the beginning. Optionally pass extra_instruction if the user adds a change while asking to continue.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("extra_instruction", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "Optional: something the user wants added or changed while continuing.")
+                                    })
+                                })
+                            })
+                        })
+
                         // 23. Amazon App Mastery (search, compare, cart, checkout preparation, confirmed order)
                         com.jarvis.assistant.automation.amazon.AmazonTools.declarations().forEach { put(it) }
 

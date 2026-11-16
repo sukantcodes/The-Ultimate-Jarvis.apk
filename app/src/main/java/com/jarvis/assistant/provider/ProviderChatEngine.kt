@@ -85,7 +85,9 @@ class ProviderChatEngine(
     private val toolBackend: (() -> com.jarvis.assistant.tools.ToolBackend?)? = null,
     /** Extra system-prompt text for a question, such as the user's saved memories. Must never contain secrets. */
     private val extraContext: ((String) -> String)? = null,
-    private val tokenModeProvider: (() -> TokenMode)? = null
+    private val tokenModeProvider: (() -> TokenMode)? = null,
+    /** Remembers the progress of each job so Retry or "continue" resumes it instead of starting again. Null keeps the old behaviour. */
+    private val journal: WorkJournalStore? = null
 ) {
     /** Short live status lines while tools run ("Using web_search…"). */
     private val _activity = MutableSharedFlow<String>(extraBufferCapacity = 32)
@@ -136,6 +138,9 @@ class ProviderChatEngine(
     ): SendOutcome {
         synchronized(lock) {
             if (isBusy) return SendOutcome.Busy
+            // "continue" after an interrupted job carries that job on; it is never treated as a brand-new request.
+            val continueExtra = if (attachments.isEmpty() && attachmentRef == null && sendText == displayText) ContinueIntent.match(displayText) else null
+            val resumable = if (continueExtra != null) journal?.latestResumable() else null
             val category = categoryOverride ?: WorkClassifier.classify(displayText, attachments, hasDocument = attachmentRef != null || sendText != displayText)
             val res = config.resolveChat(category)
             val resolved = if (res is ChatResolution.NotActive && categoryOverride != null) config.resolveChat() else res
@@ -149,7 +154,40 @@ class ProviderChatEngine(
             turnCategory[id] = category
             if (sendText != displayText) sentText[id] = sendText
             if (attachments.isNotEmpty()) sentAttachments[id] = attachments
+            if (resumable != null) {
+                val carried = journal?.adopt(resumable.turnId, id)
+                if (carried != null) {
+                    launch(id, provider, WorkJournalStore.brief(carried, continueExtra.orEmpty()), attachments, resume = carried)
+                    return SendOutcome.Started(id, provider.label)
+                }
+            }
+            journal?.begin(id, sendText)
             launch(id, provider, sendText, attachments)
+            return SendOutcome.Started(id, provider.label)
+        }
+    }
+
+    /** True when an interrupted job can be carried on from where it stopped. */
+    fun hasResumableWork(): Boolean = journal?.latestResumable() != null
+
+    /**
+     * Carries the last interrupted job on from the exact place it stopped (same files, next missing line). Used by
+     * the spoken "continue". Returns Blocked with a plain reason when there is nothing to continue.
+     */
+    fun resumeLast(extra: String = "", display: String = "▶ Continue"): SendOutcome {
+        synchronized(lock) {
+            if (isBusy) return SendOutcome.Busy
+            val store0 = journal ?: return SendOutcome.Blocked("There is no unfinished ChatBox work to continue.")
+            val old = store0.latestResumable() ?: return SendOutcome.Blocked("There is no unfinished ChatBox work to continue.")
+            val provider = when (val r = config.resolveChat(WorkCategory.CODING)) {
+                ChatResolution.NotActive -> return SendOutcome.NotActive
+                is ChatResolution.Blocked -> return SendOutcome.Blocked("${r.providerName}: ${r.reason}")
+                is ChatResolution.Ready -> r.provider
+            }
+            val id = store.begin(display, null)
+            turnCategory[id] = WorkCategory.CODING
+            val carried = store0.adopt(old.turnId, id) ?: return SendOutcome.Blocked("There is no unfinished ChatBox work to continue.")
+            launch(id, provider, WorkJournalStore.brief(carried, extra), emptyList(), resume = carried)
             return SendOutcome.Started(id, provider.label)
         }
     }
@@ -172,7 +210,14 @@ class ProviderChatEngine(
             checkAttachments(provider, attachments)?.let { return SendOutcome.Blocked(it) }
             if (!store.resetForRetry(turnId)) return SendOutcome.Blocked("That message is no longer in the chat.")
             failedTurns.remove(turnId)
-            launch(turnId, provider, sentText[turnId] ?: display, attachments)
+            val carried = journal?.resumable(turnId)
+            if (carried != null) {
+                // Same job, same files: the model is told what is already done and carries on from the last line.
+                launch(turnId, provider, WorkJournalStore.brief(carried), attachments, resume = carried)
+            } else {
+                journal?.begin(turnId, sentText[turnId] ?: display)
+                launch(turnId, provider, sentText[turnId] ?: display, attachments)
+            }
             return SendOutcome.Started(turnId, provider.label)
         }
     }
@@ -194,12 +239,19 @@ class ProviderChatEngine(
         return null
     }
 
-    private fun launch(id: String, provider: ResolvedProvider, text: String, attachments: List<ChatAttachment>) {
+    private fun launch(id: String, provider: ResolvedProvider, text: String, attachments: List<ChatAttachment>, resume: WorkJournal? = null) {
         _state.value = EngineState.Streaming(id, provider.label)
+        journal?.running(id)
         build.begin(id, provider.label, provider.modelId)
         turnWork.begin(id)
         job = scope.launch {
             val partial = StringBuilder()
+            // Code and output already produced for this job (kept across a resume and across a failure).
+            val executedBlocks = LinkedHashMap<String, String>()
+            if (resume != null) {
+                executedBlocks.putAll(resume.blocks)
+                if (executedBlocks.isNotEmpty()) store.updatePartial(id, executedBlocks.values.joinToString("\n\n"))
+            }
             var lastUi = 0L
             // The provider's own token counts go straight into the chat total. Only when it reports none is an estimate added.
             var usageRecorded = false
@@ -238,7 +290,6 @@ class ProviderChatEngine(
                     }
                     try {
                         var toolLoopFailed = false
-                        val executedBlocks = LinkedHashMap<String, String>()
                         if (backend != null) {
                             try {
                                 val loop = if (active.protocol == ProviderProtocol.GEMINI) GeminiToolLoop(transport, backend) else OpenAiToolLoop(transport, backend)
@@ -248,12 +299,13 @@ class ProviderChatEngine(
                                 }
                                 build.requestSent()
                                 val res = loop.run(
-                                    ChatRequest(active, sys0 + TOOL_PROMPT, messages, maxTokens = active.maxTokens ?: tokenMode.maxTokens),
+                                    ChatRequest(active, sys0 + TOOL_PROMPT, messages, maxTokens = active.maxTokens),
                                     "chat-task-" + id,
                                     onActivity = { line ->
                                         _activity.tryEmit(line)
                                     },
                                     onStep = { step ->
+                                        if (!step.isWriting) journal?.recordStep(id, step)
                                         build.toolStep(step.toolName, step.target, step.isWriting)
                                         turnWork.onStep(id, step)
                                         val pct = minOf(95, 15 + ((step.round - 1) * 20) + (if (executedBlocks.isEmpty()) 10 else 18))
@@ -264,9 +316,12 @@ class ProviderChatEngine(
                                             target = step.target
                                         )
                                         turnWork.setProgress(id, if (!step.isWriting) minOf(98, pct + 8) else pct)
-                                        if (step.codeOrOutput.isNotBlank() && (step.toolName in listOf("write_file", "terminal_run", "edit_file", "search_web", "web_search", "read_file"))) {
+                                        if (step.codeOrOutput.isNotBlank() && (step.toolName in listOf("write_file", "append_file", "terminal_run", "edit_file", "search_web", "web_search", "read_file"))) {
                                             val fence = "```${step.language}:${step.target}\n${step.codeOrOutput}\n```"
-                                            executedBlocks[step.target] = fence
+                                            // An appended piece is its own block, so the file's earlier part stays visible.
+                                            val key = if (step.toolName == "append_file") step.target + " (+" + executedBlocks.size + ")" else step.target
+                                            executedBlocks[key] = fence
+                                            if (!step.isWriting) journal?.recordBlocks(id, executedBlocks)
                                             val liveText = executedBlocks.values.joinToString("\n\n")
                                             store.updatePartial(id, liveText)
                                         }
@@ -282,10 +337,14 @@ class ProviderChatEngine(
                                 } else {
                                     partial.append(res.text)
                                 }
-                                res.stoppedEarly?.let { partial.append("\n\n").append(it) }
+                                res.stoppedEarly?.let {
+                                    partial.append("\n\n").append(it).append(" Say \"continue\" to carry on from here.")
+                                    journal?.interrupted(id, it)
+                                }
 
-                                val hasHtmlOutput = executedBlocks.keys.any { it.endsWith(".html", ignoreCase = true) } ||
-                                        executedBlocks.values.any { it.contains("<!DOCTYPE html", ignoreCase = true) || it.contains("<html", ignoreCase = true) }
+                                // Never open a preview of work that stopped halfway: it is only shown once the job really finished.
+                                val hasHtmlOutput = res.stoppedEarly == null && (executedBlocks.keys.any { it.endsWith(".html", ignoreCase = true) } ||
+                                        executedBlocks.values.any { it.contains("<!DOCTYPE html", ignoreCase = true) || it.contains("<html", ignoreCase = true) })
                                 if (hasHtmlOutput) {
                                     try {
                                         val app = com.jarvis.assistant.JarvisApp.instance
@@ -310,6 +369,7 @@ class ProviderChatEngine(
 
                                 lease?.let { pool?.reportSuccess(it.keyId) }
                                 _workProgress.value = LiveWorkProgress(isWorking = false, percent = 100, actionText = "Done")
+                                if (res.stoppedEarly == null) journal?.finished(id)
                                 break
                             } catch (e: ProviderException) {
                                 if (toolsRan == 0 && e.error.kind in setOf(ProviderErrorKind.BAD_REQUEST, ProviderErrorKind.UNSUPPORTED_FEATURE, ProviderErrorKind.INVALID_RESPONSE)) {
@@ -342,6 +402,7 @@ class ProviderChatEngine(
                             }
                             lease?.let { pool?.reportSuccess(it.keyId) }
                             _workProgress.value = LiveWorkProgress(isWorking = false, percent = 100, actionText = "Done")
+                            journal?.finished(id)
                             break
                         }
                     } catch (e: ProviderException) {
@@ -367,6 +428,8 @@ class ProviderChatEngine(
                 _workProgress.value = LiveWorkProgress(isWorking = false, percent = 0)
             } catch (e: CancellationException) {
                 build.stopped()
+                journal?.recordBlocks(id, executedBlocks)
+                journal?.interrupted(id, "The work was stopped.")
                 turnWork.finish(id, failed = false)
                 _workProgress.value = LiveWorkProgress(isWorking = false, percent = 0)
                 settleUsage(partial.toString())
@@ -381,19 +444,26 @@ class ProviderChatEngine(
                 throw e
             } catch (e: ProviderException) {
                 settleUsage(partial.toString())
-                fail(id, partial.toString(), e.error)
+                fail(id, shownSoFar(partial, executedBlocks), e.error)
             } catch (e: TransportException) {
                 settleUsage(partial.toString())
-                fail(id, partial.toString(), ProviderErrors.fromTransport(e))
+                fail(id, shownSoFar(partial, executedBlocks), ProviderErrors.fromTransport(e))
             } catch (e: Exception) {
                 // A malformed provider answer must never crash the app.
                 settleUsage(partial.toString())
-                fail(id, partial.toString(), ProviderErrors.invalidResponse("Unexpected problem: ${e.javaClass.simpleName}."))
+                fail(id, shownSoFar(partial, executedBlocks), ProviderErrors.invalidResponse("Unexpected problem: ${e.javaClass.simpleName}."))
             }
         }
     }
 
+    /** What the chat should keep showing when a job fails: the work already done, then any text that arrived. */
+    private fun shownSoFar(partial: StringBuilder, blocks: Map<String, String>): String {
+        val work = blocks.values.joinToString("\n\n")
+        return if (work.isBlank() || partial.contains(work)) partial.toString() else if (partial.isBlank()) work else work + "\n\n" + partial
+    }
+
     private fun fail(id: String, partial: String, error: ProviderError) {
+        journal?.interrupted(id, error.message)
         build.failed(error.message)
         turnWork.finish(id, failed = true)
         failedTurns.add(id)

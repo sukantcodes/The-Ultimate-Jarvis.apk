@@ -67,9 +67,11 @@ class OkHttpTransport(base: OkHttpClient = OkHttpClient()) : HttpTransport {
     }
 
     private fun clientFor(spec: HttpRequestSpec): OkHttpClient = client.newBuilder()
-        .callTimeout(maxOf(spec.timeoutMs, 120_000L), TimeUnit.MILLISECONDS)
+        // No overall call limit: a long answer or a long build must never be cut off while data is still arriving.
+        // The read limit only fires when the provider goes silent for that long.
+        .callTimeout(0L, TimeUnit.MILLISECONDS)
         .connectTimeout(30_000L, TimeUnit.MILLISECONDS)
-        .readTimeout(maxOf(spec.timeoutMs, 120_000L), TimeUnit.MILLISECONDS)
+        .readTimeout(maxOf(spec.timeoutMs, 180_000L), TimeUnit.MILLISECONDS)
         .build()
 
     private fun map(e: IOException): TransportException = when (e) {
