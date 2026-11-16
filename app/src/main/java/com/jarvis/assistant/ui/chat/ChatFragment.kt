@@ -270,7 +270,7 @@ class ChatFragment : Fragment() {
             selectedDocument?.savedPath?.let { path -> runCatching { java.io.File(path).delete() } }
             selectedDocument = null
             updateAttachmentPreview()
-            binding.etMessageInput.hint = "Message JARVIS…"
+            binding.etMessageInput.hint = workModeHint()
         }
         // The composer is a LiquidGlassLayout (live blur + prism refraction); controls on it get light glass chips.
         listOf(binding.btnCamera, binding.btnAttach, binding.btnVoiceInput).forEach {
@@ -278,6 +278,7 @@ class ChatFragment : Fragment() {
             GlassChips.magnifyOnPress(it)
         }
         binding.btnChatTools.background = GlassChips.make(requireContext(), 15f)
+        setupWorkModes()
         GlassChips.magnifyOnPress(binding.btnSendMessage, 1.1f)
         binding.btnStopChat.onSafeClick {
             com.jarvis.assistant.background.ChatboxHandoffTracker.noteUserStop()
@@ -308,7 +309,7 @@ class ChatFragment : Fragment() {
                     totalUsedTokens = 0
                     binding.tvChatTokens.text = "⚡ 0 TOKENS"
                     updateAttachmentPreview()
-                    binding.etMessageInput.hint = "Message JARVIS…"
+                    binding.etMessageInput.hint = workModeHint()
                 }
                 .setNegativeButton("Cancel", null)
                 .show()
@@ -490,6 +491,65 @@ class ChatFragment : Fragment() {
         view.visibility = View.VISIBLE
     }
 
+    // ---- Ask / Debug / Code / Develop ---------------------------------------------------------------------------
+
+    private var workModeNoticeShown = false
+
+    private fun currentWorkMode(): com.jarvis.assistant.provider.ChatWorkMode =
+        com.jarvis.assistant.provider.ChatWorkModeStore.get(requireContext())
+
+    /** The hint the message box shows in the current mode (also used after an attachment is cleared). */
+    private fun workModeHint(): String =
+        if (selectedDocument != null) "Message JARVIS…" else if (_binding == null) "Message JARVIS…" else currentWorkMode().inputHint
+
+    private fun setupWorkModes() {
+        val start = currentWorkMode()
+        binding.workModeSwitcher.setMode(start, animate = false)
+        applyWorkMode(start, animate = false)
+        binding.workModeSwitcher.onModeSelected = { mode ->
+            com.jarvis.assistant.provider.ChatWorkModeStore.set(requireContext(), mode)
+            applyWorkMode(mode, animate = true)
+            if (mode != com.jarvis.assistant.provider.ChatWorkMode.DEVELOP && !workModeNoticeShown && !customProviderActive()) {
+                workModeNoticeShown = true
+                Toast.makeText(requireContext(), "Modes work with your custom model. Add one in API Key & Model Settings.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    /** Smoothly moves the composer to a mode: the accent bar takes the mode's colour and the hint cross-fades. */
+    private fun applyWorkMode(mode: com.jarvis.assistant.provider.ChatWorkMode, animate: Boolean) {
+        val color = try {
+            when (mode) {
+                com.jarvis.assistant.provider.ChatWorkMode.ASK -> ThemeManager.getThemeSuccessColor()
+                com.jarvis.assistant.provider.ChatWorkMode.DEBUG -> ThemeManager.getThemeWarningColor()
+                com.jarvis.assistant.provider.ChatWorkMode.CODE -> ThemeManager.getThemeSecondaryColor()
+                com.jarvis.assistant.provider.ChatWorkMode.DEVELOP -> ThemeManager.getThemeAccentColor()
+            }
+        } catch (_: Exception) { return }
+        val bar = binding.composerAccentBar
+        val input = binding.etMessageInput
+        if (!animate) {
+            bar.setBackgroundColor(color)
+            input.hint = workModeHint()
+            return
+        }
+        val from = (bar.background as? android.graphics.drawable.ColorDrawable)?.color ?: color
+        android.animation.ValueAnimator.ofObject(android.animation.ArgbEvaluator(), from, color).apply {
+            duration = 380
+            addUpdateListener { if (_binding != null) bar.setBackgroundColor(it.animatedValue as Int) }
+            start()
+        }
+        bar.animate().cancel()
+        bar.alpha = 0.45f
+        bar.animate().alpha(1f).setDuration(160).withEndAction { if (_binding != null) bar.animate().alpha(0.45f).setDuration(420).start() }.start()
+        input.animate().cancel()
+        input.animate().alpha(0f).setDuration(110).withEndAction {
+            if (_binding == null) return@withEndAction
+            input.hint = workModeHint()
+            input.animate().alpha(1f).setDuration(220).start()
+        }.start()
+    }
+
     private fun customProviderActive(): Boolean {
         if (providerManager.activeProfile() == null) return false
         // The user may have routed normal chat to Gemini explicitly; then the built-in Gemini path answers.
@@ -546,7 +606,7 @@ class ChatFragment : Fragment() {
                     if (document != null) {
                         selectedDocument = null
                         updateAttachmentPreview()
-                        binding.etMessageInput.hint = "Message JARVIS…"
+                        binding.etMessageInput.hint = workModeHint()
                     }
                 }
                 SendOutcome.NotActive -> {
@@ -678,7 +738,7 @@ class ChatFragment : Fragment() {
                     val answer = DocumentAnalysisClient.analyze(requireContext(), document, prompt, key)
                     JarvisApp.instance.chatRepository.addTurn("📎 ${document.name}\n$prompt", answer, document.savedPath, document.name, document.mimeType)
                     selectedDocument = null
-                    if (_binding != null) { updateAttachmentPreview(); binding.etMessageInput.hint = "Message JARVIS…" }
+                    if (_binding != null) { updateAttachmentPreview(); binding.etMessageInput.hint = workModeHint() }
                 } catch (error: kotlinx.coroutines.CancellationException) {
                     throw error
                 } catch (error: Exception) {

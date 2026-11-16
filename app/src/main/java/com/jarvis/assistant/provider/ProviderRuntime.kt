@@ -63,7 +63,8 @@ object ProviderRuntime {
                 toolBackend = { com.jarvis.assistant.tools.ToolRuntime.backend(app) },
                 extraContext = { q -> com.jarvis.assistant.tools.ToolRuntime.get(app).memory.contextFor(q) },
                 tokenModeProvider = { TokenModeStore.get(context) },
-                journal = WorkJournalStore(java.io.File(app.filesDir, "chatbox_work_journal.json"))
+                journal = WorkJournalStore(java.io.File(app.filesDir, "chatbox_work_journal.json")),
+                modeProvider = { ChatWorkModeStore.get(context) }
             ).also { engine = it }
         }
     }

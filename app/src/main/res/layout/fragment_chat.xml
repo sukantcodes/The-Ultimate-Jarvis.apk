@@ -324,6 +324,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
+            android:clipChildren="false"
             android:gravity="center_vertical">
 
             <TextView
@@ -347,14 +348,12 @@
                 android:layout_height="1dp"
                 android:layout_weight="1" />
 
-            <TextView
+            <com.jarvis.assistant.ui.chat.WorkModeSwitcher
+                android:id="@+id/workModeSwitcher"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="AI ASSISTANT"
-                android:textColor="?attr/themeTextMuted"
-                android:textSize="10sp"
-                android:letterSpacing="0.10"
-                android:textStyle="bold" />
+                android:layout_height="44dp"
+                android:layout_marginTop="-7dp"
+                android:layout_marginBottom="-7dp" />
         </LinearLayout>
 
         <LinearLayout
@@ -461,6 +460,7 @@
             android:layout_marginTop="8dp">
 
             <View
+                android:id="@+id/composerAccentBar"
                 android:layout_width="3dp"
                 android:layout_height="match_parent"
                 android:background="?attr/themeAccent"

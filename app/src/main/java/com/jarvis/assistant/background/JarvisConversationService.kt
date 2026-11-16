@@ -2564,7 +2564,7 @@ class JarvisConversationService : Service() {
                             result.put("message", "No task was given.")
                         } else {
                             // One hand-off, never repeated: no retry, no improvement rounds, no second attempt.
-                            val sent = try { com.jarvis.assistant.provider.ProviderRuntime.chatEngine(applicationContext).send(task) } catch (e: Exception) { null }
+                            val sent = try { com.jarvis.assistant.provider.ProviderRuntime.chatEngine(applicationContext).send(task, mode = com.jarvis.assistant.provider.ChatWorkMode.DEVELOP) } catch (e: Exception) { null }
                             when (sent) {
                                 is com.jarvis.assistant.provider.SendOutcome.Started -> {
                                     val spokenLanguage = com.jarvis.assistant.util.MultilingualCommandHelper.resolveLanguage(applicationContext, currentTurnUserText.toString())

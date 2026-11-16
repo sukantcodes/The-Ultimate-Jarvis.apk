@@ -87,7 +87,9 @@ class ProviderChatEngine(
     private val extraContext: ((String) -> String)? = null,
     private val tokenModeProvider: (() -> TokenMode)? = null,
     /** Remembers the progress of each job so Retry or "continue" resumes it instead of starting again. Null keeps the old behaviour. */
-    private val journal: WorkJournalStore? = null
+    private val journal: WorkJournalStore? = null,
+    /** The mode picked in the ChatBox (Ask, Debug, Code or Develop). Null means Develop, the original behaviour. */
+    private val modeProvider: (() -> ChatWorkMode)? = null
 ) {
     /** Short live status lines while tools run ("Using web_search…"). */
     private val _activity = MutableSharedFlow<String>(extraBufferCapacity = 32)
@@ -117,6 +119,8 @@ class ProviderChatEngine(
     private val sentAttachments = ConcurrentHashMap<String, List<ChatAttachment>>()
     private val failedTurns = ConcurrentHashMap.newKeySet<String>()
     private val turnCategory = ConcurrentHashMap<String, WorkCategory>()
+    /** The mode each turn was asked in, so a Retry or a resume keeps working the same way. */
+    private val turnMode = ConcurrentHashMap<String, ChatWorkMode>()
 
     /**
      * Busy means an answer is still being produced. It follows the published state, not the coroutine: the job
@@ -134,14 +138,21 @@ class ProviderChatEngine(
         attachments: List<ChatAttachment> = emptyList(),
         attachmentRef: AttachmentRef? = null,
         /** Forces the kind of work (for example CODING) instead of guessing it from the visible text. */
-        categoryOverride: WorkCategory? = null
+        categoryOverride: WorkCategory? = null,
+        /** Forces a mode (voice hand-offs always build in Develop); null uses the mode picked in the ChatBox. */
+        mode: ChatWorkMode? = null
     ): SendOutcome {
         synchronized(lock) {
             if (isBusy) return SendOutcome.Busy
             // "continue" after an interrupted job carries that job on; it is never treated as a brand-new request.
-            val continueExtra = if (attachments.isEmpty() && attachmentRef == null && sendText == displayText) ContinueIntent.match(displayText) else null
+            val workMode = mode ?: modeProvider?.invoke() ?: ChatWorkMode.DEFAULT
+            val continueExtra = if (workMode.usesTools && attachments.isEmpty() && attachmentRef == null && sendText == displayText) ContinueIntent.match(displayText) else null
             val resumable = if (continueExtra != null) journal?.latestResumable() else null
-            val category = categoryOverride ?: WorkClassifier.classify(displayText, attachments, hasDocument = attachmentRef != null || sendText != displayText)
+            val category = categoryOverride ?: when (workMode) {
+                ChatWorkMode.ASK -> WorkCategory.CHAT
+                ChatWorkMode.DEBUG, ChatWorkMode.CODE -> WorkCategory.CODING
+                ChatWorkMode.DEVELOP -> WorkClassifier.classify(displayText, attachments, hasDocument = attachmentRef != null || sendText != displayText)
+            }
             val res = config.resolveChat(category)
             val resolved = if (res is ChatResolution.NotActive && categoryOverride != null) config.resolveChat() else res
             val provider = when (resolved) {
@@ -152,11 +163,13 @@ class ProviderChatEngine(
             checkAttachments(provider, attachments)?.let { return SendOutcome.Blocked(it) }
             val id = store.begin(displayText, attachmentRef)
             turnCategory[id] = category
+            turnMode[id] = workMode
             if (sendText != displayText) sentText[id] = sendText
             if (attachments.isNotEmpty()) sentAttachments[id] = attachments
             if (resumable != null) {
                 val carried = journal?.adopt(resumable.turnId, id)
                 if (carried != null) {
+                    turnMode[id] = turnMode[resumable.turnId] ?: workMode
                     launch(id, provider, WorkJournalStore.brief(carried, continueExtra.orEmpty()), attachments, resume = carried)
                     return SendOutcome.Started(id, provider.label)
                 }
@@ -186,6 +199,7 @@ class ProviderChatEngine(
             }
             val id = store.begin(display, null)
             turnCategory[id] = WorkCategory.CODING
+            turnMode[id] = turnMode[old.turnId] ?: ChatWorkMode.DEVELOP
             val carried = store0.adopt(old.turnId, id) ?: return SendOutcome.Blocked("There is no unfinished ChatBox work to continue.")
             launch(id, provider, WorkJournalStore.brief(carried, extra), emptyList(), resume = carried)
             return SendOutcome.Started(id, provider.label)
@@ -261,6 +275,10 @@ class ProviderChatEngine(
                 usageRecorded = true
                 ChatTokenLedger.recordEstimate(inputEstimate + TokenEstimator.estimate(output))
             }
+            val mode = turnMode[id] ?: ChatWorkMode.DEFAULT
+            val modeText = "\n\n" + mode.instruction
+            /** Ask mode never shows code, whatever the model writes. */
+            fun shown(text: String) = if (mode == ChatWorkMode.ASK) AskModeGuard.strip(text) else text
             try {
                 val tokenMode = tokenModeProvider?.invoke() ?: TokenMode.HIGH
                 val history = store.completedTurns(excludingId = id).map { it.copy(user = sentText[it.id] ?: it.user) }
@@ -271,7 +289,9 @@ class ProviderChatEngine(
                 val pool = keyRotation?.takeIf { it.hasKeys(provider.profileId) }
                 val tried = HashSet<String>()
                 var previousLabel: String? = null
-                val backend = toolBackend?.invoke()?.takeIf { attachments.isEmpty() && provider.model.support(Capability.TOOLS) != Support.NO }
+                val backend = toolBackend?.invoke()
+                    ?.takeIf { mode.usesTools && attachments.isEmpty() && provider.model.support(Capability.TOOLS) != Support.NO }
+                    ?.let { b -> mode.allowedTools?.let { FilteredToolBackend(b, it) } ?: b }
                 var toolsRan = 0
                 while (true) {
                     var lease: KeyLease? = null
@@ -299,7 +319,7 @@ class ProviderChatEngine(
                                 }
                                 build.requestSent()
                                 val res = loop.run(
-                                    ChatRequest(active, sys0 + TOOL_PROMPT, messages, maxTokens = active.maxTokens),
+                                    ChatRequest(active, sys0 + TOOL_PROMPT + modeText, messages, maxTokens = active.maxTokens),
                                     "chat-task-" + id,
                                     onActivity = { line ->
                                         _activity.tryEmit(line)
@@ -343,7 +363,7 @@ class ProviderChatEngine(
                                 }
 
                                 // Never open a preview of work that stopped halfway: it is only shown once the job really finished.
-                                val hasHtmlOutput = res.stoppedEarly == null && (executedBlocks.keys.any { it.endsWith(".html", ignoreCase = true) } ||
+                                val hasHtmlOutput = mode == ChatWorkMode.DEVELOP && res.stoppedEarly == null && (executedBlocks.keys.any { it.endsWith(".html", ignoreCase = true) } ||
                                         executedBlocks.values.any { it.contains("<!DOCTYPE html", ignoreCase = true) || it.contains("<html", ignoreCase = true) })
                                 if (hasHtmlOutput) {
                                     try {
@@ -382,7 +402,7 @@ class ProviderChatEngine(
                         }
                         if (backend == null || toolLoopFailed) {
                             build.requestSent()
-                            client.stream(ChatRequest(active, sys0, messages, maxTokens = active.maxTokens ?: tokenMode.maxTokens)).collect { event ->
+                            client.stream(ChatRequest(active, sys0 + modeText, messages, maxTokens = active.maxTokens ?: tokenMode.maxTokens)).collect { event ->
                                 when (event) {
                                     is ChatEvent.Delta -> {
                                         if (partial.isEmpty()) build.generating()
@@ -390,7 +410,7 @@ class ProviderChatEngine(
                                         val now = System.nanoTime() / 1_000_000L
                                         if (now - lastUi >= uiThrottleMs) {
                                             lastUi = now
-                                            store.updatePartial(id, partial.toString())
+                                            store.updatePartial(id, shown(partial.toString()))
                                         }
                                     }
                                     is ChatEvent.Usage -> {
@@ -421,7 +441,7 @@ class ProviderChatEngine(
                     }
                 }
                 settleUsage(partial.toString())
-                store.finish(id, partial.toString())
+                store.finish(id, shown(partial.toString()))
                 build.done()
                 turnWork.finish(id, failed = false)
                 _state.value = EngineState.Idle
@@ -435,7 +455,7 @@ class ProviderChatEngine(
                 settleUsage(partial.toString())
                 val kept = partial.toString().trim()
                 if (kept.isNotEmpty()) {
-                    store.finish(id, kept + "\n\n(stopped)")
+                    store.finish(id, shown(kept) + "\n\n(stopped)")
                 } else {
                     failedTurns.add(id)
                     store.fail(id, "", ERROR_PREFIX + "Stopped before an answer arrived. Tap Retry to ask again.")
@@ -444,14 +464,14 @@ class ProviderChatEngine(
                 throw e
             } catch (e: ProviderException) {
                 settleUsage(partial.toString())
-                fail(id, shownSoFar(partial, executedBlocks), e.error)
+                fail(id, shown(shownSoFar(partial, executedBlocks)), e.error)
             } catch (e: TransportException) {
                 settleUsage(partial.toString())
-                fail(id, shownSoFar(partial, executedBlocks), ProviderErrors.fromTransport(e))
+                fail(id, shown(shownSoFar(partial, executedBlocks)), ProviderErrors.fromTransport(e))
             } catch (e: Exception) {
                 // A malformed provider answer must never crash the app.
                 settleUsage(partial.toString())
-                fail(id, shownSoFar(partial, executedBlocks), ProviderErrors.invalidResponse("Unexpected problem: ${e.javaClass.simpleName}."))
+                fail(id, shown(shownSoFar(partial, executedBlocks)), ProviderErrors.invalidResponse("Unexpected problem: ${e.javaClass.simpleName}."))
             }
         }
     }
