@@ -171,6 +171,10 @@ class JarvisChatAdapter(
             MarkdownRenderer.attachLinkTouch(binding.tvAssistantMessage)
             binding.tvUserMessage.background = Glass.panel(binding.root.context, 20f)
             binding.tvUserAttachment.background = Glass.inset(binding.root.context, 16f)
+            // Copy / edit / read-aloud / save: each icon is its own 3D glass bubble with spring press and liquid ripple.
+            val pods = com.jarvis.assistant.ui.glass.DockPods
+            listOf(binding.btnUserEdit, binding.btnUserCopy, binding.btnAssistantCopy, binding.btnAssistantPlay, binding.btnAssistantSave)
+                .forEach { pods.install(it, heightDp = 38f, circle = true, group = "message") }
         }
 
         /** The glass panel only shows when it has something inside, and the answer gets space above it only under the activity block. */

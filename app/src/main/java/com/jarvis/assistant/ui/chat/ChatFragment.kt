@@ -273,14 +273,10 @@ class ChatFragment : Fragment() {
             binding.etMessageInput.hint = workModeHint()
         }
         // The composer is a LiquidGlassLayout (live blur + prism refraction); controls on it get light glass chips.
-        listOf(binding.btnCamera, binding.btnAttach, binding.btnVoiceInput).forEach {
-            it.background = GlassChips.make(requireContext(), 22f)
-            GlassChips.magnifyOnPress(it)
-        }
-        binding.btnChatTools.background = GlassChips.make(requireContext(), 15f)
+        // (the composer icons get their own 3D glass pods in setupComposerPods() below)
         setupWorkModes()
         setupHeaderGlass()
-        GlassChips.magnifyOnPress(binding.btnSendMessage, 1.1f)
+        setupComposerPods()
         binding.btnStopChat.onSafeClick {
             com.jarvis.assistant.background.ChatboxHandoffTracker.noteUserStop()
             fileAnalysisJob?.cancel()
@@ -501,6 +497,21 @@ class ChatFragment : Fragment() {
     /** The hint the message box shows in the current mode (also used after an attachment is cleared). */
     private fun workModeHint(): String =
         if (selectedDocument != null) "Message JARVIS…" else if (_binding == null) "Message JARVIS…" else currentWorkMode().inputHint
+
+    /** Every composer icon is its own 3D glass bubble with the same spring press and in-pod liquid ripple as the dock. */
+    private fun setupComposerPods() {
+        val pods = com.jarvis.assistant.ui.glass.DockPods
+        val g = "composer"
+        pods.install(binding.btnCamera, heightDp = 40f, circle = true, group = g)
+        pods.install(binding.btnAttach, heightDp = 40f, circle = true, group = g)
+        pods.install(binding.btnVoiceInput, heightDp = 40f, circle = true, group = g)
+        pods.install(binding.btnSendMessage, heightDp = 44f, circle = true, group = g)
+        pods.install(binding.btnStopChat, heightDp = 40f, circle = true, group = g)
+        pods.install(binding.btnChatTools, heightDp = 30f, maxWidthDp = 300f, padDp = 0f, group = g)
+        pods.install(binding.btnRemoveAttachment, heightDp = 34f, circle = true, group = g)
+        pods.install(binding.btnVoiceStopAndSend, heightDp = 32f, circle = true, group = g)
+        pods.install(binding.btnVoiceCancel, heightDp = 32f, circle = true, group = g)
+    }
 
     /** The top bar is a liquid glass bubble; every control in it is its own 3D glass pod with spring press and in-pod ripple. */
     private fun setupHeaderGlass() {
@@ -1012,8 +1023,8 @@ class ChatFragment : Fragment() {
             binding.layoutVoiceListening.visibility = View.VISIBLE
             binding.voiceWaveView.start()
             binding.tvVoiceTranscript.text = "Listening… speak now"
-            binding.btnVoiceInput.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_cc_send)
-            binding.btnVoiceInput.setColorFilter(android.graphics.Color.WHITE)
+            // Listening: the voice pod lights up in the theme colour.
+            com.jarvis.assistant.ui.glass.DockPods.setGlow(binding.btnVoiceInput, true)
         } catch (e: Exception) {
             hideVoiceListening()
             Toast.makeText(requireContext(), "Could not start voice: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -1040,8 +1051,7 @@ class ChatFragment : Fragment() {
         if (_binding != null) {
             binding.layoutVoiceListening.visibility = View.GONE
             binding.voiceWaveView.stop()
-            binding.btnVoiceInput.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_chat_attach_button)
-            binding.btnVoiceInput.clearColorFilter()
+            com.jarvis.assistant.ui.glass.DockPods.setGlow(binding.btnVoiceInput, false)
         }
     }
 
