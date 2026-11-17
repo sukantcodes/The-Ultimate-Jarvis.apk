@@ -41,6 +41,11 @@ object LiquidGlass {
         elevationDp: Float = if (soft) 0f else 4f
     ) {
         val density = view.resources.displayMetrics.density
+        if (GlassMode.plain()) {
+            // Glass is switched off: keep the view's own design; a view built in code with no background gets a flat themed card.
+            if (view.background == null) view.background = GlassMode.plainCardBackground(view.context, radiusDp * density)
+            return
+        }
         view.background = LiquidGlassDrawable(view, radiusDp * density, tint, soft, topOnly)
         view.outlineProvider = ViewOutlineProvider.BACKGROUND
         view.clipToOutline = false
@@ -59,6 +64,7 @@ object LiquidGlass {
      * Walks the whole view tree, so every toggle on a screen matches.
      */
     fun styleSwitches(root: View) {
+        if (GlassMode.plain()) return
         if (root is android.widget.CompoundButton && (root is androidx.appcompat.widget.SwitchCompat ||
                 root is com.google.android.material.materialswitch.MaterialSwitch)) {
             val light = isLight()
@@ -91,6 +97,7 @@ object LiquidGlass {
      * Glass surfaces on the screen refract this same field.
      */
     fun installBackdrop(root: View, withBase: Boolean = false) {
+        if (GlassMode.plain()) return
         val density = root.resources.displayMetrics
         val existing = root.background
         if (existing is AuroraBackdropDrawable) {
@@ -123,6 +130,7 @@ object LiquidGlass {
      * container views with a shape background are touched; buttons, chips, badges and ripples keep their look.
      */
     fun glassify(root: View, tint: Int = 0) {
+        if (GlassMode.plain()) return
         root.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
                 if (root.width == 0) return
@@ -151,6 +159,7 @@ object LiquidGlass {
 
     /** Dims and blurs the screen behind a window (blur needs Android 12+; older versions only get the dim). */
     fun blurBehind(dialog: Dialog, radiusDp: Float = 24f, dim: Float = 0.30f) {
+        if (GlassMode.plain()) return
         val window = dialog.window ?: return
         val density = window.decorView.resources.displayMetrics.density
         window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
@@ -170,6 +179,7 @@ object LiquidGlass {
      * and a gentle dim so the text stays readable.
      */
     fun styleDialog(dialog: Dialog, radiusDp: Float = 30f) {
+        if (GlassMode.plain()) return
         val window = dialog.window ?: return
         val decor = window.decorView
         val density = decor.resources.displayMetrics.density

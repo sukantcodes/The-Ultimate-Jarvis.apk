@@ -69,6 +69,9 @@
     <string name="set_overlayavatars_subtitle">Choose a floating avatar or turn the overlay off</string>
     <string name="set_refreshrate_title">Motion &amp; Refresh Rate</string>
     <string name="set_refreshrate_subtitle">Maximum available • system may adapt</string>
+    <string name="set_liquidglass_title">Liquid Glass</string>
+    <string name="set_liquidglass_subtitle">On by default. Turning it off restarts the app in its original simple design; the dock bar stays the same</string>
+    <string name="set_liquidglass_restarting">Restarting Jarvis…</string>
     <string name="set_touchglow_title">Touch Glow Effect</string>
     <string name="set_touchglow_subtitle">Show a soft theme-coloured halo around every touch</string>
         <string name="set_orbstyle_title">Orb Appearance</string>

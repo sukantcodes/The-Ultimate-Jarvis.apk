@@ -655,6 +655,16 @@ class SettingsFragment : Fragment() {
         }
         binding.rowOverlayAvatars.setOnClickListener { open(OverlayAvatarActivity::class.java) }
         binding.rowRefreshRate.setOnClickListener { showRefreshRateDialog() }
+        binding.switchLiquidGlass.isChecked = preferences.liquidGlassEnabled
+        binding.switchLiquidGlass.setOnCheckedChangeListener { _, enabled ->
+            if (enabled == preferences.liquidGlassEnabled) return@setOnCheckedChangeListener
+            toast(getString(R.string.set_liquidglass_restarting))
+            // Save the choice and restart so every screen is rebuilt in the chosen look (the dock bar never changes).
+            binding.root.postDelayed({
+                if (isAdded) com.jarvis.assistant.ui.glass.GlassMode.setEnabledAndRestart(requireActivity(), enabled)
+            }, 250L)
+        }
+        binding.rowLiquidGlass.setOnClickListener { binding.switchLiquidGlass.toggle() }
         binding.switchTouchGlow.isChecked = preferences.touchGlowEnabled
         binding.switchTouchGlow.setOnCheckedChangeListener { _, enabled ->
             preferences.touchGlowEnabled = enabled

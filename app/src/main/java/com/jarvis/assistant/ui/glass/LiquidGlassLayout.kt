@@ -58,6 +58,9 @@ class LiquidGlassLayout @JvmOverloads constructor(
 
     private var source: View? = null
 
+    /** True when Liquid Glass is off in Settings and this layout is not the locked dock: it is then just a plain container. */
+    private var plain = false
+
     // capture: three rotating buffers. The render thread may still be reading the previous frame's capture while the next one is
     // being drawn; writing into the same bitmap (erase, then redraw) is what made the glass flash. Each capture goes to its own buffer.
     private val bmps = arrayOfNulls<Bitmap>(BUFFERS)
@@ -93,21 +96,31 @@ class LiquidGlassLayout @JvmOverloads constructor(
         autoRefresh = a.getBoolean(R.styleable.LiquidGlassLayout_lgAutoRefresh, autoRefresh)
         refreshFps = a.getInt(R.styleable.LiquidGlassLayout_lgRefreshFps, refreshFps)
         sourceId = a.getResourceId(R.styleable.LiquidGlassLayout_lgSource, View.NO_ID)
+        val locked = a.getBoolean(R.styleable.LiquidGlassLayout_lgLocked, false)
+        val plainBg = a.getResourceId(R.styleable.LiquidGlassLayout_lgPlainBackground, 0)
+        val plainElevation = a.getDimension(R.styleable.LiquidGlassLayout_lgPlainElevation, 0f)
         a.recycle()
+        plain = !locked && GlassMode.plain()
 
         setWillNotDraw(false)
         clipChildren = false
         clipToPadding = false
 
-        outlineProvider = object : ViewOutlineProvider() {
-            override fun getOutline(view: View, outline: Outline) {
-                outline.setRoundRect(0, 0, view.width, view.height, cornerRadiusPx)
+        if (plain) {
+            if (plainBg != 0) background = androidx.core.content.ContextCompat.getDrawable(context, plainBg)
+            outlineProvider = ViewOutlineProvider.BACKGROUND
+            elevation = plainElevation
+        } else {
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    outline.setRoundRect(0, 0, view.width, view.height, cornerRadiusPx)
+                }
             }
-        }
-        elevation = 8f * density
-        if (Build.VERSION.SDK_INT >= 28) {
-            outlineSpotShadowColor = 0x55FF8A5C
-            outlineAmbientShadowColor = 0x22B06AB3
+            elevation = 8f * density
+            if (Build.VERSION.SDK_INT >= 28) {
+                outlineSpotShadowColor = 0x55FF8A5C
+                outlineAmbientShadowColor = 0x22B06AB3
+            }
         }
     }
 
@@ -120,7 +133,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
     /** Runs BEFORE the children: the glass is the background of the content, never in front of it. */
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (capturing || width == 0 || height == 0) return
+        if (plain || capturing || width == 0 || height == 0) return
         val next = (cur + 1) % BUFFERS
         val b = bmps[next]
         val bc = canvases[next]
@@ -152,7 +165,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
     /** Runs AFTER the children: only hairline strokes on the very edge. */
     override fun dispatchDraw(canvas: Canvas) {
         super.dispatchDraw(canvas)
-        if (width == 0 || height == 0) return
+        if (plain || width == 0 || height == 0) return
         val r = min(cornerRadiusPx, min(width, height) / 2f)
         if (prism) {
             val s = 0.8f * density
@@ -216,6 +229,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        if (plain) return
         source = if (sourceId != View.NO_ID) rootView.findViewById(sourceId) else rootView
         removeCallbacks(tick)
         if (refreshFps > 30) startLockedRefresh() else post(tick)
@@ -230,7 +244,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        if (w <= 0 || h <= 0) return
+        if (plain || w <= 0 || h <= 0) return
         fullRect.set(0f, 0f, w.toFloat(), h.toFloat())
         val inset = 0.6f * density
         rimRect.set(inset, inset, w - inset, h - inset)

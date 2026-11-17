@@ -86,6 +86,8 @@ object LiquidTouch {
     private fun attach(activity: Activity) = attachWindow(activity.window, activity)
 
     private fun attachWindow(window: Window, context: Context) {
+        // Liquid glass off: no ripple layer and no bubble sheen anywhere (the dock bar has its own touch effects).
+        if (GlassMode.plain()) return
         try {
             val decor = window.decorView as? ViewGroup ?: return
             if (window.callback is TouchCallback) return
@@ -221,7 +223,7 @@ object LiquidTouch {
      * card can glow in its own colour. Safe to call before the view is laid out.
      */
     fun decorate(v: View, cornerPx: Float, intensity: Float = 0.55f, accent: Int? = null) {
-        if (v.getTag(SHEEN_TAG_KEY) != null || !bubbleEnabled()) return
+        if (GlassMode.plain() || v.getTag(SHEEN_TAG_KEY) != null || !bubbleEnabled()) return
         try { applySheen(v, cornerPx, intensity, accent) } catch (_: Throwable) {}
     }
 

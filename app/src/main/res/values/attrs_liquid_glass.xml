@@ -17,5 +17,10 @@
              locked to 90 on a 90 Hz display, 60 otherwise. -->
         <attr name="lgRefreshFps" format="integer" />
         <attr name="lgSource" format="reference" />
+        <!-- true = this glass never switches off (the bottom dock bar). -->
+        <attr name="lgLocked" format="boolean" />
+        <!-- Look used instead of the glass when Liquid Glass is turned off in Settings. -->
+        <attr name="lgPlainBackground" format="reference" />
+        <attr name="lgPlainElevation" format="dimension" />
     </declare-styleable>
 </resources>

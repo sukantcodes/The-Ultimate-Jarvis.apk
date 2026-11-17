@@ -39,6 +39,7 @@
         android:layout_marginBottom="16dp"
         android:clipChildren="false"
         android:clipToPadding="false"
+        app:lgLocked="true"
         app:lgCornerRadius="32dp"
         app:lgRefreshFps="90"
         app:lgBlur="12"

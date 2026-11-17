@@ -278,6 +278,7 @@ class ChatFragment : Fragment() {
         setupWorkModes()
         setupHeaderGlass()
         setupComposerPods()
+        applyPlainLookIfGlassOff()
         binding.btnStopChat.onSafeClick {
             com.jarvis.assistant.background.ChatboxHandoffTracker.noteUserStop()
             fileAnalysisJob?.cancel()
@@ -341,12 +342,15 @@ class ChatFragment : Fragment() {
             if (isSpeaking) {
                 binding.btnVoiceSpeaker.setImageResource(R.drawable.ic_cc_stop)
                 binding.btnVoiceSpeaker.setColorFilter(warning)
+                if (com.jarvis.assistant.ui.glass.GlassMode.plain()) binding.btnVoiceSpeaker.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_work_progress_badge)
             } else if (autoVoiceReplyEnabled) {
                 binding.btnVoiceSpeaker.setImageResource(R.drawable.ic_cc_volume)
                 binding.btnVoiceSpeaker.setColorFilter(accent)
+                if (com.jarvis.assistant.ui.glass.GlassMode.plain()) binding.btnVoiceSpeaker.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_chat_token_badge)
             } else {
                 binding.btnVoiceSpeaker.setImageResource(R.drawable.ic_cc_volume)
                 binding.btnVoiceSpeaker.setColorFilter(Color.parseColor("#78909C"))
+                if (com.jarvis.assistant.ui.glass.GlassMode.plain()) binding.btnVoiceSpeaker.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_chat_token_badge)
             }
             // The speaker keeps its glass pod; it glows while Jarvis speaks or auto voice reply is on.
             com.jarvis.assistant.ui.glass.DockPods.setGlow(binding.btnVoiceSpeaker, isSpeaking || autoVoiceReplyEnabled)
@@ -498,6 +502,19 @@ class ChatFragment : Fragment() {
     /** The hint the message box shows in the current mode (also used after an attachment is cleared). */
     private fun workModeHint(): String =
         if (selectedDocument != null) "Message JARVIS…" else if (_binding == null) "Message JARVIS…" else currentWorkMode().inputHint
+
+    /** With Liquid Glass off, the header and composer return to their original simple look. */
+    private fun applyPlainLookIfGlassOff() {
+        if (!com.jarvis.assistant.ui.glass.GlassMode.plain()) return
+        val white = Color.WHITE
+        binding.cardInputContainer.background = Glass.panel(requireContext(), 30f)
+        binding.btnChatMenu.imageTintList = android.content.res.ColorStateList.valueOf(white)
+        binding.btnChatNew.imageTintList = android.content.res.ColorStateList.valueOf(white)
+        binding.tvChatTitle.setTextColor(white)
+        binding.tvChatSubtitle.setTextColor(Color.parseColor("#DDEBFF"))
+        binding.tvChatTokens.setTextColor(Color.parseColor("#E1F5FE"))
+        binding.tvChatStatus.setTextColor(Color.parseColor("#D9FFF7"))
+    }
 
     /** Every composer icon is its own 3D glass bubble with the same spring press and in-pod liquid ripple as the dock. */
     private fun setupComposerPods() {
@@ -983,7 +1000,7 @@ class ChatFragment : Fragment() {
             binding.tvChatSubtitle.text = "Your intelligent workspace · Ready"
             val tv = android.util.TypedValue()
             val secondary = if (context.theme.resolveAttribute(R.attr.themeTextSecondary, tv, true) && tv.data != 0) tv.data else android.graphics.Color.GRAY
-            binding.tvChatSubtitle.setTextColor(secondary)
+            binding.tvChatSubtitle.setTextColor(if (com.jarvis.assistant.ui.glass.GlassMode.plain()) Color.parseColor("#DDEBFF") else secondary)
         }
     }
 
@@ -1117,6 +1134,10 @@ class ChatFragment : Fragment() {
             binding.tvVoiceTranscript.text = "Listening… speak now"
             // Listening: the voice pod lights up in the theme colour.
             com.jarvis.assistant.ui.glass.DockPods.setGlow(binding.btnVoiceInput, true)
+            if (com.jarvis.assistant.ui.glass.GlassMode.plain()) {
+                binding.btnVoiceInput.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_cc_send)
+                binding.btnVoiceInput.setColorFilter(android.graphics.Color.WHITE)
+            }
         } catch (e: Exception) {
             hideVoiceListening()
             Toast.makeText(requireContext(), "Could not start voice: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -1144,6 +1165,10 @@ class ChatFragment : Fragment() {
             binding.layoutVoiceListening.visibility = View.GONE
             binding.voiceWaveView.stop()
             com.jarvis.assistant.ui.glass.DockPods.setGlow(binding.btnVoiceInput, false)
+            if (com.jarvis.assistant.ui.glass.GlassMode.plain()) {
+                binding.btnVoiceInput.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_chat_attach_button)
+                binding.btnVoiceInput.clearColorFilter()
+            }
         }
     }
 

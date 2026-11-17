@@ -102,7 +102,7 @@ object GlassMotion {
         }
 
         fun start() {
-            if (!animationsOn(host) || host.width <= 0 || host.height <= 0) return
+            if (com.jarvis.assistant.ui.glass.GlassMode.plain() || !animationsOn(host) || host.width <= 0 || host.height <= 0) return
             stop()
             drawable.setBounds(0, 0, host.width, host.height)
             host.overlay.add(drawable)

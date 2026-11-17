@@ -53,6 +53,7 @@ class UpdatesFragment : Fragment() {
         val badge = binding.tvVersionBadge
         badge.text = "v" + BuildConfig.VERSION_NAME
         badge.contentDescription = "JARVIS version " + BuildConfig.VERSION_NAME
+        if (com.jarvis.assistant.ui.glass.GlassMode.plain()) badge.setBackgroundResource(com.jarvis.assistant.R.drawable.bg_updates_version_pill)
         com.jarvis.assistant.ui.glass.DockPods.install(badge, heightDp = 30f, maxWidthDp = 240f, padDp = 0f, interactive = false, group = "updates")
     }
 

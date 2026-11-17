@@ -354,6 +354,14 @@ class AppPreferences(context: Context) {
         get() = prefs.getInt("liquid_glass_strength", 60).coerceIn(0, 100)
         set(value) = prefs.edit().putInt("liquid_glass_strength", value.coerceIn(0, 100)).apply()
 
+    /**
+     * Master switch for the liquid glass look of the whole app (on by default). Turning it off brings back the original simple
+     * design everywhere except the bottom dock bar, which always keeps its glass. The app restarts when this changes.
+     */
+    var liquidGlassEnabled: Boolean
+        get() = prefs.getBoolean("liquid_glass_enabled", true)
+        set(value) { prefs.edit().putBoolean("liquid_glass_enabled", value).commit() }
+
     /** Liquid ripple on every touch plus the jelly squish of pressed buttons. */
     var liquidTouchEnabled: Boolean
         get() = prefs.getBoolean("liquid_touch_enabled", true)

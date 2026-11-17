@@ -37,6 +37,8 @@ object DockPods {
         hero: Boolean = false,
         touchHook: ((View, MotionEvent) -> Boolean)? = null
     ) {
+        // Only the bottom dock (group "dock") is locked to glass; every other pod follows the Liquid Glass setting.
+        if (group != "dock" && GlassMode.plain()) return
         val pod = DockPodDrawable(tab, heightDp, maxWidthDp, circle, offsetYDp, padDp, hero)
         tab.background = pod
         tab.setTag(LiquidTouch.SKIP_TAG_KEY, true) // the pod does its own press; no second squish or sheen on top
@@ -62,6 +64,7 @@ object DockPods {
      * screen already has): the window-level touch feed presses and releases it, see [autoPod].
      */
     fun installAuto(view: View, sizeDp: Float) {
+        if (GlassMode.plain()) return
         val pod = DockPodDrawable(view, sizeDp, sizeDp, true, 0f, 0f)
         view.background = pod
         view.setTag(AUTO_KEY, pod)
