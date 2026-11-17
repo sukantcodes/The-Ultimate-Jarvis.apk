@@ -32,6 +32,8 @@ internal object ContrastGuard {
 
     private const val FIXED_TAG = 0x4A4C4347 // "JLCG": holds the colour this guard set, so it is not undone or fought over
     private const val MIN_RATIO = 3.0
+    /** Text must read better than icons: this is the default minimum for labels. */
+    private const val TEXT_RATIO = 4.5
 
     fun check(v: View) {
         when {
@@ -41,11 +43,11 @@ internal object ContrastGuard {
         }
     }
 
-    private fun checkText(tv: TextView) {
+    fun checkText(tv: TextView, minRatio: Double = TEXT_RATIO) {
         if (tv.getTag(LiquidTouch.SKIP_TAG_KEY) == true || tv.visibility != View.VISIBLE || tv.text.isNullOrEmpty()) return
         val color = tv.currentTextColor
         if ((tv.getTag(FIXED_TAG) as? Int) == color) return
-        val fixed = fixedColor(tv, color) ?: return
+        val fixed = fixedColor(tv, color, minRatio) ?: return
         tv.setTextColor(fixed)
         tv.setTag(FIXED_TAG, fixed)
     }
@@ -61,19 +63,19 @@ internal object ContrastGuard {
     }
 
     /** The colour to use instead, or null when the current one is fine (or can't be judged). */
-    private fun fixedColor(v: View, color: Int): Int? {
+    private fun fixedColor(v: View, color: Int, minRatio: Double = MIN_RATIO): Int? {
         val themeBg = themeColor(v, R.attr.themeBg) ?: return null
         val bg = backgroundBehind(v, themeBg) ?: return null
         val fg = ColorUtils.compositeColors(color, bg)
         val ratio = ColorUtils.calculateContrast(fg, bg)
-        if (ratio >= MIN_RATIO) return null
+        if (ratio >= minRatio) return null
         val primary = themeColor(v, R.attr.themeTextPrimary)
         val muted = themeColor(v, R.attr.themeTextMuted)
         val wantsMuted = Color.alpha(color) < 200
         val order = if (wantsMuted) listOf(muted, primary) else listOf(primary, muted)
         for (c in order) {
             if (c == null) continue
-            if (ColorUtils.calculateContrast(ColorUtils.compositeColors(c, bg), bg) >= MIN_RATIO) return c
+            if (ColorUtils.calculateContrast(ColorUtils.compositeColors(c, bg), bg) >= minRatio) return c
         }
         // neither theme text colour reads: fall back to plain black or white, whichever is clearer
         return if (ColorUtils.calculateLuminance(bg) > 0.5) Color.BLACK else Color.WHITE

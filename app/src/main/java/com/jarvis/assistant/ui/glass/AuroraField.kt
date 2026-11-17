@@ -109,6 +109,8 @@ object AuroraClock {
     private var running = false
     private var last = 0L
     @Volatile var animationsEnabled: Boolean = true
+    /** Set while something is scrolling so the glass drift gives every frame to the scroll. */
+    @Volatile var paused: Boolean = false
 
     private val callback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
@@ -117,7 +119,7 @@ object AuroraClock {
             if (now - last >= 50L) {
                 val dt = if (last == 0L) 0.05f else (now - last) / 1000f
                 last = now
-                if (animationsEnabled) {
+                if (animationsEnabled && !paused) {
                     AuroraField.phase += dt * 0.55f
                     listeners.toList().forEach { it.run() }
                 }

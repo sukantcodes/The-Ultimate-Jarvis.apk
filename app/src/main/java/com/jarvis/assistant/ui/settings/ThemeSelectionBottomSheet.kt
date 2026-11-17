@@ -43,13 +43,85 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
 
     override fun onStart() {
         super.onStart()
-        if (_binding != null) applyLiquidGlassSheet()
+        // The slide runs as a window animation (on the compositor), so it is smooth; the heavy glass is applied once it has landed.
+        dialog?.window?.setWindowAnimations(com.jarvis.assistant.R.style.Jarvis_GlassSheet_WindowAnimation)
+        if (_binding != null) {
+            playEntrance()
+            binding.root.postDelayed({ if (_binding != null) applyLiquidGlassSheet() }, 420L)
+        }
+    }
+
+    /**
+     * Bubble entrance: every block pops up in turn with a little overshoot, while a soft glow in the theme colour washes down the
+     * sheet and fades. Cheap property animations only, so it stays smooth. Skipped (instant) when Liquid Glass is off.
+     */
+    private fun playEntrance() {
+        if (com.jarvis.assistant.ui.glass.GlassMode.plain()) return
+        val root = binding.root as? ViewGroup ?: return
+        val d = resources.displayMetrics.density
+        val targets = ArrayList<View>()
+        for (i in 0 until root.childCount) {
+            val c = root.getChildAt(i)
+            if (c is androidx.core.widget.NestedScrollView) {
+                val inner = c.getChildAt(0) as? ViewGroup
+                if (inner != null) for (j in 0 until inner.childCount) targets.add(inner.getChildAt(j))
+            } else targets.add(c)
+        }
+        targets.take(14).forEachIndexed { i, v ->
+            v.alpha = 0f; v.scaleX = 0.92f; v.scaleY = 0.92f; v.translationY = 28f * d
+            v.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f)
+                .setStartDelay(110L + i * 32L).setDuration(380L)
+                .setInterpolator(android.view.animation.OvershootInterpolator(0.9f)).start()
+        }
+        root.post {
+            if (_binding == null || root.width == 0) return@post
+            val accent = com.jarvis.assistant.util.ThemeManager.getThemeAccentColor()
+            val glow = android.graphics.drawable.GradientDrawable().apply {
+                gradientType = android.graphics.drawable.GradientDrawable.RADIAL_GRADIENT
+                gradientRadius = root.width * 0.85f
+                setGradientCenter(0.5f, 0.0f)
+                colors = intArrayOf(androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 120), Color.TRANSPARENT)
+                setBounds(0, 0, root.width, root.height)
+                alpha = 0
+            }
+            root.overlay.add(glow)
+            android.animation.ValueAnimator.ofFloat(0f, 1f, 0f).apply {
+                duration = 900L
+                interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+                addUpdateListener { glow.alpha = (it.animatedValue as Float * 255f).toInt() }
+                addListener(object : android.animation.AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(a: android.animation.Animator) { root.overlay.remove(glow) }
+                })
+                start()
+            }
+        }
+    }
+
+    /** A bubble pop on the tapped option, then the sheet closes; [then] runs after it (used to recreate for a new theme). */
+    private fun confirmAndClose(tapped: View?, then: (() -> Unit)? = null) {
+        val act = activity
+        if (tapped != null && com.jarvis.assistant.ui.glass.GlassMode.enabled()) {
+            com.jarvis.assistant.ui.glass.ViewSprings.pop(tapped, 0.92f, 1f)
+        }
+        val delay = if (com.jarvis.assistant.ui.glass.GlassMode.enabled()) 170L else 0L
+        val run = Runnable {
+            if (isAdded) dismissAllowingStateLoss()
+            if (then != null) {
+                then()
+                act?.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+            }
+        }
+        if (delay == 0L) run.run() else (tapped ?: view)?.postDelayed(run, delay) ?: run.run()
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val currentTheme = preferences.appTheme
         updateCheckmarks(currentTheme)
+        (view as? ViewGroup)?.let { r ->
+            for (i in 0 until r.childCount) (r.getChildAt(i) as? androidx.core.widget.NestedScrollView)
+                ?.let { com.jarvis.assistant.ui.glass.SmoothScroll.install(it) }
+        }
 
         val customHex = preferences.customThemeColor
         binding.etCustomHex.setText(customHex)
@@ -57,19 +129,19 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
             binding.viewCustomPreview.backgroundTintList = android.content.res.ColorStateList.valueOf(Color.parseColor(customHex))
         } catch (_: Exception) {}
 
-        binding.btnOrbDefault.setOnClickListener { selectOrb("default", "Default Orb") }
-        binding.btnOrbEleptical.setOnClickListener { selectOrb("eleptical_orb", "Eleptical Orb") }
-        binding.btnOrbAurora.setOnClickListener { selectOrb("aurora_orb", "Aurora Orb") }
-        binding.btnOrbIronMan.setOnClickListener { selectOrb("iron_man_head", "Iron Man 3D Helmet") }
-        binding.btnOrbFullCharacter.setOnClickListener { selectOrb("full_human", "Full Human 3D Assistant") }
+        binding.btnOrbDefault.setOnClickListener { selectOrb("default", "Default Orb", it) }
+        binding.btnOrbEleptical.setOnClickListener { selectOrb("eleptical_orb", "Eleptical Orb", it) }
+        binding.btnOrbAurora.setOnClickListener { selectOrb("aurora_orb", "Aurora Orb", it) }
+        binding.btnOrbIronMan.setOnClickListener { selectOrb("iron_man_head", "Iron Man 3D Helmet", it) }
+        binding.btnOrbFullCharacter.setOnClickListener { selectOrb("full_human", "Full Human 3D Assistant", it) }
 
         setupOrbSelectionState()
         setupOrbLookControls()
 
-        binding.cardThemeLight.setOnClickListener { selectTheme("light", "Light") }
-        binding.cardThemeDark.setOnClickListener { selectTheme("dark", "Dark") }
-        binding.cardThemeRed.setOnClickListener { selectTheme("red", "Red") }
-        binding.cardThemeSunset.setOnClickListener { selectTheme("sunset", "Sunset") }
+        binding.cardThemeLight.setOnClickListener { selectTheme("light", "Light", it) }
+        binding.cardThemeDark.setOnClickListener { selectTheme("dark", "Dark", it) }
+        binding.cardThemeRed.setOnClickListener { selectTheme("red", "Red", it) }
+        binding.cardThemeSunset.setOnClickListener { selectTheme("sunset", "Sunset", it) }
 
         binding.btnSelectMoreColours.setOnClickListener {
             startActivity(android.content.Intent(requireContext(), MoreThemeColoursActivity::class.java))
@@ -186,7 +258,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         })
     }
 
-    private fun selectOrb(style: String, label: String) {
+    private fun selectOrb(style: String, label: String, tapped: View? = null) {
         preferences.orbAnimation = style
         val mainActivity = activity as? MainActivity
         val homeFrag = mainActivity?.supportFragmentManager?.fragments
@@ -194,7 +266,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
             ?.firstOrNull()
         homeFrag?.setOrbStyle(style)
         Toast.makeText(requireContext(), "$label selected", Toast.LENGTH_SHORT).show()
-        dismiss()
+        confirmAndClose(tapped)
     }
 
     private fun applyCustomColor(hexInput: String) {
@@ -224,7 +296,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         activity?.recreate()
     }
 
-    private fun selectTheme(themeKey: String, themeName: String) {
+    private fun selectTheme(themeKey: String, themeName: String, tapped: View? = null) {
         preferences.appTheme = themeKey
         updateCheckmarks(themeKey)
         Toast.makeText(requireContext(), "Theme set to $themeName", Toast.LENGTH_SHORT).show()
@@ -236,8 +308,8 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
             ?.firstOrNull()
         homeFrag?.setOrbTheme(themeKey, null)
 
-        dismiss()
-        activity?.recreate()
+        val act = activity
+        confirmAndClose(tapped) { act?.recreate() }
     }
 
     private fun updateCheckmarks(activeTheme: String) {

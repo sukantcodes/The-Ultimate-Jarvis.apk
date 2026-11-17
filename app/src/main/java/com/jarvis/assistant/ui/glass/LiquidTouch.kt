@@ -102,6 +102,8 @@ object LiquidTouch {
                     if (overlay.isBusy()) { decor.postDelayed(this, 250L); return }
                     scheduled = false
                     if (bubbleEnabled() && animationsOn(context)) scanForButtons(decor)
+                    // thick, readable, 3D text and buttery scrolling on every glass screen
+                    try { Text3D.styleTree(decor) } catch (_: Throwable) {}
                 }
             }
             decor.viewTreeObserver.addOnGlobalLayoutListener {

@@ -67,4 +67,9 @@
         <item name="bottomSheetStyle">@style/Widget.Jarvis.BottomSheet</item>
         <item name="android:windowAnimationStyle">@style/Jarvis.Dialog.WindowAnimation</item>
     </style>
+    <!-- Window animations run on the system compositor, so the Theme / Orb sheet slides in and out without any UI-thread jank. -->
+    <style name="Jarvis.GlassSheet.WindowAnimation" parent="@android:style/Animation">
+        <item name="android:windowEnterAnimation">@anim/glass_sheet_enter</item>
+        <item name="android:windowExitAnimation">@anim/glass_sheet_exit</item>
+    </style>
 </resources>
