@@ -83,6 +83,31 @@ class GlassBubbleView @JvmOverloads constructor(
         else glideTo(l, r)
     }
 
+    private var dragging = false
+
+    /** The tab the bubble currently marks (what it settles back on if a swipe is not completed). */
+    fun currentTarget(): View? = target
+
+    fun beginDrag() { dragging = true }
+
+    fun endDrag() { dragging = false }
+
+    /**
+     * Follows a finger: the bubble's centre is pulled towards [centerX] by the same two edge springs as a normal glide, so it
+     * trails the finger with a liquid lag, stretches when you move fast, and keeps its speed when you let go.
+     */
+    fun dragTo(centerX: Float) {
+        if (!shown) return
+        val w = restWidth
+        glideTo(centerX - w / 2f, centerX + w / 2f)
+    }
+
+    /** Glides back to the tab it marks. */
+    fun settle() {
+        val t = target ?: return
+        glideTo(edgeLeft(t), edgeRight(t))
+    }
+
     fun hide() {
         shown = false
         animate().alpha(0f).setDuration(140).start()

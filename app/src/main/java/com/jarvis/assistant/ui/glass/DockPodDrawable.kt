@@ -39,12 +39,15 @@ internal class DockPodDrawable(
     private val maxWidthDp: Float,
     private val circle: Boolean,
     private val offsetYDp: Float,
-    private val padDp: Float = 8f
+    private val padDp: Float = 8f,
+    /** The hero button (voice): a saturated candy-glass bubble in the theme's two accent colours. */
+    private val hero: Boolean = false
 ) : Drawable() {
 
     private val density = host.resources.displayMetrics.density
 
     private val shadow = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val heroPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val bodyLin = Paint(Paint.ANTI_ALIAS_FLAG)
     private val bodyRad = Paint(Paint.ANTI_ALIAS_FLAG)
     private val glow = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -150,6 +153,13 @@ internal class DockPodDrawable(
         val k = if (light) 1.25f else 1f
         fun white(a: Float) = ColorUtils.setAlphaComponent(Color.WHITE, (255 * a).toInt().coerceIn(0, 255))
 
+        if (hero) {
+            val tv = android.util.TypedValue()
+            fun attr(id: Int): Int = if (host.context.theme.resolveAttribute(id, tv, true) && tv.data != 0) tv.data else accent
+            heroPaint.shader = LinearGradient(
+                pod.left, pod.top, pod.right, pod.bottom, attr(com.jarvis.assistant.R.attr.themeAccent1), attr(com.jarvis.assistant.R.attr.themeAccent2), Shader.TileMode.CLAMP
+            )
+        }
         bodyLin.shader = LinearGradient(
             0f, pod.top, 0f, pod.bottom,
             intArrayOf(white(0.24f * k), white(0.07f * k), white(0.12f * k)), floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP
@@ -254,6 +264,7 @@ internal class DockPodDrawable(
         canvas.translate(0f, 1.4f * density * d)
         canvas.scale(sx.value, sy.value)
 
+        if (hero) canvas.drawRoundRect(pod, radius, radius, heroPaint)
         canvas.drawRoundRect(pod, radius, radius, bodyLin)
         canvas.drawRoundRect(pod, radius, radius, bodyRad)
         // every pod carries a faint glow in the theme colour; the selected one blooms

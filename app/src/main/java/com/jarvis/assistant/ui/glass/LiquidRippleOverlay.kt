@@ -226,6 +226,12 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         }
     }
 
+    // The ripple layer must not be part of the copy a glass layout makes of the screen: drawing it there would step its physics twice.
+    override fun draw(canvas: Canvas) {
+        if (LiquidGlassLayout.isCapturing()) return
+        super.draw(canvas)
+    }
+
     override fun onDraw(canvas: Canvas) {
         val now = SystemClock.uptimeMillis()
         val raw = if (lastFrame == 0L) 0.016f else (now - lastFrame) / 1000f

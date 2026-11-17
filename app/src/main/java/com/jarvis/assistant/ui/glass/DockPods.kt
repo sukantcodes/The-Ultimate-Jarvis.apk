@@ -33,18 +33,23 @@ object DockPods {
         offsetYDp: Float = 0f,
         padDp: Float = 8f,
         interactive: Boolean = true,
-        group: String = "dock"
+        group: String = "dock",
+        hero: Boolean = false,
+        touchHook: ((View, MotionEvent) -> Boolean)? = null
     ) {
-        val pod = DockPodDrawable(tab, heightDp, maxWidthDp, circle, offsetYDp, padDp)
+        val pod = DockPodDrawable(tab, heightDp, maxWidthDp, circle, offsetYDp, padDp, hero)
         tab.background = pod
         tab.setTag(LiquidTouch.SKIP_TAG_KEY, true) // the pod does its own press; no second squish or sheen on top
         if (interactive) {
-            tab.setOnTouchListener { _, e ->
+            var down = false
+            tab.setOnTouchListener { v, e ->
+                val consumed = touchHook?.invoke(v, e) ?: false
                 when (e.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> pod.press(e.x, e.y)
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> pod.release()
+                    MotionEvent.ACTION_DOWN -> { pod.press(e.x, e.y); down = true }
+                    MotionEvent.ACTION_MOVE -> if (consumed && down) { pod.release(); down = false } // a swipe took over
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { if (down) pod.release(); down = false }
                 }
-                false
+                consumed
             }
         }
         pods[tab] = Entry(pod, group)

@@ -173,8 +173,7 @@
                 android:layout_gravity="center"
                 android:translationY="-8dp"
                 android:orientation="vertical"
-                android:gravity="center"
-                android:background="@drawable/bg_dock_mic_highlight">
+                android:gravity="center">
 
                 <ImageView
                     android:id="@+id/ivTabMic"

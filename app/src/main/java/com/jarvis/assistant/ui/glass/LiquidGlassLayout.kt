@@ -58,9 +58,12 @@ class LiquidGlassLayout @JvmOverloads constructor(
 
     private var source: View? = null
 
-    // capture
-    private var bmp: Bitmap? = null
-    private var bmpCanvas: Canvas? = null
+    // capture: three rotating buffers. The render thread may still be reading the previous frame's capture while the next one is
+    // being drawn; writing into the same bitmap (erase, then redraw) is what made the glass flash. Each capture goes to its own buffer.
+    private val bmps = arrayOfNulls<Bitmap>(BUFFERS)
+    private val canvases = arrayOfNulls<Canvas>(BUFFERS)
+    private val glassShaders = arrayOfNulls<Shader>(BUFFERS)
+    private var cur = 0
     private val bmpPaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val glassPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val mine = IntArray(2)
@@ -118,13 +121,17 @@ class LiquidGlassLayout @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (capturing || width == 0 || height == 0) return
-        val b = bmp
+        val next = (cur + 1) % BUFFERS
+        val b = bmps[next]
+        val bc = canvases[next]
         val src = source
         val r = min(cornerRadiusPx, min(width, height) / 2f)
 
-        if (b != null && src != null) {
-            captureBackdrop(src, b)
+        if (b != null && bc != null && src != null) {
+            captureBackdrop(src, b, bc)
+            cur = next
             if (Build.VERSION.SDK_INT >= 33 && hasShader) {
+                glassPaint.shader = glassShaders[next]
                 canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), glassPaint)
             } else {
                 val save = canvas.save()
@@ -159,8 +166,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
         canvas.drawRoundRect(rimRect, r, r, edgePaint)
     }
 
-    private fun captureBackdrop(src: View, b: Bitmap) {
-        val bc = bmpCanvas ?: return
+    private fun captureBackdrop(src: View, b: Bitmap, bc: Canvas) {
         getLocationOnScreen(mine)
         src.getLocationOnScreen(theirs)
         b.eraseColor(Color.TRANSPARENT)
@@ -229,11 +235,15 @@ class LiquidGlassLayout @JvmOverloads constructor(
         val inset = 0.6f * density
         rimRect.set(inset, inset, w - inset, h - inset)
 
-        val b = Bitmap.createBitmap(
-            max(1, (w * BACKDROP_SCALE).toInt()), max(1, (h * BACKDROP_SCALE).toInt()), Bitmap.Config.ARGB_8888
-        )
-        bmp = b
-        bmpCanvas = Canvas(b)
+        for (i in 0 until BUFFERS) {
+            val nb = Bitmap.createBitmap(
+                max(1, (w * BACKDROP_SCALE).toInt()), max(1, (h * BACKDROP_SCALE).toInt()), Bitmap.Config.ARGB_8888
+            )
+            bmps[i] = nb
+            canvases[i] = Canvas(nb)
+            glassShaders[i] = null
+        }
+        cur = 0
 
         sheenPaint.shader = LinearGradient(
             0f, 0f, 0f, h * 0.5f,
@@ -250,12 +260,15 @@ class LiquidGlassLayout @JvmOverloads constructor(
 
         hasShader = false
         if (Build.VERSION.SDK_INT >= 33) {
-            try { buildGlassShader(b, w, h) } catch (_: Throwable) { hasShader = false }
+            try {
+                for (i in 0 until BUFFERS) glassShaders[i] = buildGlassShader(bmps[i]!!, w, h)
+                hasShader = true
+            } catch (_: Throwable) { hasShader = false }
         }
     }
 
     @RequiresApi(33)
-    private fun buildGlassShader(b: Bitmap, w: Int, h: Int) {
+    private fun buildGlassShader(b: Bitmap, w: Int, h: Int): Shader {
         val content = BitmapShader(b, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
             setLocalMatrix(Matrix().apply { setScale(w / b.width.toFloat(), h / b.height.toFloat()) })
         }
@@ -270,14 +283,18 @@ class LiquidGlassLayout @JvmOverloads constructor(
         shader.setFloatUniform("blur", blurDp * density * 0.35f)
         shader.setFloatUniform("chroma", (ds + redOffset) / norm, (ds + greenOffset) / norm, (ds + blueOffset) / norm)
         shader.setFloatUniform("veil", veil)
-        glassPaint.shader = shader
-        hasShader = true
+        return shader
     }
 
     companion object {
         /** Backdrop is captured at ~1/7 size: cheap, and already most of the blur. */
         private const val BACKDROP_SCALE = 0.15f
 
+        private const val BUFFERS = 3
+
         @Volatile private var capturing = false
+
+        /** True while a glass layout is copying the screen behind it; overlays use it to stay out of that copy. */
+        internal fun isCapturing(): Boolean = capturing
     }
 }

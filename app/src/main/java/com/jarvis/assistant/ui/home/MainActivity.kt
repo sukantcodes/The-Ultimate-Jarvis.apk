@@ -470,8 +470,19 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupNavigationDock() {
         // Every option is its own 3D glass bubble inside the dock bubble, with a springy press and a liquid ripple.
-        listOf(binding.tabHome, binding.tabChat, binding.tabCameraScan, binding.tabUpdates).forEach { com.jarvis.assistant.ui.glass.DockPods.install(it) }
-        com.jarvis.assistant.ui.glass.DockPods.install(binding.tabMic, heightDp = 62f, circle = true, offsetYDp = -8f)
+        // Swipe along the dock and the glass bubble follows the finger, then settles with the swipe's momentum.
+        val swipe = com.jarvis.assistant.ui.glass.DockSwipe(
+            binding.dockBubble,
+            listOf(binding.tabHome, binding.tabChat, binding.tabMic, binding.tabCameraScan, binding.tabUpdates),
+            setOf(binding.tabHome, binding.tabChat, binding.tabUpdates)
+        )
+        listOf(binding.tabHome, binding.tabChat, binding.tabCameraScan, binding.tabUpdates).forEach {
+            com.jarvis.assistant.ui.glass.DockPods.install(it, touchHook = swipe::onTouch)
+        }
+        com.jarvis.assistant.ui.glass.DockPods.install(
+            binding.tabMic, heightDp = 60f, circle = true, offsetYDp = -8f, hero = true, touchHook = swipe::onTouch
+        )
+        com.jarvis.assistant.ui.glass.DockPods.setGlow(binding.tabMic, true)
         binding.tabHome.setOnClickListener { selectTab(TAB_HOME) }
         binding.tabChat.setOnClickListener { selectTab(TAB_CHAT) }
         binding.tabUpdates.setOnClickListener { selectTab(TAB_UPDATES) }
@@ -921,7 +932,7 @@ class MainActivity : AppCompatActivity() {
                             binding.ivTabMic.setImageResource(R.drawable.ic_mic_jarvis)
                             binding.ivTabMic.imageTintList = ColorStateList.valueOf(android.graphics.Color.WHITE)
                             binding.tvTabMic.setTextColor(android.graphics.Color.WHITE)
-                            binding.pillTabMic.setBackgroundResource(R.drawable.bg_dock_mic_highlight)
+                            binding.pillTabMic.background = null // the hero glass bubble behind it is the highlight
                             binding.pillTabMic.alpha = 1f
                             if (state == ConversationState.LISTENING || state == ConversationState.SPEAKING) {
                                 binding.pillTabMic.animate()
