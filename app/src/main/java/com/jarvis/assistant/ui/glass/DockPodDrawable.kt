@@ -46,6 +46,9 @@ internal class DockPodDrawable(
 
     private val density = host.resources.displayMetrics.density
 
+    /** True for the saturated hero bubble (voice), whose label colours are chosen for it and must not be second-guessed. */
+    internal val isHero: Boolean get() = hero
+
     private val shadow = Paint(Paint.ANTI_ALIAS_FLAG)
     private val heroPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val bodyLin = Paint(Paint.ANTI_ALIAS_FLAG)

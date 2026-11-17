@@ -132,16 +132,36 @@ object LiquidTouch {
 
     // ---- 3D bubble sheen on buttons ----
 
-    private fun scanForButtons(view: View) {
+    private fun scanForButtons(view: View, insideGlass: Boolean = false) {
         if (view is LiquidRippleOverlay) return
+        var glassHere = insideGlass || view is LiquidGlassLayout || view.background is LiquidGlassDrawable
         if (view.getTag(SHEEN_TAG_KEY) == null) {
             if (qualifiesAsIcon(view)) applyPod(view)
             else if (qualifies(view)) applySheen(view)
-            else surfaceLook(view)?.let { (corner, k) -> applySheen(view, corner, k) }
+            else if (surfaceLook(view)?.let { (corner, k) -> applySheen(view, corner, k); true } == true) Unit
+            else if (!glassHere && qualifiesAsGlassCard(view)) {
+                // A plain shape-drawable card anywhere in the app becomes the same liquid glass as the Settings cards.
+                val d = view.resources.displayMetrics.density
+                LiquidGlass.apply(view, 24f, 0, soft = view.height < 96f * d)
+                glassHere = true
+            }
         }
+        ContrastGuard.check(view)
         if (view is ViewGroup) {
-            for (i in 0 until view.childCount) scanForButtons(view.getChildAt(i))
+            for (i in 0 until view.childCount) scanForButtons(view.getChildAt(i), glassHere)
         }
+    }
+
+    private fun qualifiesAsGlassCard(v: View): Boolean {
+        if (v !is ViewGroup || v is MaterialCardView || v is TextInputLayout || v.visibility != View.VISIBLE) return false
+        if (v.getTag(SKIP_TAG_KEY) == true || v.getTag(SHEEN_TAG_KEY) != null) return false
+        val bg = v.background
+        val shape = bg is android.graphics.drawable.GradientDrawable ||
+            (bg is LayerDrawable && bg !is RippleDrawable && !v.isClickable)
+        if (!shape) return false
+        val d = v.resources.displayMetrics.density
+        val screenW = v.resources.displayMetrics.widthPixels
+        return v.width >= 120f * d && v.height >= 56f * d && v.height <= 420f * d && v.width <= screenW
     }
 
     /** A plain, clickable icon (no background of its own) of a normal icon-button size: it gets its own glass pod. */
