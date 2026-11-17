@@ -7,6 +7,7 @@ on:
       - Chatbox
       - Termux
       - Antigravity
+      - Vercel
     paths-ignore:
       - "*.md"
       - "docs/**"
