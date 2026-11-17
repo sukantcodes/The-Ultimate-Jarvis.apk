@@ -3,6 +3,7 @@
     <group android:checkableBehavior="single">
         <item android:id="@+id/drawerHome" android:icon="@drawable/ic_nav_home" android:title="Home" />
         <item android:id="@+id/drawerChat" android:icon="@drawable/ic_nav_chat" android:title="Chat" />
+        <item android:id="@+id/drawerJarvisHome" android:icon="@drawable/ic_nav_home" android:title="JARVIS Home" />
         <item android:id="@+id/drawerTerminal" android:icon="@drawable/ic_work_terminal" android:title="Jarvis Terminal" />
         <item android:id="@+id/drawerSettings" android:icon="@drawable/ic_nav_settings" android:title="Settings" />
         <item android:id="@+id/drawerUpdates" android:icon="@drawable/ic_nav_bell" android:title="Updates" />

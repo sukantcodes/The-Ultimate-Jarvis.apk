@@ -998,6 +998,9 @@ open class GeminiLiveWebSocket(
                         // 26. Alarm clock (Settings > Clock): set, change, enable/disable, delete, list, next, snooze, stop, open settings
                         com.jarvis.assistant.clock.ClockTools.declarations().forEach { put(it) }
 
+                        // 27. JARVIS Home smart devices: control, list, run scenes
+                        com.jarvis.assistant.home.HomeTools.declarations().forEach { put(it) }
+
                     })
                 }))
             })

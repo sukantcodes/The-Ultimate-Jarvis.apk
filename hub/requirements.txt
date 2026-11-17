@@ -1,0 +1,3 @@
+keyring>=24
+# Optional, for Bluetooth devices attached to this PC:
+# bleak>=0.22

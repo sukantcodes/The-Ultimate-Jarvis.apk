@@ -1883,7 +1883,7 @@ class JarvisConversationService : Service() {
                     if (!isActive) return@withLock
                     isExecutingTool = true
                     try {
-                        withTimeout(if (name in com.jarvis.assistant.automation.amazon.AmazonTools.NAMES) com.jarvis.assistant.automation.amazon.AmazonTools.TOOL_TIMEOUT_MS else if (name in com.jarvis.assistant.automation.rapido.RapidoTools.NAMES) com.jarvis.assistant.automation.rapido.RapidoTools.TOOL_TIMEOUT_MS else if (name in com.jarvis.assistant.automation.blinkit.BlinkitTools.NAMES) com.jarvis.assistant.automation.blinkit.BlinkitTools.TOOL_TIMEOUT_MS else if (name in com.jarvis.assistant.clock.ClockTools.NAMES) com.jarvis.assistant.clock.ClockTools.TOOL_TIMEOUT_MS else automationToolTimeoutMs()) {
+                        withTimeout(if (name in com.jarvis.assistant.automation.amazon.AmazonTools.NAMES) com.jarvis.assistant.automation.amazon.AmazonTools.TOOL_TIMEOUT_MS else if (name in com.jarvis.assistant.automation.rapido.RapidoTools.NAMES) com.jarvis.assistant.automation.rapido.RapidoTools.TOOL_TIMEOUT_MS else if (name in com.jarvis.assistant.automation.blinkit.BlinkitTools.NAMES) com.jarvis.assistant.automation.blinkit.BlinkitTools.TOOL_TIMEOUT_MS else if (name in com.jarvis.assistant.clock.ClockTools.NAMES) com.jarvis.assistant.clock.ClockTools.TOOL_TIMEOUT_MS else if (name in com.jarvis.assistant.home.HomeTools.NAMES) com.jarvis.assistant.home.HomeTools.TOOL_TIMEOUT_MS else automationToolTimeoutMs()) {
                             val app = application as? JarvisApp ?: return@withTimeout
 
                 hasExecutedCommandInCurrentTurn = true
@@ -3145,6 +3145,16 @@ class JarvisConversationService : Service() {
                         while (blinkitKeys.hasNext()) {
                             val key = blinkitKeys.next()
                             result.put(key, blinkit.get(key))
+                        }
+                    }
+
+                    in com.jarvis.assistant.home.HomeTools.NAMES -> {
+                        // JARVIS Home: same controller as the Home screens; success is only reported when the device confirmed it.
+                        val home = com.jarvis.assistant.home.HomeTools.execute(applicationContext, name, args)
+                        val homeKeys = home.keys()
+                        while (homeKeys.hasNext()) {
+                            val key = homeKeys.next()
+                            result.put(key, home.get(key))
                         }
                     }
 

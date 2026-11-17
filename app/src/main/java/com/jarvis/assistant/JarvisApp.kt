@@ -83,6 +83,8 @@ class JarvisApp : Application() {
         preferences.openingAnimationPending = true
         com.jarvis.assistant.auth.AuthManager.init(this)
         com.jarvis.assistant.owner.DeviceTelemetry.init(this)
+        // JARVIS Home: re-plan scheduled routines for this process (cheap; does nothing when there are none).
+        runCatching { com.jarvis.assistant.home.automation.AutomationScheduler.rescheduleAll(this) }
         com.jarvis.assistant.owner.DeviceTelemetry.onAppOpen()
         chatRepository = ChatRepository(preferences)
 
