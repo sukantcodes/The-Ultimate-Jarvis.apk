@@ -172,6 +172,7 @@ class SettingsFragment : Fragment() {
         applyDimensionalIconColors(binding.root)
 
         refreshState()
+        playBubbleEntrance()
     }
 
     /**
@@ -185,16 +186,34 @@ class SettingsFragment : Fragment() {
         val glass = com.jarvis.assistant.ui.glass.LiquidGlass
         glass.apply(binding.etSettingsSearch, 27f, soft = false, elevationDp = 3f)
         glass.apply(binding.cardProfile, 30f, elevationDp = 6f)
-        glass.apply(binding.glassCardAi, 28f, accent(R.color.set_accent_ai))
-        glass.apply(binding.glassCardVoice, 28f, accent(R.color.set_accent_voice))
-        glass.apply(binding.glassCardSecurity, 28f, accent(R.color.set_accent_security))
-        glass.apply(binding.glassCardAlerts, 28f, accent(R.color.set_accent_alerts))
-        glass.apply(binding.glassCardMemory, 28f, accent(R.color.set_accent_memory))
-        glass.apply(binding.glassCardPermissions, 28f, accent(R.color.set_accent_permissions))
-        glass.apply(binding.glassCardAppearance, 28f, accent(R.color.set_accent_appearance))
-        glass.apply(binding.glassCardAbout, 28f, accent(R.color.set_accent_about))
-        glass.apply(binding.glassCardOwner, 28f, accent(R.color.set_accent_owner))
+        section(binding.glassCardAi, accent(R.color.set_accent_ai))
+        section(binding.glassCardVoice, accent(R.color.set_accent_voice))
+        section(binding.glassCardSecurity, accent(R.color.set_accent_security))
+        section(binding.glassCardAlerts, accent(R.color.set_accent_alerts))
+        section(binding.glassCardMemory, accent(R.color.set_accent_memory))
+        section(binding.glassCardPermissions, accent(R.color.set_accent_permissions))
+        section(binding.glassCardAppearance, accent(R.color.set_accent_appearance))
+        section(binding.glassCardAbout, accent(R.color.set_accent_about))
+        section(binding.glassCardOwner, accent(R.color.set_accent_owner))
         glass.styleSwitches(binding.root)
+    }
+
+    /** One section card: liquid glass body, and every row inside it its own glowing bubble in the section's colour. */
+    private fun section(card: ViewGroup, accent: Int) {
+        com.jarvis.assistant.ui.glass.LiquidGlass.apply(card, 28f, accent)
+        com.jarvis.assistant.ui.glass.LiquidRows.bubbleRows(card, accent)
+    }
+
+    /** Blocks pop in one after another with a light sweep on each (skipped when Liquid Glass is off). */
+    private fun playBubbleEntrance() {
+        if (_binding == null) return
+        com.jarvis.assistant.ui.glass.LiquidRows.enter(
+            listOf<View>(
+                binding.etSettingsSearch, binding.cardProfile, binding.glassCardAi,
+                binding.glassCardVoice, binding.glassCardSecurity, binding.glassCardAlerts
+            ),
+            startDelay = 40L
+        )
     }
 
     /**
@@ -242,7 +261,9 @@ class SettingsFragment : Fragment() {
      * small corners; Pillowy is a soft, raised squircle; Circular is a round badge.
      */
     private fun applyIconTile(box: android.widget.FrameLayout, accent: Int) {
-        val shape = JarvisApp.instance.preferences.settingsIconShape
+        val glassOn = com.jarvis.assistant.ui.glass.GlassMode.enabled()
+        // With Liquid Glass on, "Plain" icons still sit in a round glowing bubble; with it off they stay tile-less as before.
+        val shape = JarvisApp.instance.preferences.settingsIconShape.let { if (it == 0 && glassOn) 3 else it }
         if (shape == 0) return
         val tile = GradientDrawable(
             GradientDrawable.Orientation.TL_BR,
@@ -259,6 +280,16 @@ class SettingsFragment : Fragment() {
         tile.setStroke(dp(1), androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 90))
         box.background = tile
         box.elevation = if (shape == 2) dp(3).toFloat() else 0f
+        if (glassOn) {
+            box.elevation = dp(5).toFloat()
+            if (android.os.Build.VERSION.SDK_INT >= 28) {
+                box.outlineSpotShadowColor = accent
+                box.outlineAmbientShadowColor = accent
+            }
+            val corner = when (shape) { 1 -> dp(4); 2 -> dp(15); else -> dp(40) / 2 }.toFloat()
+            com.jarvis.assistant.ui.glass.LiquidTouch.undecorate(box)
+            com.jarvis.assistant.ui.glass.LiquidTouch.decorate(box, corner, 0.95f, accent)
+        }
     }
 
     private fun applyLiquidGlassStrength(view: View) {
@@ -288,6 +319,7 @@ class SettingsFragment : Fragment() {
             binding.root.visibility = View.VISIBLE
             com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(binding.root)
             refreshState()
+            playBubbleEntrance()
         } else {
             binding.root.visibility = View.GONE
         }

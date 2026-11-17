@@ -229,6 +229,12 @@ object LiquidTouch {
         try { applySheen(v, cornerPx, intensity, accent) } catch (_: Throwable) {}
     }
 
+    /** Removes the bubble sheen from [v] (used before re-decorating with a new shape). */
+    fun undecorate(v: View) {
+        (v.getTag(SHEEN_TAG_KEY) as? android.graphics.drawable.Drawable)?.let { v.overlay.remove(it) }
+        v.setTag(SHEEN_TAG_KEY, null)
+    }
+
     private fun applySheen(v: View, cornerOverride: Float? = null, intensity: Float = 1f, accentOverride: Int? = null) {
         val d = v.resources.displayMetrics.density
         val light = try { ThemeManager.isCurrentThemeLight() } catch (_: Throwable) { false }
