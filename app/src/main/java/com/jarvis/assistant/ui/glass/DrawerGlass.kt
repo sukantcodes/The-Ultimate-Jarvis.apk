@@ -18,9 +18,9 @@ object DrawerGlass {
         if (GlassMode.plain()) {
             // Original simple drawer: plain rows, standard icons, flat header.
             nav.itemBackground = null
-            nav.itemIconSize = (24f * d).toInt()
-            nav.itemIconPadding = (12f * d).toInt()
-            nav.itemHorizontalPadding = (16f * d).toInt()
+            nav.setItemIconSize((24f * d).toInt())
+            nav.setItemIconPadding((12f * d).toInt())
+            nav.setItemHorizontalPadding((16f * d).toInt())
             val plainHeader = nav.getHeaderView(0) ?: return
             plainHeader.setBackgroundColor(GlassMode.attrColor(nav.context, R.attr.themeSurface, android.graphics.Color.TRANSPARENT))
             (plainHeader.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.let {
