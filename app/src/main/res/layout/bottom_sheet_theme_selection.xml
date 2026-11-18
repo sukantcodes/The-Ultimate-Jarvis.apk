@@ -100,6 +100,15 @@
                     android:layout_marginBottom="6dp" />
 
                 <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOrbCrystal"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="💎  Crystal Orb • Mirror Glass Sphere"
+                    android:textAllCaps="false"
+                    android:layout_marginBottom="6dp" />
+
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnOrbIronMan"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="match_parent"
@@ -487,6 +496,56 @@
                     android:src="@drawable/ic_checklist_tasks"
                     app:tint="?attr/themeAccent"
         android:contentDescription="Selected" />
+            </LinearLayout>
+
+            <!-- Theme: Crystal Mirror -->
+            <LinearLayout
+                android:id="@+id/cardThemeCrystal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_jarvis_card"
+                android:padding="16dp"
+                android:layout_marginBottom="10dp">
+
+                <View
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:background="@drawable/bg_theme_crystal_chip" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Crystal Mirror"
+                        android:textColor="?attr/themeTextPrimary"
+                        android:textSize="15sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="See-through glass over your wallpaper • Polished mirror reflections"
+                        android:textColor="?attr/themeTextMuted"
+                        android:textSize="12sp"
+                        android:fontFamily="sans-serif" />
+                </LinearLayout>
+
+                <ImageView
+                    android:id="@+id/ivCheckCrystal"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_checklist_tasks"
+                    app:tint="?attr/themeAccent"
+                    android:contentDescription="Selected" />
             </LinearLayout>
 
             <!-- Theme 5: Custom Background Colour -->

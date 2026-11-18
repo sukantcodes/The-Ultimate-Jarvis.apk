@@ -41,6 +41,7 @@ class HomeFragment : Fragment() {
 
     private var isPageLoaded = false
     private var loadedAuroraOrb = false
+    private var loadedCrystalOrb = false
     private var loadedElepticalOrb = false
     private var pendingOrbState: String? = null
     private var pendingThemeKey: String? = null
@@ -325,13 +326,16 @@ class HomeFragment : Fragment() {
 
         val wantsAurora = style == "aurora_orb"
         val wantsEleptical = style == "eleptical_orb"
+        val wantsCrystal = style == "crystal_orb"
         loadedAuroraOrb = wantsAurora
         loadedElepticalOrb = wantsEleptical
+        loadedCrystalOrb = wantsCrystal
         isPageLoaded = false
         binding.orbWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         binding.orbWebView.loadUrl(
             when {
                 wantsAurora -> "file:///android_asset/aurora_orb.html?hud=0&state=idle"
+                wantsCrystal -> "file:///android_asset/crystal_orb.html"
                 // "first=1" starts on the amoeba so the greeting can be played the moment Home is really on screen.
                 wantsEleptical -> "file:///android_asset/eleptical_orb.html" + (if (preferences.orbGreetingShown) "" else "?first=1")
                 else -> "file:///android_asset/orb.html?embedded=1"
@@ -361,7 +365,7 @@ class HomeFragment : Fragment() {
         binding.orbHaloRing.scaleY = size
         // The Elliptical Orb paints its own elliptical halo inside the page; the round native halo
         // behind it would double the glow and not match its shape.
-        binding.orbHaloRing.alpha = if (style == "eleptical_orb") 0f else (glow / 1.5f).coerceIn(0f, 1f)
+        binding.orbHaloRing.alpha = if (style == "eleptical_orb" || style == "crystal_orb") 0f else (glow / 1.5f).coerceIn(0f, 1f)
         if (isPageLoaded) {
             activity?.runOnUiThread {
                 if (_binding != null) {
@@ -384,11 +388,12 @@ class HomeFragment : Fragment() {
         applyOrbLook(style)
         val wantsAurora = style == "aurora_orb"
         val wantsEleptical = style == "eleptical_orb"
-        if (wantsAurora != loadedAuroraOrb || wantsEleptical != loadedElepticalOrb) {
+        val wantsCrystal = style == "crystal_orb"
+        if (wantsAurora != loadedAuroraOrb || wantsEleptical != loadedElepticalOrb || wantsCrystal != loadedCrystalOrb) {
             loadOrbPage(style)
             return
         }
-        if (!isPageLoaded || wantsAurora || wantsEleptical) return
+        if (!isPageLoaded || wantsAurora || wantsEleptical || wantsCrystal) return
         val safeStyle = style.filter { it.isLetterOrDigit() || it == '_' }
         activity?.runOnUiThread {
             if (_binding == null || !isAdded) return@runOnUiThread
@@ -410,7 +415,7 @@ class HomeFragment : Fragment() {
         if (!isPageLoaded || loadedAuroraOrb) return
         activity?.runOnUiThread {
             if (_binding == null) return@runOnUiThread
-            if (loadedElepticalOrb) {
+            if (loadedElepticalOrb || loadedCrystalOrb) {
                 // Exact light/dark flag + the app's two accent colours (custom themes included).
                 val (isLight, first, second) = com.jarvis.assistant.util.ThemeManager.getOrbThemeSpec(themeKey)
                 binding.orbWebView.evaluateJavascript(
@@ -429,6 +434,7 @@ class HomeFragment : Fragment() {
                     "dark" -> "dark"
                     "red" -> "red"
                     "sunset" -> "sunset"
+                    "crystal" -> "dark"
                     else -> "light"
                 }
                 binding.orbWebView.evaluateJavascript("window.JarvisOrb && window.JarvisOrb.setTheme('$mapped');", null)
@@ -913,6 +919,7 @@ class HomeFragment : Fragment() {
         // optional orb to be loaded again when Home is recreated.
         isPageLoaded = false
         loadedAuroraOrb = false
+        loadedCrystalOrb = false
         loadedElepticalOrb = false
         _binding = null
     }

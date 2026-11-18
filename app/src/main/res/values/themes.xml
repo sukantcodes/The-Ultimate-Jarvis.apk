@@ -169,6 +169,86 @@
         <item name="themeNeutralContainer">#273449</item>
     </style>
 
+    <!-- CRYSTAL MIRROR: a see-through mirror over the wallpaper; the window is painted by CrystalMirrorDrawable -->
+    <style name="Theme.JarvisAssistant.Crystal" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
+        <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
+        <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
+        <item name="textAppearanceTitleLarge">@style/TextAppearance.Jarvis.Title</item>
+        <item name="textAppearanceBodyMedium">@style/TextAppearance.Jarvis.Body</item>
+        <item name="textAppearanceLabelMedium">@style/TextAppearance.Jarvis.Overline</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowShowWallpaper">true</item>
+        <item name="colorPrimary">#7FD4FF</item>
+        <item name="colorOnPrimary">#04101E</item>
+        <item name="colorSurface">#1FFFFFFF</item>
+        <item name="colorOnSurface">#FFFFFF</item>
+
+        <item name="themeBg">#0A1220</item>
+        <item name="themeSurface">#1FFFFFFF</item>
+        <item name="themeCardBg">#1FFFFFFF</item>
+        <item name="themeCardBorder">#80FFFFFF</item>
+        <item name="themeCardGlassStart">#38FFFFFF</item>
+        <item name="themeCardGlassEnd">#0AFFFFFF</item>
+        <item name="themeDockBg">#4D0B1626</item>
+        <item name="themeDockGlassStart">#66182742</item>
+        <item name="themeDockGlassEnd">#400A1424</item>
+        <item name="themeDockBorder">#80DFF3FF</item>
+        <item name="themeGlassSpecular">#E6F6FF</item>
+        <item name="themeChipBg">#26FFFFFF</item>
+        <item name="themeInputBg">#1FFFFFFF</item>
+        <item name="themeGlowBlob1">@drawable/bg_liquid_glow_dark_1</item>
+        <item name="themeGlowBlob2">@drawable/bg_liquid_glow_dark_2</item>
+        <item name="themeGlowBlob3">@drawable/bg_liquid_glow_dark_3</item>
+
+        <item name="themeTextPrimary">#FFFFFF</item>
+        <item name="themeTextSecondary">#E1EEFF</item>
+        <item name="themeTextMuted">#B3C9E6</item>
+        <item name="themeAccent1">#7FD4FF</item>
+        <item name="themeAccent2">#C4B5FD</item>
+        <item name="themeAccent3">#67E8F9</item>
+        <item name="themeAccent">#7FD4FF</item>
+        <item name="themeAccentLight">#1F3A5C</item>
+            <item name="colorPrimary">#7FD4FF</item>
+        <item name="colorOnPrimary">#04101E</item>
+        <item name="colorPrimaryContainer">#1F3A5C</item>
+        <item name="colorOnPrimaryContainer">#FFFFFF</item>
+        <item name="colorSecondary">#C4B5FD</item>
+        <item name="colorOnSecondary">#000000</item>
+        <item name="colorSecondaryContainer">#1F3A5C</item>
+        <item name="colorOnSecondaryContainer">#FFFFFF</item>
+        <item name="colorTertiary">#67E8F9</item>
+        <item name="colorOnTertiary">#000000</item>
+        <item name="colorTertiaryContainer">#1F3A5C</item>
+        <item name="colorOnTertiaryContainer">#FFFFFF</item>
+        <item name="colorSurfaceVariant">#26324A</item>
+        <item name="colorOnSurfaceVariant">#E1EEFF</item>
+        <item name="colorOutline">#80FFFFFF</item>
+        <item name="colorOutlineVariant">#66FFFFFF</item>
+        <item name="colorError">#FF6B6B</item>
+        <item name="colorOnError">#FFFFFF</item>
+        <item name="colorErrorContainer">#4A2026</item>
+        <item name="colorOnErrorContainer">#FFDAD6</item>
+        <item name="colorControlActivated">#7FD4FF</item>
+        <item name="android:colorControlActivated">#7FD4FF</item>
+        <item name="android:colorControlHighlight">#33DFF3FF</item>
+        <item name="themeSuccess">#4ADE80</item>
+        <item name="themeSuccessContainer">#163D2A</item>
+        <item name="themeWarning">#FBBF24</item>
+        <item name="themeWarningContainer">#493411</item>
+        <item name="themeError">#FF6B6B</item>
+        <item name="themeErrorContainer">#4A2026</item>
+        <item name="themeInfo">#60A5FA</item>
+        <item name="themeInfoContainer">#1B3552</item>
+        <item name="themeNeutral">#CBD5E1</item>
+        <item name="themeNeutralContainer">#273449</item>
+    </style>
+
     <!-- 3. RED THEME - LIQUID RUBY GLASS EDITION -->
     <style name="Theme.JarvisAssistant.Red" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>

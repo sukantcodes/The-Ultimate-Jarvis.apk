@@ -15,7 +15,7 @@ import android.webkit.WebResourceResponse
  */
 object OrbPerformanceGovernor {
 
-    private val PAGES = setOf("orb.html", "aurora_orb.html", "eleptical_orb.html")
+    private val PAGES = setOf("orb.html", "aurora_orb.html", "eleptical_orb.html", "crystal_orb.html")
 
     private val SCRIPT = """
 <script>/* jarvis-perf-governor */

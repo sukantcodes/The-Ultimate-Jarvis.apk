@@ -81,6 +81,7 @@ object ThemeManager {
             "dark" -> Color.parseColor("#070914")
             "red" -> Color.parseColor("#0E0307")
             "sunset" -> Color.parseColor("#FFF0EA")
+            "crystal" -> Color.parseColor("#0A1220")
             "custom" -> {
                 val (first, second) = customColors()
                 val light = customIsLight(first, second)
@@ -99,6 +100,7 @@ object ThemeManager {
             "dark" -> Triple(R.style.Theme_JarvisAssistant_Dark, false, Color.parseColor("#070914"))
             "red" -> Triple(R.style.Theme_JarvisAssistant_Red, false, Color.parseColor("#0E0307"))
             "sunset" -> Triple(R.style.Theme_JarvisAssistant_Sunset, true, Color.parseColor("#FFF0EA"))
+            "crystal" -> Triple(R.style.Theme_JarvisAssistant_Crystal, false, Color.parseColor("#0A1220"))
             "custom" -> {
                 val (first, second) = customColors()
                 val light = customIsLight(first, second)
@@ -109,11 +111,14 @@ object ThemeManager {
         }
 
         activity.setTheme(themeRes)
+        // Crystal Mirror is see-through: the window shows the wallpaper behind its veil. Every other theme stays opaque.
+        if (themeKey == "crystal") activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
+        else activity.window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
         activity.window.setBackgroundDrawable(createThemeBackgroundDrawable(themeKey))
         // Keep the decor transparent so the window background stays continuous behind content.
         activity.window.decorView.background = ColorDrawable(Color.TRANSPARENT)
 
-        if (isCustom) {
+        if (isCustom || themeKey == "crystal") {
             // The glow is painted ONCE, on the window. Painting it again on the content view (which is a
             // different size) or putting solid bars over it is what made rectangle edges and corners show.
             activity.window.statusBarColor = Color.TRANSPARENT
@@ -199,6 +204,7 @@ object ThemeManager {
             "dark" -> Color.parseColor("#5B8CFF")
             "red" -> Color.parseColor("#FF4D5E")
             "sunset" -> Color.parseColor("#FF6A3D")
+            "crystal" -> Color.parseColor("#7FD4FF")
             "custom" -> {
                 val (first, second) = customColors()
                 val light = customIsLight(first, second)
@@ -224,6 +230,7 @@ object ThemeManager {
             "dark" -> Color.parseColor("#A78BFA")
             "red" -> Color.parseColor("#FB7185")
             "sunset" -> Color.parseColor("#E879A8")
+            "crystal" -> Color.parseColor("#C4B5FD")
             "custom" -> {
                 val (first, second) = customColors()
                 if (first != second) second else {
@@ -264,11 +271,13 @@ object ThemeManager {
         "dark" -> Color.parseColor("#5B8CFF") to Color.parseColor("#A78BFA")
         "red" -> Color.parseColor("#FF4D5E") to Color.parseColor("#FB7185")
         "sunset" -> Color.parseColor("#FF6A3D") to Color.parseColor("#E879A8")
+        "crystal" -> Color.parseColor("#8FD9FF") to Color.parseColor("#C9B8FF")
         "custom" -> customColors()
         else -> Color.parseColor("#2F6BFF") to Color.parseColor("#8B5CF6")
     }
 
     private fun createThemeBackgroundDrawable(themeKey: String): Drawable {
+        if (themeKey == "crystal") return com.jarvis.assistant.ui.glass.CrystalMirrorDrawable()
         val base = getThemeBgColor(themeKey, null)
         val (first, second) = themeGlowColors(themeKey)
         return AmbientGlowDrawable(base, first, second, isLight(base))
@@ -340,6 +349,8 @@ object ThemeManager {
     fun applyDynamicBackground(view: View) {
         val prefs = try { JarvisApp.instance.preferences } catch (_: Exception) { null }
         val themeKey = prefs?.appTheme ?: "sunset"
+        // Crystal Mirror is painted once by the window (a second veil here would double it and hide the wallpaper).
+        if (themeKey == "crystal") { view.background = ColorDrawable(Color.TRANSPARENT); return }
         // Use the same full-bounds renderer for every activity and fragment, including Updates.
         view.background = createThemeBackgroundDrawable(themeKey)
     }

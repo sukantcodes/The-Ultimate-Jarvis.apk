@@ -11,7 +11,7 @@ import java.util.Locale
 object AppSettingsCatalog {
     private val HEX = Regex("^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$")
 
-    val ORB_STYLES = listOf("default", "eleptical_orb", "aurora_orb", "iron_man_head", "full_human", "quantum_core", "siri_glow")
+    val ORB_STYLES = listOf("default", "eleptical_orb", "aurora_orb", "iron_man_head", "full_human", "quantum_core", "siri_glow", "crystal_orb")
     val OVERLAY_AVATARS = listOf("alien", "blob", "cat", "circle", "cloud", "droid", "drop", "flower", "ghost", "hexagon", "mech", "pebble", "pill", "puddle", "square", "star", "triangle")
 
     fun build(p: AppPreferences): List<SettingDef> {
@@ -49,7 +49,7 @@ object AppSettingsCatalog {
             float("owner_voice_threshold", "Voice security", "Owner voice strictness", "Higher is stricter. Values at or below 0.70 are reset to 0.80 by the app.", 0.71, 0.99, { p.ownerVoiceThreshold }, { p.ownerVoiceThreshold = it }),
 
             // ---- Appearance ----
-            choice("app_theme", "Appearance", "Theme", "The app theme.", listOf("light", "dark", "red", "sunset", "custom"), { p.appTheme }, { p.appTheme = it }),
+            choice("app_theme", "Appearance", "Theme", "The app theme.", listOf("light", "dark", "red", "sunset", "crystal", "custom"), { p.appTheme }, { p.appTheme = it }),
             text("custom_theme_color", "Appearance", "Custom theme colour", "Hex colour such as #12AB34 (used by the custom theme).", { p.customThemeColor }, { p.customThemeColor = it },
                 validator = { if (HEX.matches(it)) null else "Use a hex colour like #12AB34." }),
             text("custom_theme_color_2", "Appearance", "Custom theme second colour", "Optional second hex colour for a blend. Empty for a single colour.", { p.customThemeColor2 }, { p.customThemeColor2 = it },

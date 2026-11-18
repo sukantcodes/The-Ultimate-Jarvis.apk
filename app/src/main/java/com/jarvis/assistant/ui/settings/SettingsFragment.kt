@@ -848,6 +848,7 @@ class SettingsFragment : Fragment() {
             "dark" -> "Dark Theme"
             "red" -> "Red Theme"
             "sunset" -> "Sunset Theme"
+            "crystal" -> "Crystal Mirror Theme"
             "custom" -> "Custom (${preferences.customThemeColor})"
             else -> "Light Theme"
         }

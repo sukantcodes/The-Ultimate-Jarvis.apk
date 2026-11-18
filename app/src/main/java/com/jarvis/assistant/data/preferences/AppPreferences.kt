@@ -332,6 +332,7 @@ class AppPreferences(context: Context) {
                 "dark", "midnight_onyx", "cyberpunk_neon", "emerald_obsidian" -> "dark"
                 "red" -> "red"
                 "sunset", "rose_gold" -> "sunset"
+                "crystal", "crystal_mirror" -> "crystal"
                 "custom" -> "custom"
                 else -> "light"
             }
@@ -376,7 +377,7 @@ class AppPreferences(context: Context) {
         get() {
             // The Eleptical Orb is the default. Removed orbs (plasma_core, holographic_pulse and their old aliases)
             // fall back to it too. The original orb is still available as "default" for anyone who picks it.
-            val valid = listOf("default", "eleptical_orb", "aurora_orb", "iron_man_head", "full_human", "quantum_core", "siri_glow")
+            val valid = listOf("default", "eleptical_orb", "aurora_orb", "iron_man_head", "full_human", "quantum_core", "siri_glow", "crystal_orb")
             val stored = prefs.getString(KEY_ORB_ANIMATION, DEFAULT_ORB) ?: DEFAULT_ORB
             // One-time switch for existing installs: anyone still on the original orb moves to the Eleptical Orb,
             // so it shows as selected in the orb picker. Later choices, including picking the original again, stay.

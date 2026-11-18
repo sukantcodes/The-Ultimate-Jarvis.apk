@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Jarvis — Crystal Orb</title>
+<style>
+  html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    background:transparent !important; -webkit-user-select:none; user-select:none; touch-action:none; }
+  canvas { position:fixed; inset:0; width:100%; height:100%; display:block; background:transparent; }
+  #fallback { position:fixed; left:50%; top:50%; width:62vmin; height:62vmin; margin:-31vmin 0 0 -31vmin; border-radius:50%; display:none;
+    background: radial-gradient(circle at 32% 26%, rgba(255,255,255,.95), rgba(190,225,255,.35) 26%, rgba(120,190,255,.14) 62%, rgba(255,255,255,.28) 100%);
+    box-shadow: 0 0 60px rgba(127,212,255,.45), inset 0 0 40px rgba(255,255,255,.3); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="fallback"></div>
+<script>
+(function () {
+  'use strict';
+  var canvas = document.getElementById('c');
+  var gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance' });
+  if (!gl) { document.getElementById('fallback').style.display = 'block'; window.JarvisOrb = stub(); return; }
+
+  var VS = 'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}';
+  var FS = [
+  'precision highp float;',
+  'uniform vec2 uRes;uniform float uTime,uAudio,uGlow,uScale,uThink,uListen,uSpeak,uPulse,uYaw,uPitch;',
+  'uniform vec3 uT1,uT2;',
+  'mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}',
+  'float box(vec2 p,vec2 c,vec2 hs,float s){vec2 d=abs(p-c)-hs;return smoothstep(s,0.,max(d.x,d.y));}',
+  // studio environment: dark sky, big softboxes, strip lights and a tinted floor bounce
+  'vec3 env(vec3 d){',
+  '  d.xz=rot(uYaw+uTime*0.10)*d.xz; d.yz=rot(uPitch)*d.yz;',
+  '  float a=atan(d.x,d.z),e=asin(clamp(d.y,-1.,1.));',
+  '  vec3 col=mix(vec3(0.015,0.03,0.07),vec3(0.50,0.68,0.95),pow(clamp(d.y*0.5+0.5,0.,1.),1.7));',
+  '  col+=vec3(1.0,0.98,0.94)*3.2*box(vec2(a,e),vec2(-0.85,0.45),vec2(0.42,0.30),0.22);',
+  '  col+=vec3(0.85,0.93,1.0)*2.4*box(vec2(a,e),vec2(1.15,0.15),vec2(0.07,0.75),0.10);',
+  '  col+=uT1*1.6*box(vec2(a,e),vec2(0.2,-0.75),vec2(1.3,0.07),0.18);',
+  '  col+=uT2*1.1*box(vec2(a,e),vec2(2.6,0.35),vec2(0.35,0.14),0.20);',
+  '  col*=0.92+0.08*sin(a*3.0+uTime*0.3);',
+  '  return col;',
+  '}',
+  'void main(){',
+  '  float m=min(uRes.x,uRes.y)*0.5;',
+  '  vec2 p=(gl_FragCoord.xy-0.5*uRes)/m;',
+  '  float pulse=1.0+0.045*uAudio+0.018*sin(uTime*1.3)+0.05*uPulse;',
+  '  float Rr=0.64*uScale*pulse;',
+  '  vec2 q=p/Rr;',
+  '  float d=length(q);',
+  '  float aa=2.0/(m*Rr);',
+  '  vec3 tint=mix(uT1,uT2,0.5+0.5*sin(uTime*0.45));',
+  '  float halo=exp(-max(d-1.0,0.0)*4.6)*(0.30+0.28*uAudio+0.10*uSpeak+0.16*uPulse)*uGlow;',
+  '  vec3 haloC=tint*halo;',
+  '  if(d>1.0+aa){gl_FragColor=vec4(haloC*0.85,halo*0.85);return;}',
+  '  float cover=smoothstep(1.0+aa,1.0-aa,d);',
+  '  float z=sqrt(max(1.0-d*d,0.0));',
+  '  vec3 n=vec3(q,z);',
+  '  vec3 V=vec3(0.,0.,1.);',
+  '  float fres=0.05+0.95*pow(1.0-z,4.0);',
+  '  vec3 R=reflect(-V,n);',
+  '  vec3 refl=env(R);',
+  '  vec3 T1=refract(-V,n,1.0/1.42),T2=refract(-V,n,1.0/1.46),T3=refract(-V,n,1.0/1.50);',
+  '  vec3 refr=vec3(env(T1*vec3(-1.,-1.,1.)).r,env(T2*vec3(-1.,-1.,1.)).g,env(T3*vec3(-1.,-1.,1.)).b);',
+  '  float absorb=pow(1.0-z,2.0);',
+  '  vec3 body=mix(refr*0.50,tint*0.85,absorb*0.45);',
+  // inner light that breathes with the voice
+  '  vec2 cq=q-vec2(0.0,-0.06);',
+  '  float core=exp(-dot(cq,cq)*(5.2-1.6*uSpeak-1.0*uListen));',
+  '  core*=0.45+0.95*uAudio+0.28*sin(uTime*2.1)*(0.4+uSpeak)+0.35*uListen+0.5*uPulse;',
+  '  vec3 coreC=mix(tint,vec3(1.),0.5)*core*1.5;',
+  // thinking: a bright ring that circles inside the crystal
+  '  float ang=atan(q.y,q.x);',
+  '  float ring=smoothstep(0.05,0.0,abs(d-0.56-0.045*sin(ang*3.0+uTime*3.2)))*uThink;',
+  '  coreC+=mix(tint,vec3(1.),0.35)*ring*1.3;',
+  // caustic pooled low inside the sphere
+  '  float caus=pow(max(dot(n,normalize(vec3(0.15,-0.92,0.35))),0.0),7.0)*(1.0-z*0.6);',
+  // thin-film rainbow on the rim
+  '  float rim=pow(1.0-z,3.0);',
+  '  vec3 irid=0.5+0.5*cos(6.2831*(vec3(0.0,0.33,0.67)+(1.0-z)*1.5+uTime*0.04));',
+  // polished window highlights
+  '  vec3 L1=normalize(vec3(-0.55,0.62,0.56));',
+  '  float spec=pow(max(dot(R,L1),0.),190.)*2.4+pow(max(dot(R,normalize(vec3(0.62,0.18,0.62))),0.),90.)*0.8;',
+  '  vec3 col=body*0.55+refl*fres*1.15+coreC+caus*tint*0.9+irid*rim*0.50+spec;',
+  '  col=1.0-exp(-col*1.25);',
+  '  float a=clamp(0.14+fres*0.85+dot(body,vec3(0.33))*0.20+core*0.8+ring*0.7+spec+caus*0.5+rim*0.45,0.0,1.0);',
+  '  float g=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453)/255.0;',
+  '  col+=g;',
+  '  a*=cover;',
+  '  vec3 outC=col*a+haloC*(1.0-a)*0.85;',
+  '  float outA=a+halo*(1.0-a)*0.85;',
+  '  gl_FragColor=vec4(outC,outA);',
+  '}'
+  ].join('\n');
+
+  function sh(t, src) { var s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null; }
+  var vs = sh(gl.VERTEX_SHADER, VS), fs = sh(gl.FRAGMENT_SHADER, FS);
+  var prog = gl.createProgram();
+  if (!vs || !fs) { document.getElementById('fallback').style.display = 'block'; window.JarvisOrb = stub(); return; }
+  gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { document.getElementById('fallback').style.display = 'block'; window.JarvisOrb = stub(); return; }
+  gl.useProgram(prog);
+  var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  var loc = gl.getAttribLocation(prog, 'a'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  var U = {}; ['uRes','uTime','uAudio','uGlow','uScale','uThink','uListen','uSpeak','uPulse','uYaw','uPitch','uT1','uT2'].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.clearColor(0, 0, 0, 0);
+
+  function hex(h, d) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return d;
+    var v = parseInt(m[1], 16); return [((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255];
+  }
+  var S = { state: 'idle', audio: 0, audioT: 0, glow: 1, scale: 1, think: 0, listen: 0, speak: 0, pulse: 0, yaw: 0, pitch: 0, vyaw: 0, vpitch: 0,
+            t1: [0.56, 0.85, 1.0], t2: [0.79, 0.72, 1.0], working: false, ext: false };
+
+  var dpr = Math.min(window.devicePixelRatio || 1, 2), W = 0, H = 0;
+  function resize() {
+    var w = Math.max(1, Math.round(canvas.clientWidth * dpr)), h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+    if (w !== W || h !== H) { W = canvas.width = w; H = canvas.height = h; gl.viewport(0, 0, W, H); }
+  }
+  window.addEventListener('resize', resize);
+
+  // drag to turn the crystal; a tap sends a pulse through it
+  var down = false, lx = 0, ly = 0, moved = 0;
+  canvas.addEventListener('pointerdown', function (e) { down = true; lx = e.clientX; ly = e.clientY; moved = 0; S.vyaw = S.vpitch = 0; });
+  canvas.addEventListener('pointermove', function (e) {
+    if (!down) return; var dx = e.clientX - lx, dy = e.clientY - ly; lx = e.clientX; ly = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    S.yaw += dx * 0.010; S.pitch = Math.max(-0.9, Math.min(0.9, S.pitch + dy * 0.008)); S.vyaw = dx * 0.010; S.vpitch = dy * 0.008;
+  });
+  function up() { if (down && moved < 8) S.pulse = 1; down = false; }
+  canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', function () { down = false; });
+
+  function setState(st) { S.state = String(st || 'idle'); }
+  var last = performance.now(), t0 = last;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (document.hidden) return;
+    var dt = Math.min(0.05, (now - last) / 1000); last = now;
+    resize();
+    var st = S.state;
+    var tThink = (st === 'thinking' || st === 'working' || st === 'processing') ? 1 : 0;
+    var tListen = st === 'listening' ? 1 : 0, tSpeak = st === 'speaking' ? 1 : 0;
+    var k = 1 - Math.exp(-dt * 6);
+    S.think += (tThink - S.think) * k; S.listen += (tListen - S.listen) * k; S.speak += (tSpeak - S.speak) * k;
+    var aT = S.ext ? S.audioT : (tSpeak ? 0.45 + 0.3 * Math.sin(now * 0.011) * Math.sin(now * 0.0053) : tListen ? 0.22 + 0.1 * Math.sin(now * 0.004) : 0);
+    S.audio += (Math.max(0, aT) - S.audio) * (1 - Math.exp(-dt * 14));
+    S.pulse *= Math.exp(-dt * 2.6);
+    if (!down) { S.yaw += S.vyaw; S.pitch += S.vpitch; S.vyaw *= 0.94; S.vpitch *= 0.94; S.pitch *= 0.995; }
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform2f(U.uRes, W, H); gl.uniform1f(U.uTime, (now - t0) / 1000); gl.uniform1f(U.uAudio, Math.min(S.audio, 1.6));
+    gl.uniform1f(U.uGlow, S.glow); gl.uniform1f(U.uScale, S.scale); gl.uniform1f(U.uThink, S.think); gl.uniform1f(U.uListen, S.listen);
+    gl.uniform1f(U.uSpeak, S.speak); gl.uniform1f(U.uPulse, S.pulse); gl.uniform1f(U.uYaw, S.yaw); gl.uniform1f(U.uPitch, S.pitch);
+    gl.uniform3f(U.uT1, S.t1[0], S.t1[1], S.t1[2]); gl.uniform3f(U.uT2, S.t2[0], S.t2[1], S.t2[2]);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+  requestAnimationFrame(frame);
+
+  function stub() { var n = function () {}; return { setState: n, setWorking: n, setAppTheme: n, setTheme: n, setBackground: n, setAudioLevel: n, setExternalAudio: n, setGlow: n, setScale: n, setStyle: n, triggerPulse: n, getState: function () { return 'idle'; } }; }
+
+  window.JarvisOrb = {
+    setState: setState,
+    getState: function () { return S.state; },
+    setWorking: function (w) { S.working = !!w; },
+    // the crystal takes its two light colours from the app theme (Crystal Mirror: ice blue and soft violet)
+    setAppTheme: function (isLight, c1, c2) { S.t1 = hex(c1, S.t1); S.t2 = hex(c2, S.t2); },
+    setTheme: function () {},
+    setBackground: function (c1, c2) { S.t1 = hex(c1, S.t1); S.t2 = hex(c2 || c1, S.t2); },
+    setAudioLevel: function (v) { var n = parseFloat(v); S.ext = isFinite(n); S.audioT = isFinite(n) ? Math.max(0, Math.min(2, n)) : 0; },
+    setExternalAudio: function (a, b, h) { var n = parseFloat(a); S.ext = isFinite(n); S.audioT = isFinite(n) ? Math.max(0, Math.min(2, n)) : 0; },
+    setGlow: function (v) { var n = parseFloat(v); if (isFinite(n)) S.glow = Math.max(0, Math.min(2, n)); },
+    setScale: function (v) { var n = parseFloat(v); if (isFinite(n) && n >= 0.3 && n <= 2.5) S.scale = n; },
+    setStyle: function () {},
+    triggerPulse: function () { S.pulse = 1; }
+  };
+})();
+</script>
+</body>
+</html>

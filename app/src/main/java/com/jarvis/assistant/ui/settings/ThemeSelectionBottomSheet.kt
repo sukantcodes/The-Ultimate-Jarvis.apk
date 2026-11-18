@@ -132,6 +132,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         binding.btnOrbDefault.setOnClickListener { selectOrb("default", "Default Orb", it) }
         binding.btnOrbEleptical.setOnClickListener { selectOrb("eleptical_orb", "Eleptical Orb", it) }
         binding.btnOrbAurora.setOnClickListener { selectOrb("aurora_orb", "Aurora Orb", it) }
+        binding.btnOrbCrystal.setOnClickListener { selectOrb("crystal_orb", "Crystal Orb", it) }
         binding.btnOrbIronMan.setOnClickListener { selectOrb("iron_man_head", "Iron Man 3D Helmet", it) }
         binding.btnOrbFullCharacter.setOnClickListener { selectOrb("full_human", "Full Human 3D Assistant", it) }
 
@@ -142,6 +143,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         binding.cardThemeDark.setOnClickListener { selectTheme("dark", "Dark", it) }
         binding.cardThemeRed.setOnClickListener { selectTheme("red", "Red", it) }
         binding.cardThemeSunset.setOnClickListener { selectTheme("sunset", "Sunset", it) }
+        binding.cardThemeCrystal.setOnClickListener { selectTheme("crystal", "Crystal Mirror", it) }
 
         binding.btnSelectMoreColours.setOnClickListener {
             startActivity(android.content.Intent(requireContext(), MoreThemeColoursActivity::class.java))
@@ -178,6 +180,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
             "default" to binding.btnOrbDefault,
             "eleptical_orb" to binding.btnOrbEleptical,
             "aurora_orb" to binding.btnOrbAurora,
+            "crystal_orb" to binding.btnOrbCrystal,
             "iron_man_head" to binding.btnOrbIronMan,
             "full_human" to binding.btnOrbFullCharacter
         )
@@ -206,6 +209,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         val style = preferences.orbAnimation
         binding.tvOrbControlsHint.text = "Applies to the selected orb: " + when (style) {
             "aurora_orb" -> "Aurora Orb"
+            "crystal_orb" -> "Crystal Orb"
             "eleptical_orb" -> "Eleptical Orb"
             "iron_man_head" -> "Iron Man 3D Helmet"
             "full_human" -> "Full Human 3D Assistant"
@@ -317,6 +321,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
         binding.ivCheckDark.visibility = if (activeTheme == "dark") View.VISIBLE else View.GONE
         binding.ivCheckRed.visibility = if (activeTheme == "red") View.VISIBLE else View.GONE
         binding.ivCheckSunset.visibility = if (activeTheme == "sunset") View.VISIBLE else View.GONE
+        binding.ivCheckCrystal.visibility = if (activeTheme == "crystal") View.VISIBLE else View.GONE
         binding.ivCheckCustom.visibility = if (activeTheme == "custom") View.VISIBLE else View.GONE
     }
 
