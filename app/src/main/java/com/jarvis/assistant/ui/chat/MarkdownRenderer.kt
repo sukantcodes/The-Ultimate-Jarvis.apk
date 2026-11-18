@@ -37,7 +37,7 @@ object MarkdownRenderer {
     private val inline = Regex(
         """(\*\*[^*\n]+\*\*|(?<!\w)__[^_\n]+__(?!\w)|~~[^~\n]+~~|`[^`\n]+`|\[[^\]\n]+]\([^)\s]+\)|""" +
             """https?://[^\s<>()\]]*[^\s<>()\].,;:!?'"]|(?<![*\w])\*[^*\s][^*\n]*\*(?![*\w])|""" +
-            """==[^=\n]+==|\{(?:red|green|blue|orange|purple|yellow|big|small):[^{}\n]+})"""
+            """==[^=\n]+==|\{(?:red|green|blue|orange|purple|yellow|big|small):[^{}\n]+\})"""
     )
     private val styled = mapOf(
         "red" to 0xFFFF5252.toInt(), "green" to 0xFF00E676.toInt(), "blue" to 0xFF448AFF.toInt(),
@@ -225,7 +225,7 @@ object MarkdownRenderer {
         return r.split('|').map { it.trim() }
     }
 
-    private fun plain(s: String): String = s.replace(Regex("""\{(?:red|green|blue|orange|purple|yellow|big|small):([^{}]*)}"""), "$1").replace(Regex("""\*\*|__|~~|==|`"""), "").replace(Regex("""\[([^\]]+)]\([^)]*\)"""), "$1")
+    private fun plain(s: String): String = s.replace(Regex("""\{(?:red|green|blue|orange|purple|yellow|big|small):([^{}]*)\}"""), "$1").replace(Regex("""\*\*|__|~~|==|`"""), "").replace(Regex("""\[([^\]]+)]\([^)]*\)"""), "$1")
 
     private fun renderTable(out: SpannableStringBuilder, rows: List<List<String>>, density: Float, accent: Int) {
         if (rows.isEmpty()) return
