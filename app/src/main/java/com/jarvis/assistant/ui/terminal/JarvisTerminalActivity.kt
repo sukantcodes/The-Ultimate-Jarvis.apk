@@ -3,25 +3,43 @@ package com.jarvis.assistant.ui.terminal
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.StateListDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.Editable
 import android.text.InputType
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.TextWatcher
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.GestureDetector
+import android.view.KeyEvent
+import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
-import android.widget.HorizontalScrollView
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -44,18 +62,29 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
+import kotlin.math.abs
 
 /**
- * Jarvis Terminal: a screen where the person types shell commands themselves.
+ * Jarvis Terminal, laid out like the Termux app: a full-screen black terminal with the prompt inline after the output,
+ * a two-row extra-keys bar (ESC / - HOME UP END PGUP and TAB CTRL ALT LEFT DOWN RIGHT PGDN), a sessions drawer that
+ * slides in from the left edge, a long-press menu, pinch-to-zoom and colour styles.
  *
- * It uses the same [TerminalManager] that Jarvis uses from ChatBox, so everything behaves exactly as it does now
- * (same shell, same workspace folder, same safety rules). The person's tabs are named me1, me2 ... and are
- * separate from Jarvis's own sessions, so typing here never interrupts what Jarvis is doing. Jarvis can still list,
- * read, run commands in, clear and close every tab, and the person can open and watch Jarvis's sessions here too.
+ * It uses the same [TerminalManager] that Jarvis uses from ChatBox, so everything behaves exactly as before (same
+ * shell, same workspace folder, same safety rules). The person's tabs are named me1, me2 ... and are separate from
+ * Jarvis's own sessions; Jarvis can still list, read, run commands in, clear and close every tab, and the person can
+ * open and watch Jarvis's sessions here too.
  */
 class JarvisTerminalActivity : AppCompatActivity() {
 
+    private class Scheme(
+        val name: String, val bg: Int, val fg: Int, val prompt: Int, val dim: Int, val error: Int, val ok: Int,
+        val key: Int, val keyPressed: Int, val keyActive: Int, val panel: Int, val light: Boolean = false
+    )
+
     private val manager: TerminalManager? by lazy { runCatching { ToolRuntime.get(applicationContext).terminal }.getOrNull() }
+    private val prefs by lazy { getSharedPreferences("jarvis_terminal_ui", Context.MODE_PRIVATE) }
+    private val imm get() = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
     private var current: TerminalSession? = null
     private var outputJob: Job? = null
     private var backgroundMode = false
@@ -65,20 +94,49 @@ class JarvisTerminalActivity : AppCompatActivity() {
     private var refreshQueued = false
     private val ui = Handler(Looper.getMainLooper())
 
-    private lateinit var tabsRow: LinearLayout
+    private var scheme: Scheme = SCHEMES[0]
+    private var fontSp = 13f
+    private var ctrlOn = false
+    private var altOn = false
+    private var selecting = false
+    private var drawerOpen = false
+    private var keepScreenOn = false
+    private var suppressWatcher = false
+    private var edgeStartX = -1f
+    private var edgeStartY = 0f
+
+    private lateinit var root: FrameLayout
+    private lateinit var main: LinearLayout
+    private lateinit var scroll: TermScroll
     private lateinit var outputView: TextView
-    private lateinit var scroll: ScrollView
     private lateinit var promptLabel: TextView
     private lateinit var input: EditText
-    private lateinit var stateView: TextView
-    private lateinit var bgChip: TextView
-
-    private val accent: Int get() = try { ThemeManager.getThemeAccentColor() } catch (_: Throwable) { 0xFF00E5FF.toInt() }
+    private lateinit var extraKeys: LinearLayout
+    private lateinit var menuButton: TextView
+    private lateinit var scrim: View
+    private lateinit var panel: LinearLayout
+    private lateinit var sessionList: LinearLayout
+    private lateinit var panelButtons: LinearLayout
+    private lateinit var ctrlKey: TextView
+    private lateinit var altKey: TextView
+    private val keyViews = ArrayList<TextView>()
+    private val panelButtonViews = ArrayList<TextView>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         try { ThemeManager.applyTheme(this) } catch (_: Throwable) { }
         super.onCreate(savedInstanceState)
+        fontSp = prefs.getFloat("font_sp", 13f).coerceIn(MIN_FONT, MAX_FONT)
+        scheme = SCHEMES.getOrElse(prefs.getInt("scheme", 0)) { SCHEMES[0] }
+        keepScreenOn = prefs.getBoolean("keep_on", false)
         setContentView(buildUi())
+        applyScheme()
+        applyFont()
+        applyKeepScreenOn()
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (drawerOpen) closeDrawer() else { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
+            }
+        })
         val m = manager
         if (m == null) {
             outputView.text = "The terminal is not available on this device."
@@ -113,7 +171,16 @@ class JarvisTerminalActivity : AppCompatActivity() {
             return null
         }
         if (announce) {
-            s.note("Jarvis Terminal · ${s.id}\nFolder: ${m.workspace.root.path}\nJarvis can see and use this terminal too.\n")
+            s.note(
+                "Welcome to Jarvis Terminal!\n\n" +
+                    "Working with packages:\n" +
+                    " - Search:  pkg search <query>\n" +
+                    " - Install: pkg install <package>\n" +
+                    " - Upgrade: pkg upgrade\n\n" +
+                    "AI tools:  jpkg ai        Everything:  jpkg help\n" +
+                    "Folder: ${m.workspace.root.path}\n" +
+                    "Jarvis can see and use this terminal too.\n"
+            )
             // Find out honestly which programs exist here, and print it once at the top of the tab.
             runScope.launch {
                 runCatching { TerminalEnvironment.detect(m).format() }.getOrNull()?.let { s.note("\n$it\n\n") }
@@ -137,39 +204,42 @@ class JarvisTerminalActivity : AppCompatActivity() {
     private fun refreshTabs(force: Boolean = false) {
         val m = manager ?: return
         val sessions = m.list().filter { it.id != "env-probe" }
-        val signature = sessions.joinToString("|") { "${it.id}:${it.isRunning}:${it.id == current?.id}" }
+        val signature = sessions.joinToString("|") { "${it.id}:${it.isRunning}:${it.id == current?.id}" } + scheme.name
         if (!force && signature == lastTabsSignature) return
         lastTabsSignature = signature
-        tabsRow.removeAllViews()
-        for (s in sessions) {
+        sessionList.removeAllViews()
+        sessions.forEachIndexed { index, s ->
             val mine = m.isUserSession(s.id)
             val selected = s.id == current?.id
-            val label = (if (mine) "You · " else "Jarvis · ") + s.id + if (s.isRunning) " ●" else ""
-            val chip = chip(label, selected)
-            chip.setOnClickListener { select(s) }
-            chip.setOnLongClickListener { confirmCloseTab(s); true }
-            tabsRow.addView(chip)
+            val label = "${index + 1}: " + (if (mine) "" else "Jarvis · ") + s.id + if (s.isRunning) "  ●" else ""
+            val row = TextView(this).apply {
+                text = label
+                typeface = Typeface.MONOSPACE
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                setTextColor(scheme.fg)
+                if (selected) setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
+                setPadding(dp(16), dp(14), dp(16), dp(14))
+                background = if (selected) ColorDrawable(scheme.keyPressed) else null
+                isClickable = true
+                setOnClickListener { select(s); closeDrawer() }
+                setOnLongClickListener { closeDrawer(); confirmCloseTab(s); true }
+            }
+            sessionList.addView(row, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         }
-        val plus = chip("＋ New tab", false)
-        plus.setOnClickListener { openNewTab(announce = true)?.let { select(it) } }
-        tabsRow.addView(plus)
+        menuButton.text = "☰ ${sessions.size.coerceAtLeast(1)}"
     }
 
     private fun confirmCloseTab(s: TerminalSession) {
         val m = manager ?: return
         MaterialAlertDialogBuilder(this)
             .setTitle("Close ${s.id}?")
-            .setMessage("Stops anything running in it and removes the tab.")
+            .setMessage("Stops anything running in it and removes the session.")
             .setPositiveButton("Close") { _, _ ->
                 m.close(s.id)
                 if (current?.id == s.id) {
                     current = null
                     val next = m.list().firstOrNull { m.isUserSession(it.id) } ?: m.list().firstOrNull() ?: openNewTab(announce = true)
-                    if (next != null) {
-                        select(next)
-                    } else {
-                        outputView.text = ""
-                    }
+                    if (next != null) select(next) else outputView.text = ""
                 }
                 refreshTabs(force = true)
             }
@@ -181,17 +251,36 @@ class JarvisTerminalActivity : AppCompatActivity() {
     // Running commands
     // ------------------------------------------------------------------------------------------
 
+    /** `~`, `~/project`, or the Termux path, the way a shell shows it. */
+    private fun promptText(s: TerminalSession): String {
+        val rel = s.relativeCwd()
+        return when {
+            rel == "." || rel.isEmpty() -> "~"
+            rel.startsWith("~") || rel.startsWith("/") -> rel
+            else -> "~/$rel"
+        }
+    }
+
     private fun submit() {
         val m = manager ?: return
         val session = current ?: openNewTab(announce = true)?.also { select(it) } ?: return
         val command = input.text?.toString()?.trim().orEmpty()
-        if (command.isEmpty()) return
         input.setText("")
         historyPos = -1
+        if (selecting) setSelecting(false)
+        if (command.isEmpty()) {
+            // A bare Enter just gives a fresh prompt, as in any shell.
+            session.note("\n${promptText(session)} $\n")
+            return
+        }
 
         if (command == "clear" || command == "cls") {
             m.clear(session.id)
             refreshOutput(forceBottom = true)
+            return
+        }
+        if (command == "exit" || command == "logout") {
+            confirmCloseTab(session)
             return
         }
         if (PackageCommand.handles(command)) { handlePackageCommand(session, command); return }
@@ -204,7 +293,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
             session.note("\n⚠ $problem\n")
             return
         }
-        session.note("\n${session.relativeCwd()} $ $command\n")
+        session.note("\n${promptText(session)} $ $command\n")
         if (verdict.verdict == CommandGuard.Verdict.DESTRUCTIVE) session.note("⚠ ${verdict.summary}\n")
 
         if (backgroundMode) {
@@ -228,7 +317,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
     /** `pkg install git`, `jpkg install gemini` and friends: turned into real installs in Termux. */
     private fun handlePackageCommand(session: TerminalSession, command: String) {
         val plan = PackageCommand.parse(command) ?: return
-        session.note("\n${session.relativeCwd()} $ $command\n")
+        session.note("\n${promptText(session)} $ $command\n")
         val installed = TermuxBackend.isInstalled(this)
         when (plan) {
             is PackagePlan.Show -> session.note(plan.text + "\n")
@@ -238,6 +327,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
                 session.note(if (plan.termux)
                     "Engine: Termux. Commands now run in real Linux (git, node, npm, python, pkg).\nTermux needs allow-external-apps=true and the \"Run commands in Termux\" permission; if a command is refused, see: jpkg setup\nOutput appears when a command finishes. Commands start in ~/jarvis-workspace inside Termux.\n"
                 else "Engine: app shell (small, no installs).\n")
+                refreshPanelButtons()
                 refreshOutput(forceBottom = true)
             }
             is PackagePlan.Run -> {
@@ -279,12 +369,6 @@ class JarvisTerminalActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun stopRunning() {
-        val s = current ?: return
-        if (s.cancel()) Toast.makeText(this, "Stopped.", Toast.LENGTH_SHORT).show()
-        else Toast.makeText(this, "Nothing is running in ${s.id}.", Toast.LENGTH_SHORT).show()
-    }
-
     private fun recall(direction: Int) {
         val s = current ?: return
         val cmds = s.history.map { it.command }
@@ -293,8 +377,122 @@ class JarvisTerminalActivity : AppCompatActivity() {
             -1 -> if (historyPos < 0) cmds.lastIndex else maxOf(0, historyPos - 1)
             else -> if (historyPos < 0) -1 else if (historyPos >= cmds.lastIndex) -1 else historyPos + 1
         }
-        input.setText(if (historyPos < 0) "" else cmds[historyPos])
+        setInput(if (historyPos < 0) "" else cmds[historyPos])
+    }
+
+    private fun setInput(text: String) {
+        suppressWatcher = true
+        input.setText(text)
         input.setSelection(input.text?.length ?: 0)
+        suppressWatcher = false
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Keys: extra-keys bar, Ctrl / Alt, Tab completion
+    // ------------------------------------------------------------------------------------------
+
+    private fun insertText(text: String) {
+        val e = input.text ?: return
+        val start = input.selectionStart.coerceAtLeast(0)
+        val end = input.selectionEnd.coerceAtLeast(start)
+        e.replace(start, end, text)
+    }
+
+    private fun setCtrl(on: Boolean) { ctrlOn = on; styleKey(ctrlKey, on) }
+    private fun setAlt(on: Boolean) { altOn = on; styleKey(altKey, on) }
+
+    /** A letter typed while CTRL is on, as in a real terminal. */
+    private fun ctrlChar(c: Char) {
+        val text = input.text?.toString().orEmpty()
+        val sel = input.selectionStart.coerceIn(0, text.length)
+        when (c.lowercaseChar()) {
+            'c' -> interrupt()
+            'd' -> if (text.isEmpty()) current?.let { confirmCloseTab(it) } else if (sel < text.length) input.text?.delete(sel, sel + 1)
+            'l' -> current?.let { manager?.clear(it.id); refreshOutput(true) }
+            'a' -> input.setSelection(0)
+            'e' -> input.setSelection(text.length)
+            'u' -> input.text?.delete(0, sel)
+            'k' -> input.text?.delete(sel, text.length)
+            'w' -> {
+                var i = sel
+                while (i > 0 && text[i - 1] == ' ') i--
+                while (i > 0 && text[i - 1] != ' ') i--
+                input.text?.delete(i, sel)
+            }
+            'p' -> recall(-1)
+            'n' -> recall(1)
+            'b' -> input.setSelection((sel - 1).coerceAtLeast(0))
+            'f' -> input.setSelection((sel + 1).coerceAtMost(text.length))
+            'h' -> if (sel > 0) input.text?.delete(sel - 1, sel)
+            'j', 'm' -> submit()
+            else -> Unit
+        }
+    }
+
+    /** A letter typed while ALT is on: word movement, otherwise the letter itself. */
+    private fun altChar(c: Char) {
+        val text = input.text?.toString().orEmpty()
+        val sel = input.selectionStart.coerceIn(0, text.length)
+        when (c.lowercaseChar()) {
+            'b' -> { var i = sel; while (i > 0 && text[i - 1] == ' ') i--; while (i > 0 && text[i - 1] != ' ') i--; input.setSelection(i) }
+            'f' -> { var i = sel; while (i < text.length && text[i] == ' ') i++; while (i < text.length && text[i] != ' ') i++; input.setSelection(i) }
+            else -> insertText(c.toString())
+        }
+    }
+
+    /** CTRL+C: stops what is running; on an empty prompt it just shows ^C and gives a fresh line. */
+    private fun interrupt() {
+        val s = current ?: return
+        if (s.cancel()) { s.note("^C\n"); return }
+        s.note("\n${promptText(s)} $ ${input.text}^C\n")
+        setInput("")
+    }
+
+    /** Tab completion of file and folder names in the app shell. */
+    private fun complete() {
+        val m = manager ?: return
+        val s = current ?: return
+        if (SwitchingBackend.useTermux(this)) {
+            Toast.makeText(this, "Tab completion works in the app shell. In Termux mode, type the full name.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val text = input.text?.toString().orEmpty()
+        val cursor = input.selectionStart.coerceIn(0, text.length)
+        val before = text.substring(0, cursor)
+        val wordStart = before.lastIndexOf(' ') + 1
+        val word = before.substring(wordStart)
+        val prefix = word.substringAfterLast('/')
+        val dirPart = word.substringBeforeLast('/', "")
+        val rel = s.relativeCwd()
+        val base = if (rel == "." || rel.isEmpty()) m.workspace.root else File(m.workspace.root, rel)
+        val dir = when {
+            !word.contains('/') -> base
+            word.startsWith("/") -> File(dirPart.ifEmpty { "/" })
+            else -> File(base, dirPart)
+        }
+        val names = dir.list()?.filter { it.startsWith(prefix) && (prefix.startsWith(".") || !it.startsWith(".")) }?.sorted().orEmpty()
+        if (names.isEmpty()) return
+        val common = names.reduce { a, b -> a.commonPrefixWith(b) }
+        val completed = when {
+            names.size == 1 -> names[0] + if (File(dir, names[0]).isDirectory) "/" else " "
+            else -> common
+        }
+        if (names.size > 1 && common.length <= prefix.length) {
+            s.note("\n" + names.joinToString("  ") { if (File(dir, it).isDirectory) "$it/" else it } + "\n")
+        }
+        val keep = word.length - prefix.length
+        val replaced = text.substring(0, wordStart + keep) + completed + text.substring(cursor)
+        setInput(replaced)
+        input.setSelection((wordStart + keep + completed.length).coerceAtMost(input.text?.length ?: 0))
+    }
+
+    private fun pageScroll(direction: Int) {
+        scroll.smoothScrollBy(0, direction * (scroll.height - dp(48)))
+    }
+
+    private fun moveCursor(delta: Int) {
+        val len = input.text?.length ?: 0
+        input.setSelection((input.selectionStart + delta).coerceIn(0, len))
     }
 
     // ------------------------------------------------------------------------------------------
@@ -312,19 +510,43 @@ class JarvisTerminalActivity : AppCompatActivity() {
         val child = scroll.getChildAt(0)
         val atBottom = forceBottom || child == null || child.bottom - (scroll.height + scroll.scrollY) < dp(80)
         lastEnd = s.buffer.endOffset
-        outputView.text = s.buffer.tail(MAX_SHOWN_CHARS)
+        outputView.text = render(s.buffer.tail(MAX_SHOWN_CHARS))
         if (atBottom) scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+    }
+
+    /** Colours prompt echoes, errors, successes and status lines; everything else stays the plain terminal colour. */
+    private fun render(text: String): CharSequence {
+        if (text.isEmpty()) return text
+        val sb = SpannableStringBuilder(text)
+        var i = 0
+        while (i < text.length) {
+            var e = text.indexOf('\n', i)
+            if (e < 0) e = text.length
+            if (e > i) {
+                when (text[i]) {
+                    '⚠', '✖', '⛔' -> sb.setSpan(ForegroundColorSpan(scheme.error), i, e, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    '✔' -> sb.setSpan(ForegroundColorSpan(scheme.ok), i, e, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    '[', 'ℹ', '^' -> sb.setSpan(ForegroundColorSpan(scheme.dim), i, e, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    else -> {
+                        val idx = text.indexOf(" $ ", i)
+                        if (idx in i until minOf(e, i + 90) && text.substring(i, idx).none { it == ' ' }) {
+                            sb.setSpan(ForegroundColorSpan(scheme.prompt), i, idx + 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                            sb.setSpan(StyleSpan(Typeface.BOLD), i, idx + 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        }
+                    }
+                }
+            }
+            i = e + 1
+        }
+        return sb
     }
 
     private fun updatePrompt() {
         val s = current
-        promptLabel.text = if (s == null) "$" else "${s.relativeCwd()} $"
-        stateView.text = when {
-            s == null -> ""
-            s.isRunning -> "● running: ${s.runningCommand?.take(48).orEmpty()}"
-            else -> "idle" + (s.lastExitCode?.let { " · last exit $it" } ?: "")
-        }
-        stateView.setTextColor(if (s?.isRunning == true) 0xFFFFC107.toInt() else 0xFF78909C.toInt())
+        promptLabel.text = if (s == null) "$ " else "${promptText(s)} $ "
+        val running = s?.isRunning == true
+        promptLabel.alpha = if (running) 0.5f else 1f
+        input.hint = if (running) "running: ${s?.runningCommand?.take(40).orEmpty()}" else ""
     }
 
     private fun tick() {
@@ -334,11 +556,32 @@ class JarvisTerminalActivity : AppCompatActivity() {
         refreshTabs()
     }
 
+    // ------------------------------------------------------------------------------------------
+    // Menu, drawer, style
+    // ------------------------------------------------------------------------------------------
+
+    private fun transcript(): String = current?.buffer?.tail(MAX_SHOWN_CHARS).orEmpty()
+
     private fun copyOutput() {
-        val text = current?.buffer?.tail(MAX_SHOWN_CHARS).orEmpty()
+        val text = transcript()
         if (text.isBlank()) { Toast.makeText(this, "Nothing to copy.", Toast.LENGTH_SHORT).show(); return }
         (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Jarvis Terminal", text))
         Toast.makeText(this, "Output copied.", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun paste() {
+        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val text = cm.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty()
+        if (text.isEmpty()) { Toast.makeText(this, "Clipboard is empty.", Toast.LENGTH_SHORT).show(); return }
+        insertText(text.replace("\r\n", " ").replace('\n', ' ').replace('\r', ' '))
+        showKeyboard()
+    }
+
+    private fun shareTranscript() {
+        val text = transcript().trim()
+        if (text.isEmpty()) { Toast.makeText(this, "Nothing to share.", Toast.LENGTH_SHORT).show(); return }
+        val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text); putExtra(Intent.EXTRA_SUBJECT, "Jarvis Terminal transcript") }
+        runCatching { startActivity(Intent.createChooser(send, "Share transcript")) }
     }
 
     private fun sendToChat() {
@@ -349,131 +592,402 @@ class JarvisTerminalActivity : AppCompatActivity() {
         Toast.makeText(this, "Added to the ChatBox.", Toast.LENGTH_SHORT).show()
     }
 
+    private fun setSelecting(on: Boolean) {
+        selecting = on
+        outputView.setTextIsSelectable(on)
+        if (on) Toast.makeText(this, "Long-press the text to select it.", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showContextMenu() {
+        val items = arrayOf(
+            "Select text", "Copy all output", "Paste", "Share transcript", "Reset (clear screen)", "Kill process",
+            "Font bigger", "Font smaller", "Style…", if (keepScreenOn) "Keep screen on: ON" else "Keep screen on: OFF",
+            "Install tools…", "Send to ChatBox", "Help"
+        )
+        MaterialAlertDialogBuilder(this).setItems(items) { _, which ->
+            when (which) {
+                0 -> setSelecting(true)
+                1 -> copyOutput()
+                2 -> paste()
+                3 -> shareTranscript()
+                4 -> current?.let { manager?.clear(it.id); refreshOutput(true) }
+                5 -> interruptOrToast()
+                6 -> setFont(fontSp + 1.5f, save = true)
+                7 -> setFont(fontSp - 1.5f, save = true)
+                8 -> showStylePicker()
+                9 -> { keepScreenOn = !keepScreenOn; prefs.edit().putBoolean("keep_on", keepScreenOn).apply(); applyKeepScreenOn(); refreshPanelButtons() }
+                10 -> showToolPicker()
+                11 -> sendToChat()
+                12 -> showHelp()
+            }
+        }.show()
+    }
+
+    private fun interruptOrToast() {
+        val s = current ?: return
+        if (s.cancel()) Toast.makeText(this, "Stopped.", Toast.LENGTH_SHORT).show()
+        else Toast.makeText(this, "Nothing is running in ${s.id}.", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showStylePicker() {
+        val names = SCHEMES.map { it.name }.toTypedArray()
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Style")
+            .setSingleChoiceItems(names, SCHEMES.indexOf(scheme)) { d, i ->
+                scheme = SCHEMES[i]
+                prefs.edit().putInt("scheme", i).apply()
+                applyScheme()
+                d.dismiss()
+            }
+            .show()
+    }
+
+    private fun showHelp() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Jarvis Terminal")
+            .setMessage(
+                "Swipe in from the left edge (or tap ☰) for sessions.\n" +
+                    "Long-press the screen for the menu. Pinch to change the font size.\n\n" +
+                    "Extra keys: ESC clears the line · CTRL then C stops a command · CTRL+L clears · CTRL+A / E start / end of line · " +
+                    "CTRL+U / K / W delete · TAB completes names · ↑ ↓ walk through history.\n" +
+                    "Volume Down works as CTRL, like Termux.\n\n" +
+                    "Install programs:  pkg install git nodejs\nAI tools:  jpkg ai"
+            )
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun openDrawer() {
+        if (drawerOpen) return
+        drawerOpen = true
+        refreshTabs(force = true)
+        refreshPanelButtons()
+        scrim.visibility = View.VISIBLE
+        scrim.alpha = 0f
+        scrim.animate().alpha(1f).setDuration(160).start()
+        panel.visibility = View.VISIBLE
+        panel.animate().translationX(0f).setDuration(180).start()
+        imm.hideSoftInputFromWindow(input.windowToken, 0)
+    }
+
+    private fun closeDrawer() {
+        if (!drawerOpen) return
+        drawerOpen = false
+        scrim.animate().alpha(0f).setDuration(140).withEndAction { scrim.visibility = View.GONE }.start()
+        panel.animate().translationX(-panel.width.toFloat()).setDuration(160).withEndAction { panel.visibility = View.GONE }.start()
+    }
+
+    private fun showKeyboard() {
+        input.requestFocus()
+        imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun toggleKeyboard() {
+        val visible = ViewCompat.getRootWindowInsets(root)?.isVisible(WindowInsetsCompat.Type.ime()) == true
+        if (visible) imm.hideSoftInputFromWindow(input.windowToken, 0) else showKeyboard()
+    }
+
+    private fun applyKeepScreenOn() {
+        if (keepScreenOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    private fun setFont(sp: Float, save: Boolean = false) {
+        val clamped = sp.coerceIn(MIN_FONT, MAX_FONT)
+        if (abs(clamped - fontSp) < 0.05f && !save) return
+        fontSp = clamped
+        applyFont()
+        if (save) prefs.edit().putFloat("font_sp", fontSp).apply()
+    }
+
+    private fun applyFont() {
+        outputView.setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSp)
+        promptLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSp)
+        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSp)
+    }
+
+    private fun applyScheme() {
+        root.setBackgroundColor(scheme.bg)
+        scroll.setBackgroundColor(scheme.bg)
+        outputView.setTextColor(scheme.fg)
+        promptLabel.setTextColor(scheme.prompt)
+        input.setTextColor(scheme.fg)
+        input.setHintTextColor(scheme.dim)
+        extraKeys.setBackgroundColor(scheme.key)
+        for (k in keyViews) styleKey(k, (k === ctrlKey && ctrlOn) || (k === altKey && altOn))
+        menuButton.setTextColor(scheme.fg)
+        menuButton.background = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(scheme.key); alpha = 200 }
+        panel.setBackgroundColor(scheme.panel)
+        for (b in panelButtonViews) { b.setTextColor(scheme.fg); b.background = keyBackground(false) }
+        window.statusBarColor = scheme.bg
+        window.navigationBarColor = scheme.key
+        WindowCompat.getInsetsController(window, root).apply {
+            isAppearanceLightStatusBars = scheme.light
+            isAppearanceLightNavigationBars = scheme.light
+        }
+        lastTabsSignature = ""
+        refreshTabs(force = true)
+        refreshOutput(forceBottom = false)
+    }
+
     // ------------------------------------------------------------------------------------------
     // UI (built in code)
     // ------------------------------------------------------------------------------------------
 
     private fun buildUi(): View {
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFF0B0F14.toInt())
-        }
-        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+        root = FrameLayout(this)
+        main = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            main.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            (menuButton.layoutParams as FrameLayout.LayoutParams).apply { topMargin = bars.top + dp(6); rightMargin = bars.right + dp(8) }
+            menuButton.requestLayout()
+            panel.setPadding(0, bars.top, 0, bars.bottom)
             insets
         }
 
-        // Top bar
-        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(6), dp(6), dp(10), dp(6)) }
-        bar.addView(barButton("←") { finish() })
-        val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        titles.addView(TextView(this).apply { text = "Jarvis Terminal"; setTextColor(Color.WHITE); setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f); typeface = Typeface.DEFAULT_BOLD })
-        stateView = TextView(this).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f); setTextColor(0xFF78909C.toInt()); maxLines = 1 }
-        titles.addView(stateView)
-        bar.addView(titles, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        bar.addView(barButton("Copy") { copyOutput() })
-        bar.addView(barButton("→ Chat") { sendToChat() })
-        bar.addView(barButton("■ Stop") { stopRunning() })
-        root.addView(bar)
-
-        // Tabs
-        tabsRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(8), 0, dp(8), dp(6)) }
-        root.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(tabsRow) })
-
-        // Output
+        // Terminal: output text, then the prompt line, all in one scrolling page (like Termux).
         outputView = TextView(this).apply {
             typeface = Typeface.MONOSPACE
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
-            setTextColor(0xFFD7E3EA.toInt())
-            setPadding(dp(12), dp(8), dp(12), dp(8))
-            setTextIsSelectable(true)
+            setPadding(dp(8), dp(6), dp(8), 0)
+            setLineSpacing(0f, 1.0f)
+            setTextIsSelectable(false)
         }
-        scroll = ScrollView(this).apply {
-            setBackgroundColor(0xFF05080B.toInt())
-            isFillViewport = true
-            addView(outputView)
-        }
-        root.addView(scroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-
-        // Quick keys
-        val keys = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(8), dp(6), dp(8), 0) }
-        keys.addView(chip("↑", false).apply { setOnClickListener { recall(-1) } })
-        keys.addView(chip("↓", false).apply { setOnClickListener { recall(1) } })
-        bgChip = chip("Background: off", false).apply {
-            setOnClickListener {
-                backgroundMode = !backgroundMode
-                text = if (backgroundMode) "Background: on" else "Background: off"
-                styleChip(this, backgroundMode)
-            }
-        }
-        keys.addView(bgChip)
-        keys.addView(chip("Clear", false).apply { setOnClickListener { current?.let { s -> manager?.clear(s.id); refreshOutput(true) } } })
-        keys.addView(chip("Tools", false).apply { setOnClickListener { showToolPicker() } })
-        keys.addView(chip("ls", false).apply { setOnClickListener { input.setText("ls -la"); input.setSelection(input.text?.length ?: 0) } })
-        root.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(keys) })
-
-        // Prompt line
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(12), dp(6), dp(8), dp(8)) }
-        promptLabel = TextView(this).apply { typeface = Typeface.MONOSPACE; setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f); setTextColor(accent); text = "$" }
-        row.addView(promptLabel)
+        promptLabel = TextView(this).apply { typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD); text = "$ " }
         input = EditText(this).apply {
             typeface = Typeface.MONOSPACE
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-            setTextColor(Color.WHITE)
-            setHintTextColor(0xFF546E7A.toInt())
-            hint = "type a command"
             background = null
-            setPadding(dp(10), dp(8), dp(10), dp(8))
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-            imeOptions = EditorInfo.IME_ACTION_SEND
-            maxLines = 4
+            setPadding(0, dp(2), dp(8), dp(2))
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            imeOptions = EditorInfo.IME_ACTION_SEND or EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_FLAG_NO_FULLSCREEN
+            setHorizontallyScrolling(false)
+            maxLines = 6
             setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_SEND || actionId == EditorInfo.IME_ACTION_DONE) { submit(); true } else false
             }
+            setOnKeyListener { _, keyCode, event ->
+                if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+                when {
+                    keyCode == KeyEvent.KEYCODE_ENTER -> { submit(); true }
+                    keyCode == KeyEvent.KEYCODE_TAB -> { complete(); true }
+                    event.isCtrlPressed && keyCode in KeyEvent.KEYCODE_A..KeyEvent.KEYCODE_Z -> { ctrlChar('a' + (keyCode - KeyEvent.KEYCODE_A)); true }
+                    keyCode == KeyEvent.KEYCODE_DPAD_UP -> { recall(-1); true }
+                    keyCode == KeyEvent.KEYCODE_DPAD_DOWN -> { recall(1); true }
+                    else -> false
+                }
+            }
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    if (suppressWatcher || s == null) return
+                    // CTRL / ALT from the extra-keys bar apply to the next letter typed on the keyboard.
+                    if ((ctrlOn || altOn) && before == 0 && count == 1 && start < s.length) {
+                        val ch = s[start]
+                        val ctrl = ctrlOn
+                        post {
+                            suppressWatcher = true
+                            text?.delete(start, (start + 1).coerceAtMost(text?.length ?: 0))
+                            suppressWatcher = false
+                            setCtrl(false); setAlt(false)
+                            if (ctrl) ctrlChar(ch) else altChar(ch)
+                        }
+                    }
+                }
+                override fun afterTextChanged(s: Editable?) { scroll.post { scroll.fullScroll(View.FOCUS_DOWN) } }
+            })
         }
-        row.addView(input, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        row.addView(TextView(this).apply {
-            text = "Run"
-            setTextColor(Color.BLACK)
+        val promptRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.TOP
+            setPadding(dp(8), 0, 0, dp(6))
+            addView(promptLabel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(2) })
+            addView(input, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        }
+        val page = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(outputView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+            addView(promptRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        }
+        scroll = TermScroll(this).apply { isFillViewport = true; isVerticalScrollBarEnabled = false; addView(page) }
+        main.addView(scroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+
+        // Extra keys: exactly Termux's default two rows.
+        extraKeys = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val row1 = keyRow()
+        val row2 = keyRow()
+        row1.addView(key("ESC") { setInput(""); setCtrl(false); setAlt(false) })
+        row1.addView(key("/") { insertText("/") })
+        row1.addView(key("―") { insertText("-") })
+        row1.addView(key("HOME") { input.setSelection(0) })
+        row1.addView(key("↑", repeat = true) { recall(-1) })
+        row1.addView(key("END") { input.setSelection(input.text?.length ?: 0) })
+        row1.addView(key("PGUP", repeat = true) { pageScroll(-1) })
+        row2.addView(key("TAB") { complete() })
+        ctrlKey = key("CTRL") { setCtrl(!ctrlOn) }
+        altKey = key("ALT") { setAlt(!altOn) }
+        row2.addView(ctrlKey)
+        row2.addView(altKey)
+        row2.addView(key("←", repeat = true) { moveCursor(-1) })
+        row2.addView(key("↓", repeat = true) { recall(1) })
+        row2.addView(key("→", repeat = true) { moveCursor(1) })
+        row2.addView(key("PGDN", repeat = true) { pageScroll(1) })
+        extraKeys.addView(row1)
+        extraKeys.addView(row2)
+        main.addView(extraKeys, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        root.addView(main, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+
+        // Small sessions button, top right (the left-edge swipe may clash with Android's back gesture).
+        menuButton = TextView(this).apply {
+            text = "☰ 1"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setPadding(dp(16), dp(9), dp(16), dp(9))
-            background = GradientDrawable().apply { cornerRadius = dp(18).toFloat(); setColor(accent) }
-            setOnClickListener { submit() }
-        })
-        root.addView(row)
+            setPadding(dp(10), dp(5), dp(10), dp(5))
+            alpha = 0.75f
+            setOnClickListener { openDrawer() }
+        }
+        root.addView(menuButton, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply { topMargin = dp(30); rightMargin = dp(8) })
+
+        // Sessions drawer.
+        scrim = View(this).apply { setBackgroundColor(0x88000000.toInt()); visibility = View.GONE; setOnClickListener { closeDrawer() } }
+        root.addView(scrim, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE; translationX = -dp(300).toFloat(); isClickable = true }
+        sessionList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        panel.addView(ScrollView(this).apply { addView(sessionList) }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        panelButtons = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(8), dp(8), dp(8)) }
+        panel.addView(panelButtons, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        buildPanelButtons()
+        root.addView(panel, FrameLayout.LayoutParams(dp(280), FrameLayout.LayoutParams.MATCH_PARENT, Gravity.START))
         return root
     }
 
-    private fun barButton(label: String, click: () -> Unit) = TextView(this).apply {
-        text = label
-        setTextColor(0xFFCFD8DC.toInt())
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-        typeface = Typeface.DEFAULT_BOLD
-        gravity = Gravity.CENTER
-        setPadding(dp(10), dp(8), dp(10), dp(8))
-        setOnClickListener { click() }
+    private lateinit var bgButton: TextView
+    private lateinit var engineButton: TextView
+    private lateinit var keepButton: TextView
+
+    private fun buildPanelButtons() {
+        fun add(label: String, click: () -> Unit): TextView {
+            val b = TextView(this).apply {
+                text = label
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                setPadding(dp(8), dp(12), dp(8), dp(12))
+                isClickable = true
+                setOnClickListener { click() }
+            }
+            panelButtonViews.add(b)
+            panelButtons.addView(b, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
+            return b
+        }
+        add("NEW SESSION") { closeDrawer(); openNewTab(announce = true)?.let { select(it) } }
+        add("INSTALL TOOLS") { closeDrawer(); showToolPicker() }
+        add("KEYBOARD") { closeDrawer(); ui.postDelayed({ toggleKeyboard() }, 220) }
+        engineButton = add("") { closeDrawer(); current?.let { handlePackageCommand(it, if (SwitchingBackend.useTermux(this)) "jpkg engine app" else "jpkg engine termux") } }
+        bgButton = add("") { backgroundMode = !backgroundMode; refreshPanelButtons() }
+        keepButton = add("") { keepScreenOn = !keepScreenOn; prefs.edit().putBoolean("keep_on", keepScreenOn).apply(); applyKeepScreenOn(); refreshPanelButtons() }
+        add("STYLE") { closeDrawer(); showStylePicker() }
+        add("SEND TO CHATBOX") { closeDrawer(); sendToChat() }
+        refreshPanelButtons()
     }
 
-    private fun chip(label: String, selected: Boolean) = TextView(this).apply {
-        text = label
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-        typeface = Typeface.DEFAULT_BOLD
-        gravity = Gravity.CENTER
-        setPadding(dp(12), dp(6), dp(12), dp(6))
-        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(6) }
-        isClickable = true
-        isFocusable = true
-        styleChip(this, selected)
+    private fun refreshPanelButtons() {
+        if (!::engineButton.isInitialized) return
+        engineButton.text = "ENGINE: " + if (SwitchingBackend.useTermux(this)) "TERMUX" else "APP SHELL"
+        bgButton.text = "BACKGROUND: " + if (backgroundMode) "ON" else "OFF"
+        keepButton.text = "KEEP SCREEN ON: " + if (keepScreenOn) "ON" else "OFF"
     }
 
-    private fun styleChip(chip: TextView, on: Boolean) {
-        chip.setTextColor(if (on) Color.BLACK else 0xFFB0BEC5.toInt())
-        chip.background = GradientDrawable().apply { cornerRadius = dp(16).toFloat(); setColor(if (on) accent else 0x26FFFFFF) }
+    private fun keyRow() = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(44))
+    }
+
+    /** One extra key. Arrow and page keys repeat while held, like Termux. */
+    private fun key(label: String, repeat: Boolean = false, action: () -> Unit): TextView {
+        val v = TextView(this).apply {
+            text = label
+            gravity = Gravity.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, if (label.length > 3) 11f else 14f)
+            isClickable = true
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+        }
+        val repeater = object : Runnable {
+            override fun run() { action(); ui.postDelayed(this, 70) }
+        }
+        v.setOnTouchListener { view, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    view.isPressed = true
+                    action()
+                    if (repeat) ui.postDelayed(repeater, 380)
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { view.isPressed = false; ui.removeCallbacks(repeater); true }
+                else -> true
+            }
+        }
+        keyViews.add(v)
+        return v
+    }
+
+    private fun keyBackground(active: Boolean): Drawable = StateListDrawable().apply {
+        addState(intArrayOf(android.R.attr.state_pressed), ColorDrawable(scheme.keyPressed))
+        addState(intArrayOf(), ColorDrawable(if (active) scheme.keyActive else scheme.key))
+    }
+
+    private fun styleKey(k: TextView, active: Boolean) {
+        k.setTextColor(scheme.fg)
+        k.background = keyBackground(active)
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    // ------------------------------------------------------------------------------------------
+    // Touch: left-edge swipe opens the drawer; hardware volume-down is CTRL
+    // ------------------------------------------------------------------------------------------
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> { edgeStartX = if (!drawerOpen && ev.x < dp(22)) ev.x else -1f; edgeStartY = ev.y }
+            MotionEvent.ACTION_MOVE -> if (edgeStartX >= 0f && ev.x - edgeStartX > dp(56) && abs(ev.y - edgeStartY) < dp(70)) {
+                edgeStartX = -1f
+                openDrawer()
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> edgeStartX = -1f
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN && ::ctrlKey.isInitialized) { setCtrl(!ctrlOn); return true }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) return true
+        return super.onKeyUp(keyCode, event)
+    }
+
+    /** The scrolling page: tap shows the keyboard, long-press opens the menu, two fingers pinch the font size. */
+    private inner class TermScroll(context: Context) : ScrollView(context) {
+        private val scale = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: ScaleGestureDetector): Boolean { setFont(fontSp * detector.scaleFactor); return true }
+            override fun onScaleEnd(detector: ScaleGestureDetector) { prefs.edit().putFloat("font_sp", fontSp).apply() }
+        })
+        private val taps = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onSingleTapUp(e: MotionEvent): Boolean { if (!selecting) showKeyboard(); return false }
+            override fun onLongPress(e: MotionEvent) { if (!scale.isInProgress && !selecting) showContextMenu() }
+        })
+
+        override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+            scale.onTouchEvent(ev)
+            if (!selecting) taps.onTouchEvent(ev)
+            return if (scale.isInProgress) true else super.dispatchTouchEvent(ev)
+        }
+    }
 
     override fun onDestroy() {
         outputJob?.cancel()
@@ -485,7 +999,20 @@ class JarvisTerminalActivity : AppCompatActivity() {
         const val COMMAND_TIMEOUT_MS = 15 * 60_000L
         const val INSTALL_TIMEOUT_MS = 40 * 60_000L
         const val MAX_SHOWN_CHARS = 60_000
+        const val MIN_FONT = 8f
+        const val MAX_FONT = 30f
+
         /** Commands run here, not on the screen's lifecycle, so closing the screen does not stop them. */
         val runScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+        val SCHEMES: List<Scheme> = listOf(
+            Scheme("Termux (default)", 0xFF000000.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFF8A8A8A.toInt(), 0xFFFF5555.toInt(), 0xFF50FA7B.toInt(), 0xFF111111.toInt(), 0xFF3A3A3A.toInt(), 0xFF555555.toInt(), 0xFF161616.toInt()),
+            Scheme("Green on black", 0xFF000000.toInt(), 0xFF00FF41.toInt(), 0xFF00FF41.toInt(), 0xFF008F11.toInt(), 0xFFFF5555.toInt(), 0xFF00FF41.toInt(), 0xFF0A0F0A.toInt(), 0xFF1F3A1F.toInt(), 0xFF2E5A2E.toInt(), 0xFF0A120A.toInt()),
+            Scheme("Solarized Dark", 0xFF002B36.toInt(), 0xFF839496.toInt(), 0xFF859900.toInt(), 0xFF586E75.toInt(), 0xFFDC322F.toInt(), 0xFF859900.toInt(), 0xFF073642.toInt(), 0xFF0E4B5A.toInt(), 0xFF586E75.toInt(), 0xFF073642.toInt()),
+            Scheme("Dracula", 0xFF282A36.toInt(), 0xFFF8F8F2.toInt(), 0xFF50FA7B.toInt(), 0xFF6272A4.toInt(), 0xFFFF5555.toInt(), 0xFF50FA7B.toInt(), 0xFF21222C.toInt(), 0xFF44475A.toInt(), 0xFF6272A4.toInt(), 0xFF21222C.toInt()),
+            Scheme("Gruvbox", 0xFF282828.toInt(), 0xFFEBDBB2.toInt(), 0xFFB8BB26.toInt(), 0xFF928374.toInt(), 0xFFFB4934.toInt(), 0xFFB8BB26.toInt(), 0xFF1D2021.toInt(), 0xFF3C3836.toInt(), 0xFF665C54.toInt(), 0xFF1D2021.toInt()),
+            Scheme("Jarvis", 0xFF0B0F14.toInt(), 0xFFD7E3EA.toInt(), 0xFF00E5FF.toInt(), 0xFF78909C.toInt(), 0xFFFF5252.toInt(), 0xFF69F0AE.toInt(), 0xFF121A22.toInt(), 0xFF263238.toInt(), 0xFF37474F.toInt(), 0xFF121A22.toInt()),
+            Scheme("Light", 0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 0xFF000000.toInt(), 0xFF666666.toInt(), 0xFFC62828.toInt(), 0xFF2E7D32.toInt(), 0xFFEEEEEE.toInt(), 0xFFCCCCCC.toInt(), 0xFFBBBBBB.toInt(), 0xFFF2F2F2.toInt(), light = true)
+        )
     }
 }
