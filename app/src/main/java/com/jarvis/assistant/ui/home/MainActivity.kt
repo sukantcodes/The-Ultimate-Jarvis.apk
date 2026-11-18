@@ -166,6 +166,7 @@ class MainActivity : AppCompatActivity() {
         // applied before any layout is inflated, so the first frame uses the selected palette.
         super.onCreate(savedInstanceState)
         com.jarvis.assistant.util.ThemeManager.applyTheme(this)
+        window.decorView.post { com.jarvis.assistant.util.CrashReporter.showIfAny(this) }
         val prefs = com.jarvis.assistant.JarvisApp.instance.preferences
         appliedThemeKey = prefs.appTheme
         appliedCustomHex = prefs.customThemeSignature

@@ -233,7 +233,7 @@ class JarvisChatAdapter(
         }
 
         fun bindResponseUpdate(turn: ChatTurn) {
-            hideActionsWhileWriting(turn)
+            try { hideActionsWhileWriting(turn) } catch (_: Throwable) { }
             val firstText = binding.layoutAssistantContainer.visibility != View.VISIBLE
             binding.layoutThinking.visibility = View.GONE
             renderAssistantContent(turn, isStreaming = true)
@@ -247,7 +247,7 @@ class JarvisChatAdapter(
                 c.translationY = 10f * d
                 c.animate().alpha(1f).translationY(0f).setDuration(380L)
                     .setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)).start()
-                GlassMotion.sweep(binding.layoutAssistantGlass, 24f, delayMs = 60L)
+                try { GlassMotion.sweep(binding.layoutAssistantGlass, 24f, delayMs = 60L) } catch (_: Throwable) { }
             }
         }
 
@@ -265,6 +265,14 @@ class JarvisChatAdapter(
             return binding.inlineActivity.visibility == View.VISIBLE
         }
 
+        /** The word-by-word fade is decoration: if it ever fails the plain text is shown instead of closing the app. */
+        private fun fade(rendered: CharSequence, streaming: Boolean): CharSequence = try {
+            StreamFade.apply(binding.tvAssistantMessage, rendered, streaming)
+        } catch (_: Throwable) {
+            try { StreamFade.finish(binding.tvAssistantMessage) } catch (_: Throwable) { }
+            rendered
+        }
+
         private fun renderAssistantContent(turn: ChatTurn, isStreaming: Boolean) {
             val context = binding.root.context
             if (turn.jarvisResponse.isBlank()) {
@@ -276,11 +284,13 @@ class JarvisChatAdapter(
 
             // Pictures Jarvis made are written into the answer as image lines; they are drawn as cards, the rest is text.
             val (rawResponse, pictures) = ChatImageRefs.extract(turn.jarvisResponse)
-            ImageCardBinder.bind(
-                binding.layoutAssistantImages, pictures,
-                onOpen = { ref -> onOpenAttachment?.invoke(ref.path, java.io.File(ref.path).name, com.jarvis.assistant.tools.image.ImageGenProtocol.mimeFor(ref.path)) },
-                onEdit = { ref -> onEditImage?.invoke(ref.path) }
-            )
+            try {
+                ImageCardBinder.bind(
+                    binding.layoutAssistantImages, pictures,
+                    onOpen = { ref -> onOpenAttachment?.invoke(ref.path, java.io.File(ref.path).name, com.jarvis.assistant.tools.image.ImageGenProtocol.mimeFor(ref.path)) },
+                    onEdit = { ref -> onEditImage?.invoke(ref.path) }
+                )
+            } catch (_: Throwable) { binding.layoutAssistantImages.visibility = View.GONE }
             if (rawResponse.isBlank()) {
                 binding.tvAssistantMessage.visibility = View.GONE
                 binding.layoutAssistantArtifacts.visibility = View.GONE
@@ -309,7 +319,7 @@ class JarvisChatAdapter(
                 }
 
                 if (rendered.isNotBlank()) {
-                    binding.tvAssistantMessage.text = StreamFade.apply(binding.tvAssistantMessage, rendered, isStreaming)
+                    binding.tvAssistantMessage.text = fade(rendered, isStreaming)
                     binding.tvAssistantMessage.visibility = View.VISIBLE
                 } else {
                     binding.tvAssistantMessage.visibility = View.GONE
@@ -340,7 +350,7 @@ class JarvisChatAdapter(
                 } catch (_: Throwable) {
                     rawResponse
                 }
-                binding.tvAssistantMessage.text = StreamFade.apply(binding.tvAssistantMessage, rendered, isStreaming)
+                binding.tvAssistantMessage.text = fade(rendered, isStreaming)
             }
 
             binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", rawResponse) }
@@ -383,7 +393,7 @@ class JarvisChatAdapter(
             }
 
             renderAssistantContent(turn, isStreaming = false)
-            settleActions(turn)
+            try { settleActions(turn) } catch (_: Throwable) { }
             syncGlass()
         }
 

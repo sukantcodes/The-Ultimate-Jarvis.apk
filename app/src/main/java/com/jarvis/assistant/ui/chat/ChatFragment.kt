@@ -616,7 +616,14 @@ class ChatFragment : Fragment() {
             }
             if (_binding == null) return@launch
             retrySnackbar?.dismiss()
-            when (val outcome = providerEngine.send(display, sendText, attachments, ref)) {
+            val outcome = try { providerEngine.send(display, sendText, attachments, ref) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) {
+                if (_binding != null) {
+                    binding.btnSendMessage.isEnabled = true
+                    Toast.makeText(requireContext(), "Couldn't send: ${e.message ?: e.javaClass.simpleName}", Toast.LENGTH_LONG).show()
+                }
+                return@launch
+            }
+            when (outcome) {
                 is SendOutcome.Started -> {
                     binding.etMessageInput.text?.clear()
                     if (document != null) {
@@ -869,8 +876,14 @@ class ChatFragment : Fragment() {
             return
         }
         // Typing never opens the microphone: start a text-only session; voice needs the mic button or the activation phrase.
-        if (!JarvisConversationService.isServiceRunning()) JarvisConversationService.startTextChatSession(requireContext().applicationContext)
-        JarvisConversationService.sendTextMessage(text)
+        try {
+            if (!JarvisConversationService.isServiceRunning()) JarvisConversationService.startTextChatSession(requireContext().applicationContext)
+            JarvisConversationService.sendTextMessage(text)
+        } catch (e: Exception) {
+            // e.g. Android refusing to start the chat service: say so instead of closing the app.
+            Toast.makeText(requireContext(), "Couldn't start the chat service: ${e.message ?: e.javaClass.simpleName}. Please try again.", Toast.LENGTH_LONG).show()
+            return
+        }
         binding.etMessageInput.text?.clear()
         binding.btnSendMessage.isEnabled = false
         binding.btnStopChat.visibility = View.VISIBLE
