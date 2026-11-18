@@ -47,6 +47,20 @@ class ChatWorkModeTest {
         assertTrue(two.contains("a") && two.contains("b") && two.contains("c") && !two.contains("\n1\n") && !two.contains("\n2\n"))
     }
 
+    @Test fun ask_mode_hides_thinking_and_the_user_asked_narration() {
+        assertEquals("Paris.", AskModeGuard.strip("The user asked what the capital of France is.\nParis."))
+        assertEquals("Paris.", AskModeGuard.strip("<think>they want a city</think>Paris."))
+        assertEquals("", AskModeGuard.strip("<think>still thinking"))
+        assertEquals("Okay, here you go.", AskModeGuard.strip("Okay, here you go."))
+        assertEquals("The user interface is fast.", AskModeGuard.strip("The user interface is fast."))
+        assertEquals("Answer.", AskModeGuard.strip("Okay, the user is asking about X.\nLet me think about it.\nAnswer."))
+    }
+
+    @Test fun ask_prompt_demands_direct_answers_and_tables() {
+        val i = ChatWorkMode.ASK.instruction
+        assertTrue(i.contains("table") && i.contains("The user asked") && i.contains("{red:text}"))
+    }
+
     // ---- through the engine ---------------------------------------------------------------------------------
 
     private val dir: File = Files.createTempDirectory("jarvis-modes").toFile()

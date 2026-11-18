@@ -36,7 +36,12 @@ object MarkdownRenderer {
 
     private val inline = Regex(
         """(\*\*[^*\n]+\*\*|(?<!\w)__[^_\n]+__(?!\w)|~~[^~\n]+~~|`[^`\n]+`|\[[^\]\n]+]\([^)\s]+\)|""" +
-            """https?://[^\s<>()\]]*[^\s<>()\].,;:!?'"]|(?<![*\w])\*[^*\s][^*\n]*\*(?![*\w]))"""
+            """https?://[^\s<>()\]]*[^\s<>()\].,;:!?'"]|(?<![*\w])\*[^*\s][^*\n]*\*(?![*\w])|""" +
+            """==[^=\n]+==|\{(?:red|green|blue|orange|purple|yellow|big|small):[^{}\n]+})"""
+    )
+    private val styled = mapOf(
+        "red" to 0xFFFF5252.toInt(), "green" to 0xFF00E676.toInt(), "blue" to 0xFF448AFF.toInt(),
+        "orange" to 0xFFFFAB40.toInt(), "purple" to 0xFFB388FF.toInt(), "yellow" to 0xFFFFE57F.toInt()
     )
     private val heading = Regex("""^\s{0,3}(#{1,4})\s+(.*)$""")
     private val rule = Regex("""^\s*([-*_])(\s*\1){2,}\s*$""")
@@ -53,7 +58,7 @@ object MarkdownRenderer {
     fun render(source: String, density: Float): CharSequence = render(source, density, defaultAccent())
 
     fun render(source: String, density: Float, accent: Int): CharSequence {
-        if (source.none { it == '*' || it == '`' || it == '#' || it == '-' || it == '+' || it == '\u2022' || it == '>' || it == '[' || it == '~' || it == '|' || it == '_' || it.isDigit() } && !source.contains("http")) return source
+        if (source.none { it == '*' || it == '`' || it == '#' || it == '-' || it == '+' || it == '\u2022' || it == '>' || it == '[' || it == '~' || it == '|' || it == '_' || it == '{' || it == '=' || it.isDigit() } && !source.contains("http")) return source
         val out = SpannableStringBuilder()
         val lines = source.replace("\r\n", "\n").split('\n')
         var inFence = false
@@ -220,7 +225,7 @@ object MarkdownRenderer {
         return r.split('|').map { it.trim() }
     }
 
-    private fun plain(s: String): String = s.replace(Regex("""\*\*|__|~~|`"""), "").replace(Regex("""\[([^\]]+)]\([^)]*\)"""), "$1")
+    private fun plain(s: String): String = s.replace(Regex("""\{(?:red|green|blue|orange|purple|yellow|big|small):([^{}]*)}"""), "$1").replace(Regex("""\*\*|__|~~|==|`"""), "").replace(Regex("""\[([^\]]+)]\([^)]*\)"""), "$1")
 
     private fun renderTable(out: SpannableStringBuilder, rows: List<List<String>>, density: Float, accent: Int) {
         if (rows.isEmpty()) return
@@ -292,6 +297,27 @@ object MarkdownRenderer {
                 tok.startsWith("**") || tok.startsWith("__") -> {
                     out.append(tok.substring(2, tok.length - 2))
                     out.setSpan(StyleSpan(Typeface.BOLD), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                tok.startsWith("==") -> {
+                    out.append(tok.substring(2, tok.length - 2))
+                    out.setSpan(BackgroundColorSpan((accent and 0x00FFFFFF) or 0x40000000), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    out.setSpan(StyleSpan(Typeface.BOLD), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                tok.startsWith("{") -> {
+                    val colon = tok.indexOf(':')
+                    val tag = tok.substring(1, colon)
+                    out.append(tok.substring(colon + 1, tok.length - 1))
+                    when (tag) {
+                        "big" -> {
+                            out.setSpan(RelativeSizeSpan(1.3f), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                            out.setSpan(StyleSpan(Typeface.BOLD), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        }
+                        "small" -> out.setSpan(RelativeSizeSpan(0.8f), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        else -> {
+                            out.setSpan(ForegroundColorSpan(styled.getValue(tag)), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                            out.setSpan(StyleSpan(Typeface.BOLD), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        }
+                    }
                 }
                 tok.startsWith("~~") -> {
                     out.append(tok.substring(2, tok.length - 2))

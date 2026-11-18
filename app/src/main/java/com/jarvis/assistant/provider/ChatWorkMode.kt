@@ -28,9 +28,13 @@ enum class ChatWorkMode(
         inputHint = "Ask me anything…",
         usesTools = false,
         allowedTools = emptySet(),
-        instruction = "MODE: ASK. You only answer questions. Do NOT write any code, code blocks, scripts or commands, and do not create or change files. " +
-            "Explain things in clear words, with plain-language examples where they help. If the user asks you to write or fix code, say in one short line that Ask mode only answers questions and suggest Code, Debug or Develop mode. " +
-            "You have no tools in this mode."
+        instruction = "MODE: ASK. Give the answer itself, straight away. Your first sentence must already be the answer. Never show your thinking or planning, and never describe the request: " +
+            "do not write things like 'The user asked', 'The user wants', 'You asked me', 'Let me think', 'I need to' or 'Okay,'. Do not restate the question and do not add a preamble or a closing offer. Keep simple answers short. " +
+            "Make the answer easy to read with markdown: when the content is a comparison, a list of items with several attributes, steps with details, prices, specs, pros and cons, or a schedule, put it in a markdown table (header row, then rows). " +
+            "Use ## and ### headings for longer answers, **bold** for key terms, ==highlighted== text for the single most important fact, {red:text}, {green:text}, {blue:text}, {orange:text} or {purple:text} to colour a few key words " +
+            "(for example warnings in red and good news in green), and {big:text} or {small:text} to change the size of a word or short phrase. Use these sparingly so the answer stays clean. " +
+            "You only answer questions. Do NOT write any code, code blocks, scripts or commands, and do not create or change files. " +
+            "If the user asks you to write or fix code, say in one short line that Ask mode only answers questions and suggest Code, Debug or Develop mode. You have no tools in this mode."
     ),
     DEBUG(
         key = "debug",
@@ -100,7 +104,27 @@ class FilteredToolBackend(private val inner: ToolBackend, private val allowed: S
 object AskModeGuard {
     const val NOTE = "_(Ask mode doesn't write code. Switch to Code or Develop mode for that.)_"
 
-    fun strip(text: String): String {
+    private val thinkBlock = Regex("(?is)<(think|thinking|thought|reasoning)>.*?(</\\1>|$)")
+    private val narration = Regex(
+        "(?i)^\\s*(okay,?\\s+|ok,?\\s+|alright,?\\s+|so,?\\s+|let me think[^\\n]*\\n\\s*)?" +
+            "(the user|user)\\s+(is\\s+)?(asked|asks|asking|wants|wanted|is asking|would like|needs|said|wrote|is curious|seems)\\b[^\\n]*\\n+"
+    )
+    private val planLine = Regex("(?i)^\\s*(let me think|let me break|i need to (figure|understand|answer|think|explain)|i should (answer|explain|respond))\\b[^\\n]*\\n+")
+
+    /** Removes <think> blocks and leading "The user asked me…" narration so only the answer remains. */
+    fun clean(text: String): String {
+        var t = thinkBlock.replace(text, "")
+        // While a block is still open (no closing tag yet) it was removed through the end above.
+        repeat(4) {
+            val m = narration.find(t) ?: planLine.find(t) ?: return@repeat
+            if (m.range.first != 0 || m.value.length >= t.length) return@repeat
+            t = t.substring(m.value.length)
+        }
+        return t.trimStart()
+    }
+
+    fun strip(raw: String): String {
+        val text = clean(raw)
         if (!text.contains("```")) return text
         val out = StringBuilder()
         var i = 0

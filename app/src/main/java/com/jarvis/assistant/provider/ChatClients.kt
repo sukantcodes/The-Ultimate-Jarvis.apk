@@ -218,6 +218,7 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
         val secret = secretOf(request.provider)
         var emitted = false
         val rawOther = StringBuilder()
+        val reasoningBuf = StringBuilder()
         var tokenParam = "max_tokens"
         var includeUsage = true
         var usage: TokenUsage? = null
@@ -241,18 +242,20 @@ class OpenAiChatClient(private val transport: HttpTransport) : ChatProviderClien
                     TokenUsageParser.openAi(obj)?.let { usage = it }
                     val choice = obj.getAsJsonArrayOrNull("choices")?.firstOrNull()?.takeIf { it.isJsonObject }?.asJsonObject
                     val delta = choice?.getAsJsonObjectOrNull("delta")
-                    val piece = delta?.let {
-                        contentText(it.get("content")).ifEmpty {
-                            contentText(it.get("reasoning_content")).ifEmpty {
-                                contentText(it.get("reasoning"))
-                            }
-                        }
-                    } ?: choice?.let { contentText(it.get("text")) }.orEmpty()
+                    // Reasoning fields are the model's private thinking: keep them out of the answer while it streams.
+                    val reasoningPiece = delta?.let {
+                        contentText(it.get("reasoning_content")).ifEmpty { contentText(it.get("reasoning")) }
+                    }.orEmpty()
+                    if (reasoningPiece.isNotEmpty() && reasoningBuf.length < 200_000) reasoningBuf.append(reasoningPiece)
+                    val piece = delta?.let { contentText(it.get("content")) }
+                        ?: choice?.let { contentText(it.get("text")) }.orEmpty()
                     if (piece.isNotEmpty()) {
                         emitted = true
                         emit(ChatEvent.Delta(piece))
                     }
                 }
+                // Only a reply that had no answer text at all falls back to what the model wrote as reasoning.
+                if (!emitted && reasoningBuf.isNotEmpty()) { emitted = true; emit(ChatEvent.Delta(reasoningBuf.toString())) }
                 break
             } catch (e: HttpStatusException) {
                 if (tokenParam == "max_tokens" && !emitted && e.code == 400 && e.body.contains("max_completion_tokens") &&
