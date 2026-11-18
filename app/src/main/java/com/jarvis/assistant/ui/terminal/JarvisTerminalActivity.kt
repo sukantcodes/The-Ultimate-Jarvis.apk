@@ -56,6 +56,7 @@ import com.jarvis.assistant.tools.terminal.TerminalEnvironment
 import com.jarvis.assistant.tools.terminal.TerminalManager
 import com.jarvis.assistant.tools.terminal.TerminalSession
 import com.jarvis.assistant.util.ThemeManager
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -303,7 +304,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
         }
         // Runs on the app's own scope, so leaving this screen does not kill a long command.
         runScope.launch {
-            val r = session.run(command, COMMAND_TIMEOUT_MS)
+            val r = try { session.run(command, COMMAND_TIMEOUT_MS) } catch (e: Exception) { session.note("⚠ ${e.message ?: e.javaClass.simpleName}\n"); return@launch }
             val footer = when {
                 r.rejected != null -> "⚠ ${r.rejected}"
                 r.timedOut -> "[stopped: it ran longer than ${COMMAND_TIMEOUT_MS / 60_000} minutes]"
@@ -334,7 +335,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
                 if (!SwitchingBackend.useTermux(this)) { session.note(PackageCommand.termuxRequiredText(installed) + "\n"); return }
                 session.note(plan.summary + "\n(Output appears when it finishes. Large installs can take several minutes.)\n")
                 runScope.launch {
-                    val r = session.run(plan.script, INSTALL_TIMEOUT_MS)
+                    val r = try { session.run(plan.script, INSTALL_TIMEOUT_MS) } catch (e: Exception) { session.note("⚠ ${e.message ?: e.javaClass.simpleName}\n"); return@launch }
                     session.note(when {
                         r.rejected != null -> "⚠ ${r.rejected}"
                         r.timedOut -> "[stopped: it ran longer than ${INSTALL_TIMEOUT_MS / 60_000} minutes]"
@@ -1003,7 +1004,10 @@ class JarvisTerminalActivity : AppCompatActivity() {
         const val MAX_FONT = 30f
 
         /** Commands run here, not on the screen's lifecycle, so closing the screen does not stop them. */
-        val runScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val runScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, e ->
+            // Never let a failed command take the whole app down.
+            android.util.Log.w("JarvisTerminal", "command failed", e)
+        })
 
         val SCHEMES: List<Scheme> = listOf(
             Scheme("Termux (default)", 0xFF000000.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFF8A8A8A.toInt(), 0xFFFF5555.toInt(), 0xFF50FA7B.toInt(), 0xFF111111.toInt(), 0xFF3A3A3A.toInt(), 0xFF555555.toInt(), 0xFF161616.toInt()),

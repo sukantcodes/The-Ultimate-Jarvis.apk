@@ -38,10 +38,18 @@ class TermuxBackend(private val context: Context, private val spec: TermuxBridge
             .putExtra(TermuxBridgeSpec.EXTRA_BACKGROUND, true)
             .putExtra(TermuxBridgeSpec.EXTRA_PENDING_INTENT, PendingIntent.getBroadcast(context, id, result, flags))
         try {
-            if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(i) else context.startService(i)
+            try {
+                if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(i) else context.startService(i)
+            } catch (e: IllegalStateException) {
+                // Android may refuse a foreground-service start; a plain start still works while this app is on screen.
+                context.startService(i)
+            }
         } catch (e: SecurityException) {
             pending.remove(id)
-            throw IllegalStateException("Termux refused the command. Grant JARVIS the \"Run commands in Termux environment\" permission and set allow-external-apps=true in ~/.termux/termux.properties.")
+            throw IllegalStateException("Termux refused the command. Grant JARVIS the \"Run commands in Termux environment\" permission and set allow-external-apps=true in ~/.termux/termux.properties (type: jpkg setup).")
+        } catch (e: Exception) {
+            pending.remove(id)
+            throw IllegalStateException("Could not reach Termux (${e.javaClass.simpleName}). Open Termux once, then try again. See: jpkg setup")
         }
         return object : RunningCommand {
             override val pid: Long? = null

@@ -143,7 +143,10 @@ class TerminalSession(
     suspend fun run(command: String, timeoutMs: Long, onChunk: ((String) -> Unit)? = null): CommandResult {
         preflight(command)?.let { return CommandResult(null, "", rejected = it, cwd = relativeCwd()) }
         val started = clock()
-        val run = start(command, onChunk)
+        val run = try { start(command, onChunk) } catch (e: Exception) {
+            currentCommand = null
+            return CommandResult(null, "", rejected = e.message ?: "The command could not be started.", cwd = relativeCwd())
+        }
         var finished = false
         try {
             withContext(Dispatchers.IO) {
@@ -164,7 +167,7 @@ class TerminalSession(
     /** Starts [command] and returns at once; follow it with [readNew] and stop it with [cancel]. */
     fun startBackground(command: String): String? {
         preflight(command)?.let { return it }
-        val run = start(command, null)
+        val run = try { start(command, null) } catch (e: Exception) { currentCommand = null; return e.message ?: "The command could not be started." }
         Thread({
             if (!run.cmd.waitFor(maxBackgroundMs)) { run.cmd.kill() }
             run.lines.flush(); applyMarker(run); lastExit = run.cmd.exitCode; run.history.exitCode = lastExit

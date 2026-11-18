@@ -74,7 +74,108 @@ object PackageCommand {
             note = "Ships a native program that may not run on every phone."),
         Installable("aider", "Aider", Installable.Kind.PIP, "aider-chat", "aider", "AI pair programmer that edits your git repo.", needs = listOf("python", "clang", "git"),
             note = "Builds some parts on the phone, so it can take several minutes."),
-        Installable("llm", "llm (Simon Willison)", Installable.Kind.PIP, "llm", "llm", "Talk to many AI models from the terminal.", needs = listOf("python"))
+        Installable("llm", "llm (Simon Willison)", Installable.Kind.PIP, "llm", "llm", "Talk to many AI models from the terminal.", needs = listOf("python")),
+        // More programs
+        Installable("neovim", "Neovim", Installable.Kind.PKG, "neovim", "nvim", "Modern Vim."),
+        Installable("micro", "micro", Installable.Kind.PKG, "micro", "micro", "Easy terminal editor (Ctrl+S, Ctrl+Q)."),
+        Installable("emacs", "Emacs", Installable.Kind.PKG, "emacs", "emacs", "Emacs editor."),
+        Installable("htop", "htop", Installable.Kind.PKG, "htop", "htop", "Process viewer."),
+        Installable("tree", "tree", Installable.Kind.PKG, "tree", "tree", "Show folders as a tree."),
+        Installable("fzf", "fzf", Installable.Kind.PKG, "fzf", "fzf", "Fuzzy finder."),
+        Installable("bat", "bat", Installable.Kind.PKG, "bat", "bat", "cat with colours."),
+        Installable("fd", "fd", Installable.Kind.PKG, "fd", "fd", "Fast file finder."),
+        Installable("eza", "eza", Installable.Kind.PKG, "eza", "eza", "Modern ls."),
+        Installable("zsh", "Zsh", Installable.Kind.PKG, "zsh", "zsh", "Z shell."),
+        Installable("fish", "Fish", Installable.Kind.PKG, "fish", "fish", "Friendly shell."),
+        Installable("rsync", "rsync", Installable.Kind.PKG, "rsync", "rsync", "Copy and sync folders."),
+        Installable("openssl", "OpenSSL", Installable.Kind.PKG, "openssl", "openssl", "Certificates and encryption."),
+        Installable("nmap", "nmap", Installable.Kind.PKG, "nmap", "nmap", "Network scanner (your own network)."),
+        Installable("dnsutils", "DNS tools", Installable.Kind.PKG, "dnsutils", "dig", "dig and nslookup."),
+        Installable("netcat", "netcat", Installable.Kind.PKG, "netcat-openbsd", "nc", "Read and write network connections."),
+        Installable("whois", "whois", Installable.Kind.PKG, "whois", "whois", "Domain lookup."),
+        Installable("sqlite", "SQLite", Installable.Kind.PKG, "sqlite", "sqlite3", "Small SQL database."),
+        Installable("postgresql", "PostgreSQL", Installable.Kind.PKG, "postgresql", "psql", "SQL database server."),
+        Installable("mariadb", "MariaDB / MySQL", Installable.Kind.PKG, "mariadb", "mariadb", "SQL database server."),
+        Installable("redis", "Redis", Installable.Kind.PKG, "redis", "redis-server", "In-memory database."),
+        Installable("nginx", "nginx", Installable.Kind.PKG, "nginx", "nginx", "Web server."),
+        Installable("pandoc", "Pandoc", Installable.Kind.PKG, "pandoc", "pandoc", "Convert documents (md, docx, pdf, html)."),
+        Installable("lua", "Lua", Installable.Kind.PKG, "lua54", "lua", "Lua language."),
+        Installable("perl", "Perl", Installable.Kind.PKG, "perl", "perl", "Perl language."),
+        Installable("kotlin", "Kotlin", Installable.Kind.PKG, "kotlin", "kotlinc", "Kotlin compiler."),
+        Installable("gradle", "Gradle", Installable.Kind.PKG, "gradle", "gradle", "Build Android and Java projects."),
+        Installable("maven", "Maven", Installable.Kind.PKG, "maven", "mvn", "Java builds."),
+        Installable("git-lfs", "Git LFS", Installable.Kind.PKG, "git-lfs", "git-lfs", "Large files in git."),
+        Installable("tig", "tig", Installable.Kind.PKG, "tig", "tig", "Browse git history."),
+        Installable("lazygit", "lazygit", Installable.Kind.PKG, "lazygit", "lazygit", "Git screen UI."),
+        Installable("yt-dlp", "yt-dlp", Installable.Kind.PKG, "yt-dlp", "yt-dlp", "Download video and audio from websites."),
+        Installable("aria2", "aria2", Installable.Kind.PKG, "aria2", "aria2c", "Fast multi-part downloader."),
+        Installable("rclone", "rclone", Installable.Kind.PKG, "rclone", "rclone", "Sync with cloud drives."),
+        Installable("tesseract", "Tesseract OCR", Installable.Kind.PKG, "tesseract", "tesseract", "Read text from images."),
+        Installable("sox", "SoX", Installable.Kind.PKG, "sox", "sox", "Audio tool."),
+        Installable("termux-api", "Termux:API tools", Installable.Kind.PKG, "termux-api", "termux-battery-status", "Phone features from the shell (needs the Termux:API app)."),
+        Installable("proot-distro", "proot-distro", Installable.Kind.PKG, "proot-distro", "proot-distro", "Install Ubuntu, Debian or Alpine inside Termux."),
+        Installable("binutils", "binutils", Installable.Kind.PKG, "binutils", "ld", "Linker and object tools."),
+        Installable("python-numpy", "NumPy", Installable.Kind.PKG, "python-numpy", "python", "Numbers and arrays for Python."),
+        Installable("python-pillow", "Pillow", Installable.Kind.PKG, "python-pillow", "python", "Images in Python."),
+        Installable("tmate", "tmate", Installable.Kind.PKG, "tmate", "tmate", "Share a terminal over the web."),
+        Installable("ncdu", "ncdu", Installable.Kind.PKG, "ncdu", "ncdu", "See what uses storage."),
+        Installable("mc", "Midnight Commander", Installable.Kind.PKG, "mc", "mc", "File manager."),
+        Installable("ranger", "ranger", Installable.Kind.PKG, "ranger", "ranger", "File manager."),
+        Installable("screen", "screen", Installable.Kind.PKG, "screen", "screen", "Terminal sessions."),
+        Installable("bc", "bc", Installable.Kind.PKG, "bc", "bc", "Calculator."),
+        Installable("neofetch", "neofetch", Installable.Kind.PKG, "neofetch", "neofetch", "Show system info."),
+        Installable("man", "man pages", Installable.Kind.PKG, "man", "man", "Manuals for commands."),
+        Installable("lynx", "lynx", Installable.Kind.PKG, "lynx", "lynx", "Text web browser."),
+        Installable("cowsay", "cowsay", Installable.Kind.PKG, "cowsay", "cowsay", "Fun speaking cow."),
+        Installable("figlet", "figlet", Installable.Kind.PKG, "figlet", "figlet", "Big text banners."),
+        Installable("android-tools", "Android tools (adb)", Installable.Kind.PKG, "android-tools", "adb", "adb and fastboot."),
+        Installable("apksigner", "apksigner", Installable.Kind.PKG, "apksigner", "apksigner", "Sign APK files."),
+        Installable("zsh-completions", "Zsh completions", Installable.Kind.PKG, "zsh-completions", "zsh", "Zsh tab completion."),
+        // More JavaScript tools
+        Installable("yarn", "Yarn", Installable.Kind.NPM, "yarn", "yarn", "JavaScript package manager.", needs = listOf("nodejs")),
+        Installable("pnpm", "pnpm", Installable.Kind.NPM, "pnpm", "pnpm", "Fast JavaScript package manager.", needs = listOf("nodejs")),
+        Installable("typescript", "TypeScript", Installable.Kind.NPM, "typescript", "tsc", "TypeScript compiler.", needs = listOf("nodejs")),
+        Installable("tsx", "tsx", Installable.Kind.NPM, "tsx", "tsx", "Run TypeScript files directly.", needs = listOf("nodejs")),
+        Installable("nodemon", "nodemon", Installable.Kind.NPM, "nodemon", "nodemon", "Restart node on changes.", needs = listOf("nodejs")),
+        Installable("pm2", "pm2", Installable.Kind.NPM, "pm2", "pm2", "Keep node apps running.", needs = listOf("nodejs")),
+        Installable("http-server", "http-server", Installable.Kind.NPM, "http-server", "http-server", "Serve a folder over HTTP.", needs = listOf("nodejs")),
+        Installable("vercel", "Vercel CLI", Installable.Kind.NPM, "vercel", "vercel", "Deploy sites to Vercel.", needs = listOf("nodejs")),
+        Installable("firebase", "Firebase CLI", Installable.Kind.NPM, "firebase-tools", "firebase", "Firebase from the terminal.", needs = listOf("nodejs")),
+        Installable("netlify", "Netlify CLI", Installable.Kind.NPM, "netlify-cli", "netlify", "Deploy sites to Netlify.", needs = listOf("nodejs")),
+        Installable("eas", "Expo EAS CLI", Installable.Kind.NPM, "eas-cli", "eas", "Build Expo apps.", needs = listOf("nodejs")),
+        Installable("prettier", "Prettier", Installable.Kind.NPM, "prettier", "prettier", "Format code.", needs = listOf("nodejs")),
+        Installable("eslint", "ESLint", Installable.Kind.NPM, "eslint", "eslint", "Check JavaScript.", needs = listOf("nodejs")),
+        Installable("vite", "Vite", Installable.Kind.NPM, "vite", "vite", "Front-end build tool.", needs = listOf("nodejs")),
+        Installable("create-vite", "create-vite", Installable.Kind.NPM, "create-vite", "create-vite", "Start a Vite project.", needs = listOf("nodejs")),
+        Installable("wrangler", "Cloudflare Wrangler", Installable.Kind.NPM, "wrangler", "wrangler", "Cloudflare Workers CLI.", needs = listOf("nodejs")),
+        // More AI command-line tools
+        Installable("copilot", "GitHub Copilot CLI", Installable.Kind.NPM, "@github/copilot", "copilot", "GitHub's coding agent in the terminal.", needs = listOf("nodejs")),
+        Installable("kilo", "Kilo Code CLI", Installable.Kind.NPM, "@kilocode/cli", "kilo", "Open-source coding agent.", needs = listOf("nodejs")),
+        Installable("crush", "Crush", Installable.Kind.NPM, "@charmland/crush", "crush", "Charm's AI coding agent.", needs = listOf("nodejs")),
+        Installable("continue", "Continue CLI", Installable.Kind.NPM, "@continuedev/cli", "cn", "Continue's coding agent.", needs = listOf("nodejs")),
+        Installable("mcp-inspector", "MCP Inspector", Installable.Kind.NPM, "@modelcontextprotocol/inspector", "mcp-inspector", "Test MCP servers.", needs = listOf("nodejs")),
+        Installable("repomix", "Repomix", Installable.Kind.NPM, "repomix", "repomix", "Pack a repo into one file for AI.", needs = listOf("nodejs")),
+        Installable("sgpt", "Shell GPT", Installable.Kind.PIP, "shell-gpt", "sgpt", "Ask AI for shell commands.", needs = listOf("python")),
+        Installable("ytdlp-pip", "yt-dlp (pip)", Installable.Kind.PIP, "yt-dlp", "yt-dlp", "Video downloader via pip.", needs = listOf("python")),
+        Installable("httpie", "HTTPie", Installable.Kind.PIP, "httpie", "http", "Friendly HTTP client.", needs = listOf("python")),
+        Installable("flask", "Flask", Installable.Kind.PIP, "flask", "flask", "Python web framework.", needs = listOf("python")),
+        Installable("fastapi", "FastAPI + uvicorn", Installable.Kind.PIP, "fastapi uvicorn", "uvicorn", "Python API framework.", needs = listOf("python")),
+        Installable("requests", "requests + bs4", Installable.Kind.PIP, "requests beautifulsoup4", "python", "Web scraping basics.", needs = listOf("python")),
+        Installable("openai", "OpenAI Python", Installable.Kind.PIP, "openai", "python", "OpenAI library for Python.", needs = listOf("python")),
+        Installable("anthropic", "Anthropic Python", Installable.Kind.PIP, "anthropic", "python", "Claude library for Python.", needs = listOf("python")),
+        Installable("google-genai", "Google Gen AI Python", Installable.Kind.PIP, "google-genai", "python", "Gemini library for Python.", needs = listOf("python")),
+        Installable("ollama-python", "Ollama Python", Installable.Kind.PIP, "ollama", "python", "Talk to Ollama from Python.", needs = listOf("python")),
+        Installable("black", "Black", Installable.Kind.PIP, "black", "black", "Format Python code.", needs = listOf("python")),
+        Installable("ruff", "Ruff", Installable.Kind.PIP, "ruff", "ruff", "Fast Python linter.", needs = listOf("python")),
+        Installable("pytest", "pytest", Installable.Kind.PIP, "pytest", "pytest", "Python tests.", needs = listOf("python")),
+        Installable("poetry", "Poetry", Installable.Kind.PIP, "poetry", "poetry", "Python project manager.", needs = listOf("python")),
+        Installable("pipx", "pipx", Installable.Kind.PIP, "pipx", "pipx", "Install Python apps in isolation.", needs = listOf("python")),
+        Installable("litellm", "LiteLLM", Installable.Kind.PIP, "litellm", "litellm", "One API for many AI models.", needs = listOf("python"))
+    )
+
+    private val AI_KEYS = setOf(
+        "ollama", "llama-cpp", "gemini", "claude", "codex", "qwen", "opencode", "aider", "llm", "copilot", "kilo", "crush", "continue",
+        "sgpt", "litellm", "openai", "anthropic", "google-genai", "ollama-python"
     )
 
     private val byKey: Map<String, Installable> by lazy {
@@ -203,11 +304,11 @@ object PackageCommand {
     }
 
     fun aiList(): String = "AI tools you can install (type: jpkg install <name>)\n" +
-        catalog.filter { it.kind != Installable.Kind.PKG || it.key in setOf("ollama", "llama-cpp") }
+        catalog.filter { it.key in AI_KEYS }
             .joinToString("\n") { "  ${it.key.padEnd(10)} ${it.title} - ${it.description}" + if (it.note.isBlank()) "" else "\n             ℹ ${it.note}" }
 
     fun toolList(): String = "Ready-made tools (type: jpkg install <name>). Any other Termux package works too.\n" +
-        catalog.filter { it.kind == Installable.Kind.PKG }.joinToString("\n") { "  ${it.key.padEnd(12)} ${it.title} - ${it.description}" } +
+        catalog.filter { it.key !in AI_KEYS }.joinToString("\n") { "  ${it.key.padEnd(12)} ${it.title} - ${it.description}" } +
         "\n\nAI tools: jpkg ai"
 
     fun help(): String = """
