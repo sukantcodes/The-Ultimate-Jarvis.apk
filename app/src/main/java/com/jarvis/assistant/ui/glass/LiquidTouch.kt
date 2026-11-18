@@ -96,18 +96,23 @@ object LiquidTouch {
             window.callback = TouchCallback(window.callback, overlay, context)
 
             var scheduled = false
+            var nextDelay = SCAN_DELAY_MS
             val scan = object : Runnable {
                 override fun run() {
                     // Never scan the view tree while a finger is down (scrolling, dragging): it waits for the touch to end.
                     if (overlay.isBusy()) { decor.postDelayed(this, 250L); return }
                     scheduled = false
+                    val started = System.nanoTime()
                     if (bubbleEnabled() && animationsOn(context)) scanForButtons(decor)
                     // thick, readable, 3D text and buttery scrolling on every glass screen
                     try { Text3D.styleTree(decor) } catch (_: Throwable) {}
+                    // A heavy screen (a long, streaming chat) is scanned less often, in proportion to what a scan costs.
+                    val costMs = (System.nanoTime() - started) / 1_000_000L
+                    nextDelay = (costMs * 14L).coerceIn(SCAN_DELAY_MS, 2500L)
                 }
             }
             decor.viewTreeObserver.addOnGlobalLayoutListener {
-                if (!scheduled) { scheduled = true; decor.postDelayed(scan, SCAN_DELAY_MS) }
+                if (!scheduled) { scheduled = true; decor.postDelayed(scan, nextDelay) }
             }
             scheduled = true
             decor.postDelayed(scan, SCAN_DELAY_MS)

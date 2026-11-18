@@ -33,6 +33,7 @@ import com.jarvis.assistant.ui.home.MainActivity
 import com.jarvis.assistant.ui.home.MainViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.graphics.Bitmap
@@ -921,14 +922,16 @@ class ChatFragment : Fragment() {
         // Keeps the badge moving while an answer (or a long tool run) is still going, not only when a turn is saved.
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                ChatTokenLedger.state.collect {
+                ChatTokenLedger.state.sample(150L).collect {
                     if (_binding != null) updateTokenUsage(chatAdapter.currentList)
                 }
             }
         }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.chatTurns.collect { turns ->
+                // While an answer streams, rows change on every word. Handing the list over ~20 times a second (always the
+                // latest state, never dropping the final one) keeps the chat smooth without changing what is shown.
+                viewModel.chatTurns.sample(50L).collect { turns ->
                     if (_binding != null) {
                         updateTokenUsage(turns)
                         binding.layoutChatWelcome.visibility = if (turns.isEmpty()) View.VISIBLE else View.GONE

@@ -73,6 +73,9 @@ class LiquidGlassLayout @JvmOverloads constructor(
     private val theirs = IntArray(2)
     private var hasShader = false
 
+    /** Smoothed cost (ms) of one backdrop capture. The refresh rate backs off when the screen behind is expensive to draw. */
+    private var captureCostMs = 0f
+
     // decoration
     private val rimRect = RectF()
     private val fullRect = RectF()
@@ -141,7 +144,9 @@ class LiquidGlassLayout @JvmOverloads constructor(
         val r = min(cornerRadiusPx, min(width, height) / 2f)
 
         if (b != null && bc != null && src != null) {
+            val t0 = System.nanoTime()
             captureBackdrop(src, b, bc)
+            captureCostMs = captureCostMs * 0.7f + ((System.nanoTime() - t0) / 1_000_000f) * 0.3f
             cur = next
             if (Build.VERSION.SDK_INT >= 33 && hasShader) {
                 glassPaint.shader = glassShaders[next]
@@ -197,7 +202,10 @@ class LiquidGlassLayout @JvmOverloads constructor(
             if (!isAttachedToWindow) return
             val visible = isShown
             if (autoRefresh && visible && !capturing) invalidate()
-            postDelayed(this, if (visible) 33L else 250L)
+            // 30 fps normally; when each capture is expensive (a busy chat streaming and animating) it spaces them out so the
+            // list keeps its frames. The backdrop is heavily blurred, so a lower refresh there is not visible.
+            val gap = if (visible) maxOf(33L, (captureCostMs * 6f).toLong()).coerceAtMost(130L) else 250L
+            postDelayed(this, gap)
         }
     }
 
@@ -213,7 +221,9 @@ class LiquidGlassLayout @JvmOverloads constructor(
                 postDelayed({ if (isAttachedToWindow) startLockedRefresh() }, 250L)
                 return
             }
-            if (frameCount++ % frameStep == 0 && autoRefresh && !capturing) invalidate()
+            // The dock keeps a full-rate backdrop unless capturing it gets costly; then it halves, never lower than ~22 fps.
+            val step = maxOf(frameStep, Math.ceil((captureCostMs / 5f).toDouble()).toInt()).coerceAtMost(4 * frameStep)
+            if (frameCount++ % step == 0 && autoRefresh && !capturing) invalidate()
             Choreographer.getInstance().postFrameCallback(this)
         }
     }
@@ -250,11 +260,17 @@ class LiquidGlassLayout @JvmOverloads constructor(
         rimRect.set(inset, inset, w - inset, h - inset)
 
         for (i in 0 until BUFFERS) {
-            val nb = Bitmap.createBitmap(
-                max(1, (w * BACKDROP_SCALE).toInt()), max(1, (h * BACKDROP_SCALE).toInt()), Bitmap.Config.ARGB_8888
-            )
-            bmps[i] = nb
-            canvases[i] = Canvas(nb)
+            try {
+                val nb = Bitmap.createBitmap(
+                    max(1, (w * BACKDROP_SCALE).toInt()), max(1, (h * BACKDROP_SCALE).toInt()), Bitmap.Config.ARGB_8888
+                )
+                bmps[i] = nb
+                canvases[i] = Canvas(nb)
+            } catch (_: OutOfMemoryError) {
+                // Low memory: keep the frosted pane (no live backdrop) instead of crashing.
+                bmps[i] = null
+                canvases[i] = null
+            }
             glassShaders[i] = null
         }
         cur = 0

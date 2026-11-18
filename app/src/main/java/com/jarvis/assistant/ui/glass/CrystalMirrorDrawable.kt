@@ -4,6 +4,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.LinearGradient
+import android.graphics.Matrix
+import android.view.Choreographer
 import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.RadialGradient
@@ -25,6 +27,62 @@ class CrystalMirrorDrawable : Drawable() {
     private var blooms: List<Shader> = emptyList()
     private var edge: Shader? = null
 
+    // Slow shimmer: each reflection band glides along the diagonal at its own pace and the blooms breathe, like light moving
+    // across a polished mirror. It runs at ~30 fps, only while the window is visible, pauses while anything scrolls, and
+    // stops entirely if the system animation scale is off.
+    private val matrix = Matrix()
+    private var diag = 1f
+    private var phase = 0f
+    private var running = false
+    private var lastFrameNs = 0L
+    private var bloomAlpha = 255
+    private val periods = floatArrayOf(17f, 11f, 23f, 29f) // seconds per band cycle
+    private val amps = floatArrayOf(0.10f, 0.07f, 0.12f, 0.09f)
+    private val frame = object : Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            if (!running) return
+            Choreographer.getInstance().postFrameCallback(this)
+            if (frameTimeNanos - lastFrameNs < 33_000_000L) return
+            val dt = if (lastFrameNs == 0L) 0f else (frameTimeNanos - lastFrameNs) / 1e9f
+            lastFrameNs = frameTimeNanos
+            if (AuroraClock.paused) return
+            phase += dt
+            update()
+            invalidateSelf()
+        }
+    }
+
+    private fun update() {
+        val tau = (2.0 * Math.PI).toFloat()
+        val dx = Math.cos(-0.43).toFloat()
+        val dy = Math.sin(-0.43).toFloat()
+        bands.forEachIndexed { i, shader ->
+            val k = Math.sin((phase / periods[i % periods.size] * tau + i * 1.3f).toDouble()).toFloat() * amps[i % amps.size] * diag
+            matrix.setTranslate(dx * k, dy * k * 0.6f)
+            shader.setLocalMatrix(matrix)
+        }
+        bloomAlpha = (205 + 50 * Math.sin((phase / 9f * tau).toDouble())).toInt().coerceIn(0, 255)
+    }
+
+    override fun setVisible(visible: Boolean, restart: Boolean): Boolean {
+        val changed = super.setVisible(visible, restart)
+        if (visible && !running && animationsAllowed()) {
+            running = true
+            lastFrameNs = 0L
+            Choreographer.getInstance().postFrameCallback(frame)
+        } else if (!visible && running) {
+            running = false
+            Choreographer.getInstance().removeFrameCallback(frame)
+        }
+        return changed
+    }
+
+    private fun animationsAllowed(): Boolean = try {
+        android.provider.Settings.Global.getFloat(
+            com.jarvis.assistant.JarvisApp.instance.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f
+        ) > 0f
+    } catch (_: Throwable) { true }
+
     override fun onBoundsChange(b: Rect) {
         super.onBoundsChange(b)
         if (b.isEmpty) return
@@ -33,6 +91,7 @@ class CrystalMirrorDrawable : Drawable() {
         val l = b.left.toFloat()
         val t = b.top.toFloat()
         val big = maxOf(w, h)
+        diag = Math.hypot(w.toDouble(), h.toDouble()).toFloat()
 
         veil = LinearGradient(
             l, t, l, t + h,
@@ -85,7 +144,10 @@ class CrystalMirrorDrawable : Drawable() {
         if (b.isEmpty) return
         veil?.let { paint.shader = it; canvas.drawRect(b, paint) }
         bands.forEach { paint.shader = it; canvas.drawRect(b, paint) }
+        val keep = paint.alpha
+        paint.alpha = bloomAlpha
         blooms.forEach { paint.shader = it; canvas.drawRect(b, paint) }
+        paint.alpha = keep
         edge?.let { paint.shader = it; canvas.drawRect(b, paint) }
         paint.shader = null
     }
