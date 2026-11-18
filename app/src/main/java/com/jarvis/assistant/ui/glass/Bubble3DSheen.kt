@@ -31,11 +31,18 @@ internal class Bubble3DSheen(
     private val light: Boolean,
     private val cornerPx: Float,
     /** 1 = a button; lower values give big surfaces (cards, text fields) a quieter version of the same look. */
-    private val k: Float = 1f,
+    kIn: Float = 1f,
     /** Theme colour mixed into the pooled light, so the bubble glows in every theme's own colour. */
     private val accent: Int = Color.WHITE
 ) : Drawable() {
 
+    /** Crystal Mirror: the bubble is more intense and gets a magnifying-glass glare. */
+    private val crystal = CrystalTheme.active()
+    private val k: Float = kIn * (if (crystal) CrystalTheme.BUBBLE_BOOST else 1f)
+    private val glare = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val innerRim = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val innerRect = RectF()
+    private var innerRadius = 0f
     private val shade = Paint(Paint.ANTI_ALIAS_FLAG)
     private val caustic = Paint(Paint.ANTI_ALIAS_FLAG)
     private val gloss = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -66,7 +73,7 @@ internal class Bubble3DSheen(
 
         val top = b.top.toFloat()
         val bottom = b.bottom.toFloat()
-        val shadeAlpha = ((if (light) 0x26 else 0x40) * k).toInt()
+        val shadeAlpha = ((if (light) 0x26 else 0x40) * k).toInt().coerceIn(0, 255)
         fun wc(a: Float) = ColorUtils.setAlphaComponent(ColorUtils.blendARGB(Color.WHITE, accent, 0.35f), (255 * a * k).toInt().coerceIn(0, 255))
         fun white(a: Float) = ColorUtils.setAlphaComponent(Color.WHITE, (255 * a * k).toInt().coerceIn(0, 255))
         shade.shader = LinearGradient(
@@ -123,7 +130,29 @@ internal class Bubble3DSheen(
         matrix.postTranslate(glintCx, glintCy)
         glintShader.setLocalMatrix(matrix)
         glint.shader = glintShader
-        glint.alpha = ((if (light) 190 else 150) * k).toInt()
+        glint.alpha = ((if (light) 190 else 150) * k).toInt().coerceIn(0, 255)
+
+        if (crystal) {
+            // lens glare: a broad soft highlight, as on a convex lens, plus a second bright rim just inside the first
+            val gr = max(w, h) * 0.62f
+            matrix.reset()
+            matrix.postTranslate(b.left + w * 0.30f, top + h * 0.30f)
+            val glareShader = RadialGradient(
+                0f, 0f, gr,
+                intArrayOf(white(0.26f), white(0.08f), Color.TRANSPARENT), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
+            )
+            glareShader.setLocalMatrix(matrix)
+            glare.shader = glareShader
+            val iw = 1.0f * density
+            innerRim.strokeWidth = iw
+            val inset = rw + 2.2f * density
+            innerRect.set(b.left + inset, top + inset, b.right - inset, bottom - inset)
+            innerRadius = max(0f, radius - inset)
+            innerRim.shader = LinearGradient(
+                0f, top, 0f, bottom,
+                intArrayOf(white(0.55f), wc(0.10f), white(0.28f)), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
+            )
+        }
     }
 
     override fun draw(canvas: Canvas) {
@@ -131,6 +160,10 @@ internal class Bubble3DSheen(
         val layer = if (alphaValue < 255) canvas.saveLayerAlpha(RectF(bounds), alphaValue) else canvas.save()
         canvas.drawPath(body, shade)
         canvas.drawPath(body, caustic)
+        if (crystal) {
+            canvas.drawPath(body, glare)
+            canvas.drawRoundRect(innerRect, innerRadius, innerRadius, innerRim)
+        }
         canvas.drawRoundRect(glossRect, glossRadius, glossRadius, gloss)
         canvas.drawRoundRect(rimRect, rimRadius, rimRadius, rim)
         canvas.drawOval(glintCx - glintRx, glintCy - glintRy, glintCx + glintRx, glintCy + glintRy, glint)

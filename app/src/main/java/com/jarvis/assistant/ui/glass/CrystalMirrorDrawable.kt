@@ -26,6 +26,7 @@ class CrystalMirrorDrawable : Drawable() {
     private var bands: List<Shader> = emptyList()
     private var blooms: List<Shader> = emptyList()
     private var edge: Shader? = null
+    private var lensShader: Shader? = null
 
     // Slow shimmer: each reflection band glides along the diagonal at its own pace and the blooms breathe, like light moving
     // across a polished mirror. It runs at ~30 fps, only while the window is visible, pauses while anything scrolls, and
@@ -134,6 +135,13 @@ class CrystalMirrorDrawable : Drawable() {
                 floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
         )
 
+        // Clear lens: a bright convex centre, then a fine cyan and magenta dispersion ring near the edge, like glass seen
+        // through a lens.
+        lensShader = RadialGradient(l + w / 2f, t + h * 0.46f, big * 0.80f,
+            intArrayOf(Color.argb(0x1E, 0xFF, 0xFF, 0xFF), Color.argb(0x0A, 0xFF, 0xFF, 0xFF), Color.TRANSPARENT,
+                Color.argb(0x26, 0x6F, 0xE3, 0xFF), Color.argb(0x1C, 0xFF, 0x7A, 0xE0), Color.TRANSPARENT),
+            floatArrayOf(0f, 0.34f, 0.70f, 0.90f, 0.96f, 1f), Shader.TileMode.CLAMP)
+
         edge = RadialGradient(l + w / 2f, t + h / 2f, big * 0.78f,
             intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT, Color.argb(0x66, 0x00, 0x08, 0x14)),
             floatArrayOf(0f, 0.62f, 1f), Shader.TileMode.CLAMP)
@@ -148,6 +156,7 @@ class CrystalMirrorDrawable : Drawable() {
         paint.alpha = bloomAlpha
         blooms.forEach { paint.shader = it; canvas.drawRect(b, paint) }
         paint.alpha = keep
+        lensShader?.let { paint.shader = it; canvas.drawRect(b, paint) }
         edge?.let { paint.shader = it; canvas.drawRect(b, paint) }
         paint.shader = null
     }

@@ -15,6 +15,7 @@ uniform float strength;
 uniform float3 chroma;
 uniform float veil;
 uniform float blur;
+uniform float zoom;
 
 half4 sampleBlur(float2 p, float2 lo, float2 hi) {
     float d = blur * 0.7;
@@ -57,9 +58,11 @@ half4 main(float2 coord) {
 
     float2 lo = float2(0.0);
     float2 hi = size - 1.0;
-    half4 cr = sampleBlur(coord + off * chroma.x, lo, hi);
-    half4 cg = sampleBlur(coord + off * chroma.y, lo, hi);
-    half4 cb = sampleBlur(coord + off * chroma.z, lo, hi);
+    // clear-lens zoom: what is behind the glass is magnified about the centre of the pane
+    float2 base = halfSize + p / zoom;
+    half4 cr = sampleBlur(base + off * chroma.x, lo, hi);
+    half4 cg = sampleBlur(base + off * chroma.y, lo, hi);
+    half4 cb = sampleBlur(base + off * chroma.z, lo, hi);
     half3 col = half3(cr.r, cg.g, cb.b);
 
     // saturation lift + frosted veil

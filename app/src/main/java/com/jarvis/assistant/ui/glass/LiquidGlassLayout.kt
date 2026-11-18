@@ -61,6 +61,9 @@ class LiquidGlassLayout @JvmOverloads constructor(
     /** True when Liquid Glass is off in Settings and this layout is not the locked dock: it is then just a plain container. */
     private var plain = false
 
+    /** The locked dock bar never changes with the theme. */
+    private var lockedGlass = false
+
     // capture: three rotating buffers. The render thread may still be reading the previous frame's capture while the next one is
     // being drawn; writing into the same bitmap (erase, then redraw) is what made the glass flash. Each capture goes to its own buffer.
     private val bmps = arrayOfNulls<Bitmap>(BUFFERS)
@@ -103,6 +106,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
         val plainBg = a.getResourceId(R.styleable.LiquidGlassLayout_lgPlainBackground, 0)
         val plainElevation = a.getDimension(R.styleable.LiquidGlassLayout_lgPlainElevation, 0f)
         a.recycle()
+        lockedGlass = locked
         plain = !locked && GlassMode.plain()
 
         setWillNotDraw(false)
@@ -312,7 +316,10 @@ class LiquidGlassLayout @JvmOverloads constructor(
         shader.setFloatUniform("strength", refractionDp * density)
         shader.setFloatUniform("blur", blurDp * density * 0.35f)
         shader.setFloatUniform("chroma", (ds + redOffset) / norm, (ds + greenOffset) / norm, (ds + blueOffset) / norm)
-        shader.setFloatUniform("veil", veil)
+        // Crystal Mirror (never the dock): a clearer pane that magnifies what is behind it like a lens.
+        val crystalHere = !lockedGlass && CrystalTheme.active()
+        shader.setFloatUniform("veil", if (crystalHere) veil * 0.45f else veil)
+        shader.setFloatUniform("zoom", if (crystalHere) CrystalTheme.LENS_ZOOM else 1f)
         return shader
     }
 

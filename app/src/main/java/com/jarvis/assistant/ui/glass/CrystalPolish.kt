@@ -21,7 +21,23 @@ import com.jarvis.assistant.R
 
 /** True while the Crystal Mirror theme is the selected theme. Everything in [CrystalPolish] is gated by it. */
 object CrystalTheme {
-    fun active(): Boolean = try { JarvisApp.instance.preferences.appTheme == "crystal" } catch (_: Throwable) { false }
+    /** The 3D bubbles are this much more intense on Crystal Mirror. */
+    const val BUBBLE_BOOST = 1.5f
+    /** How much the glass magnifies what is behind it (a clear lens). */
+    const val LENS_ZOOM = 1.12f
+
+    @Volatile private var cached = false
+    @Volatile private var checkedAt = 0L
+
+    /** Cached for a moment so hot paths (drawing, scanning) never read preferences every call. */
+    fun active(): Boolean {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - checkedAt > 400L) {
+            cached = try { JarvisApp.instance.preferences.appTheme == "crystal" } catch (_: Throwable) { false }
+            checkedAt = now
+        }
+        return cached
+    }
 }
 
 /**
@@ -81,6 +97,8 @@ internal object CrystalPolish {
     // ---- icons: bright and readable on clear glass ----
     private fun icon(iv: ImageView, d: Float) {
         if (iv.width / d > 64f || iv.height / d > 64f) return          // pictures, avatars and logos stay as they are
+        lens(iv)
+        if (iv.imageTintList == null) return
         val tint = iv.imageTintList ?: return                           // untinted (multi-colour) artwork stays as designed
         if (tint.isStateful) return                                     // selectors keep their own states
         val c = tint.defaultColor
@@ -95,7 +113,19 @@ internal object CrystalPolish {
     }
 
     // ---- elements: clear crystal instead of dark plates ----
+    /**
+     * Clear-lens zoom: every small icon sits slightly magnified, and tapping one zooms it further like a magnifier, then it
+     * settles back. Anything tappable gets the same lens on press (the cards and rows use [LiquidRows.pressLens]).
+     */
+    private fun lens(iv: ImageView) {
+        val rest = 1.10f
+        iv.scaleX = rest
+        iv.scaleY = rest
+        if (iv.isClickable) LiquidRows.pressLens(iv, rest, 1.24f)
+    }
+
     private fun button(b: MaterialButton, d: Float) {
+        LiquidRows.pressLens(b, 1f, 1.05f)
         val tint = b.backgroundTintList
         if (tint != null && !tint.isStateful && Color.alpha(tint.defaultColor) > 0xC0) {
             val base = tint.defaultColor
@@ -111,6 +141,7 @@ internal object CrystalPolish {
     }
 
     private fun chip(c: Chip) {
+        LiquidRows.pressLens(c, 1f, 1.06f)
         val bg = c.chipBackgroundColor
         if (bg != null && !bg.isStateful && Color.alpha(bg.defaultColor) > 0xA0) {
             c.chipBackgroundColor = ColorStateList.valueOf(ColorUtils.setAlphaComponent(bg.defaultColor, 0x66))
@@ -120,6 +151,7 @@ internal object CrystalPolish {
     }
 
     private fun card(c: MaterialCardView) {
+        if (c.isClickable) LiquidRows.pressLens(c, 1f, 1.035f)
         // Never lower than alpha 40: the glass sheen pass treats fainter cards as "designed see-through" and skips them.
         if (Color.alpha(c.cardBackgroundColor.defaultColor) > 0x60) c.setCardBackgroundColor(Color.argb(0x2E, 255, 255, 255))
         c.strokeColor = Color.argb(0x73, 255, 255, 255)

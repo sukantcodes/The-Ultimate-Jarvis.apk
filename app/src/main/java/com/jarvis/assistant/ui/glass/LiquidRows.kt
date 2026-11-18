@@ -48,14 +48,22 @@ object LiquidRows {
         root.postOnAnimation(step)
     }
 
-    @SuppressLint("ClickableViewAccessibility")
+    /** Liquid press: squishes under the finger and springs back. On Crystal Mirror it is a lens zoom instead. */
     fun pressSquish(v: View) {
+        if (CrystalTheme.active()) pressLens(v, 1f, 1.045f) else press(v, 1f, 0.968f)
+    }
+
+    /** Lens press: the view magnifies under the finger and settles back to [rest]. */
+    fun pressLens(v: View, rest: Float, zoomed: Float) = press(v, rest, zoomed)
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun press(v: View, rest: Float, down: Float) {
         if (v.getTag(SQUISH_TAG) != null) return
         v.setTag(SQUISH_TAG, true)
         v.setOnTouchListener { view, e ->
             when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> ViewSprings.pop(view, view.scaleX, 0.968f, 720f, 0.7f)
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> ViewSprings.pop(view, view.scaleX, 1f, 380f, 0.45f)
+                MotionEvent.ACTION_DOWN -> ViewSprings.pop(view, view.scaleX, down, 720f, 0.7f)
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> ViewSprings.pop(view, view.scaleX, rest, 380f, 0.45f)
             }
             false // never consumes: clicks and scrolling are untouched
         }

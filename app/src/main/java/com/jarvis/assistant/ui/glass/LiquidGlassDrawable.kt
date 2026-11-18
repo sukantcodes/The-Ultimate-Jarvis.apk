@@ -101,14 +101,18 @@ class LiquidGlassDrawable(
         val light = cachedLight
         val soften = if (soft) 0.65f else 1f
         val k = (0.55f + 0.45f * cachedStrength) * soften
+        // Crystal Mirror: the pane is clear (a much lighter frosting) and the 3D bubble is more intense.
+        val crystal = CrystalTheme.active()
+        val clear = if (crystal) 0.45f else 1f
+        val boost = if (crystal) CrystalTheme.BUBBLE_BOOST else 1f
         val top = outer.top
         val bottom = outer.bottom
         val w = outer.width()
         val h = outer.height()
 
         // Frosted body: a calm white veil, denser at the top, so text stays readable on every theme.
-        val bodyTop = if (light) 0.42f * k else 0.15f * k
-        val bodyBottom = if (light) 0.20f * k else 0.05f * k
+        val bodyTop = (if (light) 0.42f * k else 0.15f * k) * clear
+        val bodyBottom = (if (light) 0.20f * k else 0.05f * k) * clear
         body.shader = LinearGradient(
             0f, top, 0f, bottom,
             ColorUtils.setAlphaComponent(Color.WHITE, (255 * bodyTop).toInt()),
@@ -154,7 +158,7 @@ class LiquidGlassDrawable(
         hairline.color = ColorUtils.setAlphaComponent(Color.WHITE, if (light) 120 else 30)
 
         // Prism dispersion: a magenta fringe on the edge and a cyan one just inside it.
-        val fringeAlpha = ((if (light) 0.22f else 0.30f) * soften * 255).toInt()
+        val fringeAlpha = (((if (light) 0.22f else 0.30f) * soften * (if (crystal) 1.35f else 1f)) * 255).toInt().coerceIn(0, 255)
         fringeOuter.color = Color.argb(fringeAlpha, 255, 70, 205)
         fringeInner.color = Color.argb((fringeAlpha * 0.55f).toInt(), 40, 215, 255)
 
@@ -165,7 +169,7 @@ class LiquidGlassDrawable(
         fringeInner.strokeWidth = 1.1f * density
 
         // ---- 3D bubble ----
-        val c3 = (if (soft) 0.62f else 1f) * (0.6f + 0.4f * cachedStrength)
+        val c3 = (if (soft) 0.62f else 1f) * (0.6f + 0.4f * cachedStrength) * boost
         val shadeA = ((if (light) 0.13f else 0.26f) * c3 * 255).toInt()
         convex.shader = LinearGradient(
             0f, top, 0f, bottom,
