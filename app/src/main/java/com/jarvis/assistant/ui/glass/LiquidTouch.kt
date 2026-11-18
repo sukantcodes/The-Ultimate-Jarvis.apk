@@ -91,6 +91,7 @@ object LiquidTouch {
         try {
             val decor = window.decorView as? ViewGroup ?: return
             if (window.callback is TouchCallback) return
+            try { CrystalPolish.window(window) } catch (_: Throwable) {}
             val overlay = LiquidRippleOverlay(context)
             decor.addView(overlay, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             window.callback = TouchCallback(window.callback, overlay, context)
@@ -106,6 +107,8 @@ object LiquidTouch {
                     if (bubbleEnabled() && animationsOn(context)) scanForButtons(decor)
                     // thick, readable, 3D text and buttery scrolling on every glass screen
                     try { Text3D.styleTree(decor) } catch (_: Throwable) {}
+                    // Crystal Mirror only: icons, buttons, cards, inputs and panels are tuned for the see-through theme
+                    try { CrystalPolish.polishTree(decor) } catch (_: Throwable) {}
                     // A heavy screen (a long, streaming chat) is scanned less often, in proportion to what a scan costs.
                     val costMs = (System.nanoTime() - started) / 1_000_000L
                     nextDelay = (costMs * 14L).coerceIn(SCAN_DELAY_MS, 2500L)
