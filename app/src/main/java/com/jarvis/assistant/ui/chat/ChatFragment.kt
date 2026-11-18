@@ -421,33 +421,6 @@ class ChatFragment : Fragment() {
         binding.btnVoiceCancel.onSafeClick {
             cancelVoiceRecognition()
         }
-        binding.btnChatTools.onSafeClick {
-            ChatboxTools.show(
-                context = requireContext(),
-                input = binding.etMessageInput,
-                turns = chatAdapter.currentList,
-                onExportFormat = { format, content ->
-                    when (format) {
-                        ChatboxTools.ExportFormat.MARKDOWN -> {
-                            pendingExportMarkdown = content
-                            exportMdLauncher.launch("Jarvis-Conversation.md")
-                        }
-                        ChatboxTools.ExportFormat.PDF -> {
-                            exportPdfLauncher.launch("Jarvis-Conversation.pdf")
-                        }
-                        ChatboxTools.ExportFormat.TXT -> {
-                            pendingExportText = content
-                            exportLauncher.launch("Jarvis-Conversation.txt")
-                        }
-                    }
-                },
-                onExport = { text ->
-                    pendingExportText = text
-                    exportLauncher.launch("Jarvis-Conversation.txt")
-                }
-            )
-        }
-
         observeChatTurns()
         observeProviderEngine()
     }
@@ -526,7 +499,6 @@ class ChatFragment : Fragment() {
         pods.install(binding.btnVoiceInput, heightDp = 40f, circle = true, group = g)
         pods.install(binding.btnSendMessage, heightDp = 44f, circle = true, group = g)
         pods.install(binding.btnStopChat, heightDp = 40f, circle = true, group = g)
-        pods.install(binding.btnChatTools, heightDp = 30f, maxWidthDp = 300f, padDp = 0f, group = g)
         pods.install(binding.btnRemoveAttachment, heightDp = 34f, circle = true, group = g)
         pods.install(binding.btnVoiceStopAndSend, heightDp = 32f, circle = true, group = g)
         pods.install(binding.btnVoiceCancel, heightDp = 32f, circle = true, group = g)
@@ -1058,13 +1030,76 @@ class ChatFragment : Fragment() {
         }
     }
 
+    private var wakePausedForMic = false
+    private var lastPartialText = ""
+    private var voiceBusyRetried = false
+    private var micPulse: android.animation.ObjectAnimator? = null
+
     private fun startVoiceRecognition() {
         if (_binding == null) return
         if (!SpeechRecognizer.isRecognitionAvailable(requireContext())) {
             Toast.makeText(requireContext(), "Speech recognition is not available on this device.", Toast.LENGTH_SHORT).show()
             return
         }
+        lastPartialText = ""
+        voiceBusyRetried = false
+        showVoiceListeningUi()
+        // The background wake-word listener uses the same speech recognizer and only one can listen at a time, so it rests
+        // while you dictate here and comes back when you are done.
+        val app = requireContext().applicationContext
+        if (com.jarvis.assistant.background.JarvisWakeWordService.isRunning()) {
+            wakePausedForMic = true
+            com.jarvis.assistant.background.JarvisWakeWordService.stopService(app)
+            binding.root.postDelayed({ if (_binding != null && isVoiceListening) beginRecognizer() }, 450L)
+        } else {
+            beginRecognizer()
+        }
+    }
 
+    /** The listening bar opens as a liquid glass bubble in the app colours, and the mic pulses while it listens. */
+    private fun showVoiceListeningUi() {
+        isVoiceListening = true
+        val bar = binding.layoutVoiceListening
+        val accent = activityAccent()
+        if (com.jarvis.assistant.ui.glass.GlassMode.enabled()) {
+            com.jarvis.assistant.ui.glass.LiquidGlass.apply(bar, 24f, accent)
+        }
+        binding.tvVoiceTranscript.setTextColor(
+            android.util.TypedValue().also { requireContext().theme.resolveAttribute(R.attr.themeTextPrimary, it, true) }.data
+        )
+        binding.tvVoiceTranscript.text = "Listening… speak now"
+        binding.voiceWaveView.refreshColors()
+        bar.animate().cancel()
+        bar.visibility = View.VISIBLE
+        if (com.jarvis.assistant.ui.glass.GlassMode.enabled()) {
+            val d = resources.displayMetrics.density
+            bar.alpha = 0f; bar.scaleX = 0.92f; bar.scaleY = 0.92f; bar.translationY = 18f * d
+            bar.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setDuration(420L)
+                .setInterpolator(android.view.animation.OvershootInterpolator(0.9f)).start()
+            com.jarvis.assistant.ui.chat.GlassMotion.sweep(bar, 24f, 140L)
+        }
+        binding.voiceWaveView.start()
+        com.jarvis.assistant.ui.glass.DockPods.setGlow(binding.btnVoiceInput, true)
+        if (com.jarvis.assistant.ui.glass.GlassMode.plain()) {
+            binding.btnVoiceInput.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_cc_send)
+            binding.btnVoiceInput.setColorFilter(android.graphics.Color.WHITE)
+        }
+        micPulse?.cancel()
+        micPulse = android.animation.ObjectAnimator.ofPropertyValuesHolder(
+            binding.btnVoiceInput,
+            android.animation.PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.12f),
+            android.animation.PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.12f)
+        ).apply {
+            duration = 650L
+            repeatMode = android.animation.ValueAnimator.REVERSE
+            repeatCount = android.animation.ValueAnimator.INFINITE
+            interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+            start()
+        }
+    }
+
+    private fun beginRecognizer() {
+        if (_binding == null || !isVoiceListening) return
         try {
             speechRecognizer?.destroy()
             val recognizer = SpeechRecognizer.createSpeechRecognizer(requireContext())
@@ -1089,7 +1124,20 @@ class ChatFragment : Fragment() {
 
                 override fun onError(error: Int) {
                     if (_binding == null) return
+                    // Recognizer still busy (the wake-word listener was just stopped): one quiet retry before giving up.
+                    if ((error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_CLIENT) && !voiceBusyRetried && isVoiceListening) {
+                        voiceBusyRetried = true
+                        binding.root.postDelayed({ if (_binding != null && isVoiceListening) beginRecognizer() }, 600L)
+                        return
+                    }
+                    val heard = lastPartialText
                     hideVoiceListening()
+                    if (heard.isNotBlank() && (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT)) {
+                        lastMessageOriginatedFromVoice = true
+                        binding.etMessageInput.setText(heard)
+                        sendMessage()
+                        return
+                    }
                     if (error != SpeechRecognizer.ERROR_NO_MATCH && error != SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
                         val msg = when (error) {
                             SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission required."
@@ -1104,6 +1152,7 @@ class ChatFragment : Fragment() {
                     if (_binding == null) return
                     hideVoiceListening()
                     val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
+                        .ifBlank { lastPartialText }
                     if (text.isNotBlank()) {
                         lastMessageOriginatedFromVoice = true
                         binding.etMessageInput.setText(text)
@@ -1115,6 +1164,7 @@ class ChatFragment : Fragment() {
                     if (_binding == null) return
                     val partial = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim()
                     if (!partial.isNullOrBlank()) {
+                        lastPartialText = partial
                         binding.tvVoiceTranscript.text = partial
                     }
                 }
@@ -1127,20 +1177,13 @@ class ChatFragment : Fragment() {
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
                 putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, requireContext().packageName)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, java.util.Locale.getDefault().toLanguageTag())
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1800L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
             }
 
             recognizer.startListening(intent)
             speechRecognizer = recognizer
-            isVoiceListening = true
-            binding.layoutVoiceListening.visibility = View.VISIBLE
-            binding.voiceWaveView.start()
-            binding.tvVoiceTranscript.text = "Listening… speak now"
-            // Listening: the voice pod lights up in the theme colour.
-            com.jarvis.assistant.ui.glass.DockPods.setGlow(binding.btnVoiceInput, true)
-            if (com.jarvis.assistant.ui.glass.GlassMode.plain()) {
-                binding.btnVoiceInput.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_cc_send)
-                binding.btnVoiceInput.setColorFilter(android.graphics.Color.WHITE)
-            }
         } catch (e: Exception) {
             hideVoiceListening()
             Toast.makeText(requireContext(), "Could not start voice: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -1162,10 +1205,36 @@ class ChatFragment : Fragment() {
         hideVoiceListening()
     }
 
+    private fun resumeWakeWordIfPaused() {
+        if (!wakePausedForMic) return
+        wakePausedForMic = false
+        val app = context?.applicationContext ?: return
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            try { com.jarvis.assistant.background.JarvisConversationService.startWakeWordMonitoring(app) } catch (_: Throwable) {}
+        }, 900L)
+    }
+
     private fun hideVoiceListening() {
         isVoiceListening = false
+        micPulse?.cancel(); micPulse = null
+        resumeWakeWordIfPaused()
         if (_binding != null) {
-            binding.layoutVoiceListening.visibility = View.GONE
+            binding.btnVoiceInput.scaleX = 1f
+            binding.btnVoiceInput.scaleY = 1f
+            val bar = binding.layoutVoiceListening
+            if (bar.visibility == View.VISIBLE && com.jarvis.assistant.ui.glass.GlassMode.enabled()) {
+                val d = resources.displayMetrics.density
+                bar.animate().cancel()
+                bar.animate().alpha(0f).scaleX(0.94f).scaleY(0.94f).translationY(10f * d).setDuration(220L)
+                    .withEndAction {
+                        if (_binding != null && !isVoiceListening) {
+                            bar.visibility = View.GONE
+                            bar.alpha = 1f; bar.scaleX = 1f; bar.scaleY = 1f; bar.translationY = 0f
+                        }
+                    }.start()
+            } else {
+                bar.visibility = View.GONE
+            }
             binding.voiceWaveView.stop()
             com.jarvis.assistant.ui.glass.DockPods.setGlow(binding.btnVoiceInput, false)
             if (com.jarvis.assistant.ui.glass.GlassMode.plain()) {
@@ -1206,6 +1275,8 @@ class ChatFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        micPulse?.cancel(); micPulse = null
+        resumeWakeWordIfPaused()
         try {
             speechRecognizer?.destroy()
         } catch (_: Exception) {}

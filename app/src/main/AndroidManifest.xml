@@ -68,6 +68,16 @@
         android:name="android.hardware.camera.flash"
         android:required="false" />
 
+    <!-- Android 11+ hides other apps unless declared: the speech recognizer must be visible for the ChatBox mic. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
+
     <application
         android:name=".JarvisApp"
         android:allowBackup="false"
