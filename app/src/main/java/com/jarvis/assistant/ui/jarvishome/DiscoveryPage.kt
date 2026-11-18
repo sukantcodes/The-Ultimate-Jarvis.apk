@@ -146,7 +146,7 @@ object DiscoveryPage {
     private fun manual(host: HomeHost, c: LinearLayout) {
         val ui = host.ui
         c.addView(ui.glassCard().apply {
-            addView(ui.text("Add a Wi-Fi device by address", 16f, bold = true))
+            addView(ui.gradientText("ADD BY ADDRESS", 14f))
             addView(ui.text("Type the device's IP address. JARVIS asks it what it is and supports Tasmota and Shelly (Gen1) automatically.", 13f, ui.muted).apply { setPadding(0, ui.dp(4), 0, ui.dp(8)) })
             addView(LinearLayout(host.activity).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -292,5 +292,5 @@ object DiscoveryPage {
 
 /** Small shared view helpers for the page files. */
 internal object PagesCommon {
-    fun section(host: HomeHost, title: String) = host.ui.text(title, 17f, bold = true).apply { setPadding(host.ui.dp(4), host.ui.dp(8), 0, host.ui.dp(8)) }
+    fun section(host: HomeHost, title: String) = host.ui.gradientText(title.uppercase(), 14f).apply { setPadding(host.ui.dp(4), host.ui.dp(10), 0, host.ui.dp(8)) }
 }

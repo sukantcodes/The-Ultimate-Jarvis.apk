@@ -36,14 +36,14 @@ object MiscPages {
     fun voice(host: HomeHost, c: LinearLayout) {
         val ui = host.ui
         c.addView(ui.glassCard().apply {
-            addView(ui.text("Talk to JARVIS", 17f, bold = true))
+            addView(ui.gradientText("TALK TO JARVIS", 14f))
             addView(ui.text("Smart-home voice control uses the JARVIS assistant you already have, from any screen. Say things like:", 13f, ui.muted).apply { setPadding(0, ui.dp(4), 0, ui.dp(6)) })
             listOf("“Jarvis, turn on my bedroom lights”", "“Jarvis, living room ka fan band karo”", "“Jarvis, activate movie mode”", "“Jarvis, show all offline devices”", "“Jarvis, what devices are connected?”")
                 .forEach { addView(ui.text(it, 13f)) }
             addView(ui.text("Names resolve from your device names, aliases, rooms, groups and scenes (English, Hindi, Hinglish). JARVIS only says a device changed when the device itself confirmed it. Needs the AI voice assistant to be set up with a Gemini key.", 12f, ui.muted).apply { setPadding(0, ui.dp(8), 0, 0) })
         })
         c.addView(ui.glassCard().apply {
-            addView(ui.text("Try a command", 16f, bold = true))
+            addView(ui.gradientText("TRY A COMMAND", 14f))
             val input = EditText(host.activity).apply { setText(voiceInput); hint = "turn on bedroom lights"; setSingleLine(true); setTextColor(ui.primary); setHintTextColor(ui.muted) }
             addView(input, LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(LinearLayout(host.activity).apply {
@@ -83,7 +83,7 @@ object MiscPages {
         val ui = host.ui
         val devices = host.registry.devices()
         c.addView(ui.glassCard().apply {
-            addView(ui.text("Last seen", 16f, bold = true))
+            addView(ui.gradientText("LAST SEEN", 14f))
             if (devices.isEmpty()) addView(ui.text("No devices registered.", 13f, ui.muted))
             devices.forEach { d ->
                 addView(ui.text("${d.name} · ${d.connection.label} · " + (if (d.lastSeenMillis > 0) DateUtils.getRelativeTimeSpanString(d.lastSeenMillis).toString() else "never reached"), 12f, ui.statusColor(d.status)).apply { setPadding(0, ui.dp(4), 0, 0) })
@@ -114,7 +114,7 @@ object MiscPages {
         val devices = host.registry.devices()
 
         fun group(title: String, build: LinearLayout.() -> Unit) {
-            c.addView(ui.glassCard().apply { addView(ui.text(title, 16f, bold = true).apply { setPadding(0, 0, 0, ui.dp(4)) }); build() })
+            c.addView(ui.glassCard().apply { addView(ui.gradientText(title.uppercase(), 13f).apply { setPadding(0, 0, 0, ui.dp(6)) }); build() })
         }
 
         group("1 · Device Discovery") {

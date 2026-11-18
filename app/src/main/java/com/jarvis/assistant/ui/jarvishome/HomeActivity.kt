@@ -66,6 +66,7 @@ class HomeActivity : AppCompatActivity(), HomeHost {
     private lateinit var tabs: LinearLayout
     private lateinit var content: LinearLayout
     private var page: HomePage = HomePage.OVERVIEW
+    private var enterDirection = 0   // 0 = no page-enter animation (data refresh), -1/1 = slide from left/right
     private var pendingPermissionResult: ((Boolean) -> Unit)? = null
 
     private val changeListener: () -> Unit = { if (::content.isInitialized) content.post { if (!isFinishing && !isDestroyed) renderContent() } }
@@ -88,6 +89,7 @@ class HomeActivity : AppCompatActivity(), HomeHost {
         setContentView(scroll)
         LiquidGlass.installBackdrop(scroll, withBase = true)
         buildChrome()
+        enterDirection = 1
         renderContent()
     }
 
@@ -123,10 +125,11 @@ class HomeActivity : AppCompatActivity(), HomeHost {
         header.addView(LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            addView(ui.text("JARVIS Home", 25f, bold = true))
-            addView(ui.text("Your connected world", 12f, ui.muted))
+            addView(ui.gradientText("JARVIS HOME", 22f, HomeTheme.forPage(HomePage.OVERVIEW)))
+            addView(ui.text("Your connected world", 13f, ui.muted, bold = true))
         })
         header.addView(ui.button("＋ Add", filled = true) { navigate(HomePage.DISCOVERY) })
+        com.jarvis.assistant.ui.jarvishome.Motion.enter(header, 0)
         root.addView(header)
         root.addView(ui.space(12))
 
@@ -137,14 +140,18 @@ class HomeActivity : AppCompatActivity(), HomeHost {
         root.addView(content)
     }
 
-    private fun renderTabs() {
+    private fun renderTabs(popSelected: Boolean) {
         tabs.removeAllViews()
-        HomePage.values().forEach { p -> tabs.addView(ui.chip(p.title, p == page) { navigate(p) }) }
+        HomePage.values().forEach { p -> tabs.addView(ui.chip(p.title, p == page, HomeTheme.forPage(p)) { navigate(p) }) }
+        if (popSelected) tabs.getChildAt(page.ordinal)?.let { Motion.pop(it) }
         tabs.post { (tabs.parent as? HorizontalScrollView)?.let { sv -> tabs.getChildAt(page.ordinal)?.let { sv.smoothScrollTo((it.left - ui.dp(24)).coerceAtLeast(0), 0) } } }
     }
 
     private fun renderContent() {
-        renderTabs()
+        ui.hue = HomeTheme.forPage(page)
+        val direction = enterDirection
+        enterDirection = 0
+        renderTabs(direction != 0)
         content.removeAllViews()
         when (page) {
             HomePage.OVERVIEW -> DevicePages.overview(this, content)
@@ -160,13 +167,17 @@ class HomeActivity : AppCompatActivity(), HomeHost {
             HomePage.ACTIVITY -> MiscPages.activity(this, content)
             HomePage.SETTINGS -> MiscPages.settings(this, content)
         }
+        if (direction != 0) Motion.enter(content, direction)
     }
 
     // ---- HomeHost ----------------------------------------------------------------------------------
 
     override fun navigate(page: HomePage) {
-        if (this.page != page) DiscoveryPage.stopScans(this)
-        this.page = page
+        if (this.page != page) {
+            DiscoveryPage.stopScans(this)
+            enterDirection = if (page.ordinal >= this.page.ordinal) 1 else -1
+            this.page = page
+        }
         renderContent()
     }
 

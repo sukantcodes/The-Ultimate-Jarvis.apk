@@ -54,16 +54,13 @@ object AutomationPages {
         header.addView(LinearLayout(host.activity).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            addView(ui.text(a.name, 17f, bold = true))
+            addView(ui.text(a.name, 18f, bold = true))
             addView(ui.text(describeTrigger(a) + " · ${a.steps.size} step(s)", 12f, ui.muted))
         })
         if (!a.isScene) {
-            val sw = androidx.appcompat.widget.SwitchCompat(host.activity).apply {
-                isChecked = a.enabled; contentDescription = "${a.name} enabled"
-                setOnCheckedChangeListener { _, v -> host.automationStore.save(a.copy(enabled = v)); (host.activity as? HomeActivity)?.reschedule() }
-            }
-            com.jarvis.assistant.ui.glass.LiquidGlass.styleSwitches(LinearLayout(host.activity).also { it.addView(sw) })
-            header.addView(sw)
+            header.addView(ui.bubbleSwitch(a.enabled) { v ->
+                host.automationStore.save(a.copy(enabled = v)); (host.activity as? HomeActivity)?.reschedule()
+            }.apply { contentDescription = "${a.name} enabled" })
         }
         card.addView(header)
         if (!a.isConfigured) card.addView(ui.text("Not configured: choose devices and actions before this can run.", 12f, ui.warning).apply { setPadding(0, ui.dp(6), 0, 0) })

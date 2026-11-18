@@ -43,12 +43,15 @@ object DevicePages {
         nextScheduleBanner(host)?.let { c.addView(it) }
 
         val stats = LinearLayout(host.activity).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf("Devices" to devices.size, "Online" to online, "Offline" to offline).forEach { (label, n) ->
-            stats.addView(ui.glassCard(18f, padding = 12).apply {
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = ui.dp(8) }
+        listOf(Triple("Devices", devices.size, HomeTheme.CYAN to "⌂"), Triple("Online", online, HomeTheme.MINT to "✓"), Triple("Offline", offline, HomeTheme.CORAL to "!")).forEach { (label, n, style) ->
+            val h = style.first
+            stats.addView(ui.glassCard(24f, ColorUtils.setAlphaComponent(h.a, 46), padding = 12).apply {
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = ui.dp(10) }
                 gravity = Gravity.CENTER_HORIZONTAL
-                addView(ui.text(n.toString(), 26f, bold = true))
-                addView(ui.text(label, 12f, ui.muted))
+                addView(ui.orb(style.second, h, 40, n > 0))
+                addView(ui.display("0", 26f, h.a).apply { setPadding(0, ui.dp(6), 0, 0); Motion.countUp(this, n) })
+                addView(ui.text(label, 12.5f, ui.muted, bold = true))
+                Motion.pressable(this, 6f)
             })
         }
         c.addView(stats)
@@ -57,7 +60,7 @@ object DevicePages {
         val bt = devices.filter { it.connection.isBluetooth }
         val wifi = devices.filter { it.connection.isWifi }
         c.addView(ui.glassCard().apply {
-            addView(ui.text("Connections", 16f, bold = true))
+            addView(ui.gradientText("CONNECTIONS", 13f))
             addView(ui.text("Bluetooth: ${bt.size} registered, ${bt.count { it.status == DeviceStatus.ONLINE }} connected", 13f, ui.muted).apply { setPadding(0, ui.dp(6), 0, 0) })
             addView(ui.text("Wi-Fi / LAN / Hub: ${wifi.size} registered, ${wifi.count { it.status == DeviceStatus.ONLINE }} reachable", 13f, ui.muted))
             addView(LinearLayout(host.activity).apply {
@@ -284,9 +287,9 @@ object DevicePages {
         val ui = host.ui
         return LinearLayout(host.activity).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(ui.dp(4), ui.dp(8), ui.dp(4), ui.dp(8))
-            addView(ui.text(title, 17f, bold = true).apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
-            if (action != null) addView(ui.text(action, 13f, ui.accent).apply { minimumHeight = ui.dp(44); gravity = Gravity.CENTER_VERTICAL; isClickable = true; setOnClickListener { onAction() } })
+            setPadding(ui.dp(4), ui.dp(10), ui.dp(4), ui.dp(8))
+            addView(ui.gradientText(title.uppercase(), 14f).apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
+            if (action != null) addView(ui.text(action, 14f, ui.accent, bold = true).apply { minimumHeight = ui.dp(44); gravity = Gravity.CENTER_VERTICAL; isClickable = true; setOnClickListener { onAction() } })
         }
     }
 
@@ -306,40 +309,49 @@ object DevicePages {
 
     private fun deviceCard(host: HomeHost, d: HomeDevice): LinearLayout {
         val ui = host.ui
+        val hue = HomeTheme.forCategory(d.category)
         val on = d.status == DeviceStatus.ONLINE && d.poweredOn == true
-        val card = LinearLayout(host.activity).apply { orientation = LinearLayout.VERTICAL; setPadding(ui.dp(14), ui.dp(14), ui.dp(14), ui.dp(14)); minimumHeight = ui.dp(120) }
-        com.jarvis.assistant.ui.glass.LiquidGlass.apply(card, 22f, if (on) ColorUtils.setAlphaComponent(ui.accent, 120) else 0)
+        val card = LinearLayout(host.activity).apply { orientation = LinearLayout.VERTICAL; setPadding(ui.dp(14), ui.dp(14), ui.dp(14), ui.dp(14)); minimumHeight = ui.dp(140) }
+        com.jarvis.assistant.ui.glass.LiquidGlass.apply(card, 26f, if (on) ColorUtils.setAlphaComponent(hue.a, 96) else ColorUtils.setAlphaComponent(hue.a, 18))
+        ui.finish3d(card, 26f, if (on) 11f else 5f)
         card.isClickable = true; card.isFocusable = true
         card.contentDescription = "${d.name}, ${ui.statusLabel(d)}"
+        Motion.pressable(card)
         card.setOnClickListener { showControls(host, d.id) }
 
         val top = LinearLayout(host.activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        top.addView(ui.text(d.category.label, 11f, ui.muted).apply { layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) })
+        top.addView(ui.orb(HomeTheme.glyph(d.category), hue, 44, on))
+        top.addView(View(host.activity), LinearLayout.LayoutParams(0, 1, 1f))
         if (d.supports(Capability.POWER)) {
-            top.addView(TextView(host.activity).apply {
-                text = "⏻"; gravity = Gravity.CENTER
-                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 20f)
-                setTextColor(if (on) ui.primary else ui.muted)
-                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(if (on) ColorUtils.setAlphaComponent(ui.accent, 200) else ui.chipBg) }
-                layoutParams = LinearLayout.LayoutParams(ui.dp(44), ui.dp(44))
-                contentDescription = "Toggle ${d.name}"
-                isClickable = true; isFocusable = true
-                setOnClickListener {
-                    alpha = 0.5f
-                    val type = if (d.poweredOn == true) DeviceActionType.POWER_OFF else DeviceActionType.POWER_ON
-                    host.background({ host.controller.run(d.id, DeviceAction(type)) }) { r -> alpha = 1f; if (r is CommandResult.Failure || !(r as CommandResult.Success).verified) host.toast(r.message) }
+            val power = ui.orb("⏻", hue, 44, on)
+            power.contentDescription = "Toggle ${d.name}"
+            power.isClickable = true; power.isFocusable = true
+            Motion.pressable(power, 10f)
+            var inFlight = false
+            power.setOnClickListener {
+                if (inFlight) return@setOnClickListener
+                inFlight = true
+                power.setBusy(true)
+                val type = if (d.poweredOn == true) DeviceActionType.POWER_OFF else DeviceActionType.POWER_ON
+                host.background({ host.controller.run(d.id, DeviceAction(type)) }) { r ->
+                    inFlight = false
+                    power.setBusy(false)
+                    val confirmed = r as? CommandResult.Success
+                    if (confirmed?.verified == true) power.setLit(confirmed.poweredOn == true)
+                    else host.toast(r.message)
                 }
-            })
+            }
+            top.addView(power)
         }
         card.addView(top)
-        card.addView(ui.space(14))
-        card.addView(ui.text(d.name, 15f, bold = true, maxLines = 2))
+        card.addView(ui.space(12))
+        card.addView(ui.text(d.name, 17f, bold = true, maxLines = 2))
         val roomName = host.registry.room(d.roomId)?.name ?: "No room"
-        card.addView(ui.text("$roomName · ${d.connection.label}", 12f, ui.muted, maxLines = 1))
+        card.addView(ui.text("$roomName · ${d.connection.label}", 12.5f, ui.muted, maxLines = 1))
         card.addView(LinearLayout(host.activity).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, ui.dp(6), 0, 0)
-            addView(ui.dot(ui.statusColor(d.status)))
-            addView(ui.text(ui.statusLabel(d), 12f, ui.statusColor(d.status)))
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, ui.dp(8), 0, 0)
+            addView(ui.dot(ui.statusColor(d.status), live = d.status == DeviceStatus.ONLINE))
+            addView(ui.text(ui.statusLabel(d), 13f, ui.statusColor(d.status), bold = true))
         })
         return card
     }
