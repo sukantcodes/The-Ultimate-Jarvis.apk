@@ -131,7 +131,8 @@ object UdnVoiceRouter {
         capability: String, params: JSONObject, confirmed: Boolean
     ): String {
         if (capability == "disconnect") {
-            return devices.joinToString(" ") { d ->
+            val parts = ArrayList<String>()
+            for (d in devices) parts += (
                 when (val r = mgr.revokeDevice(d.id)) {
                     is UdnResult.Ok -> when (lang) {
                         UdnLang.EN -> "${d.name} has been removed from your network."
@@ -139,8 +140,8 @@ object UdnVoiceRouter {
                         UdnLang.HINGLISH -> "${d.name} ko aapke network se hata diya gaya."
                     }
                     is UdnResult.Err -> UdnReplyComposer.failure(lang, d, r.code, r.message)
-                }
-            }
+                })
+            return parts.joinToString(" ")
         }
         return coroutineScope {
             devices.map { d -> async { runOne(mgr, lang, d, capability, params, confirmed) } }.awaitAll().joinToString(" ")
