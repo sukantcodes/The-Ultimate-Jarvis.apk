@@ -32,6 +32,14 @@ sealed class PackagePlan {
  * the shell unquoted.
  */
 object PackageCommand {
+    /** Shared start of every script: no prompts, colours on, and small helpers for headings and failures. */
+    private val PRELUDE = """
+        export DEBIAN_FRONTEND=noninteractive TERM=xterm-256color CLICOLOR_FORCE=1 FORCE_COLOR=1 NPM_CONFIG_COLOR=always
+        step() { printf '\n\033[1;36m==> %s\033[0m\n' "${'$'}1"; }
+        fail() { printf '\n\033[1;31m✖ %s\033[0m\n' "${'$'}1"; exit 1; }
+        pk() { pkg install -y -o Dpkg::Options::=--force-confnew "${'$'}@"; }
+    """.trimIndent() + "\n"
+
     private val SAFE_NAME = Regex("""^[A-Za-z0-9@][A-Za-z0-9@/._+-]{0,99}$""")
     private val ENTRY = setOf("jpkg", "pkg", "apt", "apt-get", "install", "jinstall")
 
@@ -214,7 +222,7 @@ object PackageCommand {
         return when (verb) {
             "install", "i", "add" -> install(args)
             "remove", "uninstall", "rm", "purge", "autoremove" -> remove(args)
-            "update", "upgrade", "full-upgrade", "up" -> PackagePlan.Run("pkg update -y && pkg upgrade -y", "Updating every installed package")
+            "update", "upgrade", "full-upgrade", "up" -> PackagePlan.Run(PRELUDE + "step 'Updating package lists'\npkg update -y -o Dpkg::Options::=--force-confnew\nstep 'Upgrading packages'\npkg upgrade -y -o Dpkg::Options::=--force-confnew || fail 'Upgrade failed.'\n", "Updating every installed package")
             "list", "list-installed", "installed" -> PackagePlan.Run("pkg list-installed 2>/dev/null | head -n 200", "Installed packages")
             "search", "find" -> search(args)
             "info", "show" -> info(args)
@@ -254,11 +262,28 @@ object PackageCommand {
             if (known != null) add(known) else { pkgs += n.lowercase(); titles += n }
         }
         val script = buildString {
-            append("export DEBIAN_FRONTEND=noninteractive\n")
-            if (pkgs.isNotEmpty()) append("pkg install -y ").append(pkgs.joinToString(" ") { ShellQuote.quote(it) }).append(" || exit \$?\n")
-            if (npm.isNotEmpty()) append("npm install -g ").append(npm.joinToString(" ") { ShellQuote.quote(it) }).append(" || exit \$?\n")
-            if (pip.isNotEmpty()) append("pip install --upgrade ").append(pip.joinToString(" ") { ShellQuote.quote(it) }).append(" || exit \$?\n")
-            append("echo\necho \"Done. Installed: ${titles.distinct().joinToString(", ").replace("\"", "")}\"\n")
+            append(PRELUDE)
+            if (pkgs.isNotEmpty()) {
+                val q = pkgs.joinToString(" ") { ShellQuote.quote(it) }
+                append("step 'Updating package lists'\n")
+                append("pkg update -y -o Dpkg::Options::=--force-confnew || echo '(update reported warnings, continuing)'\n")
+                append("step 'Installing programs: ").append(pkgs.joinToString(" ")).append("'\n")
+                append("pk ").append(q).append(" || { echo; echo 'Retrying with fresh package lists...'; apt-get update -y; pk ").append(q)
+                append(" || { fail \"Could not install: ").append(pkgs.joinToString(" ")).append(" (check the name with: pkg search <name>)\"; }; }\n")
+            }
+            if (npm.isNotEmpty()) {
+                val q = npm.joinToString(" ") { ShellQuote.quote(it) }
+                append("step 'Installing npm tools: ").append(npm.joinToString(" ")).append("'\n")
+                append("npm install -g --no-fund --no-audit ").append(q).append(" || { echo; echo 'Retrying...'; npm install -g --no-fund --no-audit --force ").append(q)
+                append(" || fail 'npm could not install that tool on this phone.'; }\n")
+            }
+            if (pip.isNotEmpty()) {
+                val q = pip.joinToString(" ") { ShellQuote.quote(it) }
+                append("step 'Installing Python tools: ").append(pip.joinToString(" ")).append("'\n")
+                append("pip install --upgrade --no-input ").append(q).append(" || { echo; echo 'Retrying...'; pip install --no-input --no-cache-dir ").append(q)
+                append(" || fail 'pip could not install that tool on this phone.'; }\n")
+            }
+            append("printf '\\n\\033[1;32m✔ Done. Installed: ${titles.distinct().joinToString(", ").replace("'", "")}\\033[0m\\n'\n")
         }
         val summary = "Installing ${titles.distinct().joinToString(", ")}" + if (notes.isEmpty()) "" else "\n" + notes.joinToString("\n") { "ℹ $it" }
         return PackagePlan.Run(script, summary)

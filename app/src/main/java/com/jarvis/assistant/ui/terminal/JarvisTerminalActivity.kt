@@ -19,6 +19,7 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
+import androidx.core.graphics.ColorUtils
 import android.text.style.StyleSpan
 import android.util.TypedValue
 import android.view.Gravity
@@ -130,6 +131,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
         scheme = SCHEMES.getOrElse(prefs.getInt("scheme", 0)) { SCHEMES[0] }
         keepScreenOn = prefs.getBoolean("keep_on", false)
         setContentView(buildUi())
+        installSelectionActions()
         applyScheme()
         applyFont()
         applyKeepScreenOn()
@@ -333,7 +335,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
             }
             is PackagePlan.Run -> {
                 if (!SwitchingBackend.useTermux(this)) { session.note(PackageCommand.termuxRequiredText(installed) + "\n"); return }
-                session.note(plan.summary + "\n(Output appears when it finishes. Large installs can take several minutes.)\n")
+                session.note(plan.summary + "\n(Live output below, like Termux. Large installs can take several minutes.)\n")
                 runScope.launch {
                     val r = try { session.run(plan.script, INSTALL_TIMEOUT_MS) } catch (e: Exception) { session.note("⚠ ${e.message ?: e.javaClass.simpleName}\n"); return@launch }
                     session.note(when {
@@ -515,31 +517,108 @@ class JarvisTerminalActivity : AppCompatActivity() {
         if (atBottom) scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
     }
 
-    /** Colours prompt echoes, errors, successes and status lines; everything else stays the plain terminal colour. */
+    /**
+     * Draws the output with real terminal colours: ANSI colour codes from the tools themselves (apt, npm, git, pip...) are
+     * honoured, progress lines that rewrite themselves with carriage returns show only their latest state, and plain
+     * lines get helpful colours (headings, errors, warnings, successes).
+     */
     private fun render(text: String): CharSequence {
         if (text.isEmpty()) return text
-        val sb = SpannableStringBuilder(text)
-        var i = 0
-        while (i < text.length) {
-            var e = text.indexOf('\n', i)
+        val sb = SpannableStringBuilder()
+        val warn = 0xFFFFB86C.toInt()
+        var fg = 0
+        var bold = false
+        var pos = 0
+        while (pos <= text.length) {
+            var e = text.indexOf('\n', pos)
+            val hasNl = e >= 0
             if (e < 0) e = text.length
-            if (e > i) {
-                when (text[i]) {
-                    '⚠', '✖', '⛔' -> sb.setSpan(ForegroundColorSpan(scheme.error), i, e, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    '✔' -> sb.setSpan(ForegroundColorSpan(scheme.ok), i, e, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    '[', 'ℹ', '^' -> sb.setSpan(ForegroundColorSpan(scheme.dim), i, e, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    else -> {
-                        val idx = text.indexOf(" $ ", i)
-                        if (idx in i until minOf(e, i + 90) && text.substring(i, idx).none { it == ' ' }) {
-                            sb.setSpan(ForegroundColorSpan(scheme.prompt), i, idx + 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                            sb.setSpan(StyleSpan(Typeface.BOLD), i, idx + 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            var raw = text.substring(pos, e)
+            if (raw.contains('\r')) raw = raw.trimEnd('\r').substringAfterLast('\r')
+            val lineStart = sb.length
+            // ANSI colour codes
+            var hadAnsi = false
+            var i = 0
+            var segStart = sb.length
+            var segFg = fg
+            var segBold = bold
+            fun closeSeg() {
+                val end = sb.length
+                if (end > segStart) {
+                    if (segFg != 0) sb.setSpan(ForegroundColorSpan(segFg), segStart, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    if (segBold) sb.setSpan(StyleSpan(Typeface.BOLD), segStart, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                segStart = end
+            }
+            while (i < raw.length) {
+                val c = raw[i]
+                if (c == '\u001B' && i + 1 < raw.length && raw[i + 1] == '[') {
+                    val m = raw.indexOf('m', i + 2)
+                    if (m > 0 && m - i < 24) {
+                        hadAnsi = true
+                        closeSeg()
+                        for (code in raw.substring(i + 2, m).split(';').map { it.toIntOrNull() ?: 0 }.let { if (it.isEmpty()) listOf(0) else it }) {
+                            when (code) {
+                                0 -> { fg = 0; bold = false }
+                                1 -> bold = true
+                                22 -> bold = false
+                                39 -> fg = 0
+                                in 30..37 -> fg = ansi(code - 30, false)
+                                in 90..97 -> fg = ansi(code - 90, true)
+                            }
                         }
+                        segFg = fg; segBold = bold
+                        i = m + 1
+                        continue
+                    }
+                }
+                sb.append(c)
+                i++
+            }
+            closeSeg()
+            val end = sb.length
+            // plain lines get helpful colours
+            if (!hadAnsi && end > lineStart) {
+                val line = sb.substring(lineStart, end)
+                val lower = line.lowercase()
+                val color = when {
+                    line[0] == '⚠' || line[0] == '✖' || line[0] == '⛔' -> scheme.error
+                    line[0] == '✔' -> scheme.ok
+                    line[0] == '[' || line[0] == 'ℹ' || line[0] == '^' -> scheme.dim
+                    line.startsWith("==>") -> scheme.prompt
+                    line.startsWith("E:") || lower.contains("npm err") || lower.contains("error:") || lower.contains("fatal:") || lower.contains("traceback") -> scheme.error
+                    line.startsWith("W:") || lower.startsWith("warning") || lower.contains("npm warn") || lower.contains("deprecat") -> warn
+                    line.startsWith("Get:") || line.startsWith("Hit:") || line.startsWith("Ign:") || line.startsWith("Fetched") || line.startsWith("Reading ") || line.startsWith("Building dependency") -> scheme.dim
+                    line.startsWith("Unpacking") || line.startsWith("Setting up") || line.startsWith("Preparing to") || lower.startsWith("added ") || lower.contains("successfully installed") -> scheme.ok
+                    else -> 0
+                }
+                if (color != 0) {
+                    sb.setSpan(ForegroundColorSpan(color), lineStart, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    if (line.startsWith("==>")) sb.setSpan(StyleSpan(Typeface.BOLD), lineStart, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                } else {
+                    val idx = line.indexOf(" $ ")
+                    if (idx in 0 until minOf(line.length, 90) && line.substring(0, idx).none { it == ' ' }) {
+                        sb.setSpan(ForegroundColorSpan(scheme.prompt), lineStart, lineStart + idx + 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        sb.setSpan(StyleSpan(Typeface.BOLD), lineStart, lineStart + idx + 2, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     }
                 }
             }
-            i = e + 1
+            if (!hasNl) break
+            sb.append('\n')
+            pos = e + 1
         }
         return sb
+    }
+
+    /** The 16 terminal colours, tuned to read on dark backgrounds (and darkened on the light style). */
+    private fun ansi(n: Int, bright: Boolean): Int {
+        val dark = intArrayOf(0xFF3B4252.toInt(), 0xFFFF5C5C.toInt(), 0xFF50FA7B.toInt(), 0xFFF1FA8C.toInt(), 0xFF6CA6FF.toInt(), 0xFFFF79C6.toInt(), 0xFF8BE9FD.toInt(), 0xFFE5E9F0.toInt())
+        val light = intArrayOf(0xFF6C7A89.toInt(), 0xFFFF8585.toInt(), 0xFF7CFF9B.toInt(), 0xFFFFFFA5.toInt(), 0xFF9CC2FF.toInt(), 0xFFFF9AD5.toInt(), 0xFFA4F2FF.toInt(), 0xFFFFFFFF.toInt())
+        if (scheme.light) {
+            val lt = intArrayOf(0xFF333333.toInt(), 0xFFC62828.toInt(), 0xFF2E7D32.toInt(), 0xFF9A6700.toInt(), 0xFF1565C0.toInt(), 0xFF8E24AA.toInt(), 0xFF00838F.toInt(), 0xFF555555.toInt())
+            return lt[n.coerceIn(0, 7)]
+        }
+        return (if (bright) light else dark)[n.coerceIn(0, 7)]
     }
 
     private fun updatePrompt() {
@@ -595,8 +674,42 @@ class JarvisTerminalActivity : AppCompatActivity() {
 
     private fun setSelecting(on: Boolean) {
         selecting = on
-        outputView.setTextIsSelectable(on)
+        outputView.setTextIsSelectable(true)
         if (on) Toast.makeText(this, "Long-press the text to select it.", Toast.LENGTH_SHORT).show()
+    }
+
+    /** Copies the selected text, or all the output when nothing is selected. */
+    private fun copySelectionOrAll() {
+        val a = outputView.selectionStart
+        val b = outputView.selectionEnd
+        if (outputView.hasSelection() && a >= 0 && b > a) {
+            val t = outputView.text.subSequence(minOf(a, b), maxOf(a, b)).toString()
+            (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Jarvis Terminal", t))
+            Toast.makeText(this, "Copied.", Toast.LENGTH_SHORT).show()
+        } else copyOutput()
+    }
+
+    private fun installSelectionActions() {
+        outputView.setTextIsSelectable(true)
+        outputView.customSelectionActionModeCallback = object : android.view.ActionMode.Callback {
+            override fun onCreateActionMode(mode: android.view.ActionMode, menu: android.view.Menu): Boolean {
+                menu.add(0, 7001, 90, "Paste")
+                menu.add(0, 7002, 91, "Use as command")
+                return true
+            }
+            override fun onPrepareActionMode(mode: android.view.ActionMode, menu: android.view.Menu) = false
+            override fun onActionItemClicked(mode: android.view.ActionMode, item: android.view.MenuItem): Boolean = when (item.itemId) {
+                7001 -> { mode.finish(); paste(); true }
+                7002 -> {
+                    val a = outputView.selectionStart; val b = outputView.selectionEnd
+                    val t = if (a >= 0 && b > a) outputView.text.subSequence(minOf(a, b), maxOf(a, b)).toString() else ""
+                    mode.finish()
+                    insertText(t.replace("\r\n", " ").replace('\n', ' ').trim()); showKeyboard(); true
+                }
+                else -> false
+            }
+            override fun onDestroyActionMode(mode: android.view.ActionMode) {}
+        }
     }
 
     private fun showContextMenu() {
@@ -714,7 +827,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
         promptLabel.setTextColor(scheme.prompt)
         input.setTextColor(scheme.fg)
         input.setHintTextColor(scheme.dim)
-        extraKeys.setBackgroundColor(scheme.key)
+        extraKeys.setBackgroundColor(ColorUtils.blendARGB(scheme.bg, scheme.fg, 0.04f))
         for (k in keyViews) styleKey(k, (k === ctrlKey && ctrlOn) || (k === altKey && altOn))
         menuButton.setTextColor(scheme.fg)
         menuButton.background = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(scheme.key); alpha = 200 }
@@ -832,8 +945,16 @@ class JarvisTerminalActivity : AppCompatActivity() {
         row2.addView(key("↓", repeat = true) { recall(1) })
         row2.addView(key("→", repeat = true) { moveCursor(1) })
         row2.addView(key("PGDN", repeat = true) { pageScroll(1) })
+        // A third row for what a phone needs most: copy, paste, clear and the full menu.
+        val row3 = keyRow()
+        row3.addView(key("COPY") { copySelectionOrAll() })
+        row3.addView(key("PASTE") { paste() })
+        row3.addView(key("CLEAR") { current?.let { manager?.clear(it.id); refreshOutput(true) } })
+        row3.addView(key("STOP") { interruptOrToast() })
+        row3.addView(key("MENU") { showContextMenu() })
         extraKeys.addView(row1)
         extraKeys.addView(row2)
+        extraKeys.addView(row3)
         main.addView(extraKeys, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         root.addView(main, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
@@ -933,9 +1054,17 @@ class JarvisTerminalActivity : AppCompatActivity() {
         return v
     }
 
-    private fun keyBackground(active: Boolean): Drawable = StateListDrawable().apply {
-        addState(intArrayOf(android.R.attr.state_pressed), ColorDrawable(scheme.keyPressed))
-        addState(intArrayOf(), ColorDrawable(if (active) scheme.keyActive else scheme.key))
+    private fun keyBackground(active: Boolean): Drawable {
+        fun pill(color: Int, stroke: Int) = android.graphics.drawable.InsetDrawable(GradientDrawable().apply {
+            cornerRadius = dp(10).toFloat()
+            setColor(color)
+            setStroke(dp(1), stroke)
+        }, dp(2))
+        val edge = ColorUtils.setAlphaComponent(scheme.fg, 38)
+        return StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_pressed), pill(scheme.keyPressed, ColorUtils.setAlphaComponent(scheme.prompt, 160)))
+            addState(intArrayOf(), pill(if (active) scheme.keyActive else scheme.key, if (active) ColorUtils.setAlphaComponent(scheme.prompt, 160) else edge))
+        }
     }
 
     private fun styleKey(k: TextView, active: Boolean) {
@@ -979,13 +1108,14 @@ class JarvisTerminalActivity : AppCompatActivity() {
             override fun onScaleEnd(detector: ScaleGestureDetector) { prefs.edit().putFloat("font_sp", fontSp).apply() }
         })
         private val taps = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onSingleTapUp(e: MotionEvent): Boolean { if (!selecting) showKeyboard(); return false }
-            override fun onLongPress(e: MotionEvent) { if (!scale.isInProgress && !selecting) showContextMenu() }
+            override fun onSingleTapUp(e: MotionEvent): Boolean { showKeyboard(); return false }
+            // Tap anywhere to type; double-tap anywhere to paste; long-press the text to select and copy it.
+            override fun onDoubleTap(e: MotionEvent): Boolean { if (!scale.isInProgress) paste(); return false }
         })
 
         override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
             scale.onTouchEvent(ev)
-            if (!selecting) taps.onTouchEvent(ev)
+            taps.onTouchEvent(ev)
             return if (scale.isInProgress) true else super.dispatchTouchEvent(ev)
         }
     }
@@ -1009,6 +1139,13 @@ class JarvisTerminalActivity : AppCompatActivity() {
             android.util.Log.w("JarvisTerminal", "command failed", e)
         })
 
+        /** Builds a full style from six colours; the key and panel shades are derived from them. */
+        private fun mk(name: String, bg: Long, fg: Long, prompt: Long, dim: Long, error: Long, ok: Long): Scheme {
+            val b = bg.toInt(); val f = fg.toInt()
+            return Scheme(name, b, f, prompt.toInt(), dim.toInt(), error.toInt(), ok.toInt(),
+                ColorUtils.blendARGB(b, f, 0.08f), ColorUtils.blendARGB(b, f, 0.24f), ColorUtils.blendARGB(b, f, 0.36f), ColorUtils.blendARGB(b, f, 0.05f))
+        }
+
         val SCHEMES: List<Scheme> = listOf(
             Scheme("Termux (default)", 0xFF000000.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFF8A8A8A.toInt(), 0xFFFF5555.toInt(), 0xFF50FA7B.toInt(), 0xFF111111.toInt(), 0xFF3A3A3A.toInt(), 0xFF555555.toInt(), 0xFF161616.toInt()),
             Scheme("Green on black", 0xFF000000.toInt(), 0xFF00FF41.toInt(), 0xFF00FF41.toInt(), 0xFF008F11.toInt(), 0xFFFF5555.toInt(), 0xFF00FF41.toInt(), 0xFF0A0F0A.toInt(), 0xFF1F3A1F.toInt(), 0xFF2E5A2E.toInt(), 0xFF0A120A.toInt()),
@@ -1016,6 +1153,16 @@ class JarvisTerminalActivity : AppCompatActivity() {
             Scheme("Dracula", 0xFF282A36.toInt(), 0xFFF8F8F2.toInt(), 0xFF50FA7B.toInt(), 0xFF6272A4.toInt(), 0xFFFF5555.toInt(), 0xFF50FA7B.toInt(), 0xFF21222C.toInt(), 0xFF44475A.toInt(), 0xFF6272A4.toInt(), 0xFF21222C.toInt()),
             Scheme("Gruvbox", 0xFF282828.toInt(), 0xFFEBDBB2.toInt(), 0xFFB8BB26.toInt(), 0xFF928374.toInt(), 0xFFFB4934.toInt(), 0xFFB8BB26.toInt(), 0xFF1D2021.toInt(), 0xFF3C3836.toInt(), 0xFF665C54.toInt(), 0xFF1D2021.toInt()),
             Scheme("Jarvis", 0xFF0B0F14.toInt(), 0xFFD7E3EA.toInt(), 0xFF00E5FF.toInt(), 0xFF78909C.toInt(), 0xFFFF5252.toInt(), 0xFF69F0AE.toInt(), 0xFF121A22.toInt(), 0xFF263238.toInt(), 0xFF37474F.toInt(), 0xFF121A22.toInt()),
+            mk("Tokyo Night", 0xFF1A1B26, 0xFFC0CAF5, 0xFF7AA2F7, 0xFF565F89, 0xFFF7768E, 0xFF9ECE6A),
+            mk("Nord", 0xFF2E3440, 0xFFD8DEE9, 0xFF88C0D0, 0xFF616E88, 0xFFBF616A, 0xFFA3BE8C),
+            mk("One Dark", 0xFF21252B, 0xFFABB2BF, 0xFF61AFEF, 0xFF5C6370, 0xFFE06C75, 0xFF98C379),
+            mk("Monokai", 0xFF272822, 0xFFF8F8F2, 0xFFA6E22E, 0xFF75715E, 0xFFF92672, 0xFFA6E22E),
+            mk("Cyberpunk", 0xFF0D0221, 0xFFE8D5FF, 0xFFFF2A6D, 0xFF7A5C99, 0xFFFF2A6D, 0xFF05FFA1),
+            mk("Neon Purple", 0xFF120B22, 0xFFEBDDFF, 0xFFC77DFF, 0xFF7B6A99, 0xFFFF6B9D, 0xFF72F5C0),
+            mk("Ocean", 0xFF06161F, 0xFFCDEBFF, 0xFF4FD8FF, 0xFF527A8F, 0xFFFF6E7F, 0xFF5CF2C0),
+            mk("Sunset", 0xFF1F0F14, 0xFFFFE3D6, 0xFFFF9E64, 0xFF9C6F66, 0xFFFF5C7A, 0xFFFFD166),
+            mk("Matrix", 0xFF000A00, 0xFF9CFFA0, 0xFF00FF66, 0xFF2F7A3A, 0xFFFF4D4D, 0xFF00FF66),
+            mk("Crystal Mirror", 0xFF0A1220, 0xFFF2F9FF, 0xFF7FD4FF, 0xFF7C93AD, 0xFFFF7A8A, 0xFF7CF5D2),
             Scheme("Light", 0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 0xFF000000.toInt(), 0xFF666666.toInt(), 0xFFC62828.toInt(), 0xFF2E7D32.toInt(), 0xFFEEEEEE.toInt(), 0xFFCCCCCC.toInt(), 0xFFBBBBBB.toInt(), 0xFFF2F2F2.toInt(), light = true)
         )
     }

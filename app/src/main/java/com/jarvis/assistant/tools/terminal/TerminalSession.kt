@@ -299,6 +299,7 @@ class TerminalSession(
 
         private fun emitLine(raw: String) {
             val line = raw.replace(ANSI, "")
+            val colored = raw.replace(NON_SGR, "")   // the screen keeps colours; the model and the marker logic never see them
             val m = line.indexOf(marker)
             if (m >= 0) { heldBlank = false; reportedCwd = line.substring(m + marker.length).trim(); return }
             // The wrapper prints one line break before the marker; a bare line break is held back and dropped if the marker follows.
@@ -308,20 +309,23 @@ class TerminalSession(
                 return
             }
             if (heldBlank) { deliver("\n"); heldBlank = false }
-            deliver(line)
+            deliver(line, colored)
         }
 
-        private fun deliver(line: String) {
+        private fun deliver(line: String, colored: String = line) {
             val safe = redactor.redact(line)
             all.append(safe)
             if (all.length > 400_000) all.delete(0, all.length - 300_000)
-            buffer.append(safe)
-            _output.tryEmit(safe)
+            val shown = redactor.redact(colored)
+            buffer.append(shown)
+            _output.tryEmit(shown)
             onChunk?.invoke(safe)
         }
     }
 
     companion object {
         private val ANSI = Regex("\u001B\\[[0-9;?]*[ -/]*[@-~]|\u001B\\][^\u0007]*\u0007")
+        /** Everything except colour/style codes (ESC [ ... m), which the screen renders. */
+        private val NON_SGR = Regex("\u001B\\[[0-9;?]*[ -/]*[@-ln-~]|\u001B\\][^\u0007]*\u0007")
     }
 }

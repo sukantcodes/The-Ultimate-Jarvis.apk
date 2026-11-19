@@ -28,9 +28,12 @@ class TermuxBackend(private val context: Context, private val spec: TermuxBridge
     override fun launch(script: String, cwd: File, env: Map<String, String>, onOutput: (String) -> Unit): RunningCommand {
         if (!isInstalled(context)) throw IllegalStateException("Termux is not installed.")
         val id = counter.incrementAndGet(); val p = Pending(onOutput); pending[id] = p
+        // Live output: Termux sends everything the command prints to a loopback socket this app listens on, so the whole
+        // install scrolls past as it happens (like Termux itself) instead of appearing at the end.
+        val live = LiveStream.open(onOutput)
         val result = Intent(context, TermuxResultReceiver::class.java).setAction("com.jarvis.assistant.TERMUX_RESULT").putExtra("id", id)
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0)
-        val wrapped = script
+        val wrapped = if (live != null) LiveStream.wrap(script, live.port) else script
         val i = Intent(spec.action).setClassName(spec.packageName, spec.service)
             .putExtra(TermuxBridgeSpec.EXTRA_COMMAND_PATH, spec.shellPath)
             .putExtra(TermuxBridgeSpec.EXTRA_ARGUMENTS, arrayOf("-c", wrapped))
@@ -45,10 +48,10 @@ class TermuxBackend(private val context: Context, private val spec: TermuxBridge
                 context.startService(i)
             }
         } catch (e: SecurityException) {
-            pending.remove(id)
+            pending.remove(id); live?.close()
             throw IllegalStateException("Termux refused the command. Grant JARVIS the \"Run commands in Termux environment\" permission and set allow-external-apps=true in ~/.termux/termux.properties (type: jpkg setup).")
         } catch (e: Exception) {
-            pending.remove(id)
+            pending.remove(id); live?.close()
             throw IllegalStateException("Could not reach Termux (${e.javaClass.simpleName}). Open Termux once, then try again. See: jpkg setup")
         }
         return object : RunningCommand {
@@ -56,7 +59,39 @@ class TermuxBackend(private val context: Context, private val spec: TermuxBridge
             override val isAlive get() = p.latch.count > 0
             override val exitCode get() = p.exit
             override fun waitFor(timeoutMs: Long) = p.latch.await(timeoutMs, TimeUnit.MILLISECONDS)
-            override fun kill(graceMs: Long) { pending.remove(id); p.exit = -1; p.onOutput("\n[Stopped waiting. A command already started in Termux can not be cancelled from here.]\n"); p.latch.countDown() }
+            override fun kill(graceMs: Long) { live?.close(); pending.remove(id); p.exit = -1; p.onOutput("\n[Stopped waiting. A command already started in Termux can not be cancelled from here.]\n"); p.latch.countDown() }
+        }
+    }
+
+    /** A one-connection loopback server that relays what the Termux command prints. */
+    private class LiveStream private constructor(private val server: java.net.ServerSocket, private val onOutput: (String) -> Unit) {
+        val port: Int get() = server.localPort
+        fun close() { try { server.close() } catch (_: Exception) {} }
+        private fun start() {
+            Thread {
+                try {
+                    server.soTimeout = 180_000
+                    server.accept().use { c ->
+                        val r = c.getInputStream().reader(Charsets.UTF_8)
+                        val buf = CharArray(2048)
+                        while (true) { val n = r.read(buf); if (n < 0) break; onOutput(String(buf, 0, n)) }
+                    }
+                } catch (_: Exception) { } finally { close() }
+            }.apply { isDaemon = true; name = "jarvis-termux-live"; start() }
+        }
+
+        companion object {
+            fun open(onOutput: (String) -> Unit): LiveStream? = try {
+                LiveStream(java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1")), onOutput).also { it.start() }
+            } catch (_: Exception) { null }
+
+            /** Runs [script] and copies everything it prints to the socket; if the socket cannot be opened it just runs normally. */
+            fun wrap(script: String, port: Int): String = buildString {
+                append("__jp_run() {\n").append(script).append("\n}\n")
+                append("if exec 9<>/dev/tcp/127.0.0.1/").append(port).append(" 2>/dev/null; then\n")
+                append("  set -o pipefail\n  ( __jp_run ) 2>&1 | cat >&9\n  __jp_rc=\${PIPESTATUS[0]}\n  exec 9>&-\n  exit \$__jp_rc\n")
+                append("else\n  ( __jp_run )\n  exit \$?\nfi\n")
+            }
         }
     }
 
