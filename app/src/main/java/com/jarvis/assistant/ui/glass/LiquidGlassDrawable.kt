@@ -23,15 +23,16 @@ import kotlin.math.max
 /**
  * Frosted "liquid glass" surface for cards, inputs, sheets and dialogs.
  *
- * It is deliberately STATIC and cheap: the card is a translucent frosted body, so the animated aurora backdrop of the
- * screen shows through it naturally (that is what makes it read as glass). The card itself only adds
- *  - a soft top sheen and a faint accent glow in the lower corner,
- *  - a bright edge light, a two-colour prism fringe (magenta / cyan, the ReactBits "prism" dispersion) and a hairline,
- *  - a crisp top shine.
- * No clipping, no per-frame allocation, no per-frame invalidation, no aurora re-draw per card.
+ * It stays cheap: the card is a translucent frosted body, so the animated aurora backdrop of the screen shows through
+ * it naturally (that is what makes it read as glass). On top of that it now adds
+ *  - a REAL magnifying lens: the same drifting field is redrawn through [GlassLens], enlarged about the pane's centre,
+ *    so a card over a backdrop shows its own, bigger image of the light behind it,
+ *  - a polished rim (bright, near-white, with a thickness shade just inside it) instead of the old prism fringe,
+ *  - a soft top sheen, a faint accent glow in the lower corner and a crisp top shine.
+ * No clipping, no per-frame allocation; the lens only asks for a redraw while the backdrop actually drifts.
  */
 class LiquidGlassDrawable(
-    @Suppress("unused") private val host: View,
+    private val host: View,
     private val radiusPx: Float,
     private val tint: Int = 0,
     private val soft: Boolean = false,
@@ -48,6 +49,7 @@ class LiquidGlassDrawable(
     private val topShine = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND }
     private val fringeOuter = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val fringeInner = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val innerShade = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
 
     // 3D bubble layers: convex shade, bottom caustic, glossy dome, bevel and corner glint.
     private val convex = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -74,6 +76,10 @@ class LiquidGlassDrawable(
     private val fringeRectA = RectF()
     private val fringeRectB = RectF()
     private val hairRect = RectF()
+    private val innerRect = RectF()
+
+    /** The rim's stroke width, also used to place the thickness shade just inside it. */
+    private val innerRad: Float get() = max(0f, radiusPx - edgeW * 2f)
 
     private val edgeW = (if (soft) 1.0f else 1.25f) * density
     private val hairR = max(0f, radiusPx - edgeW * 2.4f)
@@ -88,8 +94,16 @@ class LiquidGlassDrawable(
     private var builtStrength = -1f
     private var builtTint = 0
 
+    // Whether this pane floats over the drifting field and can therefore magnify it. Checked rarely, never per frame.
+    private var fieldCheckedAt = 0L
+    private var magnifies = false
+
     private fun refreshThemeState() {
         val now = SystemClock.uptimeMillis()
+        if (now - fieldCheckedAt > 900L) {
+            fieldCheckedAt = now
+            magnifies = GlassLens.hasField(host)
+        }
         if (now - cachedAt < 500L && builtLight != null) return
         cachedAt = now
         cachedLight = try { ThemeManager.isCurrentThemeLight() } catch (_: Throwable) { false }
@@ -138,9 +152,10 @@ class LiquidGlassDrawable(
             Shader.TileMode.CLAMP
         )
 
-        val rimStrong = ColorUtils.setAlphaComponent(Color.WHITE, ((if (light) 0.95f else 0.75f) * 255 * soften).toInt())
-        val rimSoft = ColorUtils.setAlphaComponent(Color.WHITE, ((if (light) 0.40f else 0.12f) * 255 * soften).toInt())
-        val rimTint = ColorUtils.setAlphaComponent(glowColor, ((if (light) 0.50f else 0.45f) * 255 * soften).toInt())
+        // Polished glass: a bright, near-white rim that only picks up the theme colour where it turns away from the light.
+        val rimStrong = ColorUtils.setAlphaComponent(Color.WHITE, ((if (light) 1.0f else 0.92f) * 255 * soften).toInt())
+        val rimSoft = ColorUtils.setAlphaComponent(Color.WHITE, ((if (light) 0.46f else 0.20f) * 255 * soften).toInt())
+        val rimTint = ColorUtils.setAlphaComponent(glowColor, ((if (light) 0.42f else 0.32f) * 255 * soften).toInt())
         edgeLight.shader = SweepGradient(
             outer.centerX(), outer.centerY(),
             intArrayOf(rimStrong, rimSoft, rimTint, rimSoft, rimStrong),
@@ -157,10 +172,18 @@ class LiquidGlassDrawable(
 
         hairline.color = ColorUtils.setAlphaComponent(Color.WHITE, if (light) 120 else 30)
 
-        // Prism dispersion: a magenta fringe on the edge and a cyan one just inside it.
-        val fringeAlpha = (((if (light) 0.22f else 0.30f) * soften * (if (crystal) 1.35f else 1f)) * 255).toInt().coerceIn(0, 255)
-        fringeOuter.color = Color.argb(fringeAlpha, 255, 70, 205)
-        fringeInner.color = Color.argb((fringeAlpha * 0.55f).toInt(), 40, 215, 255)
+        // Thickness: thick glass falls away just inside its rim, the one thing a flat frosted card never has.
+        innerShade.shader = LinearGradient(
+            0f, top, 0f, bottom,
+            intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT, ColorUtils.setAlphaComponent(Color.BLACK, if (light) 16 else 34)),
+            floatArrayOf(0f, 0.52f, 1f), Shader.TileMode.CLAMP
+        )
+        innerShade.strokeWidth = 3f * density
+
+        // Dispersion: a faint warm fringe on the edge and a cool one just inside it — a hint of a prism, not a rainbow.
+        val fringeAlpha = (((if (light) 0.12f else 0.16f) * soften * (if (crystal) 1.30f else 1f)) * 255).toInt().coerceIn(0, 255)
+        fringeOuter.color = Color.argb(fringeAlpha, 255, 128, 214)
+        fringeInner.color = Color.argb((fringeAlpha * 0.6f).toInt(), 96, 214, 255)
 
         edgeLight.strokeWidth = edgeW
         hairline.strokeWidth = 0.6f * density
@@ -243,6 +266,7 @@ class LiquidGlassDrawable(
         fringeRectA.set(outer); fringeRectA.inset(0.7f * density, 0.7f * density)
         fringeRectB.set(outer); fringeRectB.inset(1.5f * density, 1.5f * density)
         hairRect.set(outer); hairRect.inset(edgeW * 2.4f, edgeW * 2.4f)
+        innerRect.set(outer); innerRect.inset(edgeW * 2.6f, edgeW * 2.6f)
         builtLight = null
     }
 
@@ -254,6 +278,8 @@ class LiquidGlassDrawable(
         val layer = if (alphaValue < 255) canvas.saveLayerAlpha(outer, alphaValue) else canvas.save()
 
         canvas.drawPath(outerPath, body)
+        // The lens: the backdrop seen through shaped glass, enlarged about the centre of the pane.
+        if (magnifies) GlassLens.draw(canvas, host, outer, radiusPx, cachedLight, cachedStrength)
         canvas.drawPath(outerPath, sheen)
         canvas.drawPath(outerPath, glow)
         if (cachedBubble) {
@@ -268,6 +294,7 @@ class LiquidGlassDrawable(
         canvas.drawRoundRect(fringeRectB, fringeRB, fringeRB, fringeInner)
         canvas.drawRoundRect(rimRect, radiusPx, radiusPx, edgeLight)
         canvas.drawRoundRect(hairRect, hairR, hairR, hairline)
+        canvas.drawRoundRect(innerRect, innerRad, innerRad, innerShade)
         val y = outer.top + edgeW * 1.6f
         canvas.drawLine(outer.left + radiusPx, y, outer.right - radiusPx, y, topShine)
 
