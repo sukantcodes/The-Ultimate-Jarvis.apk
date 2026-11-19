@@ -41,6 +41,19 @@
         <item name="android:windowExitAnimation">@anim/jarvis_dialog_exit</item>
     </style>
 
+    <!-- materialAlertDialogTitleTextStyle / BodyTextStyle are WIDGET styles: Material's m3_alert_dialog_title.xml gets its
+         layout_width/height/gravity from them. They must inherit from the Material dialog text styles, not a bare TextAppearance,
+         otherwise inflating the dialog crashes with "You must supply a layout_width attribute". -->
+    <style name="MaterialAlertDialog.Jarvis.Title.Text" parent="MaterialAlertDialog.Material3.Title.Text">
+        <item name="android:textAppearance">@style/TextAppearance.Jarvis.DialogTitle</item>
+        <item name="android:textColor">?attr/themeTextPrimary</item>
+    </style>
+
+    <style name="MaterialAlertDialog.Jarvis.Body.Text" parent="MaterialAlertDialog.Material3.Body.Text">
+        <item name="android:textAppearance">@style/TextAppearance.Jarvis.DialogBody</item>
+        <item name="android:textColor">?attr/themeTextSecondary</item>
+    </style>
+
     <style name="ThemeOverlay.Jarvis.MaterialDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="colorSurface">?attr/themeCardBg</item>
         <item name="colorOnSurface">?attr/themeTextPrimary</item>
@@ -50,8 +63,8 @@
         <item name="android:textColorAlertDialogListItem">?attr/themeTextPrimary</item>
         <item name="colorPrimary">?attr/themeAccent</item>
         <item name="colorSecondary">?attr/themeAccent</item>
-        <item name="materialAlertDialogTitleTextStyle">@style/TextAppearance.Jarvis.DialogTitle</item>
-        <item name="materialAlertDialogBodyTextStyle">@style/TextAppearance.Jarvis.DialogBody</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/MaterialAlertDialog.Jarvis.Title.Text</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/MaterialAlertDialog.Jarvis.Body.Text</item>
         <item name="shapeAppearanceOverlay">@style/ShapeAppearanceOverlay.Jarvis.Dialog</item>
         <item name="android:windowAnimationStyle">@style/Jarvis.Dialog.WindowAnimation</item>
         <item name="android:windowSoftInputMode">adjustResize</item>
