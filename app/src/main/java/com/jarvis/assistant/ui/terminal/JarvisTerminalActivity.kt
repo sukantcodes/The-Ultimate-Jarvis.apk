@@ -193,6 +193,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
     }
 
     private fun select(session: TerminalSession) {
+        if (selecting) setSelecting(false)
         current = session
         historyPos = -1
         lastEnd = -1L
@@ -510,11 +511,24 @@ class JarvisTerminalActivity : AppCompatActivity() {
 
     private fun refreshOutput(forceBottom: Boolean) {
         val s = current ?: return
+        // While text is being selected the output is frozen, otherwise every refresh would wipe the selection.
+        if (selecting && !forceBottom) return
         val child = scroll.getChildAt(0)
         val atBottom = forceBottom || child == null || child.bottom - (scroll.height + scroll.scrollY) < dp(80)
         lastEnd = s.buffer.endOffset
         outputView.text = render(s.buffer.tail(MAX_SHOWN_CHARS))
-        if (atBottom) scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+        if (atBottom) scrollToBottom()
+    }
+
+    /**
+     * Scrolls to the end WITHOUT touching keyboard focus. ScrollView.fullScroll(FOCUS_DOWN) also moves focus, which pulled it
+     * out of the input box after the first typed letter; scrollTo never does.
+     */
+    private fun scrollToBottom() {
+        scroll.post {
+            val child = scroll.getChildAt(0) ?: return@post
+            scroll.scrollTo(0, child.height)
+        }
     }
 
     /**
@@ -621,15 +635,25 @@ class JarvisTerminalActivity : AppCompatActivity() {
         return (if (bright) light else dark)[n.coerceIn(0, 7)]
     }
 
+    private var shownPrompt = ""
+    private var shownHint = ""
+    private var shownAlpha = -1f
+
+    /** Updates the prompt only when it changed: re-setting identical text every tick re-laid-out the page and yanked the scroll position. */
     private fun updatePrompt() {
         val s = current
-        promptLabel.text = if (s == null) "$ " else "${promptText(s)} $ "
+        val label = if (s == null) "$ " else "${promptText(s)} $ "
         val running = s?.isRunning == true
-        promptLabel.alpha = if (running) 0.5f else 1f
-        input.hint = if (running) "running: ${s?.runningCommand?.take(40).orEmpty()}" else ""
+        val alpha = if (running) 0.5f else 1f
+        val hint = if (running) "running: ${s?.runningCommand?.take(40).orEmpty()}" else ""
+        if (label != shownPrompt) { shownPrompt = label; promptLabel.text = label }
+        if (alpha != shownAlpha) { shownAlpha = alpha; promptLabel.alpha = alpha }
+        if (hint != shownHint) { shownHint = hint; input.hint = hint }
     }
 
     private fun tick() {
+        // Safety net: the output text must never keep keyboard focus (except while the person is selecting it).
+        if (!selecting && !drawerOpen && outputView.isFocused) input.requestFocus()
         val s = current
         if (s != null && s.buffer.endOffset != lastEnd) refreshOutput(forceBottom = false)
         updatePrompt()
@@ -672,10 +696,22 @@ class JarvisTerminalActivity : AppCompatActivity() {
         Toast.makeText(this, "Added to the ChatBox.", Toast.LENGTH_SHORT).show()
     }
 
+    /**
+     * Selection mode makes the output selectable (and therefore focusable). It is only on while the person is selecting and is
+     * switched off again afterwards, so normal typing never loses focus to the output text.
+     */
     private fun setSelecting(on: Boolean) {
+        if (!on && !selecting) return
         selecting = on
-        outputView.setTextIsSelectable(true)
-        if (on) Toast.makeText(this, "Long-press the text to select it.", Toast.LENGTH_SHORT).show()
+        if (on) {
+            outputView.setTextIsSelectable(true)
+            Toast.makeText(this, "Long-press the text to select it. Tap anywhere else to finish.", Toast.LENGTH_SHORT).show()
+        } else {
+            outputView.clearFocus()
+            outputView.setTextIsSelectable(false)
+            input.requestFocus()
+            refreshOutput(forceBottom = false)
+        }
     }
 
     /** Copies the selected text, or all the output when nothing is selected. */
@@ -690,7 +726,6 @@ class JarvisTerminalActivity : AppCompatActivity() {
     }
 
     private fun installSelectionActions() {
-        outputView.setTextIsSelectable(true)
         outputView.customSelectionActionModeCallback = object : android.view.ActionMode.Callback {
             override fun onCreateActionMode(mode: android.view.ActionMode, menu: android.view.Menu): Boolean {
                 menu.add(0, 7001, 90, "Paste")
@@ -907,7 +942,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
                         }
                     }
                 }
-                override fun afterTextChanged(s: Editable?) { scroll.post { scroll.fullScroll(View.FOCUS_DOWN) } }
+                override fun afterTextChanged(s: Editable?) { scrollToBottom() }
             })
         }
         val promptRow = LinearLayout(this).apply {
@@ -1108,8 +1143,9 @@ class JarvisTerminalActivity : AppCompatActivity() {
             override fun onScaleEnd(detector: ScaleGestureDetector) { prefs.edit().putFloat("font_sp", fontSp).apply() }
         })
         private val taps = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onSingleTapUp(e: MotionEvent): Boolean { showKeyboard(); return false }
-            // Tap anywhere to type; double-tap anywhere to paste; long-press the text to select and copy it.
+            override fun onSingleTapUp(e: MotionEvent): Boolean { if (selecting) setSelecting(false); showKeyboard(); return false }
+            override fun onLongPress(e: MotionEvent) { if (!selecting && !scale.isInProgress) this@JarvisTerminalActivity.showContextMenu() }
+            // Tap anywhere to type; double-tap anywhere to paste; long-press for the menu (Select text lives there).
             override fun onDoubleTap(e: MotionEvent): Boolean { if (!scale.isInProgress) paste(); return false }
         })
 
