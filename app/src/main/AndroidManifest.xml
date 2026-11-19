@@ -303,6 +303,17 @@
             android:exported="false" />
 
         <activity
+            android:name=".ui.udn.UdnActivity"
+            android:exported="false" />
+
+        <service
+            android:name=".udn.UdnLinkService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <receiver android:name=".udn.UdnConsentReceiver" android:exported="false" />
+
+        <activity
             android:name=".ui.terminal.JarvisTerminalActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

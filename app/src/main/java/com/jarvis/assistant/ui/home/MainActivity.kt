@@ -46,6 +46,7 @@ class MainActivity : AppCompatActivity() {
         const val TAB_UPDATES = 3
         const val EXTRA_SHOW_POST_LOGIN_WELCOME = "com.jarvis.assistant.SHOW_POST_LOGIN_WELCOME"
         const val EXTRA_OPEN_UPDATES = "com.jarvis.assistant.OPEN_UPDATES"
+        const val EXTRA_OPEN_TAB = "com.jarvis.assistant.OPEN_TAB"
         const val EXTRA_PROMPT_UPDATE_RESTART = "com.jarvis.assistant.PROMPT_UPDATE_RESTART"
         @Volatile private var updateCheckStartedThisProcess = false
     }
@@ -272,6 +273,7 @@ class MainActivity : AppCompatActivity() {
             selectTab(TAB_UPDATES)
             intent.removeExtra(EXTRA_OPEN_UPDATES)
         }
+        openRequestedTab(intent)
         if (!updateCheckStartedThisProcess) {
             updateCheckStartedThisProcess = true
             UpdateNotificationChecker.checkOnForeground(applicationContext)
@@ -379,6 +381,42 @@ class MainActivity : AppCompatActivity() {
             selectTab(TAB_UPDATES)
             intent.removeExtra(EXTRA_OPEN_UPDATES)
         }
+        if (::binding.isInitialized) openRequestedTab(intent)
+    }
+
+    /** Lets a Device Network command open a specific tab (Home / Chat / Settings / Updates) on this device. */
+    private fun openRequestedTab(intent: Intent) {
+        if (!intent.hasExtra(EXTRA_OPEN_TAB)) return
+        val tab = intent.getIntExtra(EXTRA_OPEN_TAB, -1)
+        intent.removeExtra(EXTRA_OPEN_TAB)
+        if (tab in TAB_HOME..TAB_UPDATES) selectTab(tab)
+    }
+
+    /**
+     * One-time, consent-based offer to join the Device Network (never automatic). Once joined and approved, the
+     * background link resumes on its own whenever the app is opened.
+     */
+    private fun maybeOfferDeviceNetwork() {
+        if (isFinishing || isDestroyed) return
+        val udn = com.jarvis.assistant.udn.UdnManager.get(applicationContext)
+        val settings = com.jarvis.assistant.udn.UdnSettings.get(applicationContext)
+        val st = udn.state.value
+        if (!st.configured || !com.jarvis.assistant.auth.AuthManager.isSignedIn) return
+        if (st.enrolled) {
+            lifecycleScope.launch { udn.refreshSelf() }
+            return
+        }
+        if (settings.enrollmentPrompted) return
+        settings.enrollmentPrompted = true
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Join your JARVIS Device Network?")
+            .setMessage("Register this device with your account so your other JARVIS devices can see it. Nothing can control it until a parent device you own approves it, and you can leave at any time.")
+            .setPositiveButton("Join") { _, _ ->
+                lifecycleScope.launch { udn.enroll() }
+                startActivity(Intent(this, com.jarvis.assistant.ui.udn.UdnActivity::class.java))
+            }
+            .setNegativeButton("Not now", null)
+            .show()
     }
 
     private fun showUpdateRestartPrompt(force: Boolean) {
@@ -430,6 +468,7 @@ class MainActivity : AppCompatActivity() {
         viewModel.refreshSettings()
         updateAccountMenuItem()
         ensureWakeListening()
+        maybeOfferDeviceNetwork()
         lifecycleScope.launch {
             // Refresh an expired access token when returning to the app. A rejected refresh token ends the
             // session; being offline does not.
@@ -533,6 +572,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.drawerJarvisHome -> startActivity(Intent(this, com.jarvis.assistant.ui.jarvishome.HomeActivity::class.java))
                 R.id.drawerTerminal -> startActivity(Intent(this, com.jarvis.assistant.ui.terminal.JarvisTerminalActivity::class.java))
                 R.id.drawerSettings -> selectTab(TAB_SETTINGS)
+                R.id.drawerDeviceNetwork -> startActivity(Intent(this, com.jarvis.assistant.ui.udn.UdnActivity::class.java))
                 R.id.drawerUpdates -> selectTab(TAB_UPDATES)
                 R.id.drawerAutomation -> startActivity(Intent(this, com.jarvis.assistant.studio.ui.AutomationStudioActivity::class.java))
                 R.id.drawerMemories -> startActivity(Intent(this, com.jarvis.assistant.ui.memory.MemoryActivity::class.java))

@@ -833,6 +833,19 @@ class ChatFragment : Fragment() {
     private fun sendMessage() {
         val text = binding.etMessageInput.text?.toString()?.trim().orEmpty()
         if (tryImageShortcut(text)) return
+        if (text.isNotBlank() && com.jarvis.assistant.udn.UdnVoiceRouter.matches(requireContext().applicationContext, text)) {
+            binding.etMessageInput.text?.clear()
+            val appCtx = requireContext().applicationContext
+            kotlinx.coroutines.GlobalScope.launch {
+                val reply = try {
+                    com.jarvis.assistant.udn.UdnVoiceRouter.handle(appCtx, text)
+                } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) {
+                    "I couldn't complete that device command."
+                }
+                JarvisApp.instance.chatRepository.addTurn(text, reply)
+            }
+            return
+        }
         if (customProviderActive()) {
             sendViaProvider(text)
             return

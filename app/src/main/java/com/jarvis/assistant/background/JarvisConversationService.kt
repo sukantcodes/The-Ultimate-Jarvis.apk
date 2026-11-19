@@ -3474,6 +3474,8 @@ class JarvisConversationService : Service() {
         Log.d("JarvisService", "checkAndExecuteCommand: '$cleanSpeech'")
 
         val app = application as? JarvisApp ?: return
+        if (tryUdnVoice(cleanSpeech)) return
+
         val isAwaitingConfirm = app.whatsAppAssistant.hasPendingDraft() || pendingGenericCommand != null
         val isAwaitingDisambig = app.whatsAppAssistant.isAwaitingDisambiguation()
 
@@ -3516,6 +3518,34 @@ class JarvisConversationService : Service() {
      * Speaks a short message locally via TTS and also surfaces it in the chat/event UI,
      * used for quick confirmations/cancellations that don't need a full Gemini round-trip.
      */
+    /**
+     * Device Network commands ("open Chatbox on my tablet", "what's the battery of my laptop"). Claims the turn only
+     * for explicit remote-device requests and speaks the device's actual reported result, never just "sent".
+     */
+    private fun tryUdnVoice(text: String): Boolean {
+        if (!com.jarvis.assistant.udn.UdnVoiceRouter.matches(applicationContext, text)) return false
+        automationHandledTurn = true
+        hasExecutedCommandInCurrentTurn = true
+        lastHandledCommandText = text
+        lastCommandExecutionTime = System.currentTimeMillis()
+        lastRealInteractionTime = lastCommandExecutionTime
+        suppressAudioUntilTurnComplete = true
+        audioPlayer?.flush()
+        serviceScope.launch {
+            val reply = try {
+                com.jarvis.assistant.udn.UdnVoiceRouter.handle(applicationContext, text)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("JarvisService", "UDN voice command failed: ${e.javaClass.simpleName}")
+                "I couldn't complete that device command."
+            }
+            announce(reply)
+            speakAnnouncement(reply)
+        }
+        return true
+    }
+
     private fun announce(message: String) {
         serviceScope.launch { _events.emit(message) }
     }
@@ -4758,6 +4788,8 @@ class JarvisConversationService : Service() {
             }
             if (!ownerVerifiedForLocalAction()) return false
         }
+
+        if (tryUdnVoice(text)) return true
 
         val parsed = com.jarvis.assistant.automation.command.CommandParser.parse(
             input = text,
