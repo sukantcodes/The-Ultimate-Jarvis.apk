@@ -1,1 +1,257 @@
-cGFja2FnZSBjb20uamFydmlzLmFzc2lzdGFudC51aS5nbGFzcwoKaW1wb3J0IGFuZHJvaWQuYXBwLkRpYWxvZwppbXBvcnQgYW5kcm9pZC5jb250ZW50LkNvbnRleHQKaW1wb3J0IGFuZHJvaWQuZ3JhcGhpY3MuQ2FudmFzCmltcG9ydCBhbmRyb2lkLmdyYXBoaWNzLkNvbG9yRmlsdGVyCmltcG9ydCBhbmRyb2lkLmdyYXBoaWNzLlBpeGVsRm9ybWF0CmltcG9ydCBhbmRyb2lkLmdyYXBoaWNzLmRyYXdhYmxlLkRyYXdhYmxlCmltcG9ydCBhbmRyb2lkLmdyYXBoaWNzLmRyYXdhYmxlLkluc2V0RHJhd2FibGUKaW1wb3J0IGFuZHJvaWQub3MuQnVpbGQKaW1wb3J0IGFuZHJvaWQucHJvdmlkZXIuU2V0dGluZ3MKaW1wb3J0IGFuZHJvaWQudmlldy5WaWV3CmltcG9ydCBhbmRyb2lkLnZpZXcuVmlld0dyb3VwCmltcG9ydCBhbmRyb2lkLnZpZXcuVmlld091dGxpbmVQcm92aWRlcgppbXBvcnQgYW5kcm9pZC52aWV3LldpbmRvd01hbmFnlcgppbXBvcnQgY29tLmphcnZpcy5hc3Npc3RhbnQudXRpbC5UaGVtZU1hbmFnZXIKCi8qKiBFbnRyeSBwb2ludHMgZm9yIHRoZSBTZXR0aW5ncyAibGlxdWlkIGdsYXNzIiBtYXRlcmlhbC4gKi8Kb2JqZWN0IExpcXVpZEdsYXNzIHsKCiAgICBwcml2YXRlIGNvbnN0IHZhbCBUQUdfS0VZID0gMHg0QTQ3NEM1MyAvLyAiSkdMUyI6IG1hcmtzIHZpZXdzIHRoYXQgYWxyZWFkeSBjYXJyeSBhIGdsYXNzIHN1cmZhY2UKICAgIHByaXZhdGUgY29uc3QgdmFsIExFTlNfVElDS19LRVkgPSAweDRBNDc0QzU0IC8vICJKR0xUIjogbWFya3Mgdmlld3MgYWxyZWFkeSByZWRyYXdpbmcgZm9yIHRoZSBtYWduaWZ5aW5nIGxlbnMKCiAgICBwcml2YXRlIGZ1biBpc0xpZ2h0KCk6IEJvb2xlYW4gPSB0cnkgeyBUaGVtZU1hbmFnZXIuaXNDdXJyZW50VGhlbWVMaWdodCgpIH0gY2F0Y2ggKF86IFRocm93YWJsZSkgeyBmYWxzZSB9CgogICAgcHJpdmF0ZSBmdW4gcmVmcmVzaEFuaW1hdGlvblNldHRpbmcoY29udGV4dDogQ29udGV4dCkgewogICAgICAgIEF1cm9yYUNsb2NrLmFuaW1hdGlvbnNFbmFibGVkID0gdHJ5IHsKICAgICAgICAgICAgU2V0dGluZ3MuR2xvYmFsLmdldEZsb2F0KGNvbnRleHQuY29udGVudFJlc29sdmVyLCBTZXR0aW5ncy5HbG9iYWwuQU5JTUFUT1JfRFVSQVRJT05fU0NBTEUsIDFmKSA+IDBmCiAgICAgICAgfSBjYXRjaCAoXzogVGhyb3dhYmxlKSB7IHRydWUgfQogICAgfQoKICAgIC8qKgogICAgICogVHVybnMgW3ZpZXddIGludG8gYSBnbGFzcyBzdXJmYWNlLiBUaGUgYXVyb3JhIGJlaGluZCBpdCBrZWVwcyBkcmlmdGluZyB3aGlsZSB0aGUgdmlldyBpcyBvbiBzY3JlZW4sIHNvIHRoZQogICAgICogcmVmcmFjdGlvbiBhbmQgdGhlIHNsaWRpbmcgaGlnaGxpZ2h0IHN0YXkgYWxpdmU7IHRoZSBjbG9jayBzbGVlcHMgYXMgc29vbiBhcyBub3RoaW5nIGdsYXNzIGlzIGF0dGFjaGVkLgogICAgICovCiAgICBmdW4gYXBwbHkoCiAgICAgICAgdmlldzogVmlldywKICAgICAgICByYWRpdXNEcDogRmxvYXQsCiAgICAgICAgdGludDogSW50ID0gMCwKICAgICAgICBzb2Z0OiBCb29sZWFuID0gZmFsc2UsCiAgICAgICAgdG9wT25seTogQm9vbGVhbiA9IGZhbHNlLAogICAgICAgIGVsZXZhdGlvbkRwOiBGbG9hdCA9IGlmIChzb2Z0KSAwZiBlbHNlIDRmCiAgICApIHsKICAgICAgICB2YWwgZGVuc2l0eSA9IHZpZXcucmVzb3VyY2VzLmRpc3BsYXlNZXRyaWNzLmRlbnNpdHkKICAgICAgICBpZiAoR2xhc3NNb2RlLnBsYWluKCkpIHsKICAgICAgICAgICAgLy8gR2xhc3MgaXMgc3dpdGNoZWQgb2ZmOiBrZWVwIHRoZSB2aWV3J3Mgb3duIGRlc2lnbjsgYSB2aWV3IGJ1aWx0IGluIGNvZGUgd2l0aCBubyBiYWNrZ3JvdW5kIGdldHMgYSBmbGF0IHRoZW1lZCBjYXJkLgogICAgICAgICAgICBpZiAodmlldy5iYWNrZ3JvdW5kID09IG51bGwpIHZpZXcuYmFja2dyb3VuZCA9IEdsYXNzTW9kZS5wbGFpbkNhcmRCYWNrZ3JvdW5kKHZpZXcuY29udGV4dCwgcmFkaXVzRHAgKiBkZW5zaXR5KQogICAgICAgICAgICByZXR1cm4KICAgICAgICB9CiAgICAgICAgdmlldy5iYWNrZ3JvdW5kID0gTGlxdWlkR2xhc3NEcmF3YWJsZSh2aWV3LCByYWRpdXNEcCAqIGRlbnNpdHksIHRpbnQsIHNvZnQsIHRvcE9ubHkpCiAgICAgICAgdmlldy5vdXRsaW5lUHJvdmlkZXIgPSBWaWV3T3V0bGluZVByb3ZpZGVyLkJBQ0tHUk9VTkQKICAgICAgICB2aWV3LmNsaXBUb091dGxpbmUgPSBmYWxzZQogICAgICAgIHZpZXcuZWxldmF0aW9uID0gZWxldmF0aW9uRHAgKiBkZW5zaXR5CiAgICAgICAgaWYgKEJ1aWxkLlZFUlNJT04uU0RLX0lOVCA+PSBCdWlsZC5WRVJTSU9OX0NPREVTLlAgJiYgZWxldmF0aW9uRHAgPiAwZikgewogICAgICAgICAgICB2YWwgc2hhZG93ID0gaWYgKHRpbnQgIT0gMCkgdGludCBlbHNlIHRyeSB7IFRoZW1lTWFuYWdlci5nZXRUaGVtZUFjY2VudENvbG9yKCkgfSBjYXRjaCAoXzogVGhyb3dhYmxlKSB7IDB4RkYwMDAwMDAudG9JbnQoKSB9CiAgICAgICAgICAgIHZpZXcub3V0bGluZUFtYmllbnRTaGFkb3dDb2xvciA9IHNoYWRvdwogICAgICAgICAgICB2aWV3Lm91dGxpbmVTcG90U2hhZG93Q29sb3IgPSBzaGFkb3cKICAgICAgICB9CiAgICAgICAgdmlldy5zZXRUYWcoVEFHX0tFWSwgdHJ1ZSkKICAgICAgICBhdHRhY2hMZW5zKHZpZXcpCiAgICB9CgogICAgLyoqCiAgICAgKiBBIHBhbmUgdGhhdCBtYWduaWZpZXMgdGhlIGRyaWZ0aW5nIGZpZWxkIGJlaGluZCBpdCBoYXMgdG8gYmUgcmVkcmF3biB3aGlsZSB0aGF0IGZpZWxkIG1vdmVzLCBvdGhlcndpc2UgaXRzIGxlbnMgaW1hZ2UKICAgICAqIGZyZWV6ZXMgYW5kIHJlYWRzIGFzIGEgZ2hvc3QuIFRoZSB0aWNrIGlzIHJlZ2lzdGVyZWQgb25seSB3aGlsZSB0aGUgcGFuZSBpcyBvbiBzY3JlZW4gQU5EIG9ubHkgd2hlbiBhIGZpZWxkIHJlYWxseSBpcwogICAgICogYmVoaW5kIGl0LCBzbyBhIHNjcmVlbiB3aXRoIG5vIGJhY2tkcm9wIChvciBhIGNsb3NlZCBvbmUpIGNvc3RzIG5vdGhpbmcgYW5kIHRoZSBzaGFyZWQgY2xvY2sgc3RheXMgYXNsZWVwLgogICAgICovCiAgICBwcml2YXRlIGZ1biBhdHRhY2hMZW5zKHZpZXc6IFZpZXcpIHsKICAgICAgICBpZiAodmlldy5nZXRUYWcoTEVOU19USUNLX0tFWSkgIT0gbnVsbCkgcmV0dXJuCiAgICAgICAgdmFsIHRpY2sgPSBSdW5uYWJsZSB7IGlmICh2aWV3LmlzU2hvd24pIHZpZXcuaW52YWxpZGF0ZSgpIH0KICAgICAgICB2aWV3LnNldFRhZyhMRU5TX1RJQ0tfS0VZLCB0aWNrKQogICAgICAgIHZhbCBsaXN0ZW5lciA9IG9iamVjdCA6IFZpZXcuT25BdHRhY2hTdGF0ZUNoYW5nZUxpc3RlbmVyIHsKICAgICAgICAgICAgb3ZlcnJpZGUgZnVuIG9uVmlld0F0dGFjaGVkVG9XaW5kb3codjogVmlldykgewogICAgICAgICAgICAgICAgaWYgKEdsYXNzTGVucy5oYXNGaWVsZCh2KSkgQXVyb3JhQ2xvY2sucmVnaXN0ZXIodGljaykKICAgICAgICAgICAgfQoKICAgICAgICAgICAgb3ZlcnJpZGUgZnVuIG9uVmlld0RldGFjaGVkRnJvbVdpbmRvdyh2OiBWaWV3KSB7CiAgICAgICAgICAgICAgICBBdXJvcmFDbG9jay51bnJlZ2lzdGVyKHRpY2spCiAgICAgICAgICAgIH0KICAgICAgICB9CiAgICAgICAgdmlldy5hZGRPbkF0dGFjaFN0YXRlQ2hhbmdlTGlzdGVuZXIobGlzdGVuZXIpCiAgICAgICAgaWYgKHZpZXcuaXNBdHRhY2hlZFRvV2luZG93KSBsaXN0ZW5lci5vblZpZXdBdHRhY2hlZFRvV2luZG93KHZpZXcpCiAgICB9CgogICAgLyoqCiAgICAgKiBpT1Mtc3R5bGUgc3dpdGNoZXM6IGEgd2hpdGUgdGh1bWIgb24gYSBnbGFzc3kgdHJhY2sgdGhhdCB0dXJucyB0aGUgdGhlbWUncyBzdWNjZXNzIGNvbG91ciB3aGVuIG9uLgogICAgICogV2Fsa3MgdGhlIHdob2xlIHZpZXcgdHJlZSwgc28gZXZlcnkgdG9nZ2xlIG9uIGEgc2NyZWVuIG1hdGNoZXMuCiAgICAgKi8KICAgIGZ1biBzdHlsZVN3aXRjaGVzKHJvb3Q6IFZpZXcpIHsKICAgICAgICBpZiAoR2xhc3NNb2RlLnBsYWluKCkpIHJldHVybgogICAgICAgIGlmIChyb290IGlzIGFuZHJvaWQud2lkZ2V0LkNvbXBvdW5kQnV0dG9uICYmIChyb290IGlzIGFuZHJvaWR4LmFwcGNvbXBhdC53aWRnZXQuU3dpdGNoQ29tcGF0IHx8CiAgICAgICAgICAgICAgICByb290IGlzIGNvbS5nb29nbGUuYW5kcm9pZC5tYXRlcmlhbC5tYXRlcmlhbHN3aXRjaC5NYXRlcmlhbFN3aXRjaCkpIHsKICAgICAgICAgICAgdmFsIGxpZ2h0ID0gaXNMaWdodCgpCiAgICAgICAgICAgIHZhbCBvbiA9IHRyeSB7IFRoZW1lTWFuYWdlci5nZXRUaGVtZVN1Y2Nlc3NDb2xvcigpIH0gY2F0Y2ggKF86IFRocm93YWJsZSkgeyByb290LmNvbnRleHQuZ2V0Q29sb3IoYW5kcm9pZC5SLmNvbG9yLmhvbG9fZ3JlZW5fbGlnaHQpIH0KICAgICAgICAgICAgdmFsIG9mZiA9IGFuZHJvaWR4LmNvcmUuZ3JhcGhpY3MuQ29sb3JVdGlscy5zZXRBbHBoYUNvbXBvbmVudChpZiAobGlnaHQpIGFuZHJvaWQuZ3JhcGhpY3MuQ29sb3IuQkxBQ0sgZWxzZSBhbmRyb2lkLmdyYXBoaWNzLkNvbG9yLldISVRFLCBpZiAobGlnaHQpIDM2IGVsc2UgNzApCiAgICAgICAgICAgIHZhbCBzdGF0ZXMgPSBhcnJheU9mKGludEFycmF5T2YoYW5kcm9pZC5SLmF0dHIuc3RhdGVfY2hlY2tlZCksIGludEFycmF5T2YoLWFuZHJvaWQuUi5hdHRyLnN0YXRlX2NoZWNrZWQpKQogICAgICAgICAgICB2YWwgdHJhY2sgPSBhbmRyb2lkLmNvbnRlbnQucmVzLkNvbG9yU3RhdGVMaXN0KHN0YXRlcywgaW50QXJyYXlPZihhbmRyb2lkeC5jb3JlLmdyYXBoaWNzLkNvbG9yVXRpbHMuc2V0QWxwaGFDb21wb25lbnQob24sIDIzNSksIG9mZikpCiAgICAgICAgICAgIHZhbCB0aHVtYiA9IGFuZHJvaWQuY29udGVudC5yZXMuQ29sb3JTdGF0ZUxpc3QudmFsdWVPZihhbmRyb2lkLmdyYXBoaWNzLkNvbG9yLldISVRFKQogICAgICAgICAgICB3aGVuIChyb290KSB7CiAgICAgICAgICAgICAgICBpcyBjb20uZ29vZ2xlLmFuZHJvaWQubWF0ZXJpYWwubWF0ZXJpYWxzd2l0Y2guTWF0ZXJpYWxTd2l0Y2ggLT4gewogICAgICAgICAgICAgICAgICAgIHJvb3QudHJhY2tUaW50TGlzdCA9IHRyYWNrCiAgICAgICAgICAgICAgICAgICAgcm9vdC50aHVtYlRpbnRMaXN0ID0gdGh1bWIKICAgICAgICAgICAgICAgICAgICByb290LnRyYWNrRGVjb3JhdGlvblRpbnRMaXN0ID0gYW5kcm9pZC5jb250ZW50LnJlcy5Db2xvclN0YXRlTGlzdC52YWx1ZU9mKGFuZHJvaWQuZ3JhcGhpY3MuQ29sb3IuVFJBTlNQQVJFTlQpCiAgICAgICAgICAgICAgICAgICAgcm9vdC50aHVtYkljb25EcmF3YWJsZSA9IG51bGwKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIGlzIGFuZHJvaWR4LmFwcGNvbXBhdC53aWRnZXQuU3dpdGNoQ29tcGF0IC0+IHsKICAgICAgICAgICAgICAgICAgICByb290LnRyYWNrVGludExpc3QgPSB0cmFjawogICAgICAgICAgICAgICAgICAgIHJvb3QudGh1bWJUaW50TGlzdCA9IHRodW1iCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9CiAgICAgICAgaWYgKHJvb3QgaXMgVmlld0dyb3VwKSBmb3IgKGkgaW4gMCB1bnRpbCByb290LmNoaWxkQ291bnQpIHN0eWxlU3dpdGNoZXMocm9vdC5nZXRDaGlsZEF0KGkpKQogICAgfQoKICAgIC8qKiBBIHF1aWV0ZXIgZ2xhc3MgcGFuZSBmb3Igc29tZXRoaW5nIHRoYXQgc2l0cyBpbnNpZGUgYSBjYXJkIChpbnB1dHMsIGNoaXBzLCBzbWFsbCBidXR0b25zKS4gKi8KICAgIGZ1biBhcHBseVNvZnQodmlldzogVmlldywgcmFkaXVzRHA6IEZsb2F0LCB0aW50OiBJbnQgPSAwKSA9IGFwcGx5KHZpZXcsIHJhZGl1c0RwLCB0aW50LCBzb2Z0ID0gdHJ1ZSkKCiAgICAvKioKICAgICAqIEdpdmVzIGEgc2NyZWVuIHJvb3QgdGhlIFNldHRpbmdzIGJhY2tkcm9wOiB0aGUgYXBwJ3Mgb3duIHRoZW1lZCBiYWNrZ3JvdW5kIHdpdGggdGhlIGRyaWZ0aW5nIGF1cm9yYSBvbiB0b3AuCiAgICAgKiBHbGFzcyBzdXJmYWNlcyBvbiB0aGUgc2NyZWVuIHJlZnJhY3QgdGhpcyBzYW1lIGZpZWxkLgogICAgICovCiAgICBmdW4gaW5zdGFsbEJhY2tkcm9wKHJvb3Q6IFZpZXcsIHdpdGhCYXNlOiBCb29sZWFuID0gZmFsc2UpIHsKICAgICAgICBpZiAoR2xhc3NNb2RlLnBsYWluKCkpIHJldHVybgogICAgICAgIHZhbCBkZW5zaXR5ID0gcm9vdC5yZXNvdXJjZXMuZGlzcGxheU1ldHJpY3MKICAgICAgICB2YWwgZXhpc3RpbmcgPSByb290LmJhY2tncm91bmQKICAgICAgICBpZiAoZXhpc3RpbmcgaXMgQXVyb3JhQmFja2Ryb3BEcmF3YWJsZSkgewogICAgICAgICAgICBleGlzdGluZy5pbnZhbGlkYXRlU2VsZigpCiAgICAgICAgICAgIHJldHVybgogICAgICAgIH0KICAgICAgICB2YWwgYmFzZSA9IGlmICh3aXRoQmFzZSAmJiBleGlzdGluZyAhPSBudWxsICYmIGV4aXN0aW5nICFpcyBBdXJvcmFCYWNrZHJvcERyYXdhYmxlKSBleGlzdGluZyBlbHNlIG51bGwKICAgICAgICB2YWwgYXVyb3JhID0gQXVyb3JhQmFja2Ryb3BEcmF3YWJsZShkZW5zaXR5LndpZHRoUGl4ZWxzLnRvRmxvYXQoKSwgZGVuc2l0eS5oZWlnaHRQaXhlbHMudG9GbG9hdCgpLCByb290LCBiYXNlKQogICAgICAgIHJvb3QuYmFja2dyb3VuZCA9IGF1cm9yYQogICAgICAgIGlmIChyb290LmdldFRhZyhUQUdfS0VZKSA9PSBudWxsKSB7CiAgICAgICAgICAgIHZhbCB0aWNrID0gUnVubmFibGUgeyBpZiAocm9vdC5pc1Nob3duKSByb290LmludmFsaWRhdGUoKSB9CiAgICAgICAgICAgIHZhbCBsaXN0ZW5lciA9IG9iamVjdCA6IFZpZXcuT25BdHRhY2hTdGF0ZUNoYW5nZUxpc3RlbmVyIHsKICAgICAgICAgICAgICAgIG92ZXJyaWRlIGZ1biBvblZpZXdBdHRhY2hlZFRvV2luZG93KHY6IFZpZXcpIHsKICAgICAgICAgICAgICAgICAgICByZWZyZXNoQW5pbWF0aW9uU2V0dGluZyh2LmNvbnRleHQpCiAgICAgICAgICAgICAgICAgICAgQXVyb3JhQ2xvY2sucmVnaXN0ZXIodGljaykKICAgICAgICAgICAgICAgIH0KCiAgICAgICAgICAgICAgICBvdmVycmlkZSBmdW4gb25WaWV3RGV0YWNoZWRGcm9tV2luZG93KHY6IFZpZXcpIHsKICAgICAgICAgICAgICAgICAgICBBdXJvcmFDbG9jay51bnJlZ2lzdGVyKHRpY2spCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICAgICAgcm9vdC5hZGRPbkF0dGFjaFN0YXRlQ2hhbmdlTGlzdGVuZXIobGlzdGVuZXIpCiAgICAgICAgICAgIHJvb3Quc2V0VGFnKFRBR19LRVksIHRydWUpCiAgICAgICAgICAgIGlmIChyb290LmlzQXR0YWNoZWRUb1dpbmRvdykgbGlzdGVuZXIub25WaWV3QXR0YWNoZWRUb1dpbmRvdyhyb290KQogICAgICAgIH0KICAgIH0KCiAgICAvKioKICAgICAqIFR1cm5zIHRoZSBleGlzdGluZyBzaGFwZS1kcmF3YWJsZSBjYXJkcyBvZiBhIHNjcmVlbiBpbnRvIGdsYXNzIG9uY2UgaXQgaGFzIGJlZW4gbGFpZCBvdXQuIE9ubHkgbGFyZ2VyCiAgICAgKiBjb250YWluZXIgdmlld3Mgd2l0aCBhIHNoYXBlIGJhY2tncm91bmQgYXJlIHRvdWNoZWQ7IGJ1dHRvbnMsIGNoaXBzLCBiYWRnZXMgYW5kIHJpcHBsZXMga2VlcCB0aGVpciBsb29rLgogICAgICovCiAgICBmdW4gZ2xhc3NpZnkocm9vdDogVmlldywgdGludDogSW50ID0gMCkgewogICAgICAgIGlmIChHbGFzc01vZGUucGxhaW4oKSkgcmV0dXJuCiAgICAgICAgcm9vdC52aWV3VHJlZU9ic2VydmVyLmFkZE9uR2xvYmFsTGF5b3V0TGlzdGVuZXIob2JqZWN0IDogYW5kcm9pZC52aWV3LlZpZXdUcmVlT2JzZXJ2ZXIuT25HbG9iYWxMYXlvdXRMaXN0ZW5lciB7CiAgICAgICAgICAgIG92ZXJyaWRlIGZ1biBvbkdsb2JhbExheW91dCgpIHsKICAgICAgICAgICAgICAgIGlmIChyb290LndpZHRoID09IDApIHJldHVybgogICAgICAgICAgICAgICAgaWYgKHJvb3Qudmlld1RyZWVPYnNlcnZlci5pc0FsaXZlKSByb290LnZpZXdUcmVlT2JzZXJ2ZXIucmVtb3ZlT25HbG9iYWxMYXlvdXRIZWFkTGlzdGVuZXIodGhpcykKICAgICAgICAgICAgICAgIGdsYXNzaWZ5Q2hpbGRyZW4ocm9vdCwgdGludCkKICAgICAgICAgICAgfQogICAgICAgIH0pCiAgICB9CgogICAgcHJpdmF0ZSBmdW4gZ2xhc3NpZnlDaGlsZHJlbihncm91cDogVmlldywgdGludDogSW50KSB7CiAgICAgICAgaWYgKGdyb3VwICFpcyBWaWV3R3JvdXApIHJldHVybgogICAgICAgIHZhbCBkZW5zaXR5ID0gZ3JvdXAucmVzb3VyY2VzLmRpc3BsYXlNZXRyaWNzLmRlbnNpdHkKICAgICAgICBmb3IgKGkgaW4gMCB1bnRpbCBncm91cC5jaGlsZENvdW50KSB7CiAgICAgICAgICAgIHZhbCBjaGlsZCA9IGdyb3VwLmdldENoaWxkQXQoaSkKICAgICAgICAgICAgdmFsIGJnID0gY2hpbGQuYmFja2dyb3VuZAogICAgICAgICAgICB2YWwgaXNTaGFwZUNhcmQgPSBjaGlsZCBpcyBWaWV3R3JvdXAgJiYgIWNoaWxkLmlzQ2xpY2thYmxlICYmCiAgICAgICAgICAgICAgICAoYmcgaXMgYW5kcm9pZC5ncmFwaGljcy5kcmF3YWJsZS5HcmFkaWVudERyYXdhYmxlIHx8IGJnIGlzIGFuZHJvaWQuZ3JhcGhpY3MuZHJhd2FibGUuTGF5ZXJEcmF3YWJsZSkgJiYKICAgICAgICAgICAgICAgIGNoaWxkLndpZHRoID49IDEyMCAqIGRlbnNpdHkgJiYgY2hpbGQuaGVpZ2h0ID49IDU2ICogZGVuc2l0eSAmJiBjaGlsZC5nZXRUYWcoVEFHX0tFWSkgPT0gbnVsbAogICAgICAgICAgICBpZiAoaXNTaGFwZUNhcmQpIHsKICAgICAgICAgICAgICAgIGFwcGx5KGNoaWxkLCAyNGYsIHRpbnQsIHNvZnQgPSBjaGlsZC5oZWlnaHQgPCA5NiAqIGRlbnNpdHkpCiAgICAgICAgICAgICAgICBjb250aW51ZSAvLyBrZWVwIHRoZSBjb250ZW50cyBvZiBhIGdsYXNzIGNhcmQgYXMgdGhleSB3ZXJlOyBubyBnbGFzcy1vbi1nbGFzcwogICAgICAgICAgICB9CiAgICAgICAgICAgIGdsYXNzaWZ5Q2hpbGRyZW4oY2hpbGQsIHRpbnQpCiAgICAgICAgfQogICAgfQoKICAgIC8qKiBEaW1zIGFuZCBibHVycyB0aGUgc2NyZWVuIGJlaGluZCBhIHdpbmRvdyAoYmx1ciBuZWVkcyBBbmRyb2lkIDEyKzsgb2xkZXIgdmVyc2lvbnMgb25seSBnZXQgdGhlIGRpbSkuICovCiAgICBmdW4gYmx1ckJlaGluZChkaWFsb2c6IERpYWxvZywgcmFkaXVzRHA6IEZsb2F0ID0gMjRmLCBkaW06IEZsb2F0ID0gMC4zMGYpIHsKICAgICAgICBpZiAoR2xhc3NNb2RlLnBsYWluKCkpIHJldHVybgogICAgICAgIHZhbCB3aW5kb3cgPSBkaWFsb2cud2luZG93ID86IHJldHVybgogICAgICAgIHZhbCBkZW5zaXR5ID0gd2luZG93LmRlY29yVmlldy5yZXNvdXJjZXMuZGlzcGxheU1ldHJpY3MuZGVuc2l0eQogICAgICAgIHdpbmRvdy5hZGRGbGFncyhXaW5kb3dNYW5hZ2VyLkxheW91dFBhcmFtcy5GTEFHX0RJTV9CRUhJTkQpCiAgICAgICAgd2luZG93LnNldERpbUFtb3VudChkaW0pCiAgICAgICAgaWYgKEJ1aWxkLlZFUlNJT04uU0RLX0lOVCA+PSBCdWlsZC5WRVJTSU9OX0NPREVTLlMpIHsKICAgICAgICAgICAgdHJ5IHsKICAgICAgICAgICAgICAgIHdpbmRvdy5hZGRGbGFncyhXaW5kb3dNYW5hZ2VyLkxheW91dFBhcmFtcy5GTEFHX0JMVVJfQkVISU5EKQogICAgICAgICAgICAgICAgd2luZG93LmF0dHJpYnV0ZXMgPSB3aW5kb3cuYXR0cmlidXRlcy5hcHBseSB7IGJsdXJCZWhpbmRSYWRpdXMgPSAocmFkaXVzRHAgKiBkZW5zaXR5KS50b0ludCgpIH0KICAgICAgICAgICAgfSBjYXRjaCAoXzogVGhyb3dhYmxlKSB7CiAgICAgICAgICAgICAgICAvLyBXaW5kb3cgYmx1ciBjYW4gYmUgZGlzYWJsZWQgYnkgdGhlIHZlbmRvcjsgdGhlIGRpbSBhbG9uZSBzdGlsbCByZWFkcyB3ZWxsLgogICAgICAgICAgICB9CiAgICAgICAgfQogICAgfQoKICAgIC8qKgogICAgICogTWFrZXMgYSBkaWFsb2cgYSBmbG9hdGluZyBnbGFzcyBwYW5lOiByb3VuZGVkIGdsYXNzIHdpbmRvdywgYSBzb2Z0IGJsdXIgb2YgdGhlIHNjcmVlbiBiZWhpbmQgaXQgb24gQW5kcm9pZCAxMissCiAgICAgKiBhbmQgYSBnZW50bGUgZGltIHNvIHRoZSB0ZXh0IHN0YXlzIHJlYWRhYmxlLgogICAgICovCiAgICBmdW4gc3R5bGVEaWFsb2coZGlhbG9nOiBEaWFsb2csIHJhZGl1c0RwOiBGbG9hdCA9IDMwZikgewogICAgICAgIGlmIChHbGFzc01vZGUucGxhaW4oKSkgcmV0dXJuCiAgICAgICAgdmFsIHdpbmRvdyA9IGRpYWxvZy53aW5kb3cgPzogcmV0dXJuCiAgICAgICAgdmFsIGRlY29yID0gd2luZG93LmRlY29yVmlldwogICAgICAgIHZhbCBkZW5zaXR5ID0gZGVjb3IucmVzb3VyY2VzLmRpc3BsYXlNZXRyaWNzLmRlbnNpdHkKICAgICAgICB2YWwgZ2xhc3MgPSBMaXF1aWRHbGFzc0RyYXdhYmxlKGRlY29yLCByYWRpdXNEcCAqIGRlbnNpdHksIDAsIHNvZnQgPSBmYWxzZSkKICAgICAgICB2YWwgbWFyZ2luID0gKDYgKiBkZW5zaXR5KS50b0ludCgpCiAgICAgICAgd2luZG93LnNldEJhY2tncm91bmREcmF3YWJsZShJbnNldERyYXdhYmxlKGdsYXNzLCBtYXJnaW4pKQogICAgICAgIHdpbmRvdy5hZGRGbGFncyhXaW5kb3dNYW5hZ2VyLkxheW91dFBhcmFtcy5GTEFHX0RJTV9CRUhJTkQpCiAgICAgICAgd2luZG93LnNldERpbUFtb3VudChpZiAoaXNMaWdodCgpKSAwLjE4ZiBlbHNlIDAuMzhmKQogICAgICAgIGlmIChCdWlsZC5WRVJTSU9OLlNES19JTlQgPj0gQnVpbGQuVkVSU0lPTl9DT0RFUy5TKSB7CiAgICAgICAgICAgIHRyeSB7CiAgICAgICAgICAgICAgICB3aW5kb3cuYWRkRmxhZ3MoV2luZG93TWFuYWdlci5MYXlvdXRQYXJhbXMuRkxBR19CTFVSX0JFSElORCkKICAgICAgICAgICAgICAgIHdpbmRvdy5hdHRyaWJ1dGVzID0gd2luZG93LmF0dHJpYnV0ZXMuYXBwbHkgeyBibHVyQmVoaW5kUmFkaXVzID0gKDI4ICogZGVuc2l0eSkudG9JbnQoKSB9CiAgICAgICAgICAgICAgICB3aW5kb3cuc2V0QmFja2dyb3VuZEJsdXJSYWRpdXMoKDM2ICogZGVuc2l0eSkudG9JbnQoKSkKICAgICAgICAgICAgfSBjYXRjaCAoXzogVGhyb3dhYmxlKSB7CiAgICAgICAgICAgICAgICAvLyBTb21lIHZlbmRvciBidWlsZHMgZGlzYWJsZSB3aW5kb3cgYmx1cjsgdGhlIGdsYXNzIHBhbmUgc3RpbGwgbG9va3MgcmlnaHQgd2l0aG91dCBpdC4KICAgICAgICAgICAgfQogICAgICAgIH0KICAgIH0KfQoKLyoqIFRoZSBjYWxtIGF1cm9yYSBhIFNldHRpbmdzIHNjcmVlbiBzaXRzIG9uLiBJdCBpcyB0cmFuc3BhcmVudCwgc28gdGhlIGFwcCdzIG93biB0aGVtZWQgYmFja2dyb3VuZCBzaG93cyB0aHJvdWdoLiAqLwpjbGFzcyBBdXJvcmFCYWNrZHJvcERyYXdhYmxlKAogICAgcHJpdmF0ZSB2YWwgc2NyZWVuVzogRmxvYXQsCiAgICBwcml2YXRlIHZhbCBzY3JlZW5IOiBGbG9hdCwKICAgIHByaXZhdGUgdmFsIGhvc3Q6IFZpZXcsCiAgICBwcml2YXRlIHZhbCBiYXNlOiBEcmF3YWJsZT8gPSBudWxsCikgOiBEcmF3YWJsZSgpIHsKCiAgICBwcml2YXRlIHZhbCBsb2MgPSBJbnRBcnJheSgyKQogICAgcHJpdmF0ZSB2YXIgYWxwaGFWYWx1ZSA9IDI1NQoKICAgIG92ZXJyaWRlIGZ1biBvbkJvdW5kc0NoYW5nZShib3VuZHM6IGFuZHJvaWQuZ3JhcGhpY3MuUmVjdCkgewogICAgICAgIHN1cGVyLm9uQm91bmRzQ2hhbmdlKGJvdW5kcykKICAgICAgICBiYXNlPy5ib3VuZHMgPSBib3VuZHMKICAgIH0KCiAgICBvdmVycmlkZSBmdW4gZHJhdyhjYW52YXM6IENhbnZhcykgewogICAgICAgIGJhc2U/LmRyYXcoY2FudmFzKQogICAgICAgIGhvc3QuZ2V0TG9jYXRpb25PblNjcmVlbihsb2MpCiAgICAgICAgdmFsIGxpZ2h0ID0gdHJ5IHsgVGhlbWVNYW5hZ2VyLmlzQ3VycmVudFRoZW1lTGlnaHQoKSB9IGNhdGNoIChfOiBUaHJvd2FibGUpIHsgZmFsc2UgfQogICAgICAgIGNhbnZhcy5zYXZlKCkKICAgICAgICBjYW52YXMudHJhbnNsYXRlKC1sb2NbMF0udG9GbG9hdCgpLCAtbG9jWzFdLnRvRmxvYXQoKSkKICAgICAgICBBdXJvcmFGaWVsZC5kcmF3KGNhbnZhcywgc2NyZWVuVywgc2NyZWVuSCwgbGlnaHQsIChpZiAobGlnaHQpIDAuNTBmIGVsc2UgMC41NWYpICogYWxwaGFWYWx1ZSAvIDI1NWYpCiAgICAgICAgY2FudmFzLnJlc3RvcmUoKQogICAgfQoKICAgIG92ZXJyaWRlIGZ1biBzZXRBbHBoYShhbHBoYTogSW50KSB7IGFscGhhVmFsdWUgPSBhbHBoYTsgYmFzZT8uYWxwaGEgPSBhbHBoYTsgaW52YWxpZGF0ZVNlbGYoKSB9CiAgICBvdmVycmlkZSBmdW4gc2V0Q29sb3JGaWx0ZXIoY29sb3JGaWx0ZXI6IENvbG9yRmlsdGVyPykgeyBiYXNlPy5jb2xvckZpbHRlciA9IGNvbG9yRmlsdGVyIH0KCiAgICBARGVwcmVjYXRlZCgiRGVwcmVjYXRlZCBpbiBKYXZhIikKICAgIG92ZXJyaWRlIGZ1biBnZXRPcGFjaXR5KCk6IEludCA9IFBpeGVsRm9ybWF0LlRSQU5TTFVDRU5UCn0K
+package com.jarvis.assistant.ui.glass
+
+import android.app.Dialog
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.ColorFilter
+import android.graphics.PixelFormat
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.InsetDrawable
+import android.os.Build
+import android.provider.Settings
+import android.view.View
+import android.view.ViewGroup
+import android.view.ViewOutlineProvider
+import android.view.WindowManager
+import com.jarvis.assistant.util.ThemeManager
+
+/** Entry points for the Settings "liquid glass" material. */
+object LiquidGlass {
+
+    private const val TAG_KEY = 0x4A474C53 // "JGLS": marks views that already carry a glass surface
+    private const val LENS_TICK_KEY = 0x4A474C54 // "JGLT": marks views already redrawing for the magnifying lens
+
+    private fun isLight(): Boolean = try { ThemeManager.isCurrentThemeLight() } catch (_: Throwable) { false }
+
+    private fun refreshAnimationSetting(context: Context) {
+        AuroraClock.animationsEnabled = try {
+            Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
+        } catch (_: Throwable) { true }
+    }
+
+    /**
+     * Turns [view] into a glass surface. The aurora behind it keeps drifting while the view is on screen, so the
+     * refraction and the sliding highlight stay alive; the clock sleeps as soon as nothing glass is attached.
+     */
+    fun apply(
+        view: View,
+        radiusDp: Float,
+        tint: Int = 0,
+        soft: Boolean = false,
+        topOnly: Boolean = false,
+        elevationDp: Float = if (soft) 0f else 4f
+    ) {
+        val density = view.resources.displayMetrics.density
+        if (GlassMode.plain()) {
+            // Glass is switched off: keep the view's own design; a view built in code with no background gets a flat themed card.
+            if (view.background == null) view.background = GlassMode.plainCardBackground(view.context, radiusDp * density)
+            return
+        }
+        view.background = LiquidGlassDrawable(view, radiusDp * density, tint, soft, topOnly)
+        view.outlineProvider = ViewOutlineProvider.BACKGROUND
+        view.clipToOutline = false
+        view.elevation = elevationDp * density
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && elevationDp > 0f) {
+            val shadow = if (tint != 0) tint else try { ThemeManager.getThemeAccentColor() } catch (_: Throwable) { 0xFF000000.toInt() }
+            view.outlineAmbientShadowColor = shadow
+            view.outlineSpotShadowColor = shadow
+        }
+        view.setTag(TAG_KEY, true)
+        attachLens(view)
+    }
+
+    /**
+     * A pane that magnifies the drifting field behind it has to be redrawn while that field moves, otherwise its lens image
+     * freezes and reads as a ghost. The tick is registered only while the pane is on screen AND only when a field really is
+     * behind it, so a screen with no backdrop (or a closed one) costs nothing and the shared clock stays asleep.
+     */
+    private fun attachLens(view: View) {
+        if (view.getTag(LENS_TICK_KEY) != null) return
+        val tick = Runnable { if (view.isShown) view.invalidate() }
+        view.setTag(LENS_TICK_KEY, tick)
+        val listener = object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                if (GlassLens.hasField(v)) AuroraClock.register(tick)
+            }
+
+            override fun onViewDetachedFromWindow(v: View) {
+                AuroraClock.unregister(tick)
+            }
+        }
+        view.addOnAttachStateChangeListener(listener)
+        if (view.isAttachedToWindow) listener.onViewAttachedToWindow(view)
+    }
+
+    /**
+     * iOS-style switches: a white thumb on a glassy track that turns the theme's success colour when on.
+     * Walks the whole view tree, so every toggle on a screen matches.
+     */
+    fun styleSwitches(root: View) {
+        if (GlassMode.plain()) return
+        if (root is android.widget.CompoundButton && (root is androidx.appcompat.widget.SwitchCompat ||
+                root is com.google.android.material.materialswitch.MaterialSwitch)) {
+            val light = isLight()
+            val on = try { ThemeManager.getThemeSuccessColor() } catch (_: Throwable) { root.context.getColor(android.R.color.holo_green_light) }
+            val off = androidx.core.graphics.ColorUtils.setAlphaComponent(if (light) android.graphics.Color.BLACK else android.graphics.Color.WHITE, if (light) 36 else 70)
+            val states = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf(-android.R.attr.state_checked))
+            val track = android.content.res.ColorStateList(states, intArrayOf(androidx.core.graphics.ColorUtils.setAlphaComponent(on, 235), off))
+            val thumb = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
+            when (root) {
+                is com.google.android.material.materialswitch.MaterialSwitch -> {
+                    root.trackTintList = track
+                    root.thumbTintList = thumb
+                    root.trackDecorationTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
+                    root.thumbIconDrawable = null
+                }
+                is androidx.appcompat.widget.SwitchCompat -> {
+                    root.trackTintList = track
+                    root.thumbTintList = thumb
+                }
+            }
+        }
+        if (root is ViewGroup) for (i in 0 until root.childCount) styleSwitches(root.getChildAt(i))
+    }
+
+    /** A quieter glass pane for something that sits inside a card (inputs, chips, small buttons). */
+    fun applySoft(view: View, radiusDp: Float, tint: Int = 0) = apply(view, radiusDp, tint, soft = true)
+
+    /**
+     * Gives a screen root the Settings backdrop: the app's own themed background with the drifting aurora on top.
+     * Glass surfaces on the screen refract this same field.
+     */
+    fun installBackdrop(root: View, withBase: Boolean = false) {
+        if (GlassMode.plain()) return
+        val density = root.resources.displayMetrics
+        val existing = root.background
+        if (existing is AuroraBackdropDrawable) {
+            existing.invalidateSelf()
+            return
+        }
+        val base = if (withBase && existing != null && existing !is AuroraBackdropDrawable) existing else null
+        val aurora = AuroraBackdropDrawable(density.widthPixels.toFloat(), density.heightPixels.toFloat(), root, base)
+        root.background = aurora
+        if (root.getTag(TAG_KEY) == null) {
+            val tick = Runnable { if (root.isShown) root.invalidate() }
+            val listener = object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) {
+                    refreshAnimationSetting(v.context)
+                    AuroraClock.register(tick)
+                }
+
+                override fun onViewDetachedFromWindow(v: View) {
+                    AuroraClock.unregister(tick)
+                }
+            }
+            root.addOnAttachStateChangeListener(listener)
+            root.setTag(TAG_KEY, true)
+            if (root.isAttachedToWindow) listener.onViewAttachedToWindow(root)
+        }
+    }
+
+    /**
+     * Turns the existing shape-drawable cards of a screen into glass once it has been laid out. Only larger
+     * container views with a shape background are touched; buttons, chips, badges and ripples keep their look.
+     */
+    fun glassify(root: View, tint: Int = 0) {
+        if (GlassMode.plain()) return
+        root.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
+                if (root.width == 0) return
+                if (root.viewTreeObserver.isAlive) root.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                glassifyChildren(root, tint)
+            }
+        })
+    }
+
+    private fun glassifyChildren(group: View, tint: Int) {
+        if (group !is ViewGroup) return
+        val density = group.resources.displayMetrics.density
+        for (i in 0 until group.childCount) {
+            val child = group.getChildAt(i)
+            val bg = child.background
+            val isShapeCard = child is ViewGroup && !child.isClickable &&
+                (bg is android.graphics.drawable.GradientDrawable || bg is android.graphics.drawable.LayerDrawable) &&
+                child.width >= 120 * density && child.height >= 56 * density && child.getTag(TAG_KEY) == null
+            if (isShapeCard) {
+                apply(child, 24f, tint, soft = child.height < 96 * density)
+                continue // keep the contents of a glass card as they were; no glass-on-glass
+            }
+            glassifyChildren(child, tint)
+        }
+    }
+
+    /** Dims and blurs the screen behind a window (blur needs Android 12+; older versions only get the dim). */
+    fun blurBehind(dialog: Dialog, radiusDp: Float = 24f, dim: Float = 0.30f) {
+        if (GlassMode.plain()) return
+        val window = dialog.window ?: return
+        val density = window.decorView.resources.displayMetrics.density
+        window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        window.setDimAmount(dim)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                window.attributes = window.attributes.apply { blurBehindRadius = (radiusDp * density).toInt() }
+            } catch (_: Throwable) {
+                // Window blur can be disabled by the vendor; the dim alone still reads well.
+            }
+        }
+    }
+
+    /**
+     * Makes a dialog a floating glass pane: rounded glass window, a soft blur of the screen behind it on Android 12+,
+     * and a gentle dim so the text stays readable.
+     */
+    fun styleDialog(dialog: Dialog, radiusDp: Float = 30f) {
+        if (GlassMode.plain()) return
+        val window = dialog.window ?: return
+        val decor = window.decorView
+        val density = decor.resources.displayMetrics.density
+        val glass = LiquidGlassDrawable(decor, radiusDp * density, 0, soft = false)
+        val margin = (6 * density).toInt()
+        window.setBackgroundDrawable(InsetDrawable(glass, margin))
+        window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        window.setDimAmount(if (isLight()) 0.18f else 0.38f)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                window.attributes = window.attributes.apply { blurBehindRadius = (28 * density).toInt() }
+                window.setBackgroundBlurRadius((36 * density).toInt())
+            } catch (_: Throwable) {
+                // Some vendor builds disable window blur; the glass pane still looks right without it.
+            }
+        }
+    }
+}
+
+/** The calm aurora a Settings screen sits on. It is transparent, so the app's own themed background shows through. */
+class AuroraBackdropDrawable(
+    private val screenW: Float,
+    private val screenH: Float,
+    private val host: View,
+    private val base: Drawable? = null
+) : Drawable() {
+
+    private val loc = IntArray(2)
+    private var alphaValue = 255
+
+    override fun onBoundsChange(bounds: android.graphics.Rect) {
+        super.onBoundsChange(bounds)
+        base?.bounds = bounds
+    }
+
+    override fun draw(canvas: Canvas) {
+        base?.draw(canvas)
+        host.getLocationOnScreen(loc)
+        val light = try { ThemeManager.isCurrentThemeLight() } catch (_: Throwable) { false }
+        canvas.save()
+        canvas.translate(-loc[0].toFloat(), -loc[1].toFloat())
+        AuroraField.draw(canvas, screenW, screenH, light, (if (light) 0.50f else 0.55f) * alphaValue / 255f)
+        canvas.restore()
+    }
+
+    override fun setAlpha(alpha: Int) { alphaValue = alpha; base?.alpha = alpha; invalidateSelf() }
+    override fun setColorFilter(colorFilter: ColorFilter?) { base?.colorFilter = colorFilter }
+
+    @Deprecated("Deprecated in Java")
+    override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+}
