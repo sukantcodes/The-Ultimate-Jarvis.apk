@@ -316,16 +316,23 @@ class LiquidGlassLayout @JvmOverloads constructor(
         shader.setFloatUniform("strength", refractionDp * density)
         shader.setFloatUniform("blur", blurDp * density * 0.35f)
         shader.setFloatUniform("chroma", (ds + redOffset) / norm, (ds + greenOffset) / norm, (ds + blueOffset) / norm)
-        // Crystal Mirror (never the dock): a clearer pane that magnifies what is behind it like a lens.
+        // Crystal Mirror keeps its own, slightly stronger lens; every other theme gets the same magnifying glass now —
+        // a blurred capture with no enlargement is frosted plastic, not liquid glass.
         val crystalHere = !lockedGlass && CrystalTheme.active()
         shader.setFloatUniform("veil", if (crystalHere) veil * 0.45f else veil)
-        shader.setFloatUniform("zoom", if (crystalHere) CrystalTheme.LENS_ZOOM else 1f)
+        shader.setFloatUniform("zoom", if (crystalHere) CrystalTheme.LENS_ZOOM else IOS_LENS_ZOOM)
         return shader
     }
 
     companion object {
         /** Backdrop is captured at ~1/7 size: cheap, and already most of the blur. */
         private const val BACKDROP_SCALE = 0.15f
+
+        /**
+         * How much the captured screen behind a pane is enlarged. This is the whole difference between frosted plastic and
+         * Apple's liquid glass: the dock, the chat header and the composer all read as shaped lenses.
+         */
+        private const val IOS_LENS_ZOOM = 1.18f
 
         private const val BUFFERS = 3
 
