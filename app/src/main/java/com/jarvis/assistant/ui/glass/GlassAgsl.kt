@@ -52,28 +52,35 @@ half4 main(float2 coord) {
         n = float2(0.0, sign(p.y));
     }
 
+    // 1.0 deep inside the pane, 0.0 exactly on its rim
     float depth = clamp(-d / bezel, 0.0, 1.0);
     float edge = pow(1.0 - depth, 2.0);
     float2 off = n * edge * strength;
 
     float2 lo = float2(0.0);
     float2 hi = size - 1.0;
-    // clear-lens zoom: what is behind the glass is magnified about the centre of the pane
+    // the lens: what is behind the pane is enlarged about its centre, so the pane reads as shaped glass and not a blur
     float2 base = halfSize + p / zoom;
-    half4 cr = sampleBlur(base + off * chroma.x, lo, hi);
-    half4 cg = sampleBlur(base + off * chroma.y, lo, hi);
-    half4 cb = sampleBlur(base + off * chroma.z, lo, hi);
+    // dispersion is a hint of colour where the rim turns away from the light, never a rainbow across the whole pane
+    float3 ch = mix(float3(1.0), chroma, 0.55);
+    half4 cr = sampleBlur(base + off * ch.x, lo, hi);
+    half4 cg = sampleBlur(base + off * ch.y, lo, hi);
+    half4 cb = sampleBlur(base + off * ch.z, lo, hi);
     half3 col = half3(cr.r, cg.g, cb.b);
 
-    // saturation lift + frosted veil
+    // saturation lift + frosted veil: glass takes the colour of what is behind it instead of greying it
     half l = dot(col, half3(0.299, 0.587, 0.114));
-    col = mix(half3(l), col, half(1.15));
+    col = mix(half3(l), col, half(1.22));
     col = mix(col, half3(1.0), half(veil));
 
-    // specular: strong top-left, softer bottom-right bounce
+    // thickness: thick glass falls away just inside its rim
+    col *= half3(mix(0.80, 1.0, smoothstep(0.0, 0.85, depth)));
+
+    // specular: strong top-left, softer bottom-right bounce, plus the thin bright line of a polished rim
     float2 L = normalize(float2(-0.55, -0.83));
     float spec = pow(max(dot(n, L), 0.0), 2.0) + 0.45 * pow(max(dot(n, -L), 0.0), 2.0);
-    col += half3(spec * edge * 0.35);
+    col += half3(spec * edge * 0.50);
+    col += half3(pow(1.0 - depth, 3.0) * 0.16);
 
     float aa = 1.0 - smoothstep(-1.0, 0.5, d);
     return half4(col * aa, aa);

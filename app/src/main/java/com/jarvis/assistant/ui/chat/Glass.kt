@@ -40,9 +40,11 @@ class GlassDrawable(
     private val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val hair = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val top = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND }
+    private val innerShade = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val rect = RectF()
     private val rimRect = RectF()
     private val hairRect = RectF()
+    private val innerShadeRect = RectF()
 
     private fun k(): Float = (0.55f + 0.45f * strength) * (if (soft) 0.62f else 1f)
 
@@ -69,14 +71,25 @@ class GlassDrawable(
             b.right.toFloat(), b.bottom.toFloat(), max(b.width(), b.height()) * 0.8f,
             ColorUtils.setAlphaComponent(accent, (255 * glowA * k).toInt()), Color.TRANSPARENT, Shader.TileMode.CLAMP
         )
-        val rimA = ((if (light) 0.62f else 0.5f) * (if (soft) 0.7f else 1f) * 255).toInt()
+        val rimA = ((if (light) 0.78f else 0.66f) * (if (soft) 0.7f else 1f) * 255).toInt()
         fun c(rgb: Int) = ColorUtils.setAlphaComponent(rgb, rimA)
+        // Polished glass: a white rim that only picks up a hint of colour where it turns away from the light.
+        fun faint(rgb: Int) = ColorUtils.setAlphaComponent(rgb, (rimA * 0.45f).toInt())
         rim.strokeWidth = widthPx
         rim.shader = SweepGradient(
             b.exactCenterX(), b.exactCenterY(),
-            intArrayOf(c(0xFFFF8FC7.toInt()), c(0xFF7FDCFF.toInt()), c(0xFFA98BFF.toInt()), c(0xFFFFB98A.toInt()), c(0xFFFF8FC7.toInt())),
-            null
+            intArrayOf(c(Color.WHITE), faint(0xFF7FDCFF.toInt()), faint(0xFFA98BFF.toInt()), faint(0xFFFFB98A.toInt()), c(Color.WHITE)),
+            floatArrayOf(0f, 0.30f, 0.55f, 0.80f, 1f)
         )
+        // Thickness: thick glass falls away just inside its rim.
+        val shadeInset = widthPx * 2.6f
+        innerShadeRect.set(b.left + shadeInset, b.top + shadeInset, b.right - shadeInset, b.bottom - shadeInset)
+        innerShade.shader = LinearGradient(
+            0f, b.top.toFloat(), 0f, b.bottom.toFloat(),
+            intArrayOf(Color.TRANSPARENT, Color.TRANSPARENT, ColorUtils.setAlphaComponent(Color.BLACK, if (light) 16 else 30)),
+            floatArrayOf(0f, 0.50f, 1f), Shader.TileMode.CLAMP
+        )
+        innerShade.strokeWidth = widthPx * 2.4f
         hair.strokeWidth = widthPx * 0.5f
         hair.color = ColorUtils.setAlphaComponent(Color.WHITE, if (light) 150 else 40)
         top.strokeWidth = widthPx * 1.4f
@@ -92,6 +105,7 @@ class GlassDrawable(
         canvas.drawRoundRect(rect, radiusPx, radiusPx, fill)
         canvas.drawRoundRect(rect, radiusPx, radiusPx, glow)
         canvas.drawRoundRect(hairRect, max(0f, radiusPx - widthPx * 2f), max(0f, radiusPx - widthPx * 2f), hair)
+        canvas.drawRoundRect(innerShadeRect, max(0f, radiusPx - widthPx * 2.6f), max(0f, radiusPx - widthPx * 2.6f), innerShade)
         canvas.drawRoundRect(rimRect, radiusPx, radiusPx, rim)
         val y = rect.top + widthPx * 1.6f
         canvas.drawLine(rect.left + radiusPx, y, rect.right - radiusPx, y, top)
