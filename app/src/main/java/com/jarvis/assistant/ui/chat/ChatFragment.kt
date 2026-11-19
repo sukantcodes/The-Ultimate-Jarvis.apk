@@ -836,7 +836,10 @@ class ChatFragment : Fragment() {
         if (text.isNotBlank() && com.jarvis.assistant.udn.UdnVoiceRouter.matches(requireContext().applicationContext, text)) {
             binding.etMessageInput.text?.clear()
             val appCtx = requireContext().applicationContext
-            kotlinx.coroutines.GlobalScope.launch {
+            // Device commands run on the process-wide scope, not on GlobalScope and not on the view scope:
+            // the command must finish and land in the chat even if this screen rotates or closes, which
+            // viewLifecycleOwner.lifecycleScope would cancel (losing the reply).
+            JarvisApp.instance.appScope.launch {
                 val reply = try {
                     com.jarvis.assistant.udn.UdnVoiceRouter.handle(appCtx, text)
                 } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) {

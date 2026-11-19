@@ -24,7 +24,8 @@ import kotlinx.coroutines.flow.asStateFlow
 
 class JarvisApp : Application() {
 
-    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    /** Process-wide scope for work that must outlive a screen (a screen can rotate or close mid-command). */
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     lateinit var preferences: AppPreferences
         private set
@@ -181,4 +182,3 @@ class JarvisApp : Application() {
             private set
     }
 }
-
