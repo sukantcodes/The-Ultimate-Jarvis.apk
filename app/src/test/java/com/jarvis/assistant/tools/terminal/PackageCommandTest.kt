@@ -8,24 +8,24 @@ class PackageCommandTest {
 
     @Test fun pkg_install_maps_to_a_real_termux_install() {
         val p = run("pkg install git nodejs")
-        assertTrue(p.script, p.script.contains("pkg install -y git nodejs"))
+        assertTrue(p.script, p.script.contains("pk git nodejs"))
     }
 
     @Test fun aliases_and_apt_and_bare_install_work() {
-        assertTrue(run("apt install -y node").script.contains("pkg install -y nodejs"))
-        assertTrue(run("install python3").script.contains("pkg install -y python"))
+        assertTrue(run("apt install -y node").script.contains("pk nodejs"))
+        assertTrue(run("install python3").script.contains("pk python"))
         assertTrue(run("jpkg i npm").script.contains("nodejs"))
     }
 
     @Test fun ai_tools_pull_in_what_they_need_in_order() {
         val s = run("jpkg install gemini").script
-        assertTrue(s, s.indexOf("pkg install -y nodejs") in 0 until s.indexOf("npm install -g @google/gemini-cli"))
+        assertTrue(s, s.indexOf("pk nodejs") in 0 until s.indexOf("npm install -g --no-fund --no-audit @google/gemini-cli"))
         val a = run("jpkg install aider").script
-        assertTrue(a, a.contains("pkg install -y python clang git") && a.contains("pip install --upgrade aider-chat"))
+        assertTrue(a, a.contains("pk python clang git") && a.contains("pip install --upgrade --no-input aider-chat"))
     }
 
     @Test fun unknown_names_are_passed_as_termux_packages_but_only_if_safe() {
-        assertTrue(run("pkg install htop").script.contains("pkg install -y htop"))
+        assertTrue(run("pkg install htop").script.contains("pk htop"))
         assertTrue(PackageCommand.parse("pkg install foo;rm") == null)           // chained: real shell, not handled
         assertTrue(PackageCommand.parse("pkg install \$(id)") == null)
         val bad = PackageCommand.parse("pkg install --evil") as PackagePlan.Show
