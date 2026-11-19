@@ -35,10 +35,54 @@ object PackageCommand {
     /** Shared start of every script: no prompts, colours on, and small helpers for headings and failures. */
     private val PRELUDE = """
         export DEBIAN_FRONTEND=noninteractive TERM=xterm-256color CLICOLOR_FORCE=1 FORCE_COLOR=1 NPM_CONFIG_COLOR=always
-        step() { printf '\n\033[1;36m==> %s\033[0m\n' "${'$'}1"; }
-        fail() { printf '\n\033[1;31m✖ %s\033[0m\n' "${'$'}1"; exit 1; }
-        pk() { pkg install -y -o Dpkg::Options::=--force-confnew "${'$'}@"; }
-    """.trimIndent() + "\n"
+        step() { printf '\n\033[1;36m==> %s\033[0m\n' "§1"; }
+        fail() { printf '\n\033[1;31m✖ %s\033[0m\n' "§1"; exit 1; }
+        pk() { pkg install -y -o Dpkg::Options::=--force-confnew "§@"; }
+        upg() { pkg upgrade -y -o Dpkg::Options::=--force-confnew; }
+        # Fixes the usual reasons an install fails: a half-finished earlier install, a broken dependency state, stale lists
+        # or a dead mirror, and packages that are out of step with each other (Termux does not support partial upgrades).
+        heal() {
+          step 'Repairing the package system'
+          dpkg --configure -a --force-confnew 2>&1 | tail -n 5
+          apt-get -f install -y -o Dpkg::Options::=--force-confnew 2>&1 | tail -n 5
+          apt-get clean 2>/dev/null
+          pkg update -y -o Dpkg::Options::=--force-confnew || pkg --check-mirror update -y -o Dpkg::Options::=--force-confnew
+          upg
+        }
+        # One install with automatic recovery: try, repair and try again, then pick a different mirror and try once more.
+        pk_safe() {
+          pk "§@" && return 0
+          echo; echo 'That did not work. Repairing and trying again...'
+          heal
+          pk "§@" && return 0
+          echo; echo 'Still failing. Choosing a different mirror and trying once more...'
+          pkg --check-mirror update -y -o Dpkg::Options::=--force-confnew
+          pk "§@"
+        }
+        node_ok() { command -v node >/dev/null 2>&1 && node --version >/dev/null 2>&1 && command -v npm >/dev/null 2>&1 && npm --version >/dev/null 2>&1; }
+        # Installs Node.js and proves it starts (a mismatched library makes it install fine but die on launch).
+        # §1 is the Termux package to try first (nodejs = newest, nodejs-lts = long-term support); the other one is the fallback.
+        install_node() {
+          local first="§1" second
+          if [ "§first" = nodejs ]; then second=nodejs-lts; else second=nodejs; fi
+          step "Installing Node.js (§first)"
+          pk_safe "§first" || true
+          if ! node_ok && command -v node >/dev/null 2>&1; then
+            echo; echo 'Node.js is installed but does not start. Details:'; node --version 2>&1 | head -n 4
+            heal
+            pk --reinstall "§first" || true
+          fi
+          if ! node_ok; then
+            step "Trying §second instead"
+            pk_safe "§second" || true
+          fi
+          node_ok || fail 'Node.js could not be installed. The messages above say why. Try:  pkg upgrade   and then run this again.'
+          local used=nodejs; dpkg -s nodejs-lts >/dev/null 2>&1 && used=nodejs-lts
+          printf 'Node %s, npm %s (Termux package: %s)\n' "§(node --version)" "§(npm --version)" "§used"
+        }
+        # For npm tools: install Node.js (the stable LTS build) only if there is no working one yet.
+        ensure_node() { node_ok && return 0; install_node nodejs-lts; }
+    """.trimIndent().replace('§', '$') + "\n"
 
     private val SAFE_NAME = Regex("""^[A-Za-z0-9@][A-Za-z0-9@/._+-]{0,99}$""")
     private val ENTRY = setOf("jpkg", "pkg", "apt", "apt-get", "install", "jinstall")
@@ -46,7 +90,8 @@ object PackageCommand {
     val catalog: List<Installable> = listOf(
         // Languages and basics
         Installable("git", "Git", Installable.Kind.PKG, "git", "git", "Version control: clone, commit, push."),
-        Installable("nodejs", "Node.js + npm", Installable.Kind.PKG, "nodejs", "node", "JavaScript runtime. npm and npx come with it."),
+        Installable("nodejs", "Node.js + npm", Installable.Kind.PKG, "nodejs", "node", "Newest JavaScript runtime. npm and npx come with it. For the most stable choice use nodejs-lts."),
+        Installable("nodejs-lts", "Node.js LTS + npm", Installable.Kind.PKG, "nodejs-lts", "node", "Long-term-support JavaScript runtime: the safest choice for npm tools. Replaces nodejs if that is installed."),
         Installable("python", "Python + pip", Installable.Kind.PKG, "python", "python", "Python 3 with pip."),
         Installable("openssh", "OpenSSH", Installable.Kind.PKG, "openssh", "ssh", "ssh and scp."),
         Installable("curl", "curl", Installable.Kind.PKG, "curl", "curl", "Download from the web."),
@@ -190,7 +235,7 @@ object PackageCommand {
         val m = HashMap<String, Installable>()
         for (i in catalog) m[i.key] = i
         val aliases = mapOf(
-            "node" to "nodejs", "npm" to "nodejs", "npx" to "nodejs", "nodejs-lts" to "nodejs",
+            "node" to "nodejs-lts", "npm" to "nodejs-lts", "npx" to "nodejs-lts", "nodejs-current" to "nodejs", "node-lts" to "nodejs-lts",
             "python3" to "python", "pip" to "python", "pip3" to "python",
             "ssh" to "openssh", "scp" to "openssh", "gcc" to "clang", "g++" to "clang", "c++" to "clang", "go" to "golang", "cargo" to "rust", "rustc" to "rust",
             "java" to "openjdk-17", "jdk" to "openjdk-17", "github-cli" to "gh", "magick" to "imagemagick", "convert" to "imagemagick", "rg" to "ripgrep", "unzip" to "zip",
@@ -222,7 +267,7 @@ object PackageCommand {
         return when (verb) {
             "install", "i", "add" -> install(args)
             "remove", "uninstall", "rm", "purge", "autoremove" -> remove(args)
-            "update", "upgrade", "full-upgrade", "up" -> PackagePlan.Run(PRELUDE + "step 'Updating package lists'\npkg update -y -o Dpkg::Options::=--force-confnew\nstep 'Upgrading packages'\npkg upgrade -y -o Dpkg::Options::=--force-confnew || fail 'Upgrade failed.'\n", "Updating every installed package")
+            "update", "upgrade", "full-upgrade", "up" -> PackagePlan.Run(PRELUDE + "step 'Updating package lists'\npkg update -y -o Dpkg::Options::=--force-confnew\nstep 'Upgrading packages'\npkg upgrade -y -o Dpkg::Options::=--force-confnew || heal || fail 'Upgrade failed.'\n", "Updating every installed package")
             "list", "list-installed", "installed" -> PackagePlan.Run("pkg list-installed 2>/dev/null | head -n 200", "Installed packages")
             "search", "find" -> search(args)
             "info", "show" -> info(args)
@@ -247,11 +292,13 @@ object PackageCommand {
         val pip = LinkedHashSet<String>()
         val notes = ArrayList<String>()
         val titles = ArrayList<String>()
+        var node: String? = null      // Node.js asked for by name: "nodejs" or "nodejs-lts"
+        var needNode = false          // Node.js only needed by another tool
         fun add(i: Installable) {
-            i.needs.forEach { n -> byKey[n]?.let { if (it.key != i.key) add(it) } }
+            i.needs.forEach { n -> if (n == "nodejs") needNode = true else byKey[n]?.let { if (it.key != i.key) add(it) } }
             titles += i.title
             when (i.kind) {
-                Installable.Kind.PKG -> pkgs += i.target.split(' ')
+                Installable.Kind.PKG -> if (i.key == "nodejs" || i.key == "nodejs-lts") node = i.target else pkgs += i.target.split(' ')
                 Installable.Kind.NPM -> npm += i.target
                 Installable.Kind.PIP -> pip += i.target
             }
@@ -263,19 +310,25 @@ object PackageCommand {
         }
         val script = buildString {
             append(PRELUDE)
-            if (pkgs.isNotEmpty()) {
-                val q = pkgs.joinToString(" ") { ShellQuote.quote(it) }
+            if (pkgs.isNotEmpty() || node != null) {
                 append("step 'Updating package lists'\n")
                 append("pkg update -y -o Dpkg::Options::=--force-confnew || echo '(update reported warnings, continuing)'\n")
-                append("step 'Installing programs: ").append(pkgs.joinToString(" ")).append("'\n")
-                append("pk ").append(q).append(" || { echo; echo 'Retrying with fresh package lists...'; apt-get update -y; pk ").append(q)
-                append(" || { fail \"Could not install: ").append(pkgs.joinToString(" ")).append(" (check the name with: pkg search <name>)\"; }; }\n")
             }
+            node?.let { append("install_node ").append(it).append("\n") }
+            if (pkgs.isNotEmpty()) {
+                val q = pkgs.joinToString(" ") { ShellQuote.quote(it) }
+                append("step 'Installing programs: ").append(pkgs.joinToString(" ")).append("'\n")
+                append("pk_safe ").append(q).append(" || fail 'Could not install: ").append(pkgs.joinToString(" "))
+                append(". Check the name with: pkg search <name>'\n")
+            }
+            if (needNode && node == null) append("ensure_node\n")
             if (npm.isNotEmpty()) {
                 val q = npm.joinToString(" ") { ShellQuote.quote(it) }
                 append("step 'Installing npm tools: ").append(npm.joinToString(" ")).append("'\n")
-                append("npm install -g --no-fund --no-audit ").append(q).append(" || { echo; echo 'Retrying...'; npm install -g --no-fund --no-audit --force ").append(q)
-                append(" || fail 'npm could not install that tool on this phone.'; }\n")
+                append("npm install -g --no-fund --no-audit ").append(q)
+                append(" || { echo; echo 'Retrying after clearing the npm cache...'; npm cache clean --force >/dev/null 2>&1; npm install -g --no-fund --no-audit ").append(q)
+                append(" || { echo; echo 'Retrying with --force...'; npm install -g --no-fund --no-audit --force ").append(q)
+                append(" || fail 'npm could not install that tool on this phone.'; }; }\n")
             }
             if (pip.isNotEmpty()) {
                 val q = pip.joinToString(" ") { ShellQuote.quote(it) }
@@ -293,13 +346,13 @@ object PackageCommand {
         if (names.isEmpty()) return PackagePlan.Show("Say what to remove, for example:  pkg remove git")
         val bad = names.firstOrNull { !SAFE_NAME.matches(it) }
         if (bad != null) return PackagePlan.Show("\"$bad\" is not a valid package name.")
-        val pkgs = ArrayList<String>(); val npm = ArrayList<String>(); val pip = ArrayList<String>()
+        val pkgs = LinkedHashSet<String>(); val npm = ArrayList<String>(); val pip = ArrayList<String>()
         for (n in names) {
             val k = find(n)
             when (k?.kind) {
                 Installable.Kind.NPM -> npm += k.target
                 Installable.Kind.PIP -> pip += k.target
-                Installable.Kind.PKG -> pkgs += k.target.split(' ')
+                Installable.Kind.PKG -> if (k.key == "nodejs" || k.key == "nodejs-lts") { pkgs += "nodejs"; pkgs += "nodejs-lts" } else pkgs += k.target.split(' ')
                 null -> pkgs += n.lowercase()
             }
         }
@@ -338,7 +391,7 @@ object PackageCommand {
 
     fun help(): String = """
         Install tools like in Termux:
-          pkg install git nodejs python     install programs
+          pkg install git nodejs python     install programs (nodejs-lts = most stable Node)
           jpkg install gemini ollama         install AI tools (jpkg ai lists them)
           pkg remove git                     remove
           pkg update                         update everything
