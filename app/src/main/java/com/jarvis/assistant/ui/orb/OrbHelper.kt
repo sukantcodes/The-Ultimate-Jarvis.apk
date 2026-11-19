@@ -46,10 +46,11 @@ class OrbHelper(
         settings.domStorageEnabled = true
         settings.allowFileAccess = true
         settings.allowContentAccess = true
-        @Suppress("DEPRECATION")
-        settings.allowFileAccessFromFileURLs = true
-        @Suppress("DEPRECATION")
-        settings.allowUniversalAccessFromFileURLs = true
+        // The HUD is a bundled local asset that never loads remote URLs, so the file-URL
+        // cross-origin escapes stay off: a compromised asset must not be able to read other
+        // file:// paths or reach arbitrary origins through the JarvisBridge javascript interface.
+        settings.allowFileAccessFromFileURLs = false
+        settings.allowUniversalAccessFromFileURLs = false
         settings.loadWithOverviewMode = true
         settings.useWideViewPort = true
         settings.cacheMode = WebSettings.LOAD_NO_CACHE

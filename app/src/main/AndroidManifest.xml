@@ -342,7 +342,8 @@
 
         <service
             android:name=".assistant.JarvisRecognitionService"
-            android:exported="true" />
+            android:exported="true"
+            android:permission="android.permission.BIND_RECOGNITION_SERVICE" />
 
         <service
             android:name=".notifications.JarvisNotificationListener"
@@ -407,33 +408,15 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
-        <!-- Default Digital Assistant service -->
-        <service
-            android:name=".voice.JarvisVoiceInteractionService"
-            android:label="@string/app_name"
-            android:permission="android.permission.BIND_VOICE_INTERACTION"
-            android:exported="true">
-
-            <intent-filter>
-                <action android:name="android.service.voice.VoiceInteractionService" />
-            </intent-filter>
-
-            <meta-data
-                android:name="android.voice_interaction"
-                android:resource="@xml/jarvis_voice_interaction" />
-        </service>
-
-        <!-- Assistant session service -->
-        <service
-            android:name=".voice.JarvisVoiceInteractionSessionService"
-            android:permission="android.permission.BIND_VOICE_INTERACTION"
-            android:process=":voiceinteraction_session"
-            android:exported="true">
-
-            <intent-filter>
-                <action android:name="android.service.voice.VoiceInteractionSessionService" />
-            </intent-filter>
-        </service>
+        <!--
+            The digital assistant is declared exactly once, above, as
+            .assistant.JarvisVoiceInteractionService / .assistant.JarvisVoiceInteractionSessionService.
+            A second "voice" pair used to be declared here (with android:process=":voiceinteraction_session").
+            It resolved to a UI-only stub session with no speech handling, and because both services answered
+            the same android.service.voice.VoiceInteractionService action, the system could bind the stub and
+            leave the assistant silent. The canonical pair is also the one named by
+            res/xml/jarvis_voice_interaction.xml (sessionService and recognitionService).
+        -->
 
     </application>
 
