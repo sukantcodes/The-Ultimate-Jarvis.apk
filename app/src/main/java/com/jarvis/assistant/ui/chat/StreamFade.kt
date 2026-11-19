@@ -69,11 +69,13 @@ object StreamFade {
         var ranges = ArrayList<Range>()
         val spans = ArrayList<FadeSpan>()
         var caret: CaretSpan? = null
+        var settleTask: Runnable? = null
         var tv: TextView? = null
         val tick = object : Runnable {
             override fun run() {
                 val view = tv ?: return
-                if (!active || !view.isAttachedToWindow) return
+                if (!active) return
+                if (!view.isAttachedToWindow) { settle(this@State); return }
                 update(this@State, SystemClock.uptimeMillis())
                 view.invalidate()
                 view.postOnAnimation(this)
@@ -84,7 +86,22 @@ object StreamFade {
     private fun state(tv: TextView): State {
         val existing = tv.getTag(KEY) as? State
         if (existing != null) return existing
-        return State().also { it.tv = tv; tv.setTag(KEY, it) }
+        return State().also { st ->
+            st.tv = tv
+            tv.setTag(KEY, st)
+            // A row scrolled away or reused must never keep half-faded words: show everything fully the moment it detaches.
+            tv.addOnAttachStateChangeListener(object : android.view.View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: android.view.View) {}
+                override fun onViewDetachedFromWindow(v: android.view.View) { settle(st) }
+            })
+        }
+    }
+
+    /** Shows every word at full strength and stops the effect (the stale-state bug that left the last lines faded). */
+    private fun settle(st: State) {
+        for (s in st.spans) s.alpha = 1f
+        st.active = false
+        st.tv?.let { it.removeCallbacks(st.tick); it.invalidate() }
     }
 
     private fun update(st: State, now: Long) {
@@ -160,6 +177,9 @@ object StreamFade {
         st.plainLen = len
 
         update(st, now)
+        // The effect always finishes on its own: after the last chunk's words have faded in, everything is at full strength.
+        st.tv?.removeCallbacks(settleRunnable(st))
+        st.tv?.postDelayed(settleRunnable(st), 1400L)
         if (!st.active) {
             st.active = true
             tv.postOnAnimation(st.tick)
@@ -167,9 +187,15 @@ object StreamFade {
         return out
     }
 
+    private fun settleRunnable(st: State): Runnable = st.settleTask ?: Runnable {
+        for (s in st.spans) s.alpha = 1f
+        st.tv?.invalidate()
+    }.also { st.settleTask = it }
+
     /** Stops the effect on [tv] (the answer is finished, or the view is reused for another message). */
     fun finish(tv: TextView) {
         val st = tv.getTag(KEY) as? State ?: return
+        for (s in st.spans) s.alpha = 1f
         st.active = false
         tv.removeCallbacks(st.tick)
         st.ranges = ArrayList()

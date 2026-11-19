@@ -281,6 +281,7 @@ class JarvisChatAdapter(
                 return
             }
             binding.layoutAssistantContainer.visibility = View.VISIBLE
+            binding.tvAssistantMessage.setLineSpacing(0f, 1.16f)   // airier lines read as organised paragraphs
 
             // Pictures Jarvis made are written into the answer as image lines; they are drawn as cards, the rest is text.
             val (rawResponse, pictures) = ChatImageRefs.extract(turn.jarvisResponse)
@@ -313,7 +314,7 @@ class JarvisChatAdapter(
 
                 val rendered: CharSequence = try {
                     val text = textBuilder.toString().trim()
-                    if (text.isNotEmpty()) MarkdownRenderer.render(text, context.resources.displayMetrics.density) else ""
+                    if (text.isNotEmpty()) MarkdownRenderer.render(text, context.resources.displayMetrics.density, AnswerPalette.forKey(turn.id.toString())) else ""
                 } catch (_: Throwable) {
                     textBuilder.toString()
                 }
@@ -346,7 +347,7 @@ class JarvisChatAdapter(
                 binding.layoutAssistantArtifacts.removeAllViews()
                 binding.tvAssistantMessage.visibility = View.VISIBLE
                 val rendered: CharSequence = try {
-                    MarkdownRenderer.render(rawResponse, context.resources.displayMetrics.density)
+                    MarkdownRenderer.render(rawResponse, context.resources.displayMetrics.density, AnswerPalette.forKey(turn.id.toString()))
                 } catch (_: Throwable) {
                     rawResponse
                 }

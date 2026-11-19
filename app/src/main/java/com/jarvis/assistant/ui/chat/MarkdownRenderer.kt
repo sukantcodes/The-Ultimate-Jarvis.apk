@@ -55,9 +55,26 @@ object MarkdownRenderer {
     private const val MAX_ALIGNED_TABLE_CHARS = 44
     private const val MAX_CELL_CHARS = 24
 
-    fun render(source: String, density: Float): CharSequence = render(source, density, defaultAccent())
+    fun render(source: String, density: Float): CharSequence = render(source, density, AnswerPalette.themed(defaultAccent()))
 
-    fun render(source: String, density: Float, accent: Int): CharSequence {
+    fun render(source: String, density: Float, accent: Int): CharSequence = render(source, density, AnswerPalette.themed(accent))
+
+    // Set for the duration of one render (always on the main thread).
+    private var accent2 = 0
+    private var emph = 0
+    private var variant = 0
+
+    private fun headingFont(level: Int): String = when (variant) {
+        0 -> when (level) { 1 -> "sans-serif-black"; 2 -> "sans-serif-condensed"; else -> "sans-serif-medium" }
+        1 -> when (level) { 1, 2 -> "serif"; else -> "sans-serif-medium" }
+        else -> when (level) { 1 -> "sans-serif-condensed"; 2 -> "sans-serif-black"; 3 -> "casual"; else -> "sans-serif-medium" }
+    }
+
+    fun render(source: String, density: Float, palette: AnswerPalette.Palette): CharSequence {
+        val accent = palette.accent
+        accent2 = palette.accent2
+        emph = palette.emphasis
+        variant = palette.variant
         if (source.none { it == '*' || it == '`' || it == '#' || it == '-' || it == '+' || it == '\u2022' || it == '>' || it == '[' || it == '~' || it == '|' || it == '_' || it == '{' || it == '=' || it.isDigit() } && !source.contains("http")) return source
         val out = SpannableStringBuilder()
         val lines = source.replace("\r\n", "\n").split('\n')
@@ -72,7 +89,7 @@ object MarkdownRenderer {
             if (gapPending || extraGap) {
                 val at = out.length
                 out.append('\n')
-                out.setSpan(RelativeSizeSpan(0.55f), at, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                out.setSpan(RelativeSizeSpan(0.7f), at, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
             gapPending = false
         }
@@ -111,10 +128,20 @@ object MarkdownRenderer {
                 val s = out.length
                 appendInline(out, h.groupValues[2], accent)
                 val level = h.groupValues[1].length
-                val scale = when (level) { 1 -> 1.32f; 2 -> 1.2f; 3 -> 1.1f; else -> 1.03f }
+                val scale = when (level) { 1 -> 1.38f; 2 -> 1.24f; 3 -> 1.12f; else -> 1.04f }
+                out.setSpan(TypefaceSpan(headingFont(level)), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 out.setSpan(StyleSpan(Typeface.BOLD), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 out.setSpan(RelativeSizeSpan(scale), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                if (level <= 3) out.setSpan(ForegroundColorSpan(accent), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                val hc = when (level) { 1 -> accent; 2 -> accent2; 3 -> androidx.core.graphics.ColorUtils.blendARGB(accent, accent2, 0.5f); else -> 0 }
+                if (hc != 0) out.setSpan(ForegroundColorSpan(hc), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                if (level <= 2) {
+                    // a fine coloured rule under main headings
+                    out.append('\n')
+                    val r = out.length
+                    out.append("━━━━━━━━━━━━")
+                    out.setSpan(ForegroundColorSpan(androidx.core.graphics.ColorUtils.setAlphaComponent(hc, 150)), r, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    out.setSpan(RelativeSizeSpan(0.55f), r, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
                 i++; continue
             }
 
@@ -134,7 +161,7 @@ object MarkdownRenderer {
                 appendInline(out, q.groupValues[1], accent)
                 out.setSpan(StyleSpan(Typeface.ITALIC), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 out.setSpan(ForegroundColorSpan(MUTED), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                out.setSpan(BarSpan(accent, dp(3, density), dp(9, density)), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                out.setSpan(BarSpan(accent2, dp(3, density), dp(9, density)), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 i++; continue
             }
 
@@ -159,8 +186,9 @@ object MarkdownRenderer {
                 val s = out.length
                 val lv = level(b.groupValues[1])
                 val base = dp(14, density) * lv
-                out.append(when (lv) { 0 -> "•  "; 1 -> "◦  "; else -> "▪  " })
-                out.setSpan(ForegroundColorSpan(accent), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                out.append(when (lv) { 0 -> "●  "; 1 -> "◆  "; else -> "▪  " })
+                out.setSpan(ForegroundColorSpan(if (lv % 2 == 0) accent else accent2), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                out.setSpan(RelativeSizeSpan(0.8f), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 out.setSpan(StyleSpan(Typeface.BOLD), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 appendInline(out, b.groupValues[2], accent)
                 out.setSpan(LeadingMarginSpan.Standard(base, base + dp(18, density)), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -173,8 +201,9 @@ object MarkdownRenderer {
                 val s = out.length
                 val base = dp(14, density) * level(n.groupValues[1])
                 out.append(n.groupValues[2]).append(".  ")
-                out.setSpan(ForegroundColorSpan(accent), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                out.setSpan(StyleSpan(Typeface.BOLD), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                out.setSpan(ForegroundColorSpan(accent2), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                out.setSpan(TypefaceSpan("sans-serif-black"), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                out.setSpan(RelativeSizeSpan(1.1f), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 appendInline(out, n.groupValues[3], accent)
                 out.setSpan(LeadingMarginSpan.Standard(base, base + dp(24, density)), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 i++; continue
@@ -296,7 +325,8 @@ object MarkdownRenderer {
             when {
                 tok.startsWith("**") || tok.startsWith("__") -> {
                     out.append(tok.substring(2, tok.length - 2))
-                    out.setSpan(StyleSpan(Typeface.BOLD), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    out.setSpan(TypefaceSpan("sans-serif-black"), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    if (emph != 0) out.setSpan(ForegroundColorSpan(emph), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
                 tok.startsWith("==") -> {
                     out.append(tok.substring(2, tok.length - 2))
@@ -328,6 +358,7 @@ object MarkdownRenderer {
                     out.setSpan(TypefaceSpan("monospace"), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     out.setSpan(BackgroundColorSpan(CODE_BG), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     out.setSpan(RelativeSizeSpan(0.92f), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    if (accent2 != 0) out.setSpan(ForegroundColorSpan(accent2), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
                 tok.startsWith("[") -> {
                     val close = tok.indexOf("](")

@@ -1119,7 +1119,7 @@ void main() {
     float ringDist = distShock - uShockWave;
     float waveEnv = exp(-ringDist * ringDist * 16.0) * (1.0 - uShockWave / 4.2);
     shockHighlight = waveEnv;
-    pos += normalize(pos - uShockOrigin + vec3(0.0001)) * (waveEnv * sin(ringDist * 20.0) * 0.09);
+    pos += normalize(pos - uShockOrigin + vec3(0.0001)) * (waveEnv * sin(ringDist * 20.0) * 0.03);
   }
 
   /* Touch Cleavage, Vortex Swirl & Finger Drag */
@@ -1131,7 +1131,7 @@ void main() {
     touchEnergy = field;
     vec3 radDir = normalize(toP + vec3(0.0001, 0.0002, 0.0001));
     vec3 orbitSwirl = cross(radDir, vec3(0.0, 0.0, 1.0));
-    pos += (radDir * 0.82 + orbitSwirl * 0.65 + uSwipeVel * 0.75) * field * (0.65 + 0.75 * aRnd) * 0.34;
+    pos += (radDir * 0.82 + orbitSwirl * 0.65 + uSwipeVel * 0.75) * field * (0.65 + 0.75 * aRnd) * 0.13;
   }
 
   vec4 mv = modelViewMatrix * vec4(pos, 1.0);
@@ -1180,7 +1180,7 @@ void main() {
   float ptSize = sizeMode
     * mix(1.18, 0.96, aLayer)
     * (1.0 + uAmp * 0.55 + uBass * 0.28 + uSplit * 0.20 + touchEnergy * 0.42);
-  gl_PointSize = max(ptSize * uPx / (-mv.z) * mix(0.86, 1.28, depth), 1.75);
+  gl_PointSize = max(ptSize * uPx / (-mv.z) * mix(0.86, 1.28, depth) * 1.45, 2.4);
   gl_Position = projectionMatrix * mv;
 }
 `;
@@ -1197,9 +1197,10 @@ void main() {
   if (d > 0.5) discard;
 
   float body = smoothstep(0.5, 0.06, d);
-  float core = exp(-d * d * 20.0) * (0.24 + 0.25 * vSpec);
-  float alpha = clamp((body * 0.90 + core) * vA, 0.0, 0.97);
-  vec3 col = mix(vDeep * 0.68, vC * (1.02 + core * 0.72), smoothstep(0.47, 0.14, d));
+  float core = exp(-d * d * 20.0) * (0.42 + 0.42 * vSpec);
+  float halo = exp(-d * d * 11.0) * 0.6;   /* soft glow around every particle */
+  float alpha = clamp((body * 0.92 + core + halo * 0.5) * vA, 0.0, 0.99);
+  vec3 col = mix(vDeep * 0.68, vC * (1.2 + core * 1.0 + halo * 0.9), smoothstep(0.5, 0.1, d));
   gl_FragColor = vec4(col, alpha);
 }
 `;
@@ -1334,21 +1335,6 @@ function createGlow() {
   scene.add(glow);
 }
 
-const nodeF = `
-precision highp float;
-varying vec3 vC;
-varying float vA;
-void main() {
-  float d = length(gl_PointCoord - 0.5);
-  if (d > 0.5) discard;
-  float core = smoothstep(0.17, 0.0, d);
-  float body = smoothstep(0.34, 0.04, d);
-  float halo = exp(-d * d * 13.0) * 0.95;
-  vec3 col = vC * (1.3 + halo * 1.1) + vec3(1.0) * core * 0.7;
-  gl_FragColor = vec4(col, clamp((body * 0.9 + halo * 0.8) * vA, 0.0, 1.0));
-}
-`;
-
 function createOrbitSpores() {
   const pos = new Float32Array(ORBIT_COUNT * 3);
   const size = new Float32Array(ORBIT_COUNT);
@@ -1384,8 +1370,8 @@ function createOrbitSpores() {
   orbitPts = new THREE.Points(
     g,
     new THREE.ShaderMaterial({
-      vertexShader: "attribute float aSize, aAlpha; attribute vec3 aColor; uniform float uPx; uniform vec3 DEEP; varying float vA; varying vec3 vC; varying vec3 vDeep; varying float vSpec; void main(){ vA = aAlpha; vC = aColor; vDeep = DEEP; vSpec = 0.5; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = max(aSize * 2.3 * uPx / (-mv.z), 3.0); gl_Position = projectionMatrix * mv; }",
-      fragmentShader: nodeF,
+      vertexShader: "attribute float aSize, aAlpha; attribute vec3 aColor; uniform float uPx; uniform vec3 DEEP; varying float vA; varying vec3 vC; varying vec3 vDeep; varying float vSpec; void main(){ vA = aAlpha; vC = aColor; vDeep = DEEP; vSpec = 0.5; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = max(aSize * uPx / (-mv.z), 1.5); gl_Position = projectionMatrix * mv; }",
+      fragmentShader: dotF,
       transparent: true,
       depthWrite: false,
       uniforms: { uPx: U.uPx, DEEP: U.DEEP }
@@ -2174,13 +2160,13 @@ function updateOrbitSpores(dt) {
     let y = d.y * 0.84 + Math.sin(d.a * 1.3 + d.ph) * 0.20 + x * d.tilt * 0.22;
 
     if (touchStrength > 0.05) {
-      const pull = Math.min(0.22, touchStrength * 0.12);
+      const pull = Math.min(0.1, touchStrength * 0.05);
       x += (touchWorld.x - x) * pull;
       y += (touchWorld.y - y) * pull;
     }
 
     P.position.setXYZ(i, x, y, z);
-    P.aAlpha.setX(i, Math.pow(0.5 + 0.5 * Math.sin(time * d.fs * 1.8 + d.ph), 1.3) * (0.88 + cur.glow * 0.48));
+    P.aAlpha.setX(i, Math.pow(0.5 + 0.5 * Math.sin(time * d.fs * 1.8 + d.ph), 1.4) * (0.62 + cur.glow * 0.32));
   }
   P.position.needsUpdate = true;
   P.aAlpha.needsUpdate = true;
