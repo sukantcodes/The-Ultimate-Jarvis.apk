@@ -6,16 +6,13 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.4";
 import { adminClient, authenticate, json } from "./common.ts";
 import { CAPABILITIES, isKnownCapability, needsSourceConfirmation } from "./catalog.ts";
-import {
-  canonicalRequest, fingerprint, generatePairingCode, importPublicKey, normalizeCode, sha256Hex, verifySignature,
-} from "./sigcrypto.ts";
+import { canonicalRequest, fingerprint, importPublicKey, sha256Hex, verifySignature } from "./sigcrypto.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NONCE = /^[A-Za-z0-9_-]{16,64}$/;
 const PRIVATE_IPV4 = /^(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})$/;
 const ONLINE_WINDOW_MS = 135_000; // three 45 s heartbeats: one missed beat never flips a device offline
 const CLOCK_SKEW_S = 120;
-const PAIRING_TTL_MS = 10 * 60_000;
 const MAX_TTL_S = 600;
 // All JARVIS accounts share one network; the signed-in account is recorded per device in udn_devices.account_id.
 const NETWORK_ID = "00000000-0000-4000-8000-0000000000a1";
@@ -87,6 +84,10 @@ Deno.serve(async (req: Request) => {
     const [max, windowS] = action === "send_command" ? [30, 60] : action === "redeem_pairing" ? [8, 600] : action === "register" ? [10, 600] : [240, 60];
     const { data: allowed } = await admin.rpc("udn_rate_check", { p_key: limitKey, p_max: max, p_window_seconds: windowS });
     if (allowed === false) fail(429, "rate_limited");
+
+    // Banned accounts are refused everywhere (parents can never be banned: the ban function refuses them).
+    const { data: banned } = await admin.from("udn_bans").select("account_id").eq("account_id", user.id).maybeSingle();
+    if (banned) fail(403, "account_banned");
 
     const email = typeof user.email === "string" ? user.email.trim().toLowerCase() : null;
     const emailVerified = !!(user.email_confirmed_at || (user as any).confirmed_at);
@@ -254,7 +255,7 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
   },
 
   async list_devices(c) {
-    requireParent(c);
+    if (!c.isParent) return listForChild(c);
     const [devices, parents, parentEmails, caps, groups, members] = await Promise.all([
       c.admin.from("udn_devices").select("*").eq("owner_id", c.ownerId).order("created_at"),
       c.admin.from("udn_parent_assignments").select("slot,device_id").eq("owner_id", c.ownerId),
@@ -281,7 +282,6 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
   },
 
   async send_command(c) {
-    requireParent(c);
     const b = c.body;
     const target = UUID.test(b.target) ? b.target : fail(400, "bad_request");
     const cap = str(b.capability, 60) ?? fail(400, "bad_request");
@@ -299,6 +299,9 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
     if (!tgt) fail(404, "target_not_found");
     if (tgt!.status !== "authorized") fail(403, "target_not_authorized");
     const spec = CAPABILITIES[cap];
+    // Parents may command anyone (including each other); children only circle co-members, never parents.
+    if (!(await mayCommand(c, c.device!.id, target))) fail(403, c.isParent ? "target_not_allowed" : "not_allowed");
+    if (!c.isParent && spec.sensitivity === "high") fail(403, "parent_required");
     if (!spec.platforms.includes(tgt!.platform)) fail(422, "capability_unsupported", { reason: `Not available on ${tgt!.platform}.` });
     if (!isOnline(tgt!)) fail(409, "target_offline", { last_seen_at: tgt!.last_seen_at });
 
@@ -334,17 +337,17 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
   async poll_commands(c) {
     await rpc(c, "udn_expire_commands", { p_owner: c.ownerId });
     const rows = await rpc(c, "udn_claim_commands", { p_device: c.device!.id, p_limit: 5 });
-    // Re-check the sender's live verified account role at delivery time.
-    // Parent authority belongs to the account, so every device on that account is a valid parent sender.
-    const parentChecks = await Promise.all(((rows ?? []) as Row[]).map(async (r) => ({
+    // Re-check at delivery time that the sender is still allowed to command this device
+    // (parent account, or a child sharing a circle with it).
+    const checks = await Promise.all(((rows ?? []) as Row[]).map(async (r) => ({
       deviceId: r.source_device_id,
-      isParent: await rpc(c, "udn_is_parent_device", { p_owner: c.ownerId, p_device: r.source_device_id }),
+      ok: await mayCommand(c, r.source_device_id, c.device!.id),
     })));
-    const parentIds = new Set(parentChecks.filter((p) => p.isParent === true).map((p) => p.deviceId));
+    const allowedIds = new Set(checks.filter((p) => p.ok).map((p) => p.deviceId));
     const out: Row[] = [];
     for (const r of (rows ?? []) as Row[]) {
-      if (!parentIds.has(r.source_device_id)) {
-        await rpc(c, "udn_report_result", { p_device: c.device!.id, p_command: r.id, p_status: "rejected", p_result: null, p_error_code: "source_not_parent", p_error_message: "Sender is no longer a parent device." });
+      if (!allowedIds.has(r.source_device_id)) {
+        await rpc(c, "udn_report_result", { p_device: c.device!.id, p_command: r.id, p_status: "rejected", p_result: null, p_error_code: "source_not_allowed", p_error_message: "Sender is no longer allowed to control this device." });
         continue;
       }
       out.push({
@@ -375,20 +378,19 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
   },
 
   async command_status(c) {
-    requireParent(c);
     const id = UUID.test(c.body.command_id) ? c.body.command_id : fail(400, "bad_request");
     await rpc(c, "udn_expire_commands", { p_owner: c.ownerId });
     const { data } = await c.admin.from("udn_command_queue").select("*").eq("id", id).eq("owner_id", c.ownerId).maybeSingle();
-    if (!data) fail(404, "not_found");
+    if (!data || (!c.isParent && data.source_device_id !== c.device!.id)) fail(404, "not_found");
     const { data: events } = await c.admin.from("udn_command_events").select("event,created_at,device_id").eq("command_id", id).order("id");
     return { command: pickCommand(data!), events: events ?? [] };
   },
 
   async list_commands(c) {
-    requireParent(c);
     const limit = Math.min(100, Math.max(1, Number.isInteger(c.body.limit) ? c.body.limit : 30));
     let q = c.admin.from("udn_command_queue").select("*").eq("owner_id", c.ownerId).order("created_at", { ascending: false }).limit(limit);
-    if (UUID.test(c.body.device_id)) q = q.or(`target_device_id.eq.${c.body.device_id},source_device_id.eq.${c.body.device_id}`);
+    if (!c.isParent) q = q.eq("source_device_id", c.device!.id);
+    else if (UUID.test(c.body.device_id)) q = q.or(`target_device_id.eq.${c.body.device_id},source_device_id.eq.${c.body.device_id}`);
     const { data } = await q;
     return { commands: (data ?? []).map(pickCommand) };
   },
@@ -412,7 +414,6 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
 
 
   async send_message(c) {
-    requireParent(c);
     const text = str(c.body.text, 500) ?? fail(400, "bad_request");
     const wanted: string[] = Array.isArray(c.body.targets) ? c.body.targets.filter((t: unknown) => typeof t === "string" && UUID.test(t)).slice(0, 50) : [];
     if (!wanted.length) fail(400, "bad_request");
@@ -420,6 +421,11 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
     if (ok === false) fail(429, "rate_limited");
     const { data: targets } = await c.admin.from("udn_devices").select("id,name,platform,status")
       .eq("owner_id", c.ownerId).eq("status", "authorized").in("id", wanted).neq("id", c.device!.id);
+    if (!c.isParent) {
+      const keep: Row[] = [];
+      for (const t of targets ?? []) if (await mayCommand(c, c.device!.id, t.id)) keep.push(t);
+      targets!.splice(0, targets!.length, ...keep);
+    }
     if (!targets?.length) fail(404, "target_not_found");
     const title = `Message from ${c.device!.name}`.slice(0, 60);
     const now = Date.now();
@@ -445,8 +451,8 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
     const limit = Math.min(100, Math.max(1, Number.isInteger(c.body.limit) ? c.body.limit : 50));
     let q = c.admin.from("udn_messages").select("id,from_device_id,to_device_id,body,command_id,created_at")
       .eq("owner_id", c.ownerId).order("created_at", { ascending: false }).limit(limit);
-    // Parents see every message; any other device sees only what was sent to it.
-    if (!c.isParent) q = q.eq("to_device_id", c.device!.id);
+    // Parents see every message; any other device sees what it sent or received.
+    if (!c.isParent) q = q.or(`to_device_id.eq.${c.device!.id},from_device_id.eq.${c.device!.id}`);
     const { data: rows } = await q;
     const cmdIds = (rows ?? []).map((r: Row) => r.command_id).filter(Boolean);
     const { data: cmds } = cmdIds.length
@@ -458,6 +464,105 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
         ...r, delivery: st.get(r.command_id)?.status ?? null, delivery_error: st.get(r.command_id)?.error_code ?? null,
       })),
     };
+  },
+
+  async ban(c) {
+    requireParent(c);
+    const target = UUID.test(c.body.target) ? c.body.target : fail(400, "bad_request");
+    const r = await rpc(c, "udn_ban_device_account", { p_owner: c.ownerId, p_actor: c.device!.id, p_target: target, p_reason: str(c.body.reason, 200) ?? "" });
+    if (!r?.ok) fail(r?.error === "not_found" ? 404 : 403, r?.error ?? "ban_failed");
+    return {};
+  },
+
+  async unban(c) {
+    requireParent(c);
+    const id = UUID.test(c.body.account_id) ? c.body.account_id : fail(400, "bad_request");
+    await c.admin.from("udn_bans").delete().eq("account_id", id);
+    await rpc(c, "udn_audit", { p_owner: c.ownerId, p_actor: c.device!.id, p_action: "account_unbanned", p_target: null, p_detail: null });
+    return {};
+  },
+
+  async list_bans(c) {
+    requireParent(c);
+    const { data } = await c.admin.from("udn_bans").select("account_id,email,reason,created_at").order("created_at", { ascending: false }).limit(100);
+    return { bans: data ?? [] };
+  },
+
+  // Minimal list of other child devices, so a child can pick who to invite into a circle.
+  async directory(c) {
+    const { data } = await c.admin.from("udn_devices").select("id,name,platform,status,last_seen_at,account_email")
+      .eq("owner_id", c.ownerId).eq("status", "authorized").neq("id", c.device!.id);
+    const out: Row[] = [];
+    for (const d of data ?? []) {
+      if (await rpc(c, "udn_is_parent_device", { p_owner: c.ownerId, p_device: d.id }) === true) continue;
+      out.push({ id: d.id, name: d.name, platform: d.platform, online: isOnline(d) });
+    }
+    return { devices: out };
+  },
+
+  async create_circle(c) {
+    if (c.isParent) fail(403, "child_only");
+    const name = str(c.body.name, 40) ?? fail(400, "bad_request");
+    const { count } = await c.admin.from("udn_circles").select("id", { count: "exact", head: true }).eq("created_by", c.device!.id);
+    if ((count ?? 0) >= 10) fail(429, "too_many_circles");
+    const { data, error } = await c.admin.from("udn_circles").insert({ owner_id: c.ownerId, name, created_by: c.device!.id }).select("id").single();
+    if (error) fail(error.code === "23505" ? 409 : 500, error.code === "23505" ? "circle_exists" : "server_error");
+    await c.admin.from("udn_circle_members").insert({ circle_id: data!.id, device_id: c.device!.id, status: "member", invited_by: c.device!.id });
+    return { circle_id: data!.id };
+  },
+
+  async invite_circle(c) {
+    if (c.isParent) fail(403, "child_only");
+    const cid = UUID.test(c.body.circle_id) ? c.body.circle_id : fail(400, "bad_request");
+    const did = UUID.test(c.body.device_id) ? c.body.device_id : fail(400, "bad_request");
+    const { data: circle } = await c.admin.from("udn_circles").select("id,created_by").eq("id", cid).eq("owner_id", c.ownerId).maybeSingle();
+    if (!circle || circle.created_by !== c.device!.id) fail(403, "not_circle_owner");
+    const { data: tgt } = await c.admin.from("udn_devices").select("id,status").eq("id", did).eq("owner_id", c.ownerId).maybeSingle();
+    if (!tgt || tgt.status !== "authorized" || did === c.device!.id) fail(404, "target_not_found");
+    if (await rpc(c, "udn_is_parent_device", { p_owner: c.ownerId, p_device: did }) === true) fail(403, "cannot_invite_parent");
+    const { data: ex } = await c.admin.from("udn_circle_members").select("status").eq("circle_id", cid).eq("device_id", did).maybeSingle();
+    if (ex) return { status: ex.status };
+    const { error } = await c.admin.from("udn_circle_members").insert({ circle_id: cid, device_id: did, status: "invited", invited_by: c.device!.id });
+    if (error) fail(500, "server_error");
+    return { status: "invited" };
+  },
+
+  async respond_circle(c) {
+    const cid = UUID.test(c.body.circle_id) ? c.body.circle_id : fail(400, "bad_request");
+    const { data: m } = await c.admin.from("udn_circle_members").select("status").eq("circle_id", cid).eq("device_id", c.device!.id).maybeSingle();
+    if (!m || m.status !== "invited") fail(404, "not_found");
+    if (c.body.accept === true) await c.admin.from("udn_circle_members").update({ status: "member" }).eq("circle_id", cid).eq("device_id", c.device!.id);
+    else await c.admin.from("udn_circle_members").delete().eq("circle_id", cid).eq("device_id", c.device!.id);
+    return { status: c.body.accept === true ? "member" : "declined" };
+  },
+
+  async leave_circle(c) {
+    const cid = UUID.test(c.body.circle_id) ? c.body.circle_id : fail(400, "bad_request");
+    await c.admin.from("udn_circle_members").delete().eq("circle_id", cid).eq("device_id", c.device!.id);
+    return {};
+  },
+
+  async remove_circle_member(c) {
+    const cid = UUID.test(c.body.circle_id) ? c.body.circle_id : fail(400, "bad_request");
+    const did = UUID.test(c.body.device_id) ? c.body.device_id : fail(400, "bad_request");
+    const { data: circle } = await c.admin.from("udn_circles").select("created_by").eq("id", cid).eq("owner_id", c.ownerId).maybeSingle();
+    if (!circle) fail(404, "not_found");
+    if (!c.isParent && circle!.created_by !== c.device!.id) fail(403, "not_circle_owner");
+    await c.admin.from("udn_circle_members").delete().eq("circle_id", cid).eq("device_id", did);
+    return {};
+  },
+
+  async delete_circle(c) {
+    const cid = UUID.test(c.body.circle_id) ? c.body.circle_id : fail(400, "bad_request");
+    const { data: circle } = await c.admin.from("udn_circles").select("created_by").eq("id", cid).eq("owner_id", c.ownerId).maybeSingle();
+    if (!circle) fail(404, "not_found");
+    if (!c.isParent && circle!.created_by !== c.device!.id) fail(403, "not_circle_owner");
+    await c.admin.from("udn_circles").delete().eq("id", cid);
+    return {};
+  },
+
+  async list_circles(c) {
+    return { circles: await circlesFor(c, c.isParent ? null : c.device!.id) };
   },
 
   async create_group(c) {
@@ -489,6 +594,57 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
     return {};
   },
 };
+
+const mayCommand = async (c: Ctx, source: string, target: string): Promise<boolean> =>
+  (await rpc(c, "udn_may_command", { p_owner: c.ownerId, p_source: source, p_target: target })) === true;
+
+// Circles visible to a device (all circles for a parent when deviceId is null) with member names and statuses.
+async function circlesFor(c: Ctx, deviceId: string | null): Promise<Row[]> {
+  let ids: string[] | null = null;
+  if (deviceId) {
+    const { data } = await c.admin.from("udn_circle_members").select("circle_id").eq("device_id", deviceId);
+    ids = (data ?? []).map((m: Row) => m.circle_id);
+    if (!ids.length) return [];
+  }
+  let cq = c.admin.from("udn_circles").select("id,name,created_by,created_at").eq("owner_id", c.ownerId);
+  if (ids) cq = cq.in("id", ids);
+  const { data: circles } = await cq;
+  const cids = (circles ?? []).map((x: Row) => x.id);
+  if (!cids.length) return [];
+  const { data: members } = await c.admin.from("udn_circle_members").select("circle_id,device_id,status").in("circle_id", cids);
+  const devIds = [...new Set((members ?? []).map((m: Row) => m.device_id))];
+  const { data: devs } = await c.admin.from("udn_devices").select("id,name,platform,status,last_seen_at").in("id", devIds);
+  const byId = new Map((devs ?? []).map((d: Row) => [d.id, d]));
+  return (circles ?? []).map((g: Row) => ({
+    id: g.id, name: g.name, created_by: g.created_by,
+    my_status: deviceId ? ((members ?? []).find((m: Row) => m.circle_id === g.id && m.device_id === deviceId)?.status ?? null) : null,
+    members: (members ?? []).filter((m: Row) => m.circle_id === g.id && byId.get(m.device_id)?.status === "authorized").map((m: Row) => ({
+      device_id: m.device_id, status: m.status, name: byId.get(m.device_id)?.name, platform: byId.get(m.device_id)?.platform,
+      online: isOnline(byId.get(m.device_id) ?? {}),
+    })),
+  }));
+}
+
+// A child sees itself and the accepted members of its circles (never parents), with their capabilities.
+async function listForChild(c: Ctx): Promise<Row> {
+  const circles = await circlesFor(c, c.device!.id);
+  const peerIds = new Set<string>([c.device!.id]);
+  for (const g of circles) if (g.my_status === "member") for (const m of g.members) if (m.status === "member") peerIds.add(m.device_id);
+  const [devices, caps] = await Promise.all([
+    c.admin.from("udn_devices").select("*").eq("owner_id", c.ownerId).in("id", [...peerIds]),
+    c.admin.from("udn_device_capabilities").select("*").in("device_id", [...peerIds]),
+  ]);
+  if (devices.error || caps.error) fail(500, "server_error");
+  return {
+    self_id: c.device!.id,
+    devices: (devices.data ?? []).map((d: Row) => ({
+      ...pickDevice(d), parent_slot: null, online: isOnline(d),
+      capabilities: (caps.data ?? []).filter((x: Row) => x.device_id === d.id).map(pickCapability),
+    })),
+    groups: [],
+    circles,
+  };
+}
 
 function pickDevice(d: Row): Row {
   return {
