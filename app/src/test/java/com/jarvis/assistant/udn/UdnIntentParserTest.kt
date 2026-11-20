@@ -163,4 +163,27 @@ class UdnIntentParserTest {
         assertNotNull(UdnModules.fromSpoken("jarvis home"))
         assertEquals("home", UdnModules.fromSpoken("open jarvis home")?.id)
     }
+
+    @Test fun messageToNamedDevice() {
+        val p = UdnIntentParser.parse("Jarvis, send a message to my tablet saying Dinner is Ready")!!
+        assertEquals(UdnIntent.Message("Dinner is Ready"), p.intent)
+        assertEquals(UdnTarget.Named("tablet"), p.target)
+    }
+
+    @Test fun messageTargetIsReadFromTheWordsBeforeTheBody() {
+        val p = UdnIntentParser.parse("message my phone: open my laptop now")!!
+        assertEquals(UdnTarget.Named("phone"), p.target)
+        assertEquals(UdnIntent.Message("open my laptop now"), p.intent)
+    }
+
+    @Test fun messageToAllAndHinglish() {
+        val all = UdnIntentParser.parse("send a message to all devices saying meeting at five")!!
+        assertEquals(UdnTarget.All, all.target)
+        val hi = UdnIntentParser.parse("mere tablet ko message bhejo ki khana ready hai")!!
+        assertEquals(UdnIntent.Message("khana ready hai"), hi.intent)
+    }
+
+    @Test fun messageWithoutTargetIsNotClaimed() {
+        assertNull(UdnIntentParser.parse("send a message saying hello"))
+    }
 }

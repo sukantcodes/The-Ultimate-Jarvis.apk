@@ -17,6 +17,8 @@ const ONLINE_WINDOW_MS = 135_000; // three 45 s heartbeats: one missed beat neve
 const CLOCK_SKEW_S = 120;
 const PAIRING_TTL_MS = 10 * 60_000;
 const MAX_TTL_S = 600;
+// All JARVIS accounts share one network; the signed-in account is recorded per device in udn_devices.account_id.
+const NETWORK_ID = "00000000-0000-4000-8000-0000000000a1";
 
 type Row = Record<string, any>;
 class ApiError extends Error {
@@ -31,6 +33,9 @@ const isOnline = (d: Row): boolean =>
 interface Ctx {
   admin: SupabaseClient;
   ownerId: string;
+  userId: string;
+  userEmail: string | null;
+  emailVerified: boolean;
   device: Row | null; // null only for `register`
   body: Row;
   isParent: boolean;
@@ -65,7 +70,7 @@ Deno.serve(async (req: Request) => {
       if (!(await verifySignature(pk, canonicalRequest(action, "register", ts, nonce, bodyHash), sig))) fail(401, "bad_signature");
     } else {
       if (!UUID.test(deviceHeader)) fail(401, "bad_signature");
-      const { data } = await admin.from("udn_devices").select("*").eq("id", deviceHeader).eq("owner_id", user.id).maybeSingle();
+      const { data } = await admin.from("udn_devices").select("*").eq("id", deviceHeader).eq("owner_id", NETWORK_ID).eq("account_id", user.id).maybeSingle();
       device = data;
       if (!device) fail(401, "unknown_device");
       if (!(await verifySignature(device!.public_key, canonicalRequest(action, deviceHeader, ts, nonce, bodyHash), sig))) {
@@ -85,10 +90,14 @@ Deno.serve(async (req: Request) => {
 
     let isParent = false, slot: number | null = null;
     if (device) {
-      const { data: pa } = await admin.from("udn_parent_assignments").select("slot").eq("owner_id", user.id).eq("device_id", device.id).maybeSingle();
+      const { data: pa } = await admin.from("udn_parent_assignments").select("slot").eq("owner_id", NETWORK_ID).eq("device_id", device.id).maybeSingle();
       if (pa) { isParent = device.status === "authorized"; slot = pa.slot; }
     }
-    const ctx: Ctx = { admin, ownerId: user.id, device, body, isParent, slot };
+    const email = typeof user.email === "string" ? user.email.trim().toLowerCase() : null;
+    const ctx: Ctx = {
+      admin, ownerId: NETWORK_ID, userId: user.id, userEmail: email,
+      emailVerified: !!(user.email_confirmed_at || (user as any).confirmed_at), device, body, isParent, slot,
+    };
 
     const handler = HANDLERS[action];
     if (!handler) fail(400, "unknown_action");
@@ -102,7 +111,7 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-const PENDING_OK = new Set(["me", "heartbeat", "claim_first_parent", "redeem_pairing", "update_capabilities"]);
+const PENDING_OK = new Set(["me", "heartbeat", "update_capabilities"]);
 const requireParent = (c: Ctx) => { if (!c.isParent) fail(403, "parent_required"); };
 const rpc = async (c: Ctx, fn: string, args: Row): Promise<any> => {
   const { data, error } = await c.admin.rpc(fn, args);
@@ -118,7 +127,8 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
     const platform = b.platform === "windows" ? "windows" : b.platform === "android" ? "android" : fail(400, "bad_request");
     const name = str(b.name, 60) ?? fail(400, "bad_request");
     const fp = await fingerprint(publicKey!);
-    const { data: existing } = await c.admin.from("udn_devices").select("id,status").eq("owner_id", c.ownerId).eq("key_fingerprint", fp).maybeSingle();
+    const { data: existing } = await c.admin.from("udn_devices").select("id,status,account_id").eq("owner_id", c.ownerId).eq("key_fingerprint", fp).maybeSingle();
+    if (existing && existing.account_id !== c.userId) fail(403, "device_conflict");
     if (existing?.status === "revoked") fail(403, "device_revoked", { hint: "regenerate_identity" });
     const fields = {
       platform, manufacturer: str(b.manufacturer, 60), model: str(b.model, 80),
@@ -130,14 +140,22 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
       await c.admin.from("udn_devices").update(fields).eq("id", id);
     } else {
       const { data, error } = await c.admin.from("udn_devices")
-        .insert({ owner_id: c.ownerId, name, public_key: publicKey, key_fingerprint: fp, ...fields })
+        .insert({ owner_id: c.ownerId, account_id: c.userId, account_email: c.userEmail, name, public_key: publicKey, key_fingerprint: fp, ...fields })
         .select("id,status").single();
       if (error || !data) fail(500, "server_error");
       id = data!.id; status = data!.status;
       await rpc(c, "udn_audit", { p_owner: c.ownerId, p_actor: id, p_action: "device_registered", p_target: id, p_detail: { platform } });
     }
+    // Role is decided by the server from the verified account e-mail, never by anything the client says.
+    let parentSlot: number | null = null;
+    if (c.userEmail && c.emailVerified) {
+      const { data: pe } = await c.admin.from("udn_parent_emails").select("slot").eq("email", c.userEmail).maybeSingle();
+      parentSlot = pe?.slot ?? null;
+    }
+    const enrolled = await rpc(c, "udn_auto_enroll", { p_owner: c.ownerId, p_device: id, p_slot: parentSlot });
+    if (!enrolled?.ok) fail(409, enrolled?.error ?? "enroll_failed");
     const { count } = await c.admin.from("udn_parent_assignments").select("slot", { count: "exact", head: true }).eq("owner_id", c.ownerId);
-    return { device_id: id, status, parents_exist: (count ?? 0) > 0 };
+    return { device_id: id, status: enrolled.status ?? status, role: enrolled.role, slot: enrolled.slot ?? null, parents_exist: (count ?? 0) > 0 };
   },
 
   async me(c) {
@@ -146,39 +164,6 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
       device: pickDevice(c.device!), slot: c.slot, is_parent: c.isParent,
       parents_exist: (parents?.length ?? 0) > 0, free_parent_slots: 2 - (parents?.length ?? 0),
     };
-  },
-
-  async claim_first_parent(c) {
-    const r = await rpc(c, "udn_claim_first_parent", { p_owner: c.ownerId, p_device: c.device!.id });
-    if (!r?.ok) fail(409, r?.error ?? "claim_failed");
-    return { slot: r.slot };
-  },
-
-  async create_pairing(c) {
-    requireParent(c);
-    const kind = c.body.kind === "parent" ? "parent" : "child";
-    if (kind === "parent") {
-      const { count } = await c.admin.from("udn_parent_assignments").select("slot", { count: "exact", head: true }).eq("owner_id", c.ownerId);
-      if ((count ?? 0) >= 2) fail(409, "no_free_slot");
-    }
-    const { data: ok } = await c.admin.rpc("udn_rate_check", { p_key: `${c.device!.id}:mkpair`, p_max: 6, p_window_seconds: 600 });
-    if (ok === false) fail(429, "rate_limited");
-    const code = generatePairingCode();
-    const expires = new Date(Date.now() + PAIRING_TTL_MS).toISOString();
-    const { error } = await c.admin.from("udn_pairing_requests").insert({
-      owner_id: c.ownerId, kind, code_hash: await sha256Hex(`${c.ownerId}:${code}`), created_by: c.device!.id, expires_at: expires,
-    });
-    if (error) fail(500, "server_error");
-    await rpc(c, "udn_audit", { p_owner: c.ownerId, p_actor: c.device!.id, p_action: "pairing_created", p_target: null, p_detail: { kind } });
-    return { code, kind, expires_at: expires };
-  },
-
-  async redeem_pairing(c) {
-    const code = normalizeCode(str(c.body.code, 16) ?? "");
-    if (code.length !== 8) fail(400, "invalid_code");
-    const r = await rpc(c, "udn_redeem_code", { p_owner: c.ownerId, p_device: c.device!.id, p_code_hash: await sha256Hex(`${c.ownerId}:${code}`) });
-    if (!r?.ok) fail(r?.error === "invalid_code" ? 403 : 409, r?.error ?? "redeem_failed");
-    return { kind: r.kind, slot: r.slot ?? null };
   },
 
   async decide_device(c) {
@@ -412,6 +397,56 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
     const { data } = await c.admin.from("udn_audit_logs").select("id,action,actor_device_id,target_device_id,detail,created_at")
       .eq("owner_id", c.ownerId).order("id", { ascending: false }).limit(limit);
     return { events: data ?? [] };
+  },
+
+
+  async send_message(c) {
+    requireParent(c);
+    const text = str(c.body.text, 500) ?? fail(400, "bad_request");
+    const wanted: string[] = Array.isArray(c.body.targets) ? c.body.targets.filter((t: unknown) => typeof t === "string" && UUID.test(t)).slice(0, 50) : [];
+    if (!wanted.length) fail(400, "bad_request");
+    const { data: ok } = await c.admin.rpc("udn_rate_check", { p_key: `${c.device!.id}:msg`, p_max: 30, p_window_seconds: 600 });
+    if (ok === false) fail(429, "rate_limited");
+    const { data: targets } = await c.admin.from("udn_devices").select("id,name,platform,status")
+      .eq("owner_id", c.ownerId).eq("status", "authorized").in("id", wanted).neq("id", c.device!.id);
+    if (!targets?.length) fail(404, "target_not_found");
+    const title = `Message from ${c.device!.name}`.slice(0, 60);
+    const now = Date.now();
+    const results: Row[] = [];
+    for (const t of targets!) {
+      let commandId: string | null = null;
+      const { data: cmd } = await c.admin.from("udn_command_queue").insert({
+        owner_id: c.ownerId, source_device_id: c.device!.id, target_device_id: t.id, capability: "notify.show",
+        params: { text, title }, nonce: crypto.randomUUID().replace(/-/g, ""), sensitivity: "low", requires_consent: false,
+        created_at: new Date(now).toISOString(), expires_at: new Date(now + 10 * 60_000).toISOString(),
+      }).select("id").single();
+      commandId = cmd?.id ?? null;
+      const { data: m } = await c.admin.from("udn_messages").insert({
+        owner_id: c.ownerId, from_device_id: c.device!.id, to_device_id: t.id, body: text, command_id: commandId,
+      }).select("id").single();
+      results.push({ message_id: m?.id ?? null, to: t.id, command_id: commandId });
+    }
+    await rpc(c, "udn_audit", { p_owner: c.ownerId, p_actor: c.device!.id, p_action: "message_sent", p_target: null, p_detail: { count: results.length } });
+    return { sent: results };
+  },
+
+  async list_messages(c) {
+    const limit = Math.min(100, Math.max(1, Number.isInteger(c.body.limit) ? c.body.limit : 50));
+    let q = c.admin.from("udn_messages").select("id,from_device_id,to_device_id,body,command_id,created_at")
+      .eq("owner_id", c.ownerId).order("created_at", { ascending: false }).limit(limit);
+    // Parents see every message; any other device sees only what was sent to it.
+    if (!c.isParent) q = q.eq("to_device_id", c.device!.id);
+    const { data: rows } = await q;
+    const cmdIds = (rows ?? []).map((r: Row) => r.command_id).filter(Boolean);
+    const { data: cmds } = cmdIds.length
+      ? await c.admin.from("udn_command_queue").select("id,status,error_code").in("id", cmdIds)
+      : { data: [] as Row[] };
+    const st = new Map((cmds ?? []).map((x: Row) => [x.id, x]));
+    return {
+      messages: (rows ?? []).map((r: Row) => ({
+        ...r, delivery: st.get(r.command_id)?.status ?? null, delivery_error: st.get(r.command_id)?.error_code ?? null,
+      })),
+    };
   },
 
   async create_group(c) {

@@ -130,6 +130,18 @@ object UdnReplyComposer {
         }
     }
 
+    /** Result of a parent-to-device message. "Delivered" only when the device itself reported showing it. */
+    fun messageResult(l: UdnLang, d: UdnDevice, status: String?, errorCode: String? = null): String = when (status) {
+        "succeeded" -> pick(l, "Message delivered to ${d.name}.", "${d.name} को संदेश पहुँच गया।", "${d.name} ko message pahunch gaya.")
+        "failed", "rejected", "cancelled" -> pick(l,
+            "I saved the message, but ${d.name} couldn't show it: ${UdnErrors.describe(errorCode ?: "error", null)}.",
+            "संदेश सेव हो गया, लेकिन ${d.name} उसे दिखा नहीं पाया।", "Message save ho gaya, lekin ${d.name} use dikha nahi paya.")
+        else -> pick(l,
+            "Message saved for ${d.name}. It hasn't confirmed it yet; it will arrive when the device is connected.",
+            "${d.name} के लिए संदेश सेव हो गया। अभी पुष्टि नहीं हुई; डिवाइस जुड़ते ही पहुँच जाएगा।",
+            "${d.name} ke liye message save ho gaya. Abhi confirm nahi hua; device connect hote hi pahunch jayega.")
+    }
+
     /** Short action phrase used in confirmation questions. */
     fun actionPhrase(capability: String): String = when (capability) {
         UdnCapabilities.DEVICE_LOCK -> "lock the screen"

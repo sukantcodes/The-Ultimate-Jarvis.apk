@@ -109,6 +109,19 @@ data class UdnCommandRecord(
     }
 }
 
+data class UdnMessage(
+    val id: String, val fromDeviceId: String, val toDeviceId: String, val body: String,
+    val createdMs: Long?, val delivery: String?, val deliveryError: String?
+) {
+    companion object {
+        fun fromJson(o: JSONObject) = UdnMessage(
+            id = o.getString("id"), fromDeviceId = o.optString("from_device_id"), toDeviceId = o.optString("to_device_id"),
+            body = o.optString("body"), createdMs = parseInstantMs(o.optStringOrNull("created_at")),
+            delivery = o.optStringOrNull("delivery"), deliveryError = o.optStringOrNull("delivery_error")
+        )
+    }
+}
+
 data class UdnAuditEvent(val id: Long, val action: String, val actor: String?, val target: String?, val createdMs: Long?, val detail: JSONObject?)
 
 /** A command delivered to this device by the server. */

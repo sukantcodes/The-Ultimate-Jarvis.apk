@@ -106,10 +106,15 @@ object UdnVoiceRouter {
         UdnIntent.OpenCamera -> UdnCapabilities.CAMERA_OPEN to JSONObject()
         is UdnIntent.Notify -> UdnCapabilities.NOTIFY_SHOW to JSONObject().put("text", intent.text)
         is UdnIntent.Routine -> UdnCapabilities.ROUTINE_RUN to JSONObject().put("name", intent.name)
-        UdnIntent.Disconnect, UdnIntent.ListDevices -> null
+        UdnIntent.Disconnect, UdnIntent.ListDevices, is UdnIntent.Message -> null
     }
 
     private suspend fun proceed(context: Context, mgr: UdnManager, lang: UdnLang, intent: UdnIntent, devices: List<UdnDevice>): String {
+        if (intent is UdnIntent.Message) {
+            return coroutineScope {
+                devices.map { d -> async { sendMessageTo(mgr, lang, d, intent.text) } }.awaitAll().joinToString(" ")
+            }
+        }
         if (intent is UdnIntent.Query && intent.kind == UdnQuery.ONLINE) {
             return devices.joinToString(" ") { UdnReplyComposer.online(lang, it) }
         }
@@ -145,6 +150,19 @@ object UdnVoiceRouter {
         }
         return coroutineScope {
             devices.map { d -> async { runOne(mgr, lang, d, capability, params, confirmed) } }.awaitAll().joinToString(" ")
+        }
+    }
+
+    private suspend fun sendMessageTo(mgr: UdnManager, lang: UdnLang, requested: UdnDevice, text: String): String {
+        val d = mgr.state.value.devices.firstOrNull { it.id == requested.id } ?: requested
+        if (!d.isAuthorized) return UdnReplyComposer.online(lang, d)
+        return when (val sent = mgr.sendMessage(listOf(d.id), text)) {
+            is UdnResult.Err -> UdnReplyComposer.failure(lang, d, sent.code, sent.message)
+            is UdnResult.Ok -> {
+                val commandId = sent.value.firstOrNull()
+                val rec = if (commandId != null && d.online) mgr.awaitCommand(commandId, 20_000L) else null
+                UdnReplyComposer.messageResult(lang, d, rec?.status, rec?.errorCode)
+            }
         }
     }
 

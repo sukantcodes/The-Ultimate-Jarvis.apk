@@ -34,6 +34,8 @@ sealed class UdnIntent {
     data class Notify(val text: String) : UdnIntent()
     object Disconnect : UdnIntent()
     data class Routine(val name: String) : UdnIntent()
+    /** A text message from a parent to the target device(s); stored in the network and shown as a notification. */
+    data class Message(val text: String) : UdnIntent()
 }
 
 data class ParsedUdn(val intent: UdnIntent, val target: UdnTarget?)
@@ -106,6 +108,9 @@ object UdnIntentParser {
         if (t.length < 4) return null
         t = t.replace(Regex("^(can you|could you|please|will you|kindly|jarvis)\\s+"), "").trim()
 
+        // ---- messages: "send a message to my tablet saying dinner is ready" ----
+        parseMessage(raw)?.let { return it }
+
         val target = extractTarget(t)
 
         // ---- network-level requests (no target needed) ----
@@ -170,6 +175,26 @@ object UdnIntentParser {
                 ?.groupValues?.get(1)?.trim()
                 ?: rest.replace(Regex("^$openVerb\\s+"), "").replace(Regex("\\b(?:on|in|par|pe)$"), "").trim()
             if (app.isNotBlank() && app.length <= 40) return ParsedUdn(UdnIntent.LaunchApp(app), target)
+        }
+        return null
+    }
+
+    private val messageBodies = listOf(
+        Regex("(?i)\\b(?:message|msg|text|sandesh)\\b[^:]{0,60}?(?:\\bsaying\\b|\\bthat says\\b|\\bsays\\b|:)\\s*(.+)$"),
+        Regex("(?i)\\b(?:message|msg|sandesh)\\s+(?:bhejo|bhej\\s*do|bhejna|bhejiye|likho)\\s+(?:ki\\s+)?(.+)$"),
+        Regex("(?i)\\btell\\s+(?:my|the|mere)\\s+.{1,30}?\\s+(?:that|to)\\s+(.+)$"),
+        Regex("(?i)\\b(?:bolo|bol\\s*do|batao)\\s+(?:ki\\s+)(.+)$")
+    )
+
+    /** The message body keeps its original capitalisation; the target is read only from the words before it. */
+    private fun parseMessage(raw: String): ParsedUdn? {
+        val r = raw.trim().replace(Regex("(?i)^(?:hey |ok |okay )?jarvis[, ]+"), "")
+        for (rx in messageBodies) {
+            val m = rx.find(r) ?: continue
+            val body = m.groupValues[1].trim().trim('"', '\u201c', '\u201d').trim()
+            if (body.isEmpty()) continue
+            val target = extractTarget(normalize(r.substring(0, m.groups[1]!!.range.first))) ?: continue
+            return ParsedUdn(UdnIntent.Message(body.take(500)), target)
         }
         return null
     }

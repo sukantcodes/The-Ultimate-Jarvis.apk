@@ -85,7 +85,7 @@ class UdnManager private constructor(context: Context) {
             if (!AuthManager.isSignedIn) return fail("not_signed_in")
             UdnIdentity.ensureKey()
             val result = register(name ?: defaultName())
-            if (result is UdnResult.Err && result.code == "device_revoked") {
+            if (result is UdnResult.Err && (result.code == "device_revoked" || result.code == "device_conflict")) {
                 // The old identity was removed from the network. Start over with a brand-new key pair.
                 UdnIdentity.reset(); settings.clearEnrollment()
                 UdnIdentity.ensureKey()
@@ -190,17 +190,6 @@ class UdnManager private constructor(context: Context) {
 
     // ------------------------------------------------------------------ pairing and administration
 
-    suspend fun claimFirstParent(): UdnResult<Unit> = simple("claim_first_parent") { refreshSelf(); refreshRegistry() }
-
-    suspend fun createPairingCode(parent: Boolean): UdnResult<Pair<String, Long>> =
-        when (val r = api.call("create_pairing", JSONObject().put("kind", if (parent) "parent" else "child"))) {
-            is UdnResult.Ok -> UdnResult.Ok(r.value.getString("code") to (parseInstantMs(r.value.optString("expires_at")) ?: 0L))
-            is UdnResult.Err -> { setError(r); r }
-        }
-
-    suspend fun redeemPairingCode(code: String): UdnResult<Unit> =
-        simple("redeem_pairing", JSONObject().put("code", code)) { refreshSelf(); pushCapabilities(force = true) }
-
     suspend fun decideDevice(targetId: String, authorize: Boolean): UdnResult<Unit> =
         simple("decide_device", JSONObject().put("target", targetId).put("decision", if (authorize) "authorize" else "reject")) { refreshRegistry() }
 
@@ -220,6 +209,49 @@ class UdnManager private constructor(context: Context) {
     suspend fun deleteGroup(id: String): UdnResult<Unit> = simple("delete_group", JSONObject().put("group_id", id)) { refreshRegistry() }
     suspend fun setGroupMember(groupId: String, deviceId: String, remove: Boolean): UdnResult<Unit> =
         simple("group_members", JSONObject().put("group_id", groupId).put("device_id", deviceId).put("remove", remove)) { refreshRegistry() }
+
+    /** Sends a parent message. Returns the delivery command ids (one per recipient). */
+    suspend fun sendMessage(targetIds: List<String>, text: String): UdnResult<List<String>> {
+        val args = JSONObject().put("text", text).put("targets", org.json.JSONArray(targetIds))
+        return when (val r = api.call("send_message", args)) {
+            is UdnResult.Ok -> UdnResult.Ok(r.value.optJSONArray("sent").toList { it.optStringOrNull("command_id") }.filterNotNull())
+            is UdnResult.Err -> { setError(r); r }
+        }
+    }
+
+    suspend fun messages(): UdnResult<List<UdnMessage>> =
+        when (val r = api.call("list_messages", JSONObject().put("limit", 50))) {
+            is UdnResult.Ok -> UdnResult.Ok(r.value.optJSONArray("messages").toList { UdnMessage.fromJson(it) })
+            is UdnResult.Err -> r
+        }
+
+    /** Polls a command until it reaches a final state or [maxMs] passes (then returns the latest known record, if any). */
+    suspend fun awaitCommand(commandId: String, maxMs: Long): UdnCommandRecord? {
+        val deadline = System.currentTimeMillis() + maxMs
+        var last: UdnCommandRecord? = null
+        while (System.currentTimeMillis() < deadline) {
+            delay(1_500)
+            val st = api.call("command_status", JSONObject().put("command_id", commandId))
+            if (st is UdnResult.Ok) {
+                val rec = UdnCommandRecord.fromJson(st.value.getJSONObject("command"))
+                last = rec
+                if (rec.isTerminal) return rec
+            }
+        }
+        return last
+    }
+
+    /**
+     * Called whenever the app is in front: a signed-in user who already agreed to join (the one-time prompt) is
+     * (re-)enrolled automatically, so a re-install or an account change never needs a pairing step.
+     */
+    suspend fun ensureJoined() {
+        if (!SupabaseConfig.isConfigured || !AuthManager.isSignedIn) return
+        if (!settings.enrollmentPrompted) return
+        if (settings.deviceId == null || !UdnIdentity.hasKey()) { enroll(); return }
+        val r = refreshSelf()
+        if (r is UdnResult.Err && r.code == "unknown_device") enroll()
+    }
 
     suspend fun commandHistory(deviceId: String?): UdnResult<List<UdnCommandRecord>> =
         when (val r = api.call("list_commands", JSONObject().apply { deviceId?.let { put("device_id", it) }; put("limit", 25) })) {

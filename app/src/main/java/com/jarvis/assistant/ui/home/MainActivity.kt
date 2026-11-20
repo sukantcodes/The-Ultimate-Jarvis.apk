@@ -402,11 +402,11 @@ class MainActivity : AppCompatActivity() {
         val settings = com.jarvis.assistant.udn.UdnSettings.get(applicationContext)
         val st = udn.state.value
         if (!st.configured || !com.jarvis.assistant.auth.AuthManager.isSignedIn) return
-        if (st.enrolled) {
-            lifecycleScope.launch { udn.refreshSelf() }
+        if (st.enrolled || settings.enrollmentPrompted) {
+            // Already agreed once: (re)join silently and resume the link. No pairing step exists.
+            lifecycleScope.launch { udn.ensureJoined() }
             return
         }
-        if (settings.enrollmentPrompted) return
         settings.enrollmentPrompted = true
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Join your JARVIS Device Network?")

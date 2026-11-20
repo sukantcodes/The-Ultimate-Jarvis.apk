@@ -53,7 +53,8 @@ class UdnActivity : AppCompatActivity() {
     private lateinit var dynamic: LinearLayout
     private lateinit var commandOutput: TextView
     private var renderJob: Job? = null
-    private var pendingPairingCode: Pair<String, Long>? = null
+    private var messageCache: List<UdnMessage>? = null
+    private var lastSignature = 0
 
     private var accent = 0
     private var textPrimary = Color.WHITE
@@ -76,7 +77,10 @@ class UdnActivity : AppCompatActivity() {
                 launch {
                     // Keeps the dashboard honest: the registry refreshes while it's visible, and "last seen" ages in place.
                     while (true) {
-                        if (mgr.state.value.enrolled && mgr.state.value.authorized) mgr.refreshRegistry()
+                        if (mgr.state.value.enrolled && mgr.state.value.authorized) {
+                            mgr.refreshRegistry()
+                            (mgr.messages() as? UdnResult.Ok)?.let { if (it.value != messageCache) { messageCache = it.value; render() } }
+                        }
                         delay(15_000)
                     }
                 }
@@ -87,21 +91,40 @@ class UdnActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         lifecycleScope.launch {
+            mgr.ensureJoined()
             if (mgr.state.value.enrolled) { mgr.refreshSelf(); if (mgr.state.value.authorized) mgr.refreshRegistry() }
+            render()
         }
     }
 
     // ------------------------------------------------------------------ theme + building blocks
 
+    /**
+     * A fixed look, independent of the app theme and with no animation: a deep static backdrop with clear, frosted
+     * glass cards. Nothing here redraws on its own, so the glass can't flicker in and out.
+     */
     private fun resolveColors() {
-        accent = ThemeManager.getThemeAccentColor()
-        val tv = TypedValue()
-        val light = ThemeManager.isCurrentThemeLight()
-        surface = if (theme.resolveAttribute(android.R.attr.colorBackground, tv, true)) tv.data else if (light) Color.WHITE else Color.parseColor("#0B0F1A")
-        textPrimary = if (light) Color.parseColor("#14161F") else Color.parseColor("#F2F5FF")
-        textSecondary = if (light) Color.parseColor("#5A6070") else Color.parseColor("#9AA3B8")
-        cardColor = if (light) Color.parseColor("#F3F4F8") else Color.parseColor("#151B2B")
+        accent = try { ThemeManager.getThemeAccentColor() } catch (_: Throwable) { Color.parseColor("#6EA8FF") }
+        // keep the accent readable on dark glass
+        val hsl = FloatArray(3); androidx.core.graphics.ColorUtils.colorToHSL(accent, hsl)
+        hsl[2] = hsl[2].coerceIn(0.58f, 0.8f); hsl[1] = hsl[1].coerceAtLeast(0.55f)
+        accent = androidx.core.graphics.ColorUtils.HSLToColor(hsl)
+        surface = Color.parseColor("#080C18")
+        textPrimary = Color.parseColor("#F5F8FF")
+        textSecondary = Color.parseColor("#A9B4CC")
+        cardColor = 0
     }
+
+    private fun glass(radiusDp: Int = 22): GradientDrawable = GradientDrawable(
+        GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Color.parseColor("#2EFFFFFF"), Color.parseColor("#0FFFFFFF"))
+    ).apply {
+        cornerRadius = dp(radiusDp).toFloat()
+        setStroke(dp(1), Color.parseColor("#4DFFFFFF"))
+    }
+
+    private fun backdrop(): GradientDrawable = GradientDrawable(
+        GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Color.parseColor("#0B1226"), Color.parseColor("#070A14"), Color.parseColor("#0C1530"))
+    )
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
@@ -113,7 +136,7 @@ class UdnActivity : AppCompatActivity() {
     private fun card(vararg children: View): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(16), dp(14), dp(16), dp(14))
-        background = GradientDrawable().apply { setColor(cardColor); cornerRadius = dp(18).toFloat(); setStroke(dp(1), withAlpha(accent, 50)) }
+        background = glass()
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(12) }
         children.forEach { addView(it) }
     }
@@ -121,13 +144,15 @@ class UdnActivity : AppCompatActivity() {
     private fun withAlpha(color: Int, a: Int) = Color.argb(a, Color.red(color), Color.green(color), Color.blue(color))
 
     private fun button(label: String, filled: Boolean = true, onClick: () -> Unit) = TextView(this).apply {
+        // glass pill: tinted clear glass for the primary action, plain clear glass for the rest
         text = label; gravity = Gravity.CENTER; isAllCaps = false
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f); setTypeface(typeface, Typeface.BOLD)
-        setTextColor(if (filled) (if (ThemeManager.isLight(accent)) Color.BLACK else Color.WHITE) else accent)
+        setTextColor(if (filled) (if (ThemeManager.isLight(accent)) Color.BLACK else Color.WHITE) else textPrimary)
         setPadding(dp(14), dp(9), dp(14), dp(9))
         background = GradientDrawable().apply {
-            cornerRadius = dp(12).toFloat()
-            if (filled) setColor(accent) else { setColor(Color.TRANSPARENT); setStroke(dp(1), accent) }
+            cornerRadius = dp(14).toFloat()
+            if (filled) { setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 0xCC)); setStroke(dp(1), Color.parseColor("#66FFFFFF")) }
+            else { setColor(Color.parseColor("#1AFFFFFF")); setStroke(dp(1), Color.parseColor("#55FFFFFF")) }
         }
         isClickable = true; isFocusable = true
         setOnClickListener { onClick() }
@@ -175,7 +200,7 @@ class UdnActivity : AppCompatActivity() {
     // ------------------------------------------------------------------ shell (built once)
 
     private fun buildShell() {
-        val scroll = ScrollView(this).apply { setBackgroundColor(surface); isFillViewport = true }
+        val scroll = ScrollView(this).apply { background = backdrop(); isFillViewport = true }
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(20), dp(16), dp(40)) }
         scroll.addView(content)
         setContentView(scroll)
@@ -198,10 +223,22 @@ class UdnActivity : AppCompatActivity() {
 
     // ------------------------------------------------------------------ rendering
 
+    private fun renderSignature(s: UdnState): Int = listOf(
+        s.configured, AuthManager.isSignedIn, s.enrolled, s.status, s.isParent, s.slot, s.linkRunning, s.realtimeConnected, s.lastError,
+        s.devices.map { listOf(it.id, it.name, it.status, it.online, it.batteryPct, it.charging, it.connection, it.parentSlot, (it.lastSeenMs ?: 0L) / 60_000, it.capabilities.map { c -> "${c.capability}${c.available}${c.permissionGranted}${c.policy}" }) },
+        s.groups, messageCache, settings.remoteControlEnabled, settings.locationSharingEnabled, settings.linkEnabled,
+        PermissionHelper.hasRecordAudioPermission(this), WakeKeepAlive.isEnabled(this),
+        JarvisConversationService.isSessionOn.value || JarvisConversationService.isStandby.value,
+        PermissionHelper.hasBatteryOptimizationPermission(this)
+    ).hashCode()
+
     private fun render() {
         if (!::dynamic.isInitialized || isFinishing || isDestroyed) return
-        dynamic.removeAllViews()
         val s = mgr.state.value
+        val sig = renderSignature(s)
+        if (sig == lastSignature && dynamic.childCount > 0) return // nothing changed: leave the screen exactly as it is
+        lastSignature = sig
+        dynamic.removeAllViews()
 
         if (!s.configured) {
             dynamic.addView(card(text("Cloud not configured", 16f, bold = true), text("This build has no Supabase configuration, so the Device Network is unavailable.", 13f, textSecondary)))
@@ -219,7 +256,7 @@ class UdnActivity : AppCompatActivity() {
 
         if (s.isParent) renderPending(s)
         renderDevices(s)
-        if (s.isParent) { renderCommand(s); renderGroups(s); renderPairing(s) }
+        if (s.isParent) { renderCommand(s); renderMessages(s); renderGroups(s) } else renderMessages(s)
         renderLocalSettings()
         renderBackgroundVoice()
         if (s.isParent) renderAudit()
@@ -263,15 +300,11 @@ class UdnActivity : AppCompatActivity() {
     }
 
     private fun renderWaiting(s: UdnState) {
-        val views = mutableListOf<View>()
-        if (!s.parentsExist) {
-            views += text("No parent device exists yet. The first device to claim it becomes Parent 1. Only claim this on a device you own and trust.", 13f, textSecondary)
-            views += flow(button("Make this device a parent") { confirm("Make this device Parent 1?", "It will be able to approve, control and remove other devices.") { run({ mgr.claimFirstParent() }) } })
-        } else {
-            views += text("A parent device must approve this device. Open Device Network on a parent and approve it, or enter a pairing code from a parent.", 13f, textSecondary)
-            views += flow(button("Enter pairing code") { promptCode() }, button("Check status", false) { lifecycleScope.launch { mgr.refreshSelf(); render() } })
-        }
-        dynamic.addView(card(*views.toTypedArray()))
+        dynamic.addView(card(
+            text(if (s.status == "rejected" || s.status == "revoked") "This device was removed from the network." else "Joining the network…", 15f, bold = true),
+            text("Devices join automatically once you're signed in. If this doesn't change in a moment, check your connection and tap Retry.", 12f, textSecondary).apply { setPadding(0, dp(4), 0, 0) },
+            flow(button("Retry") { lifecycleScope.launch { mgr.ensureJoined(); mgr.refreshSelf(); render() } })
+        ))
     }
 
     private fun renderPending(s: UdnState) {
@@ -374,22 +407,63 @@ class UdnActivity : AppCompatActivity() {
             }.setNegativeButton("Cancel", null).show()
     }
 
-    private fun renderPairing(s: UdnState) {
+    private fun renderMessages(s: UdnState) {
+        dynamic.addView(section(if (s.isParent) "Messages" else "Messages for this device"))
+        val msgs = messageCache
+        val byId = s.devices.associateBy { it.id }
         val views = mutableListOf<View>()
-        views += text("Add another device: generate a one-time code (valid 10 minutes), then enter it on the other device under Device Network.", 12f, textSecondary)
-        pendingPairingCode?.takeIf { it.second > System.currentTimeMillis() }?.let { (code, exp) ->
-            views += text(code.chunked(4).joinToString(" "), 26f, accent, true).apply { setPadding(0, dp(8), 0, dp(2)); letterSpacing = 0.1f }
-            views += text("Expires ${fmtTime(exp)}", 11f, textSecondary)
+        if (s.isParent) {
+            views += text("Send a message to any device in the network. It appears as a notification there and is saved here.", 12f, textSecondary)
+            views += flow(button("New message") { composeMessage(s) })
         }
-        val parentCount = s.devices.count { it.isParent }
-        views += flow(
-            button("Code for a child device") { run({ mgr.createPairingCode(false) }) { pendingPairingCode = it } },
-            if (parentCount < 2) button("Code for 2nd parent", false) {
-                confirm("Create a parent code?", "Whoever redeems this becomes Parent 2 with equal authority. Share it only with yourself on a device you own.") { run({ mgr.createPairingCode(true) }) { pendingPairingCode = it } }
-            } else text("", 1f)
-        )
-        dynamic.addView(section("Pairing"))
+        if (msgs == null) views += text("Loading…", 12f, textSecondary)
+        else if (msgs.isEmpty()) views += text("No messages yet.", 12f, textSecondary).apply { setPadding(0, dp(6), 0, 0) }
+        else msgs.take(25).forEach { m ->
+            val from = byId[m.fromDeviceId]?.name ?: "A parent device"
+            val to = byId[m.toDeviceId]?.name ?: "device"
+            val status = when (m.delivery) {
+                "succeeded" -> "delivered"; "failed", "rejected", "cancelled" -> "not shown"; "expired", "timed_out" -> "not delivered"
+                null -> "saved"; else -> "waiting for device"
+            }
+            views += text(if (s.isParent) "$from → $to" else "From $from", 12f, accent, true).apply { setPadding(0, dp(10), 0, 0) }
+            views += text(m.body, 14f)
+            views += text("${fmtTime(m.createdMs)} · $status", 11f, textSecondary)
+        }
         dynamic.addView(card(*views.toTypedArray()))
+    }
+
+    private fun composeMessage(s: UdnState) {
+        val targets = s.devices.filter { it.isAuthorized && it.id != s.deviceId }
+        if (targets.isEmpty()) { toast("No other devices have joined yet."); return }
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
+        val input = EditText(this).apply { hint = "Message"; minLines = 2; maxLines = 5; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES }
+        box.addView(input)
+        val labels = (listOf("All devices") + targets.map { it.name + if (!it.online) " (offline)" else "" }).toTypedArray()
+        val checked = BooleanArray(labels.size) { it == 0 }
+        val dlg = AlertDialog.Builder(this).setTitle("New message").setView(box)
+            .setMultiChoiceItems(labels, checked) { d, i, v ->
+                checked[i] = v
+                val lv = (d as AlertDialog).listView
+                if (i == 0) for (k in 1 until labels.size) { checked[k] = v; lv.setItemChecked(k, v) }
+                else if (!v) { checked[0] = false; lv.setItemChecked(0, false) }
+            }
+            .setPositiveButton("Send", null).setNegativeButton("Cancel", null).create()
+        dlg.setOnShowListener {
+            dlg.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val text = input.text.toString().trim()
+                val ids = targets.filterIndexed { i, _ -> checked[i + 1] }.map { it.id }
+                if (text.isEmpty()) { input.error = "Write a message"; return@setOnClickListener }
+                if (ids.isEmpty()) { toast("Choose at least one device."); return@setOnClickListener }
+                dlg.dismiss()
+                lifecycleScope.launch {
+                    when (val r = mgr.sendMessage(ids, text)) {
+                        is UdnResult.Ok -> { toast("Message saved and sent."); (mgr.messages() as? UdnResult.Ok)?.let { messageCache = it.value }; render() }
+                        is UdnResult.Err -> toast(r.message)
+                    }
+                }
+            }
+        }
+        dlg.show()
     }
 
     private fun renderLocalSettings() {
@@ -516,13 +590,6 @@ class UdnActivity : AppCompatActivity() {
         val et = EditText(this).apply { setText(d.name); setSingleLine() }
         AlertDialog.Builder(this).setTitle("Rename device").setView(et)
             .setPositiveButton("Save") { _, _ -> et.text.toString().trim().takeIf { it.isNotEmpty() }?.let { n -> run({ mgr.renameDevice(d.id, n) }) } }
-            .setNegativeButton("Cancel", null).show()
-    }
-
-    private fun promptCode() {
-        val et = EditText(this).apply { hint = "8-character code"; setSingleLine(); inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS }
-        AlertDialog.Builder(this).setTitle("Enter pairing code").setView(et)
-            .setPositiveButton("Pair") { _, _ -> run({ mgr.redeemPairingCode(et.text.toString()) }) }
             .setNegativeButton("Cancel", null).show()
     }
 
