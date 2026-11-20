@@ -307,6 +307,7 @@
 
         <activity
             android:name=".ui.udn.UdnActivity"
+            android:windowSoftInputMode="adjustResize"
             android:exported="false" />
 
         <service

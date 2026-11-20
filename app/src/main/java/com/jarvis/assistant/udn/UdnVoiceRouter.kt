@@ -166,7 +166,7 @@ object UdnVoiceRouter {
         }
     }
 
-    private suspend fun runOne(mgr: UdnManager, lang: UdnLang, requested: UdnDevice, capability: String, params: JSONObject, confirmed: Boolean): String {
+    suspend fun runOne(mgr: UdnManager, lang: UdnLang, requested: UdnDevice, capability: String, params: JSONObject, confirmed: Boolean): String {
         val d = mgr.state.value.devices.firstOrNull { it.id == requested.id } ?: requested
         if (!d.isAuthorized) return UdnReplyComposer.online(lang, d)
         if (!d.online) return UdnReplyComposer.offline(lang, d)
