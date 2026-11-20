@@ -88,15 +88,18 @@ Deno.serve(async (req: Request) => {
     const { data: allowed } = await admin.rpc("udn_rate_check", { p_key: limitKey, p_max: max, p_window_seconds: windowS });
     if (allowed === false) fail(429, "rate_limited");
 
-    let isParent = false, slot: number | null = null;
-    if (device) {
-      const { data: pa } = await admin.from("udn_parent_assignments").select("slot").eq("owner_id", NETWORK_ID).eq("device_id", device.id).maybeSingle();
-      if (pa) { isParent = device.status === "authorized"; slot = pa.slot; }
-    }
     const email = typeof user.email === "string" ? user.email.trim().toLowerCase() : null;
+    const emailVerified = !!(user.email_confirmed_at || (user as any).confirmed_at);
+    let isParent = false, slot: number | null = null;
+    if (email && emailVerified) {
+      const { data: parentEmail, error: parentEmailError } = await admin
+        .from("udn_parent_emails").select("slot").eq("email", email).maybeSingle();
+      if (parentEmailError) fail(500, "server_error");
+      if (parentEmail) { isParent = true; slot = parentEmail.slot; }
+    }
     const ctx: Ctx = {
       admin, ownerId: NETWORK_ID, userId: user.id, userEmail: email,
-      emailVerified: !!(user.email_confirmed_at || (user as any).confirmed_at), device, body, isParent, slot,
+      emailVerified, device, body, isParent, slot,
     };
 
     const handler = HANDLERS[action];
@@ -251,19 +254,22 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
 
   async list_devices(c) {
     requireParent(c);
-    const [devices, parents, caps, groups, members] = await Promise.all([
+    const [devices, parents, parentEmails, caps, groups, members] = await Promise.all([
       c.admin.from("udn_devices").select("*").eq("owner_id", c.ownerId).order("created_at"),
       c.admin.from("udn_parent_assignments").select("slot,device_id").eq("owner_id", c.ownerId),
+      c.admin.from("udn_parent_emails").select("email,slot"),
       c.admin.from("udn_device_capabilities").select("*"),
       c.admin.from("udn_device_groups").select("*").eq("owner_id", c.ownerId),
       c.admin.from("udn_device_group_members").select("*"),
     ]);
+    if (devices.error || parents.error || parentEmails.error || caps.error || groups.error || members.error) fail(500, "server_error");
     const ids = new Set((devices.data ?? []).map((d: Row) => d.id));
     const slotOf = new Map((parents.data ?? []).map((p: Row) => [p.device_id, p.slot]));
+    const parentSlotByEmail = new Map((parentEmails.data ?? []).map((p: Row) => [String(p.email).toLowerCase(), p.slot]));
     return {
       self_id: c.device!.id,
       devices: (devices.data ?? []).map((d: Row) => ({
-        ...pickDevice(d), parent_slot: slotOf.get(d.id) ?? null, online: isOnline(d),
+        ...pickDevice(d), parent_slot: parentSlotByEmail.get(String(d.account_email ?? "").toLowerCase()) ?? slotOf.get(d.id) ?? null, online: isOnline(d),
         capabilities: (caps.data ?? []).filter((x: Row) => x.device_id === d.id).map(pickCapability),
       })),
       groups: (groups.data ?? []).map((g: Row) => ({
