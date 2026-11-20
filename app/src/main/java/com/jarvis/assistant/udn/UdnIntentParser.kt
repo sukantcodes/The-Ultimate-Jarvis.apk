@@ -78,7 +78,7 @@ object UdnIntentParser {
     }
 
     private val wake = Regex("^(hey |ok |okay )?(jarvis|jarvis,)\\s+")
-    private val stopWords = "and|please|now|then|for|with|that|ki|ka|ke|par|pe|se|ko|me|mein|is|are|hai|ho|online|offline|battery|kya|kitni|kitna|to|if|so|right"
+    private val stopWords = "and|please|now|then|for|with|that|saying|says|ki|ka|ke|par|pe|se|ko|me|mein|is|are|hai|ho|online|offline|battery|kya|kitni|kitna|to|if|so|right"
     private val possessive = Regex("\\b(?:my|mere|meri|mera|apne|apni|apna)\\s+([a-z0-9][a-z0-9 \\-]{1,28}?)(?=\\s+(?:$stopWords)\\b|[?.]|$)")
     private val allTarget = Regex("\\b(?:all|every|each|sabhi|saare|sare)\\s+(?:of\\s+)?(?:my\\s+|the\\s+|mere\\s+)?(?:authorized\\s+|authorised\\s+|connected\\s+|jarvis\\s+)*(?:devices?|phones?|tablets?|gadgets?)\\b")
     private val otherTarget = Regex("\\b(?:other|another|second|doosra|dusra|doosre|dusre|doosri|dusri)\\s+(?:phone|device|mobile|tablet|handset|one|wala|wale)?")
@@ -193,7 +193,7 @@ object UdnIntentParser {
             val m = rx.find(r) ?: continue
             val body = m.groupValues[1].trim().trim('"', '\u201c', '\u201d').trim()
             if (body.isEmpty()) continue
-            val target = extractTarget(normalize(r.substring(0, m.groups[1]!!.range.first))) ?: continue
+            val target = extractTarget(normalize(r.substring(0, m.groups[1]!!.range.first).replace(':', ' '))) ?: continue
             return ParsedUdn(UdnIntent.Message(body.take(500)), target)
         }
         return null
