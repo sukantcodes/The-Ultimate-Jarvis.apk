@@ -334,9 +334,13 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
   async poll_commands(c) {
     await rpc(c, "udn_expire_commands", { p_owner: c.ownerId });
     const rows = await rpc(c, "udn_claim_commands", { p_device: c.device!.id, p_limit: 5 });
-    // Re-check the sender is still an authorized parent at delivery time (a revoked parent's queued commands are dropped).
-    const { data: parents } = await c.admin.from("udn_parent_assignments").select("device_id").eq("owner_id", c.ownerId);
-    const parentIds = new Set((parents ?? []).map((p: Row) => p.device_id));
+    // Re-check the sender's live verified account role at delivery time.
+    // Parent authority belongs to the account, so every device on that account is a valid parent sender.
+    const parentChecks = await Promise.all(((rows ?? []) as Row[]).map(async (r) => ({
+      deviceId: r.source_device_id,
+      isParent: await rpc(c, "udn_is_parent_device", { p_owner: c.ownerId, p_device: r.source_device_id }),
+    })));
+    const parentIds = new Set(parentChecks.filter((p) => p.isParent === true).map((p) => p.deviceId));
     const out: Row[] = [];
     for (const r of (rows ?? []) as Row[]) {
       if (!parentIds.has(r.source_device_id)) {
