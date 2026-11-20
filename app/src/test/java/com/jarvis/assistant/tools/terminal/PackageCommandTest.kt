@@ -38,6 +38,39 @@ class PackageCommandTest {
         assertTrue(a, a.contains("pk_safe python clang git") && a.contains("pip install --upgrade --no-input aider-chat"))
     }
 
+    @Test fun antigravity_cli_installs_glibc_node_and_the_termux_port() {
+        for (name in listOf("agy", "antigravity", "antigravity-cli")) {
+            val s = run("jpkg install $name").script
+            assertTrue(s, s.contains("\nensure_glibc\n") && s.contains("\nensure_node\n"))
+            assertTrue(s, s.contains("npm install -g --no-fund --no-audit @bash0816/agy-termux"))
+            assertTrue(s, s.contains("command -v agy"))
+            // glibc must be in place before the npm tool is installed
+            assertTrue(s, s.lastIndexOf("\nensure_glibc\n") in 0 until s.indexOf("npm install -g --no-fund --no-audit @bash0816/agy-termux"))
+        }
+        assertTrue((PackageCommand.parse("jpkg ai") as PackagePlan.Show).text.contains("Antigravity CLI"))
+    }
+
+    @Test fun codex_comes_from_termux_itself_not_npm() {
+        val s = run("jpkg install codex").script
+        assertTrue(s, s.contains("pk_safe codex") && !s.contains("npm install -g"))
+    }
+
+    @Test fun tools_that_cannot_run_on_android_explain_why_instead_of_failing() {
+        for (name in listOf("claude", "claude-code", "opencode", "copilot", "kilo")) {
+            val plan = PackageCommand.parse("jpkg install $name")
+            assertTrue("$name: $plan", plan is PackagePlan.Show)
+            assertTrue((plan as PackagePlan.Show).text.contains("Android"))
+        }
+        // asked together with something installable: the rest still installs and the skipped one is reported in the script
+        val mixed = run("jpkg install claude codex").script
+        assertTrue(mixed, mixed.contains("Skipped") && mixed.contains("pk_safe codex") && !mixed.contains("npm install -g --no-fund --no-audit @anthropic-ai"))
+    }
+
+    @Test fun every_install_ends_by_checking_the_tool_is_really_there() {
+        val s = run("jpkg install gemini").script
+        assertTrue(s, s.contains("command -v gemini") && s.contains("Checking what was installed"))
+    }
+
     @Test fun unknown_names_are_passed_as_termux_packages_but_only_if_safe() {
         assertTrue(run("pkg install htop").script.contains("pk_safe htop"))
         assertTrue(PackageCommand.parse("pkg install foo;rm") == null)           // chained: real shell, not handled

@@ -329,26 +329,79 @@ class JarvisTerminalActivity : AppCompatActivity() {
                 if (plan.termux && !installed) { session.note(PackageCommand.termuxRequiredText(false) + "\n"); return }
                 SwitchingBackend.setTermux(this, plan.termux)
                 session.note(if (plan.termux)
-                    "Engine: Termux. Commands now run in real Linux (git, node, npm, python, pkg).\nTermux needs allow-external-apps=true and the \"Run commands in Termux\" permission; if a command is refused, see: jpkg setup\nOutput appears when a command finishes. Commands start in ~/jarvis-workspace inside Termux.\n"
+                    "Engine: Termux. Commands now run in real Linux (git, node, npm, python, pkg).\nTermux needs allow-external-apps=true and the \"Run commands in Termux\" permission; if a command is refused, see: jpkg setup\nOutput streams live, like in the Termux app. Commands start in ~/jarvis-workspace inside Termux.\n"
                 else "Engine: app shell (small, no installs).\n")
                 refreshPanelButtons()
                 refreshOutput(forceBottom = true)
             }
             is PackagePlan.Run -> {
-                if (!SwitchingBackend.useTermux(this)) { session.note(PackageCommand.termuxRequiredText(installed) + "\n"); return }
+                if (!installed) { session.note(PackageCommand.termuxRequiredText(false) + "\n"); return }
+                if (!SwitchingBackend.useTermux(this)) {
+                    // Installs only make sense in real Linux, so switch for the person instead of refusing.
+                    SwitchingBackend.setTermux(this, true)
+                    refreshPanelButtons()
+                    session.note("Switched to the Termux engine so this runs for real, like in the Termux app.\n")
+                }
                 session.note(plan.summary + "\n(Live output below, like Termux. Large installs can take several minutes.)\n")
                 runScope.launch {
-                    val r = try { session.run(plan.script, INSTALL_TIMEOUT_MS) } catch (e: Exception) { session.note("⚠ ${e.message ?: e.javaClass.simpleName}\n"); return@launch }
-                    session.note(when {
-                        r.rejected != null -> "⚠ ${r.rejected}"
-                        r.timedOut -> "[stopped: it ran longer than ${INSTALL_TIMEOUT_MS / 60_000} minutes]"
-                        r.cancelled -> "[stopped]"
-                        r.exitCode == 0 -> "✔ finished [${"%.1f".format(r.elapsedMs / 1000.0)} s]"
-                        else -> "✖ failed [exit code ${r.exitCode}]"
-                    } + "\n")
+                    val watcher = launch { watchInstall(session) }
+                    try {
+                        val r = try { session.run(plan.script, INSTALL_TIMEOUT_MS) } catch (e: Exception) { session.note("⚠ ${e.message ?: e.javaClass.simpleName}\n"); return@launch }
+                        session.note(when {
+                            r.rejected != null -> "⚠ ${r.rejected}"
+                            r.timedOut -> "[stopped: it ran longer than ${INSTALL_TIMEOUT_MS / 60_000} minutes]"
+                            r.cancelled -> "[stopped]"
+                            r.exitCode == 0 -> "✔ finished [${"%.1f".format(r.elapsedMs / 1000.0)} s]"
+                            else -> "✖ failed [exit code ${r.exitCode}]" + failureHint(r.exitCode)
+                        } + "\n")
+                    } finally { watcher.cancel() }
                 }
             }
         }
+    }
+
+    /**
+     * While an install runs: say so when Termux has not answered at all (the usual setup problems), and print a heartbeat during
+     * long quiet stretches (downloads, builds) so it never looks frozen.
+     */
+    private suspend fun watchInstall(session: TerminalSession) {
+        val started = System.currentTimeMillis()
+        var seen = session.buffer.endOffset
+        var silentFor = 0
+        var heard = false      // did Termux print anything yet
+        var warned = false
+        while (true) {
+            delay(5_000)
+            val end = session.buffer.endOffset
+            if (end != seen) { seen = end; silentFor = 0; heard = true; continue }
+            silentFor += 5
+            val total = (System.currentTimeMillis() - started) / 1000
+            if (!heard) {
+                if (!warned && total >= 20) {
+                    warned = true
+                    session.note("⚠ No answer from Termux after 20 seconds. Check:\n" +
+                        "  1. Termux is installed from F-Droid or GitHub (the Play Store build does not work)\n" +
+                        "  2. ~/.termux/termux.properties contains  allow-external-apps=true  (then restart Termux)\n" +
+                        "  3. JARVIS has the \"Run commands in Termux environment\" permission (Android Settings > Apps > JARVIS > Permissions)\n" +
+                        "  4. Termux is not battery-restricted: Settings > Apps > Termux > Battery > Unrestricted\n" +
+                        "  Full steps: jpkg setup\n")
+                    seen = session.buffer.endOffset
+                } else if (warned && silentFor % 30 == 0) {
+                    session.note("… still waiting for Termux (${total} s)\n"); seen = session.buffer.endOffset
+                }
+            } else if (silentFor % 30 == 0) {
+                session.note("… still working (${total / 60} min ${total % 60} s). Downloads and builds can be quiet for a while.\n"); seen = session.buffer.endOffset
+            }
+        }
+    }
+
+    /** Plain-language help for the failures people actually hit. */
+    private fun failureHint(code: Int?): String = when (code) {
+        137 -> "\nAndroid killed the install (exit 137). On Android 12 and newer its \"phantom process killer\" stops long Termux jobs.\n" +
+            "  Set Settings > Apps > Termux > Battery > Unrestricted, and once, over Wireless debugging from a computer, run:\n" +
+            "  adb shell settings put global settings_enable_monitor_phantom_procs false\n" +
+            "  Then run the same command again."
+        else -> ""
     }
 
     /** A checklist of ready-made tools and AI command-line tools; the chosen ones are installed in one go. */

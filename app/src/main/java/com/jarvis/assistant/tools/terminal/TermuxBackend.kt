@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Runs commands inside Termux (real git, node, npm, python) through its RUN_COMMAND service. It needs the one-time
- * setup in [TermuxBridgeSpec.userSetupSteps]. Limits, stated plainly: output arrives when the command ends; Termux
+ * setup in [TermuxBridgeSpec.userSetupSteps]. Output streams live over a loopback socket (like the Termux app); if that socket cannot open it arrives when the command ends. Limits, stated plainly: Termux
  * works in its own folder (~/jarvis-workspace), which this app can not read, so files made by the app's file tools
  * are not there; a running command can not be force-stopped from here.
  */
@@ -70,7 +70,7 @@ class TermuxBackend(private val context: Context, private val spec: TermuxBridge
         private fun start() {
             Thread {
                 try {
-                    server.soTimeout = 180_000
+                    server.soTimeout = 15 * 60_000
                     server.accept().use { c ->
                         val r = c.getInputStream().reader(Charsets.UTF_8)
                         val buf = CharArray(2048)
@@ -89,7 +89,9 @@ class TermuxBackend(private val context: Context, private val spec: TermuxBridge
             fun wrap(script: String, port: Int): String = buildString {
                 append("__jp_run() {\n").append(script).append("\n}\n")
                 append("if exec 9<>/dev/tcp/127.0.0.1/").append(port).append(" 2>/dev/null; then\n")
-                append("  set -o pipefail\n  ( __jp_run ) 2>&1 | cat >&9\n  __jp_rc=\${PIPESTATUS[0]}\n  exec 9>&-\n  exit \$__jp_rc\n")
+                append("  command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock >/dev/null 2>&1\n")
+                append("  set -o pipefail\n  ( printf '\u25B6 Termux got the command and is running it now.\\n'; __jp_run ) 2>&1 | cat >&9\n  __jp_rc=\${PIPESTATUS[0]}\n")
+                append("  command -v termux-wake-unlock >/dev/null 2>&1 && termux-wake-unlock >/dev/null 2>&1\n  exec 9>&-\n  exit \$__jp_rc\n")
                 append("else\n  ( __jp_run )\n  exit \$?\nfi\n")
             }
         }

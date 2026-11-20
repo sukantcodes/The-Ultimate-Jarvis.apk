@@ -23,7 +23,8 @@ class SwitchingBackend(private val context: Context, private val local: Terminal
     companion object {
         const val PREFS = "tool_permissions"
         const val KEY = "terminal_backend"
-        fun wantsTermux(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "app") == "termux"
+        /** Termux is used whenever it is installed, unless the person explicitly picked the app shell ("jpkg engine app"). */
+        fun wantsTermux(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null) != "app"
         fun useTermux(context: Context) = wantsTermux(context) && TermuxBackend.isInstalled(context)
         fun setTermux(context: Context, on: Boolean) {
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, if (on) "termux" else "app").apply()

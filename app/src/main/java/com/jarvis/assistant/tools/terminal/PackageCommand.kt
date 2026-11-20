@@ -10,7 +10,9 @@ data class Installable(
     val check: String,
     val description: String,
     val needs: List<String> = emptyList(),
-    val note: String = ""
+    val note: String = "",
+    /** When not blank, this tool can not run on Android/Termux right now: the text says why, and nothing is installed. */
+    val unsupported: String = ""
 ) {
     enum class Kind { PKG, NPM, PIP }
 }
@@ -80,6 +82,17 @@ object PackageCommand {
           local used=nodejs; dpkg -s nodejs-lts >/dev/null 2>&1 && used=nodejs-lts
           printf 'Node %s, npm %s (Termux package: %s)\n' "§(node --version)" "§(npm --version)" "§used"
         }
+        # glibc lets Termux run standard Linux programs (needed by some AI tools). It lives in a separate repository.
+        ensure_glibc() {
+          local ld="§{PREFIX:-/data/data/com.termux/files/usr}/glibc/lib/ld-linux-aarch64.so.1"
+          [ -e "§ld" ] && return 0
+          [ "§(uname -m)" = aarch64 ] || fail 'This tool needs a 64-bit ARM phone (aarch64).'
+          step 'Installing the glibc runtime (lets Termux run standard Linux programs)'
+          pk_safe glibc-repo || fail 'Could not add the glibc repository.'
+          pkg update -y -o Dpkg::Options::=--force-confnew || true
+          pk_safe glibc || fail 'Could not install glibc.'
+          [ -e "§ld" ] || fail 'glibc was installed but its loader is missing.'
+        }
         # For npm tools: install Node.js (the stable LTS build) only if there is no working one yet.
         ensure_node() { node_ok && return 0; install_node nodejs-lts; }
     """.trimIndent().replace('§', '$') + "\n"
@@ -117,14 +130,21 @@ object PackageCommand {
         Installable("ollama", "Ollama", Installable.Kind.PKG, "ollama", "ollama", "Run open AI models on the phone (ollama serve, then ollama run <model>).",
             note = "Needs a lot of free storage and RAM; small models only."),
         Installable("llama-cpp", "llama.cpp", Installable.Kind.PKG, "llama-cpp", "llama-cli", "Run GGUF models directly on the phone."),
-        Installable("gemini", "Gemini CLI", Installable.Kind.NPM, "@google/gemini-cli", "gemini", "Google's Gemini AI in the terminal.", needs = listOf("nodejs")),
+        Installable("agy", "Antigravity CLI (agy)", Installable.Kind.NPM, "@bash0816/agy-termux", "agy", "Google's Antigravity coding agent in the terminal; the successor to Gemini CLI.",
+            needs = listOf("nodejs", "glibc"),
+            note = "Community port for Termux (not made by Google): it downloads Google's own agy program and adjusts a local copy so it runs on Android. " +
+                "The first run asks you to accept Google's terms (antigravity.google/terms) and that adjustment, so type  agy  once in the Termux app itself; the question needs a real terminal. 64-bit ARM phones only."),
+        Installable("gemini", "Gemini CLI", Installable.Kind.NPM, "@google/gemini-cli", "gemini", "Google's Gemini AI in the terminal.", needs = listOf("nodejs"),
+            note = "Google is moving people to Antigravity CLI (jpkg install agy). This package is still published and, being plain JavaScript, runs on Termux."),
+        Installable("codex", "OpenAI Codex CLI", Installable.Kind.PKG, "codex", "codex", "OpenAI's coding agent in the terminal (Termux's own build).",
+            note = "Installed from Termux's own package, which is built for Android. Sign in with  codex  in the Termux app."),
         Installable("claude", "Claude Code", Installable.Kind.NPM, "@anthropic-ai/claude-code", "claude", "Anthropic's coding agent in the terminal.", needs = listOf("nodejs"),
-            note = "Needs an Anthropic account or API key. Some phones can not run it; the install says so if so."),
-        Installable("codex", "OpenAI Codex CLI", Installable.Kind.NPM, "@openai/codex", "codex", "OpenAI's coding agent in the terminal.", needs = listOf("nodejs"),
-            note = "Ships a native program that may not run on every phone."),
+            unsupported = "Claude Code can not be installed directly in Termux right now. Its npm package delivers a native Linux program, and the Android build it looks for " +
+                "(claude-code-linux-arm64-android) is not published, so the install always ends with a stub that does not run. " +
+                "Use codex or agy instead (jpkg install codex / agy), or run Claude Code inside an Ubuntu environment (pkg install proot-distro)."),
         Installable("qwen", "Qwen Code", Installable.Kind.NPM, "@qwen-code/qwen-code", "qwen", "Qwen's coding agent in the terminal.", needs = listOf("nodejs")),
         Installable("opencode", "opencode", Installable.Kind.NPM, "opencode-ai", "opencode", "Open-source coding agent.", needs = listOf("nodejs"),
-            note = "Ships a native program that may not run on every phone."),
+            unsupported = "opencode's npm package lists only macOS, Linux and Windows, so npm refuses to install it on Android (Termux reports its system as android). Use codex or agy instead."),
         Installable("aider", "Aider", Installable.Kind.PIP, "aider-chat", "aider", "AI pair programmer that edits your git repo.", needs = listOf("python", "clang", "git"),
             note = "Builds some parts on the phone, so it can take several minutes."),
         Installable("llm", "llm (Simon Willison)", Installable.Kind.PIP, "llm", "llm", "Talk to many AI models from the terminal.", needs = listOf("python")),
@@ -202,9 +222,12 @@ object PackageCommand {
         Installable("create-vite", "create-vite", Installable.Kind.NPM, "create-vite", "create-vite", "Start a Vite project.", needs = listOf("nodejs")),
         Installable("wrangler", "Cloudflare Wrangler", Installable.Kind.NPM, "wrangler", "wrangler", "Cloudflare Workers CLI.", needs = listOf("nodejs")),
         // More AI command-line tools
-        Installable("copilot", "GitHub Copilot CLI", Installable.Kind.NPM, "@github/copilot", "copilot", "GitHub's coding agent in the terminal.", needs = listOf("nodejs")),
-        Installable("kilo", "Kilo Code CLI", Installable.Kind.NPM, "@kilocode/cli", "kilo", "Open-source coding agent.", needs = listOf("nodejs")),
-        Installable("crush", "Crush", Installable.Kind.NPM, "@charmland/crush", "crush", "Charm's AI coding agent.", needs = listOf("nodejs")),
+        Installable("copilot", "GitHub Copilot CLI", Installable.Kind.NPM, "@github/copilot", "copilot", "GitHub's coding agent in the terminal.", needs = listOf("nodejs"),
+            unsupported = "GitHub Copilot CLI starts a platform program that only exists for Linux, macOS and Windows; on Termux (Android) none is available, so it can not run."),
+        Installable("kilo", "Kilo Code CLI", Installable.Kind.NPM, "@kilocode/cli", "kilo", "Open-source coding agent.", needs = listOf("nodejs"),
+            unsupported = "Kilo Code CLI's npm package lists only macOS, Linux and Windows, so npm refuses to install it on Android. Use codex or agy instead."),
+        Installable("crush", "Crush", Installable.Kind.NPM, "@charmland/crush", "crush", "Charm's AI coding agent.", needs = listOf("nodejs"),
+            note = "Not tested on phones: its installer downloads a program that may not support Android. The install reports clearly if it fails."),
         Installable("continue", "Continue CLI", Installable.Kind.NPM, "@continuedev/cli", "cn", "Continue's coding agent.", needs = listOf("nodejs")),
         Installable("mcp-inspector", "MCP Inspector", Installable.Kind.NPM, "@modelcontextprotocol/inspector", "mcp-inspector", "Test MCP servers.", needs = listOf("nodejs")),
         Installable("repomix", "Repomix", Installable.Kind.NPM, "repomix", "repomix", "Pack a repo into one file for AI.", needs = listOf("nodejs")),
@@ -227,7 +250,7 @@ object PackageCommand {
     )
 
     private val AI_KEYS = setOf(
-        "ollama", "llama-cpp", "gemini", "claude", "codex", "qwen", "opencode", "aider", "llm", "copilot", "kilo", "crush", "continue",
+        "ollama", "llama-cpp", "agy", "gemini", "claude", "codex", "qwen", "opencode", "aider", "llm", "copilot", "kilo", "crush", "continue",
         "sgpt", "litellm", "openai", "anthropic", "google-genai", "ollama-python"
     )
 
@@ -240,7 +263,7 @@ object PackageCommand {
             "ssh" to "openssh", "scp" to "openssh", "gcc" to "clang", "g++" to "clang", "c++" to "clang", "go" to "golang", "cargo" to "rust", "rustc" to "rust",
             "java" to "openjdk-17", "jdk" to "openjdk-17", "github-cli" to "gh", "magick" to "imagemagick", "convert" to "imagemagick", "rg" to "ripgrep", "unzip" to "zip",
             "gemini-cli" to "gemini", "claude-code" to "claude", "claudecode" to "claude", "codex-cli" to "codex", "qwen-code" to "qwen", "opencode-ai" to "opencode",
-            "aider-chat" to "aider", "llamacpp" to "llama-cpp", "llama.cpp" to "llama-cpp", "llama" to "llama-cpp"
+            "aider-chat" to "aider", "antigravity" to "agy", "antigravity-cli" to "agy", "agy-termux" to "agy", "llamacpp" to "llama-cpp", "llama.cpp" to "llama-cpp", "llama" to "llama-cpp"
         )
         for ((a, k) in aliases) m[a] = m.getValue(k)
         m
@@ -294,9 +317,20 @@ object PackageCommand {
         val titles = ArrayList<String>()
         var node: String? = null      // Node.js asked for by name: "nodejs" or "nodejs-lts"
         var needNode = false          // Node.js only needed by another tool
+        var needGlibc = false         // the glibc runtime, needed by some AI tools
+        val skipped = ArrayList<Installable>()   // tools that can not run on Android right now
+        val verify = ArrayList<Installable>()    // tools to check on the PATH at the end
         fun add(i: Installable) {
-            i.needs.forEach { n -> if (n == "nodejs") needNode = true else byKey[n]?.let { if (it.key != i.key) add(it) } }
+            if (i.unsupported.isNotBlank()) { if (skipped.none { it.key == i.key }) skipped += i; return }
+            i.needs.forEach { n ->
+                when (n) {
+                    "nodejs" -> needNode = true
+                    "glibc" -> needGlibc = true
+                    else -> byKey[n]?.let { if (it.key != i.key) add(it) }
+                }
+            }
             titles += i.title
+            if (verify.none { it.key == i.key }) verify += i
             when (i.kind) {
                 Installable.Kind.PKG -> if (i.key == "nodejs" || i.key == "nodejs-lts") node = i.target else pkgs += i.target.split(' ')
                 Installable.Kind.NPM -> npm += i.target
@@ -308,9 +342,15 @@ object PackageCommand {
             val known = find(n)
             if (known != null) add(known) else { pkgs += n.lowercase(); titles += n }
         }
+        if (skipped.isNotEmpty() && pkgs.isEmpty() && npm.isEmpty() && pip.isEmpty() && node == null && !needNode && !needGlibc) {
+            return PackagePlan.Show(skipped.joinToString("\n\n") { "✖ ${it.title}: ${it.unsupported}" })
+        }
         val script = buildString {
             append(PRELUDE)
-            if (pkgs.isNotEmpty() || node != null) {
+            for (k in skipped) {
+                append("printf '\\n\\033[1;33m⚠ Skipped %s:\\033[0m %s\\n' ").append(ShellQuote.quote(k.title)).append(' ').append(ShellQuote.quote(k.unsupported)).append("\n")
+            }
+            if (pkgs.isNotEmpty() || node != null || needGlibc) {
                 append("step 'Updating package lists'\n")
                 append("pkg update -y -o Dpkg::Options::=--force-confnew || echo '(update reported warnings, continuing)'\n")
             }
@@ -321,6 +361,7 @@ object PackageCommand {
                 append("pk_safe ").append(q).append(" || fail 'Could not install: ").append(pkgs.joinToString(" "))
                 append(". Check the name with: pkg search <name>'\n")
             }
+            if (needGlibc) append("ensure_glibc\n")
             if (needNode && node == null) append("ensure_node\n")
             if (npm.isNotEmpty()) {
                 val q = npm.joinToString(" ") { ShellQuote.quote(it) }
@@ -335,6 +376,14 @@ object PackageCommand {
                 append("step 'Installing Python tools: ").append(pip.joinToString(" ")).append("'\n")
                 append("pip install --upgrade --no-input ").append(q).append(" || { echo; echo 'Retrying...'; pip install --no-input --no-cache-dir ").append(q)
                 append(" || fail 'pip could not install that tool on this phone.'; }\n")
+            }
+            if (verify.isNotEmpty()) {
+                append("step 'Checking what was installed'\nhash -r\n")
+                for (v in verify) {
+                    val t = ShellQuote.quote(v.title); val c = ShellQuote.quote(v.check)
+                    append("if command -v ").append(c).append(" >/dev/null 2>&1; then printf '\\033[1;32m✓\\033[0m %s is ready (type: %s)\\n' ").append(t).append(' ').append(c)
+                    append("; else printf '\\033[1;33m⚠\\033[0m %s was installed but \"%s\" is not on the PATH yet. Try:  hash -r\\n' ").append(t).append(' ').append(c).append("; fi\n")
+                }
             }
             append("printf '\\n\\033[1;32m✔ Done. Installed: ${titles.distinct().joinToString(", ").replace("'", "")}\\033[0m\\n'\n")
         }
@@ -383,7 +432,7 @@ object PackageCommand {
 
     fun aiList(): String = "AI tools you can install (type: jpkg install <name>)\n" +
         catalog.filter { it.key in AI_KEYS }
-            .joinToString("\n") { "  ${it.key.padEnd(10)} ${it.title} - ${it.description}" + if (it.note.isBlank()) "" else "\n             ℹ ${it.note}" }
+            .joinToString("\n") { "  ${it.key.padEnd(10)} ${it.title} - ${it.description}" + (if (it.unsupported.isNotBlank()) "\n             ✖ Not available on Android right now: type  jpkg install ${it.key}  for why." else "") + if (it.note.isBlank()) "" else "\n             ℹ ${it.note}" }
 
     fun toolList(): String = "Ready-made tools (type: jpkg install <name>). Any other Termux package works too.\n" +
         catalog.filter { it.key !in AI_KEYS }.joinToString("\n") { "  ${it.key.padEnd(12)} ${it.title} - ${it.description}" } +
@@ -399,12 +448,12 @@ object PackageCommand {
           pkg list-installed                 what is installed
           jpkg tools                         ready-made list
           jpkg engine termux | app           choose where commands run
-        Installing needs the Termux engine (real Linux). jpkg engine termux sets it up.
+        Installs run in Termux (real Linux) and show live output here. Termux must be installed: jpkg setup explains the one-time steps.
     """.trimIndent()
 
     /** Shown when an install is typed but commands are not running in Termux. */
     fun termuxRequiredText(installed: Boolean, spec: TermuxBridgeSpec = TermuxBridgeSpec()): String =
-        if (installed) "Installing programs needs the Termux engine, which is off.\nType:  jpkg engine termux   to turn it on, then run this again."
+        if (installed) "Installing programs needs Termux, but this app could not use it.\nRun  jpkg setup  and check the steps, then try again."
         else "Installing programs needs Termux (a real Linux environment), which is not installed on this phone.\nOne-time setup:\n" +
             spec.userSetupSteps.mapIndexed { i, s -> "  ${i + 1}. $s" }.joinToString("\n") + "\nThen type:  jpkg engine termux"
 }

@@ -70,6 +70,9 @@
 
     <!-- Android 11+ hides other apps unless declared: the speech recognizer must be visible for the ChatBox mic. -->
     <queries>
+        <!-- Without this, Android 11+ hides Termux from the app: getPackageInfo("com.termux") fails even when Termux is installed,
+             so the terminal thought Termux was missing and refused every install. -->
+        <package android:name="com.termux" />
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
