@@ -134,6 +134,7 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
     if (existing && existing.account_id !== c.userId) fail(403, "device_conflict");
     if (existing?.status === "revoked") fail(403, "device_revoked", { hint: "regenerate_identity" });
     const fields = {
+      account_email: c.userEmail,
       platform, manufacturer: str(b.manufacturer, 60), model: str(b.model, 80),
       os_version: str(b.os_version, 40), app_version: str(b.app_version, 40),
     };
