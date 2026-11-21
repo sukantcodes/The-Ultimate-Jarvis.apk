@@ -82,4 +82,16 @@
     <string name="set_appidentity_title">App Identity &amp; Integrity</string>
     <string name="set_appidentity_subtitle">Publisher, app ID and signing certificate status</string>
     <string name="set_footer_credit" formatted="true">JARVIS INTELLIGENCE OS • v%1$s\nEngineered by %2$s</string>
+
+    <!-- Control Deck: short chip labels and the overline above the title (not translated; they are one or two words) -->
+    <string name="set_overline" translatable="false">JARVIS · CONTROL DECK</string>
+    <string name="set_cat_all" translatable="false">All</string>
+    <string name="set_cat_ai" translatable="false">AI</string>
+    <string name="set_cat_voice" translatable="false">Voice</string>
+    <string name="set_cat_security" translatable="false">Security</string>
+    <string name="set_cat_alerts" translatable="false">Alerts</string>
+    <string name="set_cat_memory" translatable="false">Memory</string>
+    <string name="set_cat_access" translatable="false">Access</string>
+    <string name="set_cat_look" translatable="false">Look</string>
+    <string name="set_cat_about" translatable="false">About</string>
 </resources>

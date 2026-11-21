@@ -19,10 +19,10 @@
     <style name="Widget.JarvisSettings.Row" parent="">
         <item name="android:orientation">horizontal</item>
         <item name="android:gravity">center_vertical</item>
-        <item name="android:minHeight">72dp</item>
+        <item name="android:minHeight">68dp</item>
         <item name="android:paddingTop">12dp</item>
         <item name="android:paddingBottom">12dp</item>
-        <item name="android:background">@drawable/bg_settings_glass_row</item>
+        <item name="android:background">@null</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
         <item name="android:foreground">?attr/selectableItemBackground</item>
@@ -30,8 +30,8 @@
 
     <style name="Widget.JarvisSettings.IconBox" parent="">
         <item name="android:background">@drawable/bg_jarvis_icon_square</item>
-        <item name="android:elevation">3dp</item>
-        <item name="android:translationZ">1dp</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:translationZ">0dp</item>
     </style>
 
     <style name="Widget.JarvisSettings.RowTitle" parent="TextAppearance.Jarvis.BodyEmphasis">
@@ -51,7 +51,7 @@
     <!-- Hairline between rows, inset so it lines up with the row text. -->
     <style name="Widget.JarvisSettings.Divider" parent="">
         <item name="android:background">?attr/themeCardBorder</item>
-        <item name="android:alpha">0.55</item>
+        <item name="android:alpha">0.80</item>
         <item name="android:layout_marginStart">54dp</item>
     </style>
 

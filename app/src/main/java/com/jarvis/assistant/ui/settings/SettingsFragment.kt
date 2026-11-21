@@ -140,8 +140,6 @@ class SettingsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(binding.root)
-
         // Secret Maya companion settings: long-press the Settings heading to open.
         binding.tvSettingsTitle.setOnLongClickListener {
             startActivity(Intent(requireContext(), MayaModeActivity::class.java))
@@ -167,88 +165,104 @@ class SettingsFragment : Fragment() {
         setupAppearanceSection()
         setupAboutSection()
         setupOwnerSection()
-        applyLiquidGlassSurfaces()
-        applyLiquidGlassStrength(binding.root)
-        applyDimensionalIconColors(binding.root)
+        applyDeckStyle()
+        setupCategoryRail()
+        setupHeaderMotion()
 
         refreshState()
         playBubbleEntrance()
     }
 
-    /**
-     * iOS-style liquid glass for the whole Settings screen: the search field, the profile card and all nine section
-     * cards become glass surfaces that refract the drifting aurora behind them. Each section keeps its own accent
-     * as the glow in the card's lower corner.
-     */
-    private fun applyLiquidGlassSurfaces() {
+    // ------------------------------------------------------------------------------------------
+    // Control Deck look (the painting lives in SettingsDeck; nothing here changes what a setting does)
+    // ------------------------------------------------------------------------------------------
+
+    /** One section as the deck sees it: its heading, its card, its colour and its chip label. */
+    private class DeckSection(val header: TextView, val card: ViewGroup, val accent: Int, val label: String)
+
+    /** The eight rail sections in on-screen order. The rail shows "All" first, then these. */
+    private fun deckSections(): List<DeckSection> {
         val ctx = requireContext()
-        fun accent(res: Int) = androidx.core.content.ContextCompat.getColor(ctx, res)
-        val glass = com.jarvis.assistant.ui.glass.LiquidGlass
-        glass.apply(binding.etSettingsSearch, 27f, soft = false, elevationDp = 3f)
-        glass.apply(binding.cardProfile, 30f, elevationDp = 6f)
-        section(binding.glassCardAi, accent(R.color.set_accent_ai))
-        section(binding.glassCardVoice, accent(R.color.set_accent_voice))
-        section(binding.glassCardSecurity, accent(R.color.set_accent_security))
-        section(binding.glassCardAlerts, accent(R.color.set_accent_alerts))
-        section(binding.glassCardMemory, accent(R.color.set_accent_memory))
-        section(binding.glassCardPermissions, accent(R.color.set_accent_permissions))
-        section(binding.glassCardAppearance, accent(R.color.set_accent_appearance))
-        section(binding.glassCardAbout, accent(R.color.set_accent_about))
-        section(binding.glassCardOwner, accent(R.color.set_accent_owner))
-        glass.styleSwitches(binding.root)
+        fun color(res: Int) = ContextCompat.getColor(ctx, res)
+        return listOf(
+            DeckSection(binding.headerAiIntelligence, binding.glassCardAi, color(R.color.set_accent_ai), getString(R.string.set_cat_ai)),
+            DeckSection(binding.headerVoiceListening, binding.glassCardVoice, color(R.color.set_accent_voice), getString(R.string.set_cat_voice)),
+            DeckSection(binding.headerVoiceSecurity, binding.glassCardSecurity, color(R.color.set_accent_security), getString(R.string.set_cat_security)),
+            DeckSection(binding.headerAlerts, binding.glassCardAlerts, color(R.color.set_accent_alerts), getString(R.string.set_cat_alerts)),
+            DeckSection(binding.headerMemoryData, binding.glassCardMemory, color(R.color.set_accent_memory), getString(R.string.set_cat_memory)),
+            DeckSection(binding.headerPermissionsAutomation, binding.glassCardPermissions, color(R.color.set_accent_permissions), getString(R.string.set_cat_access)),
+            DeckSection(binding.headerAppearance, binding.glassCardAppearance, color(R.color.set_accent_appearance), getString(R.string.set_cat_look)),
+            DeckSection(binding.headerPrivacyAbout, binding.glassCardAbout, color(R.color.set_accent_about), getString(R.string.set_cat_about))
+        )
     }
 
-    /** One section card: liquid glass body, and every row inside it its own glowing bubble in the section's colour. */
-    private fun section(card: ViewGroup, accent: Int) {
-        com.jarvis.assistant.ui.glass.LiquidGlass.apply(card, 28f, accent)
-        com.jarvis.assistant.ui.glass.LiquidRows.bubbleRows(card, accent)
+    /** Paints the search pill, identity card, every section and the switches in the active theme's colours. */
+    private fun applyDeckStyle() {
+        val accent = ThemeManager.getThemeAccentColor()
+        SettingsDeck.styleSearch(binding.etSettingsSearch, accent)
+        SettingsDeck.styleOrb(binding.orbBadge, accent)
+        SettingsDeck.styleHero(binding.cardProfile, accent)
+        SettingsDeck.styleAvatarRing(binding.frameProfileRing, accent, ThemeManager.getThemeSecondaryColor())
+        deckSections().forEach { section ->
+            SettingsDeck.styleSectionHeader(section.header, section.accent)
+            SettingsDeck.styleCard(section.card, section.accent)
+            SettingsDeck.pressFeedback(section.card)
+        }
+        val owner = ContextCompat.getColor(requireContext(), R.color.set_accent_owner)
+        SettingsDeck.styleSectionHeader(binding.headerOwnerSection, owner)
+        SettingsDeck.styleCard(binding.glassCardOwner, owner)
+        SettingsDeck.pressFeedback(binding.glassCardOwner)
+        SettingsDeck.styleSwitches(binding.root, accent)
+        applyDimensionalIconColors(binding.root)
     }
 
-    /** Blocks pop in one after another with a light sweep on each (skipped when Liquid Glass is off). */
+    /** 0 = every section; 1..8 = only the section picked in the rail (same order as [deckSections]). */
+    private var category = 0
+    private var paintRail: ((Int) -> Unit)? = null
+
+    private fun setupCategoryRail() {
+        val accent = ThemeManager.getThemeAccentColor()
+        val chips = listOf(SettingsDeck.Category(getString(R.string.set_cat_all), accent)) +
+            deckSections().map { SettingsDeck.Category(it.label, it.accent) }
+        paintRail = SettingsDeck.buildRail(binding.railChips, chips, accent) { selectCategory(it) }
+    }
+
+    private fun selectCategory(index: Int) {
+        if (_binding == null || index == category) return
+        category = index
+        paintRail?.invoke(index)
+        binding.etSettingsSearch.text?.clear()
+        filterSettings("")
+        binding.settingsScroll.scrollTo(0, 0)
+        SettingsDeck.swap(binding.settingsContent)
+    }
+
+    /** The big title condenses and a hairline appears under the header as the page scrolls. */
+    private fun setupHeaderMotion() {
+        binding.settingsScroll.setOnScrollChangeListener { _, _, scrollY, _, _ ->
+            if (_binding == null) return@setOnScrollChangeListener
+            SettingsDeck.collapseHeader(
+                scrollY, binding.tvSettingsTitle, binding.tvSettingsSubtitle,
+                binding.tvSettingsOverline, binding.orbBadge, binding.viewHeaderDivider
+            )
+        }
+    }
+
+    /** The first blocks rise into place one after another (skipped when system animations are off). */
     private fun playBubbleEntrance() {
         if (_binding == null) return
-        com.jarvis.assistant.ui.glass.LiquidRows.enter(
+        SettingsDeck.enter(
             listOf<View>(
-                binding.etSettingsSearch, binding.cardProfile, binding.glassCardAi,
-                binding.glassCardVoice, binding.glassCardSecurity, binding.glassCardAlerts
+                binding.cardProfile, binding.headerAiIntelligence, binding.glassCardAi,
+                binding.headerVoiceListening, binding.glassCardVoice
             ),
             startDelay = 40L
         )
     }
 
-    /**
-     * Tint the existing settings icons with the selected theme colour. The icon containers
-     * remain transparent, so opaque coloured squares do not appear behind them.
-     */
+    /** Gives every settings icon its tile, in the shape chosen in Theme & 3D Orb Colors, tinted with the theme colour. */
     private fun applyDimensionalIconColors(root: View) {
-        val accent = ThemeManager.getThemeAccentColor()
-
-        fun visit(view: View) {
-            if (view !is ViewGroup) return
-            if (view.childCount > 0 && view.getChildAt(0) is android.widget.FrameLayout) {
-                val iconBox = view.getChildAt(0) as android.widget.FrameLayout
-                val width = iconBox.layoutParams?.width ?: 0
-                val height = iconBox.layoutParams?.height ?: 0
-                val isSettingsIconSize = width in dp(36)..dp(44) && height in dp(36)..dp(44)
-                if (isSettingsIconSize && iconBox.childCount > 0 &&
-                    iconBox.getChildAt(0) is android.widget.ImageView
-                ) {
-                    iconBox.background = null
-                    iconBox.backgroundTintList = null
-                    iconBox.elevation = 0f
-                    iconBox.translationZ = 0f
-                    iconBox.clipToOutline = false
-                    applyIconTile(iconBox, accent)
-                    (iconBox.getChildAt(0) as android.widget.ImageView).apply {
-                        imageTintList = ColorStateList.valueOf(accent)
-                        elevation = dp(2).toFloat()
-                    }
-                }
-            }
-            for (index in 0 until view.childCount) visit(view.getChildAt(index))
-        }
-
-        visit(root)
+        SettingsDeck.styleIcons(root, ThemeManager.getThemeAccentColor(), preferences.settingsIconShape)
     }
 
     /** Repaints every Settings icon with the shape chosen in Theme & 3D Orb Colors. */
@@ -256,57 +270,9 @@ class SettingsFragment : Fragment() {
         if (_binding != null) applyDimensionalIconColors(binding.root)
     }
 
-    /**
-     * The tile behind one icon. Plain keeps the original look (no tile); Rectangular is a flat square with
-     * small corners; Pillowy is a soft, raised squircle; Circular is a round badge.
-     */
-    private fun applyIconTile(box: android.widget.FrameLayout, accent: Int) {
-        val glassOn = com.jarvis.assistant.ui.glass.GlassMode.enabled()
-        // With Liquid Glass on, "Plain" icons still sit in a round glowing bubble; with it off they stay tile-less as before.
-        val shape = JarvisApp.instance.preferences.settingsIconShape.let { if (it == 0 && glassOn) 3 else it }
-        if (shape == 0) return
-        val tile = GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            intArrayOf(
-                androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 70),
-                androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 22)
-            )
-        )
-        when (shape) {
-            1 -> { tile.shape = GradientDrawable.RECTANGLE; tile.cornerRadius = dp(4).toFloat() }
-            2 -> { tile.shape = GradientDrawable.RECTANGLE; tile.cornerRadius = dp(15).toFloat() }
-            else -> tile.shape = GradientDrawable.OVAL
-        }
-        tile.setStroke(dp(1), androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 90))
-        box.background = tile
-        box.elevation = if (shape == 2) dp(3).toFloat() else 0f
-        if (glassOn) {
-            box.elevation = dp(5).toFloat()
-            if (android.os.Build.VERSION.SDK_INT >= 28) {
-                box.outlineSpotShadowColor = accent
-                box.outlineAmbientShadowColor = accent
-            }
-            val corner = when (shape) { 1 -> dp(4); 2 -> dp(15); else -> dp(40) / 2 }.toFloat()
-            com.jarvis.assistant.ui.glass.LiquidTouch.undecorate(box)
-            com.jarvis.assistant.ui.glass.LiquidTouch.decorate(box, corner, 0.95f, accent)
-        }
-    }
-
-    private fun applyLiquidGlassStrength(view: View) {
-        if (view.tag == "liquid_glass_surface") {
-            view.background?.alpha = ThemeManager.getLiquidGlassAlpha()
-        }
-        if (view is ViewGroup) {
-            for (index in 0 until view.childCount) {
-                applyLiquidGlassStrength(view.getChildAt(index))
-            }
-        }
-    }
-
     override fun onResume() {
         super.onResume()
         if (_binding != null) {
-            com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(binding.root)
             applyDimensionalIconColors(binding.root)
             refreshState()
         }
@@ -317,7 +283,6 @@ class SettingsFragment : Fragment() {
         if (_binding == null) return
         if (!hidden) {
             binding.root.visibility = View.VISIBLE
-            com.jarvis.assistant.ui.glass.LiquidGlass.installBackdrop(binding.root)
             refreshState()
             playBubbleEntrance()
         } else {
@@ -340,7 +305,13 @@ class SettingsFragment : Fragment() {
         binding.etSettingsSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                filterSettings(s?.toString().orEmpty())
+                val query = s?.toString().orEmpty()
+                // Searching always covers every section, so the rail snaps back to "All".
+                if (query.isNotBlank() && category != 0) {
+                    category = 0
+                    paintRail?.invoke(0)
+                }
+                filterSettings(query)
             }
             override fun afterTextChanged(s: Editable?) = Unit
         })
@@ -350,15 +321,16 @@ class SettingsFragment : Fragment() {
     private fun filterSettings(rawQuery: String) {
         val query = rawQuery.trim().lowercase(Locale.ROOT)
         val content = binding.settingsContent
-        val sectionHeaders = setOf(
-            R.id.headerAiIntelligence,
-            R.id.headerVoiceListening,
-            R.id.headerVoiceSecurity,
-            R.id.headerAlerts,
-            R.id.headerMemoryData,
-            R.id.headerPermissionsAutomation,
-            R.id.headerAppearance,
-            R.id.headerPrivacyAbout
+        // Rail position of each section (chip 0 is "All").
+        val sectionHeaders = mapOf(
+            R.id.headerAiIntelligence to 1,
+            R.id.headerVoiceListening to 2,
+            R.id.headerVoiceSecurity to 3,
+            R.id.headerAlerts to 4,
+            R.id.headerMemoryData to 5,
+            R.id.headerPermissionsAutomation to 6,
+            R.id.headerAppearance to 7,
+            R.id.headerPrivacyAbout to 8
         )
         var visibleMatches = 0
         var index = 0
@@ -367,12 +339,14 @@ class SettingsFragment : Fragment() {
             val child = content.getChildAt(index)
             when {
                 child.id == R.id.cardProfile -> {
-                    val matches = query.isEmpty() || viewMatchesQuery(child, query)
+                    // The identity card belongs to "All"; a search can still find it.
+                    val matches = if (query.isEmpty()) category == 0 else viewMatchesQuery(child, query)
                     child.visibility = if (matches) View.VISIBLE else View.GONE
                     if (matches && query.isNotEmpty()) visibleMatches++
                 }
 
-                child.id in sectionHeaders -> {
+                sectionHeaders.containsKey(child.id) -> {
+                    val position = sectionHeaders.getValue(child.id)
                     val headerMatches = query.isNotEmpty() && viewMatchesQuery(child, query)
                     val card = content.getChildAt(index + 1) as? ViewGroup
                     if (card == null) {
@@ -404,8 +378,10 @@ class SettingsFragment : Fragment() {
                         }
 
                         val hasMatches = query.isEmpty() || headerMatches || sectionMatches > 0
-                        child.visibility = if (hasMatches) View.VISIBLE else View.GONE
-                        card.visibility = if (hasMatches) View.VISIBLE else View.GONE
+                        // With no search text, "All" shows every section and a chip shows only its own.
+                        val inScope = query.isNotEmpty() || category == 0 || category == position
+                        child.visibility = if (hasMatches && inScope) View.VISIBLE else View.GONE
+                        card.visibility = if (hasMatches && inScope) View.VISIBLE else View.GONE
                         if (query.isNotEmpty()) {
                             visibleMatches += if (headerMatches) rowIndexes.size else sectionMatches
                         }
@@ -414,8 +390,9 @@ class SettingsFragment : Fragment() {
                 }
 
                 else -> {
-                    // Social links and the footer stay out of a filtered result list.
-                    child.visibility = if (query.isEmpty()) View.VISIBLE else View.GONE
+                    // Owner section, social links and the footer belong to "All" and "About"; a search hides them.
+                    child.visibility =
+                        if (query.isEmpty() && (category == 0 || category == 8)) View.VISIBLE else View.GONE
                 }
             }
             index++
