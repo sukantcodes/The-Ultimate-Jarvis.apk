@@ -130,12 +130,11 @@
         android:id="@+id/settingsScroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="4dp"
         android:scrollbars="none"
         android:fillViewport="true"
         android:overScrollMode="never"
         android:clipToPadding="false"
-        app:layout_constraintTop_toBottomOf="@id/layoutHeader"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
 
         <LinearLayout
@@ -2681,5 +2680,41 @@
 
         </LinearLayout>
     </ScrollView>
+
+    <!-- Compact title pill: fades in once the big header has scrolled away; tap to jump back to the top -->
+    <LinearLayout
+        android:id="@+id/pillSettingsTop"
+        android:layout_width="wrap_content"
+        android:layout_height="36dp"
+        android:alpha="0"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="14dp"
+        android:paddingEnd="16dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:importantForAccessibility="no"
+            android:rotation="-90"
+            android:src="@drawable/ic_arrow_right"
+            app:tint="?attr/themeAccent" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:fontFamily="sans-serif-medium"
+            android:text="@string/set_screen_title"
+            android:textColor="?attr/themeTextPrimary"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

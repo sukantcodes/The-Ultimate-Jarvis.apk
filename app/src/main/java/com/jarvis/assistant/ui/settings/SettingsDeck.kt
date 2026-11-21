@@ -263,13 +263,21 @@ object SettingsDeck {
             val row = card.getChildAt(i)
             if (!row.isClickable || row !is ViewGroup || row.childCount == 0) continue
             val icon = row.getChildAt(0)
+            // The trailing chevron (if the row has one) leans forward while the row is held.
+            val chevron = row.getChildAt(row.childCount - 1).takeIf { it is ImageView && !it.isClickable && it !== icon }
+            val nudge = dp(row.context, 4f)
             row.setOnTouchListener { _, event ->
                 when (event.actionMasked) {
-                    MotionEvent.ACTION_DOWN ->
+                    MotionEvent.ACTION_DOWN -> {
                         icon.animate().scaleX(0.88f).scaleY(0.88f).setDuration(90L).start()
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                        chevron?.animate()?.translationX(nudge)?.setDuration(120L)?.start()
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         icon.animate().scaleX(1f).scaleY(1f).setDuration(240L)
                             .setInterpolator(OvershootInterpolator(2.2f)).start()
+                        chevron?.animate()?.translationX(0f)?.setDuration(220L)
+                            ?.setInterpolator(OvershootInterpolator(2.4f))?.start()
+                    }
                 }
                 false // never consume: the row's own click handling and ripple carry on as before
             }
@@ -300,7 +308,12 @@ object SettingsDeck {
                 isClickable = true
                 isFocusable = true
                 contentDescription = category.label
-                setOnClickListener { onPick(index) }
+                setOnClickListener {
+                    animate().cancel()
+                    scaleX = 0.9f; scaleY = 0.9f
+                    animate().scaleX(1f).scaleY(1f).setDuration(260L).setInterpolator(OvershootInterpolator(2.4f)).start()
+                    onPick(index)
+                }
                 row.addView(this, LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT, px(ctx, 36f)
                 ).apply { marginEnd = px(ctx, 8f) })

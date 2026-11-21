@@ -37,6 +37,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.fragment.app.Fragment
+import androidx.core.view.doOnLayout
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.collect
@@ -283,26 +284,112 @@ class SettingsFragment : Fragment() {
         if (_binding == null || index == category) return
         category = index
         paintRail?.invoke(index)
+        revealAllSections()
         binding.etSettingsSearch.text?.clear()
         filterSettings("")
         binding.settingsScroll.scrollTo(0, 0)
         SettingsDeck.swap(binding.settingsContent)
     }
 
-    /** The big title condenses and a hairline appears under the header as the page scrolls. */
+    private var headerHeight = 0
+    private var pillShown = false
+    private val pendingReveal = LinkedHashSet<View>()
+
+    /**
+     * The whole header (title, search, rail) scrolls up with the content, so the settings get the full screen. The header
+     * sits above the scroll view and moves with it one-to-one while fading out; a small "Settings" pill fades in once it
+     * is gone and jumps back to the top when tapped. Sections that start below the fold rise in as they are scrolled to.
+     */
     private fun setupHeaderMotion() {
+        val header = binding.layoutHeader
+        header.bringToFront()
+        binding.pillSettingsTop.bringToFront()
+        SettingsDeck.styleChip(binding.pillSettingsTop, ThemeManager.getThemeAccentColor())
+        binding.pillSettingsTop.setOnClickListener { binding.settingsScroll.smoothScrollTo(0, 0) }
+        header.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, _, _ ->
+            val h = bottom - top
+            if (h != headerHeight && h > 0) {
+                headerHeight = h
+                val c = binding.settingsContent
+                c.setPadding(c.paddingLeft, h + (4 * resources.displayMetrics.density).toInt(), c.paddingRight, c.paddingBottom)
+            }
+        }
         binding.settingsScroll.setOnScrollChangeListener { _, _, scrollY, _, _ ->
             if (_binding == null) return@setOnScrollChangeListener
-            SettingsDeck.collapseHeader(
-                scrollY, binding.tvSettingsTitle, binding.tvSettingsSubtitle,
-                binding.tvSettingsOverline, binding.orbBadge, binding.viewHeaderDivider
-            )
+            val h = headerHeight.coerceAtLeast(1)
+            val progress = (scrollY.toFloat() / h).coerceIn(0f, 1f)
+            header.translationY = -minOf(scrollY, h).toFloat()
+            header.alpha = 1f - progress
+            setPillVisible(scrollY > h * 0.9f)
+            revealVisibleSections()
         }
+        binding.etSettingsSearch.setOnFocusChangeListener { v, focused ->
+            v.animate().scaleX(if (focused) 1.015f else 1f).scaleY(if (focused) 1.015f else 1f).setDuration(180L).start()
+        }
+        binding.settingsContent.doOnLayout { prepareReveal() }
+    }
+
+    private fun setPillVisible(show: Boolean) {
+        if (show == pillShown) return
+        pillShown = show
+        val pill = binding.pillSettingsTop
+        pill.animate().cancel()
+        if (show) {
+            pill.visibility = View.VISIBLE
+            pill.translationY = -(10 * resources.displayMetrics.density)
+            pill.animate().alpha(1f).translationY(0f).setDuration(220L).start()
+        } else {
+            pill.animate().alpha(0f).setDuration(160L).withEndAction { if (_binding != null) pill.visibility = View.GONE }.start()
+        }
+    }
+
+    /** Sections that begin below the first screen wait, slightly lowered and transparent, until they are scrolled to. */
+    private fun prepareReveal() {
+        if (_binding == null) return
+        val firstScreen = listOf(R.id.cardProfile, R.id.headerAiIntelligence, R.id.glassCardAi, R.id.headerVoiceListening, R.id.glassCardVoice)
+        val fold = binding.settingsScroll.height
+        val lift = 22 * resources.displayMetrics.density
+        pendingReveal.clear()
+        val content = binding.settingsContent
+        for (i in 0 until content.childCount) {
+            val v = content.getChildAt(i)
+            if (v.id in firstScreen || v.visibility != View.VISIBLE || v.top < fold) continue
+            v.alpha = 0f
+            v.translationY = lift
+            pendingReveal += v
+        }
+    }
+
+    private fun revealVisibleSections() {
+        if (pendingReveal.isEmpty()) return
+        val limit = binding.settingsScroll.scrollY + binding.settingsScroll.height - (40 * resources.displayMetrics.density)
+        val it = pendingReveal.iterator()
+        var n = 0L
+        while (it.hasNext()) {
+            val v = it.next()
+            if (v.top < limit) {
+                it.remove()
+                v.animate().alpha(1f).translationY(0f).setStartDelay(n * 60L).setDuration(360L)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator(1.8f)).start()
+                n++
+            }
+        }
+    }
+
+    /** Shows everything at once (used when a search or a category changes what is on screen). */
+    private fun revealAllSections() {
+        pendingReveal.forEach { v -> v.animate().cancel(); v.alpha = 1f; v.translationY = 0f }
+        pendingReveal.clear()
     }
 
     /** The first blocks rise into place one after another (skipped when system animations are off). */
     private fun playBubbleEntrance() {
         if (_binding == null) return
+        binding.frameProfileRing.apply {
+            scaleX = 0.7f; scaleY = 0.7f
+            animate().scaleX(1f).scaleY(1f).setStartDelay(160L).setDuration(520L)
+                .setInterpolator(android.view.animation.OvershootInterpolator(1.8f)).start()
+        }
         SettingsDeck.enter(
             listOf<View>(
                 binding.cardProfile, binding.headerAiIntelligence, binding.glassCardAi,
@@ -358,6 +445,7 @@ class SettingsFragment : Fragment() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 val query = s?.toString().orEmpty()
+                if (query.isNotBlank()) revealAllSections()
                 // Searching always covers every section, so the rail snaps back to "All".
                 if (query.isNotBlank() && category != 0) {
                     category = 0
