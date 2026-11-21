@@ -411,7 +411,7 @@ class UdnActivity : AppCompatActivity() {
             !AuthManager.isSignedIn -> bodyHolder.addView(message("Sign in required", "The Device Network is tied to your JARVIS account. Sign in from the menu, then come back here."))
             !s.enrolled -> renderJoin(s)
             !s.authorized -> { renderHero(s); renderWaiting(s) }
-            else -> { renderHero(s); if (s.isParent) renderPending(s); renderTry(s) }
+            else -> { renderHero(s); if (s.isParent) renderPending(s) }
         }
         // Devices
         bodyHolder = pageBodies[PAGE_DEVICES]
@@ -585,9 +585,6 @@ class UdnActivity : AppCompatActivity() {
         val devices = s.devices.filter { it.status == "authorized" }
             .sortedWith(compareByDescending<UdnDevice> { it.id == s.deviceId }.thenByDescending { it.isParent }.thenBy { it.name.lowercase() })
         bodyHolder.addView(sectionTitle("Devices"))
-        if (!s.isParent && devices.size <= 1) {
-            bodyHolder.addView(card(th.accent, 16, th.text("You can control the child devices in your circles. Create a circle on the Circles page and invite a device to get started. Parent devices can always control this device.", 13f, th.text2).apply { setLineSpacing(0f, 1.2f) }))
-        }
         if (devices.isEmpty()) { bodyHolder.addView(card(null, 16, th.text("No devices yet.", 13f, th.text2))); return }
         devices.forEach { d ->
             val isSelf = d.id == s.deviceId
@@ -597,18 +594,17 @@ class UdnActivity : AppCompatActivity() {
                 LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
                     addView(th.text(d.name + if (isSelf) "  ·  this device" else "", 16f, th.text1, UdnTheme.Weight.Bold))
-                    addView(th.text(listOfNotNull(d.manufacturer?.replaceFirstChar { it.uppercase() }, d.osVersion?.let { "Android $it".takeIf { _ -> d.platform == "android" } ?: it }).joinToString(" · ").ifBlank { d.platform.replaceFirstChar { it.uppercase() } }, 12f, th.text2), th.lp(top = 4))
+                    addView(th.text(listOfNotNull(if (d.isParent) "Parent ${d.parentSlot}" else null, d.manufacturer?.replaceFirstChar { it.uppercase() }).joinToString(" · ").ifBlank { d.platform.replaceFirstChar { it.uppercase() } }, 12f, th.text2), th.lp(top = 4))
                 }.also { it.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = th.dp(12); marginEnd = th.dp(8) } },
                 th.chip(if (d.online) "Online" else "Offline", if (d.online) th.success else th.muted, dot = true)
             )
-            val chips = row(th.chip(if (d.isParent) "Parent ${d.parentSlot}" else "Child", if (d.isParent) th.accent else th.text2)).apply { layoutParams = th.lp(top = 12) }
             val meta = row().apply { layoutParams = th.lp(top = 12) }
             d.batteryPct?.let { meta.addView(batteryBar(it, d.charging)) }
             if (d.online || d.lastSeenMs != null) meta.addView(
                 th.text(listOfNotNull(connLabel(d.connection).takeIf { d.online }, if (d.online) null else "Last seen ${ago(d.lastSeenMs)}").joinToString(" · "), 12f, th.text2),
                 th.lp(w = ViewGroup.LayoutParams.WRAP_CONTENT, start = if (d.batteryPct != null) 14 else 0)
             )
-            val c = card(if (d.online) tone else null, 16, top, chips, meta)
+            val c = card(if (d.online) tone else null, 16, top, meta)
             c.isClickable = true; c.isFocusable = true; th.pressable(c)
             c.setOnClickListener { showDevice(d, isSelf) }
             bodyHolder.addView(c)
@@ -738,7 +734,7 @@ class UdnActivity : AppCompatActivity() {
         when {
             msgs == null -> c.addView(th.text("Loading…", 12f, th.text2))
             msgs.isEmpty() -> c.addView(th.text(if (s.isParent) "No messages yet. Send one to any device and it's saved here." else "Nothing yet. Messages you send to or receive from your circle appear here.", 13f, th.text2))
-            else -> msgs.take(20).forEachIndexed { i, m ->
+            else -> msgs.take(15).forEachIndexed { i, m ->
                 if (i > 0) c.addView(th.hRule())
                 val from = byId[m.fromDeviceId]?.name ?: "A device"
                 val to = byId[m.toDeviceId]?.name ?: "a device"
@@ -833,7 +829,7 @@ class UdnActivity : AppCompatActivity() {
                 .setNegativeButton("Cancel", null).show()
         }))
         val c = card(null, 16)
-        if (s.groups.isEmpty()) c.addView(th.text("Group devices (for example “Family tablets”) to control them together.", 13f, th.text2))
+        if (s.groups.isEmpty()) c.addView(th.text("No groups yet.", 13f, th.text2))
         s.groups.forEachIndexed { i, g ->
             if (i > 0) c.addView(th.hRule())
             val names = g.deviceIds.mapNotNull { id -> s.devices.firstOrNull { it.id == id }?.name }
@@ -882,15 +878,15 @@ class UdnActivity : AppCompatActivity() {
         bodyHolder.addView(sectionTitle("This device"))
         val c = card(null, 16)
         if (s.authorized) {
-            c.addView(switchRow("Allow remote control", "When off, this device refuses every command from other devices.", settings.remoteControlEnabled) {
+            c.addView(switchRow("Allow remote control", "Off = refuse all commands.", settings.remoteControlEnabled) {
                 settings.remoteControlEnabled = it; lifecycleScope.launch { mgr.pushCapabilities(force = true) }; forceRender()
             })
             c.addView(th.hRule())
-            c.addView(switchRow("Share location on request", "Off by default. Even when on, each request still needs your Allow tap here.", settings.locationSharingEnabled) {
+            c.addView(switchRow("Share location on request", "Each request still needs your approval.", settings.locationSharingEnabled) {
                 settings.locationSharingEnabled = it; lifecycleScope.launch { mgr.pushCapabilities(force = true) }; forceRender()
             })
             c.addView(th.hRule())
-            c.addView(switchRow("Keep network link running", "A quiet foreground service so this device can receive commands while the app is closed.", settings.linkEnabled) {
+            c.addView(switchRow("Keep network link running", "Stay reachable while the app is closed.", settings.linkEnabled) {
                 settings.linkEnabled = it
                 if (it) UdnLinkService.start(applicationContext) else UdnLinkService.stop(applicationContext)
                 forceRender()
@@ -922,12 +918,10 @@ class UdnActivity : AppCompatActivity() {
         val listening = JarvisConversationService.isSessionOn.value || JarvisConversationService.isStandby.value
         val ignoringOpt = PermissionHelper.hasBatteryOptimizationPermission(this)
         val c = card(null, 16,
-            th.text("Say it to JARVIS — in English, Hindi or Hinglish — and results come back from the device itself.", 13f, th.text2).apply { setLineSpacing(0f, 1.2f) },
             statusRow("Microphone", if (micOk) "Allowed" else "Off", micOk),
             statusRow("“Hey JARVIS” standby", if (listening) "Listening" else if (wakeOn) "Enabled, not running" else "Off", if (listening) true else if (wakeOn) false else null),
-            statusRow("Battery optimisation", if (ignoringOpt) "Exempt" else "Restricted", ignoringOpt)
+            statusRow("Background running", if (ignoringOpt) "Allowed" else "Restricted", ignoringOpt)
         )
-        c.addView(th.text("Android shows a notification while the microphone is used in the background, and some manufacturers stop background apps unless battery optimisation is off. Listening pauses during phone calls.", 11f, th.muted).apply { setLineSpacing(0f, 1.2f) }, th.lp(top = 14))
         val actions = row().apply { layoutParams = th.lp(top = 14) }
         if (!ignoringOpt) actions.addView(button("Allow background", false) {
             runCatching { startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))) }
@@ -947,7 +941,7 @@ class UdnActivity : AppCompatActivity() {
         when {
             events == null -> c.addView(th.text("Loading…", 12f, th.text2))
             events.isEmpty() -> c.addView(th.text("No events yet.", 13f, th.text2))
-            else -> events.take(12).forEachIndexed { i, e ->
+            else -> events.take(6).forEachIndexed { i, e ->
                 if (i > 0) c.addView(View(this), th.lp(h = th.dp(10)))
                 c.addView(row(
                     View(this).apply { background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(th.accent) }; layoutParams = LinearLayout.LayoutParams(th.dp(7), th.dp(7)) },
@@ -960,19 +954,6 @@ class UdnActivity : AppCompatActivity() {
             }
         }
         bodyHolder.addView(c)
-    }
-
-    // ---- home: voice hints
-
-    private fun renderTry(s: UdnState) {
-        val others = s.devices.filter { it.isAuthorized && it.id != s.deviceId }
-        val sample = others.firstOrNull()?.name
-        val lines = ArrayList<String>()
-        lines += "“Show my devices”"
-        if (sample != null) { lines += "“What's the battery on $sample?”"; lines += "“Send a message to $sample saying dinner is ready”" }
-        else lines += "Devices that join the network appear here and can be controlled by voice."
-        bodyHolder.addView(sectionTitle("Try saying"))
-        bodyHolder.addView(card(th.accent2, 16, *lines.map { th.text(it, 14f, th.text1).apply { setLineSpacing(0f, 1.2f); setPadding(0, th.dp(4), 0, th.dp(4)) } as View }.toTypedArray()))
     }
 
     // ---- devices: banned accounts (parents)
@@ -1002,7 +983,6 @@ class UdnActivity : AppCompatActivity() {
         val me = s.deviceId
         bodyHolder.addView(sectionTitle(if (s.isParent) "All circles" else "My circles",
             if (!s.isParent) button("New", true, R.drawable.udn_ic_group) { createCircleDialog() } else null))
-        if (!s.isParent) bodyHolder.addView(card(null, 14, th.text("Devices in the same circle can control each other and send messages. Camera and location always stay parent-only, and parents can see and manage every circle.", 12f, th.text2).apply { setLineSpacing(0f, 1.2f) }))
 
         val invites = s.circles.filter { it.myStatus == "invited" }
         invites.forEach { c ->
@@ -1018,7 +998,7 @@ class UdnActivity : AppCompatActivity() {
 
         val mine = s.circles.filter { it.myStatus != "invited" }
         if (mine.isEmpty() && invites.isEmpty()) {
-            bodyHolder.addView(card(null, 16, th.text(if (s.isParent) "No circles yet. Child devices create them." else "No circles yet. Create one and invite another child device.", 13f, th.text2)))
+            bodyHolder.addView(card(null, 16, th.text(if (s.isParent) "No circles yet." else "No circles yet.", 13f, th.text2)))
         }
         mine.forEach { c ->
             val tone = th.hue(c.id)
