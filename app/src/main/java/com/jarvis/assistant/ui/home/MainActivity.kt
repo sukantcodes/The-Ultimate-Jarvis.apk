@@ -267,7 +267,6 @@ class MainActivity : AppCompatActivity() {
         setupNavigationDock()
         configureNavigationDrawer()
         setupDrawerNavigation()
-        com.jarvis.assistant.ui.glass.DrawerGlass.apply(binding.navDrawer)
         selectTab(currentTab)
         if (intent.getBooleanExtra(EXTRA_OPEN_UPDATES, false)) {
             selectTab(TAB_UPDATES)

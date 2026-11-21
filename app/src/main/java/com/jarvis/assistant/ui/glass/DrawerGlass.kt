@@ -26,7 +26,7 @@ object DrawerGlass {
             (plainHeader.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.let {
                 it.setMargins(0, 0, 0, 0); plainHeader.layoutParams = it
             }
-            plainHeader.findViewById<View>(R.id.ivDrawerLogo)?.let { logo ->
+            plainHeader.findViewById<View>(R.id.tvDrawerAvatar)?.let { logo ->
                 logo.setPadding(0, 0, 0, 0)
                 logo.layoutParams = logo.layoutParams.also { lp -> lp.width = (42f * d).toInt(); lp.height = (42f * d).toInt() }
             }
@@ -37,7 +37,7 @@ object DrawerGlass {
         wrap(nav, nav.menu, (40f * d).toInt(), accent)
         val header = nav.getHeaderView(0) ?: return
         header.post { LiquidTouch.decorate(header, 28f * d, 0.6f, accent) }
-        header.findViewById<View>(R.id.ivDrawerLogo)?.let {
+        header.findViewById<View>(R.id.tvDrawerAvatar)?.let {
             DockPods.install(it, heightDp = 56f, circle = true, interactive = false, group = "drawer")
         }
     }
