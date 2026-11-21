@@ -14,13 +14,12 @@
     --red-bright: #ff7582;
     --gold-accent: #ffb300;
     --gold-bright: #ffe082;
-    --hud-border: rgba(255, 23, 68, 0.25);
-    --hud-border-bright: rgba(255, 42, 75, 0.75);
-    --hud-glass: rgba(14, 3, 6, 0.82);
+    --hud-border: rgba(255, 255, 255, 0.24);
+    --hud-border-bright: rgba(255, 255, 255, 0.55);
+    --hud-glass: rgba(28, 12, 16, 0.34);
     --text-white: #ffffff;
-    --text-muted: #c99ea6;
-    --text-faint: #6e444c;
-    /* Use monospace and system-ui fallback to prevent cursive system themes */
+    --text-muted: #d6b6bd;
+    --text-faint: #7f575f;
     --font-mono: "Roboto Mono", "SF Mono", "Droid Sans Mono", "Consolas", monospace;
     --font-ui: system-ui, "Roboto", -apple-system, sans-serif;
   }
@@ -42,26 +41,71 @@
   }
 
   body {
-    background: radial-gradient(circle at 50% 48%, #220207 0%, #0c0104 55%, #050102 100%);
+    background: radial-gradient(circle at 50% 48%, #28040c 0%, #0e0205 55%, #050102 100%);
     overscroll-behavior: none;
   }
 
   .gpu { transform: translateZ(0); will-change: transform; }
 
-  /* Holographic background grid */
   .grid-bg {
     position: fixed;
     inset: 0;
     background-image:
-      linear-gradient(rgba(255, 23, 68, 0.035) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 23, 68, 0.035) 1px, transparent 1px);
+      linear-gradient(rgba(255, 23, 68, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 23, 68, 0.04) 1px, transparent 1px);
     background-size: 30px 30px;
     mask-image: radial-gradient(ellipse 95% 75% at 50% 50%, black 25%, transparent 85%);
     pointer-events: none;
     z-index: 1;
   }
 
-  /* HUD Viewport */
+  /* Reusable iOS 26/27 Liquid Glass Surface Mixin */
+  .ios-liquid-glass {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.04) 52%,
+      rgba(255, 255, 255, 0.08) 100%
+    );
+    backdrop-filter: blur(28px) saturate(195%) brightness(1.12);
+    -webkit-backdrop-filter: blur(28px) saturate(195%) brightness(1.12);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    box-shadow:
+      0 14px 36px rgba(0, 0, 0, 0.52),
+      inset 0 1.2px 0.8px rgba(255, 255, 255, 0.56),
+      inset 0 -1px 1.2px rgba(255, 255, 255, 0.16),
+      inset 0 0 18px rgba(255, 255, 255, 0.06);
+  }
+
+  .ios-liquid-glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(
+      140px circle at var(--gx, 30%) var(--gy, 15%),
+      rgba(255, 255, 255, 0.24),
+      rgba(255, 255, 255, 0.04) 48%,
+      transparent 72%
+    );
+    opacity: var(--go, 0.65);
+    transition: opacity 0.25s ease;
+  }
+
+  .ios-liquid-glass::after {
+    content: "";
+    position: absolute;
+    left: 14%;
+    right: 14%;
+    top: 1px;
+    height: 1px;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.78), transparent);
+  }
+
   #hud {
     position: relative;
     width: 100%;
@@ -73,23 +117,15 @@
     padding: calc(44px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* ============================================================
-     1. REDESIGNED STARK CYBER HUD HEADER
-     ============================================================ */
+  /* 1. iOS Liquid Glass HUD Header */
   .header-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    height: 52px;
+    height: 54px;
     padding: 0 14px;
-    background: linear-gradient(180deg, rgba(22, 4, 8, 0.90) 0%, rgba(11, 2, 4, 0.75) 100%);
-    border: 1px solid rgba(255, 23, 68, 0.32);
-    border-radius: 16px;
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 14px rgba(255, 23, 68, 0.10);
-    position: relative;
+    border-radius: 26px;
     box-sizing: border-box;
   }
 
@@ -98,6 +134,7 @@
     align-items: center;
     gap: 10px;
     cursor: pointer;
+    z-index: 1;
   }
 
   .reactor-mini-glyph {
@@ -127,30 +164,23 @@
     50% { transform: scale(1.1); filter: drop-shadow(0 0 10px #ff5252); }
   }
 
-  .brand-text-col {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    line-height: 1;
-  }
-
+  .brand-text-col { display: flex; flex-direction: column; gap: 1px; line-height: 1; }
   .brand-title {
     font-family: var(--font-mono);
     font-size: 0.95rem;
     font-weight: 900;
     letter-spacing: 0.16em;
     color: #ffffff;
-    text-shadow: 0 0 8px rgba(255, 23, 68, 0.7);
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
     line-height: 1;
   }
-
   .brand-sub {
     font-family: var(--font-mono);
     font-size: 0.52rem;
     font-weight: 800;
     letter-spacing: 0.14em;
-    color: #ff8a9e;
-    opacity: 0.85;
+    color: #ffb2bf;
+    opacity: 0.9;
     line-height: 1;
   }
 
@@ -159,16 +189,17 @@
     align-items: center;
     gap: 7px;
     padding: 6px 14px;
-    background: rgba(255, 23, 68, 0.10);
-    border: 1px solid rgba(255, 23, 68, 0.4);
-    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 23, 68, 0.14) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.30);
+    border-radius: 999px;
     font-family: var(--font-mono);
     font-size: 0.68rem;
     font-weight: 800;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: #ff8a9e;
-    box-shadow: inset 0 0 10px rgba(255, 23, 68, 0.15), 0 0 10px rgba(255, 23, 68, 0.1);
+    color: #ffffff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 4px 12px rgba(0, 0, 0, 0.25);
+    z-index: 1;
   }
 
   .status-dot {
@@ -181,41 +212,32 @@
     flex-shrink: 0;
   }
 
-  .header-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+  .header-actions { display: flex; align-items: center; gap: 8px; z-index: 1; }
 
   .hdr-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-    background: rgba(255, 23, 68, 0.12);
-    border: 1px solid rgba(255, 23, 68, 0.35);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.20) 0%, rgba(255, 255, 255, 0.06) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.32);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 4px 10px rgba(0, 0, 0, 0.28);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #ff8a9e;
+    color: #ffffff;
     cursor: pointer;
-    transition: transform 0.15s, background-color 0.2s, box-shadow 0.2s;
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s, box-shadow 0.2s;
   }
 
   .hdr-btn:active {
     transform: scale(0.90);
-    background: rgba(255, 23, 68, 0.3);
-    box-shadow: 0 0 14px rgba(255, 23, 68, 0.6);
+    background: rgba(255, 255, 255, 0.28);
+    box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8), 0 0 16px rgba(255, 255, 255, 0.28);
   }
 
-  .hdr-btn svg {
-    width: 17px;
-    height: 17px;
-    fill: currentColor;
-  }
+  .hdr-btn svg { width: 17px; height: 17px; fill: currentColor; }
 
-  /* ============================================================
-     2. MASSIVE UPGRADED STARK ARC REACTOR CORE (340px)
-     ============================================================ */
+  /* 2. Arc Reactor Center Stage */
   .orb-center-stage {
     position: relative;
     width: 100%;
@@ -237,44 +259,14 @@
     cursor: pointer;
   }
 
-  /* Full Vector Arc Reactor SVG Elements */
-  .reactor-svg-rings {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-  }
+  .reactor-svg-rings { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .ring-calipers { transform-origin: 165px 165px; animation: rotateClockwise 36s linear infinite; }
+  .ring-coils { transform-origin: 165px 165px; animation: rotateCounterClockwise 24s linear infinite; }
+  .ring-inner-track { transform-origin: 165px 165px; animation: rotateClockwise 14s linear infinite; }
 
-  /* Ring 1: Caliper Ring */
-  .ring-calipers {
-    transform-origin: 165px 165px;
-    animation: rotateClockwise 36s linear infinite;
-  }
+  @keyframes rotateClockwise { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes rotateCounterClockwise { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
 
-  /* Ring 2: 10 Palladium / Energy Coils */
-  .ring-coils {
-    transform-origin: 165px 165px;
-    animation: rotateCounterClockwise 24s linear infinite;
-  }
-
-  /* Ring 3: Fine Inner Dashed Track */
-  .ring-inner-track {
-    transform-origin: 165px 165px;
-    animation: rotateClockwise 14s linear infinite;
-  }
-
-  @keyframes rotateClockwise {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-
-  @keyframes rotateCounterClockwise {
-    from { transform: rotate(360deg); }
-    to { transform: rotate(0deg); }
-  }
-
-  /* Outer Energy Plasma Flare (Diffuse Bloom) */
   .arc-plasma-bloom {
     position: absolute;
     width: 250px;
@@ -286,7 +278,6 @@
     transition: transform 0.2s, opacity 0.3s;
   }
 
-  /* The Multi-Layer Fusion Core */
   .arc-fusion-core {
     position: relative;
     width: 172px;
@@ -304,7 +295,6 @@
     z-index: 10;
   }
 
-  /* Palladium Segment Bevel Ring */
   .arc-fusion-core::before {
     content: "";
     position: absolute;
@@ -315,22 +305,17 @@
     filter: blur(1.5px);
   }
 
-  /* Central Fusion Star Nucleus */
   .arc-nucleus {
     position: relative;
     width: 68px;
     height: 68px;
     border-radius: 50%;
     background: radial-gradient(circle, #ffffff 0%, #fff59d 30%, #ff8a9e 65%, #ff1744 100%);
-    box-shadow:
-      0 0 25px #ffffff,
-      0 0 50px #ff5252,
-      0 0 90px rgba(255, 23, 68, 0.85);
+    box-shadow: 0 0 25px #ffffff, 0 0 50px #ff5252, 0 0 90px rgba(255, 23, 68, 0.85);
     z-index: 15;
     transition: transform 0.15s ease-out;
   }
 
-  /* 8 Radial Magnetic Caliper Vents inside Core */
   .caliper-vent {
     position: absolute;
     width: 4px;
@@ -349,177 +334,133 @@
   .cv-7 { transform: rotate(270deg) translateY(-60px); }
   .cv-8 { transform: rotate(315deg) translateY(-60px); }
 
-  /* Subtitle text under the orb in clean monospace */
   .orb-caption {
     margin-top: 26px;
+    padding: 7px 16px;
+    border-radius: 999px;
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: 0.70rem;
     font-weight: 700;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.20em;
     text-transform: uppercase;
     color: var(--text-muted);
-    text-shadow: 0 0 10px rgba(255, 23, 68, 0.4);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
     transition: color 0.3s;
   }
 
-  /* ============================================================
-     3. DYNAMIC STATE ANIMATIONS
-     ============================================================ */
-  #hud[data-state="idle"] .arc-fusion-core {
-    animation: idlePulse 3.4s ease-in-out infinite;
-  }
-
+  /* 3. Dynamic State Animations */
+  #hud[data-state="idle"] .arc-fusion-core { animation: idlePulse 3.4s ease-in-out infinite; }
   @keyframes idlePulse {
-    0%, 100% {
-      transform: scale(1);
-      box-shadow: 0 0 30px rgba(255, 23, 68, 0.8), 0 0 65px rgba(255, 23, 68, 0.4);
-    }
-    50% {
-      transform: scale(1.06);
-      box-shadow: 0 0 45px rgba(255, 23, 68, 1), 0 0 95px rgba(255, 42, 75, 0.65);
-    }
+    0%, 100% { transform: scale(1); box-shadow: 0 0 30px rgba(255, 23, 68, 0.8), 0 0 65px rgba(255, 23, 68, 0.4); }
+    50% { transform: scale(1.06); box-shadow: 0 0 45px rgba(255, 23, 68, 1), 0 0 95px rgba(255, 42, 75, 0.65); }
   }
-
   #hud[data-state="listening"] .arc-fusion-core {
     box-shadow: 0 0 55px rgba(255, 23, 68, 1), 0 0 115px rgba(255, 42, 75, 0.85);
     filter: brightness(1.15);
   }
-
-  #hud[data-state="listening"] .status-dot {
-    background: #ff1744;
-    box-shadow: 0 0 14px #ff1744;
-  }
-
-  #hud[data-state="listening"] .ring-coils {
-    animation-duration: 6s;
-  }
-
-  #hud[data-state="thinking"] .arc-fusion-core {
-    animation: thinkingVortex 1.3s ease-in-out infinite;
-  }
-
+  #hud[data-state="listening"] .status-dot { background: #ff1744; box-shadow: 0 0 14px #ff1744; }
+  #hud[data-state="listening"] .ring-coils { animation-duration: 6s; }
+  #hud[data-state="thinking"] .arc-fusion-core { animation: thinkingVortex 1.3s ease-in-out infinite; }
   @keyframes thinkingVortex {
-    0%, 100% {
-      transform: scale(1);
-      box-shadow: 0 0 35px rgba(255, 145, 0, 0.9), 0 0 80px rgba(255, 23, 68, 0.6);
-    }
-    50% {
-      transform: scale(1.1);
-      box-shadow: 0 0 60px rgba(255, 87, 34, 1), 0 0 115px rgba(255, 23, 68, 0.9);
-      filter: brightness(1.25);
-    }
+    0%, 100% { transform: scale(1); box-shadow: 0 0 35px rgba(255, 145, 0, 0.9), 0 0 80px rgba(255, 23, 68, 0.6); }
+    50% { transform: scale(1.1); box-shadow: 0 0 60px rgba(255, 87, 34, 1), 0 0 115px rgba(255, 23, 68, 0.9); filter: brightness(1.25); }
   }
-
   #hud[data-state="thinking"] .arc-nucleus {
     background: radial-gradient(circle, #ffffff 0%, #ffe082 40%, #ff9100 80%, #ff1744 100%);
     box-shadow: 0 0 35px #ffe082, 0 0 65px #ff9100;
   }
+  #hud[data-state="thinking"] .status-dot { background: #ff9100; box-shadow: 0 0 14px #ff9100; }
+  #hud[data-state="speaking"] .status-dot { background: #ff5252; box-shadow: 0 0 16px #ff5252; }
 
-  #hud[data-state="thinking"] .status-dot {
-    background: #ff9100;
-    box-shadow: 0 0 14px #ff9100;
-  }
-
-  #hud[data-state="speaking"] .status-dot {
-    background: #ff5252;
-    box-shadow: 0 0 16px #ff5252;
-  }
-
-  /* ============================================================
-     4. CONTROL DOCK (REDESIGNED)
-     ============================================================ */
+  /* 4. iOS 26/27 Floating Liquid Glass Control Dock */
   .control-dock {
     display: flex;
     align-items: center;
     justify-content: space-around;
-    padding: 9px 12px;
-    background: var(--hud-glass);
-    border: 1px solid var(--hud-border);
-    border-radius: 26px;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.75), inset 0 0 15px rgba(255, 23, 68, 0.12);
+    padding: 8px 10px;
+    border-radius: 34px;
+    overflow: visible;
   }
 
   .dock-btn {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 4px;
     background: transparent;
-    border: none;
-    color: var(--text-muted);
+    border: 1px solid transparent;
+    color: rgba(255, 255, 255, 0.78);
     cursor: pointer;
     padding: 7px 14px;
-    border-radius: 16px;
-    transition: transform 0.12s, color 0.2s, background-color 0.2s;
+    border-radius: 22px;
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s, background-color 0.2s, box-shadow 0.2s, border-color 0.2s;
   }
 
   .dock-btn:active {
-    transform: scale(0.88);
-    background: rgba(255, 23, 68, 0.2);
+    transform: scale(0.92);
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.35);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
   }
 
-  .dock-btn svg {
-    width: 22px;
-    height: 22px;
-    fill: currentColor;
-    transition: transform 0.2s, filter 0.2s;
-  }
-
+  .dock-btn svg { width: 22px; height: 22px; fill: currentColor; transition: transform 0.2s, filter 0.2s; }
   .dock-label {
     font-family: var(--font-mono);
-    font-size: 0.62rem;
+    font-size: 0.60rem;
     font-weight: 800;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.11em;
     text-transform: uppercase;
   }
 
-  /* Center Elevated Mic Button */
   .center-mic-btn {
     position: relative;
+    z-index: 2;
     width: 66px;
     height: 66px;
     border-radius: 50%;
-    background: radial-gradient(circle at 40% 40%, #ff5252 0%, #ff1744 55%, #990013 100%);
-    border: 2.5px solid rgba(255, 255, 255, 0.7);
-    box-shadow: 0 0 26px rgba(255, 23, 68, 0.9), 0 6px 18px rgba(0, 0, 0, 0.6);
+    background: radial-gradient(circle at 32% 28%, rgba(255, 160, 175, 0.95) 0%, #ff2a55 38%, #c90024 82%, #750012 100%);
+    border: 1.5px solid rgba(255, 255, 255, 0.75);
+    box-shadow:
+      0 10px 26px rgba(0, 0, 0, 0.55),
+      0 0 28px rgba(255, 23, 68, 0.78),
+      inset 0 2px 4px rgba(255, 255, 255, 0.72),
+      inset 0 -4px 10px rgba(0, 0, 0, 0.32);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    margin: -16px 4px 0 4px;
-    transition: transform 0.12s, box-shadow 0.2s;
+    margin: -18px 4px 0 4px;
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s;
     color: #ffffff;
   }
 
   .center-mic-btn:active {
-    transform: scale(0.90);
-    box-shadow: 0 0 38px #ff1744;
+    transform: scale(1.06);
+    box-shadow: 0 0 38px #ff1744, inset 0 2px 6px rgba(255, 255, 255, 0.9);
   }
 
-  .center-mic-btn svg {
-    width: 30px;
-    height: 30px;
-    fill: #ffffff;
-  }
-
+  .center-mic-btn svg { width: 30px; height: 30px; fill: #ffffff; }
   .btn-active {
-    color: #ff5252 !important;
+    color: #ffffff !important;
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.28);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
   }
-
-  .btn-active svg {
-    filter: drop-shadow(0 0 8px #ff1744);
-  }
+  .btn-active svg { filter: drop-shadow(0 0 8px rgba(255, 82, 110, 0.9)); }
 </style>
 </head>
 <body>
 <div class="grid-bg"></div>
 
 <div id="hud" data-state="idle">
-  <!-- 1. Sleek Redesigned HUD Header -->
-  <header class="header-bar gpu">
+  <header class="header-bar ios-liquid-glass gpu">
     <div class="brand-area" id="core-mark-btn" title="View Chat History">
       <div class="reactor-mini-glyph"></div>
       <div class="brand-text-col">
@@ -534,7 +475,6 @@
     </div>
 
     <div class="header-actions">
-      <!-- Hidden clock element preserves JS timer callbacks without visual clutter -->
       <div id="live-clock" style="display: none;"></div>
       <button class="hdr-btn" id="hdr-settings-btn" title="Settings">
         <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
@@ -542,23 +482,17 @@
     </div>
   </header>
 
-  <!-- 2. Massive Upgraded Stark Arc Reactor Core (Center Stage) -->
   <main class="orb-center-stage">
     <div class="reactor-housing gpu" id="reactor-assembly">
-      <!-- High-Precision SVG Mechanical Rings -->
       <svg class="reactor-svg-rings" viewBox="0 0 330 330">
-        <!-- Ring 1: Caliper Brackets -->
         <g class="ring-calipers">
           <circle cx="165" cy="165" r="158" fill="none" stroke="#ff1744" stroke-width="1.5" stroke-dasharray="2 10" opacity="0.45"/>
           <circle cx="165" cy="165" r="150" fill="none" stroke="#ff5252" stroke-width="1" stroke-dasharray="24 14 6 14" opacity="0.55"/>
-          <!-- Cardinal Tick Marks -->
           <line x1="165" y1="5" x2="165" y2="18" stroke="#ff1744" stroke-width="2.5"/>
           <line x1="165" y1="312" x2="165" y2="325" stroke="#ff1744" stroke-width="2.5"/>
           <line x1="5" y1="165" x2="18" y2="165" stroke="#ff1744" stroke-width="2.5"/>
           <line x1="312" y1="165" x2="325" y2="165" stroke="#ff1744" stroke-width="2.5"/>
         </g>
-
-        <!-- Ring 2: 10 Palladium Energy Coils -->
         <g class="ring-coils">
           <circle cx="165" cy="165" r="132" fill="none" stroke="#ffb300" stroke-width="1.5" stroke-dasharray="16 12" opacity="0.4"/>
           <rect x="160" y="36" width="10" height="14" rx="2" fill="#ff1744" opacity="0.9"/>
@@ -571,20 +505,14 @@
           <rect x="40" y="132" width="10" height="14" rx="2" fill="#ff5252" opacity="0.8" transform="rotate(252 45 139)"/>
           <rect x="84" y="62" width="10" height="14" rx="2" fill="#ff1744" opacity="0.9" transform="rotate(288 89 69)"/>
         </g>
-
-        <!-- Ring 3: Fine Inner Dashed Track -->
         <g class="ring-inner-track">
           <circle cx="165" cy="165" r="108" fill="none" stroke="#ff1744" stroke-width="2" stroke-dasharray="4 6" opacity="0.75"/>
           <circle cx="165" cy="165" r="100" fill="none" stroke="#ffb300" stroke-width="1" stroke-dasharray="1 8" opacity="0.5"/>
         </g>
       </svg>
 
-      <!-- Outer Plasma Bloom -->
       <div class="arc-plasma-bloom" id="arc-plasma-bloom"></div>
-
-      <!-- Multi-Layer Fusion Core -->
       <div class="arc-fusion-core gpu" id="arc-core">
-        <!-- 8 Radial Caliper Magnetic Vents -->
         <div class="caliper-vent cv-1"></div>
         <div class="caliper-vent cv-2"></div>
         <div class="caliper-vent cv-3"></div>
@@ -593,43 +521,30 @@
         <div class="caliper-vent cv-6"></div>
         <div class="caliper-vent cv-7"></div>
         <div class="caliper-vent cv-8"></div>
-
-        <!-- Central Hyper-Dense Plasma Star -->
         <div class="arc-nucleus" id="arc-nucleus"></div>
       </div>
     </div>
 
-    <!-- Dynamic Status Subtitle in Monospace -->
     <div class="orb-caption" id="orb-caption">SYSTEM ONLINE • TAP TO SPEAK</div>
   </main>
 
-  <!-- 3. Redesigned Control Dock (No Chat Section) -->
   <footer style="width: 100%;">
-    <nav class="control-dock gpu">
-      <!-- Active / Sleep Toggle -->
+    <nav class="control-dock ios-liquid-glass gpu">
       <button class="dock-btn" id="btn-power" title="Sleep / Wake">
         <svg viewBox="0 0 24 24"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42A7.92 7.92 0 0 1 20 12c0 4.42-3.58 8-8 8s-8-3.58-8-8c0-2.45 1.12-4.64 2.89-6.09L5.47 4.49A9.957 9.957 0 0 0 2 12c0 5.52 4.48 10 10 10s10-4.48 10-10c0-2.76-1.12-5.26-2.93-7.07l-.24-.76z"/></svg>
         <span class="dock-label" id="label-power">Active</span>
       </button>
-
-      <!-- Vision Toggle -->
       <button class="dock-btn" id="btn-vision" title="Screen Vision">
         <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
         <span class="dock-label" id="label-vision">Vision</span>
       </button>
-
-      <!-- Central Elevated Mic Button -->
       <button class="center-mic-btn gpu" id="btn-mic" title="Voice Input">
         <svg id="mic-icon" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
       </button>
-
-      <!-- Logs / History -->
       <button class="dock-btn" id="btn-history" title="Chat History">
         <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-2-4H7v-2h10v2zm0-4H7V9h10v2z"/></svg>
         <span class="dock-label">History</span>
       </button>
-
-      <!-- Settings / Config -->
       <button class="dock-btn" id="btn-settings-bottom" title="Settings">
         <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
         <span class="dock-label">Config</span>
@@ -641,6 +556,23 @@
 <script>
 (function() {
   'use strict';
+
+  // Touch-reactive Fresnel light tracking on Liquid Glass bars
+  document.querySelectorAll('.ios-liquid-glass').forEach(function(el) {
+    function move(ev) {
+      const pt = ev.touches ? ev.touches[0] : ev;
+      if (!pt) return;
+      const r = el.getBoundingClientRect();
+      el.style.setProperty('--gx', (pt.clientX - r.left) + 'px');
+      el.style.setProperty('--gy', (pt.clientY - r.top) + 'px');
+      el.style.setProperty('--go', '1');
+    }
+    function end() { el.style.setProperty('--go', '0.65'); }
+    el.addEventListener('pointerdown', move, { passive: true });
+    el.addEventListener('pointermove', move, { passive: true });
+    el.addEventListener('pointerup', end, { passive: true });
+    el.addEventListener('pointercancel', end, { passive: true });
+  });
 
   const hud = document.getElementById('hud');
   const arcCore = document.getElementById('arc-core');
@@ -668,7 +600,6 @@
   setInterval(updateClock, 1000);
   updateClock();
 
-  // State Handler (OrbHelper calls window.setOrbState)
   window.setOrbState = function(state, audioLevel) {
     if (!state) return;
     const s = state.toLowerCase();
@@ -731,11 +662,8 @@
   }
 
   window.setAudioLevel = function(level) {
-    if (currentState === 'listening') {
-      setMicPulse(level);
-    } else if (currentState === 'speaking') {
-      setSpeechPulse(level);
-    }
+    if (currentState === 'listening') setMicPulse(level);
+    else if (currentState === 'speaking') setSpeechPulse(level);
   };
 
   window.setAudioFrequency = function(amp, pitchHz, bass, mid, high) {
@@ -745,10 +673,7 @@
     }
   };
 
-  window.setConnectionStatus = function(status) {
-    if (!status) return;
-    statusText.textContent = status.toUpperCase();
-  };
+  window.setConnectionStatus = function(status) { if (status) statusText.textContent = status.toUpperCase(); };
   window.updateConnectionStatus = window.setConnectionStatus;
 
   function renderLocalClock() {
@@ -757,23 +682,20 @@
     let hours = now.getHours();
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12;
+    hours = hours % 12 || 12;
     liveClock.textContent = `${hours}:${minutes} ${ampm}`;
   }
   renderLocalClock();
   setInterval(renderLocalClock, 1000);
 
-  window.setLiveTime = function(t) {
-    renderLocalClock();
-  };
+  window.setLiveTime = function() { renderLocalClock(); };
   window.updateLiveTime = window.setLiveTime;
 
   window.setPowerState = function(isOn) {
     if (isOn) {
       btnPower.classList.add('btn-active');
       labelPower.textContent = "Active";
-      labelPower.style.color = "#ff8a9e";
+      labelPower.style.color = "#ffffff";
     } else {
       btnPower.classList.remove('btn-active');
       labelPower.textContent = "Sleep";
@@ -784,11 +706,11 @@
 
   window.setMicMuted = function(isMuted) {
     if (isMuted) {
-      btnMic.style.background = "#550a14";
-      btnMic.style.boxShadow = "0 0 10px rgba(255,23,68,0.3)";
+      btnMic.style.background = "linear-gradient(180deg, rgba(110, 22, 34, 0.85), rgba(52, 8, 16, 0.9))";
+      btnMic.style.boxShadow = "0 6px 16px rgba(0,0,0,0.45), inset 0 1px 2px rgba(255,255,255,0.35)";
     } else {
-      btnMic.style.background = "radial-gradient(circle at 40% 40%, #ff5252 0%, #ff1744 55%, #990013 100%)";
-      btnMic.style.boxShadow = "0 0 26px rgba(255, 23, 68, 0.9), 0 6px 18px rgba(0, 0, 0, 0.6)";
+      btnMic.style.background = "radial-gradient(circle at 32% 28%, rgba(255, 160, 175, 0.95) 0%, #ff2a55 38%, #c90024 82%, #750012 100%)";
+      btnMic.style.boxShadow = "0 10px 26px rgba(0, 0, 0, 0.55), 0 0 28px rgba(255, 23, 68, 0.78), inset 0 2px 4px rgba(255, 255, 255, 0.72)";
     }
   };
   window.updateMicMuted = window.setMicMuted;
@@ -797,7 +719,7 @@
     if (isSharing) {
       btnVision.classList.add('btn-active');
       labelVision.textContent = "Vision On";
-      labelVision.style.color = "#ff1744";
+      labelVision.style.color = "#ffffff";
     } else {
       btnVision.classList.remove('btn-active');
       labelVision.textContent = "Vision";
@@ -806,58 +728,37 @@
   };
   window.updateScreenShareState = window.setScreenShareState;
 
-  // Stubs for OrbHelper chat methods so no errors are thrown while chat section is removed
   window.updateLiveUserTranscript = function() {};
   window.updateLiveAssistantResponse = function() {};
   window.finalizeLiveTurn = function() {};
   window.syncChatTurns = function() {};
 
-  // Interactive Click Handlers (Connecting to Native Android Bridge)
   reactorAssembly.addEventListener('click', function() {
-    if (window.JarvisBridge && window.JarvisBridge.onOrbClicked) {
-      window.JarvisBridge.onOrbClicked();
-    }
+    if (window.JarvisBridge && window.JarvisBridge.onOrbClicked) window.JarvisBridge.onOrbClicked();
   });
-
   btnMic.addEventListener('click', function() {
-    if (window.JarvisBridge && window.JarvisBridge.onMicClicked) {
-      window.JarvisBridge.onMicClicked();
-    }
+    if (window.JarvisBridge && window.JarvisBridge.onMicClicked) window.JarvisBridge.onMicClicked();
   });
-
   btnPower.addEventListener('click', function() {
-    if (window.JarvisBridge && window.JarvisBridge.onPowerClicked) {
-      window.JarvisBridge.onPowerClicked();
-    }
+    if (window.JarvisBridge && window.JarvisBridge.onPowerClicked) window.JarvisBridge.onPowerClicked();
   });
-
   btnVision.addEventListener('click', function() {
-    if (window.JarvisBridge && window.JarvisBridge.onScreenShareClicked) {
-      window.JarvisBridge.onScreenShareClicked();
-    }
+    if (window.JarvisBridge && window.JarvisBridge.onScreenShareClicked) window.JarvisBridge.onScreenShareClicked();
   });
-
   btnHistory.addEventListener('click', function() {
-    if (window.JarvisBridge && window.JarvisBridge.onHistoryClicked) {
-      window.JarvisBridge.onHistoryClicked();
-    }
+    if (window.JarvisBridge && window.JarvisBridge.onHistoryClicked) window.JarvisBridge.onHistoryClicked();
   });
 
   const coreMark = document.getElementById('core-mark-btn');
   if (coreMark) {
     coreMark.addEventListener('click', function() {
-      if (window.JarvisBridge && window.JarvisBridge.onHistoryClicked) {
-        window.JarvisBridge.onHistoryClicked();
-      }
+      if (window.JarvisBridge && window.JarvisBridge.onHistoryClicked) window.JarvisBridge.onHistoryClicked();
     });
   }
 
   function openSettings() {
-    if (window.JarvisBridge && window.JarvisBridge.onSettingsClicked) {
-      window.JarvisBridge.onSettingsClicked();
-    }
+    if (window.JarvisBridge && window.JarvisBridge.onSettingsClicked) window.JarvisBridge.onSettingsClicked();
   }
-
   const hdrSettings = document.getElementById('hdr-settings-btn');
   if (hdrSettings) hdrSettings.addEventListener('click', openSettings);
   if (btnSettings) btnSettings.addEventListener('click', openSettings);

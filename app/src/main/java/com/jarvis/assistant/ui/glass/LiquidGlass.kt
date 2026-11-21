@@ -3,6 +3,7 @@ package com.jarvis.assistant.ui.glass
 import android.app.Dialog
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
@@ -15,10 +16,10 @@ import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import com.jarvis.assistant.util.ThemeManager
 
-/** Entry points for the Settings "liquid glass" material. */
+/** Entry points for the iOS 26/27 Liquid Glass material across screens, cards, switches and dialogs. */
 object LiquidGlass {
 
-    private const val TAG_KEY = 0x4A474C53 // "JGLS": marks views that already carry a glass surface
+    private const val TAG_KEY = 0x4A474C53 // "JGLS"
 
     private fun isLight(): Boolean = try { ThemeManager.isCurrentThemeLight() } catch (_: Throwable) { false }
 
@@ -28,21 +29,17 @@ object LiquidGlass {
         } catch (_: Throwable) { true }
     }
 
-    /**
-     * Turns [view] into a glass surface. The aurora behind it keeps drifting while the view is on screen, so the
-     * refraction and the sliding highlight stay alive; the clock sleeps as soon as nothing glass is attached.
-     */
+    /** Turns [view] into a Liquid Glass surface with clean optical rim and elevation shadow. */
     fun apply(
         view: View,
         radiusDp: Float,
         tint: Int = 0,
         soft: Boolean = false,
         topOnly: Boolean = false,
-        elevationDp: Float = if (soft) 0f else 4f
+        elevationDp: Float = if (soft) 0f else 5f
     ) {
         val density = view.resources.displayMetrics.density
         if (GlassMode.plain()) {
-            // Glass is switched off: keep the view's own design; a view built in code with no background gets a flat themed card.
             if (view.background == null) view.background = GlassMode.plainCardBackground(view.context, radiusDp * density)
             return
         }
@@ -51,33 +48,37 @@ object LiquidGlass {
         view.clipToOutline = false
         view.elevation = elevationDp * density
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && elevationDp > 0f) {
-            val shadow = if (tint != 0) tint else try { ThemeManager.getThemeAccentColor() } catch (_: Throwable) { 0xFF000000.toInt() }
+            val shadow = if (tint != 0) tint else Color.argb(120, 0, 0, 0)
             view.outlineAmbientShadowColor = shadow
             view.outlineSpotShadowColor = shadow
         }
-        // Glass cards are static; only the screen backdrop animates, and the cards simply show it through.
         view.setTag(TAG_KEY, true)
     }
 
-    /**
-     * iOS-style switches: a white thumb on a glassy track that turns the theme's success colour when on.
-     * Walks the whole view tree, so every toggle on a screen matches.
-     */
+    /** iOS 26/27 Liquid Glass switches: translucent glass pill track + crisp white floating thumb. */
     fun styleSwitches(root: View) {
         if (GlassMode.plain()) return
         if (root is android.widget.CompoundButton && (root is androidx.appcompat.widget.SwitchCompat ||
                 root is com.google.android.material.materialswitch.MaterialSwitch)) {
             val light = isLight()
-            val on = try { ThemeManager.getThemeSuccessColor() } catch (_: Throwable) { root.context.getColor(android.R.color.holo_green_light) }
-            val off = androidx.core.graphics.ColorUtils.setAlphaComponent(if (light) android.graphics.Color.BLACK else android.graphics.Color.WHITE, if (light) 36 else 70)
+            val on = try { ThemeManager.getThemeSuccessColor() } catch (_: Throwable) { Color.parseColor("#34C759") }
+            val off = androidx.core.graphics.ColorUtils.setAlphaComponent(
+                if (light) Color.BLACK else Color.WHITE,
+                if (light) 32 else 58
+            )
             val states = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf(-android.R.attr.state_checked))
-            val track = android.content.res.ColorStateList(states, intArrayOf(androidx.core.graphics.ColorUtils.setAlphaComponent(on, 235), off))
-            val thumb = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
+            val track = android.content.res.ColorStateList(
+                states,
+                intArrayOf(androidx.core.graphics.ColorUtils.setAlphaComponent(on, 228), off)
+            )
+            val thumb = android.content.res.ColorStateList.valueOf(Color.WHITE)
             when (root) {
                 is com.google.android.material.materialswitch.MaterialSwitch -> {
                     root.trackTintList = track
                     root.thumbTintList = thumb
-                    root.trackDecorationTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.TRANSPARENT)
+                    root.trackDecorationTintList = android.content.res.ColorStateList.valueOf(
+                        androidx.core.graphics.ColorUtils.setAlphaComponent(Color.WHITE, if (light) 90 else 55)
+                    )
                     root.thumbIconDrawable = null
                 }
                 is androidx.appcompat.widget.SwitchCompat -> {
@@ -89,13 +90,10 @@ object LiquidGlass {
         if (root is ViewGroup) for (i in 0 until root.childCount) styleSwitches(root.getChildAt(i))
     }
 
-    /** A quieter glass pane for something that sits inside a card (inputs, chips, small buttons). */
+    /** Quieter optical glass pane for nested controls (inputs, chips, compact rows). */
     fun applySoft(view: View, radiusDp: Float, tint: Int = 0) = apply(view, radiusDp, tint, soft = true)
 
-    /**
-     * Gives a screen root the Settings backdrop: the app's own themed background with the drifting aurora on top.
-     * Glass surfaces on the screen refract this same field.
-     */
+    /** Installs the shared subtle aurora field behind a screen so glass panes stay luminous. */
     fun installBackdrop(root: View, withBase: Boolean = false) {
         if (GlassMode.plain()) return
         val density = root.resources.displayMetrics
@@ -125,10 +123,7 @@ object LiquidGlass {
         }
     }
 
-    /**
-     * Turns the existing shape-drawable cards of a screen into glass once it has been laid out. Only larger
-     * container views with a shape background are touched; buttons, chips, badges and ripples keep their look.
-     */
+    /** Converts eligible shape-drawable cards inside [root] into Liquid Glass once laid out. */
     fun glassify(root: View, tint: Int = 0) {
         if (GlassMode.plain()) return
         root.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
@@ -151,14 +146,14 @@ object LiquidGlass {
                 child.width >= 120 * density && child.height >= 56 * density && child.getTag(TAG_KEY) == null
             if (isShapeCard) {
                 apply(child, 24f, tint, soft = child.height < 96 * density)
-                continue // keep the contents of a glass card as they were; no glass-on-glass
+                continue
             }
             glassifyChildren(child, tint)
         }
     }
 
-    /** Dims and blurs the screen behind a window (blur needs Android 12+; older versions only get the dim). */
-    fun blurBehind(dialog: Dialog, radiusDp: Float = 24f, dim: Float = 0.30f) {
+    /** Dims and applies hardware window blur behind a dialog on Android 12+; smooth dim on 10–11. */
+    fun blurBehind(dialog: Dialog, radiusDp: Float = 26f, dim: Float = 0.26f) {
         if (GlassMode.plain()) return
         val window = dialog.window ?: return
         val density = window.decorView.resources.displayMetrics.density
@@ -169,38 +164,33 @@ object LiquidGlass {
                 window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
                 window.attributes = window.attributes.apply { blurBehindRadius = (radiusDp * density).toInt() }
             } catch (_: Throwable) {
-                // Window blur can be disabled by the vendor; the dim alone still reads well.
             }
         }
     }
 
-    /**
-     * Makes a dialog a floating glass pane: rounded glass window, a soft blur of the screen behind it on Android 12+,
-     * and a gentle dim so the text stays readable.
-     */
-    fun styleDialog(dialog: Dialog, radiusDp: Float = 30f) {
+    /** Turns a dialog into a floating iOS 26/27 Liquid Glass sheet with live background blur on API 31+. */
+    fun styleDialog(dialog: Dialog, radiusDp: Float = 32f) {
         if (GlassMode.plain()) return
         val window = dialog.window ?: return
         val decor = window.decorView
         val density = decor.resources.displayMetrics.density
         val glass = LiquidGlassDrawable(decor, radiusDp * density, 0, soft = false)
-        val margin = (6 * density).toInt()
+        val margin = (8 * density).toInt()
         window.setBackgroundDrawable(InsetDrawable(glass, margin))
         window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-        window.setDimAmount(if (isLight()) 0.18f else 0.38f)
+        window.setDimAmount(if (isLight()) 0.16f else 0.34f)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
                 window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-                window.attributes = window.attributes.apply { blurBehindRadius = (28 * density).toInt() }
-                window.setBackgroundBlurRadius((36 * density).toInt())
+                window.attributes = window.attributes.apply { blurBehindRadius = (30 * density).toInt() }
+                window.setBackgroundBlurRadius((40 * density).toInt())
             } catch (_: Throwable) {
-                // Some vendor builds disable window blur; the glass pane still looks right without it.
             }
         }
     }
 }
 
-/** The calm aurora a Settings screen sits on. It is transparent, so the app's own themed background shows through. */
+/** Shared aurora backdrop behind glass screens. */
 class AuroraBackdropDrawable(
     private val screenW: Float,
     private val screenH: Float,
@@ -222,7 +212,7 @@ class AuroraBackdropDrawable(
         val light = try { ThemeManager.isCurrentThemeLight() } catch (_: Throwable) { false }
         canvas.save()
         canvas.translate(-loc[0].toFloat(), -loc[1].toFloat())
-        AuroraField.draw(canvas, screenW, screenH, light, (if (light) 0.50f else 0.55f) * alphaValue / 255f)
+        AuroraField.draw(canvas, screenW, screenH, light, (if (light) 0.48f else 0.52f) * alphaValue / 255f)
         canvas.restore()
     }
 

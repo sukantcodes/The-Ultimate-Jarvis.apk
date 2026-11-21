@@ -1,12 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <set xmlns:android="http://schemas.android.com/apk/res/android">
     <translate
-        android:duration="440"
+        android:duration="420"
         android:fromYDelta="100%p"
         android:interpolator="@android:interpolator/decelerate_quint"
         android:toYDelta="0" />
+    <scale
+        android:duration="420"
+        android:fromXScale="0.96"
+        android:fromYScale="0.96"
+        android:pivotX="50%"
+        android:pivotY="100%"
+        android:interpolator="@android:interpolator/decelerate_quint"
+        android:toXScale="1.0"
+        android:toYScale="1.0" />
     <alpha
-        android:duration="260"
+        android:duration="240"
         android:fromAlpha="0"
         android:interpolator="@android:interpolator/decelerate_cubic"
         android:toAlpha="1" />

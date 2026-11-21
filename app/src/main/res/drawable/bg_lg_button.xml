@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Theme-accent CTA with a rounded highlight that follows the button silhouette. -->
+<!-- iOS 26/27 Liquid Glass accent CTA with luminous top specular and crisp glass rim -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="#45FFFFFF">
+    android:color="#50FFFFFF">
     <item>
         <layer-list>
             <item>
@@ -10,17 +10,17 @@
                     <corners android:radius="28dp" />
                     <stroke
                         android:width="1dp"
-                        android:color="#55FFFFFF" />
+                        android:color="#78FFFFFF" />
                 </shape>
             </item>
-            <item android:top="1dp" android:bottom="1dp">
+            <item android:top="1dp" android:left="1dp" android:right="1dp" android:bottom="1dp">
                 <shape android:shape="rectangle">
                     <gradient
                         android:angle="270"
-                        android:startColor="#45FFFFFF"
-                        android:centerColor="#12FFFFFF"
+                        android:startColor="#55FFFFFF"
+                        android:centerColor="#14FFFFFF"
                         android:endColor="#00FFFFFF" />
-                    <corners android:radius="28dp" />
+                    <corners android:radius="27dp" />
                 </shape>
             </item>
         </layer-list>

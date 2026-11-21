@@ -2,7 +2,6 @@ package com.jarvis.assistant.ui.glass
 
 import android.graphics.Canvas
 import android.graphics.Color
-import androidx.core.graphics.ColorUtils
 import android.graphics.ColorFilter
 import android.graphics.LinearGradient
 import android.graphics.Matrix
@@ -14,31 +13,29 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.drawable.Drawable
+import androidx.core.graphics.ColorUtils
 import kotlin.math.max
 import kotlin.math.min
 
 /**
- * The 3D "glass bubble" shading that is laid over a button (through the view's overlay, so the button's own
- * background, colours and theme tinting are never touched):
- *  - a convex shade that darkens the lower part, so the button reads as a rounded dome,
- *  - a caustic: light gathered at the bottom edge, as it is in a real glass bead,
- *  - a glossy window highlight across the top and a small glint in the corner,
- *  - a bevelled rim, bright at the top and soft at the bottom.
- * Draw cost is five cached shaders; nothing is allocated while drawing.
+ * Clean iOS 26/27 Liquid Glass optical overlay applied to buttons, cards, chips, and inputs
+ * via ViewOverlay (so existing theme tints, ripples, and click targets remain untouched).
+ *
+ * Adds:
+ *  - Subtle optical curvature depth & lower caustic bounce
+ *  - Crisp directional Fresnel rim (bright top-left catch-light + gentle bottom-right bounce)
+ *  - Delicate overhead sky reflection & small corner glint
  */
 internal class Bubble3DSheen(
     private val density: Float,
     private val light: Boolean,
     private val cornerPx: Float,
-    /** 1 = a button; lower values give big surfaces (cards, text fields) a quieter version of the same look. */
     kIn: Float = 1f,
-    /** Theme colour mixed into the pooled light, so the bubble glows in every theme's own colour. */
     private val accent: Int = Color.WHITE
 ) : Drawable() {
 
-    /** Crystal Mirror: the bubble is more intense and gets a magnifying-glass glare. */
     private val crystal = CrystalTheme.active()
-    private val k: Float = kIn * (if (crystal) CrystalTheme.BUBBLE_BOOST else 1f)
+    private val k: Float = kIn * (if (crystal) 1.32f else 0.90f)
     private val glare = Paint(Paint.ANTI_ALIAS_FLAG)
     private val innerRim = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val innerRect = RectF()
@@ -73,84 +70,100 @@ internal class Bubble3DSheen(
 
         val top = b.top.toFloat()
         val bottom = b.bottom.toFloat()
-        val shadeAlpha = ((if (light) 0x26 else 0x40) * k).toInt().coerceIn(0, 255)
-        fun wc(a: Float) = ColorUtils.setAlphaComponent(ColorUtils.blendARGB(Color.WHITE, accent, 0.35f), (255 * a * k).toInt().coerceIn(0, 255))
+        val shadeAlpha = ((if (light) 0x16 else 0x2B) * k).toInt().coerceIn(0, 255)
+        fun wc(a: Float) = ColorUtils.setAlphaComponent(
+            ColorUtils.blendARGB(Color.WHITE, accent, 0.22f),
+            (255 * a * k).toInt().coerceIn(0, 255)
+        )
         fun white(a: Float) = ColorUtils.setAlphaComponent(Color.WHITE, (255 * a * k).toInt().coerceIn(0, 255))
+
         shade.shader = LinearGradient(
             0f, top, 0f, bottom,
-            intArrayOf(0x00000000, 0x00000000, shadeAlpha shl 24), floatArrayOf(0f, 0.52f, 1f), Shader.TileMode.CLAMP
+            intArrayOf(0x00000000, 0x00000000, shadeAlpha shl 24),
+            floatArrayOf(0f, 0.58f, 1f),
+            Shader.TileMode.CLAMP
         )
 
-        // Caustic: a soft pool of light hugging the bottom edge.
-        val cw = w * 0.5f
-        val ch = h * 0.55f
+        // Subtle optical caustic near the bottom wall
+        val cw = w * 0.48f
+        val ch = h * 0.50f
         matrix.reset()
         matrix.postScale(cw, ch)
-        matrix.postTranslate(b.exactCenterX(), bottom + ch * 0.12f)
+        matrix.postTranslate(b.exactCenterX(), bottom + ch * 0.10f)
         val causticShader = RadialGradient(
             0f, 0f, 1f,
-            intArrayOf(wc(if (light) 0.40f else 0.30f), wc(0.10f), Color.TRANSPARENT), floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP
+            intArrayOf(wc(if (light) 0.30f else 0.22f), wc(0.07f), Color.TRANSPARENT),
+            floatArrayOf(0f, 0.55f, 1f),
+            Shader.TileMode.CLAMP
         )
         causticShader.setLocalMatrix(matrix)
         caustic.shader = causticShader
 
-        // Glossy window across the top.
-        val inset = max(radius * 0.5f, 3f * density)
-        val glossH = min(h * 0.46f, 24f * density)
-        glossRect.set(b.left + inset, top + 1.6f * density, b.right - inset, top + 1.6f * density + glossH)
-        glossRadius = min(glossH, glossRect.width()) / 2f
+        // Overhead specular reflection band
+        val inset = max(radius * 0.46f, 3f * density)
+        val glossH = min(h * 0.36f, 20f * density)
+        glossRect.set(b.left + inset, top + 1.2f * density, b.right - inset, top + 1.2f * density + glossH)
+        glossRadius = min(glossH, max(1f, glossRect.width())) / 2f
         gloss.shader = LinearGradient(
             0f, glossRect.top, 0f, glossRect.bottom,
-            intArrayOf(white(if (light) 0.65f else 0.48f), 0x05FFFFFF), null, Shader.TileMode.CLAMP
+            intArrayOf(white(if (light) 0.48f else 0.30f), 0x00FFFFFF),
+            null,
+            Shader.TileMode.CLAMP
         )
 
-        // Bevel.
-        val rw = 1.2f * density
+        // Crisp 1px directional Fresnel bevel
+        val rw = 1.05f * density
         rim.strokeWidth = rw
         rimRect.set(b.left + rw / 2f, top + rw / 2f, b.right - rw / 2f, bottom - rw / 2f)
         rimRadius = max(0f, radius - rw / 2f)
         rim.shader = LinearGradient(
-            0f, top, 0f, bottom,
-            intArrayOf(white(0.80f), white(0.10f), white(0.33f)), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
+            b.left.toFloat(), top, b.right * 0.7f, bottom,
+            intArrayOf(white(0.86f), white(0.14f), white(0.46f)),
+            floatArrayOf(0f, 0.48f, 1f),
+            Shader.TileMode.CLAMP
         )
 
-        // Glint in the top-left corner; smaller on large buttons so it stays a detail.
-        val g = min(radius * 0.55f, 9f * density)
-        glintCx = b.left + max(radius * 0.95f, g * 1.6f)
-        glintCy = top + max(h * 0.2f, g * 0.9f)
-        glintRx = g * 1.5f
-        glintRy = g * 0.6f
-        // Built once per size: changing a shader's matrix while drawing forces the GPU to rebuild it every frame.
+        // Subtle top-left catch-light glint
+        val g = min(radius * 0.48f, 8f * density)
+        glintCx = b.left + max(radius * 0.90f, g * 1.5f)
+        glintCy = top + max(h * 0.18f, g * 0.85f)
+        glintRx = g * 1.35f
+        glintRy = g * 0.50f
         val glintShader = RadialGradient(
             0f, 0f, 1f,
-            intArrayOf(0xFFFFFFFF.toInt(), 0x66FFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
+            intArrayOf(0xFFFFFFFF.toInt(), 0x55FFFFFF, 0x00FFFFFF),
+            floatArrayOf(0f, 0.5f, 1f),
+            Shader.TileMode.CLAMP
         )
         matrix.reset()
         matrix.postScale(glintRx, glintRy)
         matrix.postTranslate(glintCx, glintCy)
         glintShader.setLocalMatrix(matrix)
         glint.shader = glintShader
-        glint.alpha = ((if (light) 190 else 150) * k).toInt().coerceIn(0, 255)
+        glint.alpha = ((if (light) 150 else 110) * k).toInt().coerceIn(0, 255)
 
         if (crystal) {
-            // lens glare: a broad soft highlight, as on a convex lens, plus a second bright rim just inside the first
             val gr = max(w, h) * 0.62f
             matrix.reset()
-            matrix.postTranslate(b.left + w * 0.30f, top + h * 0.30f)
+            matrix.postTranslate(b.left + w * 0.28f, top + h * 0.28f)
             val glareShader = RadialGradient(
                 0f, 0f, gr,
-                intArrayOf(white(0.26f), white(0.08f), Color.TRANSPARENT), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
+                intArrayOf(white(0.24f), white(0.06f), Color.TRANSPARENT),
+                floatArrayOf(0f, 0.5f, 1f),
+                Shader.TileMode.CLAMP
             )
             glareShader.setLocalMatrix(matrix)
             glare.shader = glareShader
-            val iw = 1.0f * density
+            val iw = 0.95f * density
             innerRim.strokeWidth = iw
-            val inset = rw + 2.2f * density
-            innerRect.set(b.left + inset, top + inset, b.right - inset, bottom - inset)
-            innerRadius = max(0f, radius - inset)
+            val inOffset = rw + 1.8f * density
+            innerRect.set(b.left + inOffset, top + inOffset, b.right - inOffset, bottom - inOffset)
+            innerRadius = max(0f, radius - inOffset)
             innerRim.shader = LinearGradient(
                 0f, top, 0f, bottom,
-                intArrayOf(white(0.55f), wc(0.10f), white(0.28f)), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
+                intArrayOf(white(0.50f), wc(0.08f), white(0.26f)),
+                floatArrayOf(0f, 0.5f, 1f),
+                Shader.TileMode.CLAMP
             )
         }
     }
@@ -171,9 +184,7 @@ internal class Bubble3DSheen(
     }
 
     override fun setAlpha(alpha: Int) { alphaValue = alpha; invalidateSelf() }
-
     override fun setColorFilter(colorFilter: ColorFilter?) {}
-
     @Deprecated("Deprecated in Java")
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 }

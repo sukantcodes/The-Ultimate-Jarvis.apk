@@ -1,26 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Theme-aware glass pill with an even, fully rounded outline and restrained sheen. -->
+<!-- iOS 26/27 Liquid Glass pill with dual-wall Fresnel rim & soft overhead catch-light -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
     android:color="?attr/themeAccentLight">
     <item>
         <layer-list>
             <item>
                 <shape android:shape="rectangle">
-                    <solid android:color="?attr/themeChipBg" />
+                    <gradient
+                        android:angle="270"
+                        android:startColor="?attr/themeCardGlassStart"
+                        android:endColor="?attr/themeChipBg" />
                     <corners android:radius="40dp" />
                     <stroke
                         android:width="1dp"
                         android:color="?attr/themeCardBorder" />
                 </shape>
             </item>
-            <item android:top="1dp" android:bottom="1dp">
+            <item android:top="1dp" android:left="1dp" android:right="1dp" android:bottom="1dp">
                 <shape android:shape="rectangle">
                     <gradient
                         android:angle="270"
                         android:startColor="?attr/themeGlassSpecular"
                         android:centerColor="#10FFFFFF"
                         android:endColor="#00FFFFFF" />
-                    <corners android:radius="40dp" />
+                    <stroke
+                        android:width="1dp"
+                        android:color="#26FFFFFF" />
+                    <corners android:radius="39dp" />
                 </shape>
             </item>
         </layer-list>

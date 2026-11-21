@@ -3,8 +3,11 @@ package com.jarvis.assistant.ui.glass
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.RadialGradient
 import android.graphics.Rect
+import android.graphics.Shader
 import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.View
@@ -12,18 +15,17 @@ import android.view.ViewGroup
 import android.widget.EditText
 import androidx.core.graphics.ColorUtils
 import com.jarvis.assistant.util.ThemeManager
+import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
-import kotlin.math.min
 
 /**
- * One transparent layer over a whole window that turns every touch into liquid:
- *  - a liquid drop spreads from the finger as spring-driven rings (they overshoot and rebound like a wave),
- *    with a refractive meniscus, a relief shadow and a prism fringe;
- *  - dragging leaves a trail of small drops, and the drop under a held finger follows it with a lag;
- *  - the button under the finger squishes like jelly and rebounds with a wobble on release.
- * It never takes part in touch dispatch (the window callback only lets it watch the events), so it cannot
- * change how any screen behaves.
+ * Window-level iOS 26/27 Liquid Glass touch illumination layer:
+ *  - Renders a clean luminous optical caustic glow & delicate refractive meniscus wave at touch
+ *    coordinates (no noisy neon pink/cyan rings).
+ *  - Feeds live touch coordinates to any LiquidGlassLayout beneath the finger so its curved glass
+ *    rim gleams dynamically toward the touch.
+ *  - Drives smooth elastic spring feedback on tappable controls without intercepting events.
  */
 internal class LiquidRippleOverlay(context: Context) : View(context) {
 
@@ -36,21 +38,22 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         val fade: Float,
         var held: Boolean
     ) {
-        val px = SpringF(x, x, 260f, SpringF.damping(260f, 0.75f))
-        val py = SpringF(y, y, 260f, SpringF.damping(260f, 0.75f))
-        val radius = SpringF(0f, maxR, 78f, SpringF.damping(78f, 0.46f))
+        val px = SpringF(x, x, 290f, SpringF.damping(290f, 0.78f))
+        val py = SpringF(y, y, 290f, SpringF.damping(290f, 0.78f))
+        val radius = SpringF(0f, maxR, 96f, SpringF.damping(96f, 0.56f))
         var fadeAge = 0f
         fun alive() = held || fadeAge < fade
         fun alpha(): Float = if (held) 1f else (1f - fadeAge / fade).coerceIn(0f, 1f)
     }
 
     private class Squish(val view: View, pressedX: Float, pressedY: Float) {
-        val sx = SpringF(1f, pressedX, 900f, SpringF.damping(900f, 0.72f))
-        val sy = SpringF(1f, pressedY, 900f, SpringF.damping(900f, 0.72f))
+        val sx = SpringF(1f, pressedX, 760f, SpringF.damping(760f, 0.74f))
+        val sy = SpringF(1f, pressedY, 760f, SpringF.damping(760f, 0.74f))
         var released = false
         fun release() {
             released = true
-            sx.target = 1f; sy.target = 1f
+            sx.target = 1f
+            sy.target = 1f
         }
     }
 
@@ -60,6 +63,7 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
     private val squishes = ArrayList<Squish>()
     private var pressed: Squish? = null
     private var pressedPod: DockPodDrawable? = null
+    private var litGlassLayout: LiquidGlassLayout? = null
     private val tmpLoc = IntArray(2)
 
     private var lastFrame = 0L
@@ -67,13 +71,17 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
     private var light = false
     private var accent = Color.WHITE
 
-    private val lens = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-    private val core = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-    private val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
-    private val relief = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val glowMatrix = Matrix()
+    private val unitCaustic = RadialGradient(
+        0f, 0f, 1f,
+        intArrayOf(0x66FFFFFF, 0x24FFFFFF, 0x00FFFFFF),
+        floatArrayOf(0f, 0.48f, 1f),
+        Shader.TileMode.CLAMP
+    )
     private val rect = Rect()
 
-    /** Set when frames run slow: fewer rings and no fringe/relief, so the effect never costs smoothness. */
     private var lowQuality = false
     private var slowFrames = 0
 
@@ -82,9 +90,8 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         isFocusable = false
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
         setWillNotDraw(false)
+        glowPaint.shader = unitCaustic
     }
-
-    // ---- touch feed (called by the window callback; never consumes anything) ----
 
     fun onTouch(e: MotionEvent, pressEffects: Boolean) {
         when (e.actionMasked) {
@@ -92,17 +99,23 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
                 refreshTheme()
                 spawnHeld(e, e.actionIndex)
                 if (pressEffects) pressUnder(e.rawX, e.rawY)
+                updateGlassTouchLight(e.rawX, e.rawY, true)
             }
             MotionEvent.ACTION_POINTER_DOWN -> spawnHeld(e, e.actionIndex)
             MotionEvent.ACTION_MOVE -> {
                 for (i in 0 until e.pointerCount) drag(e, i)
+                updateGlassTouchLight(e.rawX, e.rawY, true)
             }
             MotionEvent.ACTION_POINTER_UP -> releasePointer(e.getPointerId(e.actionIndex))
             MotionEvent.ACTION_UP -> {
                 releasePointer(e.getPointerId(e.actionIndex))
+                updateGlassTouchLight(e.rawX, e.rawY, false)
                 releaseAll()
             }
-            MotionEvent.ACTION_CANCEL -> releaseAll()
+            MotionEvent.ACTION_CANCEL -> {
+                updateGlassTouchLight(e.rawX, e.rawY, false)
+                releaseAll()
+            }
         }
         kick()
     }
@@ -112,12 +125,42 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         accent = try { ThemeManager.getThemeAccentColor() } catch (_: Throwable) { Color.WHITE }
     }
 
+    private fun updateGlassTouchLight(rawX: Float, rawY: Float, active: Boolean) {
+        if (!active) {
+            litGlassLayout?.updateTouchLight(0f, 0f, false)
+            litGlassLayout = null
+            return
+        }
+        val root = parent as? ViewGroup ?: return
+        val found = findGlassLayout(root, rawX.toInt(), rawY.toInt())
+        if (litGlassLayout != null && litGlassLayout !== found) {
+            litGlassLayout?.updateTouchLight(0f, 0f, false)
+        }
+        litGlassLayout = found
+        if (found != null) {
+            found.getLocationOnScreen(tmpLoc)
+            found.updateTouchLight(rawX - tmpLoc[0], rawY - tmpLoc[1], true)
+        }
+    }
+
+    private fun findGlassLayout(v: View, x: Int, y: Int): LiquidGlassLayout? {
+        if (v === this || v.visibility != VISIBLE) return null
+        if (!v.getGlobalVisibleRect(rect) || !rect.contains(x, y)) return null
+        if (v is LiquidGlassLayout) return v
+        if (v is ViewGroup) {
+            for (i in v.childCount - 1 downTo 0) {
+                findGlassLayout(v.getChildAt(i), x, y)?.let { return it }
+            }
+        }
+        return null
+    }
+
     private fun spawnHeld(e: MotionEvent, index: Int) {
         val id = e.getPointerId(index)
         val x = e.getX(index)
         val y = e.getY(index)
         held.remove(id)?.held = false
-        val drop = Drop(x, y, 20f * density, 1f, 0.8f, true)
+        val drop = Drop(x, y, 22f * density, 1f, 0.55f, true)
         held[id] = drop
         addDrop(drop)
         lastTrail[id] = floatArrayOf(x, y)
@@ -130,10 +173,10 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         held[id]?.let { it.px.target = x; it.py.target = y }
         val last = lastTrail[id] ?: return
         val now = SystemClock.uptimeMillis()
-        if (hypot(x - last[0], y - last[1]) >= 22f * density && now - lastTrailAt >= 45L && liveTrails() < MAX_TRAILS) {
+        if (hypot(x - last[0], y - last[1]) >= 26f * density && now - lastTrailAt >= 55L && liveTrails() < MAX_TRAILS) {
             last[0] = x; last[1] = y
             lastTrailAt = now
-            addDrop(Drop(x, y, 9f * density, 0.55f, 0.4f, false))
+            addDrop(Drop(x, y, 10f * density, 0.45f, 0.34f, false))
         }
     }
 
@@ -163,8 +206,6 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         drops.add(d)
     }
 
-    // ---- jelly squish of the pressed button ----
-
     private fun pressUnder(rawX: Float, rawY: Float) {
         val root = parent as? ViewGroup ?: return
         val target = findPressable(root, rawX.toInt(), rawY.toInt()) ?: return
@@ -174,9 +215,9 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
             pressedPod = pod
             return
         }
-        if (kotlin.math.abs(target.scaleX - 1f) > 0.02f || kotlin.math.abs(target.scaleY - 1f) > 0.02f) return
+        if (abs(target.scaleX - 1f) > 0.02f || abs(target.scaleY - 1f) > 0.02f) return
         val small = max(target.width, target.height) < 56f * density
-        val sq = Squish(target, if (small) 0.9f else 0.955f, if (small) 0.88f else 0.925f)
+        val sq = Squish(target, if (small) 0.93f else 0.968f, if (small) 0.92f else 0.955f)
         squishes.firstOrNull { it.view === target }?.let { squishes.remove(it) }
         squishes.add(sq)
         pressed = sq
@@ -196,8 +237,6 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         if (v.height > screen.heightPixels * 0.4f) return null
         return v
     }
-
-    // ---- frame loop ----
 
     private fun kick() {
         if (lastFrame == 0L) lastFrame = SystemClock.uptimeMillis()
@@ -226,7 +265,6 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         }
     }
 
-    // The ripple layer must not be part of the copy a glass layout makes of the screen: drawing it there would step its physics twice.
     override fun draw(canvas: Canvas) {
         if (LiquidGlassLayout.isCapturing()) return
         super.draw(canvas)
@@ -241,7 +279,6 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         lowQuality = slowFrames > 6
         step(dt)
         for (d in drops) drawDrop(canvas, d)
-        // A drop under a held, still finger has settled: it is drawn as it is and needs no more frames until the finger moves.
         if (needsFrames()) postInvalidateOnAnimation() else lastFrame = 0L
     }
 
@@ -254,7 +291,6 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         return false
     }
 
-    /** True while a finger is down: other work (like scanning for new buttons) waits for the touch to end. */
     fun isBusy(): Boolean = held.isNotEmpty()
 
     private fun drawDrop(c: Canvas, d: Drop) {
@@ -264,67 +300,41 @@ internal class LiquidRippleOverlay(context: Context) : View(context) {
         if (a <= 0.01f) return
         val x = d.px.value
         val y = d.py.value
-        val progress = (r / d.maxR).coerceIn(0f, 1.3f)
+        val progress = (r / d.maxR).coerceIn(0f, 1.25f)
 
-        // Meniscus: a soft lens of liquid (stacked translucent discs, no shaders) with a brighter edge.
-        val lensA = a * (if (light) 0.8f else 1f)
-        lens.color = ColorUtils.setAlphaComponent(Color.WHITE, (255 * lensA * 0.035f).toInt().coerceIn(0, 255))
-        c.drawCircle(x, y, r, lens)
-        c.drawCircle(x, y, r * 0.78f, lens)
-        c.drawCircle(x, y, r * 0.52f, lens)
-        ring.strokeWidth = max(0.8f, r * 0.12f)
-        ring.color = ColorUtils.setAlphaComponent(Color.WHITE, (255 * lensA * 0.10f).toInt().coerceIn(0, 255))
-        c.drawCircle(x, y, r * 0.92f, ring)
+        // Luminous optical glass caustic pool under touch (subtle, premium Apple-style glow)
+        val glowR = r * 1.45f
+        glowMatrix.reset()
+        glowMatrix.postScale(glowR, glowR)
+        glowMatrix.postTranslate(x, y)
+        unitCaustic.setLocalMatrix(glowMatrix)
+        glowPaint.alpha = (255 * a * (if (light) 0.34f else 0.44f)).toInt().coerceIn(0, 255)
+        c.drawCircle(x, y, glowR, glowPaint)
 
-        // Bright droplet right under the finger while it is down.
-        if (d.held) {
-            val cr = 4.5f * density * (1f - 0.35f * progress.coerceAtMost(1f))
-            core.color = ColorUtils.setAlphaComponent(Color.WHITE, (255 * a * 0.22f).toInt().coerceIn(0, 255))
-            c.drawCircle(x, y, cr, core)
-            core.color = ColorUtils.setAlphaComponent(Color.WHITE, (255 * a * 0.55f).toInt().coerceIn(0, 255))
-            c.drawCircle(x, y, cr * 0.45f, core)
-        }
-
-        // Three wave rings, each a little behind the one before.
-        val tint = ColorUtils.blendARGB(Color.WHITE, accent, 0.22f)
-        val ringCount = if (lowQuality) 1 else 3
-        for (i in 0 until ringCount) {
-            val ri = r * (1f - 0.2f * i)
+        // Crisp delicate meniscus wave crest (clean neutral glass highlight, no neon stripes)
+        val tint = ColorUtils.blendARGB(Color.WHITE, accent, 0.14f)
+        val rings = if (lowQuality) 1 else 2
+        for (i in 0 until rings) {
+            val ri = r * (1f - 0.28f * i)
             if (ri < 2f) continue
-            val ringA = a * (0.62f - 0.17f * i) * (1.15f - 0.5f * progress.coerceAtMost(1f))
+            val ringA = a * (0.42f - 0.18f * i) * (1.1f - 0.55f * progress.coerceAtMost(1f))
             if (ringA <= 0.01f) continue
-            val w = (1.2f - 0.3f * i) * density
-            if (lowQuality) {
-                ring.strokeWidth = w
-                ring.color = ColorUtils.setAlphaComponent(tint, (255 * ringA).toInt().coerceIn(0, 255))
-                c.drawCircle(x, y, ri, ring)
-                continue
-            }
-            // relief: a darker band just outside the crest gives the wave depth
-            relief.strokeWidth = w * 2.2f
-            relief.color = ColorUtils.setAlphaComponent(Color.BLACK, (255 * ringA * (if (light) 0.22f else 0.16f)).toInt().coerceIn(0, 255))
-            c.drawCircle(x, y, ri + w * 1.6f, relief)
-            // prism fringe
-            ring.strokeWidth = w * 0.8f
-            ring.color = Color.argb((255 * ringA * 0.5f).toInt().coerceIn(0, 255), 255, 70, 205)
-            c.drawCircle(x, y, ri + w * 0.9f, ring)
-            ring.color = Color.argb((255 * ringA * 0.45f).toInt().coerceIn(0, 255), 40, 215, 255)
-            c.drawCircle(x, y, ri - w * 0.9f, ring)
-            // the crest itself
-            ring.strokeWidth = w
-            ring.color = ColorUtils.setAlphaComponent(tint, (255 * ringA).toInt().coerceIn(0, 255))
-            c.drawCircle(x, y, ri, ring)
+            ringPaint.strokeWidth = (1.1f - 0.35f * i) * density
+            ringPaint.color = ColorUtils.setAlphaComponent(tint, (255 * ringA).toInt().coerceIn(0, 255))
+            c.drawCircle(x, y, ri, ringPaint)
         }
     }
 
     override fun onDetachedFromWindow() {
         for (s in squishes) { s.view.scaleX = 1f; s.view.scaleY = 1f }
+        litGlassLayout?.updateTouchLight(0f, 0f, false)
+        litGlassLayout = null
         squishes.clear(); drops.clear(); held.clear(); lastTrail.clear(); pressed = null
         super.onDetachedFromWindow()
     }
 
     private companion object {
-        const val MAX_DROPS = 28
-        const val MAX_TRAILS = 6
+        const val MAX_DROPS = 22
+        const val MAX_TRAILS = 5
     }
 }
