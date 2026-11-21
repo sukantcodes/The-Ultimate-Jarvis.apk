@@ -159,6 +159,7 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
     }
     const enrolled = await rpc(c, "udn_auto_enroll", { p_owner: c.ownerId, p_device: id, p_slot: parentSlot });
     if (!enrolled?.ok) fail(409, enrolled?.error ?? "enroll_failed");
+    await rpc(c, "udn_supersede_devices", { p_owner: c.ownerId, p_device: id });
     const { count } = await c.admin.from("udn_parent_assignments").select("slot", { count: "exact", head: true }).eq("owner_id", c.ownerId);
     return { device_id: id, status: enrolled.status ?? status, role: enrolled.role, slot: enrolled.slot ?? null, parents_exist: (count ?? 0) > 0 };
   },
@@ -265,6 +266,11 @@ const HANDLERS: Record<string, (c: Ctx) => Promise<Row>> = {
       c.admin.from("udn_device_group_members").select("*"),
     ]);
     if (devices.error || parents.error || parentEmails.error || caps.error || groups.error || members.error) fail(500, "server_error");
+    // Show each phone once: no revoked rows, no rows that never connected, and no silent older twin of a newer row.
+    const live = (devices.data ?? []).filter((d: Row) => d.status !== "revoked" && (d.last_seen_at || Date.now() - Date.parse(d.created_at) < 15 * 60_000));
+    const sameHw = (a: Row, b: Row) => a.account_id === b.account_id && a.platform === b.platform && (a.manufacturer ?? "") === (b.manufacturer ?? "") && (a.model ?? "") === (b.model ?? "");
+    const visible = live.filter((d: Row) => isOnline(d) || !live.some((o: Row) => o.id !== d.id && sameHw(o, d) && Date.parse(o.created_at) > Date.parse(d.created_at)));
+    devices.data = visible;
     const ids = new Set((devices.data ?? []).map((d: Row) => d.id));
     const slotOf = new Map((parents.data ?? []).map((p: Row) => [p.device_id, p.slot]));
     const parentSlotByEmail = new Map((parentEmails.data ?? []).map((p: Row) => [String(p.email).toLowerCase(), p.slot]));

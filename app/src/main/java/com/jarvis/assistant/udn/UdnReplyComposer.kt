@@ -42,12 +42,12 @@ object UdnReplyComposer {
     fun noDevices(l: UdnLang) = pick(l, "No devices are registered on your network yet.", "आपके नेटवर्क पर अभी कोई डिवाइस रजिस्टर नहीं है।", "Aapke network par abhi koi device registered nahi hai.")
 
     fun listDevices(l: UdnLang, devices: List<UdnDevice>, selfId: String?): String {
-        val live = devices.filter { it.status != "revoked" }
+        val live = devices.filter { it.status != "revoked" }.sortedWith(compareByDescending<UdnDevice> { it.id == selfId }.thenByDescending { it.online })
         if (live.isEmpty()) return noDevices(l)
         val online = live.count { it.online }
         val parts = live.joinToString("; ") { d ->
             val role = if (d.isParent) "parent ${d.parentSlot}" else if (d.isAuthorized) "child" else "waiting for approval"
-            val state = if (d.id == selfId) "this device" else if (d.online) "online" else "offline"
+            val state = if (d.id == selfId) "this device" else if (d.online) "online" else "offline, last seen ${ago(d.lastSeenMs)}"
             "${d.name} ($role, $state)"
         }
         return pick(l, "You have ${live.size} device${if (live.size == 1) "" else "s"}, $online online: $parts.",

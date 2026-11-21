@@ -188,7 +188,7 @@ class UdnManager private constructor(context: Context) {
 
     /** Devices as the voice layer sees them (this device flagged as self). */
     fun deviceRefs(): List<UdnDeviceRef> = _state.value.devices.filter { it.status != "revoked" }.map {
-        UdnDeviceRef(it.id, it.name, it.manufacturer, it.model, it.platform, isSelf = it.id == settings.deviceId, authorized = it.isAuthorized)
+        UdnDeviceRef(it.id, it.name, it.manufacturer, it.model, it.platform, isSelf = it.id == settings.deviceId, authorized = it.isAuthorized, online = it.online)
     }
 
     private fun handleAuthError(r: UdnResult.Err) {
@@ -443,12 +443,16 @@ class UdnManager private constructor(context: Context) {
 
     private suspend fun heartbeatLoop() {
         var failures = 0
+        var beats = 0
         while (true) {
             if (settings.deviceId == null || _state.value.status == "revoked") { delay(UDN_HEARTBEAT_MS); continue }
             val r = heartbeat()
             var wait = UDN_HEARTBEAT_MS
+            beats++
             if (r is UdnResult.Ok) {
                 failures = 0
+                // Keep the device list fresh so voice and the Devices page never work from a stale registry.
+                if (beats % 4 == 0 && _state.value.authorized) refreshRegistry()
                 if (r.value > 0) nudge()
                 if (_state.value.authorized) { pushCapabilities(); retryUnreported() }
             } else {

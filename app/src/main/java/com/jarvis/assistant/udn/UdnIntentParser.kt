@@ -48,7 +48,8 @@ data class UdnDeviceRef(
     val model: String?,
     val platform: String,
     val isSelf: Boolean,
-    val authorized: Boolean
+    val authorized: Boolean,
+    val online: Boolean = true
 )
 
 sealed class UdnResolution {
@@ -233,6 +234,16 @@ object UdnIntentParser {
         return a
     }
 
+    /** When several devices fit, only the reachable ones are real candidates; a lone online match is chosen outright. */
+    private fun preferOnline(candidates: List<UdnDeviceRef>): UdnResolution {
+        val live = candidates.filter { it.online }
+        return when {
+            live.size == 1 -> UdnResolution.Single(live.first())
+            live.size > 1 -> UdnResolution.Ambiguous(live)
+            else -> UdnResolution.Ambiguous(candidates)
+        }
+    }
+
     fun resolve(target: UdnTarget, devices: List<UdnDeviceRef>): UdnResolution {
         val others = devices.filter { !it.isSelf && it.authorized }
         return when (target) {
@@ -240,7 +251,7 @@ object UdnIntentParser {
             UdnTarget.Other -> when (others.size) {
                 0 -> UdnResolution.NotFound("another device")
                 1 -> UdnResolution.Single(others.first())
-                else -> UdnResolution.Ambiguous(others)
+                else -> preferOnline(others)
             }
             is UdnTarget.Named -> {
                 val words = tokens(target.phrase) - otherWords - setOf("my", "the", "device", "devices")
@@ -257,7 +268,7 @@ object UdnIntentParser {
                     top.size == 1 && top.first().isSelf -> UdnResolution.ThisDevice
                     remote.size == 1 && (top.size == 1 || top.none { it.isSelf }) -> UdnResolution.Single(remote.first())
                     remote.isEmpty() -> UdnResolution.ThisDevice
-                    else -> UdnResolution.Ambiguous(remote)
+                    else -> preferOnline(remote)
                 }
             }
         }
