@@ -269,9 +269,9 @@
                     android:layout_width="34dp"
                     android:layout_height="34dp"
                     android:padding="7dp"
-                    android:background="@drawable/bg_home_badge_cyan"
+                    android:background="@drawable/bg_home_badge_accent"
                     android:src="@drawable/ic_settings_automation"
-                    app:tint="#39C6FF"
+                    app:tint="?attr/themeAccent"
                     android:contentDescription="@null" />
 
                 <LinearLayout
@@ -306,6 +306,7 @@
                 android:id="@+id/btnHomeMaya"
                 android:layout_width="126dp"
                 android:layout_height="match_parent"
+                android:layout_marginEnd="8dp"
                 android:background="@drawable/bg_home_card_premium"
                 android:clickable="true"
                 android:focusable="true"
@@ -318,9 +319,9 @@
                     android:layout_width="34dp"
                     android:layout_height="34dp"
                     android:padding="7dp"
-                    android:background="@drawable/bg_home_badge_pink"
+                    android:background="@drawable/bg_home_badge_accent"
                     android:src="@drawable/ic_sparkle"
-                    app:tint="#F472B6"
+                    app:tint="?attr/themeAccent"
                     android:contentDescription="@null" />
 
                 <LinearLayout
@@ -344,6 +345,56 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Companion"
+                        android:textColor="?attr/themeTextMuted"
+                        android:textSize="10sp"
+                        android:fontFamily="sans-serif-light"
+                        android:maxLines="1" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/btnHomeNetwork"
+                android:layout_width="126dp"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_home_card_premium"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="12dp"
+                android:contentDescription="Open Device Network">
+
+                <ImageView
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:padding="7dp"
+                    android:background="@drawable/bg_home_badge_accent"
+                    android:src="@drawable/udn_ic_group"
+                    app:tint="?attr/themeAccent"
+                    android:contentDescription="@null" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Network"
+                        android:textColor="?attr/themeTextPrimary"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
+                        android:maxLines="1" />
+
+                    <TextView
+                        android:id="@+id/tvHomeNetworkStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Devices"
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="10sp"
                         android:fontFamily="sans-serif-light"
@@ -383,9 +434,9 @@
                 android:layout_width="26dp"
                     android:layout_height="26dp"
                     android:padding="7dp"
-                    android:background="@drawable/bg_home_badge_violet"
+                    android:background="@drawable/bg_home_badge_accent"
                 android:src="@drawable/ic_screen_share"
-                    app:tint="#A78BFA"
+                    app:tint="?attr/themeAccent"
                 android:layout_marginBottom="2dp"
         android:importantForAccessibility="no" />
 
@@ -439,9 +490,9 @@
                 android:layout_width="26dp"
                     android:layout_height="26dp"
                     android:padding="7dp"
-                    android:background="@drawable/bg_home_badge_amber"
+                    android:background="@drawable/bg_home_badge_accent"
                 android:src="@drawable/ic_stack_memory"
-                    app:tint="#FFB020"
+                    app:tint="?attr/themeAccent"
                 android:layout_marginBottom="2dp"
         android:importantForAccessibility="no" />
 
@@ -493,9 +544,9 @@
                 android:layout_width="26dp"
                     android:layout_height="26dp"
                     android:padding="7dp"
-                    android:background="@drawable/bg_home_badge_orange"
+                    android:background="@drawable/bg_home_badge_accent"
                 android:src="@drawable/ic_settings_language"
-                    app:tint="#FB923C"
+                    app:tint="?attr/themeAccent"
                 android:layout_marginBottom="2dp"
         android:importantForAccessibility="no" />
 
@@ -565,7 +616,7 @@
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:src="@drawable/ic_warning"
-                app:tint="#EF4444"
+                app:tint="?attr/themeAccent"
         android:importantForAccessibility="no" />
 
             <TextView

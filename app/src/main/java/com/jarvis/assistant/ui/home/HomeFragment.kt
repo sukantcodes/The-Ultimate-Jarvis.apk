@@ -171,6 +171,8 @@ class HomeFragment : Fragment() {
             applyResponsiveHomeLayout(right - left, bottom - top)
         }
         createTaskFallbackPanel()
+        HomeDeck.apply(binding)
+        bindNetworkTile()
 
         // Top Navigation
         binding.btnTopChat.setOnClickListener {
@@ -207,6 +209,10 @@ class HomeFragment : Fragment() {
         // Home launchpad shortcuts for frequently used JARVIS modules.
         binding.btnHomeAutomation.setOnClickListener {
             startActivity(Intent(requireContext(), com.jarvis.assistant.studio.ui.AutomationStudioActivity::class.java))
+        }
+
+        binding.btnHomeNetwork.setOnClickListener {
+            startActivity(Intent(requireContext(), com.jarvis.assistant.ui.udn.UdnActivity::class.java))
         }
 
         binding.btnHomeMaya.setOnClickListener {
@@ -550,6 +556,25 @@ class HomeFragment : Fragment() {
                 preferences.userLocation = weather.cityName
             } else if (_binding != null) {
                 binding.tvWeatherCondition.text = "Live Weather • Tap to retry"
+            }
+        }
+    }
+
+    /** The Network tile shows the real state of the device network: devices online, or what's needed to join. */
+    private fun bindNetworkTile() {
+        val mgr = com.jarvis.assistant.udn.UdnManager.get(requireContext().applicationContext)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                mgr.state.collect { st ->
+                    if (_binding == null) return@collect
+                    val online = st.devices.count { it.isAuthorized && it.online }
+                    binding.tvHomeNetworkStatus.text = when {
+                        !st.configured || !com.jarvis.assistant.auth.AuthManager.isSignedIn -> "Sign in"
+                        !st.enrolled -> "Join"
+                        !st.authorized -> "Joining"
+                        else -> "$online online"
+                    }
+                }
             }
         }
     }
