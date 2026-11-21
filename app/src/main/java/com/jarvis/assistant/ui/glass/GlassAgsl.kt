@@ -29,6 +29,13 @@ uniform float zoom;
 uniform float isLight;
 uniform float2 touchPos;
 uniform float touchGlow;
+// iOS 27 style intensity slider (opaque <-> clear). Veil/blur/refract/rim scales are 1 and opacity is 0 at the default
+// setting; see GlassClarity.
+uniform float veilScale;
+uniform float blurScale;
+uniform float refractScale;
+uniform float rimScale;
+uniform float opacity;
 
 float sdRoundRect(float2 p, float2 b, float r) {
     float2 q = abs(p) - b + r;
@@ -46,29 +53,31 @@ float2 roundRectNormal(float2 p, float2 halfSize, float r) {
     }
 }
 
-// 13-tap Golden-Angle disc Gaussian blur (eliminates 3x3 box-grid artifacts).
-half4 sampleDiscBlur(float2 p, float blurR, float2 lo, float2 hi) {
+// 13-tap disc blur. The tap ring is rotated by a per-pixel angle (interleaved gradient noise), which turns the "ghost
+// copies" a sparse tap pattern leaves behind sharp text into fine even grain, so a large diffusion radius still looks smooth.
+half4 sampleDiscBlur(float2 p, float blurR, float2 lo, float2 hi, float2 cs) {
     if (blurR <= 0.35) {
         return content.eval(clamp(p, lo, hi));
     }
     float r1 = blurR * 0.48;
     float r2 = blurR;
+    float2 ax = float2(cs.x, cs.y);
+    float2 ay = float2(-cs.y, cs.x);
+    float2 dg1 = (ax + ay) * 0.7071;
+    float2 dg2 = (ax - ay) * 0.7071;
     half4 acc = content.eval(clamp(p, lo, hi)) * half(0.16);
-    // Inner 4-tap rotated ring
-    acc += content.eval(clamp(p + float2( r1,  0.0), lo, hi)) * half(0.09);
-    acc += content.eval(clamp(p + float2(-r1,  0.0), lo, hi)) * half(0.09);
-    acc += content.eval(clamp(p + float2( 0.0,  r1), lo, hi)) * half(0.09);
-    acc += content.eval(clamp(p + float2( 0.0, -r1), lo, hi)) * half(0.09);
-    // Outer 8-tap circular ring
-    float d = r2 * 0.7071;
-    acc += content.eval(clamp(p + float2( r2,  0.0), lo, hi)) * half(0.06);
-    acc += content.eval(clamp(p + float2(-r2,  0.0), lo, hi)) * half(0.06);
-    acc += content.eval(clamp(p + float2( 0.0,  r2), lo, hi)) * half(0.06);
-    acc += content.eval(clamp(p + float2( 0.0, -r2), lo, hi)) * half(0.06);
-    acc += content.eval(clamp(p + float2(  d,    d), lo, hi)) * half(0.06);
-    acc += content.eval(clamp(p + float2( -d,    d), lo, hi)) * half(0.06);
-    acc += content.eval(clamp(p + float2(  d,   -d), lo, hi)) * half(0.06);
-    acc += content.eval(clamp(p + float2( -d,   -d), lo, hi)) * half(0.06);
+    acc += content.eval(clamp(p + ax * r1, lo, hi)) * half(0.09);
+    acc += content.eval(clamp(p - ax * r1, lo, hi)) * half(0.09);
+    acc += content.eval(clamp(p + ay * r1, lo, hi)) * half(0.09);
+    acc += content.eval(clamp(p - ay * r1, lo, hi)) * half(0.09);
+    acc += content.eval(clamp(p + ax * r2, lo, hi)) * half(0.06);
+    acc += content.eval(clamp(p - ax * r2, lo, hi)) * half(0.06);
+    acc += content.eval(clamp(p + ay * r2, lo, hi)) * half(0.06);
+    acc += content.eval(clamp(p - ay * r2, lo, hi)) * half(0.06);
+    acc += content.eval(clamp(p + dg1 * r2, lo, hi)) * half(0.06);
+    acc += content.eval(clamp(p - dg1 * r2, lo, hi)) * half(0.06);
+    acc += content.eval(clamp(p + dg2 * r2, lo, hi)) * half(0.06);
+    acc += content.eval(clamp(p - dg2 * r2, lo, hi)) * half(0.06);
     return acc;
 }
 
@@ -96,7 +105,7 @@ half4 main(float2 coord) {
     float bezelCurve = pow(oneMinus, 1.75);
 
     // Optical edge refraction vector: pulls & compresses outside detail inward like thick curved glass
-    float2 refractVec = n * (meniscusSlope * strength);
+    float2 refractVec = n * (meniscusSlope * strength * refractScale);
 
     // Subtle interior lens dome magnification (keeps center feeling like real optical glass)
     float centerDome = 1.0 + (0.025 * (1.0 - bezelCurve));
@@ -104,7 +113,7 @@ half4 main(float2 coord) {
     float2 baseCoord = halfSize + p / effectiveZoom;
 
     // Slightly crisper blur along the outer optical bevel so refracted pixels gleam cleanly
-    float localBlur = blur * mix(0.55, 1.0, smoothstep(0.0, 0.65, distIn));
+    float localBlur = blur * blurScale * mix(0.55, 1.0, smoothstep(0.0, 0.65, distIn));
 
     float2 lo = float2(0.5);
     float2 hi = size - 0.5;
@@ -115,9 +124,11 @@ half4 main(float2 coord) {
     float2 offG = refractVec * mix(1.0, chroma.y, dispScale * 0.55);
     float2 offB = refractVec * mix(1.0, chroma.z, dispScale * 0.55);
 
-    half4 cr = sampleDiscBlur(baseCoord - offR, localBlur, lo, hi);
-    half4 cg = sampleDiscBlur(baseCoord - offG, localBlur, lo, hi);
-    half4 cb = sampleDiscBlur(baseCoord - offB, localBlur, lo, hi);
+    float ang = 6.2831853 * fract(52.9829189 * fract(dot(coord, float2(0.06711056, 0.00583715))));
+    float2 cs = float2(cos(ang), sin(ang));
+    half4 cr = sampleDiscBlur(baseCoord - offR, localBlur, lo, hi, cs);
+    half4 cg = sampleDiscBlur(baseCoord - offG, localBlur, lo, hi, cs);
+    half4 cb = sampleDiscBlur(baseCoord - offB, localBlur, lo, hi, cs);
     half3 col = half3(cr.r, cg.g, cb.b);
 
     // Apple-style Vibrancy: lift chroma cleanly without clipping highlights
@@ -126,9 +137,12 @@ half4 main(float2 coord) {
     col = clamp(mix(half3(luma), col, satBoost), half3(0.0), half3(1.0));
 
     // Adaptive glass body tint (luminance-aware so glass stays clear on dark & crisp on light)
-    half adaptVeil = half(veil) * mix(half(0.75), half(1.25), half(isLight));
+    half adaptVeil = half(veil * veilScale) * mix(half(0.75), half(1.25), half(isLight));
     half3 glassTint = mix(half3(0.95, 0.97, 1.0), half3(1.0, 1.0, 1.0), half(isLight));
-    col = mix(col, glassTint, clamp(adaptVeil + half(bezelCurve * 0.06), half(0.0), half(0.42)));
+    col = mix(col, glassTint, clamp(adaptVeil + half(bezelCurve * 0.06), half(0.0), half(0.72)));
+    // Opaque end of the slider: the pane settles into a solid surface (dark in dark mode, white in light mode).
+    half3 solidTint = mix(half3(0.075, 0.085, 0.115), half3(0.97, 0.98, 1.0), half(isLight));
+    col = mix(col, solidTint, half(opacity));
 
     // Subtle inner depth shadow just inside the glass rim (gives physical thickness)
     float innerShadowBand = smoothstep(0.0, 0.28, distIn) * (1.0 - smoothstep(0.28, 0.85, distIn));
@@ -146,19 +160,19 @@ half4 main(float2 coord) {
 
     float rimLight = sharpRim * (0.34 + 0.52 * topSpec + 0.24 * botBounce)
                    + softRim * (0.06 + 0.18 * topSpec + 0.09 * botBounce + omniFresnel * 0.08);
-    col += half3(half(rimLight * mix(0.92, 1.05, isLight)));
+    col += half3(half(rimLight * rimScale * mix(0.88, 1.0, isLight)));
 
     // Subtle top-surface overhead sky reflection
     float topSheen = (1.0 - smoothstep(-halfSize.y, -halfSize.y * 0.12, p.y)) * (1.0 - sharpRim * 0.4);
-    col += half3(half(topSheen * mix(0.075, 0.14, isLight)));
+    col += half3(half(topSheen * rimScale * mix(0.06, 0.12, isLight)));
 
     // Interactive touch-reactive internal caustic illumination (iOS 26/27 interactive glass glow)
     if (touchGlow > 0.005) {
         float touchDist = length(coord - touchPos);
         float glowRadius = max(size.y * 1.35, 72.0);
         float tFalloff = exp(-(touchDist * touchDist) / (glowRadius * glowRadius * 0.45));
-        float rimBoost = 1.0 + sharpRim * 1.45 + softRim * 0.65;
-        col += half3(half(tFalloff * touchGlow * 0.22 * rimBoost));
+        float rimBoost = 1.0 + sharpRim * 0.95 + softRim * 0.45;
+        col += half3(half(tFalloff * touchGlow * 0.12 * rimBoost));
     }
 
     col = clamp(col, half3(0.0), half3(1.0));

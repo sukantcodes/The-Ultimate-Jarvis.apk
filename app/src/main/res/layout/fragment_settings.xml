@@ -2426,6 +2426,101 @@
                         android:contentDescription="@string/set_liquidglass_title" />
                 </LinearLayout>
 
+                <View
+                    style="@style/Widget.JarvisSettings.Divider.Appearance"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
+                <!-- Glass transparency: the iOS 27 style slider, fully opaque to completely clear -->
+                <LinearLayout
+                    android:id="@+id/rowGlassClarity"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <FrameLayout
+                            style="@style/Widget.JarvisSettings.IconBox"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp">
+
+                            <ImageView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:layout_gravity="center"
+                                android:importantForAccessibility="no"
+                                android:src="@drawable/ic_settings_palette"
+                                app:tint="?attr/themeAccent" />
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="14dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                style="@style/Widget.JarvisSettings.RowTitle.Appearance"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/set_glass_clarity_title" />
+
+                            <TextView
+                                android:id="@+id/tvGlassClarityValue"
+                                style="@style/Widget.JarvisSettings.RowSubtitle.Appearance"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/set_glass_clarity_balanced" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/sliderGlassClarity"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="46dp"
+                        android:contentDescription="@string/set_glass_clarity_title"
+                        android:stepSize="1"
+                        android:value="60"
+                        android:valueFrom="0"
+                        android:valueTo="100"
+                        app:haloColor="@android:color/transparent"
+                        app:labelBehavior="gone"
+                        app:thumbColor="?attr/themeAccent"
+                        app:tickVisible="false"
+                        app:trackColorActive="?attr/themeAccent"
+                        app:trackColorInactive="?attr/themeCardBorder" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="54dp"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Appearance"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="0dp"
+                            android:layout_weight="1"
+                            android:text="@string/set_glass_clarity_opaque" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Appearance"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="0dp"
+                            android:text="@string/set_glass_clarity_clear" />
+                    </LinearLayout>
+                </LinearLayout>
+
             </LinearLayout>
 
             <!-- SECTION 8: PRIVACY & ABOUT -->

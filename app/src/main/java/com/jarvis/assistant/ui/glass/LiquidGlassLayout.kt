@@ -107,6 +107,12 @@ class LiquidGlassLayout @JvmOverloads constructor(
     private var cachedLightAt = 0L
     private var builtForLight: Boolean? = null
 
+    // iOS 27 style opaque <-> clear intensity (see GlassClarity). Polled every frame; cheap because it is cached.
+    private var cachedClarity: GlassClarity.Profile = GlassClarity.forLevel(GlassClarity.DEFAULT_CLARITY)
+    private var builtClarity: GlassClarity.Profile? = null
+    /** The solid surface of the "opaque" end of the slider on the pre-API 33 path (the AGSL path does this in the shader). */
+    private val solidPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+
     // Pre-allocated geometry & optical decoration paints (zero draw-time allocations)
     private val fullRect = RectF()
     private val rimRect = RectF()
@@ -194,6 +200,12 @@ class LiquidGlassLayout @JvmOverloads constructor(
     }
 
     private fun refreshLightState(): Boolean {
+        val clarity = GlassClarity.current(context)
+        if (clarity != cachedClarity) {
+            cachedClarity = clarity
+            if (Build.VERSION.SDK_INT >= 31) applyNodeBlur()
+        }
+        if (builtClarity != cachedClarity && width > 0 && height > 0) rebuildDecorPaints(width, height)
         val now = SystemClock.uptimeMillis()
         if (now - cachedLightAt > 500L || builtForLight == null) {
             cachedLightAt = now
@@ -280,7 +292,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
         if (Build.VERSION.SDK_INT >= 31 && canvas.isHardwareAccelerated && blurNode != null) {
             drawWithRenderNode(canvas, b, w, h, lensCropRect)
         } else {
-            val blurRadius = (blurDp * 0.55f).toInt().coerceIn(3, 14)
+            val blurRadius = (blurDp * 0.55f * cachedClarity.blurScale).toInt().coerceIn(3, 18)
             stackBlur.blurInPlace(b, blurRadius)
             // Outer refracted meniscus ring
             canvas.drawBitmap(b, null, lensCropRect, lensRimPaint)
@@ -293,6 +305,10 @@ class LiquidGlassLayout @JvmOverloads constructor(
 
         // 2. Adaptive glass body veil + subtle internal thickness shading + top sky sheen
         canvas.drawRoundRect(fullRect, r, r, veilPaint)
+        if (cachedClarity.opacity > 0.01f) {
+            solidPaint.alpha = (cachedClarity.opacity * 255f).toInt().coerceIn(0, 255)
+            canvas.drawRoundRect(fullRect, r, r, solidPaint)
+        }
         canvas.drawRoundRect(fullRect, r, r, innerDepthPaint)
         canvas.drawRoundRect(fullRect, r, r, sheenPaint)
 
@@ -322,7 +338,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
             canvas.drawRenderNode(node)
         } catch (_: Throwable) {
             // Safe fallback if a vendor GPU rejects RenderNode recording
-            stackBlur.blurInPlace(b, (blurDp * 0.55f).toInt().coerceIn(3, 12))
+            stackBlur.blurInPlace(b, (blurDp * 0.55f * cachedClarity.blurScale).toInt().coerceIn(3, 16))
             canvas.drawBitmap(b, null, fullRect, bmpPaint)
         }
     }
@@ -491,6 +507,8 @@ class LiquidGlassLayout @JvmOverloads constructor(
         val hf = h.toFloat()
         val light = try { ThemeManager.isCurrentThemeLight() } catch (_: Throwable) { false }
         builtForLight = light
+        builtClarity = cachedClarity
+        val profile = cachedClarity
 
         val r = min(cornerRadiusPx, min(wf, hf) / 2f)
 
@@ -498,8 +516,8 @@ class LiquidGlassLayout @JvmOverloads constructor(
         sheenPaint.shader = LinearGradient(
             0f, 0f, 0f, hf * 0.56f,
             intArrayOf(
-                ColorUtils.setAlphaComponent(Color.WHITE, if (light) 78 else 40),
-                ColorUtils.setAlphaComponent(Color.WHITE, if (light) 22 else 10),
+                ColorUtils.setAlphaComponent(Color.WHITE, ((if (light) 78 else 40) * profile.rimScale).toInt().coerceIn(0, 255)),
+                ColorUtils.setAlphaComponent(Color.WHITE, ((if (light) 22 else 10) * profile.rimScale).toInt().coerceIn(0, 255)),
                 0x00FFFFFF
             ),
             floatArrayOf(0f, 0.52f, 1f),
@@ -507,7 +525,8 @@ class LiquidGlassLayout @JvmOverloads constructor(
         )
 
         // Clean frosted glass body veil (never muddy)
-        val veilA = ((if (light) max(veil, 0.22f) else max(veil, 0.09f)) * 255f).toInt().coerceIn(16, 110)
+        val veilA = ((if (light) max(veil, 0.22f) else max(veil, 0.09f)) * profile.veilScale * 255f).toInt().coerceIn(16, 190)
+        solidPaint.color = if (light) 0xFFF7F9FF.toInt() else 0xFF141826.toInt()
         veilPaint.shader = LinearGradient(
             0f, 0f, 0f, hf,
             ColorUtils.setAlphaComponent(if (light) 0xFFFFFFFF.toInt() else 0xFFF2F7FF.toInt(), veilA),
@@ -568,11 +587,22 @@ class LiquidGlassLayout @JvmOverloads constructor(
     @RequiresApi(31)
     private fun buildRenderNodeBlur(): Any? = try {
         val node = RenderNode("JarvisLiquidGlass")
-        val pxBlur = (blurDp * density * 0.72f).coerceIn(4f, 28f)
-        node.setRenderEffect(RenderEffect.createBlurEffect(pxBlur, pxBlur, Shader.TileMode.CLAMP))
+        applyNodeBlur(node)
         node
     } catch (_: Throwable) {
         null
+    }
+
+    /** Sets the node's blur from the base radius and the slider's diffusion, so dragging the slider re-blurs live. */
+    @RequiresApi(31)
+    private fun applyNodeBlur(node: RenderNode? = blurNode as? RenderNode) {
+        if (node == null) return
+        try {
+            val pxBlur = (blurDp * density * 0.72f * cachedClarity.blurScale).coerceIn(4f, 40f)
+            node.setRenderEffect(RenderEffect.createBlurEffect(pxBlur, pxBlur, Shader.TileMode.CLAMP))
+        } catch (_: Throwable) {
+            // keep the previous effect if a vendor GPU rejects the update
+        }
     }
 
     @RequiresApi(33)
@@ -608,11 +638,20 @@ class LiquidGlassLayout @JvmOverloads constructor(
         shader.setFloatUniform("isLight", if (light) 1f else 0f)
         shader.setFloatUniform("touchPos", touchX, touchY)
         shader.setFloatUniform("touchGlow", touchGlowSpring.value.coerceIn(0f, 1f))
+        val p = cachedClarity
+        shader.setFloatUniform("veilScale", p.veilScale)
+        shader.setFloatUniform("blurScale", p.blurScale)
+        shader.setFloatUniform("refractScale", p.refractScale)
+        shader.setFloatUniform("rimScale", p.rimScale)
+        shader.setFloatUniform("opacity", p.opacity)
     }
 
     companion object {
-        /** Higher resolution capture on API 33+ so optical rim refraction bends sharp real detail. */
-        private const val BACKDROP_SCALE_AGSL = 0.34f
+        /**
+         * Capture resolution on API 33+. Higher than the original 0.15 so the rim refraction bends real detail, but kept at
+         * 0.25 (not 0.34) to hold the per-frame capture cost down on mid-range phones.
+         */
+        private const val BACKDROP_SCALE_AGSL = 0.25f
         /** Balanced fast capture scale on API 26–32 for smooth 60fps StackBlur / RenderNode blur. */
         private const val BACKDROP_SCALE_LEGACY = 0.25f
 

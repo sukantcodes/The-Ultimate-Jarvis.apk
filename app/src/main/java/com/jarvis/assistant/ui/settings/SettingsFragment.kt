@@ -798,6 +798,33 @@ class SettingsFragment : Fragment() {
     // 7. Appearance
     // ------------------------------------------------------------------------------------------
 
+    /**
+     * The iOS 27 style transparency slider, from fully opaque (0) to completely clear (100). It is the app's stored
+     * "Liquid glass strength"; every glass pane reads it live, so dragging it changes the glass behind this screen at once.
+     */
+    private fun setupGlassClaritySlider() {
+        val slider = binding.sliderGlassClarity
+        val start = preferences.liquidGlassStrength.coerceIn(0, 100)
+        slider.value = start.toFloat()
+        showGlassClarity(start)
+        slider.addOnChangeListener { _, value, fromUser ->
+            val level = value.toInt().coerceIn(0, 100)
+            showGlassClarity(level)
+            if (fromUser) preferences.liquidGlassStrength = level
+        }
+    }
+
+    private fun showGlassClarity(level: Int) {
+        val word = when {
+            level < 15 -> "Opaque"
+            level < 40 -> "Frosted"
+            level < 70 -> "Balanced"
+            level < 90 -> "Light"
+            else -> "Clear"
+        }
+        binding.tvGlassClarityValue.text = "$word · $level%"
+    }
+
     private fun setupAppearanceSection() {
         binding.rowAppTheme.setOnClickListener {
             ThemeSelectionBottomSheet.newInstance().show(childFragmentManager, ThemeSelectionBottomSheet.TAG)
@@ -814,6 +841,7 @@ class SettingsFragment : Fragment() {
             }, 250L)
         }
         binding.rowLiquidGlass.setOnClickListener { binding.switchLiquidGlass.toggle() }
+        setupGlassClaritySlider()
         binding.switchTouchGlow.isChecked = preferences.touchGlowEnabled
         binding.switchTouchGlow.setOnCheckedChangeListener { _, enabled ->
             preferences.touchGlowEnabled = enabled

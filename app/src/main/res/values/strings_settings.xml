@@ -94,4 +94,10 @@
     <string name="set_cat_access" translatable="false">Access</string>
     <string name="set_cat_look" translatable="false">Look</string>
     <string name="set_cat_about" translatable="false">About</string>
+
+    <!-- iOS 27 style Liquid Glass transparency slider -->
+    <string name="set_glass_clarity_title" translatable="false">Glass transparency</string>
+    <string name="set_glass_clarity_opaque" translatable="false">Opaque</string>
+    <string name="set_glass_clarity_clear" translatable="false">Clear</string>
+    <string name="set_glass_clarity_balanced" translatable="false">Balanced · 60%</string>
 </resources>
