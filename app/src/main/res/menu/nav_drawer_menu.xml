@@ -3,22 +3,32 @@
     <group android:checkableBehavior="single">
         <item android:id="@+id/drawerHome" android:icon="@drawable/ic_nav_home" android:title="Home" />
         <item android:id="@+id/drawerChat" android:icon="@drawable/ic_nav_chat" android:title="Chat" />
-        <item android:id="@+id/drawerJarvisHome" android:icon="@drawable/ic_nav_home" android:title="JARVIS Home" />
-        <item android:id="@+id/drawerTerminal" android:icon="@drawable/ic_work_terminal" android:title="Jarvis Terminal" />
-        <item android:id="@+id/drawerSettings" android:icon="@drawable/ic_nav_settings" android:title="Settings" />
-        <item android:id="@+id/drawerUpdates" android:icon="@drawable/ic_nav_bell" android:title="Updates" />
     </group>
-    <item android:title="ACCOUNT">
+    <item android:title="WORKSPACE">
         <menu>
-            <item android:id="@+id/drawerAccount" android:icon="@drawable/ic_nav_settings" android:title="@string/drawer_account_sign_in" />
-        </menu>
-    </item>
-    <item android:title="JARVIS TOOLS">
-        <menu>
+            <item android:id="@+id/drawerJarvisHome" android:icon="@drawable/ic_sparkle" android:title="JARVIS Home" />
+            <item android:id="@+id/drawerTerminal" android:icon="@drawable/ic_work_terminal" android:title="Jarvis Terminal" />
             <item android:id="@+id/drawerAutomation" android:icon="@drawable/ic_settings_automation" android:title="Automation Studio" />
             <item android:id="@+id/drawerMemories" android:icon="@drawable/ic_settings_db" android:title="Memories" />
-            <item android:id="@+id/drawerDeviceNetwork" android:icon="@drawable/ic_settings_apps" android:title="Device Network" />
-            <item android:id="@+id/drawerScreenShare" android:icon="@drawable/ic_settings_apps" android:title="Screen Share" />
+            <item android:id="@+id/drawerScreenShare" android:icon="@drawable/ic_nav_scan" android:title="Screen Share" />
+        </menu>
+    </item>
+    <item android:title="NETWORK">
+        <menu>
+            <item android:id="@+id/drawerDeviceNetwork" android:icon="@drawable/udn_ic_group" android:title="Device Network" />
+        </menu>
+    </item>
+    <item android:title="SYSTEM">
+        <menu>
+            <group android:checkableBehavior="single">
+                <item android:id="@+id/drawerSettings" android:icon="@drawable/ic_nav_settings" android:title="Settings" />
+                <item android:id="@+id/drawerUpdates" android:icon="@drawable/ic_nav_bell" android:title="Updates" />
+            </group>
+        </menu>
+    </item>
+    <item android:title="ACCOUNT">
+        <menu>
+            <item android:id="@+id/drawerAccount" android:icon="@drawable/udn_ic_shield" android:title="@string/drawer_account_sign_in" />
         </menu>
     </item>
 </menu>

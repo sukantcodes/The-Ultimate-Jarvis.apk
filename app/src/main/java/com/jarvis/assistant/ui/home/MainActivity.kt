@@ -561,6 +561,19 @@ class MainActivity : AppCompatActivity() {
             width = drawerWidth
         }
         binding.navDrawer.requestLayout()
+        DrawerDeck.apply(binding.navDrawer)
+        refreshDrawerHeader()
+        lifecycleScope.launch {
+            repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                com.jarvis.assistant.udn.UdnManager.get(applicationContext).state.collect { refreshDrawerHeader() }
+            }
+        }
+    }
+
+    private fun refreshDrawerHeader() {
+        if (!::binding.isInitialized) return
+        val name = runCatching { com.jarvis.assistant.JarvisApp.instance.preferences.userName }.getOrDefault("")
+        DrawerDeck.bindHeader(binding.navDrawer, com.jarvis.assistant.udn.UdnManager.get(applicationContext).state.value, name)
     }
 
     private fun setupDrawerNavigation() {
@@ -586,6 +599,7 @@ class MainActivity : AppCompatActivity() {
 
     /** "Sign in / Create account" for guests; "Log out · email" when signed in. */
     private fun updateAccountMenuItem() {
+        refreshDrawerHeader()
         val item = binding.navDrawer.menu.findItem(R.id.drawerAccount) ?: return
         val email = AuthManager.email
         item.title = when {
