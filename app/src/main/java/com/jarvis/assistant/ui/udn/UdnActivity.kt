@@ -17,6 +17,7 @@ import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -28,7 +29,10 @@ import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.graphics.ColorUtils
 import androidx.lifecycle.Lifecycle
+import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -57,9 +61,6 @@ class UdnActivity : AppCompatActivity() {
     private lateinit var settings: UdnSettings
     private lateinit var th: UdnTheme
 
-    private lateinit var scroll: ScrollView
-    private lateinit var content: LinearLayout
-    private lateinit var bottomStack: LinearLayout
     private lateinit var resultCard: LinearLayout
     private lateinit var resultText: TextView
     private lateinit var composer: LinearLayout
@@ -86,7 +87,10 @@ class UdnActivity : AppCompatActivity() {
         window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
         if (Build.VERSION.SDK_INT >= 31) try { window.setBackgroundBlurRadius(0) } catch (_: Throwable) {}
         window.setBackgroundDrawable(StaticBackdrop.forCurrentTheme(th))
+        @Suppress("DEPRECATION") overridePendingTransition(R.anim.udn_open_enter, R.anim.udn_open_exit)
         buildShell()
+        pager.setCurrentItem(intent.getIntExtra(EXTRA_PAGE, PAGE_HOME).coerceIn(0, pageNames.size - 1), false)
+        animateIn(pager.currentItem)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { mgr.state.collectLatest { updateLive(); render() } }
@@ -97,6 +101,7 @@ class UdnActivity : AppCompatActivity() {
                         if (s.enrolled && s.authorized) {
                             mgr.refreshRegistry()
                             (mgr.messages() as? UdnResult.Ok)?.let { if (it.value != messageCache) { messageCache = it.value; render() } }
+                            if (s.isParent) (mgr.bans() as? UdnResult.Ok)?.let { if (it.value != bansCache) { bansCache = it.value; render() } }
                             if (s.isParent && tick % 4 == 0) (mgr.auditEvents() as? UdnResult.Ok)?.let { if (it.value != auditCache) { auditCache = it.value; render() } }
                         }
                         tick++
@@ -105,6 +110,17 @@ class UdnActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pager.setCurrentItem(intent.getIntExtra(EXTRA_PAGE, currentPage).coerceIn(0, pageNames.size - 1), true)
+    }
+
+    override fun finish() {
+        super.finish()
+        @Suppress("DEPRECATION") overridePendingTransition(R.anim.udn_close_enter, R.anim.udn_close_exit)
     }
 
     override fun onResume() {
@@ -118,36 +134,85 @@ class UdnActivity : AppCompatActivity() {
 
     // ------------------------------------------------------------------ shell (built once)
 
-    private fun buildShell() {
-        val root = FrameLayout(this)
-        scroll = ScrollView(this).apply { isFillViewport = true; overScrollMode = View.OVER_SCROLL_NEVER; isVerticalScrollBarEnabled = false }
-        content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(th.dp(18), th.dp(10), th.dp(18), th.dp(40)) }
-        scroll.addView(content, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        root.addView(scroll, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+    private val pageIcons = intArrayOf(R.drawable.udn_ic_bolt, R.drawable.udn_ic_phone, R.drawable.udn_ic_group, R.drawable.udn_ic_message, R.drawable.udn_ic_lock)
+    private val pageNames = arrayOf("Home", "Devices", "Circles", "Messages", "Security")
 
-        // header: back + title + live subtitle (persistent, updated in place)
+    private lateinit var pager: ViewPager2
+    private lateinit var dock: LinearLayout
+    private lateinit var tabBar: FrameLayout
+    private lateinit var tabIndicator: View
+    private val tabIcons = ArrayList<ImageView>()
+    private val tabLabels = ArrayList<TextView>()
+    private val pageBodies = ArrayList<LinearLayout>()
+    private val pageScrolls = ArrayList<ScrollView>()
+    private val animatedPages = HashSet<Int>()
+    private lateinit var bodyHolder: LinearLayout
+    private var currentPage = 0
+    private var bansCache: List<UdnBan>? = null
+
+    private inner class PagesAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+        override fun getItemCount() = pageScrolls.size
+        override fun getItemViewType(position: Int) = position
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder =
+            object : RecyclerView.ViewHolder(pageScrolls[viewType]) {}
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {}
+    }
+
+    private fun buildShell() {
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
+        // header: back + title + live subtitle + live link chip (persistent, updated in place)
         val back = FrameLayout(this).apply {
             background = th.glass(20); isClickable = true; isFocusable = true
             setOnClickListener { finish() }
             addView(th.icon(R.drawable.udn_ic_back, 20, th.text1), FrameLayout.LayoutParams(th.dp(20), th.dp(20), Gravity.CENTER))
         }
+        th.pressable(back)
         subtitle = th.text("", 12f, th.text2)
         val titles = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(th.text("Device Network", 26f, th.text1, UdnTheme.Weight.Bold))
+            addView(th.text("Device Network", 24f, th.text1, UdnTheme.Weight.Bold))
             addView(subtitle, th.lp(top = 4))
         }
-        content.addView(LinearLayout(this).apply {
+        val live = FrameLayout(this).also { liveHolder = it }
+        root.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            addView(back, LinearLayout.LayoutParams(th.dp(40), th.dp(40)).apply { marginEnd = th.dp(14) })
+            setPadding(th.dp(18), th.dp(10), th.dp(18), th.dp(6))
+            addView(back, LinearLayout.LayoutParams(th.dp(44), th.dp(44)).apply { marginEnd = th.dp(14) })
             addView(titles, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        }, th.lp(bottom = 18))
+            addView(live)
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; id = View.generateViewId() }
-        bodyHolder = body
-        content.addView(body, th.lp())
+        // pages: one scrollable column per page, hosted in a swipeable pager
+        for (i in pageNames.indices) {
+            val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(th.dp(18), th.dp(8), th.dp(18), th.dp(24)) }
+            val sv = ScrollView(this).apply {
+                isFillViewport = true; overScrollMode = View.OVER_SCROLL_NEVER; isVerticalScrollBarEnabled = false
+                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                addView(body, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            }
+            pageBodies += body; pageScrolls += sv
+        }
+        bodyHolder = pageBodies[PAGE_HOME]
+        pager = ViewPager2(this).apply {
+            adapter = PagesAdapter(); offscreenPageLimit = pageNames.size
+            setPageTransformer { page, pos ->
+                val a = Math.abs(pos).coerceAtMost(1f)
+                page.alpha = 1f - 0.55f * a
+                val sc = 1f - 0.07f * a
+                page.scaleX = sc; page.scaleY = sc
+                page.translationX = -pos * page.width * 0.16f   // parallax: pages trail the swipe slightly
+                page.cameraDistance = 14000f * resources.displayMetrics.density
+                page.rotationY = -pos * 9f
+            }
+            registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+                override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) { positionTabs(position + positionOffset) }
+                override fun onPageSelected(position: Int) { currentPage = position; animateIn(position); updateComposer() }
+            })
+        }
+        root.addView(pager, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
-        // bottom stack: result card + command composer (parents only; shown from render())
+        // dock: command result + composer + floating glass tab bar
         resultText = th.text("", 13f, th.text1).apply { setLineSpacing(0f, 1.15f) }
         resultCard = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
@@ -167,6 +232,7 @@ class UdnActivity : AppCompatActivity() {
             background = th.pill(th.accent); isClickable = true; isFocusable = true
             addView(th.icon(R.drawable.udn_ic_send, 20, th.onAccent), FrameLayout.LayoutParams(th.dp(20), th.dp(20), Gravity.CENTER))
         }
+        th.pressable(send)
         val submit = {
             val t = input.text.toString().trim()
             if (t.isNotEmpty()) {
@@ -182,34 +248,96 @@ class UdnActivity : AppCompatActivity() {
         input.setOnEditorActionListener { _, id, _ -> if (id == EditorInfo.IME_ACTION_SEND) { submit(); true } else false }
         composer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            background = th.glass(30).also { }; setPadding(th.dp(18), th.dp(6), th.dp(8), th.dp(6)); visibility = View.GONE
+            background = th.glass(30); setPadding(th.dp(18), th.dp(6), th.dp(8), th.dp(6)); visibility = View.GONE
             addView(input, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             addView(send, LinearLayout.LayoutParams(th.dp(42), th.dp(42)).apply { marginStart = th.dp(8) })
         }
-        // solid-ish underlay so list content never shows through the composer text
-        bottomStack = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(th.dp(14), 0, th.dp(14), 0)
-            addView(resultCard, th.lp(bottom = 8)); addView(composer, th.lp())
+        tabBar = buildTabBar()
+        dock = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(th.dp(14), th.dp(6), th.dp(14), 0)
+            addView(resultCard, th.lp(bottom = 8)); addView(composer, th.lp(bottom = 8))
+            addView(tabBar, th.lp(h = th.dp(64)))
         }
-        root.addView(bottomStack, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
+        root.addView(dock, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         setContentView(root)
 
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             barsBottom = bars.bottom; imeBottom = ime.bottom
-            scroll.setPadding(bars.left, bars.top, bars.right, 0)
-            bottomStack.setPadding(th.dp(14) + bars.left, 0, th.dp(14) + bars.right, maxOf(bars.bottom, ime.bottom) + th.dp(10))
-            applyContentBottomPadding()
+            root.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom) + th.dp(8))
+            tabBar.visibility = if (ime.bottom > 0) View.GONE else View.VISIBLE   // the keyboard takes the dock's place
             insets
         }
     }
 
-    private lateinit var bodyHolder: LinearLayout
+    private fun buildTabBar(): FrameLayout {
+        val bar = FrameLayout(this).apply { background = th.glass(32) }
+        val pad = th.dp(6)
+        tabIndicator = View(this).apply { background = th.pill(th.alpha(th.accent, 0x30), th.alpha(th.accent, 0x66), 26) }
+        bar.addView(tabIndicator, FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT).apply { setMargins(0, pad, 0, pad) })
+        val items = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        for (i in pageNames.indices) {
+            val ic = ImageView(this).apply { setImageResource(pageIcons[i]); setColorFilter(th.muted) }
+            val lb = th.text(pageNames[i], 10f, th.muted, UdnTheme.Weight.Medium)
+            tabIcons += ic; tabLabels += lb
+            items.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+                isClickable = true; isFocusable = true
+                addView(ic, LinearLayout.LayoutParams(th.dp(22), th.dp(22)))
+                addView(lb, th.lp(top = 4, w = ViewGroup.LayoutParams.WRAP_CONTENT))
+                setOnClickListener { pager.setCurrentItem(i, true) }
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+        }
+        bar.addView(items, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT).apply { setMargins(pad, 0, pad, 0) })
+        bar.addOnLayoutChangeListener { _, l, _, r, _, _, _, _, _ ->
+            val w = (r - l - pad * 2) / pageNames.size
+            val lp = tabIndicator.layoutParams
+            if (lp.width != w - th.dp(6)) { lp.width = w - th.dp(6); tabIndicator.layoutParams = lp }
+            positionTabs(currentPageFraction)
+        }
+        return bar
+    }
 
-    private fun applyContentBottomPadding() {
-        val extra = if (composer.visibility == View.VISIBLE) th.dp(96) else th.dp(28)
-        content.setPadding(th.dp(18), th.dp(10), th.dp(18), extra + barsBottom)
+    private var currentPageFraction = 0f
+
+    /** Slides the highlight and blends icon/label colours while the pager moves, so the bar follows the swipe exactly. */
+    private fun positionTabs(f: Float) {
+        currentPageFraction = f
+        if (tabIcons.isEmpty() || tabBar.width == 0) return
+        val itemW = (tabBar.width - th.dp(12)) / pageNames.size.toFloat()
+        tabIndicator.translationX = th.dp(6) + f * itemW + th.dp(3)
+        for (i in pageNames.indices) {
+            val t = (1f - Math.abs(f - i)).coerceIn(0f, 1f)
+            val c = ColorUtils.blendARGB(th.muted, th.accent, t)
+            tabIcons[i].setColorFilter(c); tabLabels[i].setTextColor(c)
+            val sc = 1f + 0.16f * t
+            tabIcons[i].scaleX = sc; tabIcons[i].scaleY = sc
+        }
+    }
+
+    private fun updateComposer() {
+        val s = mgr.state.value
+        val show = s.configured && AuthManager.isSignedIn && s.enrolled && s.authorized && (currentPage == PAGE_HOME || currentPage == PAGE_DEVICES)
+        if (show && composer.visibility != View.VISIBLE) {
+            composer.alpha = 0f; composer.translationY = th.dp(14).toFloat(); composer.visibility = View.VISIBLE
+            composer.animate().alpha(1f).translationY(0f).setDuration(260).start()
+        } else if (!show && composer.visibility == View.VISIBLE) {
+            composer.animate().alpha(0f).translationY(th.dp(14).toFloat()).setDuration(180).withEndAction { composer.visibility = View.GONE }.start()
+            resultCard.visibility = View.GONE
+        }
+    }
+
+    /** First time a page is shown, its cards rise in one after another. Never loops and never replays on data refreshes. */
+    private fun animateIn(page: Int) {
+        if (!animatedPages.add(page)) return
+        val body = pageBodies.getOrNull(page) ?: return
+        for (i in 0 until body.childCount) {
+            val v = body.getChildAt(i)
+            v.alpha = 0f; v.translationY = th.dp(26).toFloat()
+            v.animate().alpha(1f).translationY(0f).setStartDelay(minOf(i, 8) * 50L).setDuration(340)
+                .setInterpolator(android.view.animation.DecelerateInterpolator(1.8f)).start()
+        }
     }
 
     private fun showResult(s: String) {
@@ -230,7 +358,7 @@ class UdnActivity : AppCompatActivity() {
             !s.authorized -> "Joining the network…"
             else -> {
                 val devs = s.devices.filter { it.isAuthorized }
-                if (s.isParent) "${devs.count { it.online }} of ${devs.size} devices online" else "Connected to your JARVIS network"
+                "${devs.count { it.online }} of ${devs.size} devices online"
             }
         }
         liveHolder?.let { h ->
@@ -257,7 +385,7 @@ class UdnActivity : AppCompatActivity() {
     private fun signature(s: UdnState): Int = listOf(
         s.configured, AuthManager.isSignedIn, s.enrolled, s.status, s.isParent, s.slot,
         s.devices.map { listOf(it.id, it.name, it.status, it.online, it.batteryPct, it.charging, it.connection, it.parentSlot, bucket(it.lastSeenMs), it.capabilities.map { c -> "${c.capability}${c.available}${c.permissionGranted}${c.policy}" }) },
-        s.groups, messageCache, auditCache?.map { it.id },
+        s.groups, s.circles, bansCache, messageCache, auditCache?.map { it.id },
         settings.remoteControlEnabled, settings.locationSharingEnabled, settings.linkEnabled,
         PermissionHelper.hasRecordAudioPermission(this), WakeKeepAlive.isEnabled(this),
         JarvisConversationService.isSessionOn.value || JarvisConversationService.isStandby.value,
@@ -267,37 +395,46 @@ class UdnActivity : AppCompatActivity() {
     private fun forceRender() { lastSignature = 0; render() }
 
     private fun render() {
-        if (!::bodyHolder.isInitialized || isFinishing || isDestroyed) return
+        if (!::pager.isInitialized || isFinishing || isDestroyed) return
         val s = mgr.state.value
         val sig = signature(s)
-        if (sig == lastSignature && bodyHolder.childCount > 0) return
+        if (sig == lastSignature && pageBodies.all { it.childCount > 0 }) return
         lastSignature = sig
-        val y = scroll.scrollY
-        bodyHolder.removeAllViews()
-        liveHolder = null
+        val ys = pageScrolls.map { it.scrollY }
+        pageBodies.forEach { it.removeAllViews() }
+        val ready = s.configured && AuthManager.isSignedIn && s.enrolled && s.authorized
 
-        composer.visibility = if (s.enrolled && s.authorized && s.isParent) View.VISIBLE else View.GONE
-        if (composer.visibility != View.VISIBLE) resultCard.visibility = View.GONE
-        applyContentBottomPadding()
-
+        // Home
+        bodyHolder = pageBodies[PAGE_HOME]
         when {
             !s.configured -> bodyHolder.addView(message("Cloud sync isn't configured", "This build has no Supabase configuration, so the Device Network is unavailable."))
             !AuthManager.isSignedIn -> bodyHolder.addView(message("Sign in required", "The Device Network is tied to your JARVIS account. Sign in from the menu, then come back here."))
-            !s.enrolled -> { renderJoin(); renderLocalSettings(s) }
-            !s.authorized -> { renderHero(s); renderWaiting(s); renderLocalSettings(s) }
-            else -> {
-                renderHero(s)
-                if (s.isParent) renderPending(s)
-                renderDevices(s)
-                renderMessages(s)
-                if (s.isParent) renderGroups(s)
-                renderLocalSettings(s)
-                renderVoice()
-                if (s.isParent) renderAudit()
-            }
+            !s.enrolled -> renderJoin(s)
+            !s.authorized -> { renderHero(s); renderWaiting(s) }
+            else -> { renderHero(s); if (s.isParent) renderPending(s); renderTry(s) }
         }
-        updateLive()
-        scroll.post { scroll.scrollTo(0, y) }
+        // Devices
+        bodyHolder = pageBodies[PAGE_DEVICES]
+        if (ready) { renderDevices(s); if (s.isParent) renderBans() } else renderLocked("Devices appear here once this device has joined the network.")
+        // Circles
+        bodyHolder = pageBodies[PAGE_CIRCLES]
+        if (ready) { if (s.isParent) renderGroups(s); renderCircles(s) } else renderLocked("Circles are available once this device has joined the network.")
+        // Messages
+        bodyHolder = pageBodies[PAGE_MESSAGES]
+        if (ready) renderMessages(s) else renderLocked("Messages are available once this device has joined the network.")
+        // Security
+        bodyHolder = pageBodies[PAGE_SECURITY]
+        renderLocalSettings(s)
+        if (bodyHolder.childCount == 0) renderLocked("Security settings appear once this device has joined the network.")
+        if (ready) { renderVoice(); if (s.isParent) renderAudit() }
+
+        updateLive(); updateComposer()
+        pageScrolls.forEachIndexed { i, sv -> sv.post { sv.scrollTo(0, ys.getOrElse(i) { 0 }) } }
+        animateIn(currentPage)
+    }
+
+    private fun renderLocked(text: String) {
+        bodyHolder.addView(card(null, 18, th.text(text, 13f, th.text2).apply { setLineSpacing(0f, 1.2f) }))
     }
 
     private fun sectionTitle(title: String, trailing: View? = null): View = LinearLayout(this).apply {
@@ -339,10 +476,11 @@ class UdnActivity : AppCompatActivity() {
 
     // ---- join
 
-    private fun renderJoin() {
+    private fun renderJoin(s: UdnState) {
         bodyHolder.addView(message(
-            "Join your JARVIS Device Network",
-            "Register this device with your account so your other JARVIS devices can see it. A parent device can then control it, and you can leave at any time.",
+            if (s.lastError != null && s.lastError.contains("banned")) "Access blocked" else "Join your JARVIS Device Network",
+            s.lastError?.takeIf { it.contains("banned") || it.contains("removed") }?.replaceFirstChar { it.uppercase() }
+                ?: "Join with your account and this device appears on both parent devices instantly. Parents can control it, and you can leave at any time.",
             button("Join network", true, R.drawable.udn_ic_group) {
                 settings.enrollmentPrompted = true
                 lifecycleScope.launch { mgr.enroll(); forceRender() }
@@ -366,25 +504,23 @@ class UdnActivity : AppCompatActivity() {
     private fun renderHero(s: UdnState) {
         val self = s.devices.firstOrNull { it.id == s.deviceId }
         val name = self?.name ?: "${Build.MANUFACTURER} ${Build.MODEL}"
-        val holder = FrameLayout(this).also { liveHolder = it }
         val head = row(
             th.iconTile(R.drawable.udn_ic_shield, th.accent, 52, 26),
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 addView(th.text("THIS DEVICE", 10f, th.text2, UdnTheme.Weight.Bold).apply { letterSpacing = 0.14f })
                 addView(th.text(name, 19f, th.text1, UdnTheme.Weight.Bold), th.lp(top = 4))
-            }.also { it.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = th.dp(14) } },
-            holder
+            }.also { it.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = th.dp(14) } }
         )
         val roles = row(th.chip(roleLabel(s), th.accent, filled = true)).apply { layoutParams = th.lp(top = 14) }
         val authorized = s.devices.filter { it.isAuthorized }
         val tiles = row(
             weighted(statTile(authorized.count { it.online }.toString(), "Online"), 8),
             weighted(statTile(authorized.size.toString(), "Devices"), 8),
-            weighted(statTile(authorized.count { it.isParent }.toString(), "Parents"))
+            weighted(if (s.isParent) statTile(authorized.count { it.isParent }.toString(), "Parents") else statTile(s.circles.count { it.myStatus == "member" }.toString(), "Circles"))
         ).apply { layoutParams = th.lp(top = 16) }
         val c = card(th.accent, 18, head, roles)
-        if (s.isParent) c.addView(tiles)
+        c.addView(tiles)
         bodyHolder.addView(c)
     }
 
@@ -449,15 +585,15 @@ class UdnActivity : AppCompatActivity() {
         val devices = s.devices.filter { it.status == "authorized" }
             .sortedWith(compareByDescending<UdnDevice> { it.id == s.deviceId }.thenByDescending { it.isParent }.thenBy { it.name.lowercase() })
         bodyHolder.addView(sectionTitle("Devices"))
-        if (!s.isParent) {
-            bodyHolder.addView(card(null, 16, th.text("Only parent devices can see and control the network. This device can still receive commands and messages from them.", 13f, th.text2).apply { setLineSpacing(0f, 1.2f) }))
-            return
+        if (!s.isParent && devices.size <= 1) {
+            bodyHolder.addView(card(th.accent, 16, th.text("You can control the child devices in your circles. Create a circle on the Circles page and invite a device to get started. Parent devices can always control this device.", 13f, th.text2).apply { setLineSpacing(0f, 1.2f) }))
         }
         if (devices.isEmpty()) { bodyHolder.addView(card(null, 16, th.text("No devices yet.", 13f, th.text2))); return }
         devices.forEach { d ->
             val isSelf = d.id == s.deviceId
+            val tone = if (d.online) th.hue(d.id) else th.muted
             val top = row(
-                th.iconTile(platformIcon(d), if (d.online) th.accent else th.muted),
+                th.iconTile(platformIcon(d), tone),
                 LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
                     addView(th.text(d.name + if (isSelf) "  ·  this device" else "", 16f, th.text1, UdnTheme.Weight.Bold))
@@ -472,8 +608,8 @@ class UdnActivity : AppCompatActivity() {
                 th.text(listOfNotNull(connLabel(d.connection).takeIf { d.online }, if (d.online) null else "Last seen ${ago(d.lastSeenMs)}").joinToString(" · "), 12f, th.text2),
                 th.lp(w = ViewGroup.LayoutParams.WRAP_CONTENT, start = if (d.batteryPct != null) 14 else 0)
             )
-            val c = card(if (d.online) th.accent else null, 16, top, chips, meta)
-            c.isClickable = true; c.isFocusable = true
+            val c = card(if (d.online) tone else null, 16, top, chips, meta)
+            c.isClickable = true; c.isFocusable = true; th.pressable(c)
             c.setOnClickListener { showDevice(d, isSelf) }
             bodyHolder.addView(c)
         }
@@ -519,7 +655,7 @@ class UdnActivity : AppCompatActivity() {
                 result.text = UdnVoiceRouter.runOne(mgr, UdnLang.EN, d, cap, params, confirmed)
             }
         }
-        if (s.isParent && !isSelf) {
+        if (!isSelf) {
             fun action(label: String, icon: Int, tint: Int = th.text1, on: () -> Unit): View = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
                 background = GradientDrawable().apply { cornerRadius = th.dpf(16f); setColor(th.alpha(th.text1, 0x10)); setStroke(th.dp(1), th.alpha(th.text1, 0x18)) }
@@ -531,12 +667,17 @@ class UdnActivity : AppCompatActivity() {
             col.addView(row(
                 weighted(action("Battery", R.drawable.udn_ic_battery) { quick(UdnCapabilities.DEVICE_BATTERY) }, 8),
                 weighted(action("Lock", R.drawable.udn_ic_lock) { confirm("Lock ${d.name}?", "Its screen will turn off and lock.") { quick(UdnCapabilities.DEVICE_LOCK, confirmed = true) } }, 8),
-                weighted(action("Message", R.drawable.udn_ic_message) { dialog.dismiss(); composeMessage(d.id) }, 8),
-                weighted(action("Rename", R.drawable.udn_ic_edit) { dialog.dismiss(); rename(d) }, 8),
-                weighted(action("Remove", R.drawable.udn_ic_remove, th.error) {
-                    confirm("Remove ${d.name}?", "It loses access immediately and must rejoin to come back.") { dialog.dismiss(); run({ mgr.revokeDevice(d.id) }) }
-                })
+                weighted(action("Message", R.drawable.udn_ic_message) { dialog.dismiss(); composeMessage(d.id) }, if (s.isParent && !d.isParent) 8 else 0),
+                *(if (s.isParent && !d.isParent) arrayOf(
+                    weighted(action("Rename", R.drawable.udn_ic_edit) { dialog.dismiss(); rename(d) }, 8),
+                    weighted(action("Remove", R.drawable.udn_ic_remove, th.error) {
+                        confirm("Remove ${d.name}?", "It loses access immediately and can rejoin only by joining the network again.") { dialog.dismiss(); run({ mgr.revokeDevice(d.id) }) }
+                    })
+                ) else emptyArray())
             ))
+            if (s.isParent && !d.isParent) col.addView(button("Ban this account", false, R.drawable.udn_ic_remove) {
+                confirm("Ban ${d.name}?", "Every device on this account is removed and blocked from the network until you unban it.") { dialog.dismiss(); run({ mgr.banDevice(d.id) }) }
+            }, th.lp(w = ViewGroup.LayoutParams.WRAP_CONTENT, top = 12))
             col.addView(resultBox, th.lp(top = 12))
         } else if (isSelf) {
             col.addView(button("Leave network", false) {
@@ -589,17 +730,17 @@ class UdnActivity : AppCompatActivity() {
     // ---- messages
 
     private fun renderMessages(s: UdnState) {
-        bodyHolder.addView(sectionTitle(if (s.isParent) "Messages" else "Messages for this device",
-            if (s.isParent) button("New", true, R.drawable.udn_ic_message) { composeMessage(null) } else null))
+        bodyHolder.addView(sectionTitle("Messages",
+            if (s.devices.any { it.isAuthorized && it.id != s.deviceId }) button("New", true, R.drawable.udn_ic_message) { composeMessage(null) } else null))
         val msgs = messageCache
         val byId = s.devices.associateBy { it.id }
         val c = card(null, 16)
         when {
             msgs == null -> c.addView(th.text("Loading…", 12f, th.text2))
-            msgs.isEmpty() -> c.addView(th.text(if (s.isParent) "No messages yet. Send one to any device and it's saved here." else "Nothing yet.", 13f, th.text2))
+            msgs.isEmpty() -> c.addView(th.text(if (s.isParent) "No messages yet. Send one to any device and it's saved here." else "Nothing yet. Messages you send to or receive from your circle appear here.", 13f, th.text2))
             else -> msgs.take(20).forEachIndexed { i, m ->
                 if (i > 0) c.addView(th.hRule())
-                val from = byId[m.fromDeviceId]?.name ?: "A parent device"
+                val from = byId[m.fromDeviceId]?.name ?: "A device"
                 val to = byId[m.toDeviceId]?.name ?: "a device"
                 val (label, color) = when (m.delivery) {
                     "succeeded" -> "Delivered" to th.success
@@ -609,7 +750,7 @@ class UdnActivity : AppCompatActivity() {
                     else -> "Waiting" to th.accent
                 }
                 c.addView(row(
-                    th.text(if (s.isParent) "$from  →  $to" else "From $from", 12f, th.accent, UdnTheme.Weight.Bold).also { it.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) },
+                    th.text("$from  →  $to", 12f, th.accent, UdnTheme.Weight.Bold).also { it.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) },
                     th.chip(label, color)
                 ))
                 c.addView(th.text(m.body, 14f, th.text1).apply { setLineSpacing(0f, 1.2f) }, th.lp(top = 8))
@@ -821,6 +962,124 @@ class UdnActivity : AppCompatActivity() {
         bodyHolder.addView(c)
     }
 
+    // ---- home: voice hints
+
+    private fun renderTry(s: UdnState) {
+        val others = s.devices.filter { it.isAuthorized && it.id != s.deviceId }
+        val sample = others.firstOrNull()?.name
+        val lines = ArrayList<String>()
+        lines += "“Show my devices”"
+        if (sample != null) { lines += "“What's the battery on $sample?”"; lines += "“Send a message to $sample saying dinner is ready”" }
+        else lines += "Devices that join the network appear here and can be controlled by voice."
+        bodyHolder.addView(sectionTitle("Try saying"))
+        bodyHolder.addView(card(th.accent2, 16, *lines.map { th.text(it, 14f, th.text1).apply { setLineSpacing(0f, 1.2f); setPadding(0, th.dp(4), 0, th.dp(4)) } as View }.toTypedArray()))
+    }
+
+    // ---- devices: banned accounts (parents)
+
+    private fun renderBans() {
+        val bans = bansCache ?: return
+        if (bans.isEmpty()) return
+        bodyHolder.addView(sectionTitle("Banned accounts"))
+        val c = card(th.error, 16)
+        bans.forEachIndexed { i, b ->
+            if (i > 0) c.addView(th.hRule())
+            c.addView(row(
+                LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(th.text(b.email ?: "Unknown account", 14f, th.text1, UdnTheme.Weight.Bold))
+                    addView(th.text(listOfNotNull(b.reason?.takeIf { it.isNotBlank() }, "Banned ${ago(b.createdMs)}").joinToString(" · "), 12f, th.text2), th.lp(top = 3))
+                }.also { it.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) },
+                button("Unban", false) { run({ mgr.unban(b.accountId) }, { bansCache = bansCache?.filter { x -> x.accountId != b.accountId } }) }
+            ))
+        }
+        bodyHolder.addView(c)
+    }
+
+    // ---- circles
+
+    private fun renderCircles(s: UdnState) {
+        val me = s.deviceId
+        bodyHolder.addView(sectionTitle(if (s.isParent) "All circles" else "My circles",
+            if (!s.isParent) button("New", true, R.drawable.udn_ic_group) { createCircleDialog() } else null))
+        if (!s.isParent) bodyHolder.addView(card(null, 14, th.text("Devices in the same circle can control each other and send messages. Camera and location always stay parent-only, and parents can see and manage every circle.", 12f, th.text2).apply { setLineSpacing(0f, 1.2f) }))
+
+        val invites = s.circles.filter { it.myStatus == "invited" }
+        invites.forEach { c ->
+            val from = c.members.firstOrNull { it.deviceId == c.createdBy }?.name ?: "a device"
+            bodyHolder.addView(card(th.warning, 16,
+                th.text("Invitation to “${c.name}”", 15f, th.text1, UdnTheme.Weight.Bold),
+                th.text("From $from", 12f, th.text2).also { it.layoutParams = th.lp(top = 4) },
+                row(button("Accept") { run({ mgr.respondCircle(c.id, true) }) },
+                    button("Decline", false) { run({ mgr.respondCircle(c.id, false) }) }.also { it.layoutParams = th.lp(w = ViewGroup.LayoutParams.WRAP_CONTENT, start = 10) }
+                ).apply { layoutParams = th.lp(top = 12) }
+            ))
+        }
+
+        val mine = s.circles.filter { it.myStatus != "invited" }
+        if (mine.isEmpty() && invites.isEmpty()) {
+            bodyHolder.addView(card(null, 16, th.text(if (s.isParent) "No circles yet. Child devices create them." else "No circles yet. Create one and invite another child device.", 13f, th.text2)))
+        }
+        mine.forEach { c ->
+            val tone = th.hue(c.id)
+            val owner = c.createdBy == me
+            val accepted = c.members.count { it.status == "member" }
+            val cv = card(tone, 16,
+                row(
+                    th.iconTile(R.drawable.udn_ic_group, tone),
+                    LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL
+                        addView(th.text(c.name, 16f, th.text1, UdnTheme.Weight.Bold))
+                        addView(th.text("$accepted member${if (accepted == 1) "" else "s"}", 12f, th.text2), th.lp(top = 3))
+                    }.also { it.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = th.dp(12) } },
+                    th.chip(if (owner) "Owner" else if (s.isParent) "Overview" else "Member", if (owner) tone else th.text2)
+                )
+            )
+            c.members.forEach { m ->
+                cv.addView(row(
+                    View(this).apply { background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(if (m.online) th.success else th.muted) }; layoutParams = LinearLayout.LayoutParams(th.dp(8), th.dp(8)) },
+                    th.text(m.name + if (m.deviceId == me) "  ·  you" else "", 13f, th.text1).also { it.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = th.dp(10) } },
+                    if (m.status == "invited") th.chip("Invited", th.warning) else th.text(if (m.online) "Online" else "Offline", 12f, th.text2),
+                    *(if ((owner || s.isParent) && m.deviceId != c.createdBy) arrayOf<View>(
+                        button("Remove", false) { run({ mgr.removeCircleMember(c.id, m.deviceId) }) }.also { it.layoutParams = th.lp(w = ViewGroup.LayoutParams.WRAP_CONTENT, start = 10) }
+                    ) else emptyArray())
+                ).apply { layoutParams = th.lp(top = 12) })
+            }
+            val actions = row().apply { layoutParams = th.lp(top = 14) }
+            if (owner) actions.addView(button("Invite device", true, R.drawable.udn_ic_group) { inviteDialog(c) })
+            if (owner || s.isParent) actions.addView(button("Delete", false) {
+                confirm("Delete “${c.name}”?", "Its members will no longer be able to control each other through it.") { run({ mgr.deleteCircle(c.id) }) }
+            }.also { it.layoutParams = th.lp(w = ViewGroup.LayoutParams.WRAP_CONTENT, start = if (owner) 8 else 0) })
+            if (!owner && !s.isParent) actions.addView(button("Leave circle", false) { run({ mgr.leaveCircle(c.id) }) })
+            cv.addView(actions)
+            bodyHolder.addView(cv)
+        }
+    }
+
+    private fun createCircleDialog() {
+        val et = EditText(this).apply { hint = "Circle name"; setSingleLine() }
+        AlertDialog.Builder(this).setTitle("New circle").setView(et)
+            .setPositiveButton("Create") { _, _ -> et.text.toString().trim().takeIf { it.isNotEmpty() }?.let { n -> run({ mgr.createCircle(n) }) } }
+            .setNegativeButton("Cancel", null).show()
+    }
+
+    private fun inviteDialog(c: UdnCircle) {
+        lifecycleScope.launch {
+            when (val r = mgr.directory()) {
+                is UdnResult.Err -> toast(r.message)
+                is UdnResult.Ok -> {
+                    val taken = c.members.map { it.deviceId }.toSet()
+                    val options = r.value.filter { it.id !in taken }
+                    if (options.isEmpty()) { toast("No other child devices are available to invite."); return@launch }
+                    AlertDialog.Builder(this@UdnActivity).setTitle("Invite to “${c.name}”")
+                        .setItems(options.map { it.name + if (it.online) "" else "  (offline)" }.toTypedArray()) { _, i ->
+                            run({ mgr.inviteToCircle(c.id, options[i].id) }, { toast("Invitation sent to ${options[i].name}.") })
+                        }.setNegativeButton("Cancel", null).show()
+                }
+            }
+        }
+    }
+
     // ---- helpers
 
     private fun <T> run(op: suspend () -> UdnResult<T>, ok: (T) -> Unit = {}) {
@@ -842,5 +1101,14 @@ class UdnActivity : AppCompatActivity() {
     private fun confirm(title: String, message: String, onYes: () -> Unit) {
         AlertDialog.Builder(this).setTitle(title).setMessage(message)
             .setPositiveButton("Confirm") { _, _ -> onYes() }.setNegativeButton("Cancel", null).show()
+    }
+
+    companion object {
+        const val EXTRA_PAGE = "udn_page"
+        const val PAGE_HOME = 0
+        const val PAGE_DEVICES = 1
+        const val PAGE_CIRCLES = 2
+        const val PAGE_MESSAGES = 3
+        const val PAGE_SECURITY = 4
     }
 }

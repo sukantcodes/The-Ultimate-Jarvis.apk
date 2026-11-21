@@ -40,6 +40,7 @@ data class UdnState(
     val parentsExist: Boolean = false,
     val devices: List<UdnDevice> = emptyList(),
     val groups: List<UdnGroup> = emptyList(),
+    val circles: List<UdnCircle> = emptyList(),
     val realtimeConnected: Boolean = false,
     val linkRunning: Boolean = false,
     val lastError: String? = null,
@@ -150,18 +151,39 @@ class UdnManager private constructor(context: Context) {
     }
 
     suspend fun refreshRegistry(): UdnResult<Unit> {
-        if (!_state.value.isParent) return UdnResult.Ok(Unit)
         return when (val r = api.call("list_devices")) {
             is UdnResult.Ok -> {
                 val devices = r.value.optJSONArray("devices").toList { UdnDevice.fromJson(it) }
+                val circles = r.value.optJSONArray("circles").toList { UdnCircle.fromJson(it) }
                 val groups = r.value.optJSONArray("groups").toList { g ->
                     UdnGroup(g.getString("id"), g.optString("name"), g.optJSONArray("device_ids")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList())
                 }
-                _state.update { it.copy(devices = devices, groups = groups) }
+                _state.update { it.copy(devices = devices, groups = groups, circles = circles) }
+                announceChanges(devices, circles)
                 UdnResult.Ok(Unit)
             }
             is UdnResult.Err -> { handleAuthError(r); r }
         }
+    }
+
+    /**
+     * Tells this device about new arrivals (parents) and circle invitations. The first sync only records a silent
+     * baseline, so installing or re-installing never produces a burst of "joined" notifications.
+     */
+    private fun announceChanges(devices: List<UdnDevice>, circles: List<UdnCircle>) {
+        val me = settings.deviceId
+        if (_state.value.isParent) {
+            val current = devices.filter { it.status == "authorized" }.map { it.id }.toSet()
+            val known = settings.knownDeviceIds
+            if (known != null) {
+                devices.filter { it.id in current && it.id !in known && it.id != me }.forEach { UdnNotifier.deviceJoined(app, it.name, it.id) }
+            }
+            settings.knownDeviceIds = (known ?: emptySet()) + current
+        }
+        val invites = circles.filter { it.myStatus == "invited" }
+        val told = settings.notifiedInvites
+        invites.filter { it.id !in told }.forEach { UdnNotifier.circleInvite(app, it.name, it.id) }
+        settings.notifiedInvites = invites.map { it.id }.toSet()
     }
 
     /** Devices as the voice layer sees them (this device flagged as self). */
@@ -173,8 +195,13 @@ class UdnManager private constructor(context: Context) {
         when (r.code) {
             "device_revoked" -> {
                 UdnIdentity.reset(); settings.clearEnrollment()
-                UdnLinkService.stop(app)
+                UdnLinkService.stop(app); UdnWatchdog.cancel(app)
                 _state.update { UdnState(configured = it.configured, signedIn = it.signedIn, lastError = UdnErrors.describe("device_revoked")) }
+            }
+            "account_banned" -> {
+                UdnIdentity.reset(); settings.clearEnrollment()
+                UdnLinkService.stop(app); UdnWatchdog.cancel(app)
+                _state.update { UdnState(configured = it.configured, signedIn = it.signedIn, lastError = UdnErrors.describe("account_banned")) }
             }
             "unknown_device" -> {
                 settings.clearEnrollment()
@@ -210,7 +237,42 @@ class UdnManager private constructor(context: Context) {
     suspend fun setGroupMember(groupId: String, deviceId: String, remove: Boolean): UdnResult<Unit> =
         simple("group_members", JSONObject().put("group_id", groupId).put("device_id", deviceId).put("remove", remove)) { refreshRegistry() }
 
-    /** Sends a parent message. Returns the delivery command ids (one per recipient). */
+    // ---- parents: ban / unban
+
+    suspend fun banDevice(targetId: String, reason: String = ""): UdnResult<Unit> =
+        simple("ban", JSONObject().put("target", targetId).put("reason", reason)) { refreshRegistry() }
+
+    suspend fun unban(accountId: String): UdnResult<Unit> = simple("unban", JSONObject().put("account_id", accountId))
+
+    suspend fun bans(): UdnResult<List<UdnBan>> =
+        when (val r = api.call("list_bans")) {
+            is UdnResult.Ok -> UdnResult.Ok(r.value.optJSONArray("bans").toList { b ->
+                UdnBan(b.optString("account_id"), b.optStringOrNull("email"), b.optStringOrNull("reason"), parseInstantMs(b.optStringOrNull("created_at")))
+            })
+            is UdnResult.Err -> r
+        }
+
+    // ---- children: circles
+
+    suspend fun directory(): UdnResult<List<UdnDirectoryDevice>> =
+        when (val r = api.call("directory")) {
+            is UdnResult.Ok -> UdnResult.Ok(r.value.optJSONArray("devices").toList { d ->
+                UdnDirectoryDevice(d.getString("id"), d.optString("name", "Device"), d.optString("platform", "android"), d.optBoolean("online"))
+            })
+            is UdnResult.Err -> r
+        }
+
+    suspend fun createCircle(name: String): UdnResult<Unit> = simple("create_circle", JSONObject().put("name", name)) { refreshRegistry() }
+    suspend fun inviteToCircle(circleId: String, deviceId: String): UdnResult<Unit> =
+        simple("invite_circle", JSONObject().put("circle_id", circleId).put("device_id", deviceId)) { refreshRegistry() }
+    suspend fun respondCircle(circleId: String, accept: Boolean): UdnResult<Unit> =
+        simple("respond_circle", JSONObject().put("circle_id", circleId).put("accept", accept)) { refreshRegistry() }
+    suspend fun leaveCircle(circleId: String): UdnResult<Unit> = simple("leave_circle", JSONObject().put("circle_id", circleId)) { refreshRegistry() }
+    suspend fun removeCircleMember(circleId: String, deviceId: String): UdnResult<Unit> =
+        simple("remove_circle_member", JSONObject().put("circle_id", circleId).put("device_id", deviceId)) { refreshRegistry() }
+    suspend fun deleteCircle(circleId: String): UdnResult<Unit> = simple("delete_circle", JSONObject().put("circle_id", circleId)) { refreshRegistry() }
+
+    /** Sends a message (parents to anyone, children to their circle members). Returns the delivery command ids (one per recipient). */
     suspend fun sendMessage(targetIds: List<String>, text: String): UdnResult<List<String>> {
         val args = JSONObject().put("text", text).put("targets", org.json.JSONArray(targetIds))
         return when (val r = api.call("send_message", args)) {
@@ -336,13 +398,16 @@ class UdnManager private constructor(context: Context) {
 
     /** Starts heartbeat, realtime wake-ups, LAN nudges, network-change handling and command polling. Idempotent. */
     fun startLink(scope: CoroutineScope) {
+        UdnWatchdog.schedule(app)
         if (linkJob?.isActive == true) return
         _state.update { it.copy(linkRunning = true) }
         linkJob = scope.launch {
             lan = UdnLanListener { nudge() }.also { it.start(this) }
             realtime = UdnRealtime(app, onWake = { kind, target ->
                 if (kind == "command" && (target == null || target == settings.deviceId)) nudge()
-                else if (kind == "registry") scope.launch { refreshSelf(); refreshRegistry() }
+                else if (kind == "registry" || (kind == "circle" && (target == null || target == settings.deviceId))) {
+                    scope.launch { refreshSelf(); refreshRegistry() }
+                }
             }, onConnectionChanged = { up -> _state.update { it.copy(realtimeConnected = up) } }).also { it.start(this) }
             registerNetworkCallback()
             launch { heartbeatLoop() }

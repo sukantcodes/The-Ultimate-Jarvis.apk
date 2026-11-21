@@ -49,7 +49,6 @@ object UdnVoiceRouter {
         val state = mgr.state.value
         if (!state.enrolled) return UdnReplyComposer.notJoined(lang)
         if (!state.authorized) return UdnReplyComposer.notAuthorized(lang)
-        if (!state.isParent) return UdnReplyComposer.parentOnly(lang)
 
         mgr.refreshRegistry()
 

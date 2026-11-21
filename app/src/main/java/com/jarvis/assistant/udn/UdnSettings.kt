@@ -39,8 +39,18 @@ class UdnSettings private constructor(context: Context) {
         get() = prefs.getString("last_status", null)
         set(v) = prefs.edit().putString("last_status", v).apply()
 
+    /** Device ids this device has already seen in the registry; null until the first sync sets a silent baseline. */
+    var knownDeviceIds: Set<String>?
+        get() = if (prefs.contains("known_devices")) prefs.getStringSet("known_devices", emptySet())?.toSet() else null
+        set(v) = prefs.edit().apply { if (v == null) remove("known_devices") else putStringSet("known_devices", v.toHashSet()) }.apply()
+
+    /** Circle invitations that already produced a notification. */
+    var notifiedInvites: Set<String>
+        get() = prefs.getStringSet("notified_invites", emptySet())?.toSet() ?: emptySet()
+        set(v) = prefs.edit().putStringSet("notified_invites", v.toHashSet()).apply()
+
     fun clearEnrollment() {
-        prefs.edit().remove("device_id").remove("cap_hash").remove("last_status").apply()
+        prefs.edit().remove("device_id").remove("cap_hash").remove("last_status").remove("known_devices").remove("notified_invites").apply()
     }
 
     companion object {

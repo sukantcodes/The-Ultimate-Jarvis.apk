@@ -75,6 +75,29 @@ data class UdnDevice(
     }
 }
 
+data class UdnCircleMember(val deviceId: String, val name: String, val platform: String, val status: String, val online: Boolean)
+
+/** A child-created circle: accepted members may control each other. [myStatus] is null for parents (who see every circle). */
+data class UdnCircle(
+    val id: String, val name: String, val createdBy: String, val myStatus: String?, val members: List<UdnCircleMember>
+) {
+    companion object {
+        fun fromJson(o: JSONObject) = UdnCircle(
+            id = o.getString("id"), name = o.optString("name"), createdBy = o.optString("created_by"),
+            myStatus = o.optStringOrNull("my_status"),
+            members = o.optJSONArray("members").toList { m ->
+                UdnCircleMember(m.optString("device_id"), m.optString("name", "Device"), m.optString("platform", "android"),
+                    m.optString("status"), m.optBoolean("online", false))
+            }
+        )
+    }
+}
+
+data class UdnBan(val accountId: String, val email: String?, val reason: String?, val createdMs: Long?)
+
+/** A joinable child device, as listed in the directory when inviting into a circle. */
+data class UdnDirectoryDevice(val id: String, val name: String, val platform: String, val online: Boolean)
+
 data class UdnGroup(val id: String, val name: String, val deviceIds: List<String>)
 
 data class UdnCommandRecord(
@@ -178,6 +201,16 @@ object UdnErrors {
         "denied_by_policy" -> "your policy for that device blocks it"
         "confirmation_required" -> "it needs your confirmation first"
         "parent_required" -> "only a parent device can do that"
+        "not_allowed" -> "you can only control devices in your circles"
+        "target_not_allowed" -> "that device can't be controlled from here"
+        "account_banned" -> "this account was banned from the network by a parent"
+        "child_only" -> "only child devices can use circles"
+        "not_circle_owner" -> "only the circle's creator can do that"
+        "circle_exists" -> "you already have a circle with that name"
+        "too_many_circles" -> "you've reached the circle limit"
+        "cannot_invite_parent" -> "parent devices can't join circles"
+        "cannot_ban_parent" -> "a parent can't be banned"
+        "source_not_allowed" -> "the sender is no longer allowed to control this device"
         "rate_limited" -> "too many requests, please wait a moment"
         "device_revoked" -> "this device was removed from the network"
         "device_not_authorized" -> "this device isn't authorized yet"

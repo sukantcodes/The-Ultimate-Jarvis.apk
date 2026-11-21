@@ -53,6 +53,27 @@ class UdnTheme(val ctx: Context) {
 
     fun alpha(c: Int, a: Int) = ColorUtils.setAlphaComponent(c, a)
 
+    /** A stable, colourful tone per item (device, circle), derived from the active theme's accent by rotating its hue. */
+    fun hue(seed: String): Int {
+        val hsv = FloatArray(3)
+        Color.colorToHSV(accent, hsv)
+        hsv[0] = (hsv[0] + (Math.abs(seed.hashCode()) % 7) * 51f) % 360f
+        hsv[1] = hsv[1].coerceIn(0.55f, 0.9f)
+        hsv[2] = hsv[2].coerceIn(0.75f, if (light) 0.85f else 1f)
+        return Color.HSVToColor(hsv)
+    }
+
+    /** Subtle press feedback (scale) for tappable views. Returns false from the touch listener so clicks still fire. */
+    fun pressable(v: View) {
+        v.setOnTouchListener { view, e ->
+            when (e.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN -> view.animate().scaleX(0.97f).scaleY(0.97f).setDuration(90).start()
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> view.animate().scaleX(1f).scaleY(1f).setDuration(140).start()
+            }
+            false
+        }
+    }
+
     /** Static frosted glass: themed gradient, themed hairline border and a faint specular highlight along the top edge. */
     fun glass(radiusDp: Int = 22, tint: Int? = null): Drawable {
         val r = dpf(radiusDp.toFloat())
