@@ -38,6 +38,7 @@ import androidx.core.view.ViewCompat
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -203,6 +204,11 @@ class SettingsFragment : Fragment() {
         SettingsDeck.styleOrb(binding.orbBadge, accent)
         SettingsDeck.styleHero(binding.cardProfile, accent)
         SettingsDeck.styleAvatarRing(binding.frameProfileRing, accent, ThemeManager.getThemeSecondaryColor())
+        SettingsDeck.styleOnlineDot(binding.viewProfileOnlineDot, ThemeManager.getThemeSuccessColor())
+        SettingsDeck.styleChip(binding.btnProfileEditTile, accent, 14f)
+        binding.btnProfileEditTile.setOnClickListener { showEditNameDialog() }
+        paintBackdrop(accent)
+        bindProfileNetworkChip()
         deckSections().forEach { section ->
             SettingsDeck.styleSectionHeader(section.header, section.accent)
             SettingsDeck.styleCard(section.card, section.accent)
@@ -214,6 +220,52 @@ class SettingsFragment : Fragment() {
         SettingsDeck.pressFeedback(binding.glassCardOwner)
         SettingsDeck.styleSwitches(binding.root, accent)
         applyDimensionalIconColors(binding.root)
+    }
+
+    /** A static ambient backdrop: the theme colour with two soft accent glows. Drawn once, never animated. */
+    private fun paintBackdrop(accent: Int) {
+        val ctx = requireContext()
+        val tv = android.util.TypedValue()
+        val base = if (ctx.theme.resolveAttribute(R.attr.themeBg, tv, true)) tv.data else android.graphics.Color.BLACK
+        val glow = 420f * resources.displayMetrics.density
+        fun radial(cx: Float, cy: Float, color: Int, a: Int) = android.graphics.drawable.GradientDrawable().apply {
+            gradientType = android.graphics.drawable.GradientDrawable.RADIAL_GRADIENT
+            gradientRadius = glow; setGradientCenter(cx, cy)
+            colors = intArrayOf(androidx.core.graphics.ColorUtils.setAlphaComponent(color, a), androidx.core.graphics.ColorUtils.setAlphaComponent(color, 0))
+        }
+        binding.root.background = android.graphics.drawable.LayerDrawable(arrayOf(
+            android.graphics.drawable.ColorDrawable(base),
+            radial(0.1f, 0.0f, accent, 70),
+            radial(1.0f, 0.55f, ThemeManager.getThemeSecondaryColor(), 40)
+        ))
+    }
+
+    /** The profile card's Device Network chip shows this device's real role and how many devices are online. */
+    private fun bindProfileNetworkChip() {
+        val mgr = com.jarvis.assistant.udn.UdnManager.get(requireContext().applicationContext)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                mgr.state.collect { st ->
+                    if (_binding == null) return@collect
+                    val signedIn = com.jarvis.assistant.auth.AuthManager.isSignedIn
+                    val (text, tone) = when {
+                        !st.configured || !signedIn -> "NETWORK · SIGN IN" to ThemeManager.getThemeSecondaryColor()
+                        !st.enrolled -> "NETWORK · NOT JOINED" to ThemeManager.getThemeWarningColor()
+                        !st.authorized -> "NETWORK · JOINING" to ThemeManager.getThemeWarningColor()
+                        else -> ((if (st.isParent) "PARENT" + (st.slot?.let { " $it" } ?: "") else "CHILD") +
+                            " · ${st.devices.count { it.isAuthorized && it.online }} ONLINE") to ThemeManager.getThemeSuccessColor()
+                    }
+                    binding.tvProfileNetwork.text = text
+                    SettingsDeck.styleChip(binding.chipProfileNetwork, tone)
+                    binding.viewProfileNetworkDot.background = android.graphics.drawable.GradientDrawable().apply {
+                        shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(tone)
+                    }
+                    binding.chipProfileNetwork.setOnClickListener {
+                        startActivity(android.content.Intent(requireContext(), com.jarvis.assistant.ui.udn.UdnActivity::class.java))
+                    }
+                }
+            }
+        }
     }
 
     /** 0 = every section; 1..8 = only the section picked in the rail (same order as [deckSections]). */

@@ -161,6 +161,23 @@ object SettingsDeck {
         }
     }
 
+    /** The green "online" dot on the photo's edge, ringed in the card colour so it reads cleanly over the photo. */
+    fun styleOnlineDot(dot: View, success: Int) {
+        val ctx = dot.context
+        val ring = themeColor(ctx, R.attr.themeBg, Color.BLACK)
+        dot.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(success)
+            setStroke(px(ctx, 2.5f), ring)
+        }
+    }
+
+    /** A small tinted pill (status chips and the edit tile). */
+    fun styleChip(view: View, tone: Int, radiusDp: Float = 100f) {
+        val ctx = view.context
+        view.background = pill(ctx, alpha(tone, 0.14f), alpha(tone, 0.42f), radiusDp)
+    }
+
     /** Section heading: a short vertical bar in the section colour before the label. */
     fun styleSectionHeader(header: TextView, accent: Int) {
         val ctx = header.context

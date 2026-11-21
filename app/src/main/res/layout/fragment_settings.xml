@@ -165,8 +165,8 @@
 
                     <FrameLayout
                         android:id="@+id/frameProfileRing"
-                        android:layout_width="72dp"
-                        android:layout_height="72dp"
+                        android:layout_width="80dp"
+                        android:layout_height="80dp"
                         android:padding="3dp">
 
                         <ImageView
@@ -176,33 +176,36 @@
                             android:background="@drawable/bg_profile_photo_round"
                             android:clipToOutline="true"
                             android:contentDescription="Profile photo. Tap to choose from gallery."
-                            android:padding="14dp"
+                            android:padding="16dp"
                             android:scaleType="centerInside"
                             android:src="@drawable/ic_user_profile"
                             app:tint="?attr/themeAccent" />
 
-                        <!-- Online status dot -->
+                        <!-- Online status dot: filled and ringed in code so it sits cleanly on the photo's edge -->
                         <View
-                            android:layout_width="14dp"
-                            android:layout_height="14dp"
-                            android:layout_gravity="bottom|end"
-                            android:background="@drawable/bg_jarvis_mic_center"
-                            android:backgroundTint="@color/status_green" />
+                            android:id="@+id/viewProfileOnlineDot"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="bottom|end" />
                     </FrameLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="16dp"
+                        android:layout_marginEnd="8dp"
                         android:layout_weight="1"
                         android:orientation="vertical">
 
                         <TextView
                             android:id="@+id/tvProfileName"
-                            android:layout_width="wrap_content"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:ellipsize="end"
                             android:fontFamily="sans-serif-medium"
+                            android:includeFontPadding="false"
                             android:letterSpacing="-0.02"
+                            android:maxLines="1"
                             android:text="Sukant"
                             android:textColor="?attr/themeTextPrimary"
                             android:textSize="24sp"
@@ -210,22 +213,33 @@
 
                         <TextView
                             android:id="@+id/tvProfileSubtitle"
-                            android:layout_width="wrap_content"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
+                            android:layout_marginTop="6dp"
+                            android:ellipsize="end"
                             android:fontFamily="sans-serif-medium"
-                            android:letterSpacing="0.12"
+                            android:includeFontPadding="false"
+                            android:letterSpacing="0.1"
+                            android:maxLines="1"
                             android:text="JARVIS OPERATOR • PRIMARY USER"
                             android:textColor="?attr/themeTextMuted"
                             android:textSize="10sp" />
                     </LinearLayout>
 
-                    <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:contentDescription="Edit"
-                        android:src="@drawable/ic_edit"
-                        app:tint="?attr/themeTextMuted" />
+                    <FrameLayout
+                        android:id="@+id/btnProfileEditTile"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:contentDescription="Edit name">
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_edit"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
                 </LinearLayout>
 
                 <!-- Hairline between identity and status -->
@@ -237,11 +251,16 @@
                     android:background="?attr/themeCardBorder" />
 
                 <!-- Profile Quick Status Chips -->
-                <LinearLayout
+                <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginTop="16dp">
+                    android:layout_marginTop="16dp"
+                    android:overScrollMode="never"
+                    android:scrollbars="none">
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
 
                     <!-- Voice Biometrics Chip -->
                     <LinearLayout
@@ -305,7 +324,37 @@
                             android:letterSpacing="0.05"
                             android:layout_marginStart="5dp" />
                     </LinearLayout>
+
+                    <!-- Device Network role chip -->
+                    <LinearLayout
+                        android:id="@+id/chipProfileNetwork"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="5dp">
+
+                        <View
+                            android:id="@+id/viewProfileNetworkDot"
+                            android:layout_width="7dp"
+                            android:layout_height="7dp" />
+
+                        <TextView
+                            android:id="@+id/tvProfileNetwork"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:fontFamily="sans-serif-medium"
+                            android:letterSpacing="0.05"
+                            android:text="NETWORK"
+                            android:textColor="?attr/themeTextPrimary"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
                 </LinearLayout>
+                </HorizontalScrollView>
             </LinearLayout>
 
             <!-- SECTION 1: AI & INTELLIGENCE -->
