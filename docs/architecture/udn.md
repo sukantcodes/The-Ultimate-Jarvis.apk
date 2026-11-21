@@ -1,31 +1,31 @@
 # JARVIS Universal Device Network (UDN)
 
-Backend: Supabase project JARVIS-CLOUD_CLI. Android client: `app/.../udn`, UI: `ui/udn/UdnActivity`. Windows: `windows-agent/`.
+One shared network for every JARVIS account. There are no pairing codes.
 
-## Trust model
-- Account identity: Supabase user JWT. Device identity: per-device ECDSA P-256 key (Android Keystore, StrongBox if present; DPAPI on Windows).
-- Each request is signed over `UDN1 / POST / action / deviceId / ts / nonce / sha256(body)`; the Edge Function verifies it, enforces a ±120 s window, single-use nonces and rate limits.
-- All tables are RLS-locked (clients have no table access except reading their own `udn_wakeups`); every mutation goes through the `udn-api` function using service-role-only SQL functions. The service-role key exists only in the Edge Function environment.
-- Exactly two parent slots, DB-enforced. First parent via `claim_first_parent` (only when none exists); others join with a one-time 10-minute code and must be approved by a parent. A parent cannot revoke the other parent; nobody can promote itself.
+## Roles
+- **Parents** are the accounts `sukantxplodeprime@gmail.com` (Parent 1) and `sentubhattacharya2021@gmail.com` (Parent 2), allowlisted in `udn_parent_emails`. The server derives the role from the verified account e-mail on every request; the client can't claim it. Every device signed in to a parent account is a parent device.
+- **Children** are every other device. They join automatically (`register` -> `udn_auto_enroll`) and appear on the parent devices straight away.
 
-## Command lifecycle
-queued → delivered → running → succeeded / failed / rejected / expired / cancelled / timed_out. Idempotent per (source, nonce); redelivered after 20 s if unacked (max 4); target-side dedupe store prevents double execution. Online = heartbeat within 135 s (3 × 45 s). Realtime wake-ups carry ids only; polling is the fallback. The reply to the user is built only from the target's reported result.
-
-## Sensitivity
-Low: runs. Medium (lock, volume, brightness, flashlight): needs the sender's confirmation (a spoken command counts). High (location, camera): explicit "yes" on the sender **and** Allow on the target's notification. Per-device policy (allow/confirm/deny) and a local "allow remote control" kill switch.
-
-## Platform limits
-| Capability | Requires | Limits |
+## Who can do what
+| Action | Parent | Child |
 |---|---|---|
-| device.lock | Accessibility service enabled | Reported unavailable otherwise |
-| volume/brightness | WRITE_SETTINGS for brightness | Verified by read-back |
-| flashlight | Camera flash hardware | Verified by read-back |
-| location | User opt-in + location permission + Allow tap | Foreground-service limits apply |
-| camera | Allow tap | Only opens Camera Scan; no streaming |
-| listening.stop | Voice service running | Verified |
-| chat.ask / routine.run | — | Reported unavailable (not implemented remotely) |
-| background voice | Mic permission, foreground notification | Android/OEM can stop it; battery-optimization exemption helps; no mic during calls |
-| background link | Foreground service (dataSync) | Not auto-started at boot (Android 15 restrictions); starts when the app is opened |
+| See all devices | yes | only itself and accepted circle members |
+| Command another device | any other device, including the other parent | only accepted members of a shared circle; never a parent |
+| Camera / location (high sensitivity) | yes (with on-device Allow) | never |
+| Remove a child (`revoke`) / ban its account (`ban`, `unban`) | yes | no (can only leave itself) |
+| Rename, policies, groups, audit log | yes | no |
+| Create / manage circles | read all, delete any | create, invite, remove members, leave |
+| Messages | to any device; sees all | to circle members; sees own |
 
-## Not implemented
-Offline LAN control (the LAN socket is only a wake-up nudge; commands still flow via Supabase), remote AI chat/routines, camera/mic streaming, boot auto-start, lock-screen voice integration.
+The rule lives in SQL: `udn_may_command(owner, source, target)`, checked at `send_command` and again at `poll_commands` (delivery time).
+
+## Reliability
+- Signed requests (ECDSA P-256 from the Android Keystore), replay-protected nonces, idempotent command queue with redelivery and target-side dedupe.
+- Realtime wake-ups (`udn_wakeups`, kinds `command`, `registry`, `circle`) tell devices to refresh at once; polling and a 45 s heartbeat are the fallback; a LAN socket is only a nudge.
+- Foreground link service plus a WorkManager watchdog (about every 15 minutes) that restarts the link. Android and some manufacturers can still stop background apps, so "never fails" can't be guaranteed; a device that is off or offline is reported as offline, never as a success.
+- Parents get a local notification when a new device joins (first sync is a silent baseline) and children when invited to a circle.
+
+## Backend
+Tables: `udn_devices`, `udn_parent_emails`, `udn_command_queue`, `udn_messages`, `udn_bans`, `udn_circles`, `udn_circle_members`, and others (all RLS-locked; only `udn_wakeups` is readable, ids only). Edge Function `udn-api` is the only client entry point; the service-role key exists only there.
+
+Migrations: `20261118000000_udn_core`, `20261120000000_udn_shared_network`, `20261121000000_udn_account_based_parent_roles`, `20261121010000_udn_circles_bans`.
