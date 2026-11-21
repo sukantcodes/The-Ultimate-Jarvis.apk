@@ -197,13 +197,15 @@ class UdnActivity : AppCompatActivity() {
         pager = ViewPager2(this).apply {
             adapter = PagesAdapter(); offscreenPageLimit = pageNames.size
             setPageTransformer { page, pos ->
+                // Pages slide at their natural position (no parallax offset, which used to leave a neighbouring page
+                // peeking in at the screen edge). The leaving page fades out before the entering one fades in, so two
+                // pages' content is never readable on top of each other.
                 val a = Math.abs(pos).coerceAtMost(1f)
-                page.alpha = 1f - 0.55f * a
-                val sc = 1f - 0.07f * a
+                page.alpha = (1f - 1.7f * a).coerceIn(0f, 1f)
+                val sc = 1f - 0.05f * a
                 page.scaleX = sc; page.scaleY = sc
-                page.translationX = -pos * page.width * 0.16f   // parallax: pages trail the swipe slightly
-                page.cameraDistance = 14000f * resources.displayMetrics.density
-                page.rotationY = -pos * 9f
+                page.translationX = 0f
+                page.rotationY = 0f
             }
             registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
                 override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) { positionTabs(position + positionOffset) }
