@@ -254,6 +254,7 @@ class ChatFragment : Fragment() {
         }
         binding.rvChatMessages.itemAnimator = ChatItemAnimator()
         binding.rvChatMessages.adapter = chatAdapter
+        com.jarvis.assistant.ui.chat.liquid.LiquidMotion.headerIn(binding.layoutChatHeader)
         setupInlineActivity()
 
         // "offline" was a saved choice in older versions; the offline brain no longer exists, so it means Auto now.

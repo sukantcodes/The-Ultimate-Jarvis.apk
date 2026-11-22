@@ -34,15 +34,18 @@ object StreamFade {
 
     private const val KEY = 0x4A4C5346 // "JLSF"
     private const val MAX_SPANS = 48
-    private const val FADE_MS = 260L
+    private const val FADE_MS = 360L
     private const val MAX_CHUNK_CHARS = 900
 
     private class Range(val start: Int, var end: Int, val startAt: Long, val dur: Long)
 
-    private class FadeSpan(val range: Range) : CharacterStyle(), UpdateAppearance {
+    /** A new word arrives glowing in the theme accent and settles into the normal text colour as it fades up. */
+    private class FadeSpan(val range: Range, val accent: Int) : CharacterStyle(), UpdateAppearance {
         var alpha = 0f
         override fun updateDrawState(tp: TextPaint) {
-            if (alpha < 1f) tp.color = ColorUtils.setAlphaComponent(tp.color, (Color.alpha(tp.color) * alpha).toInt().coerceIn(0, 255))
+            if (alpha >= 1f) return
+            val glow = ColorUtils.blendARGB(tp.color, accent, ((1f - alpha) * 0.8f).coerceIn(0f, 1f))
+            tp.color = ColorUtils.setAlphaComponent(glow, (Color.alpha(tp.color) * alpha).toInt().coerceIn(0, 255))
         }
     }
 
@@ -161,15 +164,15 @@ object StreamFade {
             }
         }
         st.ranges = ranges
+        val accent = try { ThemeManager.getThemeAccentColor() } catch (_: Throwable) { tv.currentTextColor }
         for (r in ranges) {
             if (r.end <= r.start) continue
-            val span = FadeSpan(r)
+            val span = FadeSpan(r, accent)
             out.setSpan(span, r.start, r.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             st.spans.add(span)
         }
 
         // The breathing dot at the end of the text.
-        val accent = try { ThemeManager.getThemeAccentColor() } catch (_: Throwable) { tv.currentTextColor }
         val caret = CaretSpan(accent, tv.resources.displayMetrics.density)
         out.append('\u200B')
         out.setSpan(caret, len, len + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -179,7 +182,7 @@ object StreamFade {
         update(st, now)
         // The effect always finishes on its own: after the last chunk's words have faded in, everything is at full strength.
         st.tv?.removeCallbacks(settleRunnable(st))
-        st.tv?.postDelayed(settleRunnable(st), 1400L)
+        st.tv?.postDelayed(settleRunnable(st), 1600L)
         if (!st.active) {
             st.active = true
             tv.postOnAnimation(st.tick)

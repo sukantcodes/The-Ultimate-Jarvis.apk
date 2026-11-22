@@ -124,6 +124,17 @@ object LiquidMotion {
         }
     }
 
+    /** The top bar floats down into place with a springy settle when the chat opens. */
+    fun headerIn(view: View, dropDp: Float = 22f) {
+        if (!GlassMotion.animationsOn(view)) return
+        val d = view.resources.displayMetrics.density
+        view.animate().cancel()
+        view.alpha = 0f
+        view.translationY = -dropDp * d
+        view.animate().alpha(1f).translationY(0f).setStartDelay(40L).setDuration(720L).setInterpolator(spring)
+            .withEndAction { view.alpha = 1f; view.translationY = 0f }.start()
+    }
+
     /** A finger on the view presses the glass in; letting go springs it back. Never consumes the touch, so clicks still work. */
     @SuppressLint("ClickableViewAccessibility")
     fun pressFeel(view: View) {

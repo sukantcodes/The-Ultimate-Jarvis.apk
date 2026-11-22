@@ -10,6 +10,21 @@
     android:paddingTop="10dp"
     android:paddingBottom="94dp">
 
+    <!-- Ambient liquid light drifting slowly behind the conversation (sits behind everything, never over the composer) -->
+    <com.jarvis.assistant.ui.chat.liquid.LiquidAuroraView
+        android:id="@+id/liquidAurora"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="-12dp"
+        android:layout_marginEnd="-12dp"
+        android:layout_marginTop="-10dp"
+        android:layout_marginBottom="-94dp"
+        android:importantForAccessibility="no"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- Liquid glass top bar: live backdrop blur + prism refraction, every control sits in its own 3D glass pod -->
     <com.jarvis.assistant.ui.glass.LiquidGlassLayout
         android:id="@+id/layoutChatHeader"
@@ -208,8 +223,8 @@
         android:clipToPadding="false"
         android:paddingTop="18dp"
         android:paddingBottom="16dp"
-        android:requiresFadingEdge="vertical"
-        android:fadingEdgeLength="26dp"
+        android:requiresFadingEdge="none"
+        android:fadingEdgeLength="0dp"
         android:overScrollMode="ifContentScrolls"
         android:layout_marginTop="10dp"
         android:layout_marginBottom="10dp"

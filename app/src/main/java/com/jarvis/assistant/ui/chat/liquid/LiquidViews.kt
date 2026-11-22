@@ -18,6 +18,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
 import com.jarvis.assistant.ui.chat.GlassMotion
+import com.jarvis.assistant.ui.glass.GlassMode
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
@@ -197,5 +199,103 @@ class LiquidWelcomeLayout @JvmOverloads constructor(context: Context, attrs: Att
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
         if (changedView === this && visibility == VISIBLE && isAttachedToWindow) playEntrance()
+    }
+}
+
+/**
+ * Slow drifting light behind the conversation: three large soft blobs of the theme colours that wander on their own
+ * paths, so the glass above has something living to catch. It stays in the upper part of the screen (never under the
+ * message box), runs at half frame rate, pauses when hidden, and is a still picture when animations are off or Liquid
+ * Glass is switched off in Settings.
+ */
+class LiquidAuroraView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
+
+    private class Blob(val fx: Float, val fy: Float, val px: Float, val py: Float, val cx: Float, val cy: Float, val strength: Float) {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    }
+
+    private val tones = LiquidPalette.resolve(context)
+    private val blobs = arrayOf(
+        Blob(0.050f, 0.037f, 0.0f, 1.3f, 0.22f, 0.20f, 1.00f),
+        Blob(0.041f, 0.056f, 2.1f, 0.4f, 0.80f, 0.28f, 0.85f),
+        Blob(0.063f, 0.044f, 4.0f, 2.6f, 0.50f, 0.52f, 0.70f)
+    )
+    private var radius = 0f
+    private var time = 0f
+    private var last = 0L
+    private var running = false
+    private var skip = false
+    private var still = false
+
+    private val frame = object : Runnable {
+        override fun run() {
+            if (!running) return
+            val now = SystemClock.uptimeMillis()
+            time += ((now - last) / 1000f).coerceIn(0f, 0.1f)
+            last = now
+            skip = !skip
+            if (!skip) invalidate()
+            postOnAnimation(this)
+        }
+    }
+
+    init {
+        if (GlassMode.plain()) visibility = GONE
+    }
+
+    private fun start() {
+        if (running || still || !isAttachedToWindow || !isShown) return
+        running = true
+        last = SystemClock.uptimeMillis()
+        postOnAnimation(frame)
+    }
+
+    private fun stop() {
+        running = false
+        removeCallbacks(frame)
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        still = !GlassMotion.animationsOn(this)
+        start()
+    }
+
+    override fun onDetachedFromWindow() {
+        stop()
+        super.onDetachedFromWindow()
+    }
+
+    override fun onVisibilityAggregated(isVisible: Boolean) {
+        super.onVisibilityAggregated(isVisible)
+        if (isVisible) start() else stop()
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (w <= 0 || h <= 0) return
+        radius = max(w, h) * 0.46f
+        val t = tones
+        val base = (if (t.light) 0.20f else 0.26f) * (0.35f + 0.65f * t.strength)
+        val colors = intArrayOf(t.accent, t.secondary, ColorUtils.blendARGB(t.accent, t.secondary, 0.5f))
+        blobs.forEachIndexed { i, b ->
+            val c = ColorUtils.setAlphaComponent(colors[i], (255 * base * b.strength).toInt().coerceIn(0, 255))
+            b.paint.shader = RadialGradient(0f, 0f, radius, c, ColorUtils.setAlphaComponent(c, 0), Shader.TileMode.CLAMP)
+        }
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        if (radius <= 0f) return
+        val w = width.toFloat()
+        val h = height.toFloat()
+        for (b in blobs) {
+            // Wander around a home position; the vertical range keeps every blob in the upper 70% of the screen.
+            val x = w * (b.cx + 0.26f * sin(time * b.fx * 6.2832f + b.px))
+            val y = h * (b.cy + 0.15f * sin(time * b.fy * 6.2832f + b.py))
+            canvas.save()
+            canvas.translate(x, y)
+            canvas.drawCircle(0f, 0f, radius, b.paint)
+            canvas.restore()
+        }
     }
 }

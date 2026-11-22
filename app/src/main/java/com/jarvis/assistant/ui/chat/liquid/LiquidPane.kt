@@ -263,6 +263,9 @@ class LiquidPaneDrawable(
         }
     }
 
+    /** True while the slow repeating band is running (a one-shot band must not interrupt it). */
+    val looping: Boolean get() = glintAnim != null && glintLoop
+
     fun stopGlint() {
         glintAnim?.removeAllListeners()
         glintAnim?.cancel()
@@ -322,7 +325,8 @@ object LiquidPane {
     /** One band of light across [view]'s glass. */
     fun glint(view: View, delayMs: Long = 0L) {
         val play = Runnable {
-            if (view.isAttachedToWindow) (view.background as? LiquidPaneDrawable)?.playGlint(1100L, false)
+            val d = view.background as? LiquidPaneDrawable
+            if (view.isAttachedToWindow && d != null && !d.looping) d.playGlint(1100L, false)
         }
         if (delayMs <= 0L) play.run() else view.postDelayed(play, delayMs)
     }

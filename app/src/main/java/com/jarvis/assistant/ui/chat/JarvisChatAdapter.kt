@@ -186,6 +186,21 @@ class JarvisChatAdapter(
         /** True between the first streamed words and the final bind of a turn; makes the orb swirl faster. */
         private var streamingNow = false
 
+        /** The slow band of light that keeps crossing the answer panel while the answer is being written. */
+        private var writingGlint: LiquidPane.GlintHandle? = null
+
+        private fun stopWritingGlint() {
+            writingGlint?.stop()
+            writingGlint = null
+        }
+
+        /** Streamed updates are partial rebinds, so the end of an answer is noticed by the text going quiet. */
+        private val onQuiet = Runnable {
+            streamingNow = false
+            stopWritingGlint()
+            binding.orbAssistant.busy = binding.layoutThinking.visibility == View.VISIBLE
+        }
+
         /** The glass panel only shows when it has something inside, and the answer gets space above it only under the activity block. */
         private fun syncGlass() {
             val activityShown = binding.inlineActivity.visibility == View.VISIBLE
@@ -244,12 +259,14 @@ class JarvisChatAdapter(
             val firstText = binding.layoutAssistantContainer.visibility != View.VISIBLE
             binding.layoutThinking.visibility = View.GONE
             streamingNow = true
+            binding.root.removeCallbacks(onQuiet)
+            binding.root.postDelayed(onQuiet, 1800L)
             renderAssistantContent(turn, isStreaming = true)
             syncGlass()
-            if (firstText && binding.layoutAssistantContainer.visibility == View.VISIBLE && GlassMotion.animationsOn(binding.root)) {
-                // The first words come into focus on the glass: they rise and clear while a band of light crosses the panel.
-                LiquidMotion.focusIn(binding.layoutAssistantContainer)
-                try { LiquidPane.glint(binding.layoutAssistantGlass, delayMs = 60L) } catch (_: Throwable) { }
+            if (binding.layoutAssistantContainer.visibility == View.VISIBLE && GlassMotion.animationsOn(binding.root)) {
+                // The first words come into focus on the glass; while the answer is written a slow band of light keeps crossing the panel.
+                if (firstText) LiquidMotion.focusIn(binding.layoutAssistantContainer)
+                if (writingGlint == null) writingGlint = try { LiquidPane.glintLoop(binding.layoutAssistantGlass) } catch (_: Throwable) { null }
             }
         }
 
@@ -397,7 +414,13 @@ class JarvisChatAdapter(
 
             renderAssistantContent(turn, isStreaming = false)
             try { settleActions(turn) } catch (_: Throwable) { }
+            binding.root.removeCallbacks(onQuiet)
             streamingNow = false
+            stopWritingGlint()
+            // A finished answer is always fully visible, even if a reveal was cut short by recycling or a fast rebind.
+            binding.layoutAssistantContainer.animate().cancel()
+            binding.layoutAssistantContainer.alpha = 1f
+            binding.layoutAssistantContainer.translationY = 0f
             syncGlass()
         }
 
