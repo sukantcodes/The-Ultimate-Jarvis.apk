@@ -146,7 +146,7 @@ class LocalServer(val root: File, val port: Int = 0, private val spaFallback: Bo
                 start = (length - suffix).coerceAtLeast(0); end = length - 1
             } else {
                 start = a.toLongOrNull() ?: return null
-                end = if (b.isEmpty()) length - 1 else (b.toLongOrNull() ?: return null)
+                end = if (b.isEmpty()) Long.MAX_VALUE else (b.toLongOrNull() ?: return null)
                 if (end < start) return null
             }
             if (start >= length) return UNSATISFIABLE

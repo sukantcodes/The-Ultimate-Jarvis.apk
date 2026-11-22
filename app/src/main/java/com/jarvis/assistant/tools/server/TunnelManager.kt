@@ -288,7 +288,7 @@ class TunnelManager(
             }
             synchronized(lock) {
                 if (!e.terminal && (e.state is TunnelState.Connecting || e.state is TunnelState.Preparing)) {
-                    e.verified = result.reachable; e.matchesLocal = result.sameAsLocal; e.everLive = true
+                    e.verified = result.reachable; e.matchesLocal = result.sameAsLocal; e.everLive = true; e.lastHealthAt = System.currentTimeMillis()
                     setLocked(e, TunnelState.Live(url, result.reachable, result.sameAsLocal))
                 }
             }
@@ -339,8 +339,8 @@ class TunnelManager(
                     val limit = if (e.installing) config.installLimitMs else config.startupLimitMs
                     if (now - e.launchedAt > limit) { if (!retry(e, heal = false)) fail(e, startupTimeoutMessage(e)); return }
                 }
-                is TunnelState.Live -> if (e.verified && now - e.lastHealthAt >= config.healthIntervalMs) {
-                    e.lastHealthAt = now
+                is TunnelState.Live -> if (e.verified && System.currentTimeMillis() - e.lastHealthAt >= config.healthIntervalMs) {
+                    e.lastHealthAt = System.currentTimeMillis()
                     val url = (e.state as? TunnelState.Live)?.url
                     val ok = url != null && (try { verifier.check(url, localUrl(e)).reachable } catch (_: Exception) { false })
                     if (ok) e.healthFails = 0
