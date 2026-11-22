@@ -99,11 +99,24 @@
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
-            <com.jarvis.assistant.ui.chat.liquid.LiquidOrbView
-                android:id="@+id/orbAssistant"
+            <FrameLayout
                 android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:importantForAccessibility="no" />
+                android:layout_height="28dp">
+
+                <com.jarvis.assistant.ui.chat.liquid.LiquidOrbView
+                    android:id="@+id/orbAssistant"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:importantForAccessibility="no" />
+
+                <!-- Spark animation (thinking / writing / shimmer) replaces the orb while JARVIS is working -->
+                <com.jarvis.assistant.ui.chat.SparkView
+                    android:id="@+id/sparkAssistant"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:visibility="gone"
+                    android:importantForAccessibility="no" />
+            </FrameLayout>
 
             <TextView
                 android:id="@+id/tvAssistantName"

@@ -109,44 +109,6 @@ class ThinkingIndicatorView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         val t = (now - t0).toFloat()
         val cy = height / 2f
-        val beadR = 4.4f * density
-        val gap = 13f * density
-        val x0 = 4f * density + beadR
-        val trackEnd = x0 + gap * 2f + beadR
-
-        // Soft breathing glow under the beads, so they read as glass lit from inside.
-        if (!reduced) {
-            val hr = gap * 2.4f
-            if (halo == null || haloKey != hr) {
-                haloKey = hr
-                halo = RadialGradient(0f, 0f, hr, intArrayOf(accent, (accent and 0x00FFFFFF)), floatArrayOf(0f, 1f), Shader.TileMode.CLAMP)
-                haloPaint.shader = halo
-            }
-            haloPaint.alpha = (255 * (0.10f + 0.10f * (0.5f + 0.5f * sin(t / 520f)))).toInt()
-            canvas.save()
-            canvas.translate(x0 + gap, cy)
-            canvas.drawCircle(0f, 0f, hr, haloPaint)
-            canvas.restore()
-        }
-
-        // Three glass beads on a travelling wave; each one is a little fuller and brighter at the top of its swing.
-        val intro = if (reduced) 1f else LiquidMath.spring((t / 640f).coerceIn(0f, 1f))
-        for (i in 0 until 3) {
-            val wave = if (reduced) 0f else LiquidMath.beadWave(t, i)
-            val r = beadR * (if (reduced) 1f else LiquidMath.beadScale(wave)) * intro
-            val bx = x0 + gap * i
-            val by = cy - wave * 3.4f * density
-            val lift = 0.5f + 0.5f * wave
-            beadPaint.color = accent
-            beadPaint.alpha = (255 * (0.58f + 0.42f * lift)).toInt().coerceIn(0, 255)
-            canvas.drawCircle(bx, by, r, beadPaint)
-            beadRim.color = highlight
-            beadRim.alpha = (255 * (0.28f + 0.30f * lift)).toInt().coerceIn(0, 255)
-            canvas.drawCircle(bx, by, max(0f, r - 0.5f * density), beadRim)
-            beadSpec.color = highlight
-            beadSpec.alpha = (255 * (0.55f + 0.35f * lift)).toInt().coerceIn(0, 255)
-            canvas.drawCircle(bx - r * 0.32f, by - r * 0.36f, r * 0.26f, beadSpec)
-        }
 
         // Status word with a light band sweeping across it.
         val verb = verbs[((t / 2400f).toInt()) % verbs.size]
@@ -157,7 +119,7 @@ class ThinkingIndicatorView @JvmOverloads constructor(
         val intro2 = if (reduced) 1f else (t / 320f).coerceIn(0f, 1f)
         val secs = max(0L, (System.currentTimeMillis() - startTimeMs) / 1000L)
         val label = "$verb…  ${secs}s"
-        val x = trackEnd + 12f * density
+        val x = 4f * density
         val y = cy - (textPaint.ascent() + textPaint.descent()) / 2f
         val tw = textPaint.measureText(label)
         if (!reduced && tw > 0f) {

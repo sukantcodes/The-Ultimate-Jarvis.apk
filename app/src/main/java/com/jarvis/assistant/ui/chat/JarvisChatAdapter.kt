@@ -186,6 +186,9 @@ class JarvisChatAdapter(
         /** True between the first streamed words and the final bind of a turn; makes the orb swirl faster. */
         private var streamingNow = false
 
+        /** True while this turn's tool work is still running; drives the shimmer spark. */
+        private var activityRunning = false
+
         /** The slow band of light that keeps crossing the answer panel while the answer is being written. */
         private var writingGlint: LiquidPane.GlintHandle? = null
 
@@ -199,6 +202,7 @@ class JarvisChatAdapter(
             streamingNow = false
             stopWritingGlint()
             binding.orbAssistant.busy = binding.layoutThinking.visibility == View.VISIBLE
+            syncGlass()
         }
 
         /** The glass panel only shows when it has something inside, and the answer gets space above it only under the activity block. */
@@ -208,6 +212,15 @@ class JarvisChatAdapter(
             val text = binding.layoutAssistantContainer.visibility == View.VISIBLE
             binding.layoutAssistantGlass.visibility = if (activityShown || thinking || text) View.VISIBLE else View.GONE
             binding.orbAssistant.busy = thinking || streamingNow
+            val spark = when {
+                streamingNow -> SparkState.WRITING
+                thinking -> SparkState.THINKING
+                activityRunning -> SparkState.SHIMMER
+                else -> null
+            }
+            binding.sparkAssistant.state = spark
+            binding.sparkAssistant.visibility = if (spark != null) View.VISIBLE else View.GONE
+            binding.orbAssistant.visibility = if (spark != null) View.INVISIBLE else View.VISIBLE
             val lp = binding.layoutAssistantContainer.layoutParams as? ViewGroup.MarginLayoutParams ?: return
             val top = if (activityShown || thinking) (12 * binding.root.resources.displayMetrics.density).toInt() else 0
             if (lp.topMargin != top) {
@@ -273,6 +286,7 @@ class JarvisChatAdapter(
         /** Shows or updates the inline activity (spinner, steps, progress) for this turn. Returns true when it is shown. */
         fun bindActivity(turn: ChatTurn): Boolean {
             val activity = activityLookup?.invoke(turn.id)
+            activityRunning = activity?.running == true
             if (activity == null) {
                 binding.inlineActivity.visibility = View.GONE
                 syncGlass()

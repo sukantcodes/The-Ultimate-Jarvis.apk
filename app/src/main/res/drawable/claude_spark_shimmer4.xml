@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:height="28dp" android:width="28dp" android:viewportWidth="28.000000" android:viewportHeight="28.000000">
+  <path android:fillColor="?attr/themeAccent" android:pathData="M4.401,14.752C4.609,14.547 4.609,14.151 4.609,13.88C4.609,13.669 4.609,13.519 4.388,13.253L3.5,13.02L2.494,13.106L2.012,13.433L1.96,13.783L2.494,14.56L3.08,14.905L4.401,14.752Z"/>
+  <path android:fillColor="?attr/themeAccent" android:pathData="M5.74,8.82C6.228,8.459 6.199,8.403 6.44,7.56L6.223,7.033L5.565,6.585L5.344,6.525L4.459,6.465L3.808,7.189L3.964,8.204L4.329,8.663L5.045,9.158L5.74,8.82Z"/>
+  <path android:fillColor="?attr/themeAccent" android:pathData="M9.78,5.041L8.95,4.996L8.065,4.368L7.895,3.752C7.83,3.494 7.791,3.28 7.791,3.016L8.26,2.31L8.676,2.178L9.66,2.31L10.076,2.673L10.72,3.88L10.629,4.535C9.845,5.247 10.521,4.535 9.78,5.041Z"/>
+  <path android:fillColor="?attr/themeAccent" android:pathData="M15.084,4.127C15.54,4.48 15.798,4.62 16.52,4.62L17.22,3.78L17.285,3.333L16.94,2.588L16.1,2.1L15.084,2.588L14.84,3.64L15.084,4.127Z"/>
+  <path android:fillColor="?attr/themeAccent" android:pathData="M20.02,6.295C20.381,6.897 20.521,7.06 21.465,7.378L22.526,6.96L22.864,5.788L22.109,4.653H21.068L20.521,5.088L20.02,6.295Z"/>
+  <path android:fillColor="?attr/themeAccent" android:pathData="M23.52,11.62C23.413,12.157 23.571,12.837 23.66,13.02L24.181,13.561L25.76,13.16L25.962,12.201L25.871,11.802L24.959,11.234L23.794,11.41L23.52,11.62Z"/>
+  <path android:fillColor="?attr/themeAccent" android:pathData="M23.8,15.26C23.408,15.38 23.22,16.078 23.1,16.44L23.52,17.5L24.747,17.679L25.962,16.935L26.04,16.44L25.62,15.68L24.825,15.216L23.8,15.26Z"/>
+  <path android:fillColor="?attr/themeAccent" android:pathData="M21.585,19.659C21.344,19.9 20.983,20.02 20.983,20.743L22.851,22.248L23.189,22.297L23.515,21.838L23.599,21.14L22.4,19.963L21.585,19.659Z"/>
+  <path android:fillColor="?attr/themeAccent" android:pathData="M20.146,21.679C19.858,21.679 19.514,21.695 18.9,21.98L18.34,22.82L19.079,24.127L19.968,24.298L20.58,24.08L20.749,23.73L20.72,22.54L20.146,21.679Z"/>
+  <path android:fillColor="?attr/themeAccent" android:pathData="M14.582,23.622C14.361,23.512 14.42,23.509 14,23.38C13.546,23.241 13.034,23.258 12.6,23.52L12.315,24.82L12.641,25.569L13.375,26.04L14.104,25.762L14.582,24.82V23.622Z"/>
+  <path android:fillColor="?attr/themeAccent" android:pathData="M9.249,22.342C8.765,22.102 8.758,22.047 8.416,21.926L7.635,22.52L7.349,23.24V23.925L8.12,24.36L9.155,23.861L9.545,23.005L9.249,22.342Z"/>
+  <path android:fillColor="?attr/themeAccent" android:pathData="M7,20.02L6.162,20.65L5.029,20.795L4.472,20.28L4.401,19.46L4.624,18.969L5.677,18.384L6.58,18.62C6.886,19.157 6.839,19.595 7,20.02Z"/>
+</vector>
