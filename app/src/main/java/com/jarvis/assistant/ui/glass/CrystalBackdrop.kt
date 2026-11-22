@@ -49,6 +49,7 @@ object CrystalBackdrop {
     class Option(val id: String, val title: String, val mood: String)
 
     val OPTIONS: List<Option> = listOf(
+        Option("dd_crystal_prism", "Crystal Prism", "Made for the glass: calm centre, light ribbons"),
         Option("dd_lavender_dusk", "Lavender Dusk", "Stars over a violet sunset"),
         Option("dd_aurora_lake", "Aurora Lake", "Northern lights on still water"),
         Option("dd_cotton_sky", "Cotton Sky", "Pastel clouds at twilight"),

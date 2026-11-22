@@ -340,7 +340,51 @@ def nebula():
     img += s[:, :, None] * (1.0 - 0.35 * a[:, :, None]) * 1.0
     return finish(img, 0.32)
 
-SCENES = [('dd_lavender_dusk', lavender_dusk), ('dd_aurora_lake', aurora_lake), ('dd_cotton_sky', cotton_sky),
+
+def crystal_prism():
+    """Made for the Transparent (Crystal Mirror) glass: a calm dark centre for readability, with luminous silk ribbons and
+    prism light around the edges that the glass lenses magnify and refract."""
+    img = vgrad([(0, (8, 14, 40)), (0.35, (12, 16, 52)), (0.7, (14, 14, 56)), (1, (6, 10, 34))])
+    y, x = yy_xx()
+    aspect = FH / float(FW)
+    # soft colour fields in the corners
+    add_color(img, glow(0.05, 0.04, 0.80, 0.50), col(70, 190, 255), 0.34)
+    add_color(img, glow(0.98, 0.96, 0.85, 0.55), col(150, 90, 255), 0.36)
+    add_color(img, glow(0.95, 0.30, 0.50, 0.40), col(255, 90, 190), 0.18)
+    add_color(img, glow(0.02, 0.72, 0.50, 0.40), col(60, 230, 220), 0.16)
+    # flowing silk ribbons: bright core, glassy fine lines inside
+    ribbons = [
+        (0.18, 0.050, 0.5, 2.2, 0.0, col(90, 210, 255), 1.00),
+        (0.30, 0.040, 0.7, 2.8, 1.3, col(170, 120, 255), 0.85),
+        (0.74, 0.055, 0.6, 2.4, 2.1, col(255, 120, 210), 0.80),
+        (0.86, 0.045, 0.5, 3.0, 0.7, col(80, 240, 220), 0.90),
+        (0.52, 0.020, 0.9, 2.0, 3.0, col(200, 220, 255), 0.35),
+    ]
+    for i, (yc, th, amp, fr, ph, c, k) in enumerate(ribbons):
+        warp = fbm(2, 3, 4, 700 + i) - 0.5
+        path = yc + 0.07 * amp * np.sin(x * fr * 3.14159 + ph) + 0.10 * warp
+        d = (y - path) / th
+        core = np.exp(-(np.abs(d) ** 1.6) * 1.6).astype(F32)
+        halo = np.exp(-(np.abs(d) / 3.2) ** 2).astype(F32)
+        lines = 0.62 + 0.38 * np.sin(d * 9.0 + ph * 2.0)
+        edge = np.exp(-((np.abs(d) - 1.05) / 0.16) ** 2).astype(F32)
+        add_color(img, halo * 0.13, c, k)
+        add_color(img, core * lines * 0.62, c, k)
+        add_color(img, edge * 0.38, col(235, 248, 255), k * 0.8)
+    # prism light: two long diagonal beams
+    for (p0, wid, a, tint) in [(0.30, 0.05, 0.16, col(210, 235, 255)), (0.62, 0.035, 0.12, col(255, 215, 245))]:
+        dd = ((x * 0.9 - y * 0.42) - p0) / wid
+        beam = np.exp(-dd * dd).astype(F32) * (0.4 + 0.6 * sstep(0.0, 0.35, np.minimum(y, 1 - y)))
+        add_color(img, beam, tint, a)
+    # sparkle dust
+    img += stars(1500, 33, bright=0.9)[:, :, None] * 0.55
+    # calm, dark middle so text and glass stay perfectly readable
+    mid = glow(0.5, 0.5, 0.62, 0.42, power=2.2)
+    img *= (1.0 - 0.45 * mid)[:, :, None]
+    img *= 0.80
+    return finish(img, 0.34)
+
+SCENES = [('dd_crystal_prism', crystal_prism), ('dd_lavender_dusk', lavender_dusk), ('dd_aurora_lake', aurora_lake), ('dd_cotton_sky', cotton_sky),
           ('dd_misty_peaks', misty_peaks), ('dd_ocean_dream', ocean_dream), ('dd_neon_bokeh', neon_bokeh),
           ('dd_golden_dunes', golden_dunes), ('dd_nebula', nebula)]
 

@@ -344,7 +344,7 @@ class AppPreferences(context: Context) {
      * scenes) or "system" for the phone's own wallpaper.
      */
     var crystalBackground: String
-        get() = prefs.getString("crystal_background", "dd_lavender_dusk") ?: "dd_lavender_dusk"
+        get() = prefs.getString("crystal_background", "dd_crystal_prism") ?: "dd_crystal_prism"
         set(value) { prefs.edit().putString("crystal_background", value).apply() }
 
     /** Transparent theme: soften the background picture. */
