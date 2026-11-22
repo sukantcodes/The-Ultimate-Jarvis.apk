@@ -295,7 +295,7 @@ class CrystalBackgroundActivity : AppCompatActivity() {
         setTypeface(typeface, Typeface.BOLD)
         gravity = Gravity.CENTER
         setPadding(dp(18), dp(11), dp(18), dp(11))
-        background = glass(dp(24).toFloat(), 0x44FFFFFF, 0x99FFFFFF)
+        background = glass(dp(24).toFloat(), 0x44FFFFFF, 0x99FFFFFF.toInt())
         isClickable = true
         isFocusable = true
         layoutParams = LinearLayout.LayoutParams(-2, -2)
