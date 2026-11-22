@@ -36,7 +36,12 @@ class UdnTheme(val ctx: Context) {
     private fun attr(a: Int, fallback: Int) = GlassMode.attrColor(ctx, a, fallback)
 
     val light = try { ThemeManager.isCurrentThemeLight() } catch (_: Throwable) { false }
-    val bg = attr(R.attr.themeBg, Color.parseColor("#0A1220"))
+    /** The theme's real base colour. The themeBg attribute is see-through on Crystal Mirror and custom themes, which painted this screen black. */
+    val bg: Int = run {
+        val fromAttr = attr(R.attr.themeBg, 0)
+        if (Color.alpha(fromAttr) >= 0xF0) fromAttr
+        else try { ThemeManager.getThemeBgColor(currentThemeKey(), null) } catch (_: Throwable) { Color.parseColor("#0A1220") }
+    }
     val text1 = attr(R.attr.themeTextPrimary, if (light) Color.parseColor("#0F172A") else Color.WHITE)
     val text2 = attr(R.attr.themeTextSecondary, if (light) Color.parseColor("#475569") else Color.parseColor("#A9B4CC"))
     val muted = attr(R.attr.themeTextMuted, Color.parseColor("#64748B"))
@@ -141,7 +146,7 @@ class UdnTheme(val ctx: Context) {
  * It replaces the animated window canvas on this screen only, so the glass behind it never shimmers in and out.
  */
 class StaticBackdrop(private val base: Int, private val glow1: Int, private val glow2: Int, private val light: Boolean) : Drawable() {
-    private val a = if (light) 0x38 else 0x44
+    private val a = if (light) 0x55 else 0x6A
     private val g1 = GradientDrawable().apply { gradientType = GradientDrawable.RADIAL_GRADIENT; setGradientCenter(0.08f, 0.02f); colors = intArrayOf(ColorUtils.setAlphaComponent(glow1, a), Color.TRANSPARENT) }
     private val g2 = GradientDrawable().apply { gradientType = GradientDrawable.RADIAL_GRADIENT; setGradientCenter(0.95f, 0.92f); colors = intArrayOf(ColorUtils.setAlphaComponent(glow2, a), Color.TRANSPARENT) }
 
