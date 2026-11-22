@@ -167,9 +167,12 @@ class SettingsFragment : Fragment() {
         setupAppearanceSection()
         setupAboutSection()
         setupOwnerSection()
+        setupCollapsibleSections()
         applyDeckStyle()
         setupCategoryRail()
         setupHeaderMotion()
+        // Sections folded on the last visit start folded.
+        if (collapsed.isNotEmpty()) filterSettings("")
 
         refreshState()
         playBubbleEntrance()
@@ -211,7 +214,7 @@ class SettingsFragment : Fragment() {
         paintBackdrop(accent)
         bindProfileNetworkChip()
         deckSections().forEach { section ->
-            SettingsDeck.styleSectionHeader(section.header, section.accent)
+            SettingsDeck.styleCollapsibleHeader(section.header, section.accent, !collapsed.contains(section.header.id))
             SettingsDeck.styleCard(section.card, section.accent)
             SettingsDeck.pressFeedback(section.card)
         }
@@ -274,6 +277,101 @@ class SettingsFragment : Fragment() {
         }
     }
 
+    // ---- folding sections -------------------------------------------------------------------------------------------
+    /** Ids of the section headers that are folded. Remembered between visits. */
+    private val collapsed = HashSet<Int>()
+    private var collapsibleReady = false
+    private var foldAnimating = false
+
+    private fun uiPrefs() = requireContext().getSharedPreferences("settings_ui", android.content.Context.MODE_PRIVATE)
+
+    private fun persistCollapsed() {
+        val labels = deckSections().filter { collapsed.contains(it.header.id) }.map { it.label }.toSet()
+        uiPrefs().edit().putStringSet("collapsed", labels).apply()
+    }
+
+    /** Makes each section title tap-to-fold and restores what was folded last time. */
+    private fun setupCollapsibleSections() {
+        if (collapsibleReady) return
+        collapsibleReady = true
+        val saved = uiPrefs().getStringSet("collapsed", emptySet()) ?: emptySet()
+        deckSections().forEach { sec ->
+            if (saved.contains(sec.label)) collapsed.add(sec.header.id)
+            val lp = sec.header.layoutParams
+            lp.width = ViewGroup.LayoutParams.MATCH_PARENT
+            sec.header.layoutParams = lp
+            sec.header.setOnClickListener { toggleSection(sec) }
+            SettingsDeck.styleCollapsibleHeader(sec.header, sec.accent, !collapsed.contains(sec.header.id))
+        }
+    }
+
+    private fun toggleSection(sec: DeckSection) {
+        if (_binding == null || foldAnimating) return
+        // While searching every match must stay visible, so folding is switched off until the search is cleared.
+        if (binding.etSettingsSearch.text?.isNotBlank() == true) return
+        val id = sec.header.id
+        val expand = collapsed.contains(id)
+        if (expand) collapsed.remove(id) else collapsed.add(id)
+        persistCollapsed()
+        SettingsDeck.styleCollapsibleHeader(sec.header, sec.accent, expand)
+        animateFold(sec.card, expand)
+    }
+
+    private fun animateFold(card: ViewGroup, expand: Boolean) {
+        val parent = card.parent as? View ?: run { card.visibility = if (expand) View.VISIBLE else View.GONE; return }
+        val lp = card.layoutParams
+        val animate = try {
+            android.provider.Settings.Global.getFloat(requireContext().contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
+        } catch (_: Throwable) { true }
+        if (!animate) {
+            card.visibility = if (expand) View.VISIBLE else View.GONE
+            return
+        }
+        foldAnimating = true
+        val from: Int
+        val to: Int
+        if (expand) {
+            card.visibility = View.VISIBLE
+            val width = (parent.width - parent.paddingLeft - parent.paddingRight - (lp as? ViewGroup.MarginLayoutParams)?.let { it.leftMargin + it.rightMargin }.let { it ?: 0 })
+            card.measure(
+                View.MeasureSpec.makeMeasureSpec(width.coerceAtLeast(1), View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            )
+            from = 0
+            to = card.measuredHeight
+        } else {
+            from = card.height
+            to = 0
+        }
+        val wasClipping = card.clipChildren
+        card.clipChildren = true
+        lp.height = from
+        card.layoutParams = lp
+        card.alpha = if (expand) 0f else 1f
+        android.animation.ValueAnimator.ofInt(from, to).apply {
+            duration = 260L
+            interpolator = android.view.animation.DecelerateInterpolator(1.6f)
+            addUpdateListener {
+                val v = it.animatedValue as Int
+                lp.height = v
+                card.layoutParams = lp
+                val f = if (to > from) it.animatedFraction else 1f - it.animatedFraction
+                card.alpha = f.coerceIn(0f, 1f)
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                    card.layoutParams = lp
+                    card.alpha = 1f
+                    card.clipChildren = wasClipping
+                    card.visibility = if (expand) View.VISIBLE else View.GONE
+                    foldAnimating = false
+                }
+            })
+            start()
+        }
+    }
+
     /** 0 = every section; 1..8 = only the section picked in the rail (same order as [deckSections]). */
     private var category = 0
     private var paintRail: ((Int) -> Unit)? = null
@@ -289,6 +387,13 @@ class SettingsFragment : Fragment() {
         if (_binding == null || index == category) return
         category = index
         paintRail?.invoke(index)
+        // Picking a section in the rail always shows it open.
+        deckSections().getOrNull(index - 1)?.let { sec ->
+            if (collapsed.remove(sec.header.id)) {
+                persistCollapsed()
+                SettingsDeck.styleCollapsibleHeader(sec.header, sec.accent, true)
+            }
+        }
         revealAllSections()
         binding.etSettingsSearch.text?.clear()
         filterSettings("")
@@ -525,8 +630,10 @@ class SettingsFragment : Fragment() {
                         val hasMatches = query.isEmpty() || headerMatches || sectionMatches > 0
                         // With no search text, "All" shows every section and a chip shows only its own.
                         val inScope = query.isNotEmpty() || category == 0 || category == position
+                        // A folded section stays folded unless the person is searching (matches must be visible).
+                        val folded = query.isEmpty() && collapsed.contains(child.id)
                         child.visibility = if (hasMatches && inScope) View.VISIBLE else View.GONE
-                        card.visibility = if (hasMatches && inScope) View.VISIBLE else View.GONE
+                        card.visibility = if (hasMatches && inScope && !folded) View.VISIBLE else View.GONE
                         if (query.isNotEmpty()) {
                             visibleMatches += if (headerMatches) rowIndexes.size else sectionMatches
                         }

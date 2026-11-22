@@ -191,6 +191,36 @@ object SettingsDeck {
         header.gravity = Gravity.CENTER_VERTICAL
     }
 
+    /**
+     * A section title that folds its card: the accent bar on the left, a chevron on the right (up while open, down while folded),
+     * a roomier touch area and a soft press ripple. The title text is left exactly as it is, so search still finds it.
+     */
+    fun styleCollapsibleHeader(header: TextView, accent: Int, expanded: Boolean) {
+        val ctx = header.context
+        val bar = GradientDrawable().apply {
+            setColor(accent)
+            cornerRadius = dp(ctx, 2f)
+            setSize(px(ctx, 3f), px(ctx, 14f))
+        }
+        val chevron = androidx.core.content.ContextCompat.getDrawable(ctx, if (expanded) R.drawable.ic_chevron_up else R.drawable.ic_chevron_down)?.mutate()
+        chevron?.let {
+            androidx.core.graphics.drawable.DrawableCompat.setTint(it, alpha(themeColor(ctx, R.attr.themeTextMuted, Color.GRAY), 0.9f))
+        }
+        header.setCompoundDrawablesRelativeWithIntrinsicBounds(bar, null, chevron, null)
+        header.compoundDrawablePadding = px(ctx, 9f)
+        header.gravity = Gravity.CENTER_VERTICAL
+        header.minHeight = px(ctx, 40f)
+        header.setPaddingRelative(px(ctx, 2f), px(ctx, 6f), px(ctx, 6f), px(ctx, 6f))
+        header.isClickable = true
+        header.isFocusable = true
+        if (header.background == null) {
+            val tv = TypedValue()
+            if (ctx.theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true)) {
+                header.setBackgroundResource(tv.resourceId)
+            }
+        }
+    }
+
     // ------------------------------------------------------------------------------------------
     // Icons and switches
     // ------------------------------------------------------------------------------------------
