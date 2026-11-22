@@ -85,6 +85,8 @@ class ChatFragment : Fragment() {
     private var totalUsedTokens: Int = 0
     private var lastMessageOriginatedFromVoice: Boolean = false
     private var lastAutoSpokenTurnId: String = ""
+    /** True while the chat should follow the newest words; a drag upwards turns it off, reaching the bottom turns it on. */
+    private var stickToBottom = true
     private var autoVoiceReplyEnabled: Boolean = false
 
     private val voicePermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -270,6 +272,16 @@ class ChatFragment : Fragment() {
             stackFromEnd = true
         }
         binding.rvChatMessages.itemAnimator = ChatItemAnimator()
+        // Follow the answer only while the person is at the bottom; the moment they drag up to read, stop pulling them back.
+        binding.rvChatMessages.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+            override fun onScrollStateChanged(rv: androidx.recyclerview.widget.RecyclerView, newState: Int) {
+                if (newState == androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_DRAGGING) stickToBottom = false
+                else if (newState == androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_IDLE) stickToBottom = !rv.canScrollVertically(1)
+            }
+            override fun onScrolled(rv: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
+                if (dy > 0 && !rv.canScrollVertically(1)) stickToBottom = true
+            }
+        })
         binding.rvChatMessages.adapter = chatAdapter
         com.jarvis.assistant.ui.chat.liquid.LiquidMotion.headerIn(binding.layoutChatHeader)
         setupInlineActivity()
@@ -850,6 +862,7 @@ class ChatFragment : Fragment() {
 
     private fun sendMessage() {
         val text = binding.etMessageInput.text?.toString()?.trim().orEmpty()
+        stickToBottom = true // sending a message always brings you back to the live end of the chat
         if (tryImageShortcut(text)) return
         if (text.isNotBlank() && com.jarvis.assistant.udn.UdnVoiceRouter.matches(requireContext().applicationContext, text)) {
             binding.etMessageInput.text?.clear()
@@ -984,7 +997,7 @@ class ChatFragment : Fragment() {
                             val lm = binding.rvChatMessages.layoutManager as? LinearLayoutManager
                             if (lm != null) {
                                 val lastVisible = lm.findLastVisibleItemPosition()
-                                if (lastVisible >= workTurns.size - 3 || lastVisible < 0) {
+                                if (stickToBottom || lastVisible < 0) {
                                     binding.rvChatMessages.scrollToPosition(workTurns.size - 1)
                                 }
                             }
@@ -1443,7 +1456,7 @@ class ChatFragment : Fragment() {
         providerEngine.turnWork.all.collect { now ->
             if (_binding == null) return@collect
             val rv = binding.rvChatMessages
-            val atBottom = !rv.canScrollVertically(1)
+            val atBottom = stickToBottom
             var touchedLast = false
             val lastId = chatAdapter.currentList.lastOrNull()?.id
             for ((id, activity) in now) {
