@@ -1079,14 +1079,24 @@ class ChatFragment : Fragment() {
     private var voiceBusyRetried = false
     private var micPulse: android.animation.ObjectAnimator? = null
 
+    // Dictation works like ChatGPT / Claude: it keeps listening through pauses, shows what it heard as you talk, and when you stop
+    // (or tap the send button) it cleans the text up and sends it.
+    private val voiceCommitted = StringBuilder()
+    private var voiceFinishing = false
+    private var voicePolishing = false
+    private var voiceEmptyRounds = 0
+    private var voiceFailures = 0
+    private var voiceRecognizerAttempt = 0
+    private var voiceFinalizeRunnable: Runnable? = null
+    private val voiceHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
     private fun startVoiceRecognition() {
-        if (_binding == null) return
-        if (!SpeechRecognizer.isRecognitionAvailable(requireContext())) {
-            Toast.makeText(requireContext(), "Speech recognition is not available on this device.", Toast.LENGTH_SHORT).show()
+        if (_binding == null || voicePolishing) return
+        if (!com.jarvis.assistant.util.SpeechRecognizerFactory.available(requireContext())) {
+            Toast.makeText(requireContext(), "Speech recognition is not available on this device. Install or enable the Google app.", Toast.LENGTH_LONG).show()
             return
         }
-        lastPartialText = ""
-        voiceBusyRetried = false
+        resetVoiceState()
         showVoiceListeningUi()
         // The background wake-word listener uses the same speech recognizer and only one can listen at a time, so it rests
         // while you dictate here and comes back when you are done.
@@ -1098,6 +1108,46 @@ class ChatFragment : Fragment() {
         } else {
             beginRecognizer()
         }
+    }
+
+    private fun resetVoiceState() {
+        voiceCommitted.setLength(0)
+        lastPartialText = ""
+        voiceBusyRetried = false
+        voiceFinishing = false
+        voiceEmptyRounds = 0
+        voiceFailures = 0
+        voiceRecognizerAttempt = 0
+    }
+
+    private fun cancelVoiceFinalize() {
+        voiceFinalizeRunnable?.let { voiceHandler.removeCallbacks(it) }
+        voiceFinalizeRunnable = null
+    }
+
+    private fun scheduleVoiceFinalize(delayMs: Long) {
+        cancelVoiceFinalize()
+        val r = Runnable { if (_binding != null && isVoiceListening) finishDictation() }
+        voiceFinalizeRunnable = r
+        voiceHandler.postDelayed(r, delayMs)
+    }
+
+    private fun restartRecognizer(delayMs: Long) {
+        voiceHandler.postDelayed({
+            if (_binding != null && isVoiceListening && !voiceFinishing && !voicePolishing) beginRecognizer()
+        }, delayMs)
+    }
+
+    private fun showVoiceText(partial: String = "") {
+        if (_binding == null) return
+        val shown = (voiceCommitted.toString() + " " + partial).trim()
+        binding.tvVoiceTranscript.text = if (shown.isBlank()) "Listening… speak now" else shown
+    }
+
+    private fun commitVoiceText(text: String) {
+        if (text.isBlank()) return
+        if (voiceCommitted.isNotEmpty()) voiceCommitted.append(' ')
+        voiceCommitted.append(text.trim())
     }
 
     /** The listening bar opens as a liquid glass bubble in the app colours, and the mic pulses while it listens. */
@@ -1143,17 +1193,19 @@ class ChatFragment : Fragment() {
     }
 
     private fun beginRecognizer() {
-        if (_binding == null || !isVoiceListening) return
+        if (_binding == null || !isVoiceListening || voiceFinishing || voicePolishing) return
         try {
             speechRecognizer?.destroy()
-            val recognizer = SpeechRecognizer.createSpeechRecognizer(requireContext())
+            val recognizer = com.jarvis.assistant.util.SpeechRecognizerFactory.create(requireContext(), voiceRecognizerAttempt)
             recognizer.setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) {
                     if (_binding == null) return
-                    binding.tvVoiceTranscript.text = "Listening… speak now"
+                    showVoiceText(lastPartialText)
                 }
 
-                override fun onBeginningOfSpeech() = Unit
+                override fun onBeginningOfSpeech() {
+                    cancelVoiceFinalize()
+                }
 
                 override fun onRmsChanged(rmsdB: Float) {
                     if (_binding == null) return
@@ -1161,46 +1213,78 @@ class ChatFragment : Fragment() {
                 }
 
                 override fun onBufferReceived(buffer: ByteArray?) = Unit
-                override fun onEndOfSpeech() {
-                    if (_binding == null) return
-                    binding.tvVoiceTranscript.text = "Processing speech…"
-                }
+
+                override fun onEndOfSpeech() = Unit
 
                 override fun onError(error: Int) {
-                    if (_binding == null) return
-                    // Recognizer still busy (the wake-word listener was just stopped): one quiet retry before giving up.
-                    if ((error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_CLIENT) && !voiceBusyRetried && isVoiceListening) {
-                        voiceBusyRetried = true
-                        binding.root.postDelayed({ if (_binding != null && isVoiceListening) beginRecognizer() }, 600L)
-                        return
-                    }
-                    val heard = lastPartialText
-                    hideVoiceListening()
-                    if (heard.isNotBlank() && (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT)) {
-                        lastMessageOriginatedFromVoice = true
-                        binding.etMessageInput.setText(heard)
-                        sendMessage()
-                        return
-                    }
-                    if (error != SpeechRecognizer.ERROR_NO_MATCH && error != SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
-                        val msg = when (error) {
-                            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission required."
-                            SpeechRecognizer.ERROR_NETWORK -> "Network issue with voice recognition."
-                            else -> "Could not recognize speech ($error)."
+                    if (_binding == null || !isAdded) return
+                    // The person already pressed send: use whatever was heard.
+                    if (voiceFinishing) { finishDictation(); return }
+                    if (!isVoiceListening || voicePolishing) return
+                    when (error) {
+                        SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
+                            commitVoiceText(lastPartialText)
+                            lastPartialText = ""
+                            if (voiceCommitted.isNotBlank()) {
+                                // Silence after speech: the person has finished.
+                                finishDictation()
+                            } else {
+                                voiceEmptyRounds++
+                                if (voiceEmptyRounds >= 3) {
+                                    Toast.makeText(requireContext(), "I didn't hear anything. Tap the mic and try again.", Toast.LENGTH_SHORT).show()
+                                    cancelVoiceRecognition()
+                                } else {
+                                    restartRecognizer(150L)
+                                }
+                            }
                         }
-                        Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY, SpeechRecognizer.ERROR_CLIENT -> {
+                            // First failure: the wake-word listener may still be letting go, so try the same recognizer again.
+                            // After that, switch to the next recognizer service installed on the phone.
+                            voiceFailures++
+                            if (voiceFailures > 1) voiceRecognizerAttempt++
+                            val limit = com.jarvis.assistant.util.SpeechRecognizerFactory.candidates(requireContext()).size.coerceAtLeast(1) + 1
+                            if (voiceFailures <= limit) {
+                                restartRecognizer(600L)
+                            } else if (voiceCommitted.isNotBlank() || lastPartialText.isNotBlank()) {
+                                finishDictation()
+                            } else {
+                                Toast.makeText(requireContext(), "Voice typing could not start. Make sure the Google app is installed and enabled.", Toast.LENGTH_LONG).show()
+                                cancelVoiceRecognition()
+                            }
+                        }
+                        else -> {
+                            if (voiceCommitted.isNotBlank() || lastPartialText.isNotBlank()) {
+                                finishDictation()
+                            } else {
+                                val msg = when (error) {
+                                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission required."
+                                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network issue with voice recognition."
+                                    SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> "This language is not available for voice typing."
+                                    else -> "Could not recognize speech ($error)."
+                                }
+                                Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
+                                cancelVoiceRecognition()
+                            }
+                        }
                     }
                 }
 
                 override fun onResults(results: Bundle?) {
-                    if (_binding == null) return
-                    hideVoiceListening()
+                    if (_binding == null || !isAdded) return
                     val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
                         .ifBlank { lastPartialText }
-                    if (text.isNotBlank()) {
-                        lastMessageOriginatedFromVoice = true
-                        binding.etMessageInput.setText(text)
-                        sendMessage()
+                    lastPartialText = ""
+                    if (text.isNotBlank()) { commitVoiceText(text); voiceEmptyRounds = 0 }
+                    if (voiceFinishing) { finishDictation(); return }
+                    if (!isVoiceListening || voicePolishing) return
+                    showVoiceText()
+                    if (voiceCommitted.isBlank()) {
+                        restartRecognizer(150L)
+                    } else {
+                        // The recognizer ended this phrase. Wait a moment in case the person keeps going, then send.
+                        scheduleVoiceFinalize(1600L)
+                        restartRecognizer(120L)
                     }
                 }
 
@@ -1209,7 +1293,8 @@ class ChatFragment : Fragment() {
                     val partial = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim()
                     if (!partial.isNullOrBlank()) {
                         lastPartialText = partial
-                        binding.tvVoiceTranscript.text = partial
+                        cancelVoiceFinalize()
+                        showVoiceText(partial)
                     }
                 }
 
@@ -1222,8 +1307,12 @@ class ChatFragment : Fragment() {
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
                 putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, requireContext().packageName)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, java.util.Locale.getDefault().toLanguageTag())
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1800L)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2200L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2500L)
+                // Newer Google recognizers add punctuation themselves when asked; older ones ignore this.
+                putExtra("android.speech.extra.ENABLE_FORMATTING", "quality")
+                putExtra("android.speech.extra.ENABLE_PUNCTUATION", true)
             }
 
             recognizer.startListening(intent)
@@ -1234,19 +1323,71 @@ class ChatFragment : Fragment() {
         }
     }
 
+    /** The person pressed the send button on the listening bar (or the mic again): stop listening and send what was heard. */
     private fun stopVoiceRecognitionAndSend() {
+        if (!isVoiceListening || voicePolishing) return
+        voiceFinishing = true
+        cancelVoiceFinalize()
         try {
             speechRecognizer?.stopListening()
         } catch (_: Exception) {
+            finishDictation()
+            return
+        }
+        // stopListening makes the recognizer hand back its last words; if it never does, send what we already have.
+        scheduleVoiceFinalize(1500L)
+    }
+
+    /** Cleans up what was heard (spelling, punctuation, grammar) and sends it as the message. */
+    private fun finishDictation() {
+        if (_binding == null || voicePolishing) return
+        cancelVoiceFinalize()
+        val heard = (voiceCommitted.toString() + " " + lastPartialText).trim()
+        try {
+            speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+        } catch (_: Exception) {}
+        speechRecognizer = null
+        if (heard.isBlank()) {
             hideVoiceListening()
+            resetVoiceState()
+            return
+        }
+        voicePolishing = true
+        binding.voiceWaveView.stop()
+        micPulse?.cancel(); micPulse = null
+        binding.btnVoiceInput.scaleX = 1f
+        binding.btnVoiceInput.scaleY = 1f
+        binding.tvVoiceTranscript.text = "✨ Polishing…"
+        val app = requireContext().applicationContext
+        viewLifecycleOwner.lifecycleScope.launch {
+            val polished = try {
+                com.jarvis.assistant.util.VoiceTextPolisher.polish(app, heard)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                com.jarvis.assistant.util.VoiceTextPolisher.local(heard)
+            }
+            voicePolishing = false
+            if (_binding == null) return@launch
+            hideVoiceListening()
+            resetVoiceState()
+            if (polished.isNotBlank()) {
+                lastMessageOriginatedFromVoice = true
+                binding.etMessageInput.setText(polished)
+                sendMessage()
+            }
         }
     }
 
     private fun cancelVoiceRecognition() {
+        cancelVoiceFinalize()
+        voicePolishing = false
         try {
             speechRecognizer?.cancel()
         } catch (_: Exception) {}
         hideVoiceListening()
+        resetVoiceState()
     }
 
     private fun resumeWakeWordIfPaused() {
@@ -1320,6 +1461,9 @@ class ChatFragment : Fragment() {
 
     override fun onDestroyView() {
         micPulse?.cancel(); micPulse = null
+        cancelVoiceFinalize()
+        voiceHandler.removeCallbacksAndMessages(null)
+        voicePolishing = false
         resumeWakeWordIfPaused()
         try {
             speechRecognizer?.destroy()

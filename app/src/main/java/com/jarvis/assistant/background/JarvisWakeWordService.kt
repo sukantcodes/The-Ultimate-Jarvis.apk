@@ -279,7 +279,7 @@ class JarvisWakeWordService : Service() {
             return
         }
 
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).also { sr ->
+        speechRecognizer = com.jarvis.assistant.util.SpeechRecognizerFactory.create(this).also { sr ->
             sr.setRecognitionListener(object : RecognitionListener {
 
                 override fun onReadyForSpeech(params: Bundle?) {

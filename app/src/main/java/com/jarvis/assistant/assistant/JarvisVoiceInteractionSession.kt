@@ -83,7 +83,7 @@ class JarvisVoiceInteractionSession(context: Context) : VoiceInteractionSession(
             return
         }
         try {
-            val speech = recognizer ?: SpeechRecognizer.createSpeechRecognizer(context).also { created ->
+            val speech = recognizer ?: com.jarvis.assistant.util.SpeechRecognizerFactory.create(context).also { created ->
                 created.setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) = Unit
                     override fun onBeginningOfSpeech() = Unit
