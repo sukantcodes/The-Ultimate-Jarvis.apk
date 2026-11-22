@@ -480,6 +480,7 @@
                 android:layout_height="match_parent"
                 android:background="?attr/themeAccent"
                 android:alpha="0.45"
+                android:visibility="gone"
                 android:layout_marginEnd="10dp" />
 
             <EditText

@@ -83,7 +83,7 @@ object SettingsDeck {
         val fill = themeColor(ctx, R.attr.themeCardBg, alpha(Color.WHITE, 0.06f))
         val border = themeColor(ctx, R.attr.themeCardBorder, alpha(Color.WHITE, 0.14f))
         val layers = ArrayList<Drawable>()
-        layers += GradientDrawable().apply { setColor(fill); cornerRadius = r }
+        layers += GradientDrawable().apply { setColor(alpha(fill, 0.55f)); cornerRadius = r }
         if (sheen > 0f) {
             layers += GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
@@ -229,7 +229,6 @@ object SettingsDeck {
             3 -> d.shape = GradientDrawable.OVAL
             else -> d.cornerRadius = dp(ctx, 12f)
         }
-        d.setStroke(px(ctx, 1f), alpha(accent, 0.30f))
         box.backgroundTintList = null
         box.background = d
         box.elevation = 0f

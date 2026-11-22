@@ -1,2 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="?attr/themeAccentLight"><item><shape android:shape="oval"><solid android:color="?attr/themeChipBg"/><stroke android:width="1dp" android:color="?attr/themeCardBorder"/></shape></item></ripple>
+<!-- Composer buttons: clear glass circles instead of solid chips on the glass composer. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="?attr/themeAccentLight"><item><shape android:shape="oval"><solid android:color="#1AFFFFFF"/><stroke android:width="1dp" android:color="#33FFFFFF"/></shape></item></ripple>
