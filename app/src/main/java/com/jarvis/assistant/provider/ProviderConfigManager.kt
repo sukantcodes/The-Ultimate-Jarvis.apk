@@ -43,7 +43,8 @@ object WorkClassifier {
         "```", "stack trace", "exception", "compile error", "build error", "fix this bug", "debug", "refactor",
         "unit test", "kotlin", "python", "javascript", "typescript", "gradle", "function ", "class ", "regex",
         "clone", "repo", "github", "git ", "server", "terminal", "shell", "preview", "build", "compile", "npm ", "pip ", "bash",
-        "website", "web page", "web site", "game", "landing page", "html", "css", "frontend", "canvas"
+        "website", "web page", "web site", "game", "landing page", "html", "css", "frontend", "canvas",
+        "public link", "forward port", "port forward", "expose my", "localhost", "tunnel"
     )
 
     fun classify(text: String, attachments: List<ChatAttachment>, hasDocument: Boolean): WorkCategory {

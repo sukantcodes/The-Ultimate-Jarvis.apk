@@ -61,5 +61,16 @@
     <string name="get_gemini_api_key_description">Open Google AI Studio to create a Gemini API key</string>
     <string name="set_replay_tutorial_title">Replay setup tutorial</string>
     <string name="set_replay_tutorial_subtitle">Walk through permissions, profile, AI, Accessibility and voice again</string>
+    <string name="port_forward_title">%1$s · port %2$d</string>
+    <string name="port_forward_copy">Copy</string>
+    <string name="port_forward_share">Share</string>
+    <string name="port_forward_stop">Stop</string>
+    <string name="port_forward_live">Live · open until %1$s</string>
+    <string name="port_forward_live_unconfirmed">Live · open until %1$s · not confirmed from outside yet</string>
+    <string name="port_forward_connecting">Connecting to Cloudflare…</string>
+    <string name="port_forward_reconnecting">Connection lost · reconnecting…</string>
+    <string name="port_forward_stopped">Stopped. %1$s</string>
+    <string name="port_forward_copied">Link copied</string>
+    <string name="port_forward_share_failed">Sharing is not available</string>
 </resources>
 

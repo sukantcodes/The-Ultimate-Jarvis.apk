@@ -14,6 +14,8 @@ import com.jarvis.assistant.tools.github.GitHubTools
 import com.jarvis.assistant.tools.github.InstalledSkillRegistry
 import com.jarvis.assistant.tools.github.JavaNetDownloader
 import com.jarvis.assistant.tools.server.ServerTools
+import com.jarvis.assistant.tools.server.TunnelManager
+import com.jarvis.assistant.tools.server.TunnelTools
 import com.jarvis.assistant.tools.tasks.runTools
 import com.jarvis.assistant.tools.terminal.ProcessBackend
 import com.jarvis.assistant.tools.terminal.TerminalManager
@@ -41,7 +43,8 @@ object ToolRuntime {
         val workspace: Workspace, val registry: ToolRegistry, val executor: ToolExecutor, val backend: ToolBackend,
         val audit: AuditLog, val policy: PermissionPolicy, val redactor: SecretRedactor,
         val terminal: TerminalManager?, val servers: ServerTools, val web: WebTools, val githubToken: GitHubTokenStore,
-        val memory: com.jarvis.assistant.tools.memory.MemoryStore, val tasks: com.jarvis.assistant.tools.tasks.TaskStore
+        val memory: com.jarvis.assistant.tools.memory.MemoryStore, val tasks: com.jarvis.assistant.tools.tasks.TaskStore,
+        val tunnels: TunnelManager? = null
     )
 
     /** Token storage in the same Keystore-backed encrypted vault as API keys. Never logged, never shown in full. */
@@ -86,6 +89,10 @@ object ToolRuntime {
 
         val terminal = try { TerminalManager(workspace, com.jarvis.assistant.tools.terminal.SwitchingBackend(app), redactor) } catch (e: Exception) { null }
         terminal?.let { TerminalTools.all(it).forEach(registry::register) }
+        val tunnels = terminal?.let {
+            TunnelManager(it.backend, workspace.root, servers.servers, kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO))
+        }
+        tunnels?.let { TunnelTools(it, servers.servers).all().forEach(registry::register) }
         com.jarvis.assistant.tools.chat.ChatAccessTools.all { com.jarvis.assistant.JarvisApp.instance.chatRepository }.forEach(registry::register)
         com.jarvis.assistant.automation.maps.MapsTools.all(
             com.jarvis.assistant.automation.maps.MapsTools.deps(app, ProviderRuntime.transport())
@@ -115,7 +122,7 @@ object ToolRuntime {
                 { com.jarvis.assistant.provider.ChatContext.systemPrompt((app as? android.app.Application)?.let { com.jarvis.assistant.JarvisApp.instance.preferences.userName } ?: "") })
         })
         com.jarvis.assistant.tools.tasks.TaskTools(tasks).runTools(taskRunner, tasks).forEach(registry::register)
-        return Built(workspace, registry, executor, backend, audit, policy, redactor, terminal, servers, web, tokens, memory, tasks)
+        return Built(workspace, registry, executor, backend, audit, policy, redactor, terminal, servers, web, tokens, memory, tasks, tunnels)
     }
 
     private fun onPath(program: String): Boolean =

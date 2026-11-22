@@ -123,9 +123,21 @@ class LocalServer(val root: File, val port: Int = 0, private val spaFallback: Bo
     }
 }
 
-/** Keeps track of running previews (at most [maxServers]) so they can be listed and stopped. */
+/**
+ * Keeps track of running previews (at most [maxServers]) so they can be listed and stopped. Listeners registered with
+ * [addStopListener] hear about every preview that is stopped here, with the port it was using, so something built on
+ * top of a preview (a public tunnel, for example) can end together with it. Listeners run after the manager's lock is
+ * released, so they may call back into the manager.
+ */
 class ServerManager(private val maxServers: Int = 3) {
     private val servers = LinkedHashMap<String, LocalServer>()
+    private val stopListeners = java.util.concurrent.CopyOnWriteArrayList<(name: String, port: Int) -> Unit>()
+
+    /** Calls [listener] with the project name and port whenever a preview is stopped. Close the result to unregister. */
+    fun addStopListener(listener: (name: String, port: Int) -> Unit): AutoCloseable {
+        stopListeners.add(listener)
+        return AutoCloseable { stopListeners.remove(listener) }
+    }
 
     @Synchronized fun start(name: String, dir: File, spa: Boolean = false): LocalServer {
         servers[name]?.let { if (it.isRunning) return it }
@@ -133,7 +145,24 @@ class ServerManager(private val maxServers: Int = 3) {
         if (servers.size >= maxServers) throw IOException("$maxServers previews are already running. Stop one first.")
         return LocalServer(dir, 0, spa).also { it.start(); servers[name] = it }
     }
-    @Synchronized fun stop(name: String): Boolean = servers.remove(name)?.also { it.stop() } != null
-    @Synchronized fun stopAll() { servers.values.forEach { it.stop() }; servers.clear() }
+
+    fun stop(name: String): Boolean {
+        val s = synchronized(this) { servers.remove(name) } ?: return false
+        val port = s.boundPort
+        s.stop()
+        notifyStopped(name, port)
+        return true
+    }
+
+    fun stopAll() {
+        val all = synchronized(this) { servers.entries.map { it.key to it.value }.also { servers.clear() } }
+        all.forEach { (name, s) -> val port = s.boundPort; s.stop(); notifyStopped(name, port) }
+    }
+
     @Synchronized fun running(): Map<String, LocalServer> = servers.filterValues { it.isRunning }
+
+    private fun notifyStopped(name: String, port: Int) {
+        if (port <= 0) return
+        stopListeners.forEach { l -> try { l(name, port) } catch (_: Exception) { } }
+    }
 }

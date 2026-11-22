@@ -245,9 +245,26 @@ class ChatFragment : Fragment() {
         return binding.root
     }
 
+    /** Shows the public links (port forwarding) above the composer, live, with Copy, Share and Stop. */
+    private fun bindPortForwardStrip() {
+        val appContext = requireContext().applicationContext
+        viewLifecycleOwner.lifecycleScope.launch {
+            // Building the tool layer touches storage, so it is done off the main thread.
+            val manager = withContext(Dispatchers.Default) {
+                runCatching { com.jarvis.assistant.tools.ToolRuntime.get(appContext).tunnels }.getOrNull()
+            } ?: return@launch
+            if (_binding == null) return@launch
+            binding.portForwardStrip.onStop = { id -> manager.stopById(id) }
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                manager.tunnels.collect { list -> _binding?.portForwardStrip?.render(list) }
+            }
+        }
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         com.jarvis.assistant.util.ThemeManager.applyFragmentBackground(binding.root)
+        bindPortForwardStrip()
 
         binding.rvChatMessages.layoutManager = LinearLayoutManager(requireContext()).apply {
             stackFromEnd = true

@@ -15,7 +15,8 @@ import java.util.concurrent.atomic.AtomicInteger
  * Runs commands inside Termux (real git, node, npm, python) through its RUN_COMMAND service. It needs the one-time
  * setup in [TermuxBridgeSpec.userSetupSteps]. Output streams live over a loopback socket (like the Termux app); if that socket cannot open it arrives when the command ends. Limits, stated plainly: Termux
  * works in its own folder (~/jarvis-workspace), which this app can not read, so files made by the app's file tools
- * are not there; a running command can not be force-stopped from here.
+ * are not there. Every command records its shell's pid inside Termux ([TermuxProcessControl]), so [RunningCommand.kill]
+ * really stops the command and everything it started, by sending Termux a small kill script.
  */
 class TermuxBackend(private val context: Context, private val spec: TermuxBridgeSpec = TermuxBridgeSpec()) : TerminalBackend {
     override val name = "Termux"
@@ -33,20 +34,12 @@ class TermuxBackend(private val context: Context, private val spec: TermuxBridge
         val live = LiveStream.open(onOutput)
         val result = Intent(context, TermuxResultReceiver::class.java).setAction("com.jarvis.assistant.TERMUX_RESULT").putExtra("id", id)
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0)
-        val wrapped = if (live != null) LiveStream.wrap(script, live.port) else script
-        val i = Intent(spec.action).setClassName(spec.packageName, spec.service)
-            .putExtra(TermuxBridgeSpec.EXTRA_COMMAND_PATH, spec.shellPath)
-            .putExtra(TermuxBridgeSpec.EXTRA_ARGUMENTS, arrayOf("-c", wrapped))
-            .putExtra(TermuxBridgeSpec.EXTRA_WORKDIR, "/data/data/com.termux/files/home")
-            .putExtra(TermuxBridgeSpec.EXTRA_BACKGROUND, true)
-            .putExtra(TermuxBridgeSpec.EXTRA_PENDING_INTENT, PendingIntent.getBroadcast(context, id, result, flags))
+        val token = TermuxProcessControl.newToken()
+        val tracked = TermuxProcessControl.track(script, token)
+        val wrapped = if (live != null) LiveStream.wrap(tracked, live.port) else tracked
+        val i = commandIntent(wrapped).putExtra(TermuxBridgeSpec.EXTRA_PENDING_INTENT, PendingIntent.getBroadcast(context, id, result, flags))
         try {
-            try {
-                if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(i) else context.startService(i)
-            } catch (e: IllegalStateException) {
-                // Android may refuse a foreground-service start; a plain start still works while this app is on screen.
-                context.startService(i)
-            }
+            startTermux(i)
         } catch (e: SecurityException) {
             pending.remove(id); live?.close()
             throw IllegalStateException("Termux refused the command. Grant JARVIS the \"Run commands in Termux environment\" permission and set allow-external-apps=true in ~/.termux/termux.properties (type: jpkg setup).")
@@ -59,8 +52,34 @@ class TermuxBackend(private val context: Context, private val spec: TermuxBridge
             override val isAlive get() = p.latch.count > 0
             override val exitCode get() = p.exit
             override fun waitFor(timeoutMs: Long) = p.latch.await(timeoutMs, TimeUnit.MILLISECONDS)
-            override fun kill(graceMs: Long) { live?.close(); pending.remove(id); p.exit = -1; p.onOutput("\n[Stopped waiting. A command already started in Termux can not be cancelled from here.]\n"); p.latch.countDown() }
+            override fun kill(graceMs: Long) {
+                val wasRunning = p.latch.count > 0
+                if (wasRunning) remoteKill(token)
+                live?.close(); pending.remove(id); p.exit = -1
+                if (wasRunning) p.onOutput("\n[Stopped. Termux was told to end the command and everything it started.]\n")
+                p.latch.countDown()
+            }
         }
+    }
+
+    private fun commandIntent(script: String): Intent = Intent(spec.action).setClassName(spec.packageName, spec.service)
+        .putExtra(TermuxBridgeSpec.EXTRA_COMMAND_PATH, spec.shellPath)
+        .putExtra(TermuxBridgeSpec.EXTRA_ARGUMENTS, arrayOf("-c", script))
+        .putExtra(TermuxBridgeSpec.EXTRA_WORKDIR, "/data/data/com.termux/files/home")
+        .putExtra(TermuxBridgeSpec.EXTRA_BACKGROUND, true)
+
+    private fun startTermux(i: Intent) {
+        try {
+            if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(i) else context.startService(i)
+        } catch (e: IllegalStateException) {
+            // Android may refuse a foreground-service start; a plain start still works while this app is on screen.
+            context.startService(i)
+        }
+    }
+
+    /** Sends Termux the kill script for a command started by [launch]. Best effort: Termux not being reachable leaves nothing to stop. */
+    private fun remoteKill(token: String) {
+        try { startTermux(commandIntent(TermuxProcessControl.killScript(token))) } catch (_: Exception) { }
     }
 
     /** A one-connection loopback server that relays what the Termux command prints. */
