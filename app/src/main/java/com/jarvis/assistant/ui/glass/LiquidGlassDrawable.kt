@@ -19,6 +19,7 @@ import android.view.View
 import androidx.core.graphics.ColorUtils
 import com.jarvis.assistant.util.ThemeManager
 import kotlin.math.max
+import kotlin.math.min
 
 /**
  * Frosted "liquid glass" surface for cards, inputs, sheets and dialogs.
@@ -28,7 +29,8 @@ import kotlin.math.max
  *  - a soft top sheen and a faint accent glow in the lower corner,
  *  - a bright edge light, a two-colour prism fringe (magenta / cyan, the ReactBits "prism" dispersion) and a hairline,
  *  - a crisp top shine.
- * No clipping, no per-frame allocation, no per-frame invalidation, no aurora re-draw per card.
+ * The body is transparent glass: a bent bright edge band, an inner shadow ring and a magnified patch of theme light give
+ * the lens look (magnification + refraction). No clipping, no per-frame allocation, no per-frame invalidation, no aurora re-draw per card.
  */
 class LiquidGlassDrawable(
     @Suppress("unused") private val host: View,
@@ -55,6 +57,14 @@ class LiquidGlassDrawable(
     private val dome = Paint(Paint.ANTI_ALIAS_FLAG)
     private val bevel = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val glint = Paint(Paint.ANTI_ALIAS_FLAG)
+    // Lens layers: the pane is transparent, so it shows a magnified, bent view of the light behind it.
+    private val lensBand = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val lensDark = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val lensFocus = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val lensBandRect = RectF()
+    private val lensDarkRect = RectF()
+    private var lensBandRadius = 0f
+    private var lensDarkRadius = 0f
     private val domeRect = RectF()
     private val bevelRect = RectF()
     private val unitMatrix = android.graphics.Matrix()
@@ -103,7 +113,7 @@ class LiquidGlassDrawable(
         val k = (0.55f + 0.45f * cachedStrength) * soften
         // Crystal Mirror: the pane is clear (a much lighter frosting) and the 3D bubble is more intense.
         val crystal = CrystalTheme.active()
-        val clear = if (crystal) 0.45f else 1f
+        val clear = if (crystal) 0.18f else 0.28f
         val boost = if (crystal) CrystalTheme.BUBBLE_BOOST else 1f
         val top = outer.top
         val bottom = outer.bottom
@@ -118,6 +128,33 @@ class LiquidGlassDrawable(
             ColorUtils.setAlphaComponent(Color.WHITE, (255 * bodyTop).toInt()),
             ColorUtils.setAlphaComponent(Color.WHITE, (255 * bodyBottom).toInt()),
             Shader.TileMode.CLAMP
+        )
+
+        // Lens: a wide bright band at the edge (the glass bending the light in), a thin shadow just inside it, and a
+        // magnified patch of the theme light floating in the middle of the pane.
+        val lensW = min(9f * density, min(w, h) * 0.22f)
+        lensBand.strokeWidth = lensW
+        lensBandRect.set(outer); lensBandRect.inset(lensW / 2f + edgeW, lensW / 2f + edgeW)
+        lensBandRadius = max(0f, radiusPx - lensW / 2f - edgeW)
+        val bandTint = if (tint != 0) tint else try { ThemeManager.getThemeAccentColor() } catch (_: Throwable) { Color.WHITE }
+        val ls = (0.6f + 0.4f * cachedStrength) * soften
+        lensBand.shader = LinearGradient(
+            0f, top, 0f, bottom,
+            intArrayOf(
+                ColorUtils.setAlphaComponent(Color.WHITE, ((if (light) 0.55f else 0.26f) * ls * 255).toInt()),
+                ColorUtils.setAlphaComponent(bandTint, ((if (light) 0.16f else 0.12f) * ls * 255).toInt()),
+                ColorUtils.setAlphaComponent(bandTint, ((if (light) 0.40f else 0.30f) * ls * 255).toInt())
+            ),
+            floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
+        )
+        lensDark.strokeWidth = 1.6f * density
+        lensDarkRect.set(outer); lensDarkRect.inset(lensW + edgeW + lensDark.strokeWidth / 2f, lensW + edgeW + lensDark.strokeWidth / 2f)
+        lensDarkRadius = max(0f, radiusPx - lensW - edgeW - lensDark.strokeWidth / 2f)
+        lensDark.color = ColorUtils.setAlphaComponent(Color.BLACK, ((if (light) 0.07f else 0.16f) * ls * 255).toInt())
+        lensFocus.shader = RadialGradient(
+            outer.left + w * 0.32f, top + h * 0.34f, max(w, h) * 0.6f,
+            ColorUtils.setAlphaComponent(bandTint, ((if (light) 0.20f else 0.22f) * ls * 255).toInt()),
+            Color.TRANSPARENT, Shader.TileMode.CLAMP
         )
 
         // Soft light falling across the upper half of the pane.
@@ -158,15 +195,15 @@ class LiquidGlassDrawable(
         hairline.color = ColorUtils.setAlphaComponent(Color.WHITE, if (light) 120 else 30)
 
         // Prism dispersion: a magenta fringe on the edge and a cyan one just inside it.
-        val fringeAlpha = (((if (light) 0.22f else 0.30f) * soften * (if (crystal) 1.35f else 1f)) * 255).toInt().coerceIn(0, 255)
+        val fringeAlpha = (((if (light) 0.22f else 0.30f) * soften * (if (crystal) 1.35f else 1.25f)) * 255).toInt().coerceIn(0, 255)
         fringeOuter.color = Color.argb(fringeAlpha, 255, 70, 205)
         fringeInner.color = Color.argb((fringeAlpha * 0.55f).toInt(), 40, 215, 255)
 
         edgeLight.strokeWidth = edgeW
         hairline.strokeWidth = 0.6f * density
         topShine.strokeWidth = edgeW * 1.3f
-        fringeOuter.strokeWidth = 1.1f * density
-        fringeInner.strokeWidth = 1.1f * density
+        fringeOuter.strokeWidth = 1.8f * density
+        fringeInner.strokeWidth = 1.8f * density
 
         // ---- 3D bubble ----
         val c3 = (if (soft) 0.62f else 1f) * (0.6f + 0.4f * cachedStrength) * boost
@@ -254,6 +291,9 @@ class LiquidGlassDrawable(
         val layer = if (alphaValue < 255) canvas.saveLayerAlpha(outer, alphaValue) else canvas.save()
 
         canvas.drawPath(outerPath, body)
+        canvas.drawPath(outerPath, lensFocus)
+        canvas.drawRoundRect(lensBandRect, lensBandRadius, lensBandRadius, lensBand)
+        canvas.drawRoundRect(lensDarkRect, lensDarkRadius, lensDarkRadius, lensDark)
         canvas.drawPath(outerPath, sheen)
         canvas.drawPath(outerPath, glow)
         if (cachedBubble) {

@@ -64,6 +64,9 @@ class LiquidGlassLayout @JvmOverloads constructor(
     /** The locked dock bar never changes with the theme. */
     private var lockedGlass = false
 
+    /** True = transparent lens glass (magnifies and refracts what is behind it). The Chatbox surfaces turn this off. */
+    private var lens = true
+
     // capture: three rotating buffers. The render thread may still be reading the previous frame's capture while the next one is
     // being drawn; writing into the same bitmap (erase, then redraw) is what made the glass flash. Each capture goes to its own buffer.
     private val bmps = arrayOfNulls<Bitmap>(BUFFERS)
@@ -103,6 +106,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
         refreshFps = a.getInt(R.styleable.LiquidGlassLayout_lgRefreshFps, refreshFps)
         sourceId = a.getResourceId(R.styleable.LiquidGlassLayout_lgSource, View.NO_ID)
         val locked = a.getBoolean(R.styleable.LiquidGlassLayout_lgLocked, false)
+        lens = a.getBoolean(R.styleable.LiquidGlassLayout_lgLens, true)
         val plainBg = a.getResourceId(R.styleable.LiquidGlassLayout_lgPlainBackground, 0)
         val plainElevation = a.getDimension(R.styleable.LiquidGlassLayout_lgPlainElevation, 0f)
         a.recycle()
@@ -283,7 +287,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
             0f, 0f, 0f, h * 0.5f,
             intArrayOf(0x33FFFFFF, 0x0DFFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP
         )
-        veilPaint.color = Color.argb((veil * 255).toInt().coerceIn(0, 255), 255, 255, 255)
+        veilPaint.color = Color.argb((effectiveVeil() * 255).toInt().coerceIn(0, 255), 255, 255, 255)
         edgePaint.strokeWidth = 1.1f * density
         edgePaint.shader = LinearGradient(
             0f, 0f, w.toFloat(), h.toFloat(),
@@ -302,6 +306,14 @@ class LiquidGlassLayout @JvmOverloads constructor(
     }
 
     @RequiresApi(33)
+    private fun effectiveVeil(): Float = if (lens) veil * LENS_VEIL_FACTOR else veil
+
+    private fun lensZoom(crystal: Boolean): Float = when {
+        !lens -> if (crystal) CrystalTheme.LENS_ZOOM else 1f
+        crystal -> CrystalTheme.LENS_ZOOM * 1.08f
+        else -> LENS_ZOOM
+    }
+
     private fun buildGlassShader(b: Bitmap, w: Int, h: Int): Shader {
         val content = BitmapShader(b, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
             setLocalMatrix(Matrix().apply { setScale(w / b.width.toFloat(), h / b.height.toFloat()) })
@@ -313,13 +325,13 @@ class LiquidGlassLayout @JvmOverloads constructor(
         shader.setFloatUniform("size", w.toFloat(), h.toFloat())
         shader.setFloatUniform("radius", min(cornerRadiusPx, min(w, h) / 2f))
         shader.setFloatUniform("bezel", min(bezelDp * density, min(w, h) / 2f))
-        shader.setFloatUniform("strength", refractionDp * density)
-        shader.setFloatUniform("blur", blurDp * density * 0.35f)
+        shader.setFloatUniform("strength", refractionDp * density * (if (lens) LENS_REFRACTION_BOOST else 1f))
+        shader.setFloatUniform("blur", blurDp * density * 0.35f * (if (lens) LENS_BLUR_FACTOR else 1f))
         shader.setFloatUniform("chroma", (ds + redOffset) / norm, (ds + greenOffset) / norm, (ds + blueOffset) / norm)
-        // Crystal Mirror (never the dock): a clearer pane that magnifies what is behind it like a lens.
+        // Transparent lens glass everywhere except the Chatbox: almost no veil, a magnified view and stronger edge refraction.
         val crystalHere = !lockedGlass && CrystalTheme.active()
-        shader.setFloatUniform("veil", if (crystalHere) veil * 0.45f else veil)
-        shader.setFloatUniform("zoom", if (crystalHere) CrystalTheme.LENS_ZOOM else 1f)
+        shader.setFloatUniform("veil", effectiveVeil())
+        shader.setFloatUniform("zoom", lensZoom(crystalHere))
         return shader
     }
 
@@ -328,6 +340,12 @@ class LiquidGlassLayout @JvmOverloads constructor(
         private const val BACKDROP_SCALE = 0.15f
 
         private const val BUFFERS = 3
+
+        /** Lens glass: how much it magnifies, how much of the white veil is kept, extra edge bend, and how much blur is kept. */
+        internal const val LENS_ZOOM = 1.22f
+        internal const val LENS_VEIL_FACTOR = 0.3f
+        internal const val LENS_REFRACTION_BOOST = 1.3f
+        internal const val LENS_BLUR_FACTOR = 0.6f
 
         @Volatile private var capturing = false
 

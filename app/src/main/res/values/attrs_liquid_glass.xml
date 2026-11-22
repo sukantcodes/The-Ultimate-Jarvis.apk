@@ -19,6 +19,8 @@
         <attr name="lgSource" format="reference" />
         <!-- true = this glass never switches off (the bottom dock bar). -->
         <attr name="lgLocked" format="boolean" />
+        <!-- true (default) = transparent lens glass that magnifies and refracts what is behind it; false = the Chatbox glass. -->
+        <attr name="lgLens" format="boolean" />
         <!-- Look used instead of the glass when Liquid Glass is turned off in Settings. -->
         <attr name="lgPlainBackground" format="reference" />
         <attr name="lgPlainElevation" format="dimension" />

@@ -28,6 +28,7 @@
     <!-- Liquid glass top bar: live backdrop blur + prism refraction, every control sits in its own 3D glass pod -->
     <com.jarvis.assistant.ui.glass.LiquidGlassLayout
         android:id="@+id/layoutChatHeader"
+        app:lgLens="false"
         android:layout_width="0dp"
         app:layout_constraintWidth_max="@dimen/chat_content_max_width"
         android:layout_height="72dp"
@@ -322,6 +323,7 @@
     <!-- Liquid glass composer: live backdrop blur + prism refraction (ReactBits Glass Surface port) -->
     <com.jarvis.assistant.ui.glass.LiquidGlassLayout
         android:id="@+id/cardInputContainer"
+        app:lgLens="false"
         android:layout_width="0dp"
         app:layout_constraintWidth_max="@dimen/chat_content_max_width"
         android:layout_height="wrap_content"
