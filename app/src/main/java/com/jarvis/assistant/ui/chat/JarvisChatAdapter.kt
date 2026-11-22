@@ -186,6 +186,9 @@ class JarvisChatAdapter(
                 .forEach { pods.install(it, heightDp = 38f, circle = true, group = "message") }
         }
 
+        /** Keeps the finished blocks of the streaming answer rendered, so each update only parses the block being written. */
+        private val markdown = IncrementalMarkdown()
+
         /** True between the first streamed words and the final bind of a turn; makes the orb swirl faster. */
         private var streamingNow = false
 
@@ -346,7 +349,7 @@ class JarvisChatAdapter(
 
                 val rendered: CharSequence = try {
                     val text = textBuilder.toString().trim()
-                    if (text.isNotEmpty()) MarkdownRenderer.render(text, context.resources.displayMetrics.density, AnswerPalette.forKey(turn.id.toString())) else ""
+                    if (text.isNotEmpty()) markdown.render(text, context.resources.displayMetrics.density, AnswerPalette.forKey(turn.id.toString()), isStreaming) else ""
                 } catch (_: Throwable) {
                     textBuilder.toString()
                 }
@@ -379,7 +382,7 @@ class JarvisChatAdapter(
                 binding.layoutAssistantArtifacts.removeAllViews()
                 binding.tvAssistantMessage.visibility = View.VISIBLE
                 val rendered: CharSequence = try {
-                    MarkdownRenderer.render(rawResponse, context.resources.displayMetrics.density, AnswerPalette.forKey(turn.id.toString()))
+                    markdown.render(rawResponse, context.resources.displayMetrics.density, AnswerPalette.forKey(turn.id.toString()), isStreaming)
                 } catch (_: Throwable) {
                     rawResponse
                 }

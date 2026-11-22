@@ -277,11 +277,20 @@ class ChatFragment : Fragment() {
             override fun onScrollStateChanged(rv: androidx.recyclerview.widget.RecyclerView, newState: Int) {
                 if (newState == androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_DRAGGING) stickToBottom = false
                 else if (newState == androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_IDLE) stickToBottom = !rv.canScrollVertically(1)
+                updateJumpButton()
             }
             override fun onScrolled(rv: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
                 if (dy > 0 && !rv.canScrollVertically(1)) stickToBottom = true
+                updateJumpButton()
             }
         })
+        styleJumpButton()
+        binding.btnJumpToLatest.setOnClickListener {
+            stickToBottom = true
+            val last = chatAdapter.itemCount - 1
+            if (last >= 0) binding.rvChatMessages.scrollToPosition(last)
+            updateJumpButton()
+        }
         binding.rvChatMessages.adapter = chatAdapter
         com.jarvis.assistant.ui.chat.liquid.LiquidMotion.headerIn(binding.layoutChatHeader)
         setupInlineActivity()
@@ -1001,6 +1010,7 @@ class ChatFragment : Fragment() {
                                     binding.rvChatMessages.scrollToPosition(workTurns.size - 1)
                                 }
                             }
+                            binding.rvChatMessages.post { updateJumpButton() }
                         }
                     }
                 }
@@ -1015,6 +1025,7 @@ class ChatFragment : Fragment() {
             val accent = try { ThemeManager.getThemeAccentColor() } catch (_: Exception) { Color.parseColor("#00E5FF") }
             binding.tvChatTokens.setTextColor(accent)
             binding.btnSendMessage.imageTintList = ColorStateList.valueOf(accent)
+            styleJumpButton()
             refreshProviderLabel()
             updateAutoApproveHeaderStatus()
         }
@@ -1442,6 +1453,43 @@ class ChatFragment : Fragment() {
         }
     }
 
+    private var jumpShown = false
+
+    /** A round glass-style button that glides in when you have scrolled up and the chat is not following, and out again at the bottom. */
+    private fun updateJumpButton() {
+        val b = _binding ?: return
+        val btn = b.btnJumpToLatest
+        val show = !stickToBottom && b.rvChatMessages.canScrollVertically(1)
+        if (show == jumpShown) return
+        jumpShown = show
+        btn.animate().cancel()
+        val animate = GlassMotion.animationsOn(btn)
+        if (show) {
+            btn.visibility = View.VISIBLE
+            if (!animate) { btn.alpha = 1f; btn.scaleX = 1f; btn.scaleY = 1f; btn.translationY = 0f; return }
+            btn.scaleX = 0.7f; btn.scaleY = 0.7f; btn.translationY = 14f * resources.displayMetrics.density
+            btn.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setDuration(260L)
+                .setInterpolator(android.view.animation.OvershootInterpolator(1.6f)).start()
+        } else {
+            if (!animate) { btn.alpha = 0f; btn.visibility = View.GONE; return }
+            btn.animate().alpha(0f).scaleX(0.8f).scaleY(0.8f).setDuration(160L)
+                .setInterpolator(android.view.animation.AccelerateInterpolator())
+                .withEndAction { if (!jumpShown) _binding?.btnJumpToLatest?.visibility = View.GONE }.start()
+        }
+    }
+
+    private fun styleJumpButton() {
+        val btn = _binding?.btnJumpToLatest ?: return
+        val light = try { com.jarvis.assistant.util.ThemeManager.isCurrentThemeLight() } catch (_: Throwable) { false }
+        val accent = activityAccent()
+        btn.background = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.OVAL
+            setColor(if (light) 0xF2FFFFFF.toInt() else 0xF21B2230.toInt())
+            setStroke((1.2f * resources.displayMetrics.density).toInt(), androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 150))
+        }
+        btn.imageTintList = ColorStateList.valueOf(accent)
+    }
+
     private fun activityAccent(): Int = try { ThemeManager.getThemeAccentColor() } catch (_: Exception) { Color.parseColor("#00E5FF") }
 
     /** The spinner, steps and progress Jarvis shows inside each message are read from the chat engine. */
@@ -1473,6 +1521,7 @@ class ChatFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        jumpShown = false
         micPulse?.cancel(); micPulse = null
         cancelVoiceFinalize()
         voiceHandler.removeCallbacksAndMessages(null)
