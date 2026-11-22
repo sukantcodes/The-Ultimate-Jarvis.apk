@@ -68,7 +68,7 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
         append(if (verified && matches == true) "Checked from outside this app: the link shows exactly the same page as your phone does."
         else if (verified && matches == false) "The link answers, but its content differs from what your phone serves. Pages that change on every load (live data, random content) will differ."
         else if (verified) "Checked from outside this app: the link answers."
-        else "Cloudflare accepted the tunnel, but this phone could not confirm the link yet. If it does not open, wait a few seconds and try again.")
+        else "The link is created. New links can take a few more seconds to start answering everywhere; if it does not open at first, retry in a few seconds.")
         append("\nAnyone who has the link can open it. It closes by itself when the server stops. Say \"stop forwarding port ").append(t.port).append("\" to close it now.")
     }
 
@@ -91,10 +91,10 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
             listOf(
                 ToolParam("port", "integer", "Local port to share, for example 3000."),
                 ToolParam("name", "string", "Name of a running preview project (see preview_status)."),
-                ToolParam("minutes", "integer", "How long the link stays open (default 30, at most 480).")
+                ToolParam("minutes", "integer", "How long the link stays open (default 30, at most 1440 = 24 hours).")
             ), Risk.NETWORK, "server")
 
-        private fun minutes(args: JsonObject) = (args.intArg("minutes") ?: 30).coerceIn(1, 480)
+        private fun minutes(args: JsonObject) = (args.intArg("minutes") ?: 30).coerceIn(1, 1440)
 
         override fun describe(args: JsonObject): String = when (val t = resolve(args)) {
             is Target.Bad -> "Nothing will be shared yet: ${t.message}"

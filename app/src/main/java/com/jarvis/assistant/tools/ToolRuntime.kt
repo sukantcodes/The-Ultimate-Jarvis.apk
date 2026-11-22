@@ -94,6 +94,15 @@ object ToolRuntime {
             TunnelManager(it.backend, workspace.root, servers.servers, kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO))
         }
         tunnels?.let { TunnelTools(it, servers.servers).all().forEach(registry::register) }
+        // Install cloudflared in Termux once, in the background, so the first link is also created in seconds.
+        if (terminal != null && tunnels != null && terminal.backend.isRemote && !prefs.getBoolean("cloudflared_prewarmed", false)) {
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO).launch {
+                try {
+                    terminal.backend.launch(com.jarvis.assistant.tools.server.TunnelScript.prewarm(), workspace.root, terminal.backend.environment(workspace.root)) { }
+                    prefs.edit().putBoolean("cloudflared_prewarmed", true).apply()
+                } catch (_: Exception) { }
+            }
+        }
         // Keep the app process (and the preview server inside it) alive while any public link is open, even if the app is closed.
         tunnels?.let { tm ->
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Main).launch {

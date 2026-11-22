@@ -52,17 +52,19 @@ class TunnelManager(
 ) : AutoCloseable {
 
     data class Config(
-        val maxTunnels: Int = 3,
+        val maxTunnels: Int = 10,
         val defaultMinutes: Int = 30,
-        val maxMinutes: Int = 480,
+        val maxMinutes: Int = 1440,
         val monitorIntervalMs: Long = 3_000,
         val missesBeforeStop: Int = 3,
         val startupLimitMs: Long = 60_000,
         val installLimitMs: Long = 300_000,
         val reconnectLimitMs: Long = 180_000,
-        val verifyFirstDelayMs: Long = 1_500,
-        val verifyIntervalMs: Long = 1_000,
-        val verifyAttempts: Int = 15,
+        val verifyFirstDelayMs: Long = 300,
+        val verifyIntervalMs: Long = 500,
+        val verifyAttempts: Int = 30,
+        /** The link is handed out this long after Cloudflare accepts it even if this phone could not fetch it yet; checking carries on in the background. */
+        val fastLiveMs: Long = 3_000,
         /** How long a stopped or failed link stays in the list so the person can read why. */
         val lingerMs: Long = 15_000,
         /** Tries to get a link going before giving up (the second and third use HTTP/2, which networks that block QUIC allow). */
@@ -278,16 +280,27 @@ class TunnelManager(
     /** Fetches the public address from this phone (out to the internet and back in) until it answers, and compares it with the local page. */
     private fun startVerify(e: Entry, url: String) {
         e.verify = scope.launch(Dispatchers.IO) {
+            val began = clock()
             delay(config.verifyFirstDelayMs)
             var result = LinkCheck(false)
             var attempt = 0
+            var announced = false
             while (!result.reachable && attempt < config.verifyAttempts && !e.terminal) {
                 result = try { verifier.check(url, localUrl(e)) } catch (_: Exception) { LinkCheck(false) }
-                if (!result.reachable) delay(config.verifyIntervalMs)
+                if (!result.reachable) {
+                    // Do not make the person wait for DNS to spread: hand the link out after fastLiveMs and keep checking.
+                    if (!announced && clock() - began >= config.fastLiveMs) {
+                        announced = true
+                        synchronized(lock) {
+                            if (!e.terminal && (e.state is TunnelState.Connecting || e.state is TunnelState.Preparing)) setLocked(e, TunnelState.Live(url, false, null))
+                        }
+                    }
+                    delay(config.verifyIntervalMs)
+                }
                 attempt++
             }
             synchronized(lock) {
-                if (!e.terminal && (e.state is TunnelState.Connecting || e.state is TunnelState.Preparing)) {
+                if (!e.terminal && (e.state is TunnelState.Connecting || e.state is TunnelState.Preparing || (announced && e.state is TunnelState.Live))) {
                     e.verified = result.reachable; e.matchesLocal = result.sameAsLocal; e.everLive = true; e.lastHealthAt = System.currentTimeMillis()
                     setLocked(e, TunnelState.Live(url, result.reachable, result.sameAsLocal))
                 }

@@ -237,6 +237,14 @@ object TunnelScript {
             .replace("@ORIGIN@", origin).replace("@TTL@", ttlSeconds.toString()).replace("@PROTO@", if (protocol == "http2") " --protocol http2" else "").replace("@MISSING@", missing)
     }
 
+    /** Installs cloudflared in the background ahead of time, so the first public link does not wait for the install. */
+    fun prewarm(): String = """
+        |export DEBIAN_FRONTEND=noninteractive
+        |command -v cloudflared >/dev/null 2>&1 && exit 0
+        |pkg install -y -o Dpkg::Options::=--force-confnew cloudflared >/dev/null 2>&1 \
+        |  || { pkg update -y -o Dpkg::Options::=--force-confnew >/dev/null 2>&1; pkg install -y -o Dpkg::Options::=--force-confnew cloudflared >/dev/null 2>&1; }
+    """.trimMargin()
+
     private val INSTALL = """
         |  echo '[jarvis] INSTALLING'
         |  pkg install -y -o Dpkg::Options::=--force-confnew cloudflared >/dev/null 2>&1 \
