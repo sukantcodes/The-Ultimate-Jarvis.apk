@@ -174,6 +174,9 @@ class JarvisChatAdapter(
 
         init {
             MarkdownRenderer.attachLinkTouch(binding.tvAssistantMessage)
+            // Long-press any message text to select and copy it (answers and your own messages).
+            binding.tvAssistantMessage.setTextIsSelectable(true)
+            binding.tvUserMessage.setTextIsSelectable(true)
             LiquidPane.ensure(binding.tvUserMessage, LiquidPane.Kind.USER, 24f)
             LiquidPane.ensure(binding.tvUserAttachment, LiquidPane.Kind.INSET, 18f)
             LiquidMotion.pressFeel(binding.tvUserAttachment)
@@ -292,6 +295,16 @@ class JarvisChatAdapter(
             rendered
         }
 
+        /**
+         * Sets the answer text. If a finished answer is re-bound with the very same text while the person is selecting it,
+         * the text is left alone, because setText would cancel their selection.
+         */
+        private fun setAnswerText(rendered: CharSequence, streaming: Boolean) {
+            val tv = binding.tvAssistantMessage
+            if (!streaming && tv.hasSelection() && tv.text.toString() == rendered.toString()) return
+            tv.text = fade(rendered, streaming)
+        }
+
         private fun renderAssistantContent(turn: ChatTurn, isStreaming: Boolean) {
             val context = binding.root.context
             if (turn.jarvisResponse.isBlank()) {
@@ -339,7 +352,7 @@ class JarvisChatAdapter(
                 }
 
                 if (rendered.isNotBlank()) {
-                    binding.tvAssistantMessage.text = fade(rendered, isStreaming)
+                    setAnswerText(rendered, isStreaming)
                     binding.tvAssistantMessage.visibility = View.VISIBLE
                 } else {
                     binding.tvAssistantMessage.visibility = View.GONE
@@ -370,7 +383,7 @@ class JarvisChatAdapter(
                 } catch (_: Throwable) {
                     rawResponse
                 }
-                binding.tvAssistantMessage.text = fade(rendered, isStreaming)
+                setAnswerText(rendered, isStreaming)
             }
 
             binding.btnAssistantCopy.setOnClickListener { copyToClipboard(context, "Jarvis response", rawResponse) }
@@ -405,7 +418,7 @@ class JarvisChatAdapter(
 
             if (turn.userTranscript.isNotBlank()) {
                 binding.layoutUserContainer.visibility = View.VISIBLE
-                binding.tvUserMessage.text = turn.userTranscript
+                if (binding.tvUserMessage.text.toString() != turn.userTranscript) binding.tvUserMessage.text = turn.userTranscript
                 binding.btnUserCopy.setOnClickListener { copyToClipboard(context, "User message", turn.userTranscript) }
                 binding.btnUserEdit.setOnClickListener { onEditUserMessage?.invoke(turn.userTranscript) }
             } else {
