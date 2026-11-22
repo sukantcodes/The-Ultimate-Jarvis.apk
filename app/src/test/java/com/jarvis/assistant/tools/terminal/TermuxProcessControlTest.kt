@@ -55,7 +55,7 @@ class TermuxProcessControlTest {
         val t = TermuxProcessControl.newToken()
         val innocent = ProcessBuilder("sleep", "615").start()
         try {
-            val pid = innocent.pid()
+            val pid = ProcessTree.pidOf(innocent) ?: error("no pid")
             File(home, ".jarvis-run").mkdirs(); File(home, ".jarvis-run/$t.pid").writeText("$pid\n")
             val kill = ProcessBuilder(bash, "-c", TermuxProcessControl.killScript(t)).also { it.environment()["HOME"] = home.path }.start()
             assertTrue(kill.waitFor(20, TimeUnit.SECONDS))
