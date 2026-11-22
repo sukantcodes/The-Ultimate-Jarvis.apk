@@ -21,6 +21,8 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
 
     private sealed class Target {
         data class Ok(val port: Int, val label: String) : Target()
+        /** A project that has no preview running yet: [Start] starts its preview itself, so one call gives a link. */
+        data class NeedsPreview(val name: String) : Target()
         data class Bad(val message: String) : Target()
     }
 
@@ -34,7 +36,7 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
         }
         args.str("name")?.takeIf { it.isNotBlank() }?.let { n ->
             val s = servers.running().entries.firstOrNull { it.key.equals(n.trim(), ignoreCase = true) }
-                ?: return Target.Bad("No preview named \"$n\" is running. Start it with preview_start first, or give a port.")
+                ?: return Target.NeedsPreview(n.trim())
             return Target.Ok(s.value.boundPort, s.key)
         }
         val found = tunnels.detect()
@@ -44,6 +46,17 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
             open.size == 1 -> Target.Ok(open[0].port, open[0].label)
             else -> Target.Bad("Several local servers are running: " + open.joinToString { "${it.label} (port ${it.port})" } + ". Tell me which port to share.")
         }
+    }
+
+    /** Starts the preview of project [name] the same way preview_start does (dist/ or build/ if it has an index.html, else the project folder). */
+    private fun startPreview(name: String, ctx: ToolContext): Target {
+        val d = try { ctx.workspace.project(name) } catch (e: Exception) { return Target.Bad(e.message ?: "Invalid project name.") }
+        val serveDir = listOf("dist", "build").map { java.io.File(d, it) }.firstOrNull { java.io.File(it, "index.html").isFile } ?: d
+        if (!java.io.File(serveDir, "index.html").isFile) return Target.Bad("Project \"$name\" has no index.html to share. Create the project first.")
+        return try {
+            val s = servers.start(d.name, serveDir)
+            Target.Ok(s.boundPort, d.name)
+        } catch (e: java.io.IOException) { Target.Bad(e.message ?: "The preview could not be started.") }
     }
 
     private fun minutesText(m: Int) = if (m % 60 == 0 && m >= 60) "${m / 60} h" else "$m min"
@@ -74,17 +87,19 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
     inner class Start : Tool {
         override val spec = ToolSpec("port_forward_start",
             "Create a temporary public HTTPS link (Cloudflare Quick Tunnel) to a website or server running on this phone, so anyone on the internet can open it. Use for \"create a public link for my website\", \"expose my localhost\", \"forward port 3000\". " +
-                "Give a port, or a preview project name, or neither to use the one detected local server. The person is always asked first. Only say the link works after this tool returns it.",
+                "Give a port, or a project name (its preview is started automatically if it is not running, so this ONE call is enough: do not call preview_start, deploy, build or run any other command first), or neither to use the one detected local server. The link is ready in seconds and lasts 30 minutes by default, and it keeps working on any device even after the app is closed. The person is always asked first. Only say the link works after this tool returns it, then reply with just the link.",
             listOf(
                 ToolParam("port", "integer", "Local port to share, for example 3000."),
                 ToolParam("name", "string", "Name of a running preview project (see preview_status)."),
-                ToolParam("minutes", "integer", "How long the link stays open (default 60, at most 480).")
+                ToolParam("minutes", "integer", "How long the link stays open (default 30, at most 480).")
             ), Risk.NETWORK, "server")
 
-        private fun minutes(args: JsonObject) = (args.intArg("minutes") ?: 60).coerceIn(1, 480)
+        private fun minutes(args: JsonObject) = (args.intArg("minutes") ?: 30).coerceIn(1, 480)
 
         override fun describe(args: JsonObject): String = when (val t = resolve(args)) {
             is Target.Bad -> "Nothing will be shared yet: ${t.message}"
+            is Target.NeedsPreview -> "PUBLIC INTERNET ACCESS\nStart a preview of ${t.name} on this phone and make it reachable from anywhere through a temporary Cloudflare link. " +
+                "Anyone who gets the link can open it and see everything this project serves, for ${minutesText(minutes(args))} or until you stop it."
             is Target.Ok -> "PUBLIC INTERNET ACCESS\nMake ${t.label} (port ${t.port}) on this phone reachable from anywhere through a temporary Cloudflare link. " +
                 "Anyone who gets the link can open it and see everything this server serves, for ${minutesText(minutes(args))} or until you stop it."
         }
@@ -92,7 +107,12 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
         override fun isDestructive(args: JsonObject, ctx: ToolContext) = true
 
         override suspend fun run(args: JsonObject, ctx: ToolContext): ToolResult {
-            val t = when (val r = resolve(args)) { is Target.Bad -> return ToolResult.Error(r.message); is Target.Ok -> r }
+            val resolved = resolve(args)
+            val t = when (val r = if (resolved is Target.NeedsPreview) startPreview(resolved.name, ctx) else resolved) {
+                is Target.Bad -> return ToolResult.Error(r.message)
+                is Target.Ok -> r
+                is Target.NeedsPreview -> return ToolResult.Error("The preview could not be started.")
+            }
             val started = when (val r = tunnels.start(t.port, t.label, minutes(args))) {
                 is StartResult.Rejected -> return ToolResult.Error(r.message)
                 is StartResult.AlreadyActive -> {

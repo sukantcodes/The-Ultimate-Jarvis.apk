@@ -320,6 +320,12 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <service
+            android:name=".tools.server.TunnelKeepAliveService"
+            android:exported="false"
+            android:stopWithTask="false"
+            android:foregroundServiceType="dataSync" />
+
         <receiver android:name=".udn.UdnConsentReceiver" android:exported="false" />
 
         <activity
