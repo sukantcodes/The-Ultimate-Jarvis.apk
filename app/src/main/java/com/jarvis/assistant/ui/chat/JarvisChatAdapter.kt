@@ -373,7 +373,17 @@ class JarvisChatAdapter(
                     } else {
                         val card = LayoutCodeArtifactCardBinding.inflate(LayoutInflater.from(context), container, false)
                         container.addView(card.root)
+                        if (isStreaming && GlassMotion.animationsOn(card.root)) {
+                            // A code card that appears while the answer is written rises into place instead of popping in.
+                            card.root.alpha = 0f
+                            card.root.translationY = 12f * context.resources.displayMetrics.density
+                            card.root.animate().alpha(1f).translationY(0f).setDuration(340L)
+                                .setInterpolator(android.view.animation.DecelerateInterpolator(1.6f)).start()
+                        }
                         card
+                    }
+                    if (!isStreaming) { // a finished answer always shows its cards fully, even if an entrance was cut short
+                        cardBinding.root.animate().cancel(); cardBinding.root.alpha = 1f; cardBinding.root.translationY = 0f
                     }
                     CodeArtifactCardBinder.bind(cardBinding, block.language, block.code, block.isWriting)
                 }

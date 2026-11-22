@@ -159,11 +159,14 @@ class TunnelTest {
         assertTrue(b.commands.isEmpty()); assertTrue(m.tunnels.value.isEmpty())
     }
 
-    @Test fun at_most_three_links_are_open_at_once() {
-        val b = FakeBackend(); val m = manager(b)
+    @Test fun the_open_link_limit_is_enforced() {
+        // The product default is higher (Config.maxTunnels); the rule under test is "never more than the limit", so set a small one.
+        val b = FakeBackend(); val m = manager(b, fast.copy(maxTunnels = 3))
         for (p in listOf(3000, 3001, 3002)) { probe.open += p; assertTrue(m.start(p) is StartResult.Started) }
         probe.open += 3003
-        assertTrue(m.start(3003) is StartResult.Rejected)
+        val over = m.start(3003)
+        assertTrue(over is StartResult.Rejected)
+        assertTrue((over as StartResult.Rejected).message.contains("3 public links"))
         m.close()
     }
 

@@ -16,6 +16,8 @@ import android.text.style.RelativeSizeSpan
  */
 class IncrementalMarkdown {
 
+    private companion object { const val TAG = "JarvisStream" }
+
     private var prefixSource = ""
     private var prefixOut: CharSequence = ""
     private var density = 0f
@@ -30,7 +32,20 @@ class IncrementalMarkdown {
         variant = -1
     }
 
+    /**
+     * Same as [renderInternal], plus an opt-in timing line. Turn it on from a computer with
+     * `adb shell setprop log.tag.JarvisStream DEBUG` and watch `adb logcat -s JarvisStream`; it costs nothing when off.
+     */
     fun render(source: String, density: Float, palette: AnswerPalette.Palette, streaming: Boolean): CharSequence {
+        if (!android.util.Log.isLoggable(TAG, android.util.Log.DEBUG)) return renderInternal(source, density, palette, streaming)
+        val t0 = System.nanoTime()
+        val out = renderInternal(source, density, palette, streaming)
+        val micros = (System.nanoTime() - t0) / 1000
+        android.util.Log.d(TAG, "markdown ${if (streaming) "stream" else "final "} chars=${source.length} cachedPrefix=${prefixSource.length} took=${micros}us")
+        return out
+    }
+
+    private fun renderInternal(source: String, density: Float, palette: AnswerPalette.Palette, streaming: Boolean): CharSequence {
         if (!streaming) {
             reset()
             return MarkdownRenderer.render(source, density, palette)
