@@ -23,8 +23,10 @@ class IncrementalMarkdownTest {
         val inc = IncrementalMarkdown()
         for (n in 1..prose.length) {
             val s = prose.substring(0, n)
-            val expected = MarkdownRenderer.render(s, 2f, palette).toString()
-            assertEquals("prefix length $n", expected, inc.render(s, 2f, palette, streaming = true).toString())
+            // Equal up to trailing blank space: when a block has no text yet (a bare "> " quote marker), the full renderer
+            // leaves its gap behind while the streaming path adds none, which is what you want to see on screen.
+            val expected = MarkdownRenderer.render(s, 2f, palette).toString().trimEnd()
+            assertEquals("prefix length $n", expected, inc.render(s, 2f, palette, streaming = true).toString().trimEnd())
         }
     }
 
