@@ -15,13 +15,13 @@ import android.util.TypedValue
 import android.view.View
 import androidx.core.content.ContextCompat
 import com.jarvis.assistant.R
-import kotlin.math.cos
+import com.jarvis.assistant.ui.chat.liquid.LiquidMath
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
 /**
- * "Replying" indicator: a breathing, slowly rotating spoke spinner followed by a shimmering status word
+ * "Replying" indicator: three liquid-glass beads that ride a travelling wave, followed by a shimmering status word
  * and elapsed seconds, e.g. `Thinking…  4s`. One canvas view, no allocation per frame.
  * Honors the system "remove animations" setting (draws a single static frame).
  */
@@ -35,15 +35,16 @@ class ThinkingIndicatorView @JvmOverloads constructor(
 
     private val density = resources.displayMetrics.density
     private val accent = resolveColor(R.attr.themeAccent, Color.rgb(64, 160, 255))
+    private val highlight = resolveColor(R.attr.themeTextPrimary, Color.LTGRAY)
     private val baseText = resolveColor(R.attr.themeTextSecondary, Color.GRAY)
     private val verbs = arrayOf("Thinking", "Reasoning", "Working it out", "Drafting", "Polishing")
 
-    private val spokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val beadPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val beadRim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND
-        color = accent
-        strokeWidth = 2f * density
+        strokeWidth = 1f * density
     }
+    private val beadSpec = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14f, resources.displayMetrics)
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
@@ -108,38 +109,43 @@ class ThinkingIndicatorView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         val t = (now - t0).toFloat()
         val cy = height / 2f
-        val radius = 9f * density
-        val cx = radius + 2f * density
+        val beadR = 4.4f * density
+        val gap = 13f * density
+        val x0 = 4f * density + beadR
+        val trackEnd = x0 + gap * 2f + beadR
 
-        // Spoke spinner: 8 round-capped spokes whose lengths ripple around the ring while it turns.
-        val rot = t / 2400f * 6.2832f
-        val inner = radius * 0.28f
-
-        // Soft breathing glow behind the spinner, so it reads as glass lit from inside.
+        // Soft breathing glow under the beads, so they read as glass lit from inside.
         if (!reduced) {
-            val hr = radius * 2.1f
+            val hr = gap * 2.4f
             if (halo == null || haloKey != hr) {
                 haloKey = hr
                 halo = RadialGradient(0f, 0f, hr, intArrayOf(accent, (accent and 0x00FFFFFF)), floatArrayOf(0f, 1f), Shader.TileMode.CLAMP)
                 haloPaint.shader = halo
             }
-            haloPaint.alpha = (255 * (0.10f + 0.12f * (0.5f + 0.5f * sin(t / 520f)))).toInt()
+            haloPaint.alpha = (255 * (0.10f + 0.10f * (0.5f + 0.5f * sin(t / 520f)))).toInt()
             canvas.save()
-            canvas.translate(cx, cy)
+            canvas.translate(x0 + gap, cy)
             canvas.drawCircle(0f, 0f, hr, haloPaint)
             canvas.restore()
         }
 
-        // Grow-in: the spokes unfurl with a small overshoot when the indicator appears.
-        val intro = if (reduced) 1f else easeOutBack((t / 480f).coerceIn(0f, 1f))
-        for (i in 0 until 8) {
-            val a = rot + i * (6.2832f / 8f)
-            val len = intro * if (reduced) 1f else 0.55f + 0.45f * (0.5f + 0.5f * sin(t / 260f - i * 0.9f))
-            val outer = inner + (radius - inner) * len
-            canvas.drawLine(
-                cx + cos(a) * inner, cy + sin(a) * inner,
-                cx + cos(a) * outer, cy + sin(a) * outer, spokePaint
-            )
+        // Three glass beads on a travelling wave; each one is a little fuller and brighter at the top of its swing.
+        val intro = if (reduced) 1f else LiquidMath.spring((t / 640f).coerceIn(0f, 1f))
+        for (i in 0 until 3) {
+            val wave = if (reduced) 0f else LiquidMath.beadWave(t, i)
+            val r = beadR * (if (reduced) 1f else LiquidMath.beadScale(wave)) * intro
+            val bx = x0 + gap * i
+            val by = cy - wave * 3.4f * density
+            val lift = 0.5f + 0.5f * wave
+            beadPaint.color = accent
+            beadPaint.alpha = (255 * (0.58f + 0.42f * lift)).toInt().coerceIn(0, 255)
+            canvas.drawCircle(bx, by, r, beadPaint)
+            beadRim.color = highlight
+            beadRim.alpha = (255 * (0.28f + 0.30f * lift)).toInt().coerceIn(0, 255)
+            canvas.drawCircle(bx, by, max(0f, r - 0.5f * density), beadRim)
+            beadSpec.color = highlight
+            beadSpec.alpha = (255 * (0.55f + 0.35f * lift)).toInt().coerceIn(0, 255)
+            canvas.drawCircle(bx - r * 0.32f, by - r * 0.36f, r * 0.26f, beadSpec)
         }
 
         // Status word with a light band sweeping across it.
@@ -151,7 +157,7 @@ class ThinkingIndicatorView @JvmOverloads constructor(
         val intro2 = if (reduced) 1f else (t / 320f).coerceIn(0f, 1f)
         val secs = max(0L, (System.currentTimeMillis() - startTimeMs) / 1000L)
         val label = "$verb…  ${secs}s"
-        val x = cx + radius + 10f * density
+        val x = trackEnd + 12f * density
         val y = cy - (textPaint.ascent() + textPaint.descent()) / 2f
         val tw = textPaint.measureText(label)
         if (!reduced && tw > 0f) {
@@ -177,11 +183,4 @@ class ThinkingIndicatorView @JvmOverloads constructor(
     }
 
     private var shimmerWidth = 0f
-
-    private fun easeOutBack(x: Float): Float {
-        val c1 = 1.70158f
-        val c3 = c1 + 1f
-        val p = x - 1f
-        return 1f + c3 * p * p * p + c1 * p * p
-    }
 }

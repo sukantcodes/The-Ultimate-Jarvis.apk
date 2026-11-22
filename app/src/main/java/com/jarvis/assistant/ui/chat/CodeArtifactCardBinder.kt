@@ -10,9 +10,10 @@ import android.os.Looper
 import android.view.animation.AlphaAnimation
 import android.view.animation.Animation
 import android.widget.Toast
-import androidx.core.content.ContextCompat
 import com.jarvis.assistant.R
 import com.jarvis.assistant.databinding.LayoutCodeArtifactCardBinding
+import com.jarvis.assistant.ui.chat.liquid.LiquidMotion
+import com.jarvis.assistant.ui.chat.liquid.LiquidPane
 import java.util.Locale
 
 object CodeArtifactCardBinder {
@@ -25,7 +26,7 @@ object CodeArtifactCardBinder {
         var userToggled = false
         var entered = false
         var ticker: Runnable? = null
-        var glint: GlassMotion.Sheen? = null
+        var glint: LiquidPane.GlintHandle? = null
     }
 
     private val ui = Handler(Looper.getMainLooper())
@@ -38,10 +39,12 @@ object CodeArtifactCardBinder {
     ) {
         val context = binding.root.context
         // The file card spans the answer panel and sits on its own frosted-glass sheet; its buttons are glass chips.
-        binding.root.background = Glass.inset(context, 18f)
-        binding.btnToggleMiniTerminal.background = Glass.inset(context, 12f)
-        binding.btnCardCopy.background = Glass.inset(context, 12f)
-        binding.btnCardExpand.background = Glass.inset(context, 12f)
+        LiquidPane.ensure(binding.root, LiquidPane.Kind.INSET, 22f)
+        LiquidPane.ensure(binding.btnToggleMiniTerminal, LiquidPane.Kind.PILL, 14f)
+        LiquidPane.ensure(binding.btnCardCopy, LiquidPane.Kind.PILL, 14f)
+        LiquidPane.ensure(binding.btnCardExpand, LiquidPane.Kind.PILL, 14f)
+        LiquidPane.ensure(binding.layoutMiniTerminal, LiquidPane.Kind.WINDOW, 16f)
+        listOf(binding.btnToggleMiniTerminal, binding.btnCardCopy, binding.btnCardExpand).forEach { LiquidMotion.pressFeel(it) }
         val halfWidthPx = (context.resources.displayMetrics.widthPixels - 96f * context.resources.displayMetrics.density).toInt()
         val hasTarget = language.contains(':')
         val baseLang = if (hasTarget) language.substringBefore(':').trim() else language.trim()
@@ -76,7 +79,7 @@ object CodeArtifactCardBinder {
             val label = workType.activeBadgeText(targetName.ifBlank { baseLang })
             binding.tvWritingStatus.text = label
             binding.tvWritingStatus.setTextColor(workType.getDynamicColor())
-            binding.tvWritingStatus.background = ContextCompat.getDrawable(context, R.drawable.bg_code_writing_badge)
+            LiquidPane.ensure(binding.tvWritingStatus, LiquidPane.Kind.PILL, 12f)
             binding.tvWritingStatus.clearAnimation()
             GlassMotion.breathe(binding.tvWritingStatus)
         } else {
@@ -87,7 +90,7 @@ object CodeArtifactCardBinder {
             binding.tvWritingStatus.text = statusDone
             val successColor = try { com.jarvis.assistant.util.ThemeManager.getThemeSuccessColor() } catch (_: Exception) { Color.parseColor("#00E676") }
             binding.tvWritingStatus.setTextColor(successColor)
-            binding.tvWritingStatus.background = ContextCompat.getDrawable(context, R.drawable.bg_chat_status)
+            LiquidPane.ensure(binding.tvWritingStatus, LiquidPane.Kind.PILL, 12f)
         }
 
         val tagPrefix = when (workType) {
@@ -147,17 +150,12 @@ object CodeArtifactCardBinder {
             if (!state.userToggled) GlassMotion.setExpanded(binding.layoutMiniTerminal, true, animate = state.entered)
             if (!state.entered) {
                 state.entered = true
-                binding.root.alpha = 0f
-                binding.root.translationY = 16f * density
-                binding.root.scaleX = 0.975f
-                binding.root.scaleY = 0.975f
-                binding.root.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(420)
-                    .setInterpolator(android.view.animation.PathInterpolator(0.18f, 0.9f, 0.22f, 1.06f)).start()
+                LiquidMotion.arrive(binding.root, fade = true, riseDp = 16f)
             }
             // While code is being written, a slow band of light keeps travelling across the glass card.
             if (state.glint == null) binding.root.post {
                 if (binding.root.tag === state && state.glint == null && state.wasWriting) {
-                    state.glint = GlassMotion.Sheen(binding.root, 18f, loop = true).also { it.start() }
+                    state.glint = LiquidPane.glintLoop(binding.root)
                 }
             }
             state.shown = if (code.startsWith(state.lastCode)) minOf(state.shown, total) else 0
@@ -186,7 +184,7 @@ object CodeArtifactCardBinder {
             state.glint = null
             if (justFinished) {
                 // Done: one bright sweep over the card and the badge pops, then the window folds away.
-                GlassMotion.sweep(binding.root, 18f)
+                LiquidPane.glint(binding.root)
                 GlassMotion.pop(binding.tvWritingStatus)
             }
             // Finished work collapses to a one-line header so the conversation stays compact; tap to reopen.

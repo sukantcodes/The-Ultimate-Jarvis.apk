@@ -752,7 +752,7 @@ class InlineActivityView @JvmOverloads constructor(context: Context, attrs: Attr
         addView(progressBlock, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8); marginStart = dp(34) })
 
         stepsScroll.addView(stepsList, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        stepsFrame.background = Glass.inset(context, 16f)
+        stepsFrame.background = com.jarvis.assistant.ui.chat.liquid.LiquidPane.make(context, com.jarvis.assistant.ui.chat.liquid.LiquidPane.Kind.INSET, 20f)
         stepsFrame.addView(stepsScroll, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT))
         addView(stepsFrame, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) })
         ticker.visibility = GONE

@@ -16,6 +16,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.jarvis.assistant.data.model.ChatTurn
 import com.jarvis.assistant.databinding.ItemNairaChatMessageBinding
 import com.jarvis.assistant.databinding.LayoutCodeArtifactCardBinding
+import com.jarvis.assistant.ui.chat.liquid.LiquidMotion
+import com.jarvis.assistant.ui.chat.liquid.LiquidPane
 
 class JarvisChatAdapter(
     private val onEditUserMessage: ((String) -> Unit)? = null,
@@ -172,13 +174,17 @@ class JarvisChatAdapter(
 
         init {
             MarkdownRenderer.attachLinkTouch(binding.tvAssistantMessage)
-            binding.tvUserMessage.background = Glass.panel(binding.root.context, 20f)
-            binding.tvUserAttachment.background = Glass.inset(binding.root.context, 16f)
+            LiquidPane.ensure(binding.tvUserMessage, LiquidPane.Kind.USER, 24f)
+            LiquidPane.ensure(binding.tvUserAttachment, LiquidPane.Kind.INSET, 18f)
+            LiquidMotion.pressFeel(binding.tvUserAttachment)
             // Copy / edit / read-aloud / save: each icon is its own 3D glass bubble with spring press and liquid ripple.
             val pods = com.jarvis.assistant.ui.glass.DockPods
             listOf(binding.btnUserEdit, binding.btnUserCopy, binding.btnAssistantCopy, binding.btnAssistantPlay, binding.btnAssistantSave)
                 .forEach { pods.install(it, heightDp = 38f, circle = true, group = "message") }
         }
+
+        /** True between the first streamed words and the final bind of a turn; makes the orb swirl faster. */
+        private var streamingNow = false
 
         /** The glass panel only shows when it has something inside, and the answer gets space above it only under the activity block. */
         private fun syncGlass() {
@@ -186,6 +192,7 @@ class JarvisChatAdapter(
             val thinking = binding.layoutThinking.visibility == View.VISIBLE
             val text = binding.layoutAssistantContainer.visibility == View.VISIBLE
             binding.layoutAssistantGlass.visibility = if (activityShown || thinking || text) View.VISIBLE else View.GONE
+            binding.orbAssistant.busy = thinking || streamingNow
             val lp = binding.layoutAssistantContainer.layoutParams as? ViewGroup.MarginLayoutParams ?: return
             val top = if (activityShown || thinking) (12 * binding.root.resources.displayMetrics.density).toInt() else 0
             if (lp.topMargin != top) {
@@ -236,18 +243,13 @@ class JarvisChatAdapter(
             try { hideActionsWhileWriting(turn) } catch (_: Throwable) { }
             val firstText = binding.layoutAssistantContainer.visibility != View.VISIBLE
             binding.layoutThinking.visibility = View.GONE
+            streamingNow = true
             renderAssistantContent(turn, isStreaming = true)
             syncGlass()
             if (firstText && binding.layoutAssistantContainer.visibility == View.VISIBLE && GlassMotion.animationsOn(binding.root)) {
                 // The first words come into focus on the glass: they rise and clear while a band of light crosses the panel.
-                val c = binding.layoutAssistantContainer
-                val d = binding.root.resources.displayMetrics.density
-                c.animate().cancel()
-                c.alpha = 0f
-                c.translationY = 10f * d
-                c.animate().alpha(1f).translationY(0f).setDuration(380L)
-                    .setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)).start()
-                try { GlassMotion.sweep(binding.layoutAssistantGlass, 24f, delayMs = 60L) } catch (_: Throwable) { }
+                LiquidMotion.focusIn(binding.layoutAssistantContainer)
+                try { LiquidPane.glint(binding.layoutAssistantGlass, delayMs = 60L) } catch (_: Throwable) { }
             }
         }
 
@@ -395,6 +397,7 @@ class JarvisChatAdapter(
 
             renderAssistantContent(turn, isStreaming = false)
             try { settleActions(turn) } catch (_: Throwable) { }
+            streamingNow = false
             syncGlass()
         }
 

@@ -15,17 +15,17 @@
         android:id="@+id/layoutChatHeader"
         android:layout_width="0dp"
         app:layout_constraintWidth_max="@dimen/chat_content_max_width"
-        android:layout_height="68dp"
+        android:layout_height="72dp"
         app:lgPlainBackground="@drawable/bg_chat_hero"
         app:lgPlainElevation="5dp"
-        app:lgCornerRadius="34dp"
-        app:lgBlur="12"
+        app:lgCornerRadius="36dp"
+        app:lgBlur="14"
         app:lgDistortionScale="-220"
         app:lgGreenOffset="28"
         app:lgBlueOffset="40"
-        app:lgRefraction="18"
-        app:lgBezel="20"
-        app:lgVeil="0.10"
+        app:lgRefraction="22"
+        app:lgBezel="24"
+        app:lgVeil="0.13"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -86,7 +86,7 @@
                 android:maxLines="1"
                 android:ellipsize="end"
                 android:visibility="gone"
-                android:textColor="#9FE8FF"
+                android:textColor="?attr/themeAccent"
                 android:textSize="10sp"
                 android:fontFamily="sans-serif-medium" />
         </LinearLayout>
@@ -110,7 +110,7 @@
                 android:layout_height="6dp"
                 android:max="100"
                 android:progress="0"
-                android:progressTint="#00E5FF" />
+                android:progressTint="?attr/themeAccent" />
 
             <TextView
                 android:id="@+id/tvWorkProgressPercent"
@@ -118,7 +118,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="5dp"
                 android:text="0%"
-                android:textColor="#00E5FF"
+                android:textColor="?attr/themeAccent"
                 android:textSize="10sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.04" />
@@ -208,6 +208,9 @@
         android:clipToPadding="false"
         android:paddingTop="18dp"
         android:paddingBottom="16dp"
+        android:requiresFadingEdge="vertical"
+        android:fadingEdgeLength="26dp"
+        android:overScrollMode="ifContentScrolls"
         android:layout_marginTop="10dp"
         android:layout_marginBottom="10dp"
         app:layout_constraintTop_toBottomOf="@id/layoutChatHeader"
@@ -215,7 +218,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <LinearLayout
+    <com.jarvis.assistant.ui.chat.liquid.LiquidWelcomeLayout
         android:id="@+id/layoutChatWelcome"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -230,21 +233,16 @@
         app:layout_constraintStart_toStartOf="@id/rvChatMessages"
         app:layout_constraintEnd_toEndOf="@id/rvChatMessages">
 
-        <TextView
-            android:layout_width="76dp"
-            android:layout_height="76dp"
-            android:gravity="center"
-            android:background="@drawable/bg_chat_orb"
-            android:text="J"
-            android:textColor="#FFFFFF"
-            android:textSize="36sp"
-            android:textStyle="bold"
-            android:fontFamily="sans-serif-black" />
+        <com.jarvis.assistant.ui.chat.liquid.LiquidOrbView
+            android:id="@+id/orbWelcome"
+            android:layout_width="112dp"
+            android:layout_height="112dp"
+            android:importantForAccessibility="no" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
+            android:layout_marginTop="14dp"
             android:text="What can I help you with?"
             android:textColor="?attr/themeTextPrimary"
             android:textSize="24sp"
@@ -262,51 +260,48 @@
             android:gravity="center"
             android:lineSpacingExtra="3dp" />
 
-        <TextView
+        <com.jarvis.assistant.ui.chat.liquid.LiquidChipTextView
             android:id="@+id/chipSuggestionExplain"
             android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginTop="20dp"
-            android:background="@drawable/bg_chat_suggestion"
+            android:layout_height="48dp"
+            android:layout_marginTop="22dp"
             android:gravity="center_vertical"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp"
             android:text="✦  Explain a topic in simple steps"
             android:textColor="?attr/themeTextPrimary"
             android:textSize="13sp"
             android:clickable="true"
             android:focusable="true" />
 
-        <TextView
+        <com.jarvis.assistant.ui.chat.liquid.LiquidChipTextView
             android:id="@+id/chipSuggestionWrite"
             android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/bg_chat_suggestion"
+            android:layout_height="48dp"
+            android:layout_marginTop="10dp"
             android:gravity="center_vertical"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp"
             android:text="✧  Help me write or improve something"
             android:textColor="?attr/themeTextPrimary"
             android:textSize="13sp"
             android:clickable="true"
             android:focusable="true" />
 
-        <TextView
+        <com.jarvis.assistant.ui.chat.liquid.LiquidChipTextView
             android:id="@+id/chipSuggestionAnalyze"
             android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/bg_chat_suggestion"
+            android:layout_height="48dp"
+            android:layout_marginTop="10dp"
             android:gravity="center_vertical"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp"
             android:text="⌁  Analyze a document or code file"
             android:textColor="?attr/themeTextPrimary"
             android:textSize="13sp"
             android:clickable="true"
             android:focusable="true" />
-    </LinearLayout>
+    </com.jarvis.assistant.ui.chat.liquid.LiquidWelcomeLayout>
 
 
     <!-- Liquid glass composer: live backdrop blur + prism refraction (ReactBits Glass Surface port) -->

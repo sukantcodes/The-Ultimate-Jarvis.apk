@@ -1,72 +1,49 @@
 package com.jarvis.assistant.ui.chat
 
 import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
-import android.animation.ObjectAnimator
-import android.animation.PropertyValuesHolder
 import android.view.View
-import android.view.animation.PathInterpolator
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.RecyclerView
+import com.jarvis.assistant.R
+import com.jarvis.assistant.ui.chat.liquid.LiquidMotion
+import com.jarvis.assistant.ui.chat.liquid.LiquidPane
 
 /**
- * The chat list's item animator. Messages still fade in as before, but now they also rise from below with a soft
- * spring-like settle (a short overshoot, then rest) and a gentle scale-up from the bottom edge, and the messages
- * above glide up over a slightly longer move when a new one arrives. Respects the system animation scale.
+ * The chat list's item animator. A new message lands like a drop of liquid: it rises with a damped-spring settle, grows
+ * from its bottom edge and comes into focus out of a soft blur (Android 12+), then a band of light crosses its glass.
+ * The messages above glide up while it does. Respects the system animation scale.
  */
 class ChatItemAnimator : DefaultItemAnimator() {
 
-    private val settle = PathInterpolator(0.18f, 0.9f, 0.22f, 1.06f)   // quick start, slight overshoot, soft landing
-
     init {
         addDuration = 420L
-        moveDuration = 340L
+        moveDuration = 380L
         removeDuration = 180L
         supportsChangeAnimations = false
     }
 
+    override fun animateAdd(holder: RecyclerView.ViewHolder): Boolean {
+        // DefaultItemAnimator fades the item in itself (alpha 0 -> 1), so the liquid arrival leaves alpha alone.
+        val v = holder.itemView
+        v.alpha = 0f
+        return super.animateAdd(holder)
+    }
+
     override fun onAddStarting(item: RecyclerView.ViewHolder) {
         val v = item.itemView
-        val d = v.resources.displayMetrics.density
-        (v.getTag(TAG) as? Animator)?.cancel()
-        v.pivotX = v.width / 2f
-        v.pivotY = v.height.toFloat()
-        v.translationY = 30f * d
-        v.scaleX = 0.965f
-        v.scaleY = 0.965f
-        val a = ObjectAnimator.ofPropertyValuesHolder(
-            v,
-            PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, 30f * d, 0f),
-            PropertyValuesHolder.ofFloat(View.SCALE_X, 0.965f, 1f),
-            PropertyValuesHolder.ofFloat(View.SCALE_Y, 0.965f, 1f)
-        ).apply {
-            duration = 460L
-            interpolator = settle
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) { clear(v) }
-                override fun onAnimationCancel(animation: Animator) { clear(v) }
-            })
-        }
-        v.setTag(TAG, a)
-        a.start()
+        LiquidMotion.arrive(v, fade = false)
         // Once the bubble has landed, a band of light slides across its glass.
-        val glass = v.findViewById<View>(com.jarvis.assistant.R.id.layoutAssistantGlass)?.takeIf { it.visibility == View.VISIBLE }
-        val user = v.findViewById<View>(com.jarvis.assistant.R.id.tvUserMessage)?.takeIf { it.visibility == View.VISIBLE }
-        val target = glass ?: user
-        if (target != null) GlassMotion.sweep(target, if (glass != null) 24f else 20f, delayMs = 160L)
+        val glass = v.findViewById<View>(R.id.layoutAssistantGlass)?.takeIf { it.visibility == View.VISIBLE }
+        val user = v.findViewById<View>(R.id.tvUserMessage)?.takeIf { it.visibility == View.VISIBLE }
+        (glass ?: user)?.let { LiquidPane.glint(it, delayMs = 220L) }
     }
 
     override fun onAddFinished(item: RecyclerView.ViewHolder) {
-        (item.itemView.getTag(TAG) as? Animator)?.cancel()
-        clear(item.itemView)
+        LiquidMotion.settle(item.itemView)
     }
 
-    private fun clear(v: View) {
-        v.setTag(TAG, null)
-        v.translationY = 0f
-        v.scaleX = 1f
-        v.scaleY = 1f
+    override fun endAnimation(item: RecyclerView.ViewHolder) {
+        super.endAnimation(item)
+        LiquidMotion.settle(item.itemView)
     }
-
-    private companion object { val TAG = "chat_item_enter".hashCode() }
 }
