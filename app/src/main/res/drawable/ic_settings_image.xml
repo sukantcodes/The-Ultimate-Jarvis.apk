@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A framed picture: sun and two hills. Used by the Transparent Background row in Settings. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M5,3h14c1.1,0 2,0.9 2,2v14c0,1.1 -0.9,2 -2,2H5c-1.1,0 -2,-0.9 -2,-2V5c0,-1.1 0.9,-2 2,-2zM5,5v9.2l3.4,-3.4c0.4,-0.4 1,-0.4 1.4,0L14,15l2.2,-2.2c0.4,-0.4 1,-0.4 1.4,0L19,14.2V5H5zM5,19h14v-2.6l-2.3,-2.3L14.7,16l0.3,0.3c0.4,0.4 0.4,1 0,1.4c-0.4,0.4 -1,0.4 -1.4,0L9.1,13.2L5,17.3V19zM15.5,7.5c0.83,0 1.5,0.67 1.5,1.5s-0.67,1.5 -1.5,1.5S14,9.83 14,9S14.67,7.5 15.5,7.5z" />
+</vector>

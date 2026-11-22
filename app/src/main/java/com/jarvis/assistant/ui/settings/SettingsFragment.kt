@@ -234,6 +234,11 @@ class SettingsFragment : Fragment() {
             gradientRadius = glow; setGradientCenter(cx, cy)
             colors = intArrayOf(androidx.core.graphics.ColorUtils.setAlphaComponent(color, a), androidx.core.graphics.ColorUtils.setAlphaComponent(color, 0))
         }
+        // Transparent theme: the window already paints the chosen background picture, so this screen must not cover it.
+        if (com.jarvis.assistant.ui.glass.CrystalTheme.active()) {
+            binding.root.background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
+            return
+        }
         binding.root.background = android.graphics.drawable.LayerDrawable(arrayOf(
             android.graphics.drawable.ColorDrawable(base),
             radial(0.1f, 0.0f, accent, 70),
@@ -803,6 +808,7 @@ class SettingsFragment : Fragment() {
             ThemeSelectionBottomSheet.newInstance().show(childFragmentManager, ThemeSelectionBottomSheet.TAG)
         }
         binding.rowOverlayAvatars.setOnClickListener { open(OverlayAvatarActivity::class.java) }
+        binding.rowCrystalBackground.setOnClickListener { open(CrystalBackgroundActivity::class.java) }
         binding.rowRefreshRate.setOnClickListener { showRefreshRateDialog() }
         binding.switchLiquidGlass.isChecked = preferences.liquidGlassEnabled
         binding.switchLiquidGlass.setOnCheckedChangeListener { _, enabled ->
@@ -969,6 +975,7 @@ class SettingsFragment : Fragment() {
             "custom" -> "Custom (${preferences.customThemeColor})"
             else -> "Light Theme"
         }
+        binding.tvCurrentCrystalBackground.text = com.jarvis.assistant.ui.glass.CrystalBackdrop.summary()
     }
 
     private fun refreshSwitchStates() {

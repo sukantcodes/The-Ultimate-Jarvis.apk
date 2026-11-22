@@ -303,7 +303,8 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
     private fun selectTheme(themeKey: String, themeName: String, tapped: View? = null) {
         preferences.appTheme = themeKey
         updateCheckmarks(themeKey)
-        Toast.makeText(requireContext(), "Theme set to $themeName", Toast.LENGTH_SHORT).show()
+        val note = if (themeKey == "crystal") "Theme set to $themeName • change the scene in Settings › Transparent Background" else "Theme set to $themeName"
+        Toast.makeText(requireContext(), note, Toast.LENGTH_LONG).show()
 
         // Sync with Orb on HomeFragment
         val mainActivity = activity as? MainActivity

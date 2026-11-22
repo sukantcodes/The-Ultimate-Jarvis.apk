@@ -111,16 +111,19 @@ object ThemeManager {
         }
 
         activity.setTheme(themeRes)
-        // Crystal Mirror is see-through: the window shows the wallpaper behind its veil. Every other theme stays opaque.
-        if (themeKey == "crystal") activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
-        else activity.window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
-        // A very slight blur of what is behind the window, where the system supports it (Android 12+); harmless elsewhere.
-        if (android.os.Build.VERSION.SDK_INT >= 31) {
-            try { activity.window.setBackgroundBlurRadius(if (themeKey == "crystal") 14 else 0) } catch (_: Throwable) {}
+        if (themeKey == "crystal") {
+            // Transparent theme: ONE drawable on the window paints the chosen 4K Daydream scene (or lets the phone wallpaper show
+            // through), with the dim and blur the person picked. It also owns the window's wallpaper flag and system blur.
+            com.jarvis.assistant.ui.glass.CrystalBackdrop.install(activity)
+        } else {
+            activity.window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                try { activity.window.setBackgroundBlurRadius(0) } catch (_: Throwable) {}
+            }
+            activity.window.setBackgroundDrawable(createThemeBackgroundDrawable(themeKey))
+            // Keep the decor transparent so the window background stays continuous behind content.
+            activity.window.decorView.background = ColorDrawable(Color.TRANSPARENT)
         }
-        activity.window.setBackgroundDrawable(createThemeBackgroundDrawable(themeKey))
-        // Keep the decor transparent so the window background stays continuous behind content.
-        activity.window.decorView.background = ColorDrawable(Color.TRANSPARENT)
 
         if (isCustom || themeKey == "crystal") {
             // The glow is painted ONCE, on the window. Painting it again on the content view (which is a

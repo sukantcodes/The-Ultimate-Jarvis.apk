@@ -339,6 +339,29 @@ class AppPreferences(context: Context) {
         }
         set(value) = prefs.edit().putString(KEY_APP_THEME, value).apply()
 
+    /**
+     * Transparent (Crystal Mirror) theme: the picture behind the glass. An id from CrystalBackdrop.OPTIONS (the 4K "Daydream"
+     * scenes) or "system" for the phone's own wallpaper.
+     */
+    var crystalBackground: String
+        get() = prefs.getString("crystal_background", "dd_lavender_dusk") ?: "dd_lavender_dusk"
+        set(value) { prefs.edit().putString("crystal_background", value).apply() }
+
+    /** Transparent theme: soften the background picture. */
+    var crystalBlurEnabled: Boolean
+        get() = prefs.getBoolean("crystal_blur_enabled", false)
+        set(value) { prefs.edit().putBoolean("crystal_blur_enabled", value).apply() }
+
+    /** Transparent theme: how strong the blur is, 0..100. */
+    var crystalBlurStrength: Int
+        get() = prefs.getInt("crystal_blur_strength", 55).coerceIn(0, 100)
+        set(value) { prefs.edit().putInt("crystal_blur_strength", value.coerceIn(0, 100)).apply() }
+
+    /** Transparent theme: how much the background is darkened for readability, 0..70 percent. */
+    var crystalDim: Int
+        get() = prefs.getInt("crystal_dim", 28).coerceIn(0, 70)
+        set(value) { prefs.edit().putInt("crystal_dim", value.coerceIn(0, 70)).apply() }
+
     var customThemeColor: String
         get() = prefs.getString(KEY_CUSTOM_THEME_COLOR, "#FFFFFF") ?: "#FFFFFF"
         set(value) = prefs.edit().putString(KEY_CUSTOM_THEME_COLOR, value.trim()).apply()

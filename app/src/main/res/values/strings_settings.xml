@@ -65,6 +65,8 @@
     <string name="set_section_appearance">Appearance</string>
     <string name="set_apptheme_title">Theme &amp; 3D Orb Colors</string>
     <string name="set_apptheme_subtitle">Light Theme</string>
+    <string name="set_crystalbg_title">Transparent Background</string>
+    <string name="set_crystalbg_subtitle">Daydream 4K scenes • Blur</string>
     <string name="set_overlayavatars_title">Overlay Avatars</string>
     <string name="set_overlayavatars_subtitle">Choose a floating avatar or turn the overlay off</string>
     <string name="set_refreshrate_title">Motion &amp; Refresh Rate</string>

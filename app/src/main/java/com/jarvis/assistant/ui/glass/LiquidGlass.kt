@@ -222,7 +222,9 @@ class AuroraBackdropDrawable(
         val light = try { ThemeManager.isCurrentThemeLight() } catch (_: Throwable) { false }
         canvas.save()
         canvas.translate(-loc[0].toFloat(), -loc[1].toFloat())
-        AuroraField.draw(canvas, screenW, screenH, light, (if (light) 0.50f else 0.55f) * alphaValue / 255f)
+        // On a Transparent-theme picture the drifting aurora would muddy the scene, so it is only a faint accent there.
+        val onPicture = try { CrystalTheme.active() && CrystalBackdrop.usesImage() } catch (_: Throwable) { false }
+        AuroraField.draw(canvas, screenW, screenH, light, (if (light) 0.50f else 0.55f) * (if (onPicture) 0.30f else 1f) * alphaValue / 255f)
         canvas.restore()
     }
 

@@ -221,6 +221,11 @@
             android:screenOrientation="portrait" />
 
         <activity
+            android:name=".ui.settings.CrystalBackgroundActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
             android:name=".ui.settings.OverlayAvatarActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
