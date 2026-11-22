@@ -16,26 +16,20 @@ import com.jarvis.assistant.ui.chat.liquid.LiquidPane
 class ChatItemAnimator : DefaultItemAnimator() {
 
     init {
-        addDuration = 420L
-        moveDuration = 380L
+        addDuration = 520L
+        moveDuration = 480L
         removeDuration = 180L
         supportsChangeAnimations = false
     }
 
-    override fun animateAdd(holder: RecyclerView.ViewHolder): Boolean {
-        // DefaultItemAnimator fades the item in itself (alpha 0 -> 1), so the liquid arrival leaves alpha alone.
-        val v = holder.itemView
-        v.alpha = 0f
-        return super.animateAdd(holder)
-    }
 
     override fun onAddStarting(item: RecyclerView.ViewHolder) {
         val v = item.itemView
-        LiquidMotion.arrive(v, fade = false)
-        // Once the bubble has landed, a band of light slides across its glass.
         val glass = v.findViewById<View>(R.id.layoutAssistantGlass)?.takeIf { it.visibility == View.VISIBLE }
         val user = v.findViewById<View>(R.id.tvUserMessage)?.takeIf { it.visibility == View.VISIBLE }
-        (glass ?: user)?.let { LiquidPane.glint(it, delayMs = 220L) }
+        LiquidMotion.arrive(v, fade = false, side = if (glass == null && user != null) 1 else if (glass != null) -1 else 0)
+        // Once the bubble has landed, a band of light slides across its glass.
+        (glass ?: user)?.let { LiquidPane.glint(it, delayMs = 320L) }
     }
 
     override fun onAddFinished(item: RecyclerView.ViewHolder) {

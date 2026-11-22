@@ -31,23 +31,35 @@ object LiquidMotion {
      * A message arrives: it rises with a damped-spring settle, scales up from its bottom edge and, on phones that can blur a
      * view (Android 12+), sharpens out of a soft blur. [fade] is off when the list's own animator is already fading the item.
      */
-    fun arrive(view: View, fade: Boolean, riseDp: Float = 26f): Animator? {
+    fun arrive(view: View, fade: Boolean, riseDp: Float = 34f, side: Int = 0): Animator? {
         if (!GlassMotion.animationsOn(view)) return null
         val d = view.resources.displayMetrics.density
         (view.getTag(tagArrive) as? Animator)?.cancel()
-        view.pivotX = view.width / 2f
+        // The message grows out of the side it belongs to: your words from the right, JARVIS' from the left.
+        view.pivotX = when {
+            side > 0 -> view.width * 0.92f
+            side < 0 -> view.width * 0.08f
+            else -> view.width / 2f
+        }
         view.pivotY = view.height.toFloat()
+        val slide = side * 16f * d
+        val tilt = -side * 1.6f
         view.translationY = riseDp * d
-        view.scaleX = 0.955f
-        view.scaleY = 0.955f
+        view.translationX = slide
+        view.rotation = tilt
+        // Liquid squash: it starts a little wide and flat, then stretches tall as it lands and settles round.
+        view.scaleX = 0.90f
+        view.scaleY = 0.93f
 
         val parts = ArrayList<Animator>()
-        parts += ObjectAnimator.ofFloat(view, View.TRANSLATION_Y, riseDp * d, 0f).apply { duration = 640L; interpolator = spring }
-        parts += ObjectAnimator.ofFloat(view, View.SCALE_X, 0.955f, 1f).apply { duration = 640L; interpolator = spring }
-        parts += ObjectAnimator.ofFloat(view, View.SCALE_Y, 0.955f, 1f).apply { duration = 640L; interpolator = spring }
-        if (fade) parts += ObjectAnimator.ofFloat(view, View.ALPHA, 0f, 1f).apply { duration = 280L; interpolator = decelerate }
+        parts += ObjectAnimator.ofFloat(view, View.TRANSLATION_Y, riseDp * d, 0f).apply { duration = 760L; interpolator = spring }
+        parts += ObjectAnimator.ofFloat(view, View.TRANSLATION_X, slide, 0f).apply { duration = 700L; interpolator = spring }
+        parts += ObjectAnimator.ofFloat(view, View.ROTATION, tilt, 0f).apply { duration = 760L; interpolator = spring }
+        parts += ObjectAnimator.ofFloat(view, View.SCALE_X, 0.90f, 1f).apply { duration = 720L; interpolator = spring }
+        parts += ObjectAnimator.ofFloat(view, View.SCALE_Y, 0.93f, 1f).apply { duration = 820L; interpolator = spring }
+        if (fade) parts += ObjectAnimator.ofFloat(view, View.ALPHA, 0f, 1f).apply { duration = 300L; interpolator = decelerate }
         val tallest = view.resources.displayMetrics.heightPixels
-        if (Build.VERSION.SDK_INT >= 31 && view.height in 1 until tallest) parts += focusBlur(view, 9f * d, 460L)
+        if (Build.VERSION.SDK_INT >= 31 && view.height in 1 until tallest) parts += focusBlur(view, 16f * d, 560L)
 
         val set = AnimatorSet()
         set.playTogether(parts)
@@ -64,6 +76,9 @@ object LiquidMotion {
     fun settle(view: View) {
         view.setTag(tagArrive, null)
         view.translationY = 0f
+        view.translationX = 0f
+        view.rotation = 0f
+        view.alpha = 1f
         view.scaleX = 1f
         view.scaleY = 1f
         if (Build.VERSION.SDK_INT >= 31) clearBlur(view)
