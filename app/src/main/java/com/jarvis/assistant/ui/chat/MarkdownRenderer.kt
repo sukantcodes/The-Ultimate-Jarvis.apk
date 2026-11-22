@@ -75,7 +75,7 @@ object MarkdownRenderer {
         accent2 = palette.accent2
         emph = palette.emphasis
         variant = palette.variant
-        if (source.none { it == '*' || it == '`' || it == '#' || it == '-' || it == '+' || it == '\u2022' || it == '>' || it == '[' || it == '~' || it == '|' || it == '_' || it == '{' || it == '=' || it.isDigit() } && !source.contains("http")) return source
+        if (!source.contains('\n') && source.none { it == '*' || it == '`' || it == '#' || it == '-' || it == '+' || it == '\u2022' || it == '>' || it == '[' || it == '~' || it == '|' || it == '_' || it == '{' || it == '=' || it.isDigit() } && !source.contains("http")) return source.trimEnd()
         val out = SpannableStringBuilder()
         val lines = source.replace("\r\n", "\n").split('\n')
         var inFence = false

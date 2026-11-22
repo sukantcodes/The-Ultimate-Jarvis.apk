@@ -33,13 +33,15 @@ class MarkdownBlocksTest {
 
     @Test fun a_header_without_its_separator_is_hidden_until_the_separator_arrives() {
         assertEquals("Intro", MarkdownBlocks.trimUnsettledTable("Intro\n| Name | Age |"))
+        assertEquals("Intro", MarkdownBlocks.trimUnsettledTable("Intro\n| Name | Age |\n"))
         assertEquals("Intro", MarkdownBlocks.trimUnsettledTable("Intro\n| Name | Age |\n| --"))
     }
 
     @Test fun a_confirmed_table_shows_its_finished_rows_and_hides_a_cut_off_one() {
-        val t = "Intro\n| A | B |\n|---|---|\n| 1 | 2 |\n| 3 |"
-        assertEquals("Intro\n| A | B |\n|---|---|\n| 1 | 2 |", MarkdownBlocks.trimUnsettledTable(t))
-        val done = "Intro\n| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |"
+        val head = "Intro\n| A | B |\n|---|---|\n| 1 | 2 |"
+        assertEquals(head, MarkdownBlocks.trimUnsettledTable("$head\n| 3"))
+        assertEquals(head, MarkdownBlocks.trimUnsettledTable("$head\n| 3 |"))
+        val done = "$head\n| 3 | 4 |"
         assertEquals(done, MarkdownBlocks.trimUnsettledTable(done))
     }
 

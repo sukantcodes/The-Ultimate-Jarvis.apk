@@ -24,7 +24,9 @@ object MarkdownBlocks {
      * the table (or the answer is finished) nothing is hidden.
      */
     fun trimUnsettledTable(text: String): String {
-        val lines = text.split('\n')
+        if (text.endsWith("\n\n")) return text            // a blank line after the table: it is finished
+        val terminated = text.endsWith("\n")                // the last row has its line break, so it is complete
+        val lines = text.removeSuffix("\n").split('\n')
         var start = lines.size
         while (start > 0 && lines[start - 1].trimStart().startsWith("|")) start--
         if (start == lines.size) return text
@@ -32,10 +34,17 @@ object MarkdownBlocks {
         val confirmed = run.size >= 2 && run[1].contains('-') && separator.matches(run[1])
         val keep = when {
             !confirmed -> 0
-            run.last().trimEnd().endsWith("|") -> run.size
+            terminated || isCompleteRow(run.last(), run.first()) -> run.size
             run.size - 1 >= 2 -> run.size - 1
             else -> 0
         }
+        if (keep == run.size) return text
         return lines.subList(0, start + keep).joinToString("\n").trimEnd('\n')
+    }
+
+    /** A row still being typed is cut off: it lacks the closing pipe or has fewer cells than the header. */
+    private fun isCompleteRow(row: String, header: String): Boolean {
+        val r = row.trim()
+        return r.endsWith("|") && r.count { it == '|' } >= header.count { it == '|' }
     }
 }
