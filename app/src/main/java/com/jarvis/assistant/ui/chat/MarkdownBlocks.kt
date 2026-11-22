@@ -14,4 +14,28 @@ object MarkdownBlocks {
         val idx = source.lastIndexOf("\n\n", end - 1)
         return if (idx <= 0) -1 else idx
     }
+
+    private val separator = Regex("""^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$""")
+
+    /**
+     * While a table is still being typed, hides the part that would look wrong: a header whose separator row has not
+     * arrived yet (it would show as raw pipes and then jump into columns) and a last row that is cut off. A table is
+     * therefore only ever shown formed. Only a run of lines at the very end of [text] is touched; once any line follows
+     * the table (or the answer is finished) nothing is hidden.
+     */
+    fun trimUnsettledTable(text: String): String {
+        val lines = text.split('\n')
+        var start = lines.size
+        while (start > 0 && lines[start - 1].trimStart().startsWith("|")) start--
+        if (start == lines.size) return text
+        val run = lines.subList(start, lines.size)
+        val confirmed = run.size >= 2 && run[1].contains('-') && separator.matches(run[1])
+        val keep = when {
+            !confirmed -> 0
+            run.last().trimEnd().endsWith("|") -> run.size
+            run.size - 1 >= 2 -> run.size - 1
+            else -> 0
+        }
+        return lines.subList(0, start + keep).joinToString("\n").trimEnd('\n')
+    }
 }

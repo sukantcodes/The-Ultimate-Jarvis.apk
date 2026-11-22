@@ -148,6 +148,8 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     testImplementation("junit:junit:4.13.2")
+    // Runs Android text classes (Spannable) on the JVM, so the streaming renderer can be checked against the full one.
+    testImplementation("org.robolectric:robolectric:4.12.2")
     // Real org.json for JVM unit tests (the Android stub throws); used by the task ledger codec tests.
     testImplementation("org.json:json:20231013")
 }

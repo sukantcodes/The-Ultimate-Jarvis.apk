@@ -287,8 +287,7 @@ class ChatFragment : Fragment() {
         styleJumpButton()
         binding.btnJumpToLatest.setOnClickListener {
             stickToBottom = true
-            val last = chatAdapter.itemCount - 1
-            if (last >= 0) binding.rvChatMessages.scrollToPosition(last)
+            glideToBottom()
             updateJumpButton()
         }
         binding.rvChatMessages.adapter = chatAdapter
@@ -1450,6 +1449,28 @@ class ChatFragment : Fragment() {
                 binding.btnVoiceInput.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_chat_attach_button)
                 binding.btnVoiceInput.clearColorFilter()
             }
+        }
+    }
+
+    /**
+     * Carries the chat down to the newest words with a decelerating glide. Far away, it first hops to just above the end
+     * (a long smooth scroll through many messages would be slow and janky) and glides the last stretch.
+     */
+    private fun glideToBottom() {
+        val b = _binding ?: return
+        val rv = b.rvChatMessages
+        val last = chatAdapter.itemCount - 1
+        if (last < 0) return
+        rv.stopScroll()
+        if (!GlassMotion.animationsOn(rv)) { rv.scrollToPosition(last); return }
+        val lm = rv.layoutManager as? LinearLayoutManager
+        if (lm != null && lm.findLastVisibleItemPosition() < last - 1) rv.scrollToPosition(last - 1)
+        rv.post {
+            val v = _binding?.rvChatMessages ?: return@post
+            val remaining = v.computeVerticalScrollRange() - v.computeVerticalScrollOffset() - v.computeVerticalScrollExtent()
+            if (remaining <= 0) return@post
+            val ms = (180 + remaining / 6).coerceIn(220, 520)
+            v.smoothScrollBy(0, remaining, android.view.animation.DecelerateInterpolator(1.5f), ms)
         }
     }
 

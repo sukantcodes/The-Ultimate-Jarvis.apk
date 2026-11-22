@@ -54,10 +54,10 @@ class IncrementalMarkdown {
         val split = MarkdownBlocks.stableSplit(normalized)
         if (split < 0) {
             reset()
-            return MarkdownRenderer.render(normalized, density, palette)
+            return MarkdownRenderer.render(MarkdownBlocks.trimUnsettledTable(normalized), density, palette)
         }
         val prefix = normalized.substring(0, split)
-        val tail = normalized.substring(split).trimStart('\n')
+        val tail = MarkdownBlocks.trimUnsettledTable(normalized.substring(split).trimStart('\n'))
 
         val sameLook = this.density == density && accent == palette.accent && accent2 == palette.accent2 &&
             emphasis == palette.emphasis && variant == palette.variant
