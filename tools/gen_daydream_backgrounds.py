@@ -384,9 +384,167 @@ def crystal_prism():
     img *= 0.80
     return finish(img, 0.34)
 
+
+# ---------------------------------------------------------------- premium scenes
+def black_marble():
+    """Polished black marble with molten gold veins."""
+    y, x = yy_xx()
+    base = fbm(2, 3, 6, 801)
+    w1 = fbm(2, 3, 5, 802) - 0.5
+    w2 = fbm(3, 4, 5, 803) - 0.5
+    img = np.empty((FH, FW, 3), F32)
+    tone = 0.045 + 0.075 * base
+    for c, k in enumerate((1.0, 1.0, 1.18)):
+        img[:, :, c] = tone * k
+    t1 = (x * 2.3 + y * 1.25) * 6.2832 + 9.0 * w1 + 4.0 * w2
+    v1 = np.abs(np.sin(t1 * 0.5))
+    vein1 = np.exp(-(v1 / 0.022)).astype(F32) + 0.35 * np.exp(-(v1 / 0.12) ** 2).astype(F32)
+    t2 = (x * -1.1 + y * 2.6) * 6.2832 + 11.0 * w2 - 5.0 * w1
+    v2 = np.abs(np.sin(t2 * 0.5))
+    vein2 = np.exp(-(v2 / 0.016)).astype(F32) * 0.75
+    fade = 0.35 + 0.65 * sstep(0.35, 0.8, fbm(2, 3, 4, 804))
+    gold = col(236, 190, 112)
+    add_color(img, (vein1 * fade) * 0.85, gold, 1.0)
+    add_color(img, (vein2 * fade) * 0.85, col(255, 226, 170), 1.0)
+    add_color(img, glow(0.15, 0.10, 0.75, 0.45), col(90, 120, 190), 0.10)   # cool polish sheen
+    add_color(img, glow(0.90, 0.92, 0.60, 0.40), col(255, 190, 110), 0.10)
+    return finish(img * 1.05, 0.34)
+
+def _satin(waves, palette, spec_col, spec_k, gain, seed, glow_a, glow_b):
+    """Draped satin: a smooth height field of a few broad folds, lit from the upper left. Diffuse light maps through a palette,
+    a tighter power of it gives the soft specular sheen along the folds."""
+    y, x = yy_xx()
+    warp = (fbm(2, 2, 3, seed, gain=0.4) - 0.5) * 0.18
+    h = np.zeros((FH, FW), F32)
+    for (ax, ay, fr, ph, amp) in waves:
+        h += amp * np.sin(6.2832 * ((ax + warp) * x + (ay + warp) * y) * fr + ph)
+    hx = np.gradient(h, axis=1) * FW / 6.0
+    hy = np.gradient(h, axis=0) * FH / 6.0
+    diff = np.clip(0.52 - (hx * 0.62 + hy * 0.78) * gain, 0, 1)
+    pos = [p[0] for p in palette]
+    img = np.empty((FH, FW, 3), F32)
+    for c in range(3):
+        img[:, :, c] = np.interp(diff, pos, [p[1][c] / 255.0 for p in palette]).astype(F32)
+    spec = np.clip((diff - 0.66) / 0.34, 0, 1) ** 2.0
+    add_color(img, spec, spec_col, spec_k)
+    add_color(img, glow(0.15, 0.10, 0.8, 0.45), glow_a, 0.16)
+    add_color(img, glow(0.88, 0.90, 0.8, 0.45), glow_b, 0.14)
+    return img
+
+def silk_flow():
+    """Midnight satin: violet drapes with soft rose-gold light along the folds."""
+    waves = [(0.9, 0.55, 1.1, 1.0, 0.55), (-0.4, 1.0, 1.5, 2.0, 0.34), (1.1, -0.2, 2.1, 0.5, 0.20)]
+    pal = [(0.0, (8, 5, 26)), (0.35, (26, 12, 64)), (0.55, (70, 30, 112)), (0.75, (150, 72, 150)), (0.92, (232, 150, 170)), (1.0, (255, 214, 196))]
+    img = _satin(waves, pal, col(255, 224, 205), 0.30, 0.42, 811, col(110, 90, 255), col(255, 110, 150))
+    return finish(img * 0.95, 0.34)
+
+def holo_fluid():
+    """Liquid gold: a black-bronze satin with molten gold light running through the folds."""
+    waves = [(0.8, 0.7, 1.0, 2.2, 0.55), (-0.5, 0.9, 1.6, 0.6, 0.34), (1.0, -0.3, 2.3, 1.7, 0.18)]
+    pal = [(0.0, (6, 4, 4)), (0.35, (24, 14, 8)), (0.58, (86, 52, 20)), (0.78, (186, 126, 44)), (0.93, (244, 200, 108)), (1.0, (255, 240, 196))]
+    img = _satin(waves, pal, col(255, 238, 190), 0.26, 0.45, 822, col(255, 170, 80), col(120, 90, 200))
+    return finish(img * 0.92, 0.36)
+
+def planet_horizon():
+    """A planet's glowing limb rising into space."""
+    y, x = yy_xx()
+    aspect = FH / float(FW)
+    img = vgrad([(0, (2, 3, 12)), (0.55, (4, 8, 26)), (1, (8, 18, 50))])
+    s = stars(4200, 21, ymax=0.78, bright=1.0)
+    img += s[:, :, None] * (1 - sstep(0.55, 0.85, y))[:, :, None]
+    cx, cy, R = 0.50, 1.04 * aspect + 0.55, 1.10          # planet centre / radius in width units
+    dx = x - cx
+    dy = y * aspect - cy
+    d = np.sqrt(dx * dx + dy * dy).astype(F32)
+    inside = sstep(R + 0.003, R - 0.003, d)
+    # surface: deep blue with soft cloud bands, lit from the upper right
+    cl = fbm(3, 14, 5, 831)
+    nx = dx / np.maximum(d, 1e-4); ny = dy / np.maximum(d, 1e-4)
+    lit = np.clip(nx * 0.55 - ny * 0.80, 0, 1) ** 0.8
+    surf = col(10, 28, 70)[None, None, :] * (0.55 + 0.9 * cl)[:, :, None]
+    surf = surf + col(70, 150, 255)[None, None, :] * (lit * (0.25 + 0.6 * cl) * 0.55)[:, :, None]
+    img = img * (1 - inside[:, :, None]) + surf * inside[:, :, None]
+    # atmosphere: bright thin limb and a soft haze above it
+    rim = np.exp(-((d - R) / 0.010) ** 2).astype(F32)
+    haze = np.exp(-np.maximum(d - R, 0) / 0.075).astype(F32) * (d > R - 0.004)
+    rim_col = col(120, 200, 255)
+    add_color(img, rim * (0.35 + 0.65 * (0.2 + lit * 0.8)) * 1.1, rim_col, 1.0)
+    add_color(img, haze * (0.20 + 0.40 * (0.25 + lit)), col(70, 140, 255), 0.55)
+    # sun glint on the limb
+    gx, gy = 0.80, cy - np.sqrt(max(R * R - (0.80 - cx) ** 2, 0))
+    gy = gy / aspect
+    add_color(img, glow(gx, gy, 0.16, 0.055, power=1.6), col(255, 236, 205), 0.85)
+    add_color(img, glow(gx, gy, 0.035, 0.012, power=1.4), col(255, 255, 255), 0.9)
+    return finish(img, 0.30)
+
+def bio_reef():
+    """Deep water: light shafts from above and drifting bioluminescent plankton."""
+    y, x = yy_xx()
+    img = vgrad([(0, (6, 42, 62)), (0.35, (4, 26, 48)), (0.75, (3, 14, 34)), (1, (2, 8, 22))])
+    # light shafts
+    sh = np.zeros((FH, FW), F32)
+    for i, (x0, wd, sl, k) in enumerate([(0.22, 0.05, 0.22, 0.9), (0.46, 0.08, 0.30, 1.0), (0.70, 0.06, 0.18, 0.7), (0.90, 0.05, 0.26, 0.6)]):
+        dd = (x - (x0 + y * sl)) / wd
+        sh += np.exp(-dd * dd).astype(F32) * k
+    sh *= (1 - sstep(0.0, 0.85, y)) * (0.55 + 0.45 * fbm(8, 2, 3, 841))
+    add_color(img, sh, col(120, 235, 230), 0.16)
+    add_color(img, glow(0.5, -0.05, 0.9, 0.5), col(110, 230, 225), 0.35)
+    # coloured water clouds
+    add_color(img, sstep(0.45, 0.9, fbm(2, 3, 5, 842)) * (0.4 + 0.6 * y), col(20, 150, 170), 0.22)
+    add_color(img, sstep(0.55, 0.95, fbm(3, 4, 5, 843)) * y, col(120, 70, 220), 0.20)
+    # plankton: many tiny glowing points, some larger soft orbs
+    r = np.random.default_rng(844)
+    layer = np.zeros((FH, FW, 3), F32)
+    pal = [col(90, 255, 220), col(120, 210, 255), col(190, 130, 255), col(255, 150, 210)]
+    for i in range(520):
+        rad = int(3 + (r.random() ** 3) * 26)
+        cx = int(r.random() * FW); cy = int((r.random() ** 0.8) * FH)
+        c = pal[int(r.integers(0, 4))]; a = 0.35 + 0.65 * r.random() ** 2
+        x0, x1 = max(0, cx - rad * 3), min(FW, cx + rad * 3 + 1); y0, y1 = max(0, cy - rad * 3), min(FH, cy + rad * 3 + 1)
+        if x1 <= x0 or y1 <= y0: continue
+        yy = (np.arange(y0, y1, dtype=F32)[:, None] - cy); xx = (np.arange(x0, x1, dtype=F32)[None, :] - cx)
+        g = np.exp(-(xx * xx + yy * yy) / (2 * (rad * 0.9) ** 2)).astype(F32)
+        layer[y0:y1, x0:x1] += g[:, :, None] * c[None, None, :] * a
+    img += layer * 0.85
+    return finish(img, 0.34)
+
+def cine_flare():
+    """Cinematic night: teal shadows, warm anamorphic light streaks and soft bokeh ghosts."""
+    y, x = yy_xx()
+    img = vgrad([(0, (6, 18, 36)), (0.5, (8, 26, 48)), (1, (14, 12, 34))])
+    add_color(img, glow(0.5, 0.45, 0.9, 0.55), col(24, 90, 120), 0.40)
+    # two anamorphic streaks
+    for (cy, cx, wd, c, k) in [(0.30, 0.72, 0.60, col(255, 150, 70), 0.95), (0.66, 0.26, 0.50, col(90, 180, 255), 0.75)]:
+        streak = np.exp(-(((y - cy) / 0.0035) ** 2)).astype(F32) * np.exp(-(((x - cx) / wd) ** 2)).astype(F32)
+        bloom = np.exp(-(((y - cy) / 0.05) ** 2)).astype(F32) * np.exp(-(((x - cx) / (wd * 0.8)) ** 2)).astype(F32)
+        core = glow(cx, cy, 0.045, 0.045, power=1.8)
+        add_color(img, streak, c, k)
+        add_color(img, bloom, c, 0.20 * k)
+        add_color(img, core, col(255, 244, 224), 0.85 * k)
+    # ghosts along the optical axis
+    r = np.random.default_rng(851)
+    layer = np.zeros((FH, FW, 3), F32)
+    ax, ay, bx, by = 0.72, 0.30, 0.26, 0.66
+    for i, t in enumerate(np.linspace(-0.35, 1.45, 9)):
+        px = int((ax + (bx - ax) * t) * FW); py = int((ay + (by - ay) * t) * FH)
+        rad = int(50 + 230 * r.random() ** 1.5)
+        c = [col(255, 170, 90), col(100, 200, 255), col(255, 120, 190), col(150, 255, 220)][i % 4]
+        x0, x1 = max(0, px - rad - 2), min(FW, px + rad + 3); y0, y1 = max(0, py - rad - 2), min(FH, py + rad + 3)
+        if x1 <= x0 or y1 <= y0: continue
+        yy = (np.arange(y0, y1, dtype=F32)[:, None] - py); xx = (np.arange(x0, x1, dtype=F32)[None, :] - px)
+        dd = np.sqrt(xx * xx + yy * yy) / rad
+        disc = sstep(1.0, 0.92, dd) * (0.40 + 0.60 * dd ** 3) * (0.06 + 0.10 * r.random())
+        layer[y0:y1, x0:x1] += disc[:, :, None] * c[None, None, :]
+    pil = Image.fromarray((np.clip(layer, 0, 1) * 255).astype(np.uint8))
+    img += np.asarray(pil.filter(ImageFilter.GaussianBlur(3.0)), dtype=F32) / 255.0 * 1.6
+    img += stars(700, 5, bright=0.6)[:, :, None] * 0.25
+    return finish(img, 0.34)
+
 SCENES = [('dd_crystal_prism', crystal_prism), ('dd_lavender_dusk', lavender_dusk), ('dd_aurora_lake', aurora_lake), ('dd_cotton_sky', cotton_sky),
           ('dd_misty_peaks', misty_peaks), ('dd_ocean_dream', ocean_dream), ('dd_neon_bokeh', neon_bokeh),
-          ('dd_golden_dunes', golden_dunes), ('dd_nebula', nebula)]
+          ('dd_golden_dunes', golden_dunes), ('dd_nebula', nebula),
+          ('dd_black_marble', black_marble), ('dd_silk_flow', silk_flow), ('dd_liquid_gold', holo_fluid),
+          ('dd_planet_horizon', planet_horizon), ('dd_bio_reef', bio_reef), ('dd_cine_flare', cine_flare)]
 
 if __name__ == '__main__':
     out = sys.argv[1]; only = set(sys.argv[2:])

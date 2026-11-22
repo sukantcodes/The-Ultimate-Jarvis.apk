@@ -69,6 +69,7 @@ class JarvisApp : Application() {
         instance = this
         preferences = AppPreferences(this)
         com.jarvis.assistant.ui.glass.LiquidTouch.install(this)
+        com.jarvis.assistant.util.ImmersiveStatusBar.install(this)
         // From the first moment, remember every settings change (made on a screen, by the app, or by Jarvis).
         com.jarvis.assistant.tools.appcontrol.AppChangeWatcher.start(this)
         // The chat's token total is kept in preferences so it survives a restart and is cleared with the chat.

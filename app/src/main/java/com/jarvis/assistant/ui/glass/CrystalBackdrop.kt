@@ -32,7 +32,7 @@ import java.util.concurrent.Executors
 /**
  * The picture behind the Transparent (Crystal Mirror) theme.
  *
- * Eight dreamy "Daydream" scenes ship as 4K (2160 x 3840) WebP files in assets/crystal_bg. Only the Crystal Mirror theme uses
+ * Fifteen dreamy "Daydream" scenes ship as 4K (2160 x 3840) WebP files in assets/crystal_bg. Only the Crystal Mirror theme uses
  * them; every other theme is untouched. The chosen scene is decoded once at a size that matches the screen (a 4K file is never
  * held in memory at full size on a phone that cannot show it), shared by every screen, and painted by ONE drawable on the
  * window, so there is no per-screen copy, no animation and no per-frame cost.
@@ -50,6 +50,12 @@ object CrystalBackdrop {
 
     val OPTIONS: List<Option> = listOf(
         Option("dd_crystal_prism", "Crystal Prism", "Made for the glass: calm centre, light ribbons"),
+        Option("dd_planet_horizon", "Planet Rise", "A glowing world over deep space"),
+        Option("dd_black_marble", "Black Marble", "Polished stone with molten gold veins"),
+        Option("dd_liquid_gold", "Liquid Gold", "Warm molten light in bronze silk"),
+        Option("dd_silk_flow", "Midnight Satin", "Violet drapes with rose-gold light"),
+        Option("dd_bio_reef", "Deep Glow", "Light shafts and glowing plankton"),
+        Option("dd_cine_flare", "Cinema Night", "Teal shadows and anamorphic flares"),
         Option("dd_lavender_dusk", "Lavender Dusk", "Stars over a violet sunset"),
         Option("dd_aurora_lake", "Aurora Lake", "Northern lights on still water"),
         Option("dd_cotton_sky", "Cotton Sky", "Pastel clouds at twilight"),
