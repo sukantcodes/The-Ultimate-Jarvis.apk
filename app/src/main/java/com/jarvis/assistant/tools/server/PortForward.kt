@@ -223,6 +223,8 @@ object TunnelScript {
      * 127.0.0.1 so JARVIS previews (which refuse any other name) and dev servers with host checks keep working.
      * [protocol] "http2" avoids QUIC (UDP), which some mobile and Wi-Fi networks block; "auto" lets cloudflared choose.
      * [install] is true inside Termux, where a missing cloudflared is installed once with the package manager.
+     * cloudflared writes to a log file (not to the pipe that carries output back to JARVIS) and the script ignores SIGPIPE,
+     * so closing or killing JARVIS can no longer end the link: it ends only by its own time limit or when the port stops answering.
      */
     fun build(port: Int, host: String, ttlSeconds: Int, install: Boolean, protocol: String = "auto"): String {
         require(port in 1..65535) { "Bad port." }
@@ -244,6 +246,7 @@ object TunnelScript {
 
     private val TEMPLATE = """
         export DEBIAN_FRONTEND=noninteractive
+        trap '' PIPE
         PORT=@PORT@
         TTL=@TTL@
         RUN="§HOME/.jarvis-run"
@@ -261,9 +264,13 @@ object TunnelScript {
         @MISSING@
         fi
         echo '[jarvis] STARTING'
-        cloudflared tunnel --no-autoupdate@PROTO@ --http-host-header 127.0.0.1 --url "http://@ORIGIN@:§PORT" 2>&1 &
+        LOG="§RUN/tunnel-§PORT.log"
+        : > "§LOG"
+        nohup cloudflared tunnel --no-autoupdate@PROTO@ --http-host-header 127.0.0.1 --url "http://@ORIGIN@:§PORT" >"§LOG" 2>&1 </dev/null &
         CF=§!
         echo "§CF" > "§PIDF"
+        tail -n +1 -f "§LOG" 2>/dev/null &
+        TL=§!
         END=§(( §(date +%s) + TTL ))
         MISS=0
         REASON=""
@@ -283,6 +290,8 @@ object TunnelScript {
           wait "§CF" 2>/dev/null; RC=§?
         fi
         rm -f "§PIDF"
+        sleep 1
+        kill "§TL" 2>/dev/null
         [ -n "§REASON" ] && echo "[jarvis] §REASON"
         echo '[jarvis] TUNNEL_CLOSED'
         exit §RC

@@ -53,7 +53,7 @@ class TunnelManager(
 
     data class Config(
         val maxTunnels: Int = 3,
-        val defaultMinutes: Int = 60,
+        val defaultMinutes: Int = 30,
         val maxMinutes: Int = 480,
         val monitorIntervalMs: Long = 3_000,
         val missesBeforeStop: Int = 3,

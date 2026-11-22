@@ -109,6 +109,14 @@ class TunnelTest {
         assertFalse(TunnelScript.build(3000, "127.0.0.1", 3600, false).contains("pkg install"))
     }
 
+    @Test fun the_link_does_not_depend_on_the_pipe_back_to_the_app() {
+        // cloudflared writes to a log file and SIGPIPE is ignored, so closing the app can not end the link.
+        val s = TunnelScript.build(3000, "127.0.0.1", 1800, true)
+        assertTrue(s.contains("trap '' PIPE"))
+        assertTrue(s.contains(">\"\$LOG\" 2>&1"))
+        assertEquals(30, TunnelManager.Config().defaultMinutes)
+    }
+
     // ---- manager ----
 
     @Test fun a_link_is_reported_only_after_cloudflare_accepts_it_and_it_answers() {

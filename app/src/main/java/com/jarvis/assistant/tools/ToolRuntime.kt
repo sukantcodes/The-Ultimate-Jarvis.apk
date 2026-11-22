@@ -25,6 +25,7 @@ import com.jarvis.assistant.tools.web.WebClient
 import com.jarvis.assistant.tools.web.WebTools
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
@@ -93,6 +94,17 @@ object ToolRuntime {
             TunnelManager(it.backend, workspace.root, servers.servers, kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO))
         }
         tunnels?.let { TunnelTools(it, servers.servers).all().forEach(registry::register) }
+        // Keep the app process (and the preview server inside it) alive while any public link is open, even if the app is closed.
+        tunnels?.let { tm ->
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.Main).launch {
+                var running = false
+                tm.tunnels.collect { list ->
+                    val any = list.any { it.isActive }
+                    if (any && !running) { running = true; com.jarvis.assistant.tools.server.TunnelKeepAliveService.start(app) }
+                    else if (!any && running) { running = false; com.jarvis.assistant.tools.server.TunnelKeepAliveService.stop(app) }
+                }
+            }
+        }
         com.jarvis.assistant.tools.chat.ChatAccessTools.all { com.jarvis.assistant.JarvisApp.instance.chatRepository }.forEach(registry::register)
         com.jarvis.assistant.automation.maps.MapsTools.all(
             com.jarvis.assistant.automation.maps.MapsTools.deps(app, ProviderRuntime.transport())
