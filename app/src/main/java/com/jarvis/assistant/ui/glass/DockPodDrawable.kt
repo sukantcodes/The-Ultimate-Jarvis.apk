@@ -270,12 +270,9 @@ internal class DockPodDrawable(
         if (hero) canvas.drawRoundRect(pod, radius, radius, heroPaint)
         canvas.drawRoundRect(pod, radius, radius, bodyLin)
         canvas.drawRoundRect(pod, radius, radius, bodyRad)
-        // every pod carries a faint glow in the theme colour; the selected one blooms
-        glow.color = ColorUtils.setAlphaComponent(accent, (255 * (0.10f + 0.22f * g)).toInt().coerceIn(0, 255))
+        // the selected option brightens like a lit pane of glass (no coloured glow)
+        glow.color = ColorUtils.setAlphaComponent(Color.WHITE, (255 * 0.16f * g).toInt().coerceIn(0, 255))
         canvas.drawRoundRect(pod, radius, radius, glow)
-        convex.alpha = (255 * (1f + 0.5f * d)).toInt().coerceIn(0, 255)
-        canvas.drawRoundRect(pod, radius, radius, convex)
-        canvas.drawRoundRect(pod, radius, radius, caustic)
 
         // liquid ripple inside the pod
         if (rAlpha > 0.01f && rRadius.value > 1f) {
@@ -294,12 +291,6 @@ internal class DockPodDrawable(
             canvas.restoreToCount(saved)
         }
 
-        dome.alpha = (255 * (1f - 0.45f * d)).toInt().coerceIn(0, 255)
-        canvas.drawRoundRect(domeRect, domeRadius, domeRadius, dome)
-        glint.alpha = (if (light) 200 else 160).let { (it * (1f - 0.5f * d)).toInt() }
-        canvas.drawRoundRect(pod, radius, radius, glint)
-        canvas.drawRoundRect(fringeRectA, radius, radius, fringeA)
-        canvas.drawRoundRect(fringeRectB, radius, radius, fringeB)
         canvas.drawRoundRect(rimRect, max(0f, radius - 0.65f * density), max(0f, radius - 0.65f * density), rim)
         canvas.restore()
     }

@@ -75,6 +75,66 @@ object CrystalBackdrop {
     private var blurKey: String? = null
     private var blurBmp: Bitmap? = null
 
+    // ------------------------------------------------------------------ lens (magnified view of the picture inside glass)
+    /** The picture the windows currently show (sharp or blurred), shared so glass panes can magnify the part behind them. */
+    @Volatile internal var lensBmp: Bitmap? = null
+    /** Dim strength 0..1 (+ blur bump) used to match the window's veil inside a lens patch. */
+    @Volatile internal var veilD = 0.28f
+
+    private val glassLive: MutableSet<Drawable> = Collections.newSetFromMap(WeakHashMap<Drawable, Boolean>())
+    private val lensLoc = IntArray(2)
+    private val lensMatrix = android.graphics.Matrix()
+    private val inkPaint = Paint()
+
+    internal fun registerGlass(d: Drawable) { glassLive.add(d) }
+    internal fun invalidateGlass() { glassLive.toList().forEach { it.invalidateSelf() } }
+
+    internal fun lensActive(): Boolean = CrystalTheme.active() && usesImage() && lensBmp != null
+
+    private fun veilAlphaAt(t: Float): Int {
+        val d = veilD
+        val a = if (t <= 0.5f) {
+            val u = t / 0.5f
+            d * 0.90f + (d * 0.55f - d * 0.90f) * u
+        } else {
+            val u = (t - 0.5f) / 0.5f
+            d * 0.55f + ((d * 1.25f + 0.06f) - d * 0.55f) * u
+        }
+        return (a.coerceIn(0f, 1f) * 255f).toInt()
+    }
+
+    /**
+     * Paints what is behind a glass pane, magnified like a lens: the part of the picture under the pane, enlarged about the
+     * pane's centre, clipped to the pane's shape and dimmed exactly like the window around it. Returns false when there is no
+     * picture to magnify (other themes, or "Phone wallpaper"), and the pane then simply stays clear.
+     */
+    internal fun paintLens(canvas: Canvas, host: android.view.View, rect: RectF, clip: android.graphics.Path, zoom: Float, paint: Paint): Boolean {
+        if (!lensActive()) return false
+        val bmp = lensBmp ?: return false
+        if (bmp.isRecycled) return false
+        val dm = host.resources.displayMetrics
+        val sw = dm.widthPixels.toFloat()
+        val sh = dm.heightPixels.toFloat()
+        host.getLocationOnScreen(lensLoc)
+        val bw = bmp.width.toFloat()
+        val bh = bmp.height.toFloat()
+        val s = maxOf(sw / bw, sh / bh)
+        val ox = (bw - sw / s) / 2f
+        val oy = (bh - sh / s) / 2f
+        val cxs = lensLoc[0] + rect.centerX()
+        val cys = lensLoc[1] + rect.centerY()
+        val k = s * zoom
+        lensMatrix.setScale(k, k)
+        lensMatrix.postTranslate(rect.centerX() - (ox * s + cxs) * zoom, rect.centerY() - (oy * s + cys) * zoom)
+        val save = canvas.save()
+        canvas.clipPath(clip)
+        canvas.drawBitmap(bmp, lensMatrix, paint)
+        inkPaint.color = Color.argb(veilAlphaAt((cys / sh).coerceIn(0f, 1f)), 10, 14, 30)
+        canvas.drawRect(rect, inkPaint)
+        canvas.restoreToCount(save)
+        return true
+    }
+
     // ------------------------------------------------------------------ choices
     private fun prefs() = JarvisApp.instance.preferences
 
@@ -282,6 +342,8 @@ class CrystalBackdropDrawable(window: Window) : Drawable() {
         val mine = ++token
         if (!imageMode) {
             sharp = null; shown = null; previous = null
+            CrystalBackdrop.lensBmp = null
+            CrystalBackdrop.invalidateGlass()
             invalidateSelf()
             return
         }
@@ -305,6 +367,8 @@ class CrystalBackdropDrawable(window: Window) : Drawable() {
         fader?.cancel() // its end-listener clears `previous`, so it must run before the new pair is set up
         previous = shown
         shown = bmp
+        CrystalBackdrop.lensBmp = bmp
+        CrystalBackdrop.invalidateGlass()
         fade = 0
         fader = ValueAnimator.ofInt(0, 255).apply {
             duration = 320L
@@ -344,6 +408,7 @@ class CrystalBackdropDrawable(window: Window) : Drawable() {
         val b = bounds
         if (b.isEmpty) return
         val d = dimPercent / 100f + (if (blurOn) 0.04f else 0f)
+        CrystalBackdrop.veilD = d
         fun a(f: Float) = (f.coerceIn(0f, 1f) * 255f).toInt()
         val ink = intArrayOf(10, 14, 30)
         fun shade(f: Float) = Color.argb(a(f), ink[0], ink[1], ink[2])

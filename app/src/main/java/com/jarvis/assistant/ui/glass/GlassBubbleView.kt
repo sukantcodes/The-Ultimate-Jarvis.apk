@@ -204,27 +204,11 @@ class GlassBubbleView @JvmOverloads constructor(
         val r = hh / 2f
 
         canvas.drawRoundRect(rect, r, r, body)
-        // convex shade + caustic so the bubble reads as a 3D dome
-        val shadeH = rect.height()
-        canvas.drawRoundRect(rect, r, r, shade)
-        m.reset(); m.postScale(rect.width() * 0.42f, shadeH * 0.5f); m.postTranslate(rect.centerX(), rect.bottom + shadeH * 0.08f)
-        unitRadial.setLocalMatrix(m); spec.shader = unitRadial; spec.alpha = 90
-        canvas.drawRoundRect(rect, r, r, spec)
-        if (accentTint != 0) { bounce.color = accentTint; canvas.drawRoundRect(rect, r, r, bounce); bounce.color = 0x1FFFFFFF }
-
-        // specular highlight, top-left of the bubble
+        // one soft highlight, top-left: clear glass, no dome shading and no colour fringes
         val w = rect.width()
         m.reset(); m.postScale(w * 0.42f, hh * 0.62f); m.postTranslate(rect.left + w * 0.30f, rect.top + hh * 0.18f)
-        unitRadial.setLocalMatrix(m); spec.shader = unitRadial; spec.alpha = 150
-        canvas.drawRoundRect(rect, r, r, spec)
-        // soft bounce light, bottom-right
-        m.reset(); m.postScale(w * 0.30f, hh * 0.40f); m.postTranslate(rect.right - w * 0.22f, rect.bottom - hh * 0.10f)
         unitRadial.setLocalMatrix(m); spec.shader = unitRadial; spec.alpha = 70
         canvas.drawRoundRect(rect, r, r, spec)
-
-        val s = 0.7f * density
-        canvas.save(); canvas.translate(-s, -s); canvas.drawRoundRect(rect, r, r, fringeA); canvas.restore()
-        canvas.save(); canvas.translate(s, s); canvas.drawRoundRect(rect, r, r, fringeB); canvas.restore()
         canvas.drawRoundRect(rect, r, r, rim)
     }
 

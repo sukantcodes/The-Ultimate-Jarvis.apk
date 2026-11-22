@@ -129,8 +129,8 @@ class LiquidGlassLayout @JvmOverloads constructor(
             }
             elevation = 8f * density
             if (Build.VERSION.SDK_INT >= 28) {
-                outlineSpotShadowColor = 0x55FF8A5C
-                outlineAmbientShadowColor = 0x22B06AB3
+                outlineSpotShadowColor = 0xFF000000.toInt()
+                outlineAmbientShadowColor = 0xFF000000.toInt()
             }
         }
     }
@@ -180,15 +180,6 @@ class LiquidGlassLayout @JvmOverloads constructor(
         super.dispatchDraw(canvas)
         if (plain || width == 0 || height == 0) return
         val r = min(cornerRadiusPx, min(width, height) / 2f)
-        if (prism) {
-            val s = 0.8f * density
-            fringePaint.color = 0x59FF4FD8
-            canvas.save(); canvas.translate(-s, -s)
-            canvas.drawRoundRect(rimRect, r, r, fringePaint); canvas.restore()
-            fringePaint.color = 0x2633E1FF
-            canvas.save(); canvas.translate(s, s)
-            canvas.drawRoundRect(rimRect, r, r, fringePaint); canvas.restore()
-        }
         canvas.drawRoundRect(rimRect, r, r, edgePaint)
     }
 
@@ -267,10 +258,12 @@ class LiquidGlassLayout @JvmOverloads constructor(
         val inset = 0.6f * density
         rimRect.set(inset, inset, w - inset, h - inset)
 
+        // Sharper than before (a clear lens shows detail): about 130k pixels per capture, never below the old 0.15 scale.
+        val scale = kotlin.math.sqrt(130_000f / (w.toFloat() * h.toFloat())).coerceIn(BACKDROP_SCALE, 0.40f)
         for (i in 0 until BUFFERS) {
             try {
                 val nb = Bitmap.createBitmap(
-                    max(1, (w * BACKDROP_SCALE).toInt()), max(1, (h * BACKDROP_SCALE).toInt()), Bitmap.Config.ARGB_8888
+                    max(1, (w * scale).toInt()), max(1, (h * scale).toInt()), Bitmap.Config.ARGB_8888
                 )
                 bmps[i] = nb
                 canvases[i] = Canvas(nb)
@@ -285,13 +278,13 @@ class LiquidGlassLayout @JvmOverloads constructor(
 
         sheenPaint.shader = LinearGradient(
             0f, 0f, 0f, h * 0.5f,
-            intArrayOf(0x33FFFFFF, 0x0DFFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP
+            intArrayOf(0x16FFFFFF, 0x06FFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP
         )
         veilPaint.color = Color.argb((effectiveVeil() * 255).toInt().coerceIn(0, 255), 255, 255, 255)
         edgePaint.strokeWidth = 1.1f * density
         edgePaint.shader = LinearGradient(
             0f, 0f, w.toFloat(), h.toFloat(),
-            intArrayOf(0xF2FFFFFF.toInt(), 0x1AFFFFFF, 0x00FFFFFF, 0x8CFFFFFF.toInt()),
+            intArrayOf(0xD8FFFFFF.toInt(), 0x22FFFFFF, 0x10FFFFFF, 0x70FFFFFF),
             floatArrayOf(0f, 0.38f, 0.62f, 1f), Shader.TileMode.CLAMP
         )
         fringePaint.strokeWidth = 1f * density
@@ -326,11 +319,12 @@ class LiquidGlassLayout @JvmOverloads constructor(
         shader.setFloatUniform("radius", min(cornerRadiusPx, min(w, h) / 2f))
         shader.setFloatUniform("bezel", min(bezelDp * density, min(w, h) / 2f))
         shader.setFloatUniform("strength", refractionDp * density * (if (lens) LENS_REFRACTION_BOOST else 1f))
-        shader.setFloatUniform("blur", blurDp * density * 0.35f * (if (lens) LENS_BLUR_FACTOR else 1f))
-        shader.setFloatUniform("chroma", (ds + redOffset) / norm, (ds + greenOffset) / norm, (ds + blueOffset) / norm)
+        // Clear glass: only a pixel of smoothing, and the red/green/blue channels differ by a hair at the edge (no visible fringes).
+        shader.setFloatUniform("blur", 0.7f * density)
+        shader.setFloatUniform("chroma", 1.0f, 0.97f, 0.94f)
         // Transparent lens glass everywhere except the Chatbox: almost no veil, a magnified view and stronger edge refraction.
         val crystalHere = !lockedGlass && CrystalTheme.active()
-        shader.setFloatUniform("veil", effectiveVeil())
+        shader.setFloatUniform("veil", effectiveVeil() * 0.25f)
         shader.setFloatUniform("zoom", lensZoom(crystalHere))
         return shader
     }

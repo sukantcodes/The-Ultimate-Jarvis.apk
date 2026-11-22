@@ -38,7 +38,8 @@ internal class Bubble3DSheen(
 
     /** Crystal Mirror: the bubble is more intense and gets a magnifying-glass glare. */
     private val crystal = CrystalTheme.active()
-    private val k: Float = kIn * (if (crystal) CrystalTheme.BUBBLE_BOOST else 1f)
+    // Clear glass, not a shiny bead: only a thin rim and a faint top gloss remain, so the control stays transparent.
+    private val k: Float = kIn * 0.55f
     private val glare = Paint(Paint.ANTI_ALIAS_FLAG)
     private val innerRim = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val innerRect = RectF()
@@ -158,15 +159,8 @@ internal class Bubble3DSheen(
     override fun draw(canvas: Canvas) {
         if (bounds.isEmpty) return
         val layer = if (alphaValue < 255) canvas.saveLayerAlpha(RectF(bounds), alphaValue) else canvas.save()
-        canvas.drawPath(body, shade)
-        canvas.drawPath(body, caustic)
-        if (crystal) {
-            canvas.drawPath(body, glare)
-            canvas.drawRoundRect(innerRect, innerRadius, innerRadius, innerRim)
-        }
         canvas.drawRoundRect(glossRect, glossRadius, glossRadius, gloss)
         canvas.drawRoundRect(rimRect, rimRadius, rimRadius, rim)
-        canvas.drawOval(glintCx - glintRx, glintCy - glintRy, glintCx + glintRx, glintCy + glintRy, glint)
         canvas.restoreToCount(layer)
     }
 

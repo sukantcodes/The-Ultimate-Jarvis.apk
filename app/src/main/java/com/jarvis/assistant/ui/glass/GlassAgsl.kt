@@ -54,7 +54,8 @@ half4 main(float2 coord) {
 
     float depth = clamp(-d / bezel, 0.0, 1.0);
     float edge = pow(1.0 - depth, 2.0);
-    float2 off = n * edge * strength;
+    // convex lens: near the edge the view bends inward (it samples from inside the pane), so nothing smears at the border
+    float2 off = -n * edge * strength;
 
     float2 lo = float2(0.0);
     float2 hi = size - 1.0;
@@ -67,13 +68,13 @@ half4 main(float2 coord) {
 
     // saturation lift + frosted veil
     half l = dot(col, half3(0.299, 0.587, 0.114));
-    col = mix(half3(l), col, half(1.15));
+    col = mix(half3(l), col, half(1.04));
     col = mix(col, half3(1.0), half(veil));
 
     // specular: strong top-left, softer bottom-right bounce
     float2 L = normalize(float2(-0.55, -0.83));
     float spec = pow(max(dot(n, L), 0.0), 2.0) + 0.45 * pow(max(dot(n, -L), 0.0), 2.0);
-    col += half3(spec * edge * 0.35);
+    col += half3(spec * edge * 0.22);
 
     float aa = 1.0 - smoothstep(-1.0, 0.5, d);
     return half4(col * aa, aa);

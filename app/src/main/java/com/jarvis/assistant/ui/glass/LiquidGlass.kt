@@ -51,9 +51,9 @@ object LiquidGlass {
         view.clipToOutline = false
         view.elevation = elevationDp * density
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && elevationDp > 0f) {
-            val shadow = if (tint != 0) tint else try { ThemeManager.getThemeAccentColor() } catch (_: Throwable) { 0xFF000000.toInt() }
-            view.outlineAmbientShadowColor = shadow
-            view.outlineSpotShadowColor = shadow
+            // Clear glass casts a plain, soft shadow; a coloured shadow would read as a stain around the pane.
+            view.outlineAmbientShadowColor = 0xFF000000.toInt()
+            view.outlineSpotShadowColor = 0xFF000000.toInt()
         }
         // Glass cards are static; only the screen backdrop animates, and the cards simply show it through.
         view.setTag(TAG_KEY, true)
