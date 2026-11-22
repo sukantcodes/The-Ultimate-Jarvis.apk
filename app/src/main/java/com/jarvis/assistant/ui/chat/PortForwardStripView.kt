@@ -101,7 +101,7 @@ class PortForwardStripView @JvmOverloads constructor(context: Context, attrs: At
         val s = t.state
         val (dotColor, pulsing, statusText) = when (s) {
             is TunnelState.Live -> Triple(ok, false, context.getString(
-                if (s.verified) R.string.port_forward_live else R.string.port_forward_live_unconfirmed, SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(t.expiresAt))))
+                if (!s.verified) R.string.port_forward_live_unconfirmed else if (s.matchesLocal == true) R.string.port_forward_live_same else R.string.port_forward_live, SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(t.expiresAt))))
             is TunnelState.Reconnecting -> Triple(warn, true, context.getString(R.string.port_forward_reconnecting))
             is TunnelState.Connecting -> Triple(warn, true, context.getString(R.string.port_forward_connecting))
             is TunnelState.Preparing -> Triple(warn, true, s.detail)

@@ -64,7 +64,14 @@ class TunnelManager(
         val verifyIntervalMs: Long = 1_000,
         val verifyAttempts: Int = 15,
         /** How long a stopped or failed link stays in the list so the person can read why. */
-        val lingerMs: Long = 15_000
+        val lingerMs: Long = 15_000,
+        /** Tries to get a link going before giving up (the second and third use HTTP/2, which networks that block QUIC allow). */
+        val maxAttempts: Int = 3,
+        val retryDelayMs: Long = 3_000,
+        /** While a link is live and has been seen working from this phone, it is fetched this often; a dead link is rebuilt. */
+        val healthIntervalMs: Long = 30_000,
+        val healthFailsBeforeHeal: Int = 3,
+        val maxHeals: Int = 2
     )
 
     private class Entry(val id: String, val port: Int, val host: String, val label: String, val startedAt: Long, val expiresAt: Long) {
@@ -82,6 +89,15 @@ class TunnelManager(
         @Volatile var reconnectSince = 0L
         @Volatile var monitor: Job? = null
         @Volatile var verify: Job? = null
+        @Volatile var protocol = "auto"
+        @Volatile var attempt = 1
+        @Volatile var heals = 0
+        @Volatile var generation = 0
+        @Volatile var launchedAt = 0L
+        @Volatile var healthFails = 0
+        @Volatile var lastHealthAt = 0L
+        @Volatile var everLive = false
+        @Volatile var matchesLocal: Boolean? = null
         val partial = StringBuilder()
         val tail = ArrayDeque<String>()
         val terminal: Boolean get() = state is TunnelState.Stopped || state is TunnelState.Failed
@@ -171,9 +187,12 @@ class TunnelManager(
     // ---- internals --------------------------------------------------------------------------------------------
 
     private fun launchProcess(e: Entry, ttlSeconds: Int) {
-        val script = TunnelScript.build(e.port, e.host, ttlSeconds, install = backend.isRemote)
+        val ttl = if (ttlSeconds > 0) ttlSeconds else ((e.expiresAt - clock()) / 1000).toInt().coerceAtLeast(30)
+        val script = TunnelScript.build(e.port, e.host, ttl, install = backend.isRemote, protocol = e.protocol)
+        val gen = synchronized(lock) { e.launchedAt = clock(); ++e.generation }
         val cmd = try {
-            backend.launch(script, workspaceRoot, backend.environment(workspaceRoot)) { chunk -> onOutput(e, chunk) }
+            // Output from an earlier process of this link (killed during a retry) must not change the new one.
+            backend.launch(script, workspaceRoot, backend.environment(workspaceRoot)) { chunk -> if (e.generation == gen) onOutput(e, chunk) }
         } catch (ex: Exception) {
             fail(e, ex.message ?: "The tunnel program could not be started.")
             return
@@ -204,6 +223,7 @@ class TunnelManager(
 
     private fun apply(e: Entry, ev: CloudflaredLog.Event) {
         var failure: String? = null
+        var retryable = false
         var verifyUrl: String? = null
         synchronized(lock) {
             if (e.terminal) return
@@ -224,7 +244,7 @@ class TunnelManager(
                     val u = e.url
                     if (e.state is TunnelState.Reconnecting && u != null) {
                         e.reconnectSince = 0; e.note = null
-                        setLocked(e, TunnelState.Live(u, e.verified))
+                        setLocked(e, TunnelState.Live(u, e.verified, e.matchesLocal))
                     } else verifyUrl = verifyTargetLocked(e)
                 }
                 is CloudflaredLog.Event.Retrying -> {
@@ -232,7 +252,7 @@ class TunnelManager(
                     if (e.state is TunnelState.Live && u != null) { e.reconnectSince = clock(); setLocked(e, TunnelState.Reconnecting(u)) }
                 }
                 is CloudflaredLog.Event.OriginDown -> { e.note = "The local server is not answering. Check that it is still running."; publishLocked() }
-                is CloudflaredLog.Event.StartFailed -> failure = ev.message
+                is CloudflaredLog.Event.StartFailed -> { failure = ev.message; retryable = true }
                 is CloudflaredLog.Event.InstallFailed -> failure = "cloudflared could not be installed in Termux. Open Termux and run: pkg install cloudflared"
                 is CloudflaredLog.Event.NotInstalled -> failure = TunnelScript.NOT_AVAILABLE
                 is CloudflaredLog.Event.ServerGone -> if (e.stopReason == null) e.stopReason = StopReason.SERVER_STOPPED
@@ -241,7 +261,7 @@ class TunnelManager(
             }
             Unit
         }
-        failure?.let { fail(e, it) }
+        failure?.let { if (!(retryable && retry(e, heal = false))) fail(e, it) }
         verifyUrl?.let { startVerify(e, it) }
     }
 
@@ -253,24 +273,54 @@ class TunnelManager(
         return u
     }
 
-    /** Fetches the public address from this phone (so it goes out to the internet and back in) until it answers. */
+    private fun localUrl(e: Entry) = "http://${if (e.host == "::1") "[::1]" else e.host}:${e.port}/"
+
+    /** Fetches the public address from this phone (out to the internet and back in) until it answers, and compares it with the local page. */
     private fun startVerify(e: Entry, url: String) {
         e.verify = scope.launch(Dispatchers.IO) {
             delay(config.verifyFirstDelayMs)
-            var ok = false
+            var result = LinkCheck(false)
             var attempt = 0
-            while (!ok && attempt < config.verifyAttempts && !e.terminal) {
-                ok = try { verifier.isReachable(url) } catch (_: Exception) { false }
-                if (!ok) delay(config.verifyIntervalMs)
+            while (!result.reachable && attempt < config.verifyAttempts && !e.terminal) {
+                result = try { verifier.check(url, localUrl(e)) } catch (_: Exception) { LinkCheck(false) }
+                if (!result.reachable) delay(config.verifyIntervalMs)
                 attempt++
             }
             synchronized(lock) {
                 if (!e.terminal && (e.state is TunnelState.Connecting || e.state is TunnelState.Preparing)) {
-                    e.verified = ok
-                    setLocked(e, TunnelState.Live(url, ok))
+                    e.verified = result.reachable; e.matchesLocal = result.sameAsLocal; e.everLive = true
+                    setLocked(e, TunnelState.Live(url, result.reachable, result.sameAsLocal))
                 }
             }
         }
+    }
+
+    /**
+     * Starts over with a fresh process: after a start that failed (up to [Config.maxAttempts] tries, HTTP/2 from the second),
+     * or when a link that worked stopped answering ([heal], up to [Config.maxHeals] times; the address then changes).
+     * Returns false when the tries are used up, and the caller reports the failure.
+     */
+    private fun retry(e: Entry, heal: Boolean): Boolean {
+        val old: RunningCommand?
+        synchronized(lock) {
+            if (e.terminal) return true
+            if (heal) { if (e.heals >= config.maxHeals) return false; e.heals++ }
+            else { if (e.attempt >= config.maxAttempts) return false; e.attempt++ }
+            e.protocol = "http2"
+            old = e.command; e.command = null
+            e.url = null; e.registered = false; e.verified = false; e.verifyStarted = false; e.matchesLocal = null
+            e.healthFails = 0; e.reconnectSince = 0; e.installing = false; e.failMessage = null
+            e.note = if (heal) "The link stopped answering, so a new one was made. The old address no longer works." else null
+            setLocked(e, TunnelState.Preparing(
+                if (heal) "The link stopped answering. Reconnecting with a new link…" else "Trying again (attempt ${e.attempt} of ${config.maxAttempts})…"))
+        }
+        e.verify?.cancel(); e.monitor?.cancel()
+        old?.let { kill(it, sync = false) }
+        scope.launch(Dispatchers.IO) {
+            delay(config.retryDelayMs)
+            if (!e.terminal) launchProcess(e, 0)
+        }
+        return true
     }
 
     private suspend fun monitor(e: Entry) {
@@ -287,7 +337,16 @@ class TunnelManager(
             when (e.state) {
                 is TunnelState.Preparing, is TunnelState.Connecting -> {
                     val limit = if (e.installing) config.installLimitMs else config.startupLimitMs
-                    if (now - e.startedAt > limit) { fail(e, startupTimeoutMessage(e)); return }
+                    if (now - e.launchedAt > limit) { if (!retry(e, heal = false)) fail(e, startupTimeoutMessage(e)); return }
+                }
+                is TunnelState.Live -> if (e.verified && now - e.lastHealthAt >= config.healthIntervalMs) {
+                    e.lastHealthAt = now
+                    val url = (e.state as? TunnelState.Live)?.url
+                    val ok = url != null && (try { verifier.check(url, localUrl(e)).reachable } catch (_: Exception) { false })
+                    if (ok) e.healthFails = 0
+                    else if (++e.healthFails >= config.healthFailsBeforeHeal && !retry(e, heal = true)) {
+                        fail(e, "The link stopped answering and could not be restored. Ask for a new one."); return
+                    } else if (e.healthFails >= config.healthFailsBeforeHeal) return
                 }
                 is TunnelState.Reconnecting -> if (now - e.reconnectSince > config.reconnectLimitMs) { stopEntry(e, StopReason.NETWORK_LOST, sync = false); return }
                 else -> Unit
@@ -303,6 +362,8 @@ class TunnelManager(
 
     /** The program ended without being asked to: say why from what it printed. */
     private fun endedByItself(e: Entry) {
+        val unexpected = synchronized(lock) { !e.terminal && e.stopReason == null && e.failMessage == null }
+        if (unexpected && !(e.state is TunnelState.Preparing && e.installing) && retry(e, heal = e.everLive)) return
         val cmd: RunningCommand?
         synchronized(lock) {
             if (e.terminal) return

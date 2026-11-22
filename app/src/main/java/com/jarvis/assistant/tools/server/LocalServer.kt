@@ -22,7 +22,7 @@ class LocalServer(val root: File, val port: Int = 0, private val spaFallback: Bo
     private val rootCanon = root.canonicalFile
     private var socket: ServerSocket? = null
     private val running = AtomicBoolean(false)
-    private val pool = Executors.newFixedThreadPool(4) { r -> Thread(r, "jarvis-preview").also { it.isDaemon = true } }
+    private val pool = Executors.newFixedThreadPool(16) { r -> Thread(r, "jarvis-preview").also { it.isDaemon = true } }
     val requestCount = AtomicInteger(0)
 
     val boundPort: Int get() = socket?.localPort ?: -1
@@ -67,11 +67,29 @@ class LocalServer(val root: File, val port: Int = 0, private val spaFallback: Bo
                 if (host.isNotEmpty() && host != "127.0.0.1" && host != "localhost") return respond(c, 403, "Forbidden", "text/plain", "Forbidden".toByteArray(), false)
                 val file = resolve(parts[1]) ?: return respond(c, 404, "Not Found", "text/html; charset=utf-8", notFound(), method == "HEAD")
                 if (file == FORBIDDEN) return respond(c, 403, "Forbidden", "text/plain", "Forbidden".toByteArray(), method == "HEAD")
-                respond(c, 200, "OK", mimeFor(file.name), file.readBytes(), method == "HEAD")
+                val rangeHeader = lines.firstOrNull { it.startsWith("Range:", true) }?.substringAfter(':')?.trim()
+                serveFile(c, file, rangeHeader, method == "HEAD")
             } catch (e: SocketTimeoutException) {
             } catch (e: IOException) {
             }
         }
+    }
+
+    /**
+     * Sends [file], honouring one `Range: bytes=` request. Browsers on iPhones will not play video or audio from a server
+     * that ignores Range, so previews shared through a public link need it. A slice is capped at 8 MB per answer (the
+     * browser simply asks for the next part); a range past the end is a 416.
+     */
+    private fun serveFile(c: Socket, file: File, rangeHeader: String?, headOnly: Boolean) {
+        val len = file.length()
+        val type = mimeFor(file.name)
+        val range = parseRange(rangeHeader, len)
+        if (range == null) return respond(c, 200, "OK", type, file.readBytes(), headOnly, mapOf("Accept-Ranges" to "bytes"))
+        if (range.isEmpty()) return respond(c, 416, "Range Not Satisfiable", "text/plain", "Range not satisfiable".toByteArray(), headOnly, mapOf("Content-Range" to "bytes */$len"))
+        val bytes = java.io.RandomAccessFile(file, "r").use { f ->
+            f.seek(range.first); ByteArray((range.last - range.first + 1).toInt()).also { f.readFully(it) }
+        }
+        respond(c, 206, "Partial Content", type, bytes, headOnly, mapOf("Accept-Ranges" to "bytes", "Content-Range" to "bytes ${range.first}-${range.last}/$len"))
     }
 
     private fun readHead(inp: BufferedInputStream): String? {
@@ -112,6 +130,30 @@ class LocalServer(val root: File, val port: Int = 0, private val spaFallback: Bo
     }
 
     companion object {
+        private val UNSATISFIABLE = -1L..-2L
+        private const val MAX_SLICE = 8L * 1024 * 1024
+
+        /** The byte range to send, null for "the whole file" (no header, or one this server does not handle), or [UNSATISFIABLE]. */
+        internal fun parseRange(header: String?, length: Long): LongRange? {
+            if (header == null || !header.startsWith("bytes=") || header.contains(',')) return null
+            val spec = header.removePrefix("bytes=").trim()
+            val dash = spec.indexOf('-'); if (dash < 0) return null
+            val a = spec.substring(0, dash).trim(); val b = spec.substring(dash + 1).trim()
+            val start: Long; var end: Long
+            if (a.isEmpty()) {
+                val suffix = b.toLongOrNull() ?: return null
+                if (suffix <= 0 || length == 0L) return UNSATISFIABLE
+                start = (length - suffix).coerceAtLeast(0); end = length - 1
+            } else {
+                start = a.toLongOrNull() ?: return null
+                end = if (b.isEmpty()) length - 1 else (b.toLongOrNull() ?: return null)
+                if (end < start) return null
+            }
+            if (start >= length) return UNSATISFIABLE
+            end = minOf(end, length - 1, start + MAX_SLICE - 1)
+            return start..end
+        }
+
         private val FORBIDDEN = File("/\u0000forbidden")
         fun mimeFor(name: String): String = when (name.substringAfterLast('.', "").lowercase()) {
             "html", "htm" -> "text/html; charset=utf-8"; "css" -> "text/css; charset=utf-8"; "js", "mjs" -> "text/javascript; charset=utf-8"

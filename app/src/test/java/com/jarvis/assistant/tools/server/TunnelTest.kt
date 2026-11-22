@@ -56,14 +56,16 @@ class TunnelTest {
     private val dir = Files.createTempDirectory("jv-tunnel").toFile()
     private val probe = FakeProbe(3000)
     private var verifies = true
+    @Volatile private var sameLocal: Boolean? = true
+    private fun linkCheck() = if (verifies) LinkCheck(true, sameLocal) else LinkCheck(false)
     @Volatile private var now = 1_000_000L
-    private val fast = TunnelManager.Config(monitorIntervalMs = 30, verifyFirstDelayMs = 5, verifyIntervalMs = 5, verifyAttempts = 3, lingerMs = 600_000, startupLimitMs = 600_000)
+    private val fast = TunnelManager.Config(monitorIntervalMs = 30, verifyFirstDelayMs = 5, verifyIntervalMs = 5, verifyAttempts = 3, lingerMs = 600_000, startupLimitMs = 600_000, retryDelayMs = 20, healthIntervalMs = 600_000)
 
     @Before fun noop() {}
     @After fun tearDown() { servers.stopAll(); scope.cancel() }
 
     private fun manager(backend: TerminalBackend, cfg: TunnelManager.Config = fast, available: () -> Boolean = { true }) =
-        TunnelManager(backend, dir, servers, scope, probe, UrlVerifier { verifies }, { now }, available, cfg)
+        TunnelManager(backend, dir, servers, scope, probe, UrlVerifier { _, _ -> linkCheck() }, { now }, available, cfg)
 
     private fun await(what: String, ms: Long = 5000, cond: () -> Boolean) {
         val end = System.currentTimeMillis() + ms
@@ -173,7 +175,7 @@ class TunnelTest {
         File(dir, "site").mkdirs(); File(dir, "site/index.html").writeText("<h1>hi</h1>")
         val s = servers.start("site", File(dir, "site"))
         val b = FakeBackend(); val realProbe = LoopbackProbe()
-        val m = TunnelManager(b, dir, servers, scope, realProbe, UrlVerifier { true }, { now }, { true }, fast)
+        val m = TunnelManager(b, dir, servers, scope, realProbe, UrlVerifier { _, _ -> LinkCheck(true, true) }, { now }, { true }, fast)
         assertTrue(m.start(s.boundPort, "site") is StartResult.Started)
         servers.stop("site")
         await("closed with the server") { (m.first().state as? TunnelState.Stopped)?.reason == StopReason.SERVER_STOPPED }
@@ -228,7 +230,7 @@ class TunnelTest {
     }
 
     @Test fun failures_are_reported_in_plain_words_and_leave_nothing_running() {
-        val b = FakeBackend(); val m = manager(b)
+        val b = FakeBackend(); val m = manager(b, fast.copy(maxAttempts = 1))
         m.start(3000)
         b.commands[0].say("[jarvis] STARTING\nfailed to request quick Tunnel: dial tcp: no such host\n")
         await("failed") { m.first().state is TunnelState.Failed }
@@ -239,7 +241,7 @@ class TunnelTest {
     }
 
     @Test fun a_program_that_dies_by_itself_is_explained() {
-        val b = FakeBackend(); val m = manager(b)
+        val b = FakeBackend(); val m = manager(b, fast.copy(maxAttempts = 1))
         m.start(3000); b.commands[0].say("[jarvis] STARTING\nsomething odd happened\n"); b.commands[0].exit()
         await("failed") { m.first().state is TunnelState.Failed }
         assertTrue((m.first().state as TunnelState.Failed).message.contains("something odd happened"))
@@ -273,6 +275,93 @@ class TunnelTest {
         m.start(3000)
         assertTrue(m.detect().first { it.port == 3000 }.shared)
         m.close()
+    }
+
+    // ---- reliability ----
+
+    private val LINK2 = "https://other-river-test-demo.trycloudflare.com"
+    private fun up(link: String) = "[jarvis] STARTING\nINF |  $link  |\nINF Registered tunnel connection connIndex=0\n"
+
+    @Test fun a_failed_start_is_retried_over_http2_and_then_works() {
+        val b = FakeBackend(); val m = manager(b)
+        m.start(3000)
+        b.commands[0].say("[jarvis] STARTING\nfailed to request quick Tunnel: dial tcp: i/o timeout\n")
+        await("second attempt") { b.commands.size == 2 }
+        assertFalse(b.scripts[0].contains("--protocol http2")); assertTrue(b.scripts[1].contains("--protocol http2"))
+        assertTrue(b.commands[0].killed.get())
+        assertTrue(m.first().state is TunnelState.Preparing)
+        b.commands[1].say(up(LINK))
+        await("live") { m.first().state is TunnelState.Live }
+        assertEquals(LINK, m.first().publicUrl)
+        m.close()
+    }
+
+    @Test fun when_every_attempt_fails_the_link_fails_with_the_reason() {
+        val b = FakeBackend(); val m = manager(b, fast.copy(maxAttempts = 2))
+        m.start(3000); b.commands[0].say("failed to request quick Tunnel: 429 Too Many Requests\n")
+        await("retry") { b.commands.size == 2 }
+        b.commands[1].say("failed to request quick Tunnel: 429 Too Many Requests\n")
+        await("failed") { m.first().state is TunnelState.Failed }
+        assertTrue((m.first().state as TunnelState.Failed).message.contains("limiting"))
+        assertEquals(2, b.commands.size)
+        m.close()
+    }
+
+    @Test fun output_from_a_killed_attempt_cannot_change_the_new_one() {
+        val b = FakeBackend(); val m = manager(b)
+        m.start(3000); b.commands[0].say("failed to request quick Tunnel: dial tcp: i/o timeout\n")
+        await("second attempt") { b.commands.size == 2 }
+        b.commands[0].say(up(LINK2))
+        Thread.sleep(150)
+        assertTrue(m.first().state is TunnelState.Preparing)
+        m.close()
+    }
+
+    @Test fun a_live_link_that_stops_answering_is_rebuilt_with_a_new_address() {
+        val b = FakeBackend(); val m = manager(b, fast.copy(healthIntervalMs = 30, healthFailsBeforeHeal = 2))
+        m.start(3000); b.commands[0].say(up(LINK)); await("live") { (m.first().state as? TunnelState.Live)?.verified == true }
+        verifies = false
+        await("rebuilding") { b.commands.size == 2 }
+        assertTrue(b.commands[0].killed.get())
+        assertTrue(m.first().note!!.contains("new one"))
+        verifies = true
+        b.commands[1].say(up(LINK2))
+        await("live again") { (m.first().state as? TunnelState.Live)?.url == LINK2 }
+        m.close()
+    }
+
+    @Test fun a_link_that_was_never_seen_working_from_this_phone_is_not_rebuilt() {
+        verifies = false
+        val b = FakeBackend(); val m = manager(b, fast.copy(healthIntervalMs = 20, healthFailsBeforeHeal = 1))
+        m.start(3000); b.commands[0].say(up(LINK)); await("live") { m.first().state is TunnelState.Live }
+        Thread.sleep(300)
+        assertEquals(1, b.commands.size); assertTrue(m.first().state is TunnelState.Live)
+        m.close()
+    }
+
+    @Test fun healing_is_limited_and_then_reports_failure() {
+        val b = FakeBackend(); val m = manager(b, fast.copy(healthIntervalMs = 20, healthFailsBeforeHeal = 1, maxHeals = 1))
+        m.start(3000); b.commands[0].say(up(LINK)); await("live") { (m.first().state as? TunnelState.Live)?.verified == true }
+        verifies = false
+        await("rebuild") { b.commands.size == 2 }
+        verifies = true; b.commands[1].say(up(LINK2)); await("live again") { (m.first().state as? TunnelState.Live)?.verified == true }
+        verifies = false
+        await("gave up") { m.first().state is TunnelState.Failed }
+        assertEquals(2, b.commands.size)
+        m.close()
+    }
+
+    @Test fun the_link_says_whether_viewers_get_the_same_page() {
+        val b = FakeBackend(onLaunch = { c -> c.say(UP) }); val m = manager(b)
+        val same = runBlocking { tools(m)["port_forward_start"]!!.run(args("""{"port":3000}"""), ctx) }
+        assertTrue(same.text, same.text.contains("exactly the same page"))
+        assertEquals(true, (m.first().state as TunnelState.Live).matchesLocal)
+        m.close()
+        sameLocal = false
+        val m2 = manager(FakeBackend(onLaunch = { c -> c.say(UP) }))
+        val diff = runBlocking { tools(m2)["port_forward_start"]!!.run(args("""{"port":3000}"""), ctx) }
+        assertTrue(diff.text, diff.text.contains("differs"))
+        m2.close()
     }
 
     // ---- tools ----

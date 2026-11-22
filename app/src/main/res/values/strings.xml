@@ -67,6 +67,7 @@
     <string name="port_forward_stop">Stop</string>
     <string name="port_forward_live">Live · open until %1$s</string>
     <string name="port_forward_live_unconfirmed">Live · open until %1$s · not confirmed from outside yet</string>
+    <string name="port_forward_live_same">Live · same page as on your phone · until %1$s</string>
     <string name="port_forward_connecting">Connecting to Cloudflare…</string>
     <string name="port_forward_reconnecting">Connection lost · reconnecting…</string>
     <string name="port_forward_stopped">Stopped. %1$s</string>

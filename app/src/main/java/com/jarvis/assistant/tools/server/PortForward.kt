@@ -36,7 +36,8 @@ sealed class TunnelState {
     /** The tunnel program is up; the link is not confirmed yet. [url] is known once Cloudflare hands it out. */
     data class Connecting(val url: String?) : TunnelState()
     /** Cloudflare accepted the tunnel. [verified] is true when this phone also fetched the link from the internet. */
-    data class Live(val url: String, val verified: Boolean) : TunnelState()
+    /** [matchesLocal]: true when the public page is byte-for-byte what this phone serves, false when it differs, null when it could not be compared. */
+    data class Live(val url: String, val verified: Boolean, val matchesLocal: Boolean? = null) : TunnelState()
     /** The connection to Cloudflare dropped; the tunnel program is retrying and the same link comes back when it succeeds. */
     data class Reconnecting(val url: String) : TunnelState()
     data class Stopped(val reason: StopReason, val url: String?) : TunnelState()
@@ -106,21 +107,52 @@ class LoopbackProbe(private val timeoutMs: Int = 250) : PortProbe {
     }
 }
 
-/** Fetches a public link the way anyone on the internet would, to find out whether it really answers. */
+/** What fetching a public link showed. [sameAsLocal] is null when the two pages could not be compared. */
+data class LinkCheck(val reachable: Boolean, val sameAsLocal: Boolean? = null)
+
+/** Fetches a public link the way anyone on the internet would, and compares it with what the local server serves. */
 fun interface UrlVerifier {
-    fun isReachable(url: String): Boolean
+    fun check(publicUrl: String, localUrl: String): LinkCheck
 }
 
 class HttpUrlVerifier : UrlVerifier {
-    /** True when something answered with a real page or an application error (below 500). Cloudflare's own "not ready" pages are 5xx. */
-    override fun isReachable(url: String): Boolean {
-        val c = try { URL(url).openConnection() as HttpURLConnection } catch (_: IOException) { return false }
+    private class Page(val code: Int, val digest: String?)
+
+    private fun fetch(url: String, cacheBust: Boolean): Page? {
+        val c = try { URL(url).openConnection() as HttpURLConnection } catch (_: IOException) { return null }
         return try {
             c.connectTimeout = 4_000; c.readTimeout = 6_000; c.instanceFollowRedirects = false; c.requestMethod = "GET"
             c.setRequestProperty("User-Agent", "JARVIS-link-check")
-            c.responseCode in 100..499
-        } catch (_: IOException) { false } finally { c.disconnect() }
+            if (cacheBust) c.setRequestProperty("Cache-Control", "no-cache")
+            val code = c.responseCode
+            val stream = if (code < 400) c.inputStream else c.errorStream
+            val digest = stream?.use { readDigest(it) }
+            Page(code, digest)
+        } catch (_: IOException) { null } finally { c.disconnect() }
     }
+
+    /** SHA-256 of a body up to [MAX_COMPARE] bytes; null for bigger bodies, which are not compared. */
+    private fun readDigest(input: java.io.InputStream): String? {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        val buf = ByteArray(8192); var total = 0
+        while (true) {
+            val n = input.read(buf); if (n < 0) break
+            total += n; if (total > MAX_COMPARE) return null
+            md.update(buf, 0, n)
+        }
+        return md.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    /** Reachable means something answered with a page or an application error (below 500); Cloudflare's own "not ready" pages are 5xx. */
+    override fun check(publicUrl: String, localUrl: String): LinkCheck {
+        val pub = fetch(publicUrl, true) ?: return LinkCheck(false)
+        if (pub.code !in 100..499) return LinkCheck(false)
+        val local = fetch(localUrl, false)
+        val same = if (local == null || pub.digest == null || local.digest == null) null else pub.code == local.code && pub.digest == local.digest
+        return LinkCheck(true, same)
+    }
+
+    private companion object { const val MAX_COMPARE = 2_000_000 }
 }
 
 /** What cloudflared (and our own runner script) say, reduced to the events the manager acts on. */
@@ -189,16 +221,18 @@ object TunnelScript {
      * even if JARVIS itself is killed: it ends when the time is up, or when the local port stops answering for three
      * checks in a row (about nine seconds, long enough for a server to restart). cloudflared rewrites the Host header to
      * 127.0.0.1 so JARVIS previews (which refuse any other name) and dev servers with host checks keep working.
+     * [protocol] "http2" avoids QUIC (UDP), which some mobile and Wi-Fi networks block; "auto" lets cloudflared choose.
      * [install] is true inside Termux, where a missing cloudflared is installed once with the package manager.
      */
-    fun build(port: Int, host: String, ttlSeconds: Int, install: Boolean): String {
+    fun build(port: Int, host: String, ttlSeconds: Int, install: Boolean, protocol: String = "auto"): String {
         require(port in 1..65535) { "Bad port." }
         require(host == "127.0.0.1" || host == "::1") { "Bad host." }
         require(ttlSeconds in 30..86_400) { "Bad time limit." }
+        require(protocol == "auto" || protocol == "http2") { "Bad protocol." }
         val origin = if (host == "::1") "[::1]" else host
         val missing = if (install) INSTALL else "  echo '[jarvis] ERR_MISSING'\n  exit 72"
         return TEMPLATE.replace("§", "$").replace("@PORT@", port.toString()).replace("@HOST@", host)
-            .replace("@ORIGIN@", origin).replace("@TTL@", ttlSeconds.toString()).replace("@MISSING@", missing)
+            .replace("@ORIGIN@", origin).replace("@TTL@", ttlSeconds.toString()).replace("@PROTO@", if (protocol == "http2") " --protocol http2" else "").replace("@MISSING@", missing)
     }
 
     private val INSTALL = """
@@ -227,7 +261,7 @@ object TunnelScript {
         @MISSING@
         fi
         echo '[jarvis] STARTING'
-        cloudflared tunnel --no-autoupdate --http-host-header 127.0.0.1 --url "http://@ORIGIN@:§PORT" 2>&1 &
+        cloudflared tunnel --no-autoupdate@PROTO@ --http-host-header 127.0.0.1 --url "http://@ORIGIN@:§PORT" 2>&1 &
         CF=§!
         echo "§CF" > "§PIDF"
         END=§(( §(date +%s) + TTL ))

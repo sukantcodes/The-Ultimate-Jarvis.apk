@@ -49,10 +49,12 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
     private fun minutesText(m: Int) = if (m % 60 == 0 && m >= 60) "${m / 60} h" else "$m min"
     private fun clockText(ms: Long) = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ms))
 
-    private fun describeLive(t: Tunnel, url: String, verified: Boolean): String = buildString {
+    private fun describeLive(t: Tunnel, url: String, verified: Boolean, matches: Boolean?): String = buildString {
         append("Public link ready: ").append(url).append('\n')
         append("It shares ").append(t.label).append(" (port ").append(t.port).append(") and stays open until ").append(clockText(t.expiresAt)).append(".\n")
-        append(if (verified) "Checked from outside this app: the link answers."
+        append(if (verified && matches == true) "Checked from outside this app: the link shows exactly the same page as your phone does."
+        else if (verified && matches == false) "The link answers, but its content differs from what your phone serves. Pages that change on every load (live data, random content) will differ."
+        else if (verified) "Checked from outside this app: the link answers."
         else "Cloudflare accepted the tunnel, but this phone could not confirm the link yet. If it does not open, wait a few seconds and try again.")
         append("\nAnyone who has the link can open it. It closes by itself when the server stops. Say \"stop forwarding port ").append(t.port).append("\" to close it now.")
     }
@@ -95,7 +97,7 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
                 is StartResult.Rejected -> return ToolResult.Error(r.message)
                 is StartResult.AlreadyActive -> {
                     val live = r.tunnel.state as? TunnelState.Live
-                    if (live != null) return ToolResult.Ok("Port ${t.port} already has a public link:\n" + describeLive(r.tunnel, live.url, live.verified))
+                    if (live != null) return ToolResult.Ok("Port ${t.port} already has a public link:\n" + describeLive(r.tunnel, live.url, live.verified, live.matchesLocal))
                     r.tunnel
                 }
                 is StartResult.Started -> r.tunnel
@@ -107,7 +109,7 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
                 while (true) {
                     val cur = tunnels.get(id) ?: return ToolResult.Error("The link was closed before it was ready.")
                     when (val s = cur.state) {
-                        is TunnelState.Live -> return ToolResult.Ok(describeLive(cur, s.url, s.verified))
+                        is TunnelState.Live -> return ToolResult.Ok(describeLive(cur, s.url, s.verified, s.matchesLocal))
                         is TunnelState.Failed -> return ToolResult.Error(s.message)
                         is TunnelState.Stopped -> return ToolResult.Error("The link ended before it was ready. ${s.reason.text}")
                         is TunnelState.Preparing -> if (s.detail != lastDetail) { lastDetail = s.detail; ctx.progress(s.detail) }
@@ -137,7 +139,7 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
             return ToolResult.Ok(list.joinToString("\n") { t ->
                 val left = ((t.expiresAt - now) / 60_000).coerceAtLeast(0)
                 "- ${t.label} (port ${t.port}): " + when (val s = t.state) {
-                    is TunnelState.Live -> "live at ${s.url}, $left min left" + if (s.verified) "" else " (not confirmed from outside yet)"
+                    is TunnelState.Live -> "live at ${s.url}, $left min left" + (if (!s.verified) " (not confirmed from outside yet)" else if (s.matchesLocal == true) ", same page as on your phone" else "")
                     is TunnelState.Reconnecting -> "reconnecting (${s.url})"
                     is TunnelState.Connecting -> "connecting"
                     is TunnelState.Preparing -> s.detail
