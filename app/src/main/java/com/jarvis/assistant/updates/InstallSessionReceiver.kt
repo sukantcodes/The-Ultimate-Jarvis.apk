@@ -5,33 +5,25 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
-import android.widget.Toast
 
+/** Receives PackageInstaller's progress for an update started by [OtaInstaller] and passes it to [OtaManager]. */
 class InstallSessionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent?.action != ACTION_STATUS) return
-        when (intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
-            PackageInstaller.STATUS_PENDING_USER_ACTION -> {
-                val confirmation = if (Build.VERSION.SDK_INT >= 33) {
-                    intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
-                } else {
-                    @Suppress("DEPRECATION")
-                    intent.getParcelableExtra(Intent.EXTRA_INTENT)
-                }
-                if (confirmation != null) {
-                    confirmation.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    runCatching { context.startActivity(confirmation) }
-                }
+        val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
+        if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+            val confirmation = if (Build.VERSION.SDK_INT >= 33) {
+                intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(Intent.EXTRA_INTENT)
             }
-            PackageInstaller.STATUS_SUCCESS -> {
-                Toast.makeText(context, "JARVIS update installed. Restart JARVIS when prompted.", Toast.LENGTH_LONG).show()
-            }
-            else -> {
-                val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
-                    ?.take(180) ?: "Android could not install this update."
-                Toast.makeText(context, "JARVIS update not installed: " + message, Toast.LENGTH_LONG).show()
-            }
+            if (confirmation != null) OtaManager.onConfirmationNeeded(context.applicationContext, confirmation)
+            return
         }
+        OtaManager.onInstallStatus(
+            context.applicationContext, status, intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+        )
     }
 
     companion object {

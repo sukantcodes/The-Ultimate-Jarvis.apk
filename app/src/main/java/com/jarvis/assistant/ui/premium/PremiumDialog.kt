@@ -66,6 +66,7 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
     private var negativeLabel: String? = null
     private var negativeAction: (() -> Unit)? = null
     private var focusView: View? = null
+    private var dismissedAction: (() -> Unit)? = null
 
     private var dialog: Dialog? = null
     private var card: View? = null
@@ -78,6 +79,9 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
     fun destructive(value: Boolean = true) = apply { danger = value }
     fun add(view: View) = apply { bodyViews.add(view) }
     fun focus(view: View) = apply { focusView = view }
+
+    /** Called once when the popup is gone for any reason (button, tap outside, back). */
+    fun onDismissed(action: () -> Unit) = apply { dismissedAction = action }
 
     /** [action] returns true to close the popup, false to keep it open (for example failed validation). */
     fun positive(label: String, action: () -> Boolean = { true }) = apply {
@@ -117,6 +121,7 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
         d.requestWindowFeature(Window.FEATURE_NO_TITLE)
         d.setCanceledOnTouchOutside(true)
         dialog = d
+        d.setOnDismissListener { dismissedAction?.invoke() }
 
         val badgeSize = ctx.dp(76f).toInt()
         val overhang = badgeSize / 2

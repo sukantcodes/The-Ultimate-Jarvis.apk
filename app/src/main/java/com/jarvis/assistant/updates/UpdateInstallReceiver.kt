@@ -20,6 +20,9 @@ class UpdateInstallReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent?.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
 
+        // Record the finished OTA update in its history and remove the downloaded APK.
+        runCatching { OtaManager.onPackageReplaced(context.applicationContext) }
+
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         prefs.edit()
             .putBoolean(KEY_PENDING_RESTART, true)

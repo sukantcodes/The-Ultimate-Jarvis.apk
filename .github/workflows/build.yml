@@ -11,6 +11,11 @@ on:
       - "*.md"
       - "docs/**"
   workflow_dispatch:
+    inputs:
+      publish_ota:
+        description: "Publish this build to JARVIS users over the air (only on a registered branch). Leave off to just build a production-signed APK artifact."
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -175,8 +180,9 @@ jobs:
 
 
   release-production:
-    # Manual-only production build. Never publishes a GitHub Release automatically.
-    if: github.event_name == 'workflow_dispatch'
+    # Manual-only production build. Never publishes a GitHub Release. A manual run builds exactly one production APK:
+    # this job, or (when "publish_ota" is ticked) the OTA release job below, never both.
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish_ota != 'true'
     runs-on: ubuntu-latest
     steps:
     - name: Checkout selected branch
@@ -218,8 +224,16 @@ jobs:
         test "$ACTUAL" = "$EXPECTED" || { echo "::error::Release keystore certificate fingerprint does not match JARVIS_RELEASE_CERT_SHA256"; exit 1; }
         {
           echo "JARVIS_RELEASE_STORE_FILE=$KS"
-          echo "JARVIS_VERSION_CODE=144"
-          echo "JARVIS_VERSION_NAME=1.8.8"
+        } >> "$GITHUB_ENV"
+    - name: Compute version (same scheme as the OTA release)
+      id: version
+      shell: bash
+      run: |
+        set -euo pipefail
+        python3 scripts/ota/compute_version.py app/build.gradle.kts "$GITHUB_RUN_NUMBER" "$GITHUB_REF_NAME" | tee /tmp/version.txt >> "$GITHUB_OUTPUT"
+        {
+          echo "JARVIS_VERSION_CODE=$(sed -n 's/^code=//p' /tmp/version.txt)"
+          echo "JARVIS_VERSION_NAME=$(sed -n 's/^name=//p' /tmp/version.txt)"
         } >> "$GITHUB_ENV"
     - name: Build production-signed release APK
       env:
@@ -241,12 +255,245 @@ jobs:
         ACTUAL="$(sed -n 's/.*certificate SHA-256 digest: //p' /tmp/jarvis-apk-signature.txt | head -1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
         EXPECTED="$(printf '%s' "$JARVIS_RELEASE_CERT_SHA256" | tr -d ':' | tr '[:lower:]' '[:upper:]')"
         test -n "$ACTUAL" && test "$ACTUAL" = "$EXPECTED" || { echo "::error::APK signer fingerprint mismatch"; exit 1; }
+        # The permanent production certificate is public information, so it is also pinned here as a second, independent check.
+        PINNED="76:3F:7F:BC:95:F8:EA:C7:00:1E:DC:41:59:CA:93:54:C5:91:66:6A:B5:FE:0F:D7:B4:50:15:6A:F5:8E:09:D4"
+        test "$ACTUAL" = "$(printf '%s' "$PINNED" | tr -d ':')" || { echo "::error::APK signer is not the expected JARVIS production certificate"; exit 1; }
+        "$ANDROID_HOME/build-tools/34.0.0/aapt2" dump badging "$APK" > /tmp/badging.txt
+        python3 scripts/ota/apk_facts.py /tmp/badging.txt /tmp/jarvis-apk-signature.txt com.jarvis.assistant "${{ steps.version.outputs.code }}" "$ACTUAL" "${{ steps.version.outputs.name }}"
     - name: Upload production-signed APK
       uses: actions/upload-artifact@v4
       with:
-        name: JARVIS-Production-Release-v1.8.8-144
+        name: JARVIS-Production-v${{ steps.version.outputs.name }}-code-${{ steps.version.outputs.code }}
         path: app/build/outputs/apk/release/app-release.apk
         if-no-files-found: error
         retention-days: 30
+
+  # OTA release: runs only after the build job (which already ran the unit tests) succeeded. Publishes only for
+  # branches registered in Supabase (Antigravity by default); every other branch exits early without publishing.
+  # Order is strict: build -> sign -> verify -> upload to GitHub Releases -> re-download and re-verify ->
+  # register metadata in Supabase. Nothing reaches the app until the very last step succeeds.
+  release:
+    needs: build
+    # Automatic on pushes; on a manual run only when "publish_ota" is ticked (otherwise release-production builds the APK).
+    if: github.event_name == 'push' || github.event.inputs.publish_ota == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      id-token: write
+    concurrency:
+      group: ota-release-${{ github.ref_name }}
+      cancel-in-progress: false
+    env:
+      OTA_FUNCTION_URL: https://yeggjbjcoaaoqntqyjdv.supabase.co/functions/v1/ota-publish
+      JARVIS_RELEASE_KEYSTORE_BASE64: ${{ secrets.JARVIS_RELEASE_KEYSTORE_BASE64 }}
+      JARVIS_RELEASE_STORE_PASSWORD: ${{ secrets.JARVIS_RELEASE_STORE_PASSWORD }}
+      JARVIS_RELEASE_KEY_ALIAS: ${{ secrets.JARVIS_RELEASE_KEY_ALIAS }}
+      JARVIS_RELEASE_KEY_PASSWORD: ${{ secrets.JARVIS_RELEASE_KEY_PASSWORD }}
+      JARVIS_RELEASE_CERT_SHA256: ${{ secrets.JARVIS_RELEASE_CERT_SHA256 }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+    - name: Checkout the exact commit that was built
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.sha }}
+    - name: Check branch eligibility and signing secrets
+      id: gate
+      shell: bash
+      run: |
+        set -euo pipefail
+        publish=true
+        missing=""
+        for name in JARVIS_RELEASE_KEYSTORE_BASE64 JARVIS_RELEASE_STORE_PASSWORD JARVIS_RELEASE_KEY_ALIAS JARVIS_RELEASE_KEY_PASSWORD JARVIS_RELEASE_CERT_SHA256 SUPABASE_PUBLISHABLE_KEY; do
+          if [[ -z "${!name:-}" ]]; then missing="$missing $name"; fi
+        done
+        if [[ -n "$missing" ]]; then
+          echo "::warning title=OTA release skipped::Missing GitHub secrets:$missing. Nothing was published."
+          publish=false
+        fi
+        CERT="${JARVIS_RELEASE_CERT_SHA256//:/}"
+        CERT="${CERT^^}"
+        if [[ "$publish" == true && ! "$CERT" =~ ^[A-F0-9]{64}$ ]]; then
+          echo "::error::JARVIS_RELEASE_CERT_SHA256 is not a SHA-256 fingerprint."
+          exit 1
+        fi
+        EXPECTED_PRODUCTION_CERT="76:3F:7F:BC:95:F8:EA:C7:00:1E:DC:41:59:CA:93:54:C5:91:66:6A:B5:FE:0F:D7:B4:50:15:6A:F5:8E:09:D4"
+        if [[ "$publish" == true && "$CERT" != "$(printf '%s' "$EXPECTED_PRODUCTION_CERT" | tr -d ':')" ]]; then
+          echo "::error::JARVIS_RELEASE_CERT_SHA256 is not the expected JARVIS production certificate. Nothing was published."
+          exit 1
+        fi
+        if [[ "$publish" == true ]]; then
+          TOKEN_JSON="$(curl -fsS --retry 3 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$OTA_FUNCTION_URL")"
+          TOKEN="$(jq -r .value <<<"$TOKEN_JSON")"
+          echo "::add-mask::$TOKEN"
+          STATUS="$(curl -sS --retry 3 -o /tmp/gate.json -w '%{http_code}' -X POST "$OTA_FUNCTION_URL" \
+            -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"action":"check_branch"}')"
+          if [[ "$STATUS" != "200" ]]; then
+            echo "::error::Eligibility check failed with HTTP $STATUS: $(head -c 300 /tmp/gate.json)"
+            exit 1
+          fi
+          if [[ "$(jq -r .eligible /tmp/gate.json)" != "true" ]]; then
+            echo "::notice title=OTA release skipped::Branch ${GITHUB_REF_NAME} is not registered for OTA updates."
+            publish=false
+          fi
+        fi
+        echo "publish=$publish" >> "$GITHUB_OUTPUT"
+        echo "cert=$CERT" >> "$GITHUB_OUTPUT"
+    - name: Set up JDK 17
+      if: steps.gate.outputs.publish == 'true'
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+    - name: Set up Android SDK
+      if: steps.gate.outputs.publish == 'true'
+      uses: android-actions/setup-android@v4
+      with:
+        packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+    - name: Restore release keystore and confirm it matches the pinned certificate
+      if: steps.gate.outputs.publish == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        KEYSTORE="$RUNNER_TEMP/jarvis-release.jks"
+        printf '%s' "$JARVIS_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+        chmod 600 "$KEYSTORE"
+        test -s "$KEYSTORE"
+        KEYSTORE_CERT="$(keytool -exportcert -alias "$JARVIS_RELEASE_KEY_ALIAS" -keystore "$KEYSTORE" -storepass "$JARVIS_RELEASE_STORE_PASSWORD" | sha256sum | awk '{print toupper($1)}')"
+        if [[ "$KEYSTORE_CERT" != "${{ steps.gate.outputs.cert }}" ]]; then
+          echo "::error::The restored keystore does not match JARVIS_RELEASE_CERT_SHA256. Nothing was published."
+          exit 1
+        fi
+        echo "JARVIS_RELEASE_STORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"
+    - name: Compute version (same scheme as manual production builds)
+      if: steps.gate.outputs.publish == 'true'
+      id: version
+      shell: bash
+      run: |
+        set -euo pipefail
+        python3 scripts/ota/compute_version.py app/build.gradle.kts "$GITHUB_RUN_NUMBER" "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+    - name: Build signed release APK
+      if: steps.gate.outputs.publish == 'true'
+      env:
+        JARVIS_VERSION_CODE: ${{ steps.version.outputs.code }}
+        JARVIS_VERSION_NAME: ${{ steps.version.outputs.name }}
+      run: |
+        chmod +x gradlew
+        ./gradlew clean assembleRelease --stacktrace
+    - name: Verify package, signature, certificate and version
+      if: steps.gate.outputs.publish == 'true'
+      id: verify
+      shell: bash
+      run: |
+        set -euo pipefail
+        shopt -s nullglob
+        APKS=(app/build/outputs/apk/release/*.apk)
+        if [[ ${#APKS[@]} -ne 1 ]]; then echo "::error::Expected exactly one release APK, found ${#APKS[@]}."; exit 1; fi
+        SRC="${APKS[0]}"
+        ASSET="${{ steps.version.outputs.asset }}"
+        mkdir -p ota-out
+        cp "$SRC" "ota-out/$ASSET"
+        APK="ota-out/$ASSET"
+        BT="$ANDROID_HOME/build-tools/34.0.0"
+        "$BT/apksigner" verify --verbose --min-sdk-version 26 "$APK"
+        "$BT/apksigner" verify --print-certs "$APK" > ota-out/certs.txt
+        "$BT/aapt2" dump badging "$APK" > ota-out/badging.txt
+        python3 scripts/ota/apk_facts.py ota-out/badging.txt ota-out/certs.txt com.jarvis.assistant "${{ steps.version.outputs.code }}" "${{ steps.gate.outputs.cert }}" "${{ steps.version.outputs.name }}" | tee ota-out/facts.txt
+        SIZE="$(stat -c %s "$APK")"
+        if (( SIZE < 1000000 || SIZE > 400000000 )); then echo "::error::Implausible APK size $SIZE."; exit 1; fi
+        SHA="$(sha256sum "$APK" | awk '{print toupper($1)}')"
+        echo "apk=$APK" >> "$GITHUB_OUTPUT"
+        echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+        echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+        echo "min_sdk=$(grep '^min_sdk=' ota-out/facts.txt | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+        echo "SHA-256 $SHA, $SIZE bytes"
+    - name: Generate release notes
+      if: steps.gate.outputs.publish == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        {
+          echo "JARVIS ${{ steps.version.outputs.name }} (build ${{ steps.version.outputs.code }}) from branch ${GITHUB_REF_NAME}"
+          echo
+          echo "Changes:"
+          jq -r '[.commits[]?.message | split("\n")[0]] | .[0:15][] | "- " + .' "$GITHUB_EVENT_PATH" 2>/dev/null || true
+        } > ota-out/notes.md
+        if [[ "$(wc -l < ota-out/notes.md)" -le 3 ]]; then echo "- $(git log -1 --pretty=%s)" >> ota-out/notes.md; fi
+        head -c 6000 ota-out/notes.md > ota-out/notes.trimmed && mv ota-out/notes.trimmed ota-out/notes.md
+        sha256sum ota-out/${{ steps.version.outputs.asset }} | awk '{print "SHA-256: " toupper($1)}' >> ota-out/notes.md
+    - name: Publish APK to GitHub Releases
+      if: steps.gate.outputs.publish == 'true'
+      id: upload
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        TAG="${{ steps.version.outputs.tag }}"
+        if gh release view "$TAG" >/dev/null 2>&1; then
+          echo "::error::Release $TAG already exists; refusing to overwrite it."
+          exit 1
+        fi
+        echo "created=attempted" >> "$GITHUB_OUTPUT"
+        gh release create "$TAG" "${{ steps.verify.outputs.apk }}" \
+          --target "$GITHUB_SHA" --title "JARVIS ${{ steps.version.outputs.name }} (${GITHUB_REF_NAME})" \
+          --notes-file ota-out/notes.md --latest=false
+    - name: Re-download from the public URL and re-verify
+      if: steps.gate.outputs.publish == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${{ steps.version.outputs.tag }}/${{ steps.version.outputs.asset }}"
+        curl -fL --retry 5 --retry-delay 5 --proto '=https' --tlsv1.2 -o ota-out/redownload.apk "$URL"
+        GOT="$(sha256sum ota-out/redownload.apk | awk '{print toupper($1)}')"
+        if [[ "$GOT" != "${{ steps.verify.outputs.sha }}" ]]; then
+          echo "::error::Downloaded release asset hash $GOT does not match the built APK."
+          exit 1
+        fi
+        DIGEST="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${{ steps.version.outputs.tag }}" --jq '.assets[0].digest // ""')"
+        echo "GitHub-reported digest: $DIGEST"
+    - name: Register verified release metadata in Supabase
+      if: steps.gate.outputs.publish == 'true'
+      id: register
+      shell: bash
+      run: |
+        set -euo pipefail
+        TOKEN_JSON="$(curl -fsS --retry 3 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$OTA_FUNCTION_URL")"
+        TOKEN="$(jq -r .value <<<"$TOKEN_JSON")"
+        echo "::add-mask::$TOKEN"
+        jq -n \
+          --arg action publish \
+          --argjson version_code "${{ steps.version.outputs.code }}" \
+          --arg version_name "${{ steps.version.outputs.name }}" \
+          --arg tag "${{ steps.version.outputs.tag }}" \
+          --arg asset_name "${{ steps.version.outputs.asset }}" \
+          --argjson size_bytes "${{ steps.verify.outputs.size }}" \
+          --arg sha256 "${{ steps.verify.outputs.sha }}" \
+          --arg cert_sha256 "${{ steps.gate.outputs.cert }}" \
+          --argjson min_sdk "${{ steps.verify.outputs.min_sdk }}" \
+          --rawfile release_notes ota-out/notes.md \
+          --arg commit_sha "$GITHUB_SHA" \
+          --argjson run_id "$GITHUB_RUN_ID" \
+          '{action:$action,version_code:$version_code,version_name:$version_name,tag:$tag,asset_name:$asset_name,size_bytes:$size_bytes,sha256:$sha256,cert_sha256:$cert_sha256,min_sdk:$min_sdk,release_notes:$release_notes,commit_sha:$commit_sha,run_id:$run_id}' > ota-out/publish.json
+        STATUS="$(curl -sS --retry 3 -o ota-out/publish-response.json -w '%{http_code}' -X POST "$OTA_FUNCTION_URL" \
+          -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data @ota-out/publish.json)"
+        cat ota-out/publish-response.json; echo
+        if [[ "$STATUS" != "201" ]]; then
+          echo "::error::Supabase refused the release metadata (HTTP $STATUS). The update was NOT made available."
+          exit 1
+        fi
+        echo "### OTA release published" >> "$GITHUB_STEP_SUMMARY"
+        echo "JARVIS ${{ steps.version.outputs.name }} (code ${{ steps.version.outputs.code }}) on ${GITHUB_REF_NAME}" >> "$GITHUB_STEP_SUMMARY"
+    - name: Withdraw the GitHub release if it could not be registered
+      if: failure() && steps.upload.outputs.created == 'attempted' && steps.register.outcome != 'success'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: |
+        # Only this run's own, never-registered release is removed; previously published releases are never touched.
+        gh release delete "${{ steps.version.outputs.tag }}" --cleanup-tag --yes || true
 
 # Rebuild trigger: restored Termux branch

@@ -277,6 +277,7 @@ class MainActivity : AppCompatActivity() {
             updateCheckStartedThisProcess = true
             UpdateNotificationChecker.checkOnForeground(applicationContext)
         }
+        UpdatePromptController(this).attach()
         observeViewModel()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {

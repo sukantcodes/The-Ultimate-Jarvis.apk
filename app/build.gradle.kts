@@ -22,9 +22,9 @@ val verificationEndpoint = configuredValue("JARVIS_VERIFICATION_ENDPOINT").orEmp
 // Never use a service_role / secret key here. If unset, the build still works and auth reports "not configured".
 val supabaseUrl = configuredValue("SUPABASE_URL")?.ifBlank { null } ?: "https://yeggjbjcoaaoqntqyjdv.supabase.co"
 val supabasePublishableKey = configuredValue("SUPABASE_PUBLISHABLE_KEY")?.trim().orEmpty()
-val configuredVersionCode = configuredValue("JARVIS_VERSION_CODE")?.toIntOrNull() ?: 143
+val configuredVersionCode = configuredValue("JARVIS_VERSION_CODE")?.toIntOrNull() ?: 144
 val configuredVersionName = configuredValue("JARVIS_VERSION_NAME")?.trim()
-    ?.takeIf { it.isNotEmpty() && it.length <= 40 } ?: "1.8.7"
+    ?.takeIf { it.isNotEmpty() && it.length <= 40 } ?: "1.8.8"
 val releaseSigningReady = listOf(releaseStorePath, releaseStorePassword, releaseKeyAlias, releaseKeyPassword).all { !it.isNullOrBlank() }
 
 android {

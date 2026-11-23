@@ -1,0 +1,59 @@
+name: OTA Branch Admin
+
+# Explicitly registers (or disables) a branch for OTA updates. Run it manually from the Antigravity branch only.
+# The Supabase Edge Function independently re-checks everything with GitHub's signed OIDC token: that this exact
+# workflow file ran on the default branch, that the actor is the repository owner (or a listed admin), and that the
+# target branch exists in this repository and is not main/master. Antigravity itself can never be disabled.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "register_branch or disable_branch"
+        required: true
+        type: choice
+        options:
+          - register_branch
+          - disable_branch
+      branch:
+        description: "Branch name to register or disable (must be derived from Antigravity; never main)"
+        required: true
+        type: string
+      description:
+        description: "Short description shown in JARVIS (max 200 characters)"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  admin:
+    if: github.ref == 'refs/heads/Antigravity'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      OTA_FUNCTION_URL: https://yeggjbjcoaaoqntqyjdv.supabase.co/functions/v1/ota-publish
+      INPUT_ACTION: ${{ inputs.action }}
+      INPUT_BRANCH: ${{ inputs.branch }}
+      INPUT_DESCRIPTION: ${{ inputs.description }}
+    steps:
+    - name: Call the OTA registry
+      shell: bash
+      run: |
+        set -euo pipefail
+        case "$INPUT_ACTION" in register_branch|disable_branch) ;; *) echo "::error::Bad action"; exit 1;; esac
+        if [[ ! "$INPUT_BRANCH" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,98}$ ]]; then echo "::error::Bad branch name"; exit 1; fi
+        TOKEN_JSON="$(curl -fsS --retry 3 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$OTA_FUNCTION_URL")"
+        TOKEN="$(jq -r .value <<<"$TOKEN_JSON")"
+        echo "::add-mask::$TOKEN"
+        BODY="$(jq -n --arg action "$INPUT_ACTION" --arg branch "$INPUT_BRANCH" --arg description "$INPUT_DESCRIPTION" '{action:$action,branch:$branch,description:$description}')"
+        STATUS="$(curl -sS --retry 3 -o /tmp/admin.json -w '%{http_code}' -X POST "$OTA_FUNCTION_URL" \
+          -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d "$BODY")"
+        cat /tmp/admin.json; echo
+        if [[ "$STATUS" != "200" && "$STATUS" != "201" ]]; then
+          echo "::error::Registry refused the request (HTTP $STATUS)."
+          exit 1
+        fi
