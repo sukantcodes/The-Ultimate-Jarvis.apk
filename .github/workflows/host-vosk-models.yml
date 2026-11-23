@@ -1,0 +1,46 @@
+name: Host Vosk models
+
+# Publishes the offline speech models as a GitHub Release so the app can download them on first launch
+# instead of carrying ~82 MB of them inside every APK. Idempotent: if the release already exists it only prints it.
+# Runs once when this file is pushed to Antigravity, or on demand.
+on:
+  push:
+    branches: [Antigravity]
+    paths: [".github/workflows/host-vosk-models.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  host:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: vosk-models-v1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package and publish the models
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists:"; gh release view "$TAG" --json body -q .body; exit 0
+          fi
+          A=app/src/main/assets
+          test -s "$A/model-en-us/am/final.mdl"
+          test -s "$A/model-spk/final.ext.raw"
+          (cd "$A/model-en-us" && zip -r -X -q "$GITHUB_WORKSPACE/model-en-us.zip" .)
+          (cd "$A/model-spk" && zip -r -X -q "$GITHUB_WORKSPACE/model-spk.zip" .)
+          {
+            echo "Offline speech (Vosk) models for JARVIS, downloaded once on first launch. Vosk models are Apache-2.0 licensed."
+            echo
+            for f in model-en-us.zip model-spk.zip; do
+              echo "$f sha256=$(sha256sum "$f" | cut -d' ' -f1) bytes=$(stat -c%s "$f")"
+            done
+          } > notes.txt
+          cat notes.txt
+          gh release create "$TAG" model-en-us.zip model-spk.zip \
+            --title "Vosk speech models v1" --notes-file notes.txt --latest=false
