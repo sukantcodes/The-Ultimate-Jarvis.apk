@@ -173,4 +173,80 @@ jobs:
         name: Jarvis-App-Minified-TEST-SIGNED-do-not-publish
         path: app/build/outputs/apk/release/app-release.apk
 
+
+  release-production:
+    # Manual-only production build. Never publishes a GitHub Release automatically.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout selected branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref }}
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v4
+      with:
+        packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+    - name: Restore permanent release keystore
+      env:
+        JARVIS_RELEASE_KEYSTORE_BASE64: ${{ secrets.JARVIS_RELEASE_KEYSTORE_BASE64 }}
+        JARVIS_RELEASE_STORE_PASSWORD: ${{ secrets.JARVIS_RELEASE_STORE_PASSWORD }}
+        JARVIS_RELEASE_KEY_ALIAS: ${{ secrets.JARVIS_RELEASE_KEY_ALIAS }}
+        JARVIS_RELEASE_KEY_PASSWORD: ${{ secrets.JARVIS_RELEASE_KEY_PASSWORD }}
+        JARVIS_RELEASE_CERT_SHA256: ${{ secrets.JARVIS_RELEASE_CERT_SHA256 }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        test -n "$JARVIS_RELEASE_KEYSTORE_BASE64"
+        test -n "$JARVIS_RELEASE_STORE_PASSWORD"
+        test -n "$JARVIS_RELEASE_KEY_ALIAS"
+        test -n "$JARVIS_RELEASE_KEY_PASSWORD"
+        test -n "$JARVIS_RELEASE_CERT_SHA256"
+        KS="$RUNNER_TEMP/jarvis-release.jks"
+        printf '%s' "$JARVIS_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$KS"
+        chmod 600 "$KS"
+        ACTUAL="$(keytool -exportcert -alias "$JARVIS_RELEASE_KEY_ALIAS" -keystore "$KS" -storepass:env JARVIS_RELEASE_STORE_PASSWORD | sha256sum | awk '{print toupper($1)}')"
+        EXPECTED="$(printf '%s' "$JARVIS_RELEASE_CERT_SHA256" | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+        test "$ACTUAL" = "$EXPECTED" || { echo "::error::Release keystore certificate fingerprint does not match JARVIS_RELEASE_CERT_SHA256"; exit 1; }
+        {
+          echo "JARVIS_RELEASE_STORE_FILE=$KS"
+          echo "JARVIS_VERSION_CODE=144"
+          echo "JARVIS_VERSION_NAME=1.8.8"
+        } >> "$GITHUB_ENV"
+    - name: Build production-signed release APK
+      env:
+        JARVIS_RELEASE_STORE_PASSWORD: ${{ secrets.JARVIS_RELEASE_STORE_PASSWORD }}
+        JARVIS_RELEASE_KEY_ALIAS: ${{ secrets.JARVIS_RELEASE_KEY_ALIAS }}
+        JARVIS_RELEASE_KEY_PASSWORD: ${{ secrets.JARVIS_RELEASE_KEY_PASSWORD }}
+        JARVIS_RELEASE_CERT_SHA256: ${{ secrets.JARVIS_RELEASE_CERT_SHA256 }}
+        SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      run: ./gradlew assembleRelease --stacktrace
+    - name: Verify production APK signature
+      shell: bash
+      env:
+        JARVIS_RELEASE_CERT_SHA256: ${{ secrets.JARVIS_RELEASE_CERT_SHA256 }}
+      run: |
+        set -euo pipefail
+        APK="app/build/outputs/apk/release/app-release.apk"
+        test -s "$APK"
+        "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/jarvis-apk-signature.txt
+        ACTUAL="$(sed -n 's/.*certificate SHA-256 digest: //p' /tmp/jarvis-apk-signature.txt | head -1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+        EXPECTED="$(printf '%s' "$JARVIS_RELEASE_CERT_SHA256" | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+        test -n "$ACTUAL" && test "$ACTUAL" = "$EXPECTED" || { echo "::error::APK signer fingerprint mismatch"; exit 1; }
+    - name: Upload production-signed APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: JARVIS-Production-Release-v1.8.8-144
+        path: app/build/outputs/apk/release/app-release.apk
+        if-no-files-found: error
+        retention-days: 30
+
 # Rebuild trigger: restored Termux branch
