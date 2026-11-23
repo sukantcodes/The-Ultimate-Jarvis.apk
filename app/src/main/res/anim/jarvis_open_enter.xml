@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- New screen slides in from the right edge and fades up. -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@android:interpolator/decelerate_quint"
+    android:shareInterpolator="true">
+    <translate android:duration="320" android:fromXDelta="14%p" android:toXDelta="0" />
+    <alpha android:duration="220" android:fromAlpha="0.0" android:toAlpha="1.0" />
+</set>
