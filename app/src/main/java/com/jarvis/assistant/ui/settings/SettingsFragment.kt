@@ -109,12 +109,10 @@ class SettingsFragment : Fragment() {
     private fun applyStyle() {
         val accent = ThemeManager.getThemeAccentColor()
         SettingsDeck.styleOrb(binding.orbBadge, accent)
-        SettingsDeck.styleHero(binding.cardProfile, accent)
         SettingsDeck.styleAvatarRing(binding.frameProfileRing, accent, ThemeManager.getThemeSecondaryColor())
         SettingsDeck.styleOnlineDot(binding.viewProfileOnlineDot, ThemeManager.getThemeSuccessColor())
         SettingsDeck.styleChip(binding.btnProfileEditTile, accent, 14f)
         binding.btnProfileEditTile.setOnClickListener { showEditNameDialog() }
-        paintBackdrop(accent)
         bindProfileNetworkChip()
         applyIconShape()
     }
@@ -216,30 +214,6 @@ class SettingsFragment : Fragment() {
     private fun toast(message: String) {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
     }
-
-    /** A static ambient backdrop: the theme colour with two soft accent glows. Drawn once, never animated. */
-    private fun paintBackdrop(accent: Int) {
-        val ctx = requireContext()
-        val tv = android.util.TypedValue()
-        val base = if (ctx.theme.resolveAttribute(R.attr.themeBg, tv, true)) tv.data else android.graphics.Color.BLACK
-        val glow = 420f * resources.displayMetrics.density
-        fun radial(cx: Float, cy: Float, color: Int, a: Int) = android.graphics.drawable.GradientDrawable().apply {
-            gradientType = android.graphics.drawable.GradientDrawable.RADIAL_GRADIENT
-            gradientRadius = glow; setGradientCenter(cx, cy)
-            colors = intArrayOf(androidx.core.graphics.ColorUtils.setAlphaComponent(color, a), androidx.core.graphics.ColorUtils.setAlphaComponent(color, 0))
-        }
-        // Transparent theme: the window already paints the chosen background picture, so this screen must not cover it.
-        if (com.jarvis.assistant.ui.glass.CrystalTheme.active()) {
-            binding.root.background = android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
-            return
-        }
-        binding.root.background = android.graphics.drawable.LayerDrawable(arrayOf(
-            android.graphics.drawable.ColorDrawable(base),
-            radial(0.1f, 0.0f, accent, 70),
-            radial(1.0f, 0.55f, ThemeManager.getThemeSecondaryColor(), 40)
-        ))
-    }
-
 
     private fun bindProfileNetworkChip() {
         val mgr = com.jarvis.assistant.udn.UdnManager.get(requireContext().applicationContext)

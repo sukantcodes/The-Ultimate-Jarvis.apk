@@ -41,18 +41,18 @@ abstract class SettingsScreenActivity : AppCompatActivity() {
 
     /** Paints the shared look: back button, backdrop, glass card, switches, icon tiles and system-bar padding. */
     protected fun applyChrome(root: View, card: ViewGroup, @ColorRes accentRes: Int, back: View, title: View) {
-        val sectionAccent = ContextCompat.getColor(this, accentRes)
         val themeAccent = ThemeManager.getThemeAccentColor()
         back.setOnClickListener { finish() }
         ViewCompat.setAccessibilityHeading(title, true)
-        paintBackdrop(root, themeAccent)
-        SettingsDeck.styleCard(card, sectionAccent)
+        // The card is a real lens-glass pane (LiquidGlassLayout over GlassBackdropView); it must keep no solid fill of its own.
         SettingsDeck.pressFeedback(card)
         SettingsDeck.styleSwitches(root, themeAccent)
         SettingsDeck.styleIcons(root, themeAccent, preferences.settingsIconShape)
-        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+        // Insets pad the content column only, so the backdrop still reaches the very edges of the screen.
+        val column = root.findViewById<View>(R.id.contentColumn) ?: root
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            column.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             insets
         }
         ViewCompat.requestApplyInsets(root)
@@ -61,31 +61,6 @@ abstract class SettingsScreenActivity : AppCompatActivity() {
     /** Repaints the icon tiles, used after the icon shape changes. */
     fun repaintIcons(root: View) {
         SettingsDeck.styleIcons(root, ThemeManager.getThemeAccentColor(), preferences.settingsIconShape)
-    }
-
-    /** A static ambient backdrop: the theme colour with two soft accent glows. Drawn once, never animated. */
-    private fun paintBackdrop(root: View, accent: Int) {
-        val tv = TypedValue()
-        val base = if (theme.resolveAttribute(R.attr.themeBg, tv, true)) tv.data else Color.BLACK
-        val glow = 420f * resources.displayMetrics.density
-        fun radial(cx: Float, cy: Float, color: Int, a: Int) = GradientDrawable().apply {
-            gradientType = GradientDrawable.RADIAL_GRADIENT
-            gradientRadius = glow
-            setGradientCenter(cx, cy)
-            colors = intArrayOf(ColorUtils.setAlphaComponent(color, a), ColorUtils.setAlphaComponent(color, 0))
-        }
-        // Transparent theme: the window already paints the chosen background picture, so this screen must not cover it.
-        if (CrystalTheme.active()) {
-            root.background = ColorDrawable(Color.TRANSPARENT)
-            return
-        }
-        root.background = LayerDrawable(
-            arrayOf(
-                ColorDrawable(base),
-                radial(0.1f, 0.0f, accent, 70),
-                radial(1.0f, 0.55f, ThemeManager.getThemeSecondaryColor(), 40)
-            )
-        )
     }
 
     /** Makes the whole row toggle its switch, and reports only changes made by the user. */

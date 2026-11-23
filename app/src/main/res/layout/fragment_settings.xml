@@ -1,10 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/themeBg">
+
+    <!-- The scene behind every glass pane: the panes zoom and refract it. -->
+    <com.jarvis.assistant.ui.glass.GlassBackdropView
+        android:id="@+id/glassBackdrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no" />
+
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/themeBg"
     android:paddingStart="20dp"
     android:paddingEnd="20dp"
     android:paddingTop="16dp"
@@ -103,12 +116,23 @@
             android:paddingBottom="32dp">
 
             <!-- Identity deck: gradient-ringed photo, name, role and quick status chips -->
+            <com.jarvis.assistant.ui.glass.LiquidGlassLayout
+                android:id="@+id/glassProfile"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="22dp"
+                app:lgCornerRadius="28dp"
+                app:lgBezel="22"
+                app:lgRefraction="16"
+                app:lgVeil="0.08"
+                app:lgSource="@id/glassBackdrop"
+                app:lgPlainBackground="@drawable/bg_lg_card"
+                app:lgPlainElevation="0dp">
             <LinearLayout
                 android:id="@+id/cardProfile"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:layout_marginBottom="22dp"
                 android:clickable="true"
                 android:focusable="true"
                 android:orientation="vertical"
@@ -313,13 +337,25 @@
                 </LinearLayout>
                 </HorizontalScrollView>
             </LinearLayout>
+            </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
 
+            <com.jarvis.assistant.ui.glass.LiquidGlassLayout
+                android:id="@+id/glassCatAi"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+                app:lgCornerRadius="28dp"
+                app:lgBezel="22"
+                app:lgRefraction="16"
+                app:lgVeil="0.08"
+                app:lgSource="@id/glassBackdrop"
+                app:lgPlainBackground="@drawable/bg_lg_card"
+                app:lgPlainElevation="0dp">
             <LinearLayout
                 android:id="@+id/rowCatAi"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/bg_home_card_premium"
+                android:foreground="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center_vertical"
@@ -361,13 +397,25 @@
                     android:src="@drawable/ic_arrow_right"
                     app:tint="?attr/themeTextMuted" />
             </LinearLayout>
+            </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
 
+            <com.jarvis.assistant.ui.glass.LiquidGlassLayout
+                android:id="@+id/glassCatVoice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+                app:lgCornerRadius="28dp"
+                app:lgBezel="22"
+                app:lgRefraction="16"
+                app:lgVeil="0.08"
+                app:lgSource="@id/glassBackdrop"
+                app:lgPlainBackground="@drawable/bg_lg_card"
+                app:lgPlainElevation="0dp">
             <LinearLayout
                 android:id="@+id/rowCatVoice"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/bg_home_card_premium"
+                android:foreground="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center_vertical"
@@ -409,13 +457,25 @@
                     android:src="@drawable/ic_arrow_right"
                     app:tint="?attr/themeTextMuted" />
             </LinearLayout>
+            </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
 
+            <com.jarvis.assistant.ui.glass.LiquidGlassLayout
+                android:id="@+id/glassCatSecurity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+                app:lgCornerRadius="28dp"
+                app:lgBezel="22"
+                app:lgRefraction="16"
+                app:lgVeil="0.08"
+                app:lgSource="@id/glassBackdrop"
+                app:lgPlainBackground="@drawable/bg_lg_card"
+                app:lgPlainElevation="0dp">
             <LinearLayout
                 android:id="@+id/rowCatSecurity"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/bg_home_card_premium"
+                android:foreground="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center_vertical"
@@ -457,13 +517,25 @@
                     android:src="@drawable/ic_arrow_right"
                     app:tint="?attr/themeTextMuted" />
             </LinearLayout>
+            </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
 
+            <com.jarvis.assistant.ui.glass.LiquidGlassLayout
+                android:id="@+id/glassCatAlerts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+                app:lgCornerRadius="28dp"
+                app:lgBezel="22"
+                app:lgRefraction="16"
+                app:lgVeil="0.08"
+                app:lgSource="@id/glassBackdrop"
+                app:lgPlainBackground="@drawable/bg_lg_card"
+                app:lgPlainElevation="0dp">
             <LinearLayout
                 android:id="@+id/rowCatAlerts"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/bg_home_card_premium"
+                android:foreground="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center_vertical"
@@ -505,13 +577,25 @@
                     android:src="@drawable/ic_arrow_right"
                     app:tint="?attr/themeTextMuted" />
             </LinearLayout>
+            </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
 
+            <com.jarvis.assistant.ui.glass.LiquidGlassLayout
+                android:id="@+id/glassCatMemory"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+                app:lgCornerRadius="28dp"
+                app:lgBezel="22"
+                app:lgRefraction="16"
+                app:lgVeil="0.08"
+                app:lgSource="@id/glassBackdrop"
+                app:lgPlainBackground="@drawable/bg_lg_card"
+                app:lgPlainElevation="0dp">
             <LinearLayout
                 android:id="@+id/rowCatMemory"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/bg_home_card_premium"
+                android:foreground="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center_vertical"
@@ -553,13 +637,25 @@
                     android:src="@drawable/ic_arrow_right"
                     app:tint="?attr/themeTextMuted" />
             </LinearLayout>
+            </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
 
+            <com.jarvis.assistant.ui.glass.LiquidGlassLayout
+                android:id="@+id/glassCatPermissions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+                app:lgCornerRadius="28dp"
+                app:lgBezel="22"
+                app:lgRefraction="16"
+                app:lgVeil="0.08"
+                app:lgSource="@id/glassBackdrop"
+                app:lgPlainBackground="@drawable/bg_lg_card"
+                app:lgPlainElevation="0dp">
             <LinearLayout
                 android:id="@+id/rowCatPermissions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/bg_home_card_premium"
+                android:foreground="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center_vertical"
@@ -601,13 +697,25 @@
                     android:src="@drawable/ic_arrow_right"
                     app:tint="?attr/themeTextMuted" />
             </LinearLayout>
+            </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
 
+            <com.jarvis.assistant.ui.glass.LiquidGlassLayout
+                android:id="@+id/glassCatAppearance"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+                app:lgCornerRadius="28dp"
+                app:lgBezel="22"
+                app:lgRefraction="16"
+                app:lgVeil="0.08"
+                app:lgSource="@id/glassBackdrop"
+                app:lgPlainBackground="@drawable/bg_lg_card"
+                app:lgPlainElevation="0dp">
             <LinearLayout
                 android:id="@+id/rowCatAppearance"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/bg_home_card_premium"
+                android:foreground="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center_vertical"
@@ -649,13 +757,25 @@
                     android:src="@drawable/ic_arrow_right"
                     app:tint="?attr/themeTextMuted" />
             </LinearLayout>
+            </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
 
+            <com.jarvis.assistant.ui.glass.LiquidGlassLayout
+                android:id="@+id/glassCatAbout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+                app:lgCornerRadius="28dp"
+                app:lgBezel="22"
+                app:lgRefraction="16"
+                app:lgVeil="0.08"
+                app:lgSource="@id/glassBackdrop"
+                app:lgPlainBackground="@drawable/bg_lg_card"
+                app:lgPlainElevation="0dp">
             <LinearLayout
                 android:id="@+id/rowCatAbout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/bg_home_card_premium"
+                android:foreground="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center_vertical"
@@ -697,13 +817,25 @@
                     android:src="@drawable/ic_arrow_right"
                     app:tint="?attr/themeTextMuted" />
             </LinearLayout>
+            </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
 
+            <com.jarvis.assistant.ui.glass.LiquidGlassLayout
+                android:id="@+id/glassCatOwner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+                app:lgCornerRadius="28dp"
+                app:lgBezel="22"
+                app:lgRefraction="16"
+                app:lgVeil="0.08"
+                app:lgSource="@id/glassBackdrop"
+                app:lgPlainBackground="@drawable/bg_lg_card"
+                app:lgPlainElevation="0dp">
             <LinearLayout
                 android:id="@+id/rowCatOwner"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/bg_home_card_premium"
+                android:foreground="?attr/selectableItemBackground"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center_vertical"
@@ -745,7 +877,9 @@
                     android:src="@drawable/ic_arrow_right"
                     app:tint="?attr/themeTextMuted" />
             </LinearLayout>
+            </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
         </LinearLayout>
     </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
+</FrameLayout>

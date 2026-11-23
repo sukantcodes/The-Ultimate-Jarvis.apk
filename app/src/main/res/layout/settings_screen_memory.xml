@@ -1,13 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Settings screen: Memory. Standalone layout, hosted by its own Activity (not nested in a parent settings layout). -->
-<LinearLayout
+<FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/screenRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/themeBg"
-    android:orientation="vertical">
+    android:background="?attr/themeBg">
+
+    <!-- The scene behind every glass pane: the panes zoom and refract it. -->
+    <com.jarvis.assistant.ui.glass.GlassBackdropView
+        android:id="@+id/glassBackdrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no" />
+
+    <LinearLayout
+        android:id="@+id/contentColumn"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
     <LinearLayout
         android:id="@+id/topBar"
@@ -20,14 +32,27 @@
         android:paddingEnd="20dp"
         android:paddingBottom="12dp">
 
-        <ImageButton
-            android:id="@+id/btnBack"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="@drawable/bg_jarvis_icon_square"
-            android:contentDescription="Back"
-            android:src="@drawable/ic_back"
-            app:tint="?attr/themeTextPrimary" />
+        <com.jarvis.assistant.ui.glass.LiquidGlassLayout
+        android:id="@+id/glassBack"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        app:lgCornerRadius="24dp"
+        app:lgBezel="22"
+        app:lgRefraction="16"
+        app:lgVeil="0.08"
+        app:lgSource="@id/glassBackdrop"
+        app:lgPlainBackground="@drawable/bg_lg_card"
+        app:lgPlainElevation="0dp">
+
+            <ImageButton
+                android:id="@+id/btnBack"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Back"
+                android:src="@drawable/ic_back"
+                app:tint="?attr/themeTextPrimary" />
+        </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
 
         <TextView
             android:id="@+id/tvScreenTitle"
@@ -62,11 +87,21 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <com.jarvis.assistant.ui.glass.LiquidGlassLayout
+        android:id="@+id/glassCardMemory"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="22dp"
+        app:lgCornerRadius="28dp"
+        app:lgBezel="22"
+        app:lgRefraction="16"
+        app:lgVeil="0.08"
+        app:lgSource="@id/glassBackdrop"
+        app:lgPlainBackground="@drawable/bg_lg_card"
+        app:lgPlainElevation="0dp">
             <LinearLayout
-                android:id="@+id/glassCardMemory"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="22dp"
                 
                 android:orientation="vertical"
                 android:paddingStart="16dp"
@@ -224,6 +259,8 @@
                         app:tint="@color/set_accent_memory" />
                 </LinearLayout>
             </LinearLayout>
+            </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
         </LinearLayout>
     </ScrollView>
-</LinearLayout>
+    </LinearLayout>
+</FrameLayout>
