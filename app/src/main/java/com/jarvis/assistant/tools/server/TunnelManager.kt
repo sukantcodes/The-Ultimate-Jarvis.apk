@@ -52,16 +52,18 @@ class TunnelManager(
 ) : AutoCloseable {
 
     data class Config(
-        val maxTunnels: Int = 10,
-        val defaultMinutes: Int = 30,
-        val maxMinutes: Int = 1440,
+        val maxTunnels: Int = 50,
+        val defaultMinutes: Int = 1440,
+        val maxMinutes: Int = 10_080,
         val monitorIntervalMs: Long = 2_000,
         val missesBeforeStop: Int = 4,
         val startupLimitMs: Long = 60_000,
         /** No address from Cloudflare this long after the program started: it is stuck, so start a fresh one instead of waiting out [startupLimitMs]. */
-        val urlLimitMs: Long = 15_000,
+        val urlLimitMs: Long = 6_000,
         /** Address received but the tunnel is still not accepted this long after the program started: start a fresh one. */
-        val registerLimitMs: Long = 25_000,
+        val registerLimitMs: Long = 10_000,
+        /** Termux itself (cold start) gets this long to print its first line before the attempt is restarted. */
+        val firstOutputLimitMs: Long = 15_000,
         val installLimitMs: Long = 300_000,
         val reconnectLimitMs: Long = 180_000,
         val verifyFirstDelayMs: Long = 0,
@@ -106,6 +108,8 @@ class TunnelManager(
         // HTTP/2 (TCP) connects first time on every network; QUIC (UDP) is blocked on many mobile and Wi-Fi networks and cloudflared then wastes a long time falling back.
         @Volatile var protocol = "http2"
         @Volatile var announced = false
+        /** When the tunnel program printed its first line (0 = nothing yet). Restart limits count from here, so a cold Termux start does not eat the budget. */
+        @Volatile var firstOutputAt = 0L
         // Prepared-in-advance (armed) tunnels: see TunnelScript.buildArmed.
         /** The next process to start is the armed kind. Set false once the person approves, so a restart is the normal kind. */
         @Volatile var scriptArmed = false
@@ -231,7 +235,7 @@ class TunnelManager(
             e = Entry(UUID.randomUUID().toString().take(8), port, "127.0.0.1", "Port $port", now, now + config.armLimitMs)
             e.scriptArmed = true
             e.gw = freePort()
-            e.knockBase = 30_000 + java.util.Random().nextInt(7_000) * 4
+            e.knockBase = 30_000 + java.util.Random().nextInt(3_500) * 8
             standby[port] = e
         }
         scope.launch(Dispatchers.IO) {
@@ -302,7 +306,7 @@ class TunnelManager(
             if (e.terminal) return
             e.scriptArmed = false; e.procArmed = false; e.activeConfirmed = false; e.preArmed = false
             old = e.command; e.command = null
-            e.url = null; e.registered = false; e.verified = false; e.verifyStarted = false; e.matchesLocal = null; e.announced = false
+            e.url = null; e.registered = false; e.verified = false; e.verifyStarted = false; e.matchesLocal = null; e.announced = false; e.firstOutputAt = 0L
             e.installing = false; e.failMessage = null; e.reconnectSince = 0; e.healthFails = 0
             setLocked(e, TunnelState.Preparing("Starting the tunnel"))
         }
@@ -360,6 +364,7 @@ class TunnelManager(
     }
 
     private fun onOutput(e: Entry, chunk: String) {
+        if (e.firstOutputAt == 0L) e.firstOutputAt = clock()
         val events = ArrayList<CloudflaredLog.Event>()
         synchronized(e.partial) {
             e.partial.append(chunk)
@@ -493,7 +498,7 @@ class TunnelManager(
             else { if (e.attempt >= config.maxAttempts) return false; e.attempt++ }
             e.protocol = "http2"
             old = e.command; e.command = null
-            e.url = null; e.registered = false; e.verified = false; e.verifyStarted = false; e.matchesLocal = null; e.announced = false
+            e.url = null; e.registered = false; e.verified = false; e.verifyStarted = false; e.matchesLocal = null; e.announced = false; e.firstOutputAt = 0L
             e.healthFails = 0; e.reconnectSince = 0; e.installing = false; e.failMessage = null
             e.note = if (heal) "The link stopped answering, so a new one was made. The old address no longer works." else null
             setLocked(e, TunnelState.Preparing(
@@ -522,13 +527,17 @@ class TunnelManager(
             if (misses >= config.missesBeforeStop) { stopEntry(e, StopReason.SERVER_STOPPED, sync = false); return }
             when (e.state) {
                 is TunnelState.Preparing, is TunnelState.Connecting -> {
-                    // A start that is stuck is restarted early instead of waiting out the full minute.
+                    // A start that is stuck is restarted early instead of waiting out the full minute. Later attempts get more time,
+                    // so a genuinely slow network still gets through; the clock starts when the program prints its first line.
+                    val grow = when (e.attempt) { 0, 1 -> 1L; 2 -> 2L; else -> 3L }
                     val limit = when {
                         e.installing -> config.installLimitMs
-                        e.url == null -> minOf(config.urlLimitMs, config.startupLimitMs)
-                        else -> minOf(config.registerLimitMs, config.startupLimitMs)
+                        e.firstOutputAt == 0L -> config.firstOutputLimitMs
+                        e.url == null -> minOf(config.urlLimitMs * grow, config.startupLimitMs)
+                        else -> minOf(config.registerLimitMs * grow, config.startupLimitMs)
                     }
-                    if (now - e.launchedAt > limit) { if (!retry(e, heal = false)) fail(e, startupTimeoutMessage(e)); return }
+                    val base = if (e.firstOutputAt > 0L) e.firstOutputAt else e.launchedAt
+                    if (now - base > limit) { if (!retry(e, heal = false)) fail(e, startupTimeoutMessage(e)); return }
                 }
                 is TunnelState.Live -> if (e.verified && System.currentTimeMillis() - e.lastHealthAt >= config.healthIntervalMs) {
                     e.lastHealthAt = System.currentTimeMillis()
@@ -621,7 +630,7 @@ class TunnelManager(
 
     companion object {
         /** Time limits (minutes) a prepared tunnel can be opened with. The script knows the same four. */
-        private val TIERS = intArrayOf(30, 60, 180, 1440)
+        private val TIERS = intArrayOf(30, 60, 180, 1440, 10_080)
 
         fun isCloudflaredOnPath(): Boolean =
             (System.getenv("PATH") ?: "").split(':').any { it.isNotEmpty() && File(it, "cloudflared").canExecute() }

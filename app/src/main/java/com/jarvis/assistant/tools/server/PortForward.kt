@@ -265,7 +265,7 @@ object TunnelScript {
      * The "armed" tunnel. It is started BEFORE the person approves the link (while they read the question), so Cloudflare's
      * address, the connection to its edge and the wait for the name to spread are all finished by the time they tap Allow.
      * Until then the tunnel points at a port where nothing listens, so it shows nothing to anyone (Cloudflare answers 502).
-     * When the app approves the link it opens one of four tiny "knock" ports on this phone (one per time limit); this script is
+     * When the app approves the link it opens one of five tiny "knock" ports on this phone (one per time limit); this script is
      * polling them, sees the knock within 0.2 s, starts socat from that empty port to the real server, and prints ACTIVE.
      * Everything after that (time limit, watchdog on the real port, clean-up) is the same as the normal script.
      * Needs bash and socat; if either is missing it prints ARM_UNSUPPORTED and the normal start is used instead.
@@ -374,18 +374,18 @@ object TunnelScript {
         TL=§!
         ARMEND=§(( §(date +%s) + ARM ))
         ACTIVE=0
-        TIER=3
+        TIER=4
         REASON=""
         SC=""
         while kill -0 "§CF" 2>/dev/null; do
-          for off in 0 1 2 3; do
+          for off in 0 1 2 3 4; do
             if (exec 3<>/dev/tcp/127.0.0.1/§((K0+off))) 2>/dev/null; then ACTIVE=1; TIER=§off; break 2; fi
           done
           if [ "§(date +%s)" -ge "§ARMEND" ]; then REASON=ARM_EXPIRED; break; fi
           sleep 0.2
         done
         if [ "§ACTIVE" = 1 ]; then
-          case "§TIER" in 0) TTL=1800;; 1) TTL=3600;; 2) TTL=10800;; *) TTL=86400;; esac
+          case "§TIER" in 0) TTL=1800;; 1) TTL=3600;; 2) TTL=10800;; 3) TTL=86400;; *) TTL=604800;; esac
           nohup socat TCP-LISTEN:§GW,bind=127.0.0.1,reuseaddr,fork @SOCAT@ >/dev/null 2>&1 </dev/null &
           SC=§!
           echo "§SC" > "§SPIDF"
