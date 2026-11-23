@@ -170,6 +170,12 @@ object CloudflaredLog {
         data object ServerGone : Event()
         data object Expired : Event()
         data object Closed : Event()
+        /** Armed tunnel: the forwarder to the real port is running, the link is open. */
+        data object Active : Event()
+        /** Armed tunnel could not be used on this phone (no bash/socat, port clash): the normal start takes over. */
+        data object ArmUnsupported : Event()
+        /** Armed tunnel waited too long for a request and ended by itself. */
+        data object ArmExpired : Event()
     }
 
     private val ANSI = Regex("\u001B\\[[0-9;?]*[ -/]*[@-~]")
@@ -189,6 +195,9 @@ object CloudflaredLog {
             "LOCAL_SERVER_STOPPED" -> Event.ServerGone
             "EXPIRED" -> Event.Expired
             "TUNNEL_CLOSED" -> Event.Closed
+            "ACTIVE" -> Event.Active
+            "ARM_UNSUPPORTED" -> Event.ArmUnsupported
+            "ARM_EXPIRED" -> Event.ArmExpired
             else -> null
         }
         if (line.contains("failed to request quick Tunnel", ignoreCase = true)) return Event.StartFailed(friendlyStartFailure(line))
@@ -237,13 +246,38 @@ object TunnelScript {
             .replace("@ORIGIN@", origin).replace("@TTL@", ttlSeconds.toString()).replace("@PROTO@", if (protocol == "http2") " --protocol http2" else "").replace("@MISSING@", missing)
     }
 
-    /** Installs cloudflared in the background ahead of time, so the first public link does not wait for the install. */
+    /**
+     * Installs everything a link needs in the background ahead of time (cloudflared, and socat for the instant "armed" start),
+     * and warms the connection to Cloudflare, so the first public link does not wait for any of it.
+     */
     fun prewarm(): String = """
         |export DEBIAN_FRONTEND=noninteractive
-        |command -v cloudflared >/dev/null 2>&1 && exit 0
-        |pkg install -y -o Dpkg::Options::=--force-confnew cloudflared >/dev/null 2>&1 \
-        |  || { pkg update -y -o Dpkg::Options::=--force-confnew >/dev/null 2>&1; pkg install -y -o Dpkg::Options::=--force-confnew cloudflared >/dev/null 2>&1; }
-    """.trimMargin()
+        |if ! { command -v cloudflared >/dev/null 2>&1 && command -v socat >/dev/null 2>&1; }; then
+        |  pkg install -y -o Dpkg::Options::=--force-confnew cloudflared socat >/dev/null 2>&1 \
+        |    || { pkg update -y -o Dpkg::Options::=--force-confnew >/dev/null 2>&1; pkg install -y -o Dpkg::Options::=--force-confnew cloudflared socat >/dev/null 2>&1; }
+        |fi
+        |mkdir -p "§HOME/.jarvis-run" 2>/dev/null
+        |command -v cloudflared >/dev/null 2>&1 && cloudflared --version >/dev/null 2>&1
+        |exit 0
+    """.trimMargin().replace("§", "$")
+
+    /**
+     * The "armed" tunnel. It is started BEFORE the person approves the link (while they read the question), so Cloudflare's
+     * address, the connection to its edge and the wait for the name to spread are all finished by the time they tap Allow.
+     * Until then the tunnel points at a port where nothing listens, so it shows nothing to anyone (Cloudflare answers 502).
+     * When the app approves the link it opens one of four tiny "knock" ports on this phone (one per time limit); this script is
+     * polling them, sees the knock within 0.2 s, starts socat from that empty port to the real server, and prints ACTIVE.
+     * Everything after that (time limit, watchdog on the real port, clean-up) is the same as the normal script.
+     * Needs bash and socat; if either is missing it prints ARM_UNSUPPORTED and the normal start is used instead.
+     */
+    fun buildArmed(port: Int, host: String, gw: Int, knockBase: Int, armSeconds: Int): String {
+        require(port in 1..65535 && gw in 1..65535 && knockBase in 1024..65000) { "Bad port." }
+        require(host == "127.0.0.1" || host == "::1") { "Bad host." }
+        require(armSeconds in 30..3600) { "Bad arm time." }
+        val socat = if (host == "::1") "TCP6:[::1]:§PORT" else "TCP4:127.0.0.1:§PORT"
+        return ARMED.replace("@SOCAT@", socat).replace("§", "$").replace("@PORT@", port.toString()).replace("@HOST@", host)
+            .replace("@GW@", gw.toString()).replace("@K0@", knockBase.toString()).replace("@ARM@", armSeconds.toString())
+    }
 
     private val INSTALL = """
         |  echo '[jarvis] INSTALLING'
@@ -298,6 +332,93 @@ object TunnelScript {
           wait "§CF" 2>/dev/null; RC=§?
         fi
         rm -f "§PIDF"
+        sleep 1
+        kill "§TL" 2>/dev/null
+        [ -n "§REASON" ] && echo "[jarvis] §REASON"
+        echo '[jarvis] TUNNEL_CLOSED'
+        exit §RC
+    """.trimIndent() + "\n"
+
+    private val ARMED = """
+        export DEBIAN_FRONTEND=noninteractive
+        trap '' PIPE
+        if [ -z "§BASH_VERSION" ]; then echo '[jarvis] ARM_UNSUPPORTED'; exit 73; fi
+        command -v cloudflared >/dev/null 2>&1 || { echo '[jarvis] ARM_UNSUPPORTED'; exit 73; }
+        command -v socat >/dev/null 2>&1 || pkg install -y -o Dpkg::Options::=--force-confnew socat >/dev/null 2>&1
+        command -v socat >/dev/null 2>&1 || { echo '[jarvis] ARM_UNSUPPORTED'; exit 73; }
+        PORT=@PORT@
+        GW=@GW@
+        K0=@K0@
+        ARM=@ARM@
+        RUN="§HOME/.jarvis-run"
+        PIDF="§RUN/tunnel-§PORT.pid"
+        SPIDF="§RUN/socat-§PORT.pid"
+        mkdir -p "§RUN" 2>/dev/null
+        for F in "§PIDF" "§SPIDF"; do
+          if [ -f "§F" ]; then
+            old="§(cat "§F" 2>/dev/null)"
+            case "§old" in
+              ''|*[!0-9]*) ;;
+              *) if tr '\0' ' ' < "/proc/§old/cmdline" 2>/dev/null | grep -qE 'cloudflared|socat'; then kill "§old" 2>/dev/null; sleep 0.3; kill -9 "§old" 2>/dev/null; fi ;;
+            esac
+            rm -f "§F"
+          fi
+        done
+        echo '[jarvis] STARTING'
+        LOG="§RUN/tunnel-§PORT.log"
+        : > "§LOG"
+        nohup cloudflared tunnel --no-autoupdate --protocol http2 --http-host-header 127.0.0.1 --url "http://127.0.0.1:§GW" >"§LOG" 2>&1 </dev/null &
+        CF=§!
+        echo "§CF" > "§PIDF"
+        tail -n +1 -f "§LOG" 2>/dev/null &
+        TL=§!
+        ARMEND=§(( §(date +%s) + ARM ))
+        ACTIVE=0
+        TIER=3
+        REASON=""
+        SC=""
+        while kill -0 "§CF" 2>/dev/null; do
+          for off in 0 1 2 3; do
+            if (exec 3<>/dev/tcp/127.0.0.1/§((K0+off))) 2>/dev/null; then ACTIVE=1; TIER=§off; break 2; fi
+          done
+          if [ "§(date +%s)" -ge "§ARMEND" ]; then REASON=ARM_EXPIRED; break; fi
+          sleep 0.2
+        done
+        if [ "§ACTIVE" = 1 ]; then
+          case "§TIER" in 0) TTL=1800;; 1) TTL=3600;; 2) TTL=10800;; *) TTL=86400;; esac
+          nohup socat TCP-LISTEN:§GW,bind=127.0.0.1,reuseaddr,fork @SOCAT@ >/dev/null 2>&1 </dev/null &
+          SC=§!
+          echo "§SC" > "§SPIDF"
+          READY=0
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+            if (exec 3<>/dev/tcp/127.0.0.1/§GW) 2>/dev/null; then READY=1; break; fi
+            sleep 0.1
+          done
+          if [ "§READY" != 1 ]; then
+            echo '[jarvis] ARM_UNSUPPORTED'
+            kill "§SC" 2>/dev/null; kill "§CF" 2>/dev/null; sleep 0.5; kill -9 "§CF" 2>/dev/null
+            rm -f "§PIDF" "§SPIDF"; kill "§TL" 2>/dev/null
+            exit 73
+          fi
+          echo '[jarvis] ACTIVE'
+          END=§(( §(date +%s) + TTL ))
+          MISS=0
+          while kill -0 "§CF" 2>/dev/null; do
+            sleep 3
+            if [ "§(date +%s)" -ge "§END" ]; then REASON=EXPIRED; break; fi
+            if (exec 3<>/dev/tcp/@HOST@/§PORT) 2>/dev/null; then MISS=0; else MISS=§((MISS+1)); fi
+            if [ "§MISS" -ge 3 ]; then REASON=LOCAL_SERVER_STOPPED; break; fi
+          done
+        fi
+        if kill -0 "§CF" 2>/dev/null; then
+          kill "§CF" 2>/dev/null; sleep 1; kill -9 "§CF" 2>/dev/null
+          wait "§CF" 2>/dev/null
+          RC=0
+        else
+          wait "§CF" 2>/dev/null; RC=§?
+        fi
+        [ -n "§SC" ] && kill "§SC" 2>/dev/null
+        rm -f "§PIDF" "§SPIDF"
         sleep 1
         kill "§TL" 2>/dev/null
         [ -n "§REASON" ] && echo "[jarvis] §REASON"

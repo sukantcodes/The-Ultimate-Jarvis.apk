@@ -13,7 +13,12 @@ import java.util.Locale
  * destructive, so no "always allow" can skip the question), says exactly which port and for how long, and only reports
  * a link after Cloudflare has accepted it. Stopping and looking never ask.
  */
-class TunnelTools(private val tunnels: TunnelManager, private val servers: ServerManager) {
+class TunnelTools(
+    private val tunnels: TunnelManager,
+    private val servers: ServerManager,
+    /** Lets the approval question get a project's preview and tunnel ready while the person is still reading it. */
+    private val workspace: Workspace? = null
+) {
     fun all(): List<Tool> = listOf(Detect(), Start(), Status(), Stop())
 
     private fun JsonObject.intArg(name: String): Int? =
@@ -98,10 +103,24 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
 
         override fun describe(args: JsonObject): String = when (val t = resolve(args)) {
             is Target.Bad -> "Nothing will be shared yet: ${t.message}"
-            is Target.NeedsPreview -> "PUBLIC INTERNET ACCESS\nStart a preview of ${t.name} on this phone and make it reachable from anywhere through a temporary Cloudflare link. " +
-                "Anyone who gets the link can open it and see everything this project serves, for ${minutesText(minutes(args))} or until you stop it."
-            is Target.Ok -> "PUBLIC INTERNET ACCESS\nMake ${t.label} (port ${t.port}) on this phone reachable from anywhere through a temporary Cloudflare link. " +
-                "Anyone who gets the link can open it and see everything this server serves, for ${minutesText(minutes(args))} or until you stop it."
+            is Target.NeedsPreview -> { prepareProject(t.name); "PUBLIC INTERNET ACCESS\nStart a preview of ${t.name} on this phone and make it reachable from anywhere through a temporary Cloudflare link. " +
+                "Anyone who gets the link can open it and see everything this project serves, for ${minutesText(minutes(args))} or until you stop it." }
+            is Target.Ok -> { tunnels.prepare(t.port); "PUBLIC INTERNET ACCESS\nMake ${t.label} (port ${t.port}) on this phone reachable from anywhere through a temporary Cloudflare link. " +
+                "Anyone who gets the link can open it and see everything this server serves, for ${minutesText(minutes(args))} or until you stop it." }
+        }
+
+        /**
+         * While the approval question is on screen the preview of the named project is started (it only listens on this
+         * phone) and a tunnel for it is prepared, so approving is nearly instant. Nothing is public until the person approves.
+         */
+        private fun prepareProject(name: String) {
+            val ws = workspace ?: return
+            try {
+                val d = ws.project(name)
+                val serveDir = listOf("dist", "build").map { java.io.File(d, it) }.firstOrNull { java.io.File(it, "index.html").isFile } ?: d
+                if (!java.io.File(serveDir, "index.html").isFile) return
+                tunnels.prepare(servers.start(d.name, serveDir).boundPort)
+            } catch (_: Exception) { }
         }
 
         override fun isDestructive(args: JsonObject, ctx: ToolContext) = true

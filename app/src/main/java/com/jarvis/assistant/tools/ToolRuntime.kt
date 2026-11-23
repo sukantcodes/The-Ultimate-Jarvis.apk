@@ -93,13 +93,13 @@ object ToolRuntime {
         val tunnels = terminal?.let {
             TunnelManager(it.backend, workspace.root, servers.servers, kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO))
         }
-        tunnels?.let { TunnelTools(it, servers.servers).all().forEach(registry::register) }
-        // Install cloudflared in Termux once, in the background, so the first link is also created in seconds.
-        if (terminal != null && tunnels != null && terminal.backend.isRemote && !prefs.getBoolean("cloudflared_prewarmed", false)) {
+        tunnels?.let { TunnelTools(it, servers.servers, workspace).all().forEach(registry::register) }
+        // Install cloudflared and socat in Termux once, in the background, so the first link is also created in seconds.
+        if (terminal != null && tunnels != null && terminal.backend.isRemote && !prefs.getBoolean("tunnel_tools_prewarmed_v2", false)) {
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO).launch {
                 try {
                     terminal.backend.launch(com.jarvis.assistant.tools.server.TunnelScript.prewarm(), workspace.root, terminal.backend.environment(workspace.root)) { }
-                    prefs.edit().putBoolean("cloudflared_prewarmed", true).apply()
+                    prefs.edit().putBoolean("tunnel_tools_prewarmed_v2", true).apply()
                 } catch (_: Exception) { }
             }
         }
