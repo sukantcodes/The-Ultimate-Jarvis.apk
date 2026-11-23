@@ -93,8 +93,8 @@
 
     <ImageButton
         android:id="@+id/btnTopSettings"
-        android:layout_width="46dp"
-        android:layout_height="46dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
         android:background="@drawable/bg_jarvis_icon_square"
         android:src="@drawable/ic_menu"
         app:tint="?attr/themeTextPrimary"

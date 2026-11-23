@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Theme-aware glass pill with an even, fully rounded outline and restrained sheen. -->
+<!-- Glass pill: tinted body, soft top sheen, hairline rim, clipped ripple. -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
     android:color="?attr/themeAccentLight">
     <item>
@@ -8,17 +8,15 @@
                 <shape android:shape="rectangle">
                     <solid android:color="?attr/themeChipBg" />
                     <corners android:radius="40dp" />
-                    <stroke
-                        android:width="1dp"
-                        android:color="?attr/themeCardBorder" />
+                    <stroke android:width="1dp" android:color="?attr/themeCardBorder" />
                 </shape>
             </item>
             <item android:top="1dp" android:bottom="1dp">
                 <shape android:shape="rectangle">
                     <gradient
                         android:angle="270"
-                        android:startColor="?attr/themeGlassSpecular"
-                        android:centerColor="#10FFFFFF"
+                        android:startColor="#2EFFFFFF"
+                        android:centerColor="#0AFFFFFF"
                         android:endColor="#00FFFFFF" />
                     <corners android:radius="40dp" />
                 </shape>
