@@ -203,9 +203,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
             if (autoRefresh && visible && !capturing) invalidate()
             // 30 fps normally; when each capture is expensive (a busy chat streaming and animating) it spaces them out so the
             // list keeps its frames. The backdrop is heavily blurred, so a lower refresh there is not visible.
-            val base = if (visible) maxOf(50L, (captureCostMs * 8f).toLong()).coerceAtMost(200L) else 400L
-            // While something scrolls, give those frames to the scroll: refresh the blurred glass less often.
-            val gap = if (visible && AuroraClock.paused) maxOf(base, 160L) else base
+            val gap = if (visible) maxOf(33L, (captureCostMs * 6f).toLong()).coerceAtMost(130L) else 250L
             postDelayed(this, gap)
         }
     }
@@ -261,7 +259,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
         rimRect.set(inset, inset, w - inset, h - inset)
 
         // Sharper than before (a clear lens shows detail): about 130k pixels per capture, never below the old 0.15 scale.
-        val scale = kotlin.math.sqrt(60_000f / (w.toFloat() * h.toFloat())).coerceIn(BACKDROP_SCALE, 0.40f)
+        val scale = kotlin.math.sqrt(130_000f / (w.toFloat() * h.toFloat())).coerceIn(BACKDROP_SCALE, 0.40f)
         for (i in 0 until BUFFERS) {
             try {
                 val nb = Bitmap.createBitmap(

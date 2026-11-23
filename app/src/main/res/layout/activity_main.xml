@@ -49,7 +49,7 @@
         android:clipToPadding="false"
         app:lgLocked="true"
         app:lgCornerRadius="32dp"
-        app:lgRefreshFps="30"
+        app:lgRefreshFps="90"
         app:lgBlur="12"
         app:lgDistortionScale="-220"
         app:lgGreenOffset="28"
