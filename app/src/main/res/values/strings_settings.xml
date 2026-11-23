@@ -81,6 +81,9 @@
 <string name="set_section_about">Privacy &amp; About</string>
     <string name="set_privacypolicy_title">Privacy &amp; Data Shield</string>
     <string name="set_privacypolicy_subtitle">On-device processing and encrypted connections</string>
+    <string name="set_softwareupdates_title">Software Updates</string>
+    <string name="set_softwareupdates_subtitle">Check, download and install new JARVIS builds</string>
+    <string name="set_softwareupdates_version" formatted="true">v%1$s · %2$s branch</string>
     <string name="set_appidentity_title">App Identity &amp; Integrity</string>
     <string name="set_appidentity_subtitle">Publisher, app ID and signing certificate status</string>
     <string name="set_footer_credit" formatted="true">JARVIS INTELLIGENCE OS • v%1$s\nEngineered by %2$s</string>

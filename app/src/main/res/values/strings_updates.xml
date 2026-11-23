@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Text for the Software Updates screen (SoftwareUpdatesActivity). -->
+<resources>
+    <string name="ota_title">Software Updates</string>
+    <string name="ota_subtitle">Check, download and install new JARVIS builds</string>
+    <string name="ota_back">Back</string>
+    <string name="ota_installed" formatted="true">Installed: v%1$s (build %2$d)</string>
+    <string name="ota_branch_line" formatted="true">Update channel: %1$s</string>
+    <string name="ota_last_check" formatted="true">Last checked %1$s</string>
+    <string name="ota_never_checked">Not checked yet</string>
+
+    <string name="ota_status_idle">Ready to check for updates</string>
+    <string name="ota_status_checking">Checking for updates…</string>
+    <string name="ota_status_uptodate">You are up to date</string>
+    <string name="ota_status_available" formatted="true">Update available: v%1$s</string>
+    <string name="ota_status_downloading" formatted="true">Downloading v%1$s</string>
+    <string name="ota_status_verifying">Verifying the download…</string>
+    <string name="ota_status_ready" formatted="true">v%1$s is ready to install</string>
+    <string name="ota_status_permission">Allow JARVIS to install updates</string>
+    <string name="ota_status_permission_detail">Android needs your permission once before JARVIS can install its own updates. Tap the button, switch it on, then come back.</string>
+    <string name="ota_status_installing">Waiting for Android to install…</string>
+    <string name="ota_status_failed">Update problem</string>
+    <string name="ota_installing_detail">Confirm on the Android screen if it asks. Your data, login and settings are kept.</string>
+    <string name="ota_verifying_detail">Checking size, checksum, package name and signature.</string>
+    <string name="ota_ready_detail">The file is verified. Your data, login and settings are kept when it installs.</string>
+    <string name="ota_progress_line" formatted="true">%1$d%% · %2$s of %3$s · %4$s</string>
+    <string name="ota_progress_line_eta" formatted="true">%1$d%% · %2$s of %3$s · %4$s · %5$s</string>
+
+    <string name="ota_btn_check">Check for updates</string>
+    <string name="ota_btn_download">Download</string>
+    <string name="ota_btn_cancel">Cancel</string>
+    <string name="ota_btn_install">Install</string>
+    <string name="ota_btn_retry">Try again</string>
+    <string name="ota_btn_permission">Open permission</string>
+
+    <string name="ota_notes_title">What\'s new</string>
+    <string name="ota_notes_empty">No release notes were published for this build.</string>
+    <string name="ota_release_meta" formatted="true">Build %1$d · %2$s · %3$s</string>
+    <string name="ota_release_hash" formatted="true">SHA-256 %1$s</string>
+
+    <string name="ota_settings_title">Update settings</string>
+    <string name="ota_set_autocheck_title">Automatic checking</string>
+    <string name="ota_set_autocheck_sub">Look for new builds in the background about every 6 hours</string>
+    <string name="ota_set_autodownload_title">Automatic download</string>
+    <string name="ota_set_autodownload_sub">Download a new build as soon as it is found</string>
+    <string name="ota_set_ask_title">Ask before installing</string>
+    <string name="ota_set_ask_sub">Always wait for your approval. Android still asks you to confirm</string>
+    <string name="ota_set_wifi_title">Wi-Fi only</string>
+    <string name="ota_set_wifi_sub">Do not download over mobile data</string>
+    <string name="ota_set_branch_title">Update branch</string>
+    <string name="ota_branch_dialog_title">Choose update branch</string>
+    <string name="ota_branch_default_suffix"> (default)</string>
+    <string name="ota_branch_cancel">Cancel</string>
+    <string name="ota_branch_none">Only the default branch is available. Check for updates to refresh the list.</string>
+
+    <string name="ota_history_title">Update history</string>
+    <string name="ota_history_empty">Nothing yet. Updates you check, download or install appear here.</string>
+    <string name="ota_history_line" formatted="true">%1$s · v%2$s · %3$s</string>
+</resources>

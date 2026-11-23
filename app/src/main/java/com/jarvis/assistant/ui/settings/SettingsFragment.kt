@@ -52,6 +52,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.jarvis.assistant.ui.premium.PremiumDialog
 import com.jarvis.assistant.ui.premium.PremiumOptionList
 import com.jarvis.assistant.BuildConfig
+import com.jarvis.assistant.updates.OtaSettings
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.R
 import com.jarvis.assistant.activitylog.ActivityLog
@@ -883,6 +884,11 @@ class SettingsFragment : Fragment() {
 
     private fun setupAboutSection() {
         binding.rowPrivacyPolicy.setOnClickListener { open(PrivacyShieldActivity::class.java) }
+
+        binding.rowSoftwareUpdates.setOnClickListener { open(SoftwareUpdatesActivity::class.java) }
+        binding.tvSoftwareUpdatesSubtitle.text = getString(
+            R.string.set_softwareupdates_version, BuildConfig.VERSION_NAME, OtaSettings(requireContext()).branch
+        )
 
         binding.rowAppIdentity.setOnClickListener {
             PremiumDialog.info(

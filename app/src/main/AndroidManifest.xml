@@ -268,6 +268,7 @@
         <activity android:name=".automation.maps.MapsShortcutActivity" android:exported="false" android:excludeFromRecents="true" android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <activity android:name=".ui.jarvishome.HomeActivity" android:exported="false" />
         <activity android:name=".ui.clock.ClockSettingsActivity" android:exported="false" />
+        <activity android:name=".ui.settings.SoftwareUpdatesActivity" android:exported="false" />
         <activity android:name=".ui.clock.AlarmsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.clock.AlarmTonesActivity" android:exported="false" />
         <activity android:name=".ui.clock.ClockDisplayActivity" android:exported="false" />
@@ -376,6 +377,16 @@
             android:name=".updates.InstallSessionReceiver"
             android:enabled="true"
             android:exported="false" />
+
+        <!-- Finished OTA downloads arrive here even when JARVIS is closed -->
+        <receiver
+            android:name=".updates.OtaDownloadReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
+            </intent-filter>
+        </receiver>
 
         <!-- Brings the "Hey Jarvis" listener back after a reboot, an update, or when the system killed it -->
         <receiver

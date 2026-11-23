@@ -13,13 +13,10 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Button
 import android.widget.ProgressBar
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
 import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
 import com.jarvis.assistant.BuildConfig
 import com.jarvis.assistant.databinding.FragmentUpdatesBinding
-import com.jarvis.assistant.updates.ManualUpdateInstaller
 
 class UpdatesFragment : Fragment() {
 
@@ -153,14 +150,14 @@ class UpdatesFragment : Fragment() {
             setTextColor(themeColor(com.jarvis.assistant.R.attr.themeAccent))
         }
         val heading = TextView(context).apply {
-            text = "Check and install updates"
+            text = "Software Updates"
             textSize = 18f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(themeColor(com.jarvis.assistant.R.attr.themeTextPrimary))
             setPadding(0, dp(8), 0, dp(6))
         }
         val detail = TextView(context).apply {
-            text = "Download a newer release from the JARVIS update server. The APK is verified before Android asks you to confirm installation."
+            text = "New builds download inside JARVIS, are verified (checksum and signature), and install over this app without touching your data."
             textSize = 13f
             setTextColor(themeColor(com.jarvis.assistant.R.attr.themeTextSecondary))
             setLineSpacing(dp(3).toFloat(), 1.03f)
@@ -189,7 +186,7 @@ class UpdatesFragment : Fragment() {
         installedRow.addView(installedLabel)
         installedRow.addView(installedValue)
         val status = TextView(context).apply {
-            text = "Ready to check for updates."
+            text = "Open Software Updates to check, download and install."
             textSize = 12f
             setTextColor(themeColor(com.jarvis.assistant.R.attr.themeAccent))
             setPadding(0, dp(10), 0, dp(7))
@@ -205,7 +202,7 @@ class UpdatesFragment : Fragment() {
             ).apply { bottomMargin = dp(10) }
         }
         val install = Button(context).apply {
-            text = "Install Update"
+            text = "Open Software Updates"
             isAllCaps = false
             setTextColor(Color.WHITE)
             background = GradientDrawable().apply {
@@ -227,36 +224,7 @@ class UpdatesFragment : Fragment() {
         com.jarvis.assistant.ui.glass.LiquidTouch.decorate(card, dp(20).toFloat(), 0.6f)
 
         install.setOnClickListener {
-            install.isEnabled = false
-            progress.visibility = View.VISIBLE
-            progress.isIndeterminate = true
-            status.text = "Starting secure update check..."
-            viewLifecycleOwner.lifecycleScope.launch {
-                ManualUpdateInstaller.install(requireContext()) { state ->
-                    if (_binding == null) return@install
-                    when (state) {
-                        is ManualUpdateInstaller.State.Message -> {
-                            status.text = state.text
-                            if (state.progress != null) {
-                                progress.isIndeterminate = false
-                                progress.progress = state.progress
-                            } else {
-                                progress.isIndeterminate = true
-                            }
-                        }
-                        is ManualUpdateInstaller.State.Failure -> {
-                            status.text = state.text
-                            progress.visibility = View.GONE
-                            install.isEnabled = true
-                        }
-                        ManualUpdateInstaller.State.InstallerLaunched -> {
-                            status.text = "Android's installer is open. Review the details and confirm if you want to update JARVIS."
-                            progress.visibility = View.GONE
-                            install.isEnabled = true
-                        }
-                    }
-                }
-            }
+            startActivity(android.content.Intent(requireContext(), com.jarvis.assistant.ui.settings.SoftwareUpdatesActivity::class.java))
         }
         return card
     }
