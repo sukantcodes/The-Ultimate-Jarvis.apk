@@ -141,7 +141,7 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
                     if (System.currentTimeMillis() - begun > limit) {
                         return ToolResult.Ok("The link is still connecting on port ${t.port}. Its status shows in the chat; ask for port_forward_status in a moment.")
                     }
-                    delay(250)
+                    delay(100)
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 tunnels.stopById(id)

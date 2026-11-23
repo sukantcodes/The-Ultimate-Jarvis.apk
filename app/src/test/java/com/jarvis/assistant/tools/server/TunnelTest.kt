@@ -298,7 +298,7 @@ class TunnelTest {
         m.start(3000)
         b.commands[0].say("[jarvis] STARTING\nfailed to request quick Tunnel: dial tcp: i/o timeout\n")
         await("second attempt") { b.commands.size == 2 }
-        assertFalse(b.scripts[0].contains("--protocol http2")); assertTrue(b.scripts[1].contains("--protocol http2"))
+        assertTrue(b.scripts[0].contains("--protocol http2")); assertTrue(b.scripts[1].contains("--protocol http2"))
         assertTrue(b.commands[0].killed.get())
         assertTrue(m.first().state is TunnelState.Preparing)
         b.commands[1].say(up(LINK))

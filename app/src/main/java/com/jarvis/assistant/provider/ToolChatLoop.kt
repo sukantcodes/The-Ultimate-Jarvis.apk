@@ -145,6 +145,16 @@ abstract class ToolChatLoop(protected val backend: ToolBackend, private val maxR
                 if (res.isOk && c.name in changingTools) seen.clear()
             }
             results = out
+            // A public link that is ready needs no second model round (several seconds of waiting for the model to repeat it):
+            // the tool's own answer already holds the link and when it closes, so that is the reply.
+            val only = out.singleOrNull()
+            if (only != null && only.first.name == "port_forward_start" &&
+                (only.second.startsWith("Public link ready") || only.second.contains("already has a public link"))
+            ) {
+                if (collected.isNotEmpty()) collected.append("\n\n")
+                collected.append(only.second.trim())
+                return ToolChatResult(withPictures(collected.toString(), pictures), total, n, null)
+            }
         }
         return ToolChatResult(withPictures(collected.toString(), pictures), total, maxRounds, "Completed up to round limit ($maxRounds steps). All generated code and files are saved in the workspace.")
     }

@@ -55,21 +55,25 @@ class TunnelManager(
         val maxTunnels: Int = 10,
         val defaultMinutes: Int = 30,
         val maxMinutes: Int = 1440,
-        val monitorIntervalMs: Long = 3_000,
-        val missesBeforeStop: Int = 3,
+        val monitorIntervalMs: Long = 2_000,
+        val missesBeforeStop: Int = 4,
         val startupLimitMs: Long = 60_000,
+        /** No address from Cloudflare this long after the program started: it is stuck, so start a fresh one instead of waiting out [startupLimitMs]. */
+        val urlLimitMs: Long = 15_000,
+        /** Address received but the tunnel is still not accepted this long after the program started: start a fresh one. */
+        val registerLimitMs: Long = 25_000,
         val installLimitMs: Long = 300_000,
         val reconnectLimitMs: Long = 180_000,
-        val verifyFirstDelayMs: Long = 300,
-        val verifyIntervalMs: Long = 500,
+        val verifyFirstDelayMs: Long = 0,
+        val verifyIntervalMs: Long = 400,
         val verifyAttempts: Int = 30,
         /** The link is handed out this long after Cloudflare accepts it even if this phone could not fetch it yet; checking carries on in the background. */
-        val fastLiveMs: Long = 3_000,
+        val fastLiveMs: Long = 1_500,
         /** How long a stopped or failed link stays in the list so the person can read why. */
         val lingerMs: Long = 15_000,
         /** Tries to get a link going before giving up (the second and third use HTTP/2, which networks that block QUIC allow). */
         val maxAttempts: Int = 3,
-        val retryDelayMs: Long = 3_000,
+        val retryDelayMs: Long = 500,
         /** While a link is live and has been seen working from this phone, it is fetched this often; a dead link is rebuilt. */
         val healthIntervalMs: Long = 30_000,
         val healthFailsBeforeHeal: Int = 3,
@@ -91,7 +95,9 @@ class TunnelManager(
         @Volatile var reconnectSince = 0L
         @Volatile var monitor: Job? = null
         @Volatile var verify: Job? = null
-        @Volatile var protocol = "auto"
+        // HTTP/2 (TCP) connects first time on every network; QUIC (UDP) is blocked on many mobile and Wi-Fi networks and cloudflared then wastes a long time falling back.
+        @Volatile var protocol = "http2"
+        @Volatile var announced = false
         @Volatile var attempt = 1
         @Volatile var heals = 0
         @Volatile var generation = 0
@@ -279,28 +285,28 @@ class TunnelManager(
 
     /** Fetches the public address from this phone (out to the internet and back in) until it answers, and compares it with the local page. */
     private fun startVerify(e: Entry, url: String) {
+        // The link is handed out after fastLiveMs no matter what: a check that hangs (a brand new address can stall a connection
+        // for several seconds) must never hold the person back, so this timer is separate from the checks themselves.
+        scope.launch(Dispatchers.IO) {
+            delay(config.fastLiveMs)
+            synchronized(lock) {
+                if (!e.terminal && e.url == url && (e.state is TunnelState.Connecting || e.state is TunnelState.Preparing)) {
+                    e.announced = true
+                    setLocked(e, TunnelState.Live(url, false, null))
+                }
+            }
+        }
         e.verify = scope.launch(Dispatchers.IO) {
-            val began = clock()
             delay(config.verifyFirstDelayMs)
             var result = LinkCheck(false)
             var attempt = 0
-            var announced = false
             while (!result.reachable && attempt < config.verifyAttempts && !e.terminal) {
                 result = try { verifier.check(url, localUrl(e)) } catch (_: Exception) { LinkCheck(false) }
-                if (!result.reachable) {
-                    // Do not make the person wait for DNS to spread: hand the link out after fastLiveMs and keep checking.
-                    if (!announced && clock() - began >= config.fastLiveMs) {
-                        announced = true
-                        synchronized(lock) {
-                            if (!e.terminal && (e.state is TunnelState.Connecting || e.state is TunnelState.Preparing)) setLocked(e, TunnelState.Live(url, false, null))
-                        }
-                    }
-                    delay(config.verifyIntervalMs)
-                }
+                if (!result.reachable) delay(config.verifyIntervalMs)
                 attempt++
             }
             synchronized(lock) {
-                if (!e.terminal && (e.state is TunnelState.Connecting || e.state is TunnelState.Preparing || (announced && e.state is TunnelState.Live))) {
+                if (!e.terminal && (e.state is TunnelState.Connecting || e.state is TunnelState.Preparing || (e.announced && e.state is TunnelState.Live))) {
                     e.verified = result.reachable; e.matchesLocal = result.sameAsLocal; e.everLive = true; e.lastHealthAt = System.currentTimeMillis()
                     setLocked(e, TunnelState.Live(url, result.reachable, result.sameAsLocal))
                 }
@@ -321,7 +327,7 @@ class TunnelManager(
             else { if (e.attempt >= config.maxAttempts) return false; e.attempt++ }
             e.protocol = "http2"
             old = e.command; e.command = null
-            e.url = null; e.registered = false; e.verified = false; e.verifyStarted = false; e.matchesLocal = null
+            e.url = null; e.registered = false; e.verified = false; e.verifyStarted = false; e.matchesLocal = null; e.announced = false
             e.healthFails = 0; e.reconnectSince = 0; e.installing = false; e.failMessage = null
             e.note = if (heal) "The link stopped answering, so a new one was made. The old address no longer works." else null
             setLocked(e, TunnelState.Preparing(
@@ -349,7 +355,12 @@ class TunnelManager(
             if (misses >= config.missesBeforeStop) { stopEntry(e, StopReason.SERVER_STOPPED, sync = false); return }
             when (e.state) {
                 is TunnelState.Preparing, is TunnelState.Connecting -> {
-                    val limit = if (e.installing) config.installLimitMs else config.startupLimitMs
+                    // A start that is stuck is restarted early instead of waiting out the full minute.
+                    val limit = when {
+                        e.installing -> config.installLimitMs
+                        e.url == null -> minOf(config.urlLimitMs, config.startupLimitMs)
+                        else -> minOf(config.registerLimitMs, config.startupLimitMs)
+                    }
                     if (now - e.launchedAt > limit) { if (!retry(e, heal = false)) fail(e, startupTimeoutMessage(e)); return }
                 }
                 is TunnelState.Live -> if (e.verified && System.currentTimeMillis() - e.lastHealthAt >= config.healthIntervalMs) {

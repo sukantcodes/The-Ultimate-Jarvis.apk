@@ -121,7 +121,7 @@ class HttpUrlVerifier : UrlVerifier {
     private fun fetch(url: String, cacheBust: Boolean): Page? {
         val c = try { URL(url).openConnection() as HttpURLConnection } catch (_: IOException) { return null }
         return try {
-            c.connectTimeout = 4_000; c.readTimeout = 6_000; c.instanceFollowRedirects = false; c.requestMethod = "GET"
+            c.connectTimeout = 2_500; c.readTimeout = 3_500; c.instanceFollowRedirects = false; c.requestMethod = "GET"
             c.setRequestProperty("User-Agent", "JARVIS-link-check")
             if (cacheBust) c.setRequestProperty("Cache-Control", "no-cache")
             val code = c.responseCode
