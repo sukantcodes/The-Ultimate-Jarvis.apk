@@ -37,7 +37,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatusStripHost {
 
     companion object {
         const val TAB_HOME = 0
