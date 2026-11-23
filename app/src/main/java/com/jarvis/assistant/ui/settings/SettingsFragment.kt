@@ -1,46 +1,19 @@
 package com.jarvis.assistant.ui.settings
 
-import android.Manifest
-import android.app.role.RoleManager
 import android.content.Intent
-import android.graphics.Color
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.drawable.GradientDrawable
-import android.content.pm.PackageManager
 import android.content.res.ColorStateList
-import android.text.Editable
-import android.text.TextWatcher
+import android.graphics.BitmapFactory
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.util.TypedValue
-import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
-import android.widget.CheckBox
-import android.widget.CompoundButton
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.RadioButton
-import android.widget.RadioGroup
-import android.widget.Spinner
-import android.widget.TextView
 import android.widget.Toast
-import java.util.Locale
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
-import androidx.appcompat.view.ContextThemeWrapper
 import androidx.fragment.app.Fragment
-import androidx.core.view.doOnLayout
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -48,45 +21,17 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.jarvis.assistant.ui.premium.PremiumDialog
-import com.jarvis.assistant.ui.premium.PremiumOptionList
-import com.jarvis.assistant.BuildConfig
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.R
-import com.jarvis.assistant.activitylog.ActivityLog
-import com.jarvis.assistant.activitylog.ActivityLogSettings
-import com.jarvis.assistant.audio.AutoSleepSettings
-import com.jarvis.assistant.audio.NoiseCancelSettings
-import com.jarvis.assistant.audio.NoiseLevel
-import com.jarvis.assistant.data.model.GeminiConstants
 import com.jarvis.assistant.databinding.FragmentSettingsBinding
-import com.jarvis.assistant.notifications.MessageAlertSettings
-import com.jarvis.assistant.power.AlertSettings
-import com.jarvis.assistant.security.AiEngineStore
-import com.jarvis.assistant.security.AppIdentityVerifier
-import com.jarvis.assistant.security.VoiceModeStore
-import com.jarvis.assistant.studio.ui.AutomationStudioActivity
-import com.jarvis.assistant.ui.memory.MemoryActivity
-import com.jarvis.assistant.ui.permission.PermissionActivity
+import com.jarvis.assistant.ui.premium.PremiumDialog
 import com.jarvis.assistant.ui.voice.VoiceEnrollmentActivity
 import com.jarvis.assistant.util.ThemeManager
-import com.jarvis.assistant.util.TouchGlowController
-import com.jarvis.assistant.voice.VoiceCatalog
-import com.jarvis.assistant.voice.VoiceGender
-import com.jarvis.assistant.voice.VoiceGenderStore
+import kotlinx.coroutines.flow.collect
 
 /**
- * The Settings screen. Rows are grouped into eight sections, in the same order as the layout
- * (fragment_settings.xml):
- *
- *  1. AI & Intelligence          5. Memory & Data
- *  2. Voice & Listening          6. Permissions & Automation
- *  3. Voice Security & Unlock    7. Appearance
- *  4. Alerts & Announcements     8. Privacy & About
- *
- * Each section has one `setup...Section()` function that wires its rows, and the values shown on
- * the rows are refreshed together in [refreshState].
+ * The Settings hub: the operator profile card and one row per category. Every category is its own screen with its
+ * own layout and Activity (see SettingsScreens.kt), so nothing here is nested inside a shared settings layout.
  */
 class SettingsFragment : Fragment() {
 
@@ -94,21 +39,11 @@ class SettingsFragment : Fragment() {
     private val binding get() = _binding!!
     private val preferences by lazy { JarvisApp.instance.preferences }
 
-    /** True while switches are being set from stored values, so their listeners do not fire. */
-    private var syncingUi = false
     private var profileImageJob: Job? = null
     private var loadedRemoteAvatarUrl: String? = null
     private val profileImageClient by lazy {
         OkHttpClient.Builder().connectTimeout(8, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build()
     }
-
-    /**
-     * Calling and SIM choice need contacts and phone permissions. They are asked for when the user
-     * opens System Permissions (not every time Settings opens), then the permissions screen follows.
-     */
-    private val callPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { openPermissionsScreen() }
 
     private val profilePhotoPicker = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -127,10 +62,6 @@ class SettingsFragment : Fragment() {
         }
     }
 
-    // ------------------------------------------------------------------------------------------
-    // Lifecycle
-    // ------------------------------------------------------------------------------------------
-
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -147,64 +78,36 @@ class SettingsFragment : Fragment() {
             startActivity(Intent(requireContext(), MayaModeActivity::class.java))
             true
         }
-
-        markSectionHeadings()
-        setupSettingsSearch()
         setupProfileCard()
+        setupCategories()
         // A persisted session is hydrated immediately, then its server profile may arrive asynchronously.
-        // Rebind the User Card when AuthManager publishes the refreshed account claims.
         viewLifecycleOwner.lifecycleScope.launch {
             com.jarvis.assistant.auth.AuthManager.session.collect {
                 if (_binding != null && isAdded) loadUserData()
             }
         }
-        setupAiSection()
-        setupVoiceSection()
-        setupSecuritySection()
-        setupAlertsSection()
-        setupMemorySection()
-        setupPermissionsSection()
-        setupAppearanceSection()
-        setupAboutSection()
-        setupOwnerSection()
-        setupCollapsibleSections()
-        applyDeckStyle()
-        setupCategoryRail()
-        setupHeaderMotion()
-        // Sections folded on the last visit start folded.
-        if (collapsed.isNotEmpty()) filterSettings("")
-
-        refreshState()
-        playBubbleEntrance()
+        applyStyle()
+        loadUserData()
     }
 
-    // ------------------------------------------------------------------------------------------
-    // Control Deck look (the painting lives in SettingsDeck; nothing here changes what a setting does)
-    // ------------------------------------------------------------------------------------------
-
-    /** One section as the deck sees it: its heading, its card, its colour and its chip label. */
-    private class DeckSection(val header: TextView, val card: ViewGroup, val accent: Int, val label: String)
-
-    /** The eight rail sections in on-screen order. The rail shows "All" first, then these. */
-    private fun deckSections(): List<DeckSection> {
-        val ctx = requireContext()
-        fun color(res: Int) = ContextCompat.getColor(ctx, res)
-        return listOf(
-            DeckSection(binding.headerAiIntelligence, binding.glassCardAi, color(R.color.set_accent_ai), getString(R.string.set_cat_ai)),
-            DeckSection(binding.headerVoiceListening, binding.glassCardVoice, color(R.color.set_accent_voice), getString(R.string.set_cat_voice)),
-            DeckSection(binding.headerVoiceSecurity, binding.glassCardSecurity, color(R.color.set_accent_security), getString(R.string.set_cat_security)),
-            DeckSection(binding.headerAlerts, binding.glassCardAlerts, color(R.color.set_accent_alerts), getString(R.string.set_cat_alerts)),
-            DeckSection(binding.headerMemoryData, binding.glassCardMemory, color(R.color.set_accent_memory), getString(R.string.set_cat_memory)),
-            DeckSection(binding.headerPermissionsAutomation, binding.glassCardPermissions, color(R.color.set_accent_permissions), getString(R.string.set_cat_access)),
-            DeckSection(binding.headerAppearance, binding.glassCardAppearance, color(R.color.set_accent_appearance), getString(R.string.set_cat_look)),
-            DeckSection(binding.headerPrivacyAbout, binding.glassCardAbout, color(R.color.set_accent_about), getString(R.string.set_cat_about))
-        )
+    private fun setupCategories() {
+        fun go(row: View, target: Class<*>) {
+            row.setOnClickListener { startActivity(Intent(requireContext(), target)) }
+        }
+        go(binding.rowCatAi, AiSettingsActivity::class.java)
+        go(binding.rowCatVoice, VoiceSettingsActivity::class.java)
+        go(binding.rowCatSecurity, SecuritySettingsActivity::class.java)
+        go(binding.rowCatAlerts, AlertsSettingsActivity::class.java)
+        go(binding.rowCatMemory, MemorySettingsActivity::class.java)
+        go(binding.rowCatPermissions, PermissionsSettingsActivity::class.java)
+        go(binding.rowCatAppearance, AppearanceSettingsActivity::class.java)
+        go(binding.rowCatAbout, AboutSettingsActivity::class.java)
+        go(binding.rowCatOwner, OwnerSettingsActivity::class.java)
     }
 
-    /** Paints the search pill, identity card, every section and the switches in the active theme's colours. */
-    private fun applyDeckStyle() {
+    /** Paints the identity card, avatar ring, chips and icon tiles in the active theme's colours. */
+    private fun applyStyle() {
         val accent = ThemeManager.getThemeAccentColor()
-        SettingsDeck.styleSearch(binding.etSettingsSearch, accent)
         SettingsDeck.styleOrb(binding.orbBadge, accent)
         SettingsDeck.styleHero(binding.cardProfile, accent)
         SettingsDeck.styleAvatarRing(binding.frameProfileRing, accent, ThemeManager.getThemeSecondaryColor())
@@ -213,17 +116,105 @@ class SettingsFragment : Fragment() {
         binding.btnProfileEditTile.setOnClickListener { showEditNameDialog() }
         paintBackdrop(accent)
         bindProfileNetworkChip()
-        deckSections().forEach { section ->
-            SettingsDeck.styleCollapsibleHeader(section.header, section.accent, !collapsed.contains(section.header.id))
-            SettingsDeck.styleCard(section.card, section.accent)
-            SettingsDeck.pressFeedback(section.card)
+        applyIconShape()
+    }
+
+    /** Repaints every Settings icon with the shape chosen in Theme & 3D Orb Colors. */
+    fun applyIconShape() {
+        if (_binding != null) {
+            SettingsDeck.styleIcons(binding.root, ThemeManager.getThemeAccentColor(), preferences.settingsIconShape)
         }
-        val owner = ContextCompat.getColor(requireContext(), R.color.set_accent_owner)
-        SettingsDeck.styleSectionHeader(binding.headerOwnerSection, owner)
-        SettingsDeck.styleCard(binding.glassCardOwner, owner)
-        SettingsDeck.pressFeedback(binding.glassCardOwner)
-        SettingsDeck.styleSwitches(binding.root, accent)
-        applyDimensionalIconColors(binding.root)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (_binding != null) {
+            applyIconShape()
+            loadUserData()
+        }
+    }
+
+    override fun onHiddenChanged(hidden: Boolean) {
+        super.onHiddenChanged(hidden)
+        if (_binding == null) return
+        if (!hidden) {
+            binding.root.visibility = View.VISIBLE
+            loadUserData()
+        } else {
+            binding.root.visibility = View.GONE
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        profileImageJob?.cancel()
+        profileImageJob = null
+        _binding = null
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Profile card
+    // ------------------------------------------------------------------------------------------
+
+    private fun setupProfileCard() {
+        binding.cardProfile.setOnClickListener { showEditNameDialog() }
+        binding.ivProfileAvatar.setOnClickListener {
+            profilePhotoPicker.launch(arrayOf("image/*"))
+        }
+        binding.ivProfileAvatar.setOnLongClickListener {
+            preferences.profilePhotoUri = ""
+            showProfilePhoto()
+            toast("Profile photo removed")
+            true
+        }
+        binding.chipProfileVoiceStatus.setOnClickListener {
+            startActivity(Intent(requireContext(), VoiceEnrollmentActivity::class.java))
+        }
+    }
+
+    private fun loadUserData() {
+        val ctx = requireContext()
+        val green = ContextCompat.getColor(ctx, R.color.status_green)
+        val sapphire = ContextCompat.getColor(ctx, R.color.accent_sapphire)
+
+        binding.tvProfileName.text = preferences.profileNameOverride.ifBlank {
+            preferences.accountDisplayName.ifBlank { preferences.userName.ifBlank { "Sukant" } }
+        }
+        showProfilePhoto()
+        binding.tvProfileSubtitle.text = "JARVIS OPERATOR • PRIMARY USER"
+
+        if (preferences.hasOwnerVoiceProfile()) {
+            binding.tvProfileVoiceStatus.text = "VOICE ENROLLED"
+            binding.tvProfileVoiceStatus.setTextColor(green)
+            binding.chipProfileVoiceStatus.setBackgroundResource(R.drawable.bg_jarvis_status_badge_green)
+            binding.ivProfileVoiceBadgeIcon.setImageResource(R.drawable.ic_verified_badge)
+            binding.ivProfileVoiceBadgeIcon.imageTintList = ColorStateList.valueOf(green)
+        } else {
+            binding.tvProfileVoiceStatus.text = "ENROLL VOICE"
+            binding.tvProfileVoiceStatus.setTextColor(sapphire)
+            binding.chipProfileVoiceStatus.setBackgroundResource(R.drawable.bg_jarvis_status_badge)
+            binding.ivProfileVoiceBadgeIcon.setImageResource(R.drawable.ic_settings_owner_voice)
+            binding.ivProfileVoiceBadgeIcon.imageTintList = ColorStateList.valueOf(sapphire)
+        }
+        binding.tvProfilePersonaChip.text = preferences.personality.uppercase()
+    }
+
+    private fun showEditNameDialog() {
+        val current = preferences.profileNameOverride.ifBlank {
+            preferences.accountDisplayName.ifBlank { preferences.userName.ifBlank { "Sukant" } }
+        }
+        PremiumDialog.input(
+            requireContext(), "OPERATOR PROFILE", "Operator Name",
+            "Enter the name Jarvis should use to address you.", current, "Your name"
+        ) { newName ->
+            preferences.userName = newName
+            preferences.profileNameOverride = newName
+            loadUserData()
+        }
+    }
+
+    private fun toast(message: String) {
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
     }
 
     /** A static ambient backdrop: the theme colour with two soft accent glows. Drawn once, never animated. */
@@ -249,7 +240,7 @@ class SettingsFragment : Fragment() {
         ))
     }
 
-    /** The profile card's Device Network chip shows this device's real role and how many devices are online. */
+
     private fun bindProfileNetworkChip() {
         val mgr = com.jarvis.assistant.udn.UdnManager.get(requireContext().applicationContext)
         viewLifecycleOwner.lifecycleScope.launch {
@@ -275,432 +266,6 @@ class SettingsFragment : Fragment() {
                 }
             }
         }
-    }
-
-    // ---- folding sections -------------------------------------------------------------------------------------------
-    /** Ids of the section headers that are folded. Remembered between visits. */
-    private val collapsed = HashSet<Int>()
-    private var collapsibleReady = false
-    private var foldAnimating = false
-
-    private fun uiPrefs() = requireContext().getSharedPreferences("settings_ui", android.content.Context.MODE_PRIVATE)
-
-    private fun persistCollapsed() {
-        val labels = deckSections().filter { collapsed.contains(it.header.id) }.map { it.label }.toSet()
-        uiPrefs().edit().putStringSet("collapsed", labels).apply()
-    }
-
-    /** Makes each section title tap-to-fold and restores what was folded last time. */
-    private fun setupCollapsibleSections() {
-        if (collapsibleReady) return
-        collapsibleReady = true
-        val saved = uiPrefs().getStringSet("collapsed", emptySet()) ?: emptySet()
-        deckSections().forEach { sec ->
-            if (saved.contains(sec.label)) collapsed.add(sec.header.id)
-            val lp = sec.header.layoutParams
-            lp.width = ViewGroup.LayoutParams.MATCH_PARENT
-            sec.header.layoutParams = lp
-            sec.header.setOnClickListener { toggleSection(sec) }
-            SettingsDeck.styleCollapsibleHeader(sec.header, sec.accent, !collapsed.contains(sec.header.id))
-        }
-    }
-
-    private fun toggleSection(sec: DeckSection) {
-        if (_binding == null || foldAnimating) return
-        // While searching every match must stay visible, so folding is switched off until the search is cleared.
-        if (binding.etSettingsSearch.text?.isNotBlank() == true) return
-        val id = sec.header.id
-        val expand = collapsed.contains(id)
-        if (expand) collapsed.remove(id) else collapsed.add(id)
-        persistCollapsed()
-        SettingsDeck.styleCollapsibleHeader(sec.header, sec.accent, expand)
-        animateFold(sec.card, expand)
-    }
-
-    private fun animateFold(card: ViewGroup, expand: Boolean) {
-        val parent = card.parent as? View ?: run { card.visibility = if (expand) View.VISIBLE else View.GONE; return }
-        val lp = card.layoutParams
-        val animate = try {
-            android.provider.Settings.Global.getFloat(requireContext().contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
-        } catch (_: Throwable) { true }
-        if (!animate) {
-            card.visibility = if (expand) View.VISIBLE else View.GONE
-            return
-        }
-        foldAnimating = true
-        val from: Int
-        val to: Int
-        if (expand) {
-            card.visibility = View.VISIBLE
-            val width = (parent.width - parent.paddingLeft - parent.paddingRight - (lp as? ViewGroup.MarginLayoutParams)?.let { it.leftMargin + it.rightMargin }.let { it ?: 0 })
-            card.measure(
-                View.MeasureSpec.makeMeasureSpec(width.coerceAtLeast(1), View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-            )
-            from = 0
-            to = card.measuredHeight
-        } else {
-            from = card.height
-            to = 0
-        }
-        val wasClipping = card.clipChildren
-        card.clipChildren = true
-        lp.height = from
-        card.layoutParams = lp
-        card.alpha = if (expand) 0f else 1f
-        android.animation.ValueAnimator.ofInt(from, to).apply {
-            duration = 260L
-            interpolator = android.view.animation.DecelerateInterpolator(1.6f)
-            addUpdateListener {
-                val v = it.animatedValue as Int
-                lp.height = v
-                card.layoutParams = lp
-                val f = if (to > from) it.animatedFraction else 1f - it.animatedFraction
-                card.alpha = f.coerceIn(0f, 1f)
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
-                    card.layoutParams = lp
-                    card.alpha = 1f
-                    card.clipChildren = wasClipping
-                    card.visibility = if (expand) View.VISIBLE else View.GONE
-                    foldAnimating = false
-                }
-            })
-            start()
-        }
-    }
-
-    /** 0 = every section; 1..8 = only the section picked in the rail (same order as [deckSections]). */
-    private var category = 0
-    private var paintRail: ((Int) -> Unit)? = null
-
-    private fun setupCategoryRail() {
-        val accent = ThemeManager.getThemeAccentColor()
-        val chips = listOf(SettingsDeck.Category(getString(R.string.set_cat_all), accent)) +
-            deckSections().map { SettingsDeck.Category(it.label, it.accent) }
-        paintRail = SettingsDeck.buildRail(binding.railChips, chips, accent) { selectCategory(it) }
-    }
-
-    private fun selectCategory(index: Int) {
-        if (_binding == null || index == category) return
-        category = index
-        paintRail?.invoke(index)
-        // Picking a section in the rail always shows it open.
-        deckSections().getOrNull(index - 1)?.let { sec ->
-            if (collapsed.remove(sec.header.id)) {
-                persistCollapsed()
-                SettingsDeck.styleCollapsibleHeader(sec.header, sec.accent, true)
-            }
-        }
-        revealAllSections()
-        binding.etSettingsSearch.text?.clear()
-        filterSettings("")
-        binding.settingsScroll.scrollTo(0, 0)
-        SettingsDeck.swap(binding.settingsContent)
-    }
-
-    private var headerHeight = 0
-    private var pillShown = false
-    private val pendingReveal = LinkedHashSet<View>()
-
-    /**
-     * The whole header (title, search, rail) scrolls up with the content, so the settings get the full screen. The header
-     * sits above the scroll view and moves with it one-to-one while fading out; a small "Settings" pill fades in once it
-     * is gone and jumps back to the top when tapped. Sections that start below the fold rise in as they are scrolled to.
-     */
-    private fun setupHeaderMotion() {
-        val header = binding.layoutHeader
-        header.bringToFront()
-        binding.pillSettingsTop.bringToFront()
-        SettingsDeck.styleChip(binding.pillSettingsTop, ThemeManager.getThemeAccentColor())
-        binding.pillSettingsTop.setOnClickListener { binding.settingsScroll.smoothScrollTo(0, 0) }
-        header.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, _, _ ->
-            val h = bottom - top
-            if (h != headerHeight && h > 0) {
-                headerHeight = h
-                val c = binding.settingsContent
-                c.setPadding(c.paddingLeft, h + (4 * resources.displayMetrics.density).toInt(), c.paddingRight, c.paddingBottom)
-            }
-        }
-        binding.settingsScroll.setOnScrollChangeListener { _, _, scrollY, _, _ ->
-            if (_binding == null) return@setOnScrollChangeListener
-            val h = headerHeight.coerceAtLeast(1)
-            val progress = (scrollY.toFloat() / h).coerceIn(0f, 1f)
-            header.translationY = -minOf(scrollY, h).toFloat()
-            header.alpha = 1f - progress
-            setPillVisible(scrollY > h * 0.9f)
-            revealVisibleSections()
-        }
-        binding.etSettingsSearch.setOnFocusChangeListener { v, focused ->
-            v.animate().scaleX(if (focused) 1.015f else 1f).scaleY(if (focused) 1.015f else 1f).setDuration(180L).start()
-        }
-        binding.settingsContent.doOnLayout { prepareReveal() }
-    }
-
-    private fun setPillVisible(show: Boolean) {
-        if (show == pillShown) return
-        pillShown = show
-        val pill = binding.pillSettingsTop
-        pill.animate().cancel()
-        if (show) {
-            pill.visibility = View.VISIBLE
-            pill.translationY = -(10 * resources.displayMetrics.density)
-            pill.animate().alpha(1f).translationY(0f).setDuration(220L).start()
-        } else {
-            pill.animate().alpha(0f).setDuration(160L).withEndAction { if (_binding != null) pill.visibility = View.GONE }.start()
-        }
-    }
-
-    /** Sections that begin below the first screen wait, slightly lowered and transparent, until they are scrolled to. */
-    private fun prepareReveal() {
-        if (_binding == null) return
-        val firstScreen = listOf(R.id.cardProfile, R.id.headerAiIntelligence, R.id.glassCardAi, R.id.headerVoiceListening, R.id.glassCardVoice)
-        val fold = binding.settingsScroll.height
-        val lift = 22 * resources.displayMetrics.density
-        pendingReveal.clear()
-        val content = binding.settingsContent
-        for (i in 0 until content.childCount) {
-            val v = content.getChildAt(i)
-            if (v.id in firstScreen || v.visibility != View.VISIBLE || v.top < fold) continue
-            v.alpha = 0f
-            v.translationY = lift
-            pendingReveal += v
-        }
-    }
-
-    private fun revealVisibleSections() {
-        if (pendingReveal.isEmpty()) return
-        val limit = binding.settingsScroll.scrollY + binding.settingsScroll.height - (40 * resources.displayMetrics.density)
-        val it = pendingReveal.iterator()
-        var n = 0L
-        while (it.hasNext()) {
-            val v = it.next()
-            if (v.top < limit) {
-                it.remove()
-                v.animate().alpha(1f).translationY(0f).setStartDelay(n * 60L).setDuration(360L)
-                    .setInterpolator(android.view.animation.DecelerateInterpolator(1.8f)).start()
-                n++
-            }
-        }
-    }
-
-    /** Shows everything at once (used when a search or a category changes what is on screen). */
-    private fun revealAllSections() {
-        pendingReveal.forEach { v -> v.animate().cancel(); v.alpha = 1f; v.translationY = 0f }
-        pendingReveal.clear()
-    }
-
-    /** The first blocks rise into place one after another (skipped when system animations are off). */
-    private fun playBubbleEntrance() {
-        if (_binding == null) return
-        binding.frameProfileRing.apply {
-            scaleX = 0.7f; scaleY = 0.7f
-            animate().scaleX(1f).scaleY(1f).setStartDelay(160L).setDuration(520L)
-                .setInterpolator(android.view.animation.OvershootInterpolator(1.8f)).start()
-        }
-        SettingsDeck.enter(
-            listOf<View>(
-                binding.cardProfile, binding.headerAiIntelligence, binding.glassCardAi,
-                binding.headerVoiceListening, binding.glassCardVoice
-            ),
-            startDelay = 40L
-        )
-    }
-
-    /** Gives every settings icon its tile, in the shape chosen in Theme & 3D Orb Colors, tinted with the theme colour. */
-    private fun applyDimensionalIconColors(root: View) {
-        SettingsDeck.styleIcons(root, ThemeManager.getThemeAccentColor(), preferences.settingsIconShape)
-    }
-
-    /** Repaints every Settings icon with the shape chosen in Theme & 3D Orb Colors. */
-    fun applyIconShape() {
-        if (_binding != null) applyDimensionalIconColors(binding.root)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (_binding != null) {
-            applyDimensionalIconColors(binding.root)
-            refreshState()
-        }
-    }
-
-    override fun onHiddenChanged(hidden: Boolean) {
-        super.onHiddenChanged(hidden)
-        if (_binding == null) return
-        if (!hidden) {
-            binding.root.visibility = View.VISIBLE
-            refreshState()
-            playBubbleEntrance()
-        } else {
-            binding.root.visibility = View.GONE
-        }
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        profileImageJob?.cancel()
-        profileImageJob = null
-        _binding = null
-    }
-
-    /**
-     * Filters the existing Settings rows in place. This deliberately reuses the current views and
-     * click listeners: search never creates duplicate settings controls or changes stored values.
-     */
-    private fun setupSettingsSearch() {
-        binding.etSettingsSearch.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                val query = s?.toString().orEmpty()
-                if (query.isNotBlank()) revealAllSections()
-                // Searching always covers every section, so the rail snaps back to "All".
-                if (query.isNotBlank() && category != 0) {
-                    category = 0
-                    paintRail?.invoke(0)
-                }
-                filterSettings(query)
-            }
-            override fun afterTextChanged(s: Editable?) = Unit
-        })
-        filterSettings("")
-    }
-
-    private fun filterSettings(rawQuery: String) {
-        val query = rawQuery.trim().lowercase(Locale.ROOT)
-        val content = binding.settingsContent
-        // Rail position of each section (chip 0 is "All").
-        val sectionHeaders = mapOf(
-            R.id.headerAiIntelligence to 1,
-            R.id.headerVoiceListening to 2,
-            R.id.headerVoiceSecurity to 3,
-            R.id.headerAlerts to 4,
-            R.id.headerMemoryData to 5,
-            R.id.headerPermissionsAutomation to 6,
-            R.id.headerAppearance to 7,
-            R.id.headerPrivacyAbout to 8
-        )
-        var visibleMatches = 0
-        var index = 0
-
-        while (index < content.childCount) {
-            val child = content.getChildAt(index)
-            when {
-                child.id == R.id.cardProfile -> {
-                    // The identity card belongs to "All"; a search can still find it.
-                    val matches = if (query.isEmpty()) category == 0 else viewMatchesQuery(child, query)
-                    child.visibility = if (matches) View.VISIBLE else View.GONE
-                    if (matches && query.isNotEmpty()) visibleMatches++
-                }
-
-                sectionHeaders.containsKey(child.id) -> {
-                    val position = sectionHeaders.getValue(child.id)
-                    val headerMatches = query.isNotEmpty() && viewMatchesQuery(child, query)
-                    val card = content.getChildAt(index + 1) as? ViewGroup
-                    if (card == null) {
-                        child.visibility = if (query.isEmpty() || headerMatches) View.VISIBLE else View.GONE
-                    } else {
-                        val rowIndexes = (0 until card.childCount)
-                            .filter { card.getChildAt(it).isClickable }
-                        var sectionMatches = 0
-
-                        rowIndexes.forEach { rowIndex ->
-                            val row = card.getChildAt(rowIndex)
-                            val matches = query.isEmpty() || headerMatches ||
-                                viewMatchesQuery(row, query)
-                            row.visibility = if (matches) View.VISIBLE else View.GONE
-                            if (matches && query.isNotEmpty()) sectionMatches++
-                        }
-
-                        // Keep separators only between two rows that remain visible.
-                        for (cardIndex in 0 until card.childCount) {
-                            val item = card.getChildAt(cardIndex)
-                            if (item.isClickable || item is ViewGroup) continue
-                            val previousRow = rowIndexes.lastOrNull { it < cardIndex }
-                            val nextRow = rowIndexes.firstOrNull { it > cardIndex }
-                            val showDivider = query.isEmpty() ||
-                                (previousRow != null && nextRow != null &&
-                                    card.getChildAt(previousRow).visibility == View.VISIBLE &&
-                                    card.getChildAt(nextRow).visibility == View.VISIBLE)
-                            item.visibility = if (showDivider) View.VISIBLE else View.GONE
-                        }
-
-                        val hasMatches = query.isEmpty() || headerMatches || sectionMatches > 0
-                        // With no search text, "All" shows every section and a chip shows only its own.
-                        val inScope = query.isNotEmpty() || category == 0 || category == position
-                        // A folded section stays folded unless the person is searching (matches must be visible).
-                        val folded = query.isEmpty() && collapsed.contains(child.id)
-                        child.visibility = if (hasMatches && inScope) View.VISIBLE else View.GONE
-                        card.visibility = if (hasMatches && inScope && !folded) View.VISIBLE else View.GONE
-                        if (query.isNotEmpty()) {
-                            visibleMatches += if (headerMatches) rowIndexes.size else sectionMatches
-                        }
-                    }
-                    index++ // The section card is the next direct child.
-                }
-
-                else -> {
-                    // Owner section, social links and the footer belong to "All" and "About"; a search hides them.
-                    child.visibility =
-                        if (query.isEmpty() && (category == 0 || category == 8)) View.VISIBLE else View.GONE
-                }
-            }
-            index++
-        }
-
-        binding.tvSettingsNoResults.visibility =
-            if (query.isNotEmpty() && visibleMatches == 0) View.VISIBLE else View.GONE
-    }
-
-    private fun viewMatchesQuery(view: View, query: String): Boolean {
-        if (query.isEmpty()) return true
-        if (view is TextView && view.text?.toString()?.lowercase(Locale.ROOT)?.contains(query) == true) {
-            return true
-        }
-        if (view.contentDescription?.toString()?.lowercase(Locale.ROOT)?.contains(query) == true) {
-            return true
-        }
-        if (view is ViewGroup) {
-            for (childIndex in 0 until view.childCount) {
-                if (viewMatchesQuery(view.getChildAt(childIndex), query)) return true
-            }
-        }
-        return false
-    }
-
-    /** Lets screen readers jump between sections by heading. */
-    private fun markSectionHeadings() {
-        listOf(
-            binding.headerAiIntelligence,
-            binding.headerVoiceListening,
-            binding.headerVoiceSecurity,
-            binding.headerAlerts,
-            binding.headerMemoryData,
-            binding.headerPermissionsAutomation,
-            binding.headerAppearance,
-            binding.headerPrivacyAbout,
-            binding.headerOwnerSection
-        ).forEach { ViewCompat.setAccessibilityHeading(it, true) }
-    }
-
-    // ------------------------------------------------------------------------------------------
-    // Profile card
-    // ------------------------------------------------------------------------------------------
-
-    private fun setupProfileCard() {
-        binding.cardProfile.setOnClickListener { showEditNameDialog() }
-        binding.ivProfileAvatar.setOnClickListener {
-            profilePhotoPicker.launch(arrayOf("image/*"))
-        }
-        binding.ivProfileAvatar.setOnLongClickListener {
-            preferences.profilePhotoUri = ""
-            showProfilePhoto()
-            toast("Profile photo removed")
-            true
-        }
-        binding.chipProfileVoiceStatus.setOnClickListener { open(VoiceEnrollmentActivity::class.java) }
     }
 
     private fun showProfilePhoto() {
@@ -763,637 +328,4 @@ class SettingsFragment : Fragment() {
         avatar.setImageResource(R.drawable.jarvis_default_user)
     }
 
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density).toInt()
-
-    /** Applies premium styling locally without changing the Activity theme. */
-    // ------------------------------------------------------------------------------------------
-    // 1. AI & Intelligence
-    // ------------------------------------------------------------------------------------------
-
-    private fun setupAiSection() {
-        binding.rowAiEngine.setOnClickListener { showAiEngineDialog() }
-        binding.rowApiConnection.setOnClickListener { open(ApiConnectionActivity::class.java) }
-        binding.rowLanguage.setOnClickListener { showLanguageDialog() }
-        binding.rowPersonaVoice.setOnClickListener { open(PersonaActivity::class.java) }
-
-        bindSwitchRow(binding.rowSilentMode, binding.switchSilentMode) { checked ->
-            preferences.isSilentExecutionMode = checked
-            toast(if (checked) "Silent Execution Mode Enabled" else "Silent Execution Mode Disabled")
-        }
-    }
-
-    // ------------------------------------------------------------------------------------------
-    // 2. Voice & Listening
-    // ------------------------------------------------------------------------------------------
-
-    private fun setupVoiceSection() {
-        binding.rowVoiceGender.setOnClickListener { showVoiceGenderDialog() }
-        binding.rowNoiseCancel.setOnClickListener { showNoiseCancelDialog() }
-        binding.rowAutoSleep.setOnClickListener { showAutoSleepDialog() }
-        binding.rowDefaultAssistant.setOnClickListener { requestDefaultAssistant() }
-    }
-
-    // ------------------------------------------------------------------------------------------
-    // 3. Voice Security & Unlock
-    // ------------------------------------------------------------------------------------------
-
-    private fun setupSecuritySection() {
-        binding.rowOwnerVoice.setOnClickListener { open(VoiceEnrollmentActivity::class.java) }
-        binding.rowReplayTutorial.setOnClickListener {
-            startActivity(com.jarvis.assistant.ui.onboarding.OnboardingActivity.intent(requireContext(), replay = true))
-        }
-
-        bindSwitchRow(binding.rowVoiceMode, binding.switchOwnerOnly) { checked ->
-            VoiceModeStore(requireContext()).ownerOnly = checked
-            val message = if (checked) {
-                if (preferences.hasOwnerVoiceProfile()) {
-                    "Owner Voice Only: other voices are ignored"
-                } else {
-                    "Owner Voice Only is on, but you still need to enroll your voice"
-                }
-            } else {
-                "Everyone mode: Jarvis answers every voice it hears"
-            }
-            toast(message, long = true)
-        }
-
-        binding.rowScreenUnlock.setOnClickListener { open(ScreenUnlockActivity::class.java) }
-        binding.rowFaceLockSettings.setOnClickListener { open(FaceLockActivity::class.java) }
-    }
-
-    // ------------------------------------------------------------------------------------------
-    // 4. Alerts & Announcements
-    // ------------------------------------------------------------------------------------------
-
-    private fun setupAlertsSection() {
-        binding.rowNotificationAccess.setOnClickListener { openNotificationAccessSettings() }
-
-        bindSwitchRow(binding.rowMessageAnnounce, binding.switchMessageAnnounce) { checked ->
-            MessageAlertSettings(requireContext()).enabled = checked
-        }
-        binding.rowNotificationTriage.setOnClickListener {
-            open(com.jarvis.assistant.ui.notifications.NotificationTriageActivity::class.java)
-        }
-        bindSwitchRow(binding.rowMessageJarvisVoice, binding.switchMessageJarvisVoice) { checked ->
-            MessageAlertSettings(requireContext()).useJarvisVoice = checked
-        }
-        bindSwitchRow(binding.rowChargingAlerts, binding.switchChargingAlerts) { checked ->
-            AlertSettings(requireContext()).chargingAlerts = checked
-        }
-        bindSwitchRow(binding.rowAutoBatterySaver, binding.switchAutoBatterySaver) { checked ->
-            AlertSettings(requireContext()).autoBatterySaver = checked
-        }
-    }
-
-    // ------------------------------------------------------------------------------------------
-    // 5. Memory & Data
-    // ------------------------------------------------------------------------------------------
-
-    private fun setupMemorySection() {
-        binding.rowMemory.setOnClickListener { open(MemoryActivity::class.java) }
-
-        bindSwitchRow(binding.rowActivityMemory, binding.switchActivityMemory) { checked ->
-            ActivityLogSettings(requireContext()).enabled = checked
-        }
-
-        binding.rowClearActivityMemory.setOnClickListener {
-            PremiumDialog.confirm(
-                requireContext(), "MEMORY", "Clear activity memory?",
-                "Jarvis will forget everything from the last 2 days. This cannot be undone.",
-                "Clear", destructive = true
-            ) {
-                ActivityLog.get(requireContext()).clear()
-                toast("Activity memory cleared")
-            }
-        }
-    }
-
-    // ------------------------------------------------------------------------------------------
-    // 6. Permissions & Automation
-    // ------------------------------------------------------------------------------------------
-
-    private fun setupPermissionsSection() {
-        binding.rowPermissions.setOnClickListener {
-            val missing = missingCallPermissions()
-            if (missing.isEmpty()) openPermissionsScreen() else callPermissionLauncher.launch(missing)
-        }
-        binding.rowApplications.setOnClickListener { open(HandsFreeActivity::class.java) }
-        binding.rowAutomationStudio.setOnClickListener { open(AutomationStudioActivity::class.java) }
-        binding.rowKeepAlive.setOnClickListener { com.jarvis.assistant.util.KeepAliveHelper.showDialog(requireActivity()) }
-        binding.rowJarvisTerminal.setOnClickListener { open(com.jarvis.assistant.ui.terminal.JarvisTerminalActivity::class.java) }
-        binding.rowActionRouter.setOnClickListener { open(com.jarvis.assistant.ui.debug.ActionRouterActivity::class.java) }
-        binding.rowGallery.setOnClickListener { open(com.jarvis.assistant.gallery.GalleryActivity::class.java) }
-        binding.rowSkillStore.setOnClickListener { open(com.jarvis.assistant.ui.skills.SkillStoreActivity::class.java) }
-        binding.rowClock.setOnClickListener { open(com.jarvis.assistant.ui.clock.ClockSettingsActivity::class.java) }
-        binding.rowDeviceDiagnostics.setOnClickListener { open(com.jarvis.assistant.ui.diagnostics.DeviceDiagnosticsActivity::class.java) }
-    }
-
-    private fun missingCallPermissions(): Array<String> {
-        val wanted = listOf(
-            Manifest.permission.READ_CONTACTS,
-            Manifest.permission.CALL_PHONE,
-            Manifest.permission.SEND_SMS,
-            Manifest.permission.READ_PHONE_STATE,
-            Manifest.permission.READ_PHONE_NUMBERS
-        )
-        return wanted.filter {
-            ContextCompat.checkSelfPermission(requireContext(), it) != PackageManager.PERMISSION_GRANTED
-        }.toTypedArray()
-    }
-
-    private fun openPermissionsScreen() {
-        if (isAdded) open(PermissionActivity::class.java)
-    }
-
-    // ------------------------------------------------------------------------------------------
-    // 7. Appearance
-    // ------------------------------------------------------------------------------------------
-
-    private fun setupAppearanceSection() {
-        binding.rowAppTheme.setOnClickListener {
-            ThemeSelectionBottomSheet.newInstance().show(childFragmentManager, ThemeSelectionBottomSheet.TAG)
-        }
-        binding.rowOverlayAvatars.setOnClickListener { open(OverlayAvatarActivity::class.java) }
-        binding.rowCrystalBackground.setOnClickListener { open(CrystalBackgroundActivity::class.java) }
-        binding.rowRefreshRate.setOnClickListener { showRefreshRateDialog() }
-        binding.switchLiquidGlass.isChecked = preferences.liquidGlassEnabled
-        binding.switchLiquidGlass.setOnCheckedChangeListener { _, enabled ->
-            if (enabled == preferences.liquidGlassEnabled) return@setOnCheckedChangeListener
-            toast(getString(R.string.set_liquidglass_restarting))
-            // Save the choice and restart so every screen is rebuilt in the chosen look (the dock bar never changes).
-            binding.root.postDelayed({
-                if (isAdded) com.jarvis.assistant.ui.glass.GlassMode.setEnabledAndRestart(requireActivity(), enabled)
-            }, 250L)
-        }
-        binding.rowLiquidGlass.setOnClickListener { binding.switchLiquidGlass.toggle() }
-        binding.switchTouchGlow.isChecked = preferences.touchGlowEnabled
-        binding.switchTouchGlow.setOnCheckedChangeListener { _, enabled ->
-            preferences.touchGlowEnabled = enabled
-            TouchGlowController.setEnabled(requireActivity(), enabled)
-        }
-    }
-
-    private fun showRefreshRateDialog() {
-        val rates = ThemeManager.supportedRefreshRates(requireActivity())
-        val labels = mutableListOf("Maximum available (recommended)")
-        val values = mutableListOf("system")
-        rates.forEach { rate ->
-            labels += "$rate Hz"
-            values += rate.toString()
-        }
-        val selected = values.indexOf(preferences.uiRefreshRate).coerceAtLeast(0)
-
-        PremiumDialog.choice(
-            requireContext(), "DISPLAY", "Refresh rate",
-            "Maximum uses the highest rate your display supports (120 Hz on 120 Hz screens). Android and ColorOS may still lower it to manage battery or heat, for example in battery saver mode.",
-            labels, selected, instant = true
-        ) { which ->
-            preferences.uiRefreshRate = values[which]
-            ThemeManager.applyPreferredRefreshRate(requireActivity())
-            updateRefreshRateSubtitle()
-        }
-    }
-
-    private fun updateRefreshRateSubtitle() {
-        val requested = preferences.uiRefreshRate.toIntOrNull()
-        binding.tvRefreshRateSubtitle.text = when {
-            requested == null -> "Maximum available • system may adapt"
-            requested in ThemeManager.supportedRefreshRates(requireActivity()) ->
-                "$requested Hz preferred • system may adapt"
-            else -> "$requested Hz is not supported by this display"
-        }
-    }
-
-    // ------------------------------------------------------------------------------------------
-    // 8. Privacy & About
-    // ------------------------------------------------------------------------------------------
-
-    // ------------------------------------------------------------------------------------------
-    // 9. Owner Section (Dashboard is gated by a server-verified password)
-    // ------------------------------------------------------------------------------------------
-
-    private val requireAccountForOwner =
-        registerForActivityResult(com.jarvis.assistant.ui.auth.RequireAccountContract()) { signedIn ->
-            if (signedIn) open(com.jarvis.assistant.ui.owner.OwnerPasswordActivity::class.java)
-        }
-
-    private fun setupOwnerSection() {
-        binding.rowOwnerDashboard.setOnClickListener {
-            if (com.jarvis.assistant.auth.AuthManager.isSignedIn) {
-                open(com.jarvis.assistant.ui.owner.OwnerPasswordActivity::class.java)
-            } else {
-                requireAccountForOwner.launch(Unit)
-            }
-        }
-    }
-
-    private fun setupAboutSection() {
-        binding.rowPrivacyPolicy.setOnClickListener { open(PrivacyShieldActivity::class.java) }
-
-        binding.rowAppIdentity.setOnClickListener {
-            PremiumDialog.info(
-                requireContext(), "SECURITY", "JARVIS App Identity",
-                AppIdentityVerifier.report(requireContext())
-            )
-        }
-
-        binding.btnSocialTelegram.setOnClickListener { openUrl("https://t.me/sukantcodesbycreator") }
-        binding.btnSocialInstagram.setOnClickListener {
-            openUrl("https://www.instagram.com/___itz__sukanta__?vrfl=bzg3djZ5MDh3NmY2")
-        }
-        binding.btnSocialYoutube.setOnClickListener { openUrl("https://www.youtube.com/@Sukant_Codes") }
-        binding.tvFooterCredit.setOnClickListener { openUrl("https://t.me/sukantcodesbycreator") }
-
-        binding.tvFooterCredit.text = getString(
-            R.string.set_footer_credit,
-            BuildConfig.VERSION_NAME,
-            BuildConfig.DEVELOPER_NAME
-        )
-    }
-
-    // ------------------------------------------------------------------------------------------
-    // Showing current values on the rows
-    // ------------------------------------------------------------------------------------------
-
-    /** Refreshes every value, subtitle and switch from stored settings. Safe to call repeatedly. */
-    private fun refreshState() {
-        loadUserData()
-        refreshSwitchStates()
-        updateAiEngineSubtitle()
-        updateVoiceGenderSubtitle()
-        updateNoiseCancelSubtitle()
-        updateAutoSleepSubtitle()
-        updateNotificationAccessSubtitle()
-        updateRefreshRateSubtitle()
-    }
-
-    private fun loadUserData() {
-        val ctx = requireContext()
-        val green = ContextCompat.getColor(ctx, R.color.status_green)
-        val sapphire = ContextCompat.getColor(ctx, R.color.accent_sapphire)
-
-        binding.tvProfileName.text = preferences.profileNameOverride.ifBlank {
-            preferences.accountDisplayName.ifBlank { preferences.userName.ifBlank { "Sukant" } }
-        }
-        showProfilePhoto()
-        binding.tvProfileSubtitle.text = "JARVIS OPERATOR • PRIMARY USER"
-
-        // Owner voice profile status (profile card chip and the Owner Voice Profile row)
-        if (preferences.hasOwnerVoiceProfile()) {
-            binding.tvOwnerVoiceBadge.text = "ACTIVE"
-            binding.tvOwnerVoiceBadge.setTextColor(green)
-            binding.tvOwnerVoiceBadge.setBackgroundResource(R.drawable.bg_jarvis_status_badge_green)
-            binding.tvOwnerVoiceSubtitle.text = "Voice Profile Active • Only you can speak"
-
-            binding.tvProfileVoiceStatus.text = "VOICE ENROLLED"
-            binding.tvProfileVoiceStatus.setTextColor(green)
-            binding.chipProfileVoiceStatus.setBackgroundResource(R.drawable.bg_jarvis_status_badge_green)
-            binding.ivProfileVoiceBadgeIcon.setImageResource(R.drawable.ic_verified_badge)
-            binding.ivProfileVoiceBadgeIcon.imageTintList = ColorStateList.valueOf(green)
-        } else {
-            binding.tvOwnerVoiceBadge.text = "SETUP"
-            binding.tvOwnerVoiceBadge.setTextColor(sapphire)
-            binding.tvOwnerVoiceBadge.setBackgroundResource(R.drawable.bg_jarvis_status_badge)
-            binding.tvOwnerVoiceSubtitle.text = "Not enrolled • Tap to record voice profile"
-
-            binding.tvProfileVoiceStatus.text = "ENROLL VOICE"
-            binding.tvProfileVoiceStatus.setTextColor(sapphire)
-            binding.chipProfileVoiceStatus.setBackgroundResource(R.drawable.bg_jarvis_status_badge)
-            binding.ivProfileVoiceBadgeIcon.setImageResource(R.drawable.ic_settings_owner_voice)
-            binding.ivProfileVoiceBadgeIcon.imageTintList = ColorStateList.valueOf(sapphire)
-        }
-
-        // AI & Intelligence rows
-        binding.tvCurrentLanguage.text = preferences.language
-
-        val persona = preferences.personality
-        binding.tvCurrentPersona.text = "$persona • Voice: ${preferences.voice}"
-        binding.tvProfilePersonaChip.text = persona.uppercase()
-
-        binding.tvCurrentModel.text = preferences.aiModel.removePrefix("models/") + " • Live WebSocket"
-
-        // Appearance row
-        binding.tvCurrentTheme.text = when (preferences.appTheme) {
-            "dark" -> "Dark Theme"
-            "red" -> "Red Theme"
-            "sunset" -> "Sunset Theme"
-            "crystal" -> "Crystal Mirror Theme"
-            "custom" -> "Custom (${preferences.customThemeColor})"
-            else -> "Light Theme"
-        }
-        binding.tvCurrentCrystalBackground.text = com.jarvis.assistant.ui.glass.CrystalBackdrop.summary()
-    }
-
-    private fun refreshSwitchStates() {
-        val ctx = requireContext()
-        val messageSettings = MessageAlertSettings(ctx)
-        val alertSettings = AlertSettings(ctx)
-        syncingUi = true
-        try {
-            binding.switchSilentMode.isChecked = preferences.isSilentExecutionMode
-            binding.switchOwnerOnly.isChecked = VoiceModeStore(ctx).ownerOnly
-            binding.switchMessageAnnounce.isChecked = messageSettings.enabled
-            binding.switchMessageJarvisVoice.isChecked = messageSettings.useJarvisVoice
-            binding.switchChargingAlerts.isChecked = alertSettings.chargingAlerts
-            binding.switchAutoBatterySaver.isChecked = alertSettings.autoBatterySaver
-            binding.switchActivityMemory.isChecked = ActivityLogSettings(ctx).enabled
-        } finally {
-            syncingUi = false
-        }
-    }
-
-    private fun updateAiEngineSubtitle() {
-        val store = AiEngineStore(requireContext())
-        binding.tvAiEngineSubtitle.text = if (store.useGroq) {
-            "Active: Groq (" + store.groqChatModel + ")"
-        } else {
-            "Active: Gemini Live"
-        }
-    }
-
-    private fun updateVoiceGenderSubtitle() {
-        binding.tvVoiceGenderSubtitle.text = VoiceGenderStore(requireContext()).summary()
-    }
-
-    private fun updateNoiseCancelSubtitle() {
-        val level = NoiseCancelSettings(requireContext()).level
-        binding.tvNoiseCancelSubtitle.text = "Currently: " + level.label
-    }
-
-    private fun updateAutoSleepSubtitle() {
-        val settings = AutoSleepSettings(requireContext())
-        binding.tvAutoSleepSubtitle.text = if (settings.timeoutSeconds == 0) {
-            "Never goes back to standby by itself"
-        } else {
-            "After " + AutoSleepSettings.labelFor(settings.timeoutSeconds) +
-                (if (settings.countFromWake) " from waking up" else " without conversation")
-        }
-    }
-
-    private fun updateNotificationAccessSubtitle() {
-        val granted = isNotificationAccessGranted()
-        val status = com.jarvis.assistant.notifications.MessageAlertSettings(requireContext()).lastStatus
-        val base = if (granted) {
-            "Allowed. Tap to change."
-        } else {
-            "Not allowed yet. Tap to let Jarvis see new message notifications."
-        }
-        binding.tvNotificationAccessSubtitle.text = if (granted && status.isNotBlank()) base + " Last: " + status else base
-    }
-
-    // ------------------------------------------------------------------------------------------
-    // Small helpers
-    // ------------------------------------------------------------------------------------------
-
-    /** Makes the whole row toggle its switch, and reports only changes made by the user. */
-    private fun bindSwitchRow(row: View, toggle: CompoundButton, onChanged: (Boolean) -> Unit) {
-        toggle.setOnCheckedChangeListener { _, isChecked ->
-            if (!syncingUi) onChanged(isChecked)
-        }
-        row.setOnClickListener { toggle.toggle() }
-    }
-
-    private fun open(target: Class<*>) {
-        startActivity(Intent(requireContext(), target))
-    }
-
-    private fun toast(message: String, long: Boolean = false) {
-        Toast.makeText(
-            requireContext(),
-            message,
-            if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT
-        ).show()
-    }
-
-    private fun openUrl(url: String) {
-        try {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-        } catch (_: Exception) {
-            toast("Unable to open link")
-        }
-    }
-
-    // ------------------------------------------------------------------------------------------
-    // Dialogs and system screens
-    // ------------------------------------------------------------------------------------------
-
-    private fun showEditNameDialog() {
-        val current = preferences.profileNameOverride.ifBlank {
-            preferences.accountDisplayName.ifBlank { preferences.userName.ifBlank { "Sukant" } }
-        }
-        PremiumDialog.input(
-            requireContext(), "OPERATOR PROFILE", "Operator Name",
-            "Enter the name Jarvis should use to address you.", current, "Your name"
-        ) { newName ->
-            preferences.userName = newName
-            preferences.profileNameOverride = newName
-            loadUserData()
-        }
-    }
-
-    private fun showLanguageDialog() {
-        val languages = GeminiConstants.SUPPORTED_LANGUAGES.toTypedArray()
-        val currentIndex = languages.indexOfFirst { it.equals(preferences.language, ignoreCase = true) }
-            .let { if (it >= 0) it else 0 }
-
-        PremiumDialog.choice(
-            requireContext(), "VOICE & LANGUAGE", "Conversation Language",
-            "Jarvis listens and replies in the language you pick.",
-            languages.toList(), currentIndex, instant = true
-        ) { which ->
-            val chosen = languages[which]
-            preferences.language = chosen
-            binding.tvCurrentLanguage.text = chosen
-        }
-    }
-
-    private fun showAiEngineDialog() {
-        val ctx = requireContext()
-        val store = AiEngineStore(ctx)
-        val d = PremiumDialog.create(ctx).eyebrow("AI CORE").title("AI Engine")
-            .message("Choose the brain behind Jarvis's voice.")
-        val engines = PremiumOptionList(
-            ctx, d.palette,
-            listOf("Gemini Live (voice to voice)", "Groq (Whisper + Llama, phone voice)"),
-            if (store.useGroq) 1 else 0
-        ) { }
-        val keyInput = PremiumDialog.styledField(
-            ctx, d.palette.accent1,
-            if (store.hasGroqKey()) "Groq key saved. Leave empty to keep it" else "Groq API key (starts with gsk_)",
-            "", password = true
-        )
-        val modelInput = PremiumDialog.styledField(ctx, d.palette.accent1, "Groq chat model", store.groqChatModel, password = false)
-
-        d.add(engines.view)
-            .add(PremiumDialog.fieldLabel(ctx, "Groq API key", d.palette.accent1))
-            .add(keyInput)
-            .add(PremiumDialog.fieldLabel(ctx, "Groq chat model", d.palette.accent1))
-            .add(modelInput)
-            .negative("Cancel")
-            .positive("Save") {
-                val newKey = keyInput.text.toString().trim()
-                if (newKey.isNotEmpty() && !store.setGroqKey(newKey)) {
-                    Toast.makeText(ctx, "Could not store the Groq key securely on this phone", Toast.LENGTH_LONG).show()
-                }
-                val model = modelInput.text.toString().trim()
-                if (model.isNotEmpty()) store.groqChatModel = model
-
-                val wantGroq = engines.selectedIndex == 1
-                if (wantGroq && !store.hasGroqKey()) {
-                    store.useGroq = false
-                    Toast.makeText(ctx, "Enter your Groq API key first. Staying on Gemini.", Toast.LENGTH_LONG).show()
-                } else {
-                    store.useGroq = wantGroq
-                    Toast.makeText(ctx, "Saved. It takes effect the next time Jarvis starts listening.", Toast.LENGTH_LONG).show()
-                }
-                updateAiEngineSubtitle()
-                true
-            }
-            .show()
-    }
-
-    private fun showVoiceGenderDialog() {
-        val ctx = requireContext()
-        val store = VoiceGenderStore(ctx)
-
-        var currentGender = store.gender
-        var maleChoice = store.maleVoice
-        var femaleChoice = store.femaleVoice
-
-        val d = PremiumDialog.create(ctx).eyebrow("VOICE").title("Voice & Gender")
-        val genders = VoiceGender.values()
-        val genderLabels = genders.map {
-            if (it == VoiceGender.UNSPECIFIED) it.label + " (default)" else it.label
-        }
-        val voiceHolder = android.widget.FrameLayout(ctx)
-        val note = TextView(ctx).apply {
-            text = "Jarvis keeps using the voice you already chose in Settings."
-            textSize = 12.5f
-            gravity = android.view.Gravity.CENTER
-            setTextColor(Color.rgb(176, 189, 216))
-        }
-
-        fun refreshVoiceList() {
-            voiceHolder.removeAllViews()
-            val voices = VoiceCatalog.voicesFor(currentGender)
-            if (voices.isEmpty()) {
-                voiceHolder.addView(note)
-                return
-            }
-            val chosen = if (currentGender == VoiceGender.MALE) maleChoice else femaleChoice
-            val list = PremiumOptionList(
-                ctx, d.palette,
-                voices.map { it.name + " - " + it.style },
-                voices.indexOfFirst { it.name == chosen }.coerceAtLeast(0)
-            ) { index ->
-                val picked = voices.getOrNull(index)?.name
-                if (picked != null) {
-                    if (currentGender == VoiceGender.MALE) maleChoice = picked else femaleChoice = picked
-                }
-            }
-            voiceHolder.addView(list.view)
-        }
-
-        val genderList = PremiumOptionList(
-            ctx, d.palette, genderLabels, genders.indexOf(currentGender).coerceAtLeast(0)
-        ) { index ->
-            currentGender = genders[index]
-            refreshVoiceList()
-        }
-        refreshVoiceList()
-
-        d.add(genderList.view)
-            .add(PremiumDialog.spacer(ctx, 14f))
-            .add(voiceHolder)
-            .negative("Cancel")
-            .positive("Save") {
-                store.gender = currentGender
-                store.maleVoice = maleChoice
-                store.femaleVoice = femaleChoice
-                updateVoiceGenderSubtitle()
-                Toast.makeText(ctx, "Saved. It takes effect the next time Jarvis starts listening.", Toast.LENGTH_LONG).show()
-                true
-            }
-            .show()
-    }
-
-    private fun showNoiseCancelDialog() {
-        val ctx = requireContext()
-        val settings = NoiseCancelSettings(ctx)
-        val levels = NoiseLevel.values()
-        val selected = levels.indexOf(settings.level).coerceAtLeast(0)
-        PremiumDialog.choice(
-            ctx, "AUDIO", "Noise Cancellation", null,
-            levels.map { it.label }, selected, instant = false
-        ) { index ->
-            settings.level = levels[index]
-            updateNoiseCancelSubtitle()
-            Toast.makeText(ctx, "Saved. It takes effect the next time Jarvis wakes up.", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    private fun showAutoSleepDialog() {
-        val ctx = requireContext()
-        val settings = AutoSleepSettings(ctx)
-        val choices = AutoSleepSettings.CHOICES_SECONDS
-        var selected = choices.indexOf(settings.timeoutSeconds).let { if (it < 0) 1 else it }
-        var fromWake = settings.countFromWake
-
-        val d = PremiumDialog.create(ctx).eyebrow("POWER").title("Auto-Sleep")
-            .message("How long Jarvis stays awake while it hears nothing.")
-        val list = PremiumOptionList(
-            ctx, d.palette,
-            choices.map { AutoSleepSettings.labelFor(it) + (if (it == 60) " (default)" else "") },
-            selected
-        ) { index -> selected = index }
-        val box = PremiumDialog.checkRow(
-            ctx, d.palette, "Count from waking up, even if I am still talking", fromWake
-        ) { fromWake = it }
-
-        d.add(list.view)
-            .add(PremiumDialog.spacer(ctx, 12f))
-            .add(box)
-            .negative("Cancel")
-            .positive("Save") {
-                settings.timeoutSeconds = choices[selected]
-                settings.countFromWake = fromWake
-                updateAutoSleepSubtitle()
-                Toast.makeText(ctx, "Saved. Jarvis sleeps after that time, and wakes when you say Jarvis.", Toast.LENGTH_LONG).show()
-                true
-            }
-            .show()
-    }
-
-    private fun requestDefaultAssistant() {
-        try {
-            // RoleManager only exists on Android 10+. Older phones use the voice input settings page.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val roleManager = requireContext().getSystemService(RoleManager::class.java)
-                if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_ASSISTANT)) {
-                    if (roleManager.isRoleHeld(RoleManager.ROLE_ASSISTANT)) {
-                        toast("Jarvis is already your default assistant", long = true)
-                    } else {
-                        startActivity(roleManager.createRequestRoleIntent(RoleManager.ROLE_ASSISTANT))
-                    }
-                    return
-                }
-            }
-            startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
-        } catch (e: Exception) {
-            toast("Open Android Settings > Apps > Default apps > Digital assistant app and choose Jarvis.", long = true)
-        }
-    }
-
-    private fun isNotificationAccessGranted(): Boolean =
-        NotificationManagerCompat.getEnabledListenerPackages(requireContext())
-            .contains(requireContext().packageName)
-
-    private fun openNotificationAccessSettings() {
-        try {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        } catch (e: Exception) {
-            toast("Open Android Settings > Notifications > Notification access and allow Jarvis.", long = true)
-        }
-    }
 }
