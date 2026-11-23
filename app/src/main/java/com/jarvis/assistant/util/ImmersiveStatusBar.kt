@@ -6,6 +6,10 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Window
 import android.view.WindowManager
+import android.view.View
+import android.view.ViewGroup
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.DialogFragment
@@ -36,13 +40,42 @@ object ImmersiveStatusBar {
                     }, true
                 )
             }
-            override fun onActivityStarted(activity: Activity) { apply(activity.window) }
-            override fun onActivityResumed(activity: Activity) { apply(activity.window) }
+            override fun onActivityStarted(activity: Activity) { apply(activity.window); edgeToEdge(activity) }
+            override fun onActivityResumed(activity: Activity) { apply(activity.window); edgeToEdge(activity) }
             override fun onActivityPaused(activity: Activity) {}
             override fun onActivityStopped(activity: Activity) {}
             override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
             override fun onActivityDestroyed(activity: Activity) {}
         })
+    }
+
+    /**
+     * Draws the app behind the (hidden) status bar and the camera cut-out, then pads the content so nothing is covered:
+     * sides and bottom follow the cut-out, navigation bar and keyboard; the top follows the cut-out unless the screen
+     * draws its own [JarvisStatusStrip] there. Works the same on phones, foldables and tablets.
+     */
+    private fun edgeToEdge(activity: Activity) {
+        try {
+            val window = activity.window
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            val content = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: return
+            if (content.getTag(TAG_KEY) == "e2e") return
+            content.setTag(TAG_KEY, "e2e")
+            val hostsStrip = activity is JarvisStatusStripHost
+            ViewCompat.setOnApplyWindowInsetsListener(content) { v, insets ->
+                val cut = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+                val bars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+                val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+                v.setPadding(
+                    maxOf(cut.left, bars.left),
+                    if (hostsStrip) 0 else cut.top,
+                    maxOf(cut.right, bars.right),
+                    maxOf(bars.bottom, cut.bottom, ime.bottom)
+                )
+                insets
+            }
+            ViewCompat.requestApplyInsets(content)
+        } catch (_: Throwable) { }
     }
 
     fun apply(window: Window) {
