@@ -38,6 +38,13 @@ android {
         versionCode = configuredVersionCode
         versionName = configuredVersionName
 
+        // Phones only. Vosk, JNA and ML Kit each ship native code for four CPU types; x86 / x86_64 (emulators, Chromebooks)
+        // are dropped, which roughly halves that native weight. One APK still covers 64-bit and 32-bit ARM phones, so the
+        // single-file release and in-app update pipeline is unchanged.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "DEVELOPER_NAME", buildConfigString(developerName.ifBlank { "Unverified developer" }))
         buildConfigField("String", "COPYRIGHT_OWNER", buildConfigString(copyrightOwner.ifBlank { "Unconfigured" }))
@@ -150,6 +157,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // Runs Android text classes (Spannable) on the JVM, so the streaming renderer can be checked against the full one.
     testImplementation("org.robolectric:robolectric:4.12.2")
+    // Local fake server for the model downloader tests (resume, bad hash, errors).
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     // Real org.json for JVM unit tests (the Android stub throws); used by the task ledger codec tests.
     testImplementation("org.json:json:20231013")
 }

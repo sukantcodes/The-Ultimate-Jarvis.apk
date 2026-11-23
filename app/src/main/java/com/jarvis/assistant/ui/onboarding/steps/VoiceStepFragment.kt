@@ -4,6 +4,11 @@ import android.content.Intent
 import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.jarvis.assistant.audio.VoskModelManager
+import kotlinx.coroutines.launch
 import com.jarvis.assistant.audio.JarvisWakeWordGrammar
 import com.jarvis.assistant.onboarding.LiveStatus
 import com.jarvis.assistant.onboarding.OnboardingStep
@@ -109,7 +114,8 @@ class VoiceStepFragment : StepFragment() {
         offline.addView(
             text(
                 ctx,
-                "Speech recognition and wake detection run on this phone with the bundled speech model. " +
+                "Speech recognition and wake detection run on this phone with an on-device speech model. " +
+                    "It is downloaded once (about 55 MB) the first time JARVIS starts, and works offline after that. " +
                     "JARVIS's answers still use the internet and your Google AI Studio (Gemini) key or your custom model.",
                 13.5f, Palette.TEXT_DIM
             ),
@@ -143,10 +149,18 @@ class VoiceStepFragment : StepFragment() {
         settings.addView(secondaryButton(ctx, "Persona and voice") { open(PersonaActivity::class.java) }, lp(topDp = 12, context = ctx))
         scaffold.addBody(settings, 14)
 
-        standardFooter(primaryButton(ctx, "Continue") { advance(vm.live.value.let { it.isGranted(PermissionKey.MICROPHONE) && it.speechModelReady }) }, "Skip for now")
+        standardFooter(primaryButton(ctx, "Continue") { advance(vm.live.value.let { it.isGranted(PermissionKey.MICROPHONE) && (it.speechModelReady || VoskModelManager.isModelReady.value) }) }, "Skip for now")
 
         selectMode(mode)
         onLive { render(it) }
+        // The model downloads in the background on first launch; keep the pill moving with its progress.
+        val owner = viewLifecycleOwner
+        owner.lifecycleScope.launch {
+            owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch { VoskModelManager.downloadStatus.collect { render(vm.live.value) } }
+                launch { VoskModelManager.isModelReady.collect { render(vm.live.value) } }
+            }
+        }
     }
 
     private fun selectMode(index: Int) {
@@ -162,8 +176,18 @@ class VoiceStepFragment : StepFragment() {
     private fun render(live: LiveStatus) {
         if (live.isGranted(PermissionKey.MICROPHONE)) restyle(micPill, "MICROPHONE ALLOWED", Palette.MINT)
         else restyle(micPill, "MICROPHONE NOT ALLOWED", Palette.AMBER)
-        if (live.speechModelReady) restyle(speechPill, "ON-DEVICE SPEECH MODEL READY", Palette.MINT)
-        else restyle(speechPill, "SPEECH MODEL NOT READY YET", Palette.AMBER)
+        val download = VoskModelManager.downloadStatus.value
+        if (live.speechModelReady || VoskModelManager.isModelReady.value) restyle(speechPill, "ON-DEVICE SPEECH MODEL READY", Palette.MINT)
+        else restyle(
+            speechPill,
+            when {
+                download == null -> "SPEECH MODEL NOT READY YET"
+                download.startsWith("Voice model not downloaded") -> "CONNECT TO INTERNET TO DOWNLOAD MODEL"
+                download.startsWith("Voice model setup failed") -> "MODEL DOWNLOAD FAILED, WILL RETRY"
+                else -> download.uppercase()
+            },
+            Palette.AMBER
+        )
         if (live.ownerVoiceEnrolled) restyle(enrollPill, "YOUR VOICE IS ENROLLED", Palette.MINT)
         else restyle(enrollPill, "VOICE NOT ENROLLED (OPTIONAL)", Palette.TEXT_DIM)
     }

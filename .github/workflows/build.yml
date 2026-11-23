@@ -100,4 +100,77 @@ jobs:
         name: Jarvis-App-Debug-Termux
         path: app/build/outputs/apk/debug/*.apk
 
+  minified-test-apk:
+    # Builds the real R8-minified release variant with a THROWAWAY signing key, so the size and the minified behaviour can be
+    # checked on every push without touching the real release keystore. Never publish this APK: it is signed with a
+    # different key than your real releases, so it can't update an installed JARVIS (uninstall first to try it).
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout source branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref }}
+    - name: Prepare the plain HTML orb asset (same as the main build)
+      shell: bash
+      run: |
+        set -euo pipefail
+        source="app/src/main/assets/eleptical_orb.html.gz"
+        target="app/src/main/assets/eleptical_orb.html"
+        if [ -f "$source" ] && [ ! -f "$target" ]; then gzip -dc "$source" > "$target"; fi
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v4
+      with:
+        packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+    - name: Create a throwaway signing key
+      shell: bash
+      run: |
+        set -euo pipefail
+        KS="$RUNNER_TEMP/size-test.jks"
+        keytool -genkeypair -keystore "$KS" -alias sizetest -storepass sizetest123 -keypass sizetest123 \
+          -keyalg RSA -keysize 2048 -validity 30 -dname "CN=JARVIS minified test"
+        CERT="$(keytool -exportcert -alias sizetest -keystore "$KS" -storepass sizetest123 | sha256sum | awk '{print toupper($1)}')"
+        {
+          echo "JARVIS_RELEASE_STORE_FILE=$KS"
+          echo "JARVIS_RELEASE_STORE_PASSWORD=sizetest123"
+          echo "JARVIS_RELEASE_KEY_ALIAS=sizetest"
+          echo "JARVIS_RELEASE_KEY_PASSWORD=sizetest123"
+          echo "JARVIS_RELEASE_CERT_SHA256=$CERT"
+        } >> "$GITHUB_ENV"
+    - name: Build minified release APK
+      env:
+        SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      run: ./gradlew assembleRelease --stacktrace
+    - name: Report APK size and contents
+      shell: bash
+      run: |
+        set -euo pipefail
+        APK=app/build/outputs/apk/release/app-release.apk
+        SIZE=$(stat -c%s "$APK")
+        {
+          echo "### Minified release APK (test-signed)"
+          echo "Total: **$(( SIZE / 1048576 )) MB** ($SIZE bytes)"
+          echo
+          echo "Largest entries inside the APK (compressed size):"
+          echo '```'
+          unzip -v "$APK" | awk 'NR>3 && NF>=8 {print $3, $8}' | sort -rn | head -12 | awk '{printf "%6.1f MB  %s\n", $1/1048576, $2}'
+          echo '```'
+          echo "Native libraries per CPU type:"
+          echo '```'
+          unzip -l "$APK" | awk '/lib\// {split($4,a,"/"); n[a[2]]+=$1} END {for (k in n) printf "%-12s %6.1f MB\n", k, n[k]/1048576}'
+          echo '```'
+        } | tee -a "$GITHUB_STEP_SUMMARY"
+    - name: Upload minified test APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: Jarvis-App-Minified-TEST-SIGNED-do-not-publish
+        path: app/build/outputs/apk/release/app-release.apk
+
 # Rebuild trigger: restored Termux branch

@@ -3,6 +3,9 @@ name: Host Vosk models
 # Publishes the offline speech models as a GitHub Release so the app can download them on first launch
 # instead of carrying ~82 MB of them inside every APK. Idempotent: if the release already exists it only prints it.
 # Runs once when this file is pushed to Antigravity, or on demand.
+# The models were removed from the APK after the release was created. If the release is ever deleted, run this workflow
+# from a commit that still contains app/src/main/assets/model-en-us and model-spk (6b7c13d does), then update the hashes in
+# VoskModelManager from the new release notes.
 on:
   push:
     branches: [Antigravity]

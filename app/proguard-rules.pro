@@ -37,3 +37,12 @@
     public static int v(...);
     public static int i(...);
 }
+
+# Classes that Gson saves to / reads from disk by reflection. The field names ARE the file format, so R8 must not rename
+# them: otherwise data written by one release can fail to load in the next (names change between builds).
+-keep class com.jarvis.assistant.provider.JournalStep { *; }
+-keep class com.jarvis.assistant.provider.WorkJournal { *; }
+-keep class com.jarvis.assistant.automation.maps.SavedPlace { *; }
+-keep class com.jarvis.assistant.tools.tasks.TaskStep { *; }
+-keep class com.jarvis.assistant.tools.tasks.TaskRecord { *; }
+-keepclassmembers enum com.jarvis.assistant.tools.tasks.** { *; }
