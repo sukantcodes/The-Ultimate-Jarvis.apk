@@ -81,6 +81,10 @@ class UpdatesFragment : Fragment() {
 
         val list = binding.updatesList
         list.removeAllViews()
+
+        // Keep the official app-update action at the very top so it is immediately visible.
+        list.addView(createManualUpdateCard())
+
         var currentCategory: String? = null
         updates.forEachIndexed { index, item ->
             if (item.category != currentCategory) {
@@ -89,7 +93,6 @@ class UpdatesFragment : Fragment() {
             }
             list.addView(createUpdateCard(item, index + 1))
         }
-        list.addView(createManualUpdateCard())
     }
 
     /**
