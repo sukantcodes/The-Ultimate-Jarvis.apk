@@ -78,7 +78,7 @@ import kotlin.math.abs
  * Jarvis's own sessions; Jarvis can still list, read, run commands in, clear and close every tab, and the person can
  * open and watch Jarvis's sessions here too.
  */
-class JarvisTerminalActivity : AppCompatActivity() {
+class JarvisTerminalActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisHandlesInsets {
 
     private class Scheme(
         val name: String, val bg: Int, val fg: Int, val prompt: Int, val dim: Int, val error: Int, val ok: Int,
@@ -116,6 +116,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
     private lateinit var input: EditText
     private val handlesImeItself = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
     private lateinit var extraKeys: LinearLayout
+    private lateinit var keyScroll: android.widget.HorizontalScrollView
     private lateinit var menuButton: TextView
     private lateinit var scrim: View
     private lateinit var panel: LinearLayout
@@ -921,7 +922,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
         promptLabel.setTextColor(scheme.prompt)
         input.setTextColor(scheme.fg)
         input.setHintTextColor(scheme.dim)
-        extraKeys.setBackgroundColor(ColorUtils.blendARGB(scheme.bg, scheme.fg, 0.04f))
+        keyScroll.setBackgroundColor(ColorUtils.blendARGB(scheme.bg, scheme.fg, 0.04f))
         for (k in keyViews) styleKey(k, (k === ctrlKey && ctrlOn) || (k === altKey && altOn))
         menuButton.setTextColor(scheme.fg)
         menuButton.background = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(scheme.key); alpha = 200 }
@@ -1024,37 +1025,37 @@ class JarvisTerminalActivity : AppCompatActivity() {
         scroll = TermScroll(this).apply { isFillViewport = true; isVerticalScrollBarEnabled = false; addView(page) }
         main.addView(scroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
 
-        // Extra keys: exactly Termux's default two rows.
-        extraKeys = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val row1 = keyRow()
-        val row2 = keyRow()
-        row1.addView(key("ESC") { setInput(""); setCtrl(false); setAlt(false) })
-        row1.addView(key("/") { insertText("/") })
-        row1.addView(key("―") { insertText("-") })
-        row1.addView(key("HOME") { input.setSelection(0) })
-        row1.addView(key("↑", repeat = true) { recall(-1) })
-        row1.addView(key("END") { input.setSelection(input.text?.length ?: 0) })
-        row1.addView(key("PGUP", repeat = true) { pageScroll(-1) })
-        row2.addView(key("TAB") { complete() })
+        // Extra keys: ONE slim row that scrolls sideways, so the keyboard never leaves the terminal squeezed.
+        extraKeys = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val row = extraKeys
+        row.addView(key("ESC") { setInput(""); setCtrl(false); setAlt(false) })
+        row.addView(key("TAB") { complete() })
         ctrlKey = key("CTRL") { setCtrl(!ctrlOn) }
         altKey = key("ALT") { setAlt(!altOn) }
-        row2.addView(ctrlKey)
-        row2.addView(altKey)
-        row2.addView(key("←", repeat = true) { moveCursor(-1) })
-        row2.addView(key("↓", repeat = true) { recall(1) })
-        row2.addView(key("→", repeat = true) { moveCursor(1) })
-        row2.addView(key("PGDN", repeat = true) { pageScroll(1) })
-        // A third row for what a phone needs most: copy, paste, clear and the full menu.
-        val row3 = keyRow()
-        row3.addView(key("COPY") { copySelectionOrAll() })
-        row3.addView(key("PASTE") { paste() })
-        row3.addView(key("CLEAR") { current?.let { manager?.clear(it.id); refreshOutput(true) } })
-        row3.addView(key("STOP") { interruptOrToast() })
-        row3.addView(key("MENU") { showContextMenu() })
-        extraKeys.addView(row1)
-        extraKeys.addView(row2)
-        extraKeys.addView(row3)
-        main.addView(extraKeys, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        row.addView(ctrlKey)
+        row.addView(altKey)
+        row.addView(key("↑", repeat = true) { recall(-1) })
+        row.addView(key("↓", repeat = true) { recall(1) })
+        row.addView(key("←", repeat = true) { moveCursor(-1) })
+        row.addView(key("→", repeat = true) { moveCursor(1) })
+        row.addView(key("/") { insertText("/") })
+        row.addView(key("―") { insertText("-") })
+        row.addView(key("HOME") { input.setSelection(0) })
+        row.addView(key("END") { input.setSelection(input.text?.length ?: 0) })
+        row.addView(key("PGUP", repeat = true) { pageScroll(-1) })
+        row.addView(key("PGDN", repeat = true) { pageScroll(1) })
+        row.addView(key("COPY") { copySelectionOrAll() })
+        row.addView(key("PASTE") { paste() })
+        row.addView(key("CLEAR") { current?.let { manager?.clear(it.id); refreshOutput(true) } })
+        row.addView(key("STOP") { interruptOrToast() })
+        row.addView(key("MENU") { showContextMenu() })
+        keyScroll = android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            isFillViewport = true
+            addView(extraKeys, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        }
+        main.addView(keyScroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(38)))
         root.addView(main, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
         // Small sessions button, top right (the left-edge swipe may clash with Android's back gesture).
@@ -1132,7 +1133,9 @@ class JarvisTerminalActivity : AppCompatActivity() {
             typeface = Typeface.DEFAULT_BOLD
             setTextSize(TypedValue.COMPLEX_UNIT_SP, if (label.length > 3) 11f else 14f)
             isClickable = true
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+            minimumWidth = dp(52)
+            setPadding(dp(8), 0, dp(8), 0)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.MATCH_PARENT)
         }
         val repeater = object : Runnable {
             override fun run() { action(); ui.postDelayed(this, 70) }

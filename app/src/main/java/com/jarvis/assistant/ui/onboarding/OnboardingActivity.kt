@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
  * every stage is a [StepFragment]. The shown stage always follows [OnboardingViewModel.progress], which is
  * persisted, so the tutorial resumes after rotation, process death and trips to Android Settings.
  */
-class OnboardingActivity : AppCompatActivity() {
+class OnboardingActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisHandlesInsets {
 
     private lateinit var vm: OnboardingViewModel
     private lateinit var rail: StepRailView

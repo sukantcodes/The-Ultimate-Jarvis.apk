@@ -65,17 +65,25 @@ object ImmersiveStatusBar {
             }
             if (content.getTag(TAG_KEY) == "e2e") return
             content.setTag(TAG_KEY, "e2e")
-            val hostsStrip = activity is JarvisStatusStripHost
+            // Padding goes on the screen's own root view, not on the window content: the root's background then also
+            // paints the strips behind the camera, bars and keyboard, so no window colour can leak through at the edges.
             ViewCompat.setOnApplyWindowInsetsListener(content) { v, insets ->
-                val cut = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
-                val bars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-                val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
-                v.setPadding(
-                    maxOf(cut.left, bars.left),
-                    if (hostsStrip) 0 else cut.top,
-                    maxOf(cut.right, bars.right),
-                    maxOf(bars.bottom, cut.bottom, ime.bottom)
-                )
+                val child = (v as ViewGroup).getChildAt(0)
+                if (child != null) {
+                    val cut = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+                    val bars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+                    val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+                    @Suppress("UNCHECKED_CAST")
+                    val orig = (child.getTag(com.jarvis.assistant.R.id.jarvis_orig_padding) as? IntArray)
+                        ?: intArrayOf(child.paddingLeft, child.paddingTop, child.paddingRight, child.paddingBottom)
+                            .also { child.setTag(com.jarvis.assistant.R.id.jarvis_orig_padding, it) }
+                    child.setPadding(
+                        orig[0] + maxOf(cut.left, bars.left),
+                        orig[1] + cut.top,
+                        orig[2] + maxOf(cut.right, bars.right),
+                        orig[3] + maxOf(bars.bottom, cut.bottom, ime.bottom)
+                    )
+                }
                 insets
             }
             ViewCompat.requestApplyInsets(content)

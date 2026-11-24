@@ -55,7 +55,7 @@ import java.util.Date
  * look follows the active app theme exactly (see [UdnTheme]). The screen only rebuilds when the content truly changes;
  * live status (link state, connection) updates in place, so nothing flashes.
  */
-class UdnActivity : AppCompatActivity() {
+class UdnActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisHandlesInsets {
 
     private lateinit var mgr: UdnManager
     private lateinit var settings: UdnSettings

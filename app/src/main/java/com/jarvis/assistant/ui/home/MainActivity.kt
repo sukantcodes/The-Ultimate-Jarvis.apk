@@ -37,7 +37,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatusStripHost {
+class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatusStripHost, com.jarvis.assistant.util.JarvisHandlesInsets {
 
     companion object {
         const val TAB_HOME = 0
@@ -204,6 +204,17 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        // Edge-to-edge: the root's own background paints behind the bars; only its content is kept clear of them.
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.drawerLayout) { _, insets ->
+            val bars = insets.getInsets(
+                androidx.core.view.WindowInsetsCompat.Type.systemBars() or androidx.core.view.WindowInsetsCompat.Type.displayCutout()
+            )
+            val ime = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())
+            // No top padding: Jarvis' status strip sits in that area and follows the camera cut-out itself.
+            binding.rootMainLayout.setPadding(bars.left, 0, bars.right, maxOf(bars.bottom, ime.bottom))
+            binding.navDrawer.setPadding(0, bars.top, 0, bars.bottom)
+            insets
+        }
 
         // Premium JARVIS entrance: a smooth fade, subtle lift, and scale settle on cold launch.
         // Keep it lightweight and avoid replaying it on configuration changes or theme recreation.
