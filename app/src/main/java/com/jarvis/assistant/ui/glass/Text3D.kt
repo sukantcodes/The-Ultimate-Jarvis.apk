@@ -38,7 +38,8 @@ internal object Text3D {
 
     private fun style(tv: TextView) {
         if (tv.getTag(LiquidTouch.SKIP_TAG_KEY) == true || tv.visibility != View.VISIBLE) return
-        if (tv.typeface == Typeface.MONOSPACE || tv.typeface?.let { it == Typeface.create("monospace", Typeface.NORMAL) } == true) return
+        if (ContrastGuard.onWhiteGlass(tv)) return
+        if (tv.typeface == com.jarvis.assistant.util.JarvisFonts.mono || tv.typeface == com.jarvis.assistant.util.JarvisFonts.monoBold || tv.typeface == Typeface.MONOSPACE || tv.typeface?.let { it == Typeface.create("monospace", Typeface.NORMAL) } == true) return
         // readable first: fix a low-contrast colour, then style for the colour the text really has
         if (tv !is EditText) ContrastGuard.checkText(tv, 4.5)
         val color = tv.currentTextColor

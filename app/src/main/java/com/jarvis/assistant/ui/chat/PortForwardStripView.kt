@@ -77,7 +77,7 @@ class PortForwardStripView @JvmOverloads constructor(context: Context, attrs: At
         val col = LinearLayout(context).apply { orientation = VERTICAL; layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f); addView(title); addView(status) }
         head.addView(dot); head.addView(col)
         val url = TextView(context).apply {
-            textSize = 13f; typeface = Typeface.MONOSPACE; maxLines = 1; ellipsize = TextUtils.TruncateAt.MIDDLE
+            textSize = 13f; typeface = com.jarvis.assistant.util.JarvisFonts.mono; maxLines = 1; ellipsize = TextUtils.TruncateAt.MIDDLE
             setTextIsSelectable(false); setPadding(dp(20), dp(4), dp(8), 0)
         }
         val copy = button(context.getString(R.string.port_forward_copy))

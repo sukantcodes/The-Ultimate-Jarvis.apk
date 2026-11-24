@@ -106,7 +106,7 @@ object MarkdownRenderer {
                 beginBlock(false)
                 val s = out.length
                 out.append(raw)
-                out.setSpan(TypefaceSpan("monospace"), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                out.setSpan(com.jarvis.assistant.util.JarvisTypefaceSpan(com.jarvis.assistant.util.JarvisFonts.mono), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 out.setSpan(BackgroundColorSpan(CODE_BG), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 out.setSpan(RelativeSizeSpan(0.92f), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 i++; continue
@@ -277,7 +277,7 @@ object MarkdownRenderer {
                 if (!first) out.append('\n')
                 val s = out.length
                 out.append(cells.indices.joinToString("   ") { fit(cells[it], widths[it]) }.trimEnd())
-                out.setSpan(TypefaceSpan("monospace"), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                out.setSpan(com.jarvis.assistant.util.JarvisTypefaceSpan(com.jarvis.assistant.util.JarvisFonts.mono), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 out.setSpan(RelativeSizeSpan(0.86f), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 out.setSpan(BackgroundColorSpan(0x14808080), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 if (bold) {
@@ -288,7 +288,7 @@ object MarkdownRenderer {
             line(header, bold = true, first = true)
             val sepStart = out.length + 1
             out.append('\n').append(widths.joinToString("───") { "─".repeat(it) })
-            out.setSpan(TypefaceSpan("monospace"), sepStart, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            out.setSpan(com.jarvis.assistant.util.JarvisTypefaceSpan(com.jarvis.assistant.util.JarvisFonts.mono), sepStart, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
             out.setSpan(RelativeSizeSpan(0.86f), sepStart, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
             out.setSpan(ForegroundColorSpan(0x66808080), sepStart, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
             body.forEach { line(it, bold = false, first = false) }
@@ -358,7 +358,7 @@ object MarkdownRenderer {
                 }
                 tok.startsWith("`") -> {
                     out.append(tok.substring(1, tok.length - 1))
-                    out.setSpan(TypefaceSpan("monospace"), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    out.setSpan(com.jarvis.assistant.util.JarvisTypefaceSpan(com.jarvis.assistant.util.JarvisFonts.mono), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     out.setSpan(BackgroundColorSpan(CODE_BG), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     out.setSpan(RelativeSizeSpan(0.92f), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     if (accent2 != 0) out.setSpan(ForegroundColorSpan(accent2), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)

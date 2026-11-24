@@ -57,32 +57,37 @@ object DrawerDeck {
         R.id.drawerAccount to 260f
     )
 
-    /** Paints the drawer canvas, the item icons and the item text colours. Call once after the view exists. */
+    private val INK = 0xFF111827.toInt()
+    private val INK_MUTED = 0xFF5B6576.toInt()
+
+    /** The accent made dark enough to read on white glass. */
+    private fun ink(color: Int, value: Float = 0.62f): Int {
+        val hsv = FloatArray(3)
+        Color.colorToHSV(color, hsv)
+        hsv[1] = hsv[1].coerceIn(0.55f, 1f)
+        hsv[2] = hsv[2].coerceAtMost(value)
+        return Color.HSVToColor(hsv)
+    }
+
+    /**
+     * Paints the drawer as white glass. The lens glass itself (frozen, blurred screen picture, same glass as Settings, no zoom)
+     * is the pane behind the menu; this adds the white frost over it, the dark text and the icon badges.
+     */
     fun apply(nav: NavigationView) {
         val ctx = nav.context
         val accent = ThemeManager.getThemeAccentColor()
-        val accent2 = ThemeManager.getThemeSecondaryColor()
-        val base = themeColor(ctx, R.attr.themeBg, Color.BLACK)
         val r = dp(ctx, 28f)
         val radii = floatArrayOf(0f, 0f, r, r, r, r, 0f, 0f)
 
-        val glow = dp(ctx, 360f)
         nav.background = LayerDrawable(arrayOf(
-            GradientDrawable().apply { setColor(base); cornerRadii = radii },
-            GradientDrawable().apply {
-                gradientType = GradientDrawable.RADIAL_GRADIENT; gradientRadius = glow; setGradientCenter(0.1f, 0.02f)
-                colors = intArrayOf(alpha(accent, 0.30f), alpha(accent, 0f)); cornerRadii = radii
-            },
-            GradientDrawable().apply {
-                gradientType = GradientDrawable.RADIAL_GRADIENT; gradientRadius = glow; setGradientCenter(0.95f, 0.98f)
-                colors = intArrayOf(alpha(accent2, 0.22f), alpha(accent2, 0f)); cornerRadii = radii
-            }
+            GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xD0FFFFFF.toInt(), 0xB8FFFFFF.toInt())).apply { cornerRadii = radii },
+            GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(alpha(accent, 0.10f), alpha(accent, 0f))).apply { cornerRadii = radii },
+            GradientDrawable().apply { setColor(Color.TRANSPARENT); cornerRadii = radii; setStroke(px(ctx, 1f), 0x1A000000) }
         ))
 
-        val primary = themeColor(ctx, R.attr.themeTextPrimary, Color.WHITE)
         nav.itemTextColor = ColorStateList(
             arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-            intArrayOf(accent, primary)
+            intArrayOf(ink(accent, 0.55f), INK)
         )
         nav.itemIconTintList = null // each icon carries its own colour
         nav.setItemIconSize(px(ctx, 40f))
@@ -94,13 +99,11 @@ object DrawerDeck {
 
         // identity card
         nav.getHeaderView(0)?.findViewById<View>(R.id.drawerHeaderCard)?.let { card ->
-            val fill = themeColor(ctx, R.attr.themeCardBg, alpha(Color.WHITE, 0.06f))
-            val border = themeColor(ctx, R.attr.themeCardBorder, alpha(Color.WHITE, 0.14f))
             val cr = dp(ctx, 26f)
             card.background = LayerDrawable(arrayOf(
-                GradientDrawable().apply { setColor(fill); cornerRadius = cr },
-                GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(alpha(accent, 0.22f), alpha(accent2, 0.06f))).apply { cornerRadius = cr },
-                GradientDrawable().apply { setColor(Color.TRANSPARENT); cornerRadius = cr; setStroke(px(ctx, 1f), border) }
+                GradientDrawable().apply { setColor(0xA6FFFFFF.toInt()); cornerRadius = cr },
+                GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(alpha(accent, 0.16f), alpha(accent, 0.03f))).apply { cornerRadius = cr },
+                GradientDrawable().apply { setColor(Color.TRANSPARENT); cornerRadius = cr; setStroke(px(ctx, 1f), alpha(accent, 0.30f)) }
             ))
         }
     }
@@ -119,11 +122,11 @@ object DrawerDeck {
 
     private fun badged(ctx: Context, icon: Drawable, tone: Int): Drawable {
         val size = px(ctx, 40f)
-        val badge = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(alpha(tone, 0.36f), alpha(tone, 0.12f))).apply {
-            cornerRadius = dp(ctx, 13f); setStroke(px(ctx, 1f), alpha(tone, 0.45f)); setSize(size, size)
+        val badge = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(alpha(tone, 0.26f), alpha(tone, 0.08f))).apply {
+            cornerRadius = dp(ctx, 13f); setStroke(px(ctx, 1f), alpha(tone, 0.40f)); setSize(size, size)
         }
         val tinted = DrawableCompat.wrap(icon.constantState?.newDrawable()?.mutate() ?: icon.mutate())
-        DrawableCompat.setTint(tinted, tone)
+        DrawableCompat.setTint(tinted, ink(tone, 0.72f))
         val inset = InsetDrawable(tinted, px(ctx, 10f))
         return LayerDrawable(arrayOf(badge, inset)).apply { setBounds(0, 0, size, size) }
     }
@@ -136,6 +139,9 @@ object DrawerDeck {
         val email = AuthManager.email
         val signedIn = AuthManager.isSignedIn
         val display = userName.ifBlank { email?.substringBefore('@') ?: "J.A.R.V.I.S." }
+        head.findViewById<TextView>(R.id.tvDrawerName)?.setTextColor(INK)
+        head.findViewById<TextView>(R.id.tvDrawerEmail)?.setTextColor(INK_MUTED)
+        head.findViewById<TextView>(R.id.tvDrawerAvatar)?.setTextColor(INK)
         head.findViewById<TextView>(R.id.tvDrawerName)?.text = if (signedIn || userName.isNotBlank()) display else "J.A.R.V.I.S."
         head.findViewById<TextView>(R.id.tvDrawerEmail)?.text = email ?: "Guest · personal AI assistant"
         head.findViewById<TextView>(R.id.tvDrawerAvatar)?.let { av ->
@@ -152,7 +158,7 @@ object DrawerDeck {
             !udn.authorized -> "Joining network…" to themeColor(ctx, R.attr.themeWarning, accent)
             else -> (if (udn.isParent) "Parent${udn.slot?.let { " $it" } ?: ""}" else "Child") + " · $online online" to themeColor(ctx, R.attr.themeSuccess, accent)
         }
-        head.findViewById<TextView>(R.id.tvDrawerNetwork)?.text = label
+        head.findViewById<TextView>(R.id.tvDrawerNetwork)?.apply { text = label; setTextColor(ink(tone, 0.5f)) }
         head.findViewById<View>(R.id.drawerNetworkDot)?.background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(tone) }
         head.findViewById<View>(R.id.drawerNetworkChip)?.background = GradientDrawable().apply {
             cornerRadius = dp(ctx, 100f); setColor(alpha(tone, 0.14f)); setStroke(px(ctx, 1f), alpha(tone, 0.4f))

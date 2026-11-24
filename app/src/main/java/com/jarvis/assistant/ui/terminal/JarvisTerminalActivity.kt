@@ -225,10 +225,10 @@ class JarvisTerminalActivity : AppCompatActivity(), com.jarvis.assistant.util.Ja
             val label = "${index + 1}: " + (if (mine) "" else "Jarvis · ") + s.id + if (s.isRunning) "  ●" else ""
             val row = TextView(this).apply {
                 text = label
-                typeface = Typeface.MONOSPACE
+                typeface = com.jarvis.assistant.util.JarvisFonts.mono
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
                 setTextColor(scheme.fg)
-                if (selected) setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
+                if (selected) typeface = com.jarvis.assistant.util.JarvisFonts.monoBold
                 setPadding(dp(16), dp(14), dp(16), dp(14))
                 background = if (selected) ColorDrawable(scheme.keyPressed) else null
                 isClickable = true
@@ -962,14 +962,14 @@ class JarvisTerminalActivity : AppCompatActivity(), com.jarvis.assistant.util.Ja
 
         // Terminal: output text, then the prompt line, all in one scrolling page (like Termux).
         outputView = TextView(this).apply {
-            typeface = Typeface.MONOSPACE
+            typeface = com.jarvis.assistant.util.JarvisFonts.mono
             setPadding(dp(8), dp(6), dp(8), 0)
             setLineSpacing(0f, 1.0f)
             setTextIsSelectable(false)
         }
-        promptLabel = TextView(this).apply { typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD); text = "$ " }
+        promptLabel = TextView(this).apply { typeface = com.jarvis.assistant.util.JarvisFonts.monoBold; text = "$ " }
         input = EditText(this).apply {
-            typeface = Typeface.MONOSPACE
+            typeface = com.jarvis.assistant.util.JarvisFonts.mono
             background = null
             setPadding(0, dp(2), dp(8), dp(2))
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or InputType.TYPE_TEXT_FLAG_MULTI_LINE

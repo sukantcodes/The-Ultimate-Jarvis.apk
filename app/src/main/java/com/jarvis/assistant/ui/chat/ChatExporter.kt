@@ -93,7 +93,7 @@ object ChatExporter {
         val codePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#0F172A")
             textSize = 9f
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
+            typeface = com.jarvis.assistant.util.JarvisFonts.mono
         }
 
         val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

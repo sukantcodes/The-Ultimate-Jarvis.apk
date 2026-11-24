@@ -43,7 +43,18 @@ internal object ContrastGuard {
         }
     }
 
+    /** True for anything inside the white-glass navigation drawer: it has its own fixed dark ink and must not be recoloured. */
+    fun onWhiteGlass(v: View): Boolean {
+        var p: android.view.ViewParent? = v.parent
+        while (p != null) {
+            if (p is View && p.id == R.id.drawerPanel) return true
+            p = p.parent
+        }
+        return false
+    }
+
     fun checkText(tv: TextView, minRatio: Double = TEXT_RATIO) {
+        if (onWhiteGlass(tv)) return
         if (tv.getTag(LiquidTouch.SKIP_TAG_KEY) == true || tv.visibility != View.VISIBLE || tv.text.isNullOrEmpty()) return
         val color = tv.currentTextColor
         if ((tv.getTag(FIXED_TAG) as? Int) == color) return
@@ -53,6 +64,7 @@ internal object ContrastGuard {
     }
 
     private fun checkIcon(iv: ImageView) {
+        if (onWhiteGlass(iv)) return
         if (iv.getTag(LiquidTouch.SKIP_TAG_KEY) == true || iv.visibility != View.VISIBLE) return
         val tint = iv.imageTintList ?: return
         val color = tint.defaultColor

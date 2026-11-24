@@ -573,11 +573,27 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
     private fun configureNavigationDrawer() {
         val availableWidth = (resources.displayMetrics.widthPixels - dp(32)).coerceAtLeast(dp(240))
         val drawerWidth = minOf(dp(360), availableWidth)
-        binding.navDrawer.layoutParams = binding.navDrawer.layoutParams.apply {
+        binding.drawerPanel.layoutParams = binding.drawerPanel.layoutParams.apply {
             width = drawerWidth
         }
-        binding.navDrawer.requestLayout()
+        binding.drawerPanel.requestLayout()
+        binding.drawerSnapshot.setBleed(dp(28).toFloat())
         DrawerDeck.apply(binding.navDrawer)
+        // The glass behind the drawer shows a frozen picture of the screen taken as the drawer starts to open: nothing animates in it.
+        var snapped = false
+        binding.drawerLayout.addDrawerListener(object : androidx.drawerlayout.widget.DrawerLayout.SimpleDrawerListener() {
+            override fun onDrawerSlide(drawerView: View, slideOffset: Float) {
+                if (slideOffset > 0f && !snapped) {
+                    snapped = true
+                    binding.drawerSnapshot.capture(binding.rootMainLayout, drawerWidth)
+                    binding.drawerGlass.invalidate()
+                }
+            }
+            override fun onDrawerClosed(drawerView: View) {
+                snapped = false
+                binding.drawerSnapshot.release()
+            }
+        })
         refreshDrawerHeader()
         lifecycleScope.launch {
             repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {

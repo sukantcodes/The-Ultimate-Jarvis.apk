@@ -683,7 +683,7 @@ class InlineActivityView @JvmOverloads constructor(context: Context, attrs: Attr
     }
     private val timer = TextView(context).apply {
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-        typeface = Typeface.MONOSPACE
+        typeface = com.jarvis.assistant.util.JarvisFonts.mono
         gravity = Gravity.CENTER
         setPadding(dp(8), dp(2), dp(8), dp(2))
     }
@@ -701,7 +701,7 @@ class InlineActivityView @JvmOverloads constructor(context: Context, attrs: Attr
         ellipsize = android.text.TextUtils.TruncateAt.END
     }
     private val caption = TextView(context).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f) }
-    private val percentLabel = TextView(context).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); typeface = Typeface.MONOSPACE }
+    private val percentLabel = TextView(context).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); typeface = com.jarvis.assistant.util.JarvisFonts.mono }
     private val bar = GlowProgressBarView(context)
     private val progressBlock = LinearLayout(context).apply { orientation = VERTICAL; visibility = GONE }
     private val stepsList = LinearLayout(context).apply { orientation = VERTICAL }

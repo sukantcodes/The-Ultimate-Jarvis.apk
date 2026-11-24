@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HUD font: Orbitron (SIL OFL). Status strip, clock, section labels and badges. -->
+<font-family xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <font android:fontStyle="normal" android:fontWeight="500" android:font="@font/jarvis_hud_medium" app:fontStyle="normal" app:fontWeight="500" app:font="@font/jarvis_hud_medium" />
+    <font android:fontStyle="normal" android:fontWeight="700" android:font="@font/jarvis_hud_bold" app:fontStyle="normal" app:fontWeight="700" app:font="@font/jarvis_hud_bold" />
+    <font android:fontStyle="normal" android:fontWeight="900" android:font="@font/jarvis_hud_black" app:fontStyle="normal" app:fontWeight="900" app:font="@font/jarvis_hud_black" />
+</font-family>

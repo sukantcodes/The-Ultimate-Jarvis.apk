@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Drawer panel when Liquid Glass is switched off: plain white. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#F4F7FA" />
+    <corners android:radius="28dp" />
+</shape>

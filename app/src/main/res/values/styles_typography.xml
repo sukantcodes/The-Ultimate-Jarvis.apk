@@ -9,7 +9,7 @@
         <item name="android:lineSpacingExtra">1dp</item>
     </style>
     <style name="TextAppearance.Jarvis.Display" parent="">
-        <item name="android:fontFamily">@font/jarvis_serif_semibold</item>
+        <item name="android:fontFamily">@font/jarvis_display_bold</item>
         <item name="android:textSize">32sp</item>
         <item name="android:textStyle">normal</item>
         <item name="android:letterSpacing">-0.025</item>
@@ -17,7 +17,7 @@
         <item name="android:includeFontPadding">false</item>
     </style>
     <style name="TextAppearance.Jarvis.Headline" parent="">
-        <item name="android:fontFamily">@font/jarvis_serif_semibold</item>
+        <item name="android:fontFamily">@font/jarvis_display_semibold</item>
         <item name="android:textSize">26sp</item>
         <item name="android:textStyle">normal</item>
         <item name="android:letterSpacing">-0.01</item>
@@ -25,7 +25,7 @@
         <item name="android:includeFontPadding">false</item>
     </style>
     <style name="TextAppearance.Jarvis.Title" parent="">
-        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
+        <item name="android:fontFamily">@font/jarvis_display_medium</item>
         <item name="android:textSize">18sp</item>
         <item name="android:textStyle">normal</item>
         <item name="android:textColor">?attr/themeTextPrimary</item>
@@ -47,35 +47,46 @@
         <item name="android:textColor">?attr/themeTextMuted</item>
     </style>
     <style name="TextAppearance.Jarvis.Overline" parent="">
-        <item name="android:fontFamily">@font/jarvis_sans_semibold</item>
-        <item name="android:textSize">12sp</item>
-        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">@font/jarvis_hud_medium</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">normal</item>
         <item name="android:letterSpacing">0.08</item>
         <item name="android:textAllCaps">true</item>
         <item name="android:textColor">?attr/themeTextMuted</item>
     </style>
     <style name="TextAppearance.Jarvis.Button" parent="">
-        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
+        <item name="android:fontFamily">@font/jarvis_round_semibold</item>
         <item name="android:textSize">15sp</item>
         <item name="android:textStyle">normal</item>
         <item name="android:letterSpacing">0.01</item>
     </style>
     <style name="TextAppearance.Jarvis.Numeric" parent="">
-        <item name="android:fontFamily">@font/jarvis_sans</item>
-        <item name="android:textSize">24sp</item>
-        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">@font/jarvis_hud_bold</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:textStyle">normal</item>
         <item name="android:fontFeatureSettings">tnum</item>
         <item name="android:textColor">?attr/themeTextPrimary</item>
     </style>
     <style name="TextAppearance.Jarvis.Technical" parent="">
-        <item name="android:fontFamily">monospace</item>
+        <item name="android:fontFamily">@font/jarvis_mono_regular</item>
         <item name="android:textSize">12sp</item>
         <item name="android:textColor">?attr/themeTextSecondary</item>
     </style>
     <style name="TextAppearance.Jarvis.Status" parent="">
-        <item name="android:fontFamily">@font/jarvis_sans_semibold</item>
-        <item name="android:textSize">12sp</item>
-        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">@font/jarvis_hud_medium</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">normal</item>
         <item name="android:letterSpacing">0.06</item>
+    </style>
+    <!-- Navigation drawer rows (Sora) and group headings (Orbitron). -->
+    <style name="TextAppearance.Jarvis.DrawerItem" parent="">
+        <item name="android:fontFamily">@font/jarvis_round_medium</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">normal</item>
+    </style>
+    <style name="TextAppearance.Jarvis.DrawerHeading" parent="">
+        <item name="android:fontFamily">@font/jarvis_hud_medium</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:letterSpacing">0.12</item>
     </style>
 </resources>

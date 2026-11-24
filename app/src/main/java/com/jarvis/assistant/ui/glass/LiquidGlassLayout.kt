@@ -344,5 +344,12 @@ class LiquidGlassLayout @JvmOverloads constructor(
 
         /** True while a glass layout is copying the screen behind it; overlays use it to stay out of that copy. */
         internal fun isCapturing(): Boolean = capturing
+
+        /** Runs [block] with every glass layout switched off, so a snapshot of the screen never contains nested glass captures. */
+        internal fun <T> whileCapturing(block: () -> T): T {
+            val before = capturing
+            capturing = true
+            try { return block() } finally { capturing = before }
+        }
     }
 }

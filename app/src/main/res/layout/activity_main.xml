@@ -114,8 +114,8 @@
                     android:layout_height="wrap_content"
                     android:text="Home"
                     android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:fontFamily="@font/jarvis_sans_medium"
+                    android:textStyle="normal"
+                    android:fontFamily="@font/jarvis_round_semibold"
                     android:includeFontPadding="false"
                     android:layout_marginTop="2dp"
                     android:textColor="?attr/themeTextPrimary" />
@@ -156,8 +156,8 @@
                     android:layout_height="wrap_content"
                     android:text="Chat"
                     android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:fontFamily="@font/jarvis_sans_medium"
+                    android:textStyle="normal"
+                    android:fontFamily="@font/jarvis_round_semibold"
                     android:includeFontPadding="false"
                     android:layout_marginTop="2dp"
                     android:textColor="?attr/themeTextMuted" />
@@ -198,8 +198,8 @@
                     android:layout_height="wrap_content"
                     android:text="Voice"
                     android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:fontFamily="@font/jarvis_sans_medium"
+                    android:textStyle="normal"
+                    android:fontFamily="@font/jarvis_round_semibold"
                     android:includeFontPadding="false"
                     android:textColor="#FFFFFF"
                     android:visibility="gone" />
@@ -241,8 +241,8 @@
                     android:layout_height="wrap_content"
                     android:text="Scan"
                     android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:fontFamily="@font/jarvis_sans_medium"
+                    android:textStyle="normal"
+                    android:fontFamily="@font/jarvis_round_semibold"
                     android:includeFontPadding="false"
                     android:layout_marginTop="2dp"
                     android:textColor="?attr/themeTextMuted" />
@@ -296,8 +296,8 @@
                     android:layout_height="wrap_content"
                     android:text="Updates"
                     android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:fontFamily="@font/jarvis_sans_medium"
+                    android:textStyle="normal"
+                    android:fontFamily="@font/jarvis_round_semibold"
                     android:includeFontPadding="false"
                     android:layout_marginTop="2dp"
                     android:textColor="?attr/themeTextMuted" />
@@ -320,21 +320,56 @@
 
 </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <com.google.android.material.navigation.NavigationView
-        android:id="@+id/navDrawer"
+    <!-- The drawer: a frozen white lens-glass pane (same glass as Settings, no zoom, nothing animating behind it) with the menu on top. -->
+    <FrameLayout
+        android:id="@+id/drawerPanel"
         android:layout_width="300dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
-        android:background="?attr/themeBg"
-        android:elevation="28dp"
-        app:itemIconTint="?attr/themeAccent"
-        app:itemIconSize="40dp"
-        app:itemIconPadding="14dp"
-        app:itemHorizontalPadding="22dp"
-        app:itemBackground="@drawable/bg_drawer_item_glass"
-        app:itemTextColor="?attr/themeTextPrimary"
-        app:itemRippleColor="?attr/themeAccentLight"
-        app:headerLayout="@layout/nav_drawer_header"
-        app:menu="@menu/nav_drawer_menu" />
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:elevation="24dp">
+
+        <com.jarvis.assistant.ui.glass.DrawerSnapshotView
+            android:id="@+id/drawerSnapshot"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginStart="-28dp"
+            android:importantForAccessibility="no" />
+
+        <com.jarvis.assistant.ui.glass.LiquidGlassLayout
+            android:id="@+id/drawerGlass"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginStart="-28dp"
+            app:lgCornerRadius="28dp"
+            app:lgBezel="22"
+            app:lgRefraction="16"
+            app:lgVeil="0.08"
+            app:lgAutoRefresh="false"
+            app:lgSource="@id/drawerSnapshot"
+            app:lgPlainBackground="@drawable/bg_drawer_plain_white"
+            app:lgPlainElevation="0dp" />
+
+        <com.google.android.material.navigation.NavigationView
+            android:id="@+id/navDrawer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            android:elevation="0dp"
+            app:elevation="0dp"
+            app:itemIconTint="?attr/themeAccent"
+            app:itemIconSize="40dp"
+            app:itemIconPadding="14dp"
+            app:itemHorizontalPadding="22dp"
+            app:itemBackground="@drawable/bg_drawer_item_white"
+            app:itemTextAppearance="@style/TextAppearance.Jarvis.DrawerItem"
+            app:itemTextColor="#FF111827"
+            app:itemRippleColor="?attr/themeAccentLight"
+            app:subheaderColor="#FF5B6576"
+            app:subheaderTextAppearance="@style/TextAppearance.Jarvis.DrawerHeading"
+            app:headerLayout="@layout/nav_drawer_header"
+            app:menu="@menu/nav_drawer_menu" />
+    </FrameLayout>
 
 </androidx.drawerlayout.widget.DrawerLayout>

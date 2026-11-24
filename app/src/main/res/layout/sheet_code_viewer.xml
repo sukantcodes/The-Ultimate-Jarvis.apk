@@ -163,7 +163,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="#546E7A"
-                    android:fontFamily="monospace"
+                    android:fontFamily="@font/jarvis_mono"
                     android:textSize="14sp"
                     android:lineSpacingExtra="4dp"
                     android:gravity="end"
@@ -174,7 +174,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="#ECEFF1"
-                    android:fontFamily="monospace"
+                    android:fontFamily="@font/jarvis_mono"
                     android:textSize="14sp"
                     android:lineSpacingExtra="4dp"
                     android:textIsSelectable="true" />

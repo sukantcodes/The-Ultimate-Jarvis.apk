@@ -411,7 +411,7 @@ class OwnerDashboardActivity : AppCompatActivity() {
         if (row.detail.isBlank()) return
         val body = TextView(this).apply {
             text = row.detail
-            typeface = Typeface.MONOSPACE
+            typeface = com.jarvis.assistant.util.JarvisFonts.mono
             textSize = 12.5f
             setTextIsSelectable(true)
             setPadding(dp(22), dp(8), dp(22), 0)
