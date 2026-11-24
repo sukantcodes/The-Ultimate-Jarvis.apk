@@ -13,9 +13,9 @@ on:
   workflow_dispatch:
     inputs:
       publish_ota:
-        description: "Publish this build to JARVIS users over the air (only on a registered branch). Leave off to just build a production-signed APK artifact."
+        description: "Publish this build to JARVIS users over the air (only on a registered branch). Untick to only build a production-signed APK artifact."
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: write
@@ -181,8 +181,8 @@ jobs:
 
   release-production:
     # Manual-only production build. Never publishes a GitHub Release. A manual run builds exactly one production APK:
-    # this job, or (when "publish_ota" is ticked) the OTA release job below, never both.
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish_ota != 'true'
+    # this job (only when "publish_ota" is unticked), or the OTA release job below (the default), never both.
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish_ota == 'false'
     runs-on: ubuntu-latest
     steps:
     - name: Checkout selected branch
@@ -274,8 +274,8 @@ jobs:
   # register metadata in Supabase. Nothing reaches the app until the very last step succeeds.
   release:
     needs: build
-    # Automatic on pushes; on a manual run only when "publish_ota" is ticked (otherwise release-production builds the APK).
-    if: github.event_name == 'push' || github.event.inputs.publish_ota == 'true'
+    # Runs on every push and on every manual run (publish_ota is ticked by default); unticking it makes release-production build the APK instead.
+    if: github.event_name == 'push' || github.event.inputs.publish_ota != 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
