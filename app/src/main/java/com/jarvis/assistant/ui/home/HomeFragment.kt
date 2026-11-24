@@ -884,7 +884,7 @@ class HomeFragment : Fragment() {
         panel.addView(android.widget.TextView(requireContext()).apply {
             text = "JARVIS AGENT PROGRESS"
             textSize = 11f
-            typeface = android.graphics.com.jarvis.assistant.util.JarvisFonts.bold
+            typeface = com.jarvis.assistant.util.JarvisFonts.bold
             setTextColor(android.graphics.Color.rgb(103, 232, 249))
         })
         val details = android.widget.TextView(requireContext()).apply {

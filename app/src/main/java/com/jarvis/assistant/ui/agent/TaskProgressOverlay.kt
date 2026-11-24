@@ -50,7 +50,7 @@ class TaskProgressOverlay(private val context: Context) {
         text = "JARVIS  ⋮⋮"
         setTextColor(Color.rgb(215, 220, 228))
         textSize = 10f
-        typeface = android.graphics.com.jarvis.assistant.util.JarvisFonts.bold
+        typeface = com.jarvis.assistant.util.JarvisFonts.bold
         setPadding(0, 0, 0, dp(5))
         contentDescription = "Drag JARVIS task overlay anywhere on screen"
     }
@@ -308,7 +308,7 @@ class TaskProgressOverlay(private val context: Context) {
     private fun label(size: Float, bold: Boolean) = TextView(context).apply {
         setTextColor(Color.rgb(226, 232, 240))
         textSize = size
-        if (bold) typeface = android.graphics.com.jarvis.assistant.util.JarvisFonts.bold
+        if (bold) typeface = com.jarvis.assistant.util.JarvisFonts.bold
     }
 
     private fun matchWrap() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
