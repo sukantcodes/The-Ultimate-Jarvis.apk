@@ -46,10 +46,16 @@ object LiquidGlass {
             if (view.background == null) view.background = GlassMode.plainCardBackground(view.context, radiusDp * density)
             return
         }
-        view.background = LiquidGlassDrawable(view, radiusDp * density, tint, soft, topOnly)
+        (view.background as? LensGlassDrawable)?.release()
+        view.background = if (CrystalBackdrop.lensActive()) {
+            // Crystal Mirror shows a picture behind the glass; its pane keeps painting that picture (at real size).
+            LiquidGlassDrawable(view, radiusDp * density, tint, soft, topOnly)
+        } else {
+            LensGlassDrawable(view, radiusDp * density, soft, topOnly)
+        }
         view.outlineProvider = ViewOutlineProvider.BACKGROUND
         view.clipToOutline = false
-        view.elevation = elevationDp * density
+        view.elevation = kotlin.math.min(elevationDp, 6f) * density
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && elevationDp > 0f) {
             // Clear glass casts a plain, soft shadow; a coloured shadow would read as a stain around the pane.
             view.outlineAmbientShadowColor = 0x26203048
@@ -98,31 +104,8 @@ object LiquidGlass {
      */
     fun installBackdrop(root: View, withBase: Boolean = false) {
         if (GlassMode.plain()) return
-        val density = root.resources.displayMetrics
-        val existing = root.background
-        if (existing is AuroraBackdropDrawable) {
-            existing.invalidateSelf()
-            return
-        }
-        val base = if (withBase && existing != null && existing !is AuroraBackdropDrawable) existing else null
-        val aurora = AuroraBackdropDrawable(density.widthPixels.toFloat(), density.heightPixels.toFloat(), root, base)
-        root.background = aurora
-        if (root.getTag(TAG_KEY) == null) {
-            val tick = Runnable { if (root.isShown) root.invalidate() }
-            val listener = object : View.OnAttachStateChangeListener {
-                override fun onViewAttachedToWindow(v: View) {
-                    refreshAnimationSetting(v.context)
-                    AuroraClock.register(tick)
-                }
-
-                override fun onViewDetachedFromWindow(v: View) {
-                    AuroraClock.unregister(tick)
-                }
-            }
-            root.addOnAttachStateChangeListener(listener)
-            root.setTag(TAG_KEY, true)
-            if (root.isAttachedToWindow) listener.onViewAttachedToWindow(root)
-        }
+        // Every screen shares one backdrop (the Settings page's); the root's own painted background is cleared so it shows.
+        GlassScreens.ensureBackdrop(root)
     }
 
     /**
@@ -140,6 +123,12 @@ object LiquidGlass {
         })
     }
 
+    /** Same as [glassify] for a screen that is already laid out. */
+    fun glassifyNow(root: View, tint: Int = 0) {
+        if (GlassMode.plain() || root.width == 0) return
+        glassifyChildren(root, tint)
+    }
+
     private fun glassifyChildren(group: View, tint: Int) {
         if (group !is ViewGroup) return
         val density = group.resources.displayMetrics.density
@@ -150,7 +139,7 @@ object LiquidGlass {
                 (bg is android.graphics.drawable.GradientDrawable || bg is android.graphics.drawable.LayerDrawable) &&
                 child.width >= 120 * density && child.height >= 56 * density && child.getTag(TAG_KEY) == null
             if (isShapeCard) {
-                apply(child, 24f, tint, soft = child.height < 96 * density)
+                apply(child, 28f, tint, soft = child.height < 96 * density)
                 continue // keep the contents of a glass card as they were; no glass-on-glass
             }
             glassifyChildren(child, tint)

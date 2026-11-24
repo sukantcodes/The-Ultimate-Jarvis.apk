@@ -281,7 +281,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
             0f, 0f, 0f, h * 0.5f,
             intArrayOf(0x16FFFFFF, 0x06FFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP
         )
-        veilPaint.color = Color.argb((effectiveVeil() * 255).toInt().coerceIn(0, 255), 255, 255, 255)
+        veilPaint.color = Color.argb(((if (lockedGlass) effectiveVeil() else maxOf(effectiveVeil(), GlassStyle.frost() * 1.4f)) * 255).toInt().coerceIn(0, 255), 255, 255, 255)
         edgePaint.strokeWidth = 1.1f * density
         edgePaint.shader = LinearGradient(
             0f, 0f, w.toFloat(), h.toFloat(),
@@ -304,6 +304,10 @@ class LiquidGlassLayout @JvmOverloads constructor(
 
     /** Glass refracts at its edge but never magnifies what is behind it. */
     @Suppress("UNUSED_PARAMETER")
+    /** White frost: every pane (except the locked dock) carries the same clear white glass tone. */
+    private fun frostAmount(): Float =
+        if (lockedGlass) effectiveVeil() * 0.25f else maxOf(effectiveVeil() * 0.25f, GlassStyle.frost())
+
     private fun lensZoom(crystal: Boolean): Float = 1f
 
     private fun buildGlassShader(b: Bitmap, w: Int, h: Int): Shader {
@@ -323,7 +327,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
         shader.setFloatUniform("chroma", 1.0f, 0.97f, 0.94f)
         // Transparent lens glass everywhere except the Chatbox: almost no veil, a magnified view and stronger edge refraction.
         val crystalHere = !lockedGlass && CrystalTheme.active()
-        shader.setFloatUniform("veil", effectiveVeil() * 0.25f)
+        shader.setFloatUniform("veil", frostAmount())
         shader.setFloatUniform("zoom", lensZoom(crystalHere))
         return shader
     }

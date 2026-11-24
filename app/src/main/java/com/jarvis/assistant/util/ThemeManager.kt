@@ -363,6 +363,8 @@ object ThemeManager {
     fun applyDynamicBackground(view: View) {
         val prefs = try { JarvisApp.instance.preferences } catch (_: Exception) { null }
         val themeKey = prefs?.appTheme ?: "sunset"
+        // A screen on the shared glass backdrop must not get a second painted background over it.
+        if (com.jarvis.assistant.ui.glass.GlassScreens.coversBackground(view)) { view.background = null; return }
         // Crystal Mirror is painted once by the window (a second veil here would double it and hide the wallpaper).
         if (themeKey == "crystal") { view.background = ColorDrawable(Color.TRANSPARENT); return }
         // Use the same full-bounds renderer for every activity and fragment, including Updates.

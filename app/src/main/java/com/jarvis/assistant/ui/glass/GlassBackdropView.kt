@@ -72,12 +72,14 @@ class GlassBackdropView @JvmOverloads constructor(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         live.add(this)
+        GlassScreens.activityOf(context)?.let { byActivity[it] = this }
         ScreenSnapshot.addListener(snapshotChanged)
         refreshScene()
     }
 
     override fun onDetachedFromWindow() {
         live.remove(this)
+        GlassScreens.activityOf(context)?.let { if (byActivity[it] === this) byActivity.remove(it) }
         ScreenSnapshot.removeListener(snapshotChanged)
         if (registered) { AuroraClock.unregister(heartbeat); registered = false }
         super.onDetachedFromWindow()
@@ -181,6 +183,11 @@ class GlassBackdropView @JvmOverloads constructor(
 
     companion object {
         private val live: MutableSet<GlassBackdropView> = Collections.newSetFromMap(WeakHashMap())
+        private val byActivity = WeakHashMap<android.app.Activity, GlassBackdropView>()
+
+        /** The backdrop behind the screen that [host] belongs to (also for views inside its dialogs), or null. */
+        fun forView(host: View): GlassBackdropView? =
+            GlassScreens.activityOf(host.context)?.let { byActivity[it] }?.takeIf { it.isShown }
 
         /** Tells every visible backdrop to pick up a changed scene right away. */
         fun refreshAll() { live.toList().forEach { it.refreshScene() } }

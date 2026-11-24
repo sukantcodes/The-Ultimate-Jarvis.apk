@@ -102,7 +102,7 @@ class LiquidGlassDrawable(
             intArrayOf(
                 ColorUtils.setAlphaComponent(Color.WHITE, ((if (light) 0.50f else 0.17f) * k * 255).toInt()),
                 0x00FFFFFF,
-                ColorUtils.setAlphaComponent(Color.BLACK, ((if (light) 0.05f else 0.12f) * k * 255).toInt())
+                0x00FFFFFF
             ),
             floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP
         )
@@ -152,7 +152,7 @@ class LiquidGlassDrawable(
         if (lens) {
             // Small controls magnify more, big cards less, so a lens always reads as a lens without wrecking the layout behind text.
             val small = min(outer.width(), outer.height()) < 64f * density
-            CrystalBackdrop.paintLens(canvas, host, outer, outerPath, if (small) 1.22f else 1.12f, patch)
+            CrystalBackdrop.paintLens(canvas, host, outer, outerPath, GlassStyle.ZOOM, patch)
         }
         canvas.drawPath(outerPath, body)
         canvas.drawRoundRect(bandRect, bandRadius, bandRadius, band)

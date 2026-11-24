@@ -113,6 +113,35 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
             .start()
     }
 
+    /** Back swipe on a dialog: it shrinks and fades with the finger, springs back if cancelled, closes when released. */
+    @androidx.annotation.RequiresApi(34)
+    private fun registerPredictiveBack(d: Dialog, target: View) {
+        val ease = android.view.animation.PathInterpolator(0.05f, 0.7f, 0.1f, 1f)
+        val callback = object : android.window.OnBackAnimationCallback {
+            override fun onBackStarted(backEvent: android.window.BackEvent) {
+                target.animate().cancel()
+                target.pivotX = target.width / 2f
+                target.pivotY = target.height / 2f
+            }
+
+            override fun onBackProgressed(backEvent: android.window.BackEvent) {
+                val p = ease.getInterpolation(backEvent.progress)
+                target.scaleX = 1f - 0.10f * p
+                target.scaleY = 1f - 0.10f * p
+                target.alpha = 1f - 0.30f * p
+            }
+
+            override fun onBackCancelled() {
+                target.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(320L).setInterpolator(ease).start()
+            }
+
+            override fun onBackInvoked() {
+                dismiss()
+            }
+        }
+        d.onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, callback)
+    }
+
     fun show(): PremiumDialog {
         val a1 = if (danger) PremiumPalette.DANGER_1 else palette.accent1
         val a2 = if (danger) PremiumPalette.DANGER_2 else palette.accent2
@@ -149,7 +178,7 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
         com.jarvis.assistant.ui.glass.LiquidGlass.apply(cardView, 30f, a2, elevationDp = 10f)
         val glassBody = cardView.background
         val scrim = GradientDrawable().apply {
-            setColor(Color.argb(150, 6, 8, 20))
+            setColor(DialogInk.scrim())
             cornerRadius = ctx.dp(30f)
         }
         cardView.background = LayerDrawable(arrayOf(scrim, glassBody))
@@ -171,24 +200,24 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
 
         eyebrowText?.let {
             cardView.addView(
-                label(ctx, it.uppercase(), 11f, brighten(a1, 0.25f), "sans-serif-medium", 0.26f),
+                label(ctx, it.uppercase(), 11f, DialogInk.accent(a1, 0.25f), "sans-serif-medium", 0.26f),
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             )
         }
 
-        val titleView = label(ctx, titleText.toString(), 25f, Color.WHITE, "sans-serif-black", 0.015f).apply {
+        val titleView = label(ctx, titleText.toString(), 25f, DialogInk.primary, "sans-serif-black", 0.015f).apply {
             maxLines = 2
             ellipsize = TextUtils.TruncateAt.END
             setPadding(0, ctx.dp(5f).toInt(), 0, 0)
         }
-        gradientText(titleView, intArrayOf(Color.WHITE, brighten(a1, 0.55f), brighten(a2, 0.45f)))
+        gradientText(titleView, intArrayOf(DialogInk.primary, DialogInk.accent(a1, 0.55f), DialogInk.accent(a2, 0.45f)))
         cardView.addView(titleView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         messageText?.let {
             val m = TextView(ctx).apply {
                 text = it
                 gravity = Gravity.CENTER
-                setTextColor(Color.rgb(176, 189, 216))
+                setTextColor(DialogInk.muted)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 14.5f)
                 typeface = com.jarvis.assistant.util.JarvisFonts.regular
                 setLineSpacing(ctx.dp(3f), 1f)
@@ -242,6 +271,9 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
         }
 
         d.setContentView(root)
+        if (Build.VERSION.SDK_INT >= 34) {
+            d.setOnShowListener { registerPredictiveBack(d, cardView) }
+        }
         d.window?.let { w ->
             w.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -342,7 +374,7 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
             val d = create(ctx).eyebrow(eyebrow).title(title)
             val text = TextView(ctx).apply {
                 this.text = message
-                setTextColor(Color.rgb(206, 216, 238))
+                setTextColor(DialogInk.body)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                 typeface = com.jarvis.assistant.util.JarvisFonts.regular
                 setLineSpacing(ctx.dp(3f), 1f)
@@ -425,7 +457,7 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
                 val startX = ((viewW - w) / 2f).coerceAtLeast(0f)
                 preview.paint.shader = LinearGradient(
                     startX, 0f, startX + w, 0f,
-                    intArrayOf(Color.WHITE, brighten(a1, 0.5f), brighten(a2, 0.4f)),
+                    intArrayOf(DialogInk.primary, DialogInk.accent(a1, 0.5f), DialogInk.accent(a2, 0.4f)),
                     null, Shader.TileMode.CLAMP
                 )
                 preview.invalidate()
@@ -465,8 +497,8 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
             EditText(ctx).apply {
                 setText(initial)
                 this.hint = hint
-                setHintTextColor(Color.argb(120, 200, 212, 240))
-                setTextColor(Color.WHITE)
+                setHintTextColor(DialogInk.hint)
+                setTextColor(DialogInk.primary)
                 highlightColor = Color.argb(110, Color.red(accent), Color.green(accent), Color.blue(accent))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
                 typeface = com.jarvis.assistant.util.JarvisFonts.medium
@@ -501,7 +533,7 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
             }
             val label = TextView(ctx).apply {
                 this.text = text
-                setTextColor(Color.rgb(222, 230, 248))
+                setTextColor(DialogInk.body)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 14.5f)
                 typeface = com.jarvis.assistant.util.JarvisFonts.medium
                 setPadding(ctx.dp(14f).toInt(), 0, 0, 0)
@@ -604,7 +636,7 @@ internal class PremiumOptionList(
             val on = i == selectedIndex
             rows[i].background = rowDrawable(ctx, palette, on)
             dots[i].background = radioDrawable(ctx, on)
-            texts[i].setTextColor(if (on) Color.WHITE else Color.rgb(214, 223, 245))
+            texts[i].setTextColor(if (on) DialogInk.primary else DialogInk.option)
             texts[i].typeface = if (on) com.jarvis.assistant.util.JarvisFonts.bold else com.jarvis.assistant.util.JarvisFonts.medium
         }
     }
@@ -805,7 +837,7 @@ private fun keycapButton(ctx: Context, text: String, primary: Boolean, a1: Int, 
     TextView(ctx).apply {
         this.text = text.uppercase()
         gravity = Gravity.CENTER
-        setTextColor(if (primary) Color.WHITE else Color.rgb(214, 224, 247))
+        setTextColor(if (primary) Color.WHITE else DialogInk.option)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
         typeface = com.jarvis.assistant.util.JarvisFonts.bold
         letterSpacing = 0.09f
@@ -925,3 +957,21 @@ private fun fieldBackground(ctx: Context, accent: Int, focused: Boolean): Drawab
             if (focused) withAlpha(brighten(accent, 0.1f), 235) else Color.argb(48, 255, 255, 255)
         )
     }
+
+/** Ink for the white glass dialogs: near-black on light themes, white on dark ones. Read when each dialog is built. */
+internal object DialogInk {
+    private fun light() = com.jarvis.assistant.ui.glass.GlassStyle.isLight()
+
+    val primary: Int get() = if (light()) Color.rgb(15, 23, 42) else Color.WHITE
+    val body: Int get() = if (light()) Color.rgb(30, 41, 59) else Color.rgb(206, 216, 238)
+    val muted: Int get() = if (light()) Color.rgb(71, 85, 105) else Color.rgb(176, 189, 216)
+    val option: Int get() = if (light()) Color.rgb(30, 41, 59) else Color.rgb(214, 223, 245)
+    val hint: Int get() = if (light()) Color.argb(150, 71, 85, 105) else Color.argb(120, 200, 212, 240)
+
+    /** A theme accent that stays readable: lightened on dark themes, darkened on light ones. */
+    fun accent(color: Int, amount: Float): Int =
+        if (light()) blend(color, Color.BLACK, 0.42f) else brighten(color, amount)
+
+    /** Light scrim under the glass: strong white on light themes, a gentle white lift on dark ones. */
+    fun scrim(): Int = if (light()) Color.argb(215, 255, 255, 255) else Color.argb(70, 255, 255, 255)
+}
