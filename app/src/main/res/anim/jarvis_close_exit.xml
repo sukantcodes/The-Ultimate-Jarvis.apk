@@ -1,13 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The top screen leaves toward the edge, shrinking and fading (it continues the shrink a back swipe already started). -->
-<set xmlns:android="http://schemas.android.com/apk/res/android"
-    android:interpolator="@android:interpolator/accelerate_cubic"
-    android:shareInterpolator="true">
-    <translate android:duration="220" android:fromXDelta="0" android:toXDelta="8%p" />
+<!-- The top screen leaves toward the right edge, shrinking slightly and fading as it goes. -->
+<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false">
+    <translate
+        android:duration="360"
+        android:fromXDelta="0" android:toXDelta="18%p"
+        android:interpolator="@interpolator/jarvis_emphasized_accelerate" />
     <scale
-        android:duration="220"
-        android:fromXScale="1.0" android:toXScale="0.92"
-        android:fromYScale="1.0" android:toYScale="0.92"
-        android:pivotX="50%" android:pivotY="50%" />
-    <alpha android:duration="200" android:fromAlpha="1.0" android:toAlpha="0.0" />
+        android:duration="360"
+        android:fromXScale="1.0" android:toXScale="0.94"
+        android:fromYScale="1.0" android:toYScale="0.94"
+        android:pivotX="50%" android:pivotY="50%"
+        android:interpolator="@interpolator/jarvis_emphasized_accelerate" />
+    <alpha
+        android:duration="260"
+        android:startOffset="100"
+        android:fromAlpha="1.0" android:toAlpha="0.0"
+        android:interpolator="@interpolator/jarvis_standard" />
 </set>

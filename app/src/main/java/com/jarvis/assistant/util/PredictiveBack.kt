@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.view.View
 import android.view.ViewOutlineProvider
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.PathInterpolator
 import androidx.activity.BackEventCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
@@ -104,8 +105,9 @@ object PredictiveBack {
             val from = interpolator.getInterpolation(progress)
             progress = 0f
             settle = ValueAnimator.ofFloat(from, 0f).apply {
-                duration = 240L
-                this.interpolator = DecelerateInterpolator(1.6f)
+                duration = 340L
+                // Material 3 emphasized-decelerate: the screen springs back quickly and lands very softly.
+                this.interpolator = PathInterpolator(0.05f, 0.7f, 0.1f, 1f)
                 addUpdateListener { pose(v, it.animatedValue as Float) }
                 addListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) = release(v)
@@ -167,9 +169,13 @@ object PredictiveBack {
             active = false
         }
 
-        /** Call at the start of handleOnBackPressed when the screen stays (the swipe committed but nothing closes). */
+        /**
+         * Call at the start of handleOnBackPressed when the screen stays (the swipe committed but nothing closes, e.g.
+         * a tab returning to Home). The pulled-in screen springs back to full size while the next motion plays, so
+         * there is never a snap.
+         */
         protected fun endMotion() {
-            if (active) motion.clear()
+            if (active) motion.cancel()
             active = false
         }
     }

@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The screen underneath recedes: it shrinks a little and dims. -->
-<set xmlns:android="http://schemas.android.com/apk/res/android"
-    android:interpolator="@android:interpolator/decelerate_quint"
-    android:shareInterpolator="true">
+<!-- The screen underneath recedes for depth: drifts left, shrinks and dims, settling with the new screen. -->
+<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false">
+    <translate
+        android:duration="500"
+        android:fromXDelta="0" android:toXDelta="-7%p"
+        android:interpolator="@interpolator/jarvis_emphasized_decelerate" />
     <scale
-        android:duration="320"
-        android:fromXScale="1.0" android:toXScale="0.94"
-        android:fromYScale="1.0" android:toYScale="0.94"
-        android:pivotX="50%" android:pivotY="50%" />
-    <alpha android:duration="320" android:fromAlpha="1.0" android:toAlpha="0.55" />
+        android:duration="500"
+        android:fromXScale="1.0" android:toXScale="0.95"
+        android:fromYScale="1.0" android:toYScale="0.95"
+        android:pivotX="50%" android:pivotY="50%"
+        android:interpolator="@interpolator/jarvis_emphasized_decelerate" />
+    <alpha
+        android:duration="400"
+        android:fromAlpha="1.0" android:toAlpha="0.45"
+        android:interpolator="@interpolator/jarvis_standard" />
 </set>

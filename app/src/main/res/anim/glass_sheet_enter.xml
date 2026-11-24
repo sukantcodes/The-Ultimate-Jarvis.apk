@@ -1,13 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<set xmlns:android="http://schemas.android.com/apk/res/android">
+<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false">
     <translate
-        android:duration="440"
-        android:fromYDelta="100%p"
-        android:interpolator="@android:interpolator/decelerate_quint"
-        android:toYDelta="0" />
-    <alpha
-        android:duration="260"
-        android:fromAlpha="0"
-        android:interpolator="@android:interpolator/decelerate_cubic"
-        android:toAlpha="1" />
+        android:duration="480"
+        android:fromYDelta="100%p" android:toYDelta="0"
+        android:interpolator="@interpolator/jarvis_emphasized_decelerate" />
+    <alpha android:duration="200" android:fromAlpha="0" android:toAlpha="1"
+        android:interpolator="@interpolator/jarvis_standard" />
 </set>
