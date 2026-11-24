@@ -4,8 +4,6 @@
     <string name="set_scene_subtitle">Animated scenes or see-through glass</string>
     <string name="set_scene_sheet_title">Settings background</string>
     <string name="set_scene_sheet_hint">Pick a scene for every Settings screen. See-through shows the screen underneath through the glass.</string>
-    <string name="set_search_hint">Search settings</string>
-    <string name="set_search_empty">No settings match that. Try another word.</string>
     <string name="set_search_clear">Clear search</string>
     <string name="set_scene_button">Change background</string>
 </resources>
