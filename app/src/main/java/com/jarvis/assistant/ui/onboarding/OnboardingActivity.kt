@@ -71,7 +71,7 @@ class OnboardingActivity : AppCompatActivity() {
 
         setContentView(buildFrame())
 
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        onBackPressedDispatcher.addCallback(this, object : com.jarvis.assistant.util.PredictiveBack.MotionCallback(this, shouldAnimate = { vm.progress.value.current == OnboardingStep.INTRO }) {
             override fun handleOnBackPressed() {
                 if (vm.progress.value.current != OnboardingStep.INTRO) vm.back() else finish()
             }

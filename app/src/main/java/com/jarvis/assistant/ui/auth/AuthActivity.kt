@@ -63,7 +63,7 @@ class AuthActivity : AppCompatActivity() {
         mode = savedInstanceState?.getString(STATE_MODE)?.let { runCatching { Mode.valueOf(it) }.getOrNull() }
             ?: Mode.LOGIN
         wireClicks()
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        onBackPressedDispatcher.addCallback(this, object : com.jarvis.assistant.util.PredictiveBack.MotionCallback(this, shouldAnimate = { !busy && (mode == Mode.LOGIN || mode == Mode.NEW_PASSWORD) }) {
             override fun handleOnBackPressed() {
                 when {
                     busy -> Unit

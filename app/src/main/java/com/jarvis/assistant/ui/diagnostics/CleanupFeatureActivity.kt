@@ -116,7 +116,7 @@ class CleanupFeatureActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         ui = Ui(this)
         buildScaffold()
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        onBackPressedDispatcher.addCallback(this, object : com.jarvis.assistant.util.PredictiveBack.MotionCallback(this, shouldAnimate = { phase == Phase.IDLE || phase == Phase.DONE || phase == Phase.APPS }) {
             override fun handleOnBackPressed() = handleBack()
         })
         if (feature == CleanerActions.F_APPS) showApps() else showIdle()

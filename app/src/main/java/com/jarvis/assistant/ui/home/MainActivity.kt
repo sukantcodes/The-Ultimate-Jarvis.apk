@@ -278,11 +278,16 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
             UpdateNotificationChecker.checkOnForeground(applicationContext)
         }
         observeViewModel()
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        onBackPressedDispatcher.addCallback(this, object : com.jarvis.assistant.util.PredictiveBack.MotionCallback(
+            this,
+            target = { binding.fragmentContainer },
+            shouldAnimate = { currentTab != TAB_HOME && !binding.drawerLayout.isDrawerOpen(GravityCompat.START) }
+        ) {
             override fun handleOnBackPressed() {
                 if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
                     binding.drawerLayout.closeDrawer(GravityCompat.START)
                 } else if (currentTab != TAB_HOME) {
+                    endMotion()
                     selectTab(TAB_HOME)
                 } else {
                     // Preserve Android's normal root behavior (return to launcher) only
@@ -673,14 +678,21 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
                 v.visibility = View.VISIBLE
                 com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(v)
                 if (previousTab != tab) {
+                    val slide = 40f * resources.displayMetrics.density
+                    v.pivotX = v.width / 2f
+                    v.pivotY = v.height / 2f
                     v.alpha = 0f
-                    v.translationX = if (tab > previousTab) 18f else -18f
+                    v.scaleX = 0.96f
+                    v.scaleY = 0.96f
+                    v.translationX = if (tab > previousTab) slide else -slide
                     v.animate().cancel()
                     v.animate()
                         .alpha(1f)
+                        .scaleX(1f)
+                        .scaleY(1f)
                         .translationX(0f)
-                        .setDuration(190L)
-                        .setInterpolator(android.view.animation.DecelerateInterpolator())
+                        .setDuration(300L)
+                        .setInterpolator(android.view.animation.DecelerateInterpolator(1.8f))
                         .start()
                 } else {
                     v.alpha = 1f

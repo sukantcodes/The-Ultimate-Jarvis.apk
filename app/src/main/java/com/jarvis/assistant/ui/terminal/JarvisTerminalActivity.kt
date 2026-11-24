@@ -135,7 +135,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
         applyScheme()
         applyFont()
         applyKeepScreenOn()
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        onBackPressedDispatcher.addCallback(this, object : com.jarvis.assistant.util.PredictiveBack.MotionCallback(this, shouldAnimate = { !drawerOpen }) {
             override fun handleOnBackPressed() {
                 if (drawerOpen) closeDrawer() else { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
             }
