@@ -47,7 +47,7 @@
                 android:layout_height="wrap_content"
                 android:text="JARVIS LIVE VISION"
                 android:textColor="#F5FAFF"
-                android:textSize="15sp"
+                android:textSize="16sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.06" />
             <TextView
@@ -57,7 +57,7 @@
                 android:layout_marginTop="4dp"
                 android:text="INITIALIZING LIVE CAMERA..."
                 android:textColor="#55DDF7"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.04" />
         </LinearLayout>
         <View
@@ -91,7 +91,7 @@
             android:layout_marginTop="116dp"
             android:text="JARVIS IS ANALYSING THE LIVE VIEW"
             android:textColor="#99DFF7"
-            android:textSize="10sp"
+            android:textSize="12sp"
             android:letterSpacing="0.08" />
     </FrameLayout>
 
@@ -131,7 +131,7 @@
             android:text="FLASH OFF"
             android:textColor="#D9F8FF"
             android:textStyle="bold"
-            android:textSize="11sp" />
+            android:textSize="12sp" />
 
         <TextView
             android:id="@+id/btnScanSwitch"
@@ -143,7 +143,7 @@
             android:text="REAR CAMERA"
             android:textColor="#D9F8FF"
             android:textStyle="bold"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:contentDescription="Switch between the rear and front camera" />
     </LinearLayout>
 </FrameLayout>

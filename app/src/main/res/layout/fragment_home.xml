@@ -88,7 +88,7 @@
             android:textSize="14sp"
             android:letterSpacing="0.03"
             android:textStyle="bold"
-            android:fontFamily="sans-serif-medium"
+            android:fontFamily="@font/jarvis_sans_medium"
             android:layout_marginTop="2dp" />
     </LinearLayout>
 
@@ -146,7 +146,7 @@
                 android:textSize="12sp"
                 android:letterSpacing="0.10"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:layout_marginStart="8dp" />
         </LinearLayout>
 
@@ -156,8 +156,8 @@
             android:layout_height="wrap_content"
             android:text="Hold button or orb to power off"
             android:textColor="?attr/themeTextMuted"
-            android:textSize="10sp"
-            android:fontFamily="sans-serif"
+            android:textSize="12sp"
+            android:fontFamily="@font/jarvis_sans"
             android:layout_marginTop="5dp" />
     </LinearLayout>
 
@@ -189,7 +189,7 @@
             android:text="--°C"
             android:textColor="?attr/themeTextPrimary"
             android:textSize="32sp"
-            android:fontFamily="sans-serif-light"
+            android:fontFamily="@font/jarvis_sans"
             android:letterSpacing="-0.02"
             android:includeFontPadding="false"
             android:layout_marginEnd="16dp" />
@@ -207,7 +207,7 @@
                 android:text="Detecting Location&#8230;"
                 android:textColor="?attr/themeTextPrimary"
                 android:textSize="14sp"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:textStyle="bold"
                 android:includeFontPadding="false" />
 
@@ -218,7 +218,7 @@
                 android:text="Tap to refresh live atmosphere"
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp"
-                android:fontFamily="sans-serif"
+                android:fontFamily="@font/jarvis_sans"
                 android:includeFontPadding="false"
                 android:layout_marginTop="2dp" />
         </LinearLayout>
@@ -291,7 +291,7 @@
                         android:textColor="?attr/themeTextPrimary"
                         android:textSize="12sp"
                         android:textStyle="bold"
-                        android:fontFamily="sans-serif-medium"
+                        android:fontFamily="@font/jarvis_sans_medium"
                         android:maxLines="1" />
 
                     <TextView
@@ -299,8 +299,8 @@
                         android:layout_height="wrap_content"
                         android:text="Build tasks"
                         android:textColor="?attr/themeTextMuted"
-                        android:textSize="10sp"
-                        android:fontFamily="sans-serif-light"
+                        android:textSize="12sp"
+                        android:fontFamily="@font/jarvis_sans"
                         android:maxLines="1" />
                 </LinearLayout>
             </LinearLayout>
@@ -341,7 +341,7 @@
                         android:textColor="?attr/themeTextPrimary"
                         android:textSize="12sp"
                         android:textStyle="bold"
-                        android:fontFamily="sans-serif-medium"
+                        android:fontFamily="@font/jarvis_sans_medium"
                         android:maxLines="1" />
 
                     <TextView
@@ -349,8 +349,8 @@
                         android:layout_height="wrap_content"
                         android:text="Companion"
                         android:textColor="?attr/themeTextMuted"
-                        android:textSize="10sp"
-                        android:fontFamily="sans-serif-light"
+                        android:textSize="12sp"
+                        android:fontFamily="@font/jarvis_sans"
                         android:maxLines="1" />
                 </LinearLayout>
             </LinearLayout>
@@ -390,7 +390,7 @@
                         android:textColor="?attr/themeTextPrimary"
                         android:textSize="12sp"
                         android:textStyle="bold"
-                        android:fontFamily="sans-serif-medium"
+                        android:fontFamily="@font/jarvis_sans_medium"
                         android:maxLines="1" />
 
                     <TextView
@@ -399,8 +399,8 @@
                         android:layout_height="wrap_content"
                         android:text="Devices"
                         android:textColor="?attr/themeTextMuted"
-                        android:textSize="10sp"
-                        android:fontFamily="sans-serif-light"
+                        android:textSize="12sp"
+                        android:fontFamily="@font/jarvis_sans"
                         android:maxLines="1" />
                 </LinearLayout>
             </LinearLayout>
@@ -456,9 +456,9 @@
                     android:gravity="center"
                     android:text="Screen"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:includeFontPadding="false" />
 
                 <TextView
@@ -467,8 +467,8 @@
                     android:layout_height="wrap_content"
                     android:text="Share"
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="10sp"
-                    android:fontFamily="sans-serif"
+                    android:textSize="12sp"
+                    android:fontFamily="@font/jarvis_sans"
                     android:includeFontPadding="false"
                     android:layout_marginTop="2dp" />
             </LinearLayout>
@@ -512,9 +512,9 @@
                     android:gravity="center"
                     android:text="Memories"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:includeFontPadding="false" />
 
                 <TextView
@@ -522,8 +522,8 @@
                     android:layout_height="wrap_content"
                     android:text="Recall Core"
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="10sp"
-                    android:fontFamily="sans-serif"
+                    android:textSize="12sp"
+                    android:fontFamily="@font/jarvis_sans"
                     android:includeFontPadding="false"
                     android:layout_marginTop="2dp" />
             </LinearLayout>
@@ -566,9 +566,9 @@
                     android:gravity="center"
                     android:text="Language"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:includeFontPadding="false" />
 
                 <TextView
@@ -577,8 +577,8 @@
                     android:layout_height="wrap_content"
                     android:text="Auto"
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="10sp"
-                    android:fontFamily="sans-serif"
+                    android:textSize="12sp"
+                    android:fontFamily="@font/jarvis_sans"
                     android:singleLine="true"
                     android:maxLines="1"
                     android:ellipsize="end"
@@ -633,7 +633,7 @@
                 android:textColor="#EF4444"
                 android:textSize="14sp"
                 android:letterSpacing="0.08"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:textStyle="bold" />
 
             <ImageButton
@@ -654,7 +654,7 @@
             android:layout_marginTop="10dp"
             android:text="Google rejected the API key: 400 Bad Request. Please update your API key in Settings."
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="13sp"
+            android:textSize="14sp"
             android:lineSpacingExtra="3dp" />
 
         <Button

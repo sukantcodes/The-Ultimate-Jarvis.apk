@@ -14,7 +14,7 @@
         android:layout_gravity="center_horizontal"
         android:layout_marginBottom="8dp"
         android:textColor="?attr/themeTextMuted"
-        android:textSize="11sp"
+        android:textSize="12sp"
         tools:text="19:45:10" />
 
     <!-- Same visual language as the live chat: soft card for you, plain text for JARVIS. -->
@@ -32,7 +32,7 @@
             android:layout_height="wrap_content"
             android:text="@string/chat_label_you"
             android:textColor="?attr/themeTextMuted"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:letterSpacing="0.08" />
 
@@ -43,7 +43,7 @@
             android:layout_marginTop="3dp"
             android:lineSpacingExtra="3dp"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="15sp"
+            android:textSize="16sp"
             tools:text="Hello JARVIS, how are you?" />
     </LinearLayout>
 
@@ -60,7 +60,7 @@
             android:layout_height="wrap_content"
             android:text="@string/chat_label_jarvis"
             android:textColor="?attr/themeAccent"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:letterSpacing="0.08" />
 
@@ -69,9 +69,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
-            android:lineSpacingExtra="5dp"
+            android:lineSpacingExtra="6dp"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="15sp"
+            android:textSize="17sp"
+            android:fontFamily="@font/jarvis_serif"
             tools:text="Online and ready. How can I assist you today, Boss?" />
     </LinearLayout>
 

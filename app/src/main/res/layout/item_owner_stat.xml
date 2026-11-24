@@ -15,7 +15,7 @@
         android:textColor="?attr/themeAccent"
         android:textSize="28sp"
         android:textStyle="bold"
-        android:fontFamily="sans-serif-medium" />
+        android:fontFamily="@font/jarvis_sans_medium" />
 
     <TextView
         android:id="@+id/tvStatLabel"

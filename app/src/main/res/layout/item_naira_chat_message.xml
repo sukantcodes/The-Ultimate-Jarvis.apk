@@ -28,7 +28,7 @@
             android:paddingBottom="10dp"
             android:text="▣  Open attachment"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="13sp"
+            android:textSize="14sp"
             android:textStyle="bold"
             android:visibility="gone"
             android:clickable="true"
@@ -45,8 +45,8 @@
             android:paddingEnd="16dp"
             android:paddingBottom="12dp"
             android:textColor="?attr/themeTextPrimary"
-            android:fontFamily="sans-serif"
-            android:textSize="15sp"
+            android:fontFamily="@font/jarvis_sans"
+            android:textSize="16sp"
             android:lineSpacingExtra="3dp"
             android:textIsSelectable="true" />
 
@@ -112,7 +112,7 @@
                 android:layout_marginStart="6dp"
                 android:text="@string/chat_label_jarvis"
                 android:textColor="?attr/themeTextSecondary"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.12" />
         </LinearLayout>
@@ -152,8 +152,8 @@
                 android:paddingStart="2dp"
                 android:paddingEnd="2dp"
                 android:textColor="?attr/themeTextPrimary"
-                android:fontFamily="sans-serif"
-                android:textSize="15sp"
+                android:fontFamily="@font/jarvis_sans"
+                android:textSize="16sp"
                 android:lineSpacingExtra="5dp"
                 android:breakStrategy="high_quality"
                 android:hyphenationFrequency="none"

@@ -5,20 +5,20 @@
     <!-- Ai section -->
     <style name="Widget.JarvisSettings.SectionTitle.Ai" parent="Widget.JarvisSettings.SectionTitle">
         <item name="android:textColor">@color/set_accent_ai</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:letterSpacing">0.16</item>
         <item name="android:layout_marginTop">6dp</item>
         <item name="android:layout_marginBottom">12dp</item>
     </style>
     <style name="Widget.JarvisSettings.RowTitle.Ai" parent="Widget.JarvisSettings.RowTitle">
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
         <item name="android:textStyle">normal</item>
-        <item name="android:textSize">15sp</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:letterSpacing">-0.01</item>
     </style>
     <style name="Widget.JarvisSettings.RowSubtitle.Ai" parent="Widget.JarvisSettings.RowSubtitle">
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textSize">12sp</item>
         <item name="android:layout_marginTop">3dp</item>
     </style>
@@ -30,20 +30,20 @@
     <!-- Voice section -->
     <style name="Widget.JarvisSettings.SectionTitle.Voice" parent="Widget.JarvisSettings.SectionTitle">
         <item name="android:textColor">@color/set_accent_voice</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:letterSpacing">0.16</item>
         <item name="android:layout_marginTop">6dp</item>
         <item name="android:layout_marginBottom">12dp</item>
     </style>
     <style name="Widget.JarvisSettings.RowTitle.Voice" parent="Widget.JarvisSettings.RowTitle">
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
         <item name="android:textStyle">normal</item>
-        <item name="android:textSize">15sp</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:letterSpacing">-0.01</item>
     </style>
     <style name="Widget.JarvisSettings.RowSubtitle.Voice" parent="Widget.JarvisSettings.RowSubtitle">
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textSize">12sp</item>
         <item name="android:layout_marginTop">3dp</item>
     </style>
@@ -55,20 +55,20 @@
     <!-- Security section -->
     <style name="Widget.JarvisSettings.SectionTitle.Security" parent="Widget.JarvisSettings.SectionTitle">
         <item name="android:textColor">@color/set_accent_security</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:letterSpacing">0.16</item>
         <item name="android:layout_marginTop">6dp</item>
         <item name="android:layout_marginBottom">12dp</item>
     </style>
     <style name="Widget.JarvisSettings.RowTitle.Security" parent="Widget.JarvisSettings.RowTitle">
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
         <item name="android:textStyle">normal</item>
-        <item name="android:textSize">15sp</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:letterSpacing">-0.01</item>
     </style>
     <style name="Widget.JarvisSettings.RowSubtitle.Security" parent="Widget.JarvisSettings.RowSubtitle">
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textSize">12sp</item>
         <item name="android:layout_marginTop">3dp</item>
     </style>
@@ -80,20 +80,20 @@
     <!-- Alerts section -->
     <style name="Widget.JarvisSettings.SectionTitle.Alerts" parent="Widget.JarvisSettings.SectionTitle">
         <item name="android:textColor">@color/set_accent_alerts</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:letterSpacing">0.16</item>
         <item name="android:layout_marginTop">6dp</item>
         <item name="android:layout_marginBottom">12dp</item>
     </style>
     <style name="Widget.JarvisSettings.RowTitle.Alerts" parent="Widget.JarvisSettings.RowTitle">
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
         <item name="android:textStyle">normal</item>
-        <item name="android:textSize">15sp</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:letterSpacing">-0.01</item>
     </style>
     <style name="Widget.JarvisSettings.RowSubtitle.Alerts" parent="Widget.JarvisSettings.RowSubtitle">
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textSize">12sp</item>
         <item name="android:layout_marginTop">3dp</item>
     </style>
@@ -105,20 +105,20 @@
     <!-- Memory section -->
     <style name="Widget.JarvisSettings.SectionTitle.Memory" parent="Widget.JarvisSettings.SectionTitle">
         <item name="android:textColor">@color/set_accent_memory</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:letterSpacing">0.16</item>
         <item name="android:layout_marginTop">6dp</item>
         <item name="android:layout_marginBottom">12dp</item>
     </style>
     <style name="Widget.JarvisSettings.RowTitle.Memory" parent="Widget.JarvisSettings.RowTitle">
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
         <item name="android:textStyle">normal</item>
-        <item name="android:textSize">15sp</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:letterSpacing">-0.01</item>
     </style>
     <style name="Widget.JarvisSettings.RowSubtitle.Memory" parent="Widget.JarvisSettings.RowSubtitle">
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textSize">12sp</item>
         <item name="android:layout_marginTop">3dp</item>
     </style>
@@ -130,20 +130,20 @@
     <!-- Permissions section -->
     <style name="Widget.JarvisSettings.SectionTitle.Permissions" parent="Widget.JarvisSettings.SectionTitle">
         <item name="android:textColor">@color/set_accent_permissions</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:letterSpacing">0.16</item>
         <item name="android:layout_marginTop">6dp</item>
         <item name="android:layout_marginBottom">12dp</item>
     </style>
     <style name="Widget.JarvisSettings.RowTitle.Permissions" parent="Widget.JarvisSettings.RowTitle">
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
         <item name="android:textStyle">normal</item>
-        <item name="android:textSize">15sp</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:letterSpacing">-0.01</item>
     </style>
     <style name="Widget.JarvisSettings.RowSubtitle.Permissions" parent="Widget.JarvisSettings.RowSubtitle">
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textSize">12sp</item>
         <item name="android:layout_marginTop">3dp</item>
     </style>
@@ -155,20 +155,20 @@
     <!-- Appearance section -->
     <style name="Widget.JarvisSettings.SectionTitle.Appearance" parent="Widget.JarvisSettings.SectionTitle">
         <item name="android:textColor">@color/set_accent_appearance</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:letterSpacing">0.16</item>
         <item name="android:layout_marginTop">6dp</item>
         <item name="android:layout_marginBottom">12dp</item>
     </style>
     <style name="Widget.JarvisSettings.RowTitle.Appearance" parent="Widget.JarvisSettings.RowTitle">
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
         <item name="android:textStyle">normal</item>
-        <item name="android:textSize">15sp</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:letterSpacing">-0.01</item>
     </style>
     <style name="Widget.JarvisSettings.RowSubtitle.Appearance" parent="Widget.JarvisSettings.RowSubtitle">
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textSize">12sp</item>
         <item name="android:layout_marginTop">3dp</item>
     </style>
@@ -180,20 +180,20 @@
     <!-- About section -->
     <style name="Widget.JarvisSettings.SectionTitle.About" parent="Widget.JarvisSettings.SectionTitle">
         <item name="android:textColor">@color/set_accent_about</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:letterSpacing">0.16</item>
         <item name="android:layout_marginTop">6dp</item>
         <item name="android:layout_marginBottom">12dp</item>
     </style>
     <style name="Widget.JarvisSettings.RowTitle.About" parent="Widget.JarvisSettings.RowTitle">
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
         <item name="android:textStyle">normal</item>
-        <item name="android:textSize">15sp</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:letterSpacing">-0.01</item>
     </style>
     <style name="Widget.JarvisSettings.RowSubtitle.About" parent="Widget.JarvisSettings.RowSubtitle">
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textSize">12sp</item>
         <item name="android:layout_marginTop">3dp</item>
     </style>
@@ -205,20 +205,20 @@
     <!-- Owner section -->
     <style name="Widget.JarvisSettings.SectionTitle.Owner" parent="Widget.JarvisSettings.SectionTitle">
         <item name="android:textColor">@color/set_accent_owner</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
+        <item name="android:textSize">12sp</item>
         <item name="android:letterSpacing">0.16</item>
         <item name="android:layout_marginTop">6dp</item>
         <item name="android:layout_marginBottom">12dp</item>
     </style>
     <style name="Widget.JarvisSettings.RowTitle.Owner" parent="Widget.JarvisSettings.RowTitle">
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
         <item name="android:textStyle">normal</item>
-        <item name="android:textSize">15sp</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:letterSpacing">-0.01</item>
     </style>
     <style name="Widget.JarvisSettings.RowSubtitle.Owner" parent="Widget.JarvisSettings.RowSubtitle">
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textSize">12sp</item>
         <item name="android:layout_marginTop">3dp</item>
     </style>

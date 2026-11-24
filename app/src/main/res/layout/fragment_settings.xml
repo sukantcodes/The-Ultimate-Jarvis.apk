@@ -47,12 +47,12 @@
                     android:id="@+id/tvSettingsOverline"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:letterSpacing="0.24"
                     android:text="@string/set_overline"
                     android:textAllCaps="true"
                     android:textColor="?attr/themeAccent"
-                    android:textSize="10sp"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -60,7 +60,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_serif_semibold"
                     android:letterSpacing="-0.04"
                     android:text="@string/set_screen_title"
                     android:textColor="?attr/themeTextPrimary"
@@ -72,11 +72,11 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:fontFamily="sans-serif"
+                    android:fontFamily="@font/jarvis_sans"
                     android:letterSpacing="0.01"
                     android:text="@string/set_screen_subtitle"
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="13sp" />
+                    android:textSize="14sp" />
             </LinearLayout>
 
             <FrameLayout
@@ -183,7 +183,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:ellipsize="end"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:includeFontPadding="false"
                             android:letterSpacing="-0.02"
                             android:maxLines="1"
@@ -198,13 +198,13 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="6dp"
                             android:ellipsize="end"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:includeFontPadding="false"
                             android:letterSpacing="0.1"
                             android:maxLines="1"
                             android:text="JARVIS OPERATOR • PRIMARY USER"
                             android:textColor="?attr/themeTextMuted"
-                            android:textSize="10sp" />
+                            android:textSize="12sp" />
                     </LinearLayout>
 
                     <FrameLayout
@@ -269,9 +269,9 @@
                             android:layout_height="wrap_content"
                             android:text="VOICE ENROLLED"
                             android:textColor="@color/status_green"
-                            android:textSize="10sp"
+                            android:textSize="12sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:letterSpacing="0.05"
                             android:layout_marginStart="5dp" />
                     </LinearLayout>
@@ -299,9 +299,9 @@
                             android:layout_height="wrap_content"
                             android:text="JARVIS PRO"
                             android:textColor="?attr/themeAccent"
-                            android:textSize="10sp"
+                            android:textSize="12sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:letterSpacing="0.05"
                             android:layout_marginStart="5dp" />
                     </LinearLayout>
@@ -327,11 +327,11 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="6dp"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:letterSpacing="0.05"
                             android:text="NETWORK"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="10sp"
+                            android:textSize="12sp"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </LinearLayout>
@@ -384,7 +384,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_ai"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -444,7 +444,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_voice"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -504,7 +504,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_security"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -564,7 +564,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_alerts"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -624,7 +624,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_memory"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -684,7 +684,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_permissions"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -744,7 +744,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_appearance"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -804,7 +804,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_about"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -864,7 +864,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_owner"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"

@@ -82,11 +82,11 @@ internal class CinematicJarvisIntroView(context: Context) : View(context) {
     }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        typeface = com.jarvis.assistant.util.JarvisFonts.medium
     }
     private val microPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
-        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+        typeface = com.jarvis.assistant.util.JarvisFonts.regular
     }
 
     // ---- geometry (all reused; nothing is allocated in onDraw) -----------------------------------

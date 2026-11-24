@@ -99,16 +99,16 @@ class PremiumWelcomeView(context: Context) : View(context) {
         try { ResourcesCompat.getFont(context, res) ?: fallback } catch (_: Exception) { fallback }
 
     private val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = brandFace(R.font.orbitron, Typeface.create("sans-serif-black", Typeface.BOLD))
+        typeface = brandFace(R.font.jarvis_serif_semibold, com.jarvis.assistant.util.JarvisFonts.bold)
         setFontVariationSettings("'wght' 800")
         color = Color.WHITE
     }
     private val eyebrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = brandFace(R.font.rajdhani_semibold, Typeface.create("sans-serif-medium", Typeface.NORMAL))
+        typeface = brandFace(R.font.jarvis_sans_semibold, com.jarvis.assistant.util.JarvisFonts.medium)
         letterSpacing = 0.38f
     }
     private val subtitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = brandFace(R.font.rajdhani_medium, Typeface.create("sans-serif-light", Typeface.NORMAL))
+        typeface = brandFace(R.font.jarvis_sans_medium, com.jarvis.assistant.util.JarvisFonts.regular)
         letterSpacing = 0.14f
     }
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

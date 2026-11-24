@@ -63,9 +63,9 @@ class IntroTextSequenceView(context: Context) : View(context) {
     private var viewAlpha = 0f
 
     // ---- Fonts -----------------------------------------------------------------------------------------
-    private val titleFace: Typeface = load(R.font.orbitron, Typeface.create("sans-serif-black", Typeface.BOLD))
-    private val eyebrowFace: Typeface = load(R.font.rajdhani_semibold, Typeface.create("sans-serif-medium", Typeface.NORMAL))
-    private val subtitleFace: Typeface = load(R.font.rajdhani_medium, Typeface.create("sans-serif", Typeface.NORMAL))
+    private val titleFace: Typeface = load(R.font.jarvis_serif_semibold, com.jarvis.assistant.util.JarvisFonts.bold)
+    private val eyebrowFace: Typeface = load(R.font.jarvis_sans_semibold, com.jarvis.assistant.util.JarvisFonts.medium)
+    private val subtitleFace: Typeface = load(R.font.jarvis_sans_medium, com.jarvis.assistant.util.JarvisFonts.regular)
 
     private fun load(res: Int, fallback: Typeface): Typeface =
         try { ResourcesCompat.getFont(context, res) ?: fallback } catch (_: Exception) { fallback }

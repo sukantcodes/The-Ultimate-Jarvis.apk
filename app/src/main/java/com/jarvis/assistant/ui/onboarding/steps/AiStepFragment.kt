@@ -87,7 +87,7 @@ class AiStepFragment : StepFragment() {
             setHintTextColor(withAlpha(Palette.TEXT_DIM, 140))
             setTextColor(Palette.TEXT)
             setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16f)
-            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+            typeface = com.jarvis.assistant.util.JarvisFonts.regular
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             transformationMethod = PasswordTransformationMethod.getInstance()
             maxLines = 1

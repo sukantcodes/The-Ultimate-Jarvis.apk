@@ -36,7 +36,7 @@
             android:textColor="?attr/themeTextPrimary"
             android:textSize="18sp"
             android:textStyle="bold"
-            android:fontFamily="sans-serif-black"
+            android:fontFamily="@font/jarvis_sans_bold"
             android:letterSpacing="0.15"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
@@ -185,7 +185,7 @@
             android:layout_marginBottom="10dp"
             android:text="SAVED MEMORIES (0)"
             android:textColor="?attr/themeTextMuted"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:letterSpacing="0.05"
             android:textStyle="bold" />
 

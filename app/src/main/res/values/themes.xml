@@ -2,7 +2,7 @@
 <resources>
     <!-- Base App Theme -->
     <style name="Theme.JarvisAssistant" parent="Theme.JarvisAssistant.Light">
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -14,7 +14,7 @@
     <!-- 1. LIGHT THEME - LIQUID PEARL GLASS EDITION -->
     <style name="Theme.JarvisAssistant.Light" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -49,8 +49,8 @@
         <item name="themeGlowBlob3">@drawable/bg_liquid_glow_light_3</item>
 
         <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextSecondary">#435063</item>
+        <item name="themeTextMuted">#5B6A7F</item>
         <item name="themeAccent1">#2F6BFF</item>
         <item name="themeAccent2">#8B5CF6</item>
         <item name="themeAccent3">#06B6D4</item>
@@ -94,7 +94,7 @@
     <!-- 2. DARK THEME - LIQUID OBSIDIAN GLASS EDITION -->
     <style name="Theme.JarvisAssistant.Dark" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -130,7 +130,7 @@
 
         <item name="themeTextPrimary">#F8FAFC</item>
         <item name="themeTextSecondary">#94A3B8</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextMuted">#708198</item>
         <item name="themeAccent1">#5B8CFF</item>
         <item name="themeAccent2">#A78BFA</item>
         <item name="themeAccent3">#22D3EE</item>
@@ -174,7 +174,7 @@
     <!-- CRYSTAL MIRROR: a see-through mirror over the wallpaper; the window is painted by CrystalMirrorDrawable -->
     <style name="Theme.JarvisAssistant.Crystal" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -255,7 +255,7 @@
     <!-- 3. RED THEME - LIQUID RUBY GLASS EDITION -->
     <style name="Theme.JarvisAssistant.Red" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -335,7 +335,7 @@
     <!-- 4. SUNSET THEME - LIQUID SUNSET GLASS EDITION -->
     <style name="Theme.JarvisAssistant.Sunset" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -371,7 +371,7 @@
 
         <item name="themeTextPrimary">#2E1020</item>
         <item name="themeTextSecondary">#783A5B</item>
-        <item name="themeTextMuted">#9C6282</item>
+        <item name="themeTextMuted">#8F5A78</item>
         <item name="themeAccent1">#FF6A3D</item>
         <item name="themeAccent2">#F43F5E</item>
         <item name="themeAccent3">#8B5CF6</item>
@@ -415,7 +415,7 @@
     <!-- 5. CUSTOM LIGHT - LIQUID GLASS -->
     <style name="Theme.JarvisAssistant.CustomLight" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -450,9 +450,9 @@
         <item name="themeGlowBlob2">@drawable/bg_liquid_glow_light_2</item>
         <item name="themeGlowBlob3">@drawable/bg_liquid_glow_light_3</item>
 
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#2F6BFF</item>
         <item name="themeAccent2">#8B5CF6</item>
         <item name="themeAccent3">#06B6D4</item>
@@ -496,7 +496,7 @@
     <!-- 6. CUSTOM DARK - LIQUID GLASS -->
     <style name="Theme.JarvisAssistant.CustomDark" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -532,8 +532,8 @@
         <item name="themeGlowBlob3">@drawable/bg_liquid_glow_dark_3</item>
 
         <item name="themeTextPrimary">#F8FAFC</item>
-        <item name="themeTextSecondary">#94A3B8</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextSecondary">#9DABBE</item>
+        <item name="themeTextMuted">#7F8EA3</item>
         <item name="themeAccent1">#5B8CFF</item>
         <item name="themeAccent2">#A78BFA</item>
         <item name="themeAccent3">#22D3EE</item>

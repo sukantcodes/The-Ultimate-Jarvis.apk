@@ -51,7 +51,7 @@
                         android:textColor="?attr/themeTextPrimary"
                         android:textSize="20sp"
                         android:textStyle="bold"
-                        android:fontFamily="sans-serif-medium" />
+                        android:fontFamily="@font/jarvis_sans_medium" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -95,7 +95,7 @@
                     android:gravity="center"
                     android:text="Grant necessary authorizations so Jarvis can listen, speak, deliver accurate weather, and process your requests seamlessly."
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:lineSpacingExtra="2dp" />
             </LinearLayout>
 
@@ -136,7 +136,7 @@
                             android:layout_height="wrap_content"
                             android:text="Microphone Access"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -206,7 +206,7 @@
                             android:layout_height="wrap_content"
                             android:text="Precise Location"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -276,7 +276,7 @@
                             android:layout_height="wrap_content"
                             android:text="Notifications"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -346,7 +346,7 @@
                             android:layout_height="wrap_content"
                             android:text="Display Over Other Apps"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -416,7 +416,7 @@
                             android:layout_height="wrap_content"
                             android:text="Accessibility Service"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -469,7 +469,7 @@
                 android:minHeight="48dp"
                 android:text="OPEN SYSTEM APP SETTINGS"
                 android:textColor="?attr/themeAccent"
-                android:textSize="13sp"
+                android:textSize="14sp"
                 android:textStyle="bold"
                 app:strokeColor="?attr/themeAccent"
                 app:cornerRadius="16dp" />

@@ -46,11 +46,11 @@ class JarvisStatusStrip @JvmOverloads constructor(
 
         label.apply {
             text = "● JARVIS ONLINE"; setTextColor(accent); maxLines = 1
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f); typeface = Typeface.DEFAULT_BOLD; letterSpacing = 0.08f
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); typeface = com.jarvis.assistant.util.JarvisFonts.bold; letterSpacing = 0.08f
         }
         clock.apply {
             format12Hour = "h:mm"; format24Hour = "HH:mm"; setTextColor(color); maxLines = 1
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); typeface = Typeface.DEFAULT_BOLD
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); typeface = com.jarvis.assistant.util.JarvisFonts.bold
         }
         battery.apply {
             setTextColor(color); maxLines = 1; setPadding(dp(10f), 0, 0, 0)

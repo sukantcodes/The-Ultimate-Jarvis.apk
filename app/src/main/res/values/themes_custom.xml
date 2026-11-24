@@ -3,7 +3,7 @@
 <resources>
     <style name="Theme.JarvisAssistant.CustomDark_H00" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -38,7 +38,7 @@
         <item name="themeInputBg">#66321515</item>
         <item name="themeTextPrimary">#F8FAFC</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#7F8DA5</item>
         <item name="themeAccent1">#FFF15555</item>
         <item name="themeAccent2">#FFF3A968</item>
         <item name="themeAccent3">#FFF04C99</item>
@@ -78,7 +78,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H01" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -113,7 +113,7 @@
         <item name="themeInputBg">#66321D15</item>
         <item name="themeTextPrimary">#F8FAFC</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#7F8DA5</item>
         <item name="themeAccent1">#FFF17C55</item>
         <item name="themeAccent2">#FFF3CB68</item>
         <item name="themeAccent3">#FFF04C6F</item>
@@ -153,7 +153,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H02" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -188,7 +188,7 @@
         <item name="themeInputBg">#66322415</item>
         <item name="themeTextPrimary">#F8FAFC</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#828FA7</item>
         <item name="themeAccent1">#FFF1A355</item>
         <item name="themeAccent2">#FFF3EE68</item>
         <item name="themeAccent3">#FFF0514C</item>
@@ -228,7 +228,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H03" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -261,9 +261,9 @@
         <item name="themeGlassSpecular">#80F9DC86</item>
         <item name="themeChipBg">#4D453C21</item>
         <item name="themeInputBg">#66322B15</item>
-        <item name="themeTextPrimary">#F8FAFC</item>
+        <item name="themeTextPrimary">#FCFDFE</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#8592A9</item>
         <item name="themeAccent1">#FFF1CA55</item>
         <item name="themeAccent2">#FFD5F368</item>
         <item name="themeAccent3">#FFF07A4C</item>
@@ -303,7 +303,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H04" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -336,9 +336,9 @@
         <item name="themeGlassSpecular">#80F9F986</item>
         <item name="themeChipBg">#4D454521</item>
         <item name="themeInputBg">#66323215</item>
-        <item name="themeTextPrimary">#F8FAFC</item>
+        <item name="themeTextPrimary">#FFFFFF</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#8592A9</item>
         <item name="themeAccent1">#FFF1F155</item>
         <item name="themeAccent2">#FFB2F368</item>
         <item name="themeAccent3">#FFF0A44C</item>
@@ -378,7 +378,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H05" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -411,9 +411,9 @@
         <item name="themeGlassSpecular">#80DCF986</item>
         <item name="themeChipBg">#4D3C4521</item>
         <item name="themeInputBg">#662B3215</item>
-        <item name="themeTextPrimary">#F8FAFC</item>
+        <item name="themeTextPrimary">#FFFFFF</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#8592A9</item>
         <item name="themeAccent1">#FFCAF155</item>
         <item name="themeAccent2">#FF8FF368</item>
         <item name="themeAccent3">#FFF0CD4C</item>
@@ -453,7 +453,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H06" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -486,9 +486,9 @@
         <item name="themeGlassSpecular">#80BFF986</item>
         <item name="themeChipBg">#4D334521</item>
         <item name="themeInputBg">#66243215</item>
-        <item name="themeTextPrimary">#F8FAFC</item>
+        <item name="themeTextPrimary">#FCFDFE</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#8592A9</item>
         <item name="themeAccent1">#FFA3F155</item>
         <item name="themeAccent2">#FF6DF368</item>
         <item name="themeAccent3">#FFEBF04C</item>
@@ -528,7 +528,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H07" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -561,9 +561,9 @@
         <item name="themeGlassSpecular">#80A3F986</item>
         <item name="themeChipBg">#4D2A4521</item>
         <item name="themeInputBg">#661D3215</item>
-        <item name="themeTextPrimary">#F8FAFC</item>
+        <item name="themeTextPrimary">#FCFDFE</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#8592A9</item>
         <item name="themeAccent1">#FF7CF155</item>
         <item name="themeAccent2">#FF68F386</item>
         <item name="themeAccent3">#FFC2F04C</item>
@@ -603,7 +603,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H08" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -636,9 +636,9 @@
         <item name="themeGlassSpecular">#8086F986</item>
         <item name="themeChipBg">#4D214521</item>
         <item name="themeInputBg">#66153215</item>
-        <item name="themeTextPrimary">#F8FAFC</item>
+        <item name="themeTextPrimary">#FCFDFE</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#8592A9</item>
         <item name="themeAccent1">#FF55F155</item>
         <item name="themeAccent2">#FF68F3A9</item>
         <item name="themeAccent3">#FF99F04C</item>
@@ -678,7 +678,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H09" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -711,9 +711,9 @@
         <item name="themeGlassSpecular">#8086F9A3</item>
         <item name="themeChipBg">#4D21452A</item>
         <item name="themeInputBg">#6615321D</item>
-        <item name="themeTextPrimary">#F8FAFC</item>
+        <item name="themeTextPrimary">#FCFDFE</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#8592A9</item>
         <item name="themeAccent1">#FF55F17C</item>
         <item name="themeAccent2">#FF68F3CB</item>
         <item name="themeAccent3">#FF6FF04C</item>
@@ -753,7 +753,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H10" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -786,9 +786,9 @@
         <item name="themeGlassSpecular">#8086F9BF</item>
         <item name="themeChipBg">#4D214533</item>
         <item name="themeInputBg">#66153224</item>
-        <item name="themeTextPrimary">#F8FAFC</item>
+        <item name="themeTextPrimary">#FCFDFE</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#8592A9</item>
         <item name="themeAccent1">#FF55F1A3</item>
         <item name="themeAccent2">#FF68F3EE</item>
         <item name="themeAccent3">#FF4CF051</item>
@@ -828,7 +828,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H11" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -861,9 +861,9 @@
         <item name="themeGlassSpecular">#8086F9DC</item>
         <item name="themeChipBg">#4D21453C</item>
         <item name="themeInputBg">#6615322B</item>
-        <item name="themeTextPrimary">#F8FAFC</item>
+        <item name="themeTextPrimary">#FCFDFE</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#8592A9</item>
         <item name="themeAccent1">#FF55F1CA</item>
         <item name="themeAccent2">#FF68D5F3</item>
         <item name="themeAccent3">#FF4CF07A</item>
@@ -903,7 +903,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H12" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -936,9 +936,9 @@
         <item name="themeGlassSpecular">#8086F9F9</item>
         <item name="themeChipBg">#4D214545</item>
         <item name="themeInputBg">#66153232</item>
-        <item name="themeTextPrimary">#F8FAFC</item>
+        <item name="themeTextPrimary">#FCFDFE</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#8592A9</item>
         <item name="themeAccent1">#FF55F1F1</item>
         <item name="themeAccent2">#FF68B2F3</item>
         <item name="themeAccent3">#FF4CF0A4</item>
@@ -978,7 +978,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H13" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -1013,7 +1013,7 @@
         <item name="themeInputBg">#66152B32</item>
         <item name="themeTextPrimary">#F8FAFC</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#828FA7</item>
         <item name="themeAccent1">#FF55CAF1</item>
         <item name="themeAccent2">#FF688FF3</item>
         <item name="themeAccent3">#FF4CF0CD</item>
@@ -1053,7 +1053,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H14" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -1088,7 +1088,7 @@
         <item name="themeInputBg">#66152432</item>
         <item name="themeTextPrimary">#F8FAFC</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#7F8DA5</item>
         <item name="themeAccent1">#FF55A3F1</item>
         <item name="themeAccent2">#FF686DF3</item>
         <item name="themeAccent3">#FF4CEBF0</item>
@@ -1128,7 +1128,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H15" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -1163,7 +1163,7 @@
         <item name="themeInputBg">#66151D32</item>
         <item name="themeTextPrimary">#F8FAFC</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#7F8DA5</item>
         <item name="themeAccent1">#FF557CF1</item>
         <item name="themeAccent2">#FF8668F3</item>
         <item name="themeAccent3">#FF4CC2F0</item>
@@ -1203,7 +1203,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H16" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -1238,7 +1238,7 @@
         <item name="themeInputBg">#66151532</item>
         <item name="themeTextPrimary">#F8FAFC</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#7F8DA5</item>
         <item name="themeAccent1">#FF5555F1</item>
         <item name="themeAccent2">#FFA968F3</item>
         <item name="themeAccent3">#FF4C99F0</item>
@@ -1278,7 +1278,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H17" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -1313,7 +1313,7 @@
         <item name="themeInputBg">#661D1532</item>
         <item name="themeTextPrimary">#F8FAFC</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#7F8DA5</item>
         <item name="themeAccent1">#FF7C55F1</item>
         <item name="themeAccent2">#FFCB68F3</item>
         <item name="themeAccent3">#FF4C6FF0</item>
@@ -1353,7 +1353,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H18" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -1388,7 +1388,7 @@
         <item name="themeInputBg">#66241532</item>
         <item name="themeTextPrimary">#F8FAFC</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#7F8DA5</item>
         <item name="themeAccent1">#FFA355F1</item>
         <item name="themeAccent2">#FFEE68F3</item>
         <item name="themeAccent3">#FF514CF0</item>
@@ -1428,7 +1428,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H19" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -1463,7 +1463,7 @@
         <item name="themeInputBg">#662B1532</item>
         <item name="themeTextPrimary">#F8FAFC</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#7F8DA5</item>
         <item name="themeAccent1">#FFCA55F1</item>
         <item name="themeAccent2">#FFF368D5</item>
         <item name="themeAccent3">#FF7A4CF0</item>
@@ -1503,7 +1503,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H20" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -1538,7 +1538,7 @@
         <item name="themeInputBg">#66321532</item>
         <item name="themeTextPrimary">#F8FAFC</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#7F8DA5</item>
         <item name="themeAccent1">#FFF155F1</item>
         <item name="themeAccent2">#FFF368B2</item>
         <item name="themeAccent3">#FFA44CF0</item>
@@ -1578,7 +1578,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H21" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -1613,7 +1613,7 @@
         <item name="themeInputBg">#6632152B</item>
         <item name="themeTextPrimary">#F8FAFC</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#7F8DA5</item>
         <item name="themeAccent1">#FFF155CA</item>
         <item name="themeAccent2">#FFF3688F</item>
         <item name="themeAccent3">#FFCD4CF0</item>
@@ -1653,7 +1653,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H22" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -1688,7 +1688,7 @@
         <item name="themeInputBg">#66321524</item>
         <item name="themeTextPrimary">#F8FAFC</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#7F8DA5</item>
         <item name="themeAccent1">#FFF155A3</item>
         <item name="themeAccent2">#FFF3686D</item>
         <item name="themeAccent3">#FFF04CEB</item>
@@ -1728,7 +1728,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomDark_H23" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -1763,7 +1763,7 @@
         <item name="themeInputBg">#6632151D</item>
         <item name="themeTextPrimary">#F8FAFC</item>
         <item name="themeTextSecondary">#A8B3C7</item>
-        <item name="themeTextMuted">#7C8AA3</item>
+        <item name="themeTextMuted">#7F8DA5</item>
         <item name="themeAccent1">#FFF1557C</item>
         <item name="themeAccent2">#FFF38668</item>
         <item name="themeAccent3">#FFF04CC2</item>
@@ -1803,7 +1803,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H00" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -1836,9 +1836,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99FBEFEF</item>
         <item name="themeInputBg">#B8FDF7F7</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FFCA2121</item>
         <item name="themeAccent2">#FFDB7924</item>
         <item name="themeAccent3">#FFCA2170</item>
@@ -1878,7 +1878,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H01" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -1911,9 +1911,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99FBF2EF</item>
         <item name="themeInputBg">#B8FDF8F7</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FFCA4B21</item>
         <item name="themeAccent2">#FFDBA724</item>
         <item name="themeAccent3">#FFCA2145</item>
@@ -1953,7 +1953,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H02" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -1986,9 +1986,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99FBF5EF</item>
         <item name="themeInputBg">#B8FDFAF7</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FFCA7521</item>
         <item name="themeAccent2">#FFDBD524</item>
         <item name="themeAccent3">#FFCA2621</item>
@@ -2028,7 +2028,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H03" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -2061,9 +2061,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99FBF8EF</item>
         <item name="themeInputBg">#B8FDFBF7</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FFCAA021</item>
         <item name="themeAccent2">#FFB4DB24</item>
         <item name="themeAccent3">#FFCA5121</item>
@@ -2103,7 +2103,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H04" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -2136,9 +2136,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99FBFBEF</item>
         <item name="themeInputBg">#B8FDFDF7</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FFCACA21</item>
         <item name="themeAccent2">#FF86DB24</item>
         <item name="themeAccent3">#FFCA7B21</item>
@@ -2178,7 +2178,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H05" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -2211,9 +2211,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99F8FBEF</item>
         <item name="themeInputBg">#B8FBFDF7</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FFA0CA21</item>
         <item name="themeAccent2">#FF58DB24</item>
         <item name="themeAccent3">#FFCAA521</item>
@@ -2253,7 +2253,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H06" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -2286,9 +2286,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99F5FBEF</item>
         <item name="themeInputBg">#B8FAFDF7</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FF75CA21</item>
         <item name="themeAccent2">#FF2ADB24</item>
         <item name="themeAccent3">#FFC4CA21</item>
@@ -2328,7 +2328,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H07" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -2361,9 +2361,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99F2FBEF</item>
         <item name="themeInputBg">#B8F8FDF7</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FF4BCA21</item>
         <item name="themeAccent2">#FF24DB4B</item>
         <item name="themeAccent3">#FF9ACA21</item>
@@ -2403,7 +2403,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H08" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -2436,9 +2436,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99EFFBEF</item>
         <item name="themeInputBg">#B8F7FDF7</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FF21CA21</item>
         <item name="themeAccent2">#FF24DB79</item>
         <item name="themeAccent3">#FF70CA21</item>
@@ -2478,7 +2478,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H09" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -2511,9 +2511,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99EFFBF2</item>
         <item name="themeInputBg">#B8F7FDF8</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FF21CA4B</item>
         <item name="themeAccent2">#FF24DBA7</item>
         <item name="themeAccent3">#FF45CA21</item>
@@ -2553,7 +2553,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H10" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -2586,9 +2586,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99EFFBF5</item>
         <item name="themeInputBg">#B8F7FDFA</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FF21CA75</item>
         <item name="themeAccent2">#FF24DBD5</item>
         <item name="themeAccent3">#FF21CA26</item>
@@ -2628,7 +2628,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H11" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -2661,9 +2661,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99EFFBF8</item>
         <item name="themeInputBg">#B8F7FDFB</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FF21CAA0</item>
         <item name="themeAccent2">#FF24B4DB</item>
         <item name="themeAccent3">#FF21CA51</item>
@@ -2703,7 +2703,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H12" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -2736,9 +2736,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99EFFBFB</item>
         <item name="themeInputBg">#B8F7FDFD</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FF21CACA</item>
         <item name="themeAccent2">#FF2486DB</item>
         <item name="themeAccent3">#FF21CA7B</item>
@@ -2778,7 +2778,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H13" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -2811,9 +2811,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99EFF8FB</item>
         <item name="themeInputBg">#B8F7FBFD</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FF21A0CA</item>
         <item name="themeAccent2">#FF2458DB</item>
         <item name="themeAccent3">#FF21CAA5</item>
@@ -2853,7 +2853,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H14" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -2886,9 +2886,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99EFF5FB</item>
         <item name="themeInputBg">#B8F7FAFD</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FF2175CA</item>
         <item name="themeAccent2">#FF242ADB</item>
         <item name="themeAccent3">#FF21C4CA</item>
@@ -2928,7 +2928,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H15" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -2961,9 +2961,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99EFF2FB</item>
         <item name="themeInputBg">#B8F7F8FD</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FF214BCA</item>
         <item name="themeAccent2">#FF4B24DB</item>
         <item name="themeAccent3">#FF219ACA</item>
@@ -3003,7 +3003,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H16" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -3036,9 +3036,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99EFEFFB</item>
         <item name="themeInputBg">#B8F7F7FD</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FF2121CA</item>
         <item name="themeAccent2">#FF7924DB</item>
         <item name="themeAccent3">#FF2170CA</item>
@@ -3078,7 +3078,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H17" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -3111,9 +3111,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99F2EFFB</item>
         <item name="themeInputBg">#B8F8F7FD</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FF4B21CA</item>
         <item name="themeAccent2">#FFA724DB</item>
         <item name="themeAccent3">#FF2145CA</item>
@@ -3153,7 +3153,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H18" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -3186,9 +3186,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99F5EFFB</item>
         <item name="themeInputBg">#B8FAF7FD</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FF7521CA</item>
         <item name="themeAccent2">#FFD524DB</item>
         <item name="themeAccent3">#FF2621CA</item>
@@ -3228,7 +3228,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H19" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -3261,9 +3261,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99F8EFFB</item>
         <item name="themeInputBg">#B8FBF7FD</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FFA021CA</item>
         <item name="themeAccent2">#FFDB24B4</item>
         <item name="themeAccent3">#FF5121CA</item>
@@ -3303,7 +3303,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H20" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -3336,9 +3336,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99FBEFFB</item>
         <item name="themeInputBg">#B8FDF7FD</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FFCA21CA</item>
         <item name="themeAccent2">#FFDB2486</item>
         <item name="themeAccent3">#FF7B21CA</item>
@@ -3378,7 +3378,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H21" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -3411,9 +3411,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99FBEFF8</item>
         <item name="themeInputBg">#B8FDF7FB</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FFCA21A0</item>
         <item name="themeAccent2">#FFDB2458</item>
         <item name="themeAccent3">#FFA521CA</item>
@@ -3453,7 +3453,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H22" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -3486,9 +3486,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99FBEFF5</item>
         <item name="themeInputBg">#B8FDF7FA</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FFCA2175</item>
         <item name="themeAccent2">#FFDB242A</item>
         <item name="themeAccent3">#FFCA21C4</item>
@@ -3528,7 +3528,7 @@
     </style>
     <style name="Theme.JarvisAssistant.CustomLight_H23" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowAnimationStyle">@style/Jarvis.Activity.Transitions</item>
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
         <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
         <item name="textAppearanceHeadlineLarge">@style/TextAppearance.Jarvis.Display</item>
         <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Jarvis.Headline</item>
@@ -3561,9 +3561,9 @@
         <item name="themeGlassSpecular">#FFFFFFFF</item>
         <item name="themeChipBg">#99FBEFF2</item>
         <item name="themeInputBg">#B8FDF7F8</item>
-        <item name="themeTextPrimary">#0F172A</item>
-        <item name="themeTextSecondary">#475569</item>
-        <item name="themeTextMuted">#64748B</item>
+        <item name="themeTextPrimary">#080D17</item>
+        <item name="themeTextSecondary">#3D495A</item>
+        <item name="themeTextMuted">#536073</item>
         <item name="themeAccent1">#FFCA214B</item>
         <item name="themeAccent2">#FFDB4B24</item>
         <item name="themeAccent3">#FFCA219A</item>

@@ -36,7 +36,7 @@
             android:textColor="?attr/themeTextPrimary"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:fontFamily="sans-serif-black"
+            android:fontFamily="@font/jarvis_sans_bold"
             android:letterSpacing="0.12"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
@@ -49,7 +49,7 @@
             android:layout_height="wrap_content"
             android:text="HUD V2"
             android:textColor="#FFFFFF"
-            android:textSize="10sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:paddingHorizontal="8dp"
             android:paddingVertical="4dp"
@@ -109,7 +109,7 @@
                             android:layout_weight="1"
                             android:text="OWNER VOICE: NOT ENROLLED"
                             android:textColor="?attr/themeAccent"
-                            android:textSize="13sp"
+                            android:textSize="14sp"
                             android:textStyle="bold"
                             android:letterSpacing="0.06" />
 
@@ -121,7 +121,7 @@
                             android:paddingVertical="3dp"
                             android:text="BIOMETRIC"
                             android:textColor="#FFFFFF"
-                            android:textSize="10sp"
+                            android:textSize="12sp"
                             android:textStyle="bold"
                             android:letterSpacing="0.06" />
                     </LinearLayout>
@@ -133,7 +133,7 @@
                         android:layout_marginTop="10dp"
                         android:text="Jarvis is calibrated to your voice. Any speech or commands from strangers, family members, or TV are automatically blocked."
                         android:textColor="?attr/themeTextSecondary"
-                        android:textSize="13sp"
+                        android:textSize="14sp"
                         android:lineSpacingExtra="3dp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -203,7 +203,7 @@
                         android:paddingVertical="5dp"
                         android:text="TRAIN STEP 1 OF 3"
                         android:textColor="#FFFFFF"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textStyle="bold"
                         android:letterSpacing="0.12" />
 
@@ -214,7 +214,7 @@
                         android:layout_marginTop="14dp"
                         android:text="Say clearly into your phone:"
                         android:textColor="?attr/themeTextSecondary"
-                        android:textSize="13sp" />
+                        android:textSize="14sp" />
 
                     <TextView
                         android:id="@+id/tvPromptPhrase"
@@ -319,7 +319,7 @@
                         android:layout_height="wrap_content"
                         android:text="LIVE VERIFICATION TEST TOOL"
                         android:textColor="?attr/themeAccent"
-                        android:textSize="13sp"
+                        android:textSize="14sp"
                         android:textStyle="bold"
                         android:letterSpacing="0.1" />
 
@@ -348,7 +348,7 @@
                         android:text="Test Voice Verification"
                         android:textColor="?attr/themeAccent"
                         android:textStyle="bold"
-                        android:textSize="13sp"
+                        android:textSize="14sp"
                         app:backgroundTint="@null" />
 
                     <!-- Test Result Banner -->
@@ -377,7 +377,7 @@
                             android:layout_marginTop="4dp"
                             android:text="Cosine distance: 0.28 (Threshold: 0.70)"
                             android:textColor="?attr/themeTextSecondary"
-                            android:textSize="11sp" />
+                            android:textSize="12sp" />
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -404,7 +404,7 @@
                         android:layout_height="wrap_content"
                         android:text="SENSITIVITY / STRICTNESS"
                         android:textColor="?attr/themeAccent"
-                        android:textSize="13sp"
+                        android:textSize="14sp"
                         android:textStyle="bold"
                         android:letterSpacing="0.1" />
 
@@ -420,7 +420,7 @@
                             android:layout_height="wrap_content"
                             android:text="Strict (High Security - Zero False Accepts)"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="13sp" />
+                            android:textSize="14sp" />
 
                         <RadioButton
                             android:id="@+id/rbBalanced"
@@ -429,7 +429,7 @@
                             android:checked="true"
                             android:text="Balanced (Recommended - Optimal Everyday)"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="13sp" />
+                            android:textSize="14sp" />
 
                         <RadioButton
                             android:id="@+id/rbRelaxed"
@@ -437,7 +437,7 @@
                             android:layout_height="wrap_content"
                             android:text="Relaxed (Forgiving - Best if you have a cold)"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="13sp" />
+                            android:textSize="14sp" />
                     </RadioGroup>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -451,7 +451,7 @@
                 android:text="RESET / RE-ENROLL VOICE PROFILE"
                 android:textColor="?attr/themeWarning"
                 android:textStyle="bold"
-                android:textSize="13sp"
+                android:textSize="14sp"
                 app:backgroundTint="@null" />
 
         </LinearLayout>

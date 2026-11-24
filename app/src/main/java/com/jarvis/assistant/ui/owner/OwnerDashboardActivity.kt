@@ -263,9 +263,9 @@ class OwnerDashboardActivity : AppCompatActivity() {
         ).forEach { (label, value, color) ->
             val card = LayoutInflater.from(this).inflate(R.layout.item_owner_stat, grid, false)
             card.findViewById<TextView>(R.id.tvStatValue).apply {
-                text = value; setTextColor(color); typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
+                text = value; setTextColor(color); typeface = com.jarvis.assistant.util.JarvisFonts.bold
             }
-            card.findViewById<TextView>(R.id.tvStatLabel).apply { text = getString(label); typeface = Typeface.create("sans-serif-light", Typeface.NORMAL) }
+            card.findViewById<TextView>(R.id.tvStatLabel).apply { text = getString(label); typeface = com.jarvis.assistant.util.JarvisFonts.regular }
             card.background = tinted(color)
             grid.addView(card)
         }
@@ -304,7 +304,7 @@ class OwnerDashboardActivity : AppCompatActivity() {
             textSize = 13f
             letterSpacing = 0.08f
             isAllCaps = true
-            typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
+            typeface = com.jarvis.assistant.util.JarvisFonts.bold
             setPadding(0, 0, 0, dp(8))
         })
         box.addView(content)
@@ -318,7 +318,7 @@ class OwnerDashboardActivity : AppCompatActivity() {
                 text = "● $name"
                 setTextColor(color)
                 textSize = 12f
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                typeface = com.jarvis.assistant.util.JarvisFonts.medium
                 setPadding(0, dp(8), dp(14), 0)
             })
         }
@@ -377,11 +377,11 @@ class OwnerDashboardActivity : AppCompatActivity() {
                 layoutParams = android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 addView(TextView(context).apply {
                     text = nf.format(value); textSize = 24f; setTextColor(color)
-                    typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
+                    typeface = com.jarvis.assistant.util.JarvisFonts.bold
                 })
                 addView(TextView(context).apply {
                     text = getString(label); textSize = 11f; setTextColor(Color.GRAY)
-                    typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+                    typeface = com.jarvis.assistant.util.JarvisFonts.regular
                 })
             })
         }

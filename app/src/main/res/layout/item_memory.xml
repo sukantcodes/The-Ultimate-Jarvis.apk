@@ -24,7 +24,7 @@
             android:paddingVertical="4dp"
             android:text="PREFERENCES"
             android:textColor="?attr/themeAccent"
-            android:textSize="10sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:letterSpacing="0.05" />
 
@@ -36,7 +36,7 @@
             android:layout_weight="1"
             android:text="Sep 12, 2026 • 15:30"
             android:textColor="?attr/themeTextMuted"
-            android:textSize="11sp" />
+            android:textSize="12sp" />
 
         <ImageButton
             android:id="@+id/btnEditMemory"

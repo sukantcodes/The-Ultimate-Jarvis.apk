@@ -78,7 +78,7 @@ object ImageCardBinder {
         }
         fun button(label: String, onClick: (View) -> Unit) = TextView(context).apply {
             text = label
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(accent())
             gravity = Gravity.CENTER

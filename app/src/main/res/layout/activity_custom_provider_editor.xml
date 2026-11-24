@@ -33,7 +33,7 @@
             android:text="Custom AI Provider"
             android:textColor="@color/text_primary"
             android:textSize="20sp"
-            android:fontFamily="sans-serif-medium"
+            android:fontFamily="@font/jarvis_sans_medium"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -67,8 +67,8 @@
                 android:layout_marginTop="0dp"
                 android:text="1 · Connection"
                 android:textColor="?attr/themeTextPrimary"
-                android:textSize="15sp"
-                android:fontFamily="sans-serif-medium"
+                android:textSize="16sp"
+                android:fontFamily="@font/jarvis_sans_medium"
             android:textStyle="bold" />
 
             <com.google.android.material.textfield.TextInputLayout
@@ -90,7 +90,7 @@
                     android:inputType="text"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
-                    android:fontFamily="sans-serif" />
+                    android:fontFamily="@font/jarvis_sans" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -112,7 +112,7 @@
                     android:inputType="textUri"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
-                    android:fontFamily="sans-serif" />
+                    android:fontFamily="@font/jarvis_sans" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -135,7 +135,7 @@
                     android:inputType="textPassword"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
-                    android:fontFamily="sans-serif" />
+                    android:fontFamily="@font/jarvis_sans" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <TextView
@@ -146,7 +146,7 @@
                 android:text=""
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp"
-                android:fontFamily="sans-serif-medium" />
+                android:fontFamily="@font/jarvis_sans_medium" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -154,8 +154,8 @@
                 android:layout_marginTop="14dp"
                 android:text="Protocol"
                 android:textColor="?attr/themeTextMuted"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium"
+                android:textSize="14sp"
+                android:fontFamily="@font/jarvis_sans_medium"
             android:textStyle="bold" />
 
             <RadioGroup
@@ -171,7 +171,7 @@
                     android:checked="true"
                     android:text="OpenAI-compatible (/models, /chat/completions)"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="13sp" />
+                    android:textSize="14sp" />
 
                 <RadioButton
                     android:id="@+id/rbGemini"
@@ -179,7 +179,7 @@
                     android:layout_height="wrap_content"
                     android:text="Gemini-compatible (generateContent + Live WebSocket)"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="13sp" />
+                    android:textSize="14sp" />
             </RadioGroup>
 
             <TextView
@@ -188,8 +188,8 @@
                 android:layout_marginTop="10dp"
                 android:text="Authentication method"
                 android:textColor="?attr/themeTextMuted"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium"
+                android:textSize="14sp"
+                android:fontFamily="@font/jarvis_sans_medium"
             android:textStyle="bold" />
 
             <Spinner
@@ -219,7 +219,7 @@
                     android:inputType="text"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
-                    android:fontFamily="sans-serif" />
+                    android:fontFamily="@font/jarvis_sans" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.button.MaterialButton
@@ -257,7 +257,7 @@
                     android:inputType="textUri"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
-                    android:fontFamily="sans-serif" />
+                    android:fontFamily="@font/jarvis_sans" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -279,7 +279,7 @@
                     android:inputType="textUri"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
-                    android:fontFamily="sans-serif" />
+                    android:fontFamily="@font/jarvis_sans" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -301,7 +301,7 @@
                     android:inputType="text"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
-                    android:fontFamily="sans-serif" />
+                    android:fontFamily="@font/jarvis_sans" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -323,7 +323,7 @@
                     android:inputType="numberDecimal"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
-                    android:fontFamily="sans-serif" />
+                    android:fontFamily="@font/jarvis_sans" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -345,7 +345,7 @@
                     android:inputType="number"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
-                    android:fontFamily="sans-serif" />
+                    android:fontFamily="@font/jarvis_sans" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -367,7 +367,7 @@
                     android:inputType="textMultiLine"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
-                    android:fontFamily="sans-serif" />
+                    android:fontFamily="@font/jarvis_sans" />
             </com.google.android.material.textfield.TextInputLayout>
 
             </LinearLayout>
@@ -388,8 +388,8 @@
                 android:layout_marginTop="0dp"
                 android:text="2 · Models"
                 android:textColor="?attr/themeTextPrimary"
-                android:textSize="15sp"
-                android:fontFamily="sans-serif-medium"
+                android:textSize="16sp"
+                android:fontFamily="@font/jarvis_sans_medium"
             android:textStyle="bold" />
 
             <TextView
@@ -399,7 +399,7 @@
                 android:text="Models come only from your provider. Nothing is built in."
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp"
-                android:fontFamily="sans-serif-medium" />
+                android:fontFamily="@font/jarvis_sans_medium" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnFetchModels"
@@ -418,7 +418,7 @@
                 android:text=""
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp"
-                android:fontFamily="sans-serif-medium" />
+                android:fontFamily="@font/jarvis_sans_medium" />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
@@ -451,7 +451,7 @@
                 android:text="Provider doesn't list models? Type a model ID yourself (shown as manual):"
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp"
-                android:fontFamily="sans-serif-medium" />
+                android:fontFamily="@font/jarvis_sans_medium" />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
@@ -472,7 +472,7 @@
                     android:inputType="text"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
-                    android:fontFamily="sans-serif" />
+                    android:fontFamily="@font/jarvis_sans" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.button.MaterialButton
@@ -492,7 +492,7 @@
                 android:text=""
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp"
-                android:fontFamily="sans-serif-medium" />
+                android:fontFamily="@font/jarvis_sans_medium" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnPickChatModel"
@@ -519,8 +519,8 @@
                 android:layout_marginTop="0dp"
                 android:text="3 · Compatibility and test"
                 android:textColor="?attr/themeTextPrimary"
-                android:textSize="15sp"
-                android:fontFamily="sans-serif-medium"
+                android:textSize="16sp"
+                android:fontFamily="@font/jarvis_sans_medium"
             android:textStyle="bold" />
 
             <TextView
@@ -531,7 +531,7 @@
                 android:text=""
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp"
-                android:fontFamily="sans-serif-medium" />
+                android:fontFamily="@font/jarvis_sans_medium" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCheckCompat"
@@ -550,7 +550,7 @@
                 android:text=""
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp"
-                android:fontFamily="sans-serif-medium" />
+                android:fontFamily="@font/jarvis_sans_medium" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnTestProvider"
@@ -569,7 +569,7 @@
                 android:text=""
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp"
-                android:fontFamily="sans-serif-medium" />
+                android:fontFamily="@font/jarvis_sans_medium" />
 
         </LinearLayout>
 
@@ -587,8 +587,8 @@
                 android:layout_marginTop="0dp"
                 android:text="4 · Save and activate"
                 android:textColor="?attr/themeTextPrimary"
-                android:textSize="15sp"
-                android:fontFamily="sans-serif-medium"
+                android:textSize="16sp"
+                android:fontFamily="@font/jarvis_sans_medium"
             android:textStyle="bold" />
 
             <com.google.android.material.button.MaterialButton

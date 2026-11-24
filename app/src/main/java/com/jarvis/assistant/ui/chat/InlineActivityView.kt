@@ -676,8 +676,8 @@ class InlineActivityView @JvmOverloads constructor(context: Context, attrs: Attr
 
     private val spinner = OrbitSpinnerView(context)
     private val verb = ShimmerTextView(context).apply {
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 15.5f)
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        typeface = com.jarvis.assistant.util.JarvisFonts.medium
         letterSpacing = 0.01f
         maxLines = 1
     }
@@ -691,17 +691,17 @@ class InlineActivityView @JvmOverloads constructor(context: Context, attrs: Attr
     private val chevron = TextView(context).apply {
         text = "›"
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f)
-        typeface = Typeface.DEFAULT_BOLD
+        typeface = com.jarvis.assistant.util.JarvisFonts.bold
         rotation = 90f
     }
     private val ticker = TextView(context).apply {
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
-        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+        typeface = com.jarvis.assistant.util.JarvisFonts.regular
         maxLines = 1
         ellipsize = android.text.TextUtils.TruncateAt.END
     }
     private val caption = TextView(context).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f) }
-    private val percentLabel = TextView(context).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f); typeface = Typeface.MONOSPACE }
+    private val percentLabel = TextView(context).apply { setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); typeface = Typeface.MONOSPACE }
     private val bar = GlowProgressBarView(context)
     private val progressBlock = LinearLayout(context).apply { orientation = VERTICAL; visibility = GONE }
     private val stepsList = LinearLayout(context).apply { orientation = VERTICAL }

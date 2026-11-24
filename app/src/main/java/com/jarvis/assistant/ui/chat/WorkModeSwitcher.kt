@@ -56,12 +56,12 @@ class WorkModeSwitcher @JvmOverloads constructor(
     private var lastTouchX = -1f
 
     private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+        typeface = com.jarvis.assistant.util.JarvisFonts.bold
         textSize = 10f * scaledText
         letterSpacing = 0.07f
     }
     private val glyphText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+        typeface = com.jarvis.assistant.util.JarvisFonts.bold
         textAlign = Paint.Align.CENTER
         textSize = glyph * 1.15f
     }

@@ -51,7 +51,7 @@
                         android:textColor="?attr/themeTextPrimary"
                         android:textSize="20sp"
                         android:textStyle="bold"
-                        android:fontFamily="sans-serif-medium" />
+                        android:fontFamily="@font/jarvis_sans_medium" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -87,7 +87,7 @@
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    android:fontFamily="sans-serif-medium" />
+                    android:fontFamily="@font/jarvis_sans_medium" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -97,7 +97,7 @@
                     android:textColor="?attr/themeAccent"
                     android:textSize="12sp"
                     android:letterSpacing="0.08"
-                    android:fontFamily="sans-serif-medium" />
+                    android:fontFamily="@font/jarvis_sans_medium" />
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -120,7 +120,7 @@
                         android:layout_height="wrap_content"
                         android:text="PRIVATE BY DEFAULT • ANALYTICS DISCLOSED"
                         android:textColor="@color/status_green"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textStyle="bold"
                         android:letterSpacing="0.08"
                         android:layout_marginStart="6dp" />
@@ -133,10 +133,10 @@
                 android:layout_height="wrap_content"
                 android:text="DATA OWNERSHIP &amp; STORAGE"
                 android:textColor="?attr/themeAccent"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.10"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:layout_marginBottom="10dp" />
 
             <LinearLayout
@@ -182,7 +182,7 @@
                             android:textColor="?attr/themeTextPrimary"
                             android:textSize="16sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium" />
+                            android:fontFamily="@font/jarvis_sans_medium" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -200,7 +200,7 @@
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
                     android:lineSpacingExtra="4dp"
-                    android:fontFamily="sans-serif" />
+                    android:fontFamily="@font/jarvis_sans" />
 
                 <!-- Bullet guarantees -->
                 <LinearLayout
@@ -214,7 +214,7 @@
                         android:layout_height="wrap_content"
                         android:text="•  Accounts are optional; guest mode shares no analytics"
                         android:textColor="?attr/themeTextMuted"
-                        android:textSize="13sp"
+                        android:textSize="14sp"
                         android:layout_marginBottom="6dp" />
 
                     <TextView
@@ -222,7 +222,7 @@
                         android:layout_height="wrap_content"
                         android:text="•  Voice Biometrics run 100% locally on-device"
                         android:textColor="?attr/themeTextMuted"
-                        android:textSize="13sp"
+                        android:textSize="14sp"
                         android:layout_marginBottom="6dp" />
 
                     <TextView
@@ -230,7 +230,7 @@
                         android:layout_height="wrap_content"
                         android:text="•  Direct encrypted TLS 1.3 socket to Gemini Live"
                         android:textColor="?attr/themeTextMuted"
-                        android:textSize="13sp" />
+                        android:textSize="14sp" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -240,10 +240,10 @@
                 android:layout_height="wrap_content"
                 android:text="ACCOUNT ANALYTICS (SIGNED-IN USERS)"
                 android:textColor="?attr/themeAccent"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.10"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:layout_marginBottom="10dp" />
 
             <TextView
@@ -255,7 +255,7 @@
                 android:padding="16dp"
                 android:text="@string/owner_privacy_disclosure"
                 android:textColor="?attr/themeTextSecondary"
-                android:textSize="13sp" />
+                android:textSize="14sp" />
 
             <!-- Transparency -->
             <TextView
@@ -263,10 +263,10 @@
                 android:layout_height="wrap_content"
                 android:text="TRANSPARENCY &amp; OPEN SOURCE"
                 android:textColor="?attr/themeAccent"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.10"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:layout_marginBottom="10dp" />
 
             <LinearLayout
@@ -312,7 +312,7 @@
                             android:textColor="?attr/themeTextPrimary"
                             android:textSize="16sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium" />
+                            android:fontFamily="@font/jarvis_sans_medium" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -330,7 +330,7 @@
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
                     android:lineSpacingExtra="4dp"
-                    android:fontFamily="sans-serif" />
+                    android:fontFamily="@font/jarvis_sans" />
             </LinearLayout>
 
             <!-- Section 3: Community & Source Code Discussion -->
@@ -339,10 +339,10 @@
                 android:layout_height="wrap_content"
                 android:text="COMMUNITY &amp; DISCUSSION GROUPS"
                 android:textColor="?attr/themeAccent"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.10"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:layout_marginBottom="10dp" />
 
             <LinearLayout
@@ -386,9 +386,9 @@
                             android:layout_height="wrap_content"
                             android:text="Official Telegram Channel"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium" />
+                            android:fontFamily="@font/jarvis_sans_medium" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -441,9 +441,9 @@
                             android:layout_height="wrap_content"
                             android:text="Telegram Discussion Group"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium" />
+                            android:fontFamily="@font/jarvis_sans_medium" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -496,9 +496,9 @@
                             android:layout_height="wrap_content"
                             android:text="Instagram Community"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium" />
+                            android:fontFamily="@font/jarvis_sans_medium" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -551,9 +551,9 @@
                             android:layout_height="wrap_content"
                             android:text="YouTube Channel"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium" />
+                            android:fontFamily="@font/jarvis_sans_medium" />
 
                         <TextView
                             android:layout_width="wrap_content"

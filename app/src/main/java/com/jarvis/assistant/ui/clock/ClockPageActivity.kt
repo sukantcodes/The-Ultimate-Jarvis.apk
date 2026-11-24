@@ -215,7 +215,7 @@ abstract class ClockPageActivity : AppCompatActivity() {
         text = value
         setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp)
         setTextColor(themeColor(if (primary) R.attr.themeTextPrimary else R.attr.themeTextMuted, if (primary) 0xFFFFFFFF.toInt() else 0xFF9AA4B2.toInt()))
-        if (bold) typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+        if (bold) typeface = com.jarvis.assistant.util.JarvisFonts.bold
     }
 
     protected fun card() = LinearLayout(this).apply {
@@ -238,8 +238,8 @@ abstract class ClockPageActivity : AppCompatActivity() {
     protected fun button(label: String, onClick: () -> Unit) = TextView(this).apply {
         text = label
         gravity = Gravity.CENTER
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-        typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+        typeface = com.jarvis.assistant.util.JarvisFonts.bold
         setTextColor(themeColor(R.attr.themeTextPrimary, 0xFFFFFFFF.toInt()))
         setPadding(dp(16), dp(10), dp(16), dp(10))
         minimumHeight = dp(40)

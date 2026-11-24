@@ -60,7 +60,7 @@ class PortForwardStripView @JvmOverloads constructor(context: Context, attrs: At
     }
 
     private fun button(label: String): TextView = TextView(context).apply {
-        text = label; textSize = 13f; gravity = Gravity.CENTER; typeface = Typeface.DEFAULT_BOLD
+        text = label; textSize = 13f; gravity = Gravity.CENTER; typeface = com.jarvis.assistant.util.JarvisFonts.bold
         minHeight = dp(48); minWidth = dp(64); setPadding(dp(12), 0, dp(12), 0)
         isClickable = true; isFocusable = true
     }
@@ -72,7 +72,7 @@ class PortForwardStripView @JvmOverloads constructor(context: Context, attrs: At
         }
         val head = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val dot = View(context).apply { layoutParams = LayoutParams(dp(10), dp(10)).apply { marginEnd = dp(10) } }
-        val title = TextView(context).apply { textSize = 14f; typeface = Typeface.DEFAULT_BOLD; maxLines = 1; ellipsize = TextUtils.TruncateAt.END }
+        val title = TextView(context).apply { textSize = 14f; typeface = com.jarvis.assistant.util.JarvisFonts.bold; maxLines = 1; ellipsize = TextUtils.TruncateAt.END }
         val status = TextView(context).apply { textSize = 12f; maxLines = 2; ellipsize = TextUtils.TruncateAt.END }
         val col = LinearLayout(context).apply { orientation = VERTICAL; layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f); addView(title); addView(status) }
         head.addView(dot); head.addView(col)

@@ -50,7 +50,7 @@
             android:maxLines="1"
             android:ellipsize="end"
             android:textSize="14sp"
-            android:fontFamily="sans-serif-medium"
+            android:fontFamily="@font/jarvis_sans_medium"
             android:textColor="?attr/themeTextSecondary"
             android:text="Working" />
 
@@ -59,7 +59,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:textSize="12.5sp"
+            android:textSize="13sp"
             android:textStyle="bold"
             android:textColor="#FF6E6E"
             android:visibility="gone"
@@ -99,7 +99,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Request"
-            android:textSize="11.5sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:textColor="?attr/themeTextSecondary"
             android:paddingStart="4dp" />
@@ -114,7 +114,7 @@
             android:padding="10dp"
             android:textColor="?attr/themeTextPrimary"
             android:textIsSelectable="true"
-            android:textSize="11.5sp" />
+            android:textSize="12sp" />
 
         <TextView
             android:id="@+id/tvResponseLabel"
@@ -122,7 +122,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:text="Response"
-            android:textSize="11.5sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:textColor="?attr/themeTextSecondary"
             android:paddingStart="4dp" />
@@ -137,6 +137,6 @@
             android:padding="10dp"
             android:textColor="?attr/themeTextPrimary"
             android:textIsSelectable="true"
-            android:textSize="11.5sp" />
+            android:textSize="12sp" />
     </LinearLayout>
 </LinearLayout>

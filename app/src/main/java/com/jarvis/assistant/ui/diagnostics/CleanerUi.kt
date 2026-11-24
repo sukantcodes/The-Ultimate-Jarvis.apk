@@ -70,9 +70,9 @@ class Ui(val ctx: Context) {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, sp)
             setTextColor(color)
             typeface = when {
-                bold -> Typeface.create("sans-serif-medium", Typeface.BOLD)
-                light -> Typeface.create("sans-serif-light", Typeface.NORMAL)
-                else -> Typeface.create("sans-serif", Typeface.NORMAL)
+                bold -> com.jarvis.assistant.util.JarvisFonts.bold
+                light -> com.jarvis.assistant.util.JarvisFonts.regular
+                else -> com.jarvis.assistant.util.JarvisFonts.regular
             }
         }
 
@@ -115,7 +115,7 @@ class Ui(val ctx: Context) {
         gravity = Gravity.CENTER
         setTextColor(Color.WHITE)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-        typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+        typeface = com.jarvis.assistant.util.JarvisFonts.bold
         letterSpacing = 0.03f
         isClickable = true
         isFocusable = true
@@ -133,7 +133,7 @@ class Ui(val ctx: Context) {
         gravity = Gravity.CENTER
         setTextColor(p.text)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        typeface = com.jarvis.assistant.util.JarvisFonts.medium
         isClickable = true
         isFocusable = true
         minHeight = dp(50)
@@ -150,7 +150,7 @@ class Ui(val ctx: Context) {
         text = value
         gravity = Gravity.CENTER
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        typeface = com.jarvis.assistant.util.JarvisFonts.medium
         setTextColor(if (selected) Color.WHITE else p.text)
         isClickable = true
         isFocusable = true

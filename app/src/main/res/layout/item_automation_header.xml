@@ -12,11 +12,11 @@
         android:id="@+id/tvHeaderTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:fontFamily="sans-serif-medium"
+        android:fontFamily="@font/jarvis_sans_medium"
         android:letterSpacing="0.08"
         android:textAllCaps="true"
         android:textColor="?attr/themeTextMuted"
-        android:textSize="11sp"
+        android:textSize="12sp"
         android:textStyle="bold" />
 
     <TextView

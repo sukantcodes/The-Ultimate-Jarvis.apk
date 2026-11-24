@@ -51,7 +51,7 @@
                         android:textColor="?attr/themeTextPrimary"
                         android:textSize="20sp"
                         android:textStyle="bold"
-                        android:fontFamily="sans-serif-medium" />
+                        android:fontFamily="@font/jarvis_sans_medium" />
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -87,7 +87,7 @@
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    android:fontFamily="sans-serif-medium" />
+                    android:fontFamily="@font/jarvis_sans_medium" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -96,7 +96,7 @@
                     android:gravity="center"
                     android:text="Control WhatsApp, YouTube, and phone settings completely hands-free with your voice."
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:lineSpacingExtra="2dp" />
 
                 <!-- Live Status Chip -->
@@ -123,7 +123,7 @@
                         android:layout_height="wrap_content"
                         android:text="HANDS-FREE SERVICE: ACTIVE"
                         android:textColor="?attr/themeTextPrimary"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textStyle="bold"
                         android:letterSpacing="0.08"
                         android:layout_marginStart="8dp" />
@@ -160,7 +160,7 @@
                     android:layout_height="wrap_content"
                     android:text="PRIVATE LOCAL CONVERSATION CONTEXT"
                     android:textColor="?attr/themeAccent"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.08" />
 
@@ -202,10 +202,10 @@
                 android:layout_height="wrap_content"
                 android:text="HOW IT WORKS (EASY GUIDE)"
                 android:textColor="?attr/themeAccent"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.10"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:layout_marginBottom="10dp" />
 
             <LinearLayout
@@ -250,9 +250,9 @@
                             android:layout_height="wrap_content"
                             android:text="1. Hold the Microphone Button"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium" />
+                            android:fontFamily="@font/jarvis_sans_medium" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -260,7 +260,7 @@
                             android:layout_marginTop="2dp"
                             android:text="Hold the center mic button or tap the 3D Orb to speak. You don&apos;t need to type or navigate manually."
                             android:textColor="?attr/themeTextMuted"
-                            android:textSize="13sp"
+                            android:textSize="14sp"
                             android:lineSpacingExtra="2dp" />
                     </LinearLayout>
                 </LinearLayout>
@@ -305,9 +305,9 @@
                             android:layout_height="wrap_content"
                             android:text="2. Gemini 3.8 Live Brain"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium" />
+                            android:fontFamily="@font/jarvis_sans_medium" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -315,7 +315,7 @@
                             android:layout_marginTop="2dp"
                             android:text="Your speech is processed in real time using Google&apos;s latest Gemini 3.8 Live model. It understands context in Hindi, Urdu, English, Hinglish, and regional languages."
                             android:textColor="?attr/themeTextMuted"
-                            android:textSize="13sp"
+                            android:textSize="14sp"
                             android:lineSpacingExtra="2dp" />
                     </LinearLayout>
                 </LinearLayout>
@@ -359,9 +359,9 @@
                             android:layout_height="wrap_content"
                             android:text="3. Digital Hands on Your Mobile"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium" />
+                            android:fontFamily="@font/jarvis_sans_medium" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -369,7 +369,7 @@
                             android:layout_marginTop="2dp"
                             android:text="Jarvis uses your phone&apos;s built-in Android accessibility service to type messages, tap send, search YouTube, and adjust settings just like your own hands."
                             android:textColor="?attr/themeTextMuted"
-                            android:textSize="13sp"
+                            android:textSize="14sp"
                             android:lineSpacingExtra="2dp" />
                     </LinearLayout>
                 </LinearLayout>
@@ -382,10 +382,10 @@
                 android:layout_height="wrap_content"
                 android:text="HOW TO ALLOW ALL PERMISSIONS"
                 android:textColor="?attr/themeAccent"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.10"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:layout_marginBottom="10dp" />
 
             <LinearLayout
@@ -401,9 +401,9 @@
                     android:layout_height="wrap_content"
                     android:text="Why does Jarvis need Accessibility Permission?"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
-                    android:fontFamily="sans-serif-medium" />
+                    android:fontFamily="@font/jarvis_sans_medium" />
 
                 <TextView
                     android:layout_width="match_parent"
@@ -411,7 +411,7 @@
                     android:layout_marginTop="6dp"
                     android:text="Android protects other apps from being controlled. For Jarvis to send WhatsApp messages or open YouTube videos on your command, you must grant the Jarvis Accessibility Service permission."
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:lineSpacingExtra="3dp" />
 
                 <LinearLayout
@@ -427,7 +427,7 @@
                         android:layout_height="wrap_content"
                         android:text="Quick Steps to Enable:"
                         android:textColor="?attr/themeAccent"
-                        android:textSize="13sp"
+                        android:textSize="14sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -436,7 +436,7 @@
                         android:layout_marginTop="6dp"
                         android:text="1. Tap the 'Open Accessibility Settings' button below.\n2. Tap 'Downloaded Apps' or 'Installed Services'.\n3. Tap 'Jarvis Accessibility Service'.\n4. Turn the switch ON and tap 'Allow'."
                         android:textColor="?attr/themeTextPrimary"
-                        android:textSize="13sp"
+                        android:textSize="14sp"
                         android:lineSpacingExtra="4dp" />
                 </LinearLayout>
 
@@ -477,10 +477,10 @@
                 android:layout_height="wrap_content"
                 android:text="VOICE COMMANDS CATALOG"
                 android:textColor="?attr/themeAccent"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.10"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:layout_marginBottom="10dp" />
 
             <LinearLayout
@@ -506,7 +506,7 @@
                     android:layout_marginTop="4dp"
                     android:text="• &quot;Send WhatsApp to Rahul saying I will reach in 10 minutes&quot;\n• &quot;Call Mom on WhatsApp&quot;\n• &quot;Make a video call to Priya on WhatsApp&quot;\n• &quot;Delete last message for everyone&quot;"
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:lineSpacingExtra="3dp" />
 
                 <View
@@ -530,7 +530,7 @@
                     android:layout_marginTop="4dp"
                     android:text="• &quot;Play Arijit Singh songs on YouTube&quot;\n• &quot;Search Iron Man highlights on YouTube&quot;\n• &quot;Pause YouTube video&quot; / &quot;Play next song&quot;\n• &quot;Make video fullscreen&quot;"
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:lineSpacingExtra="3dp" />
 
                 <View
@@ -554,7 +554,7 @@
                     android:layout_marginTop="4dp"
                     android:text="• &quot;Turn on flashlight / torch&quot;\n• &quot;Increase volume to 80%&quot; / &quot;Mute sound&quot;\n• &quot;Set brightness to 50%&quot;\n• &quot;Turn on Bluetooth&quot; / &quot;Open Instagram&quot;"
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:lineSpacingExtra="3dp" />
 
                 <View
@@ -578,7 +578,7 @@
                     android:layout_marginTop="4dp"
                     android:text="• &quot;Remember that my passport is in the blue bag&quot;\n• &quot;Where is my passport?&quot;\n• &quot;What is the weather outside?&quot;\n• &quot;Good morning Jarvis, what is my schedule today?&quot;"
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:lineSpacingExtra="3dp" />
 
             </LinearLayout>
@@ -589,10 +589,10 @@
                 android:layout_height="wrap_content"
                 android:text="AI MODEL &amp; RELEASE API"
                 android:textColor="?attr/themeAccent"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.10"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:layout_marginBottom="10dp" />
 
             <LinearLayout
@@ -608,7 +608,7 @@
                     android:layout_height="wrap_content"
                     android:text="Best Selected Model: Gemini 3.8 Live"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -617,7 +617,7 @@
                     android:layout_marginTop="4dp"
                     android:text="The app comes pre-configured with Google's gemini-3.8-live model and embedded release API key. Ultra-low latency voice streaming with immediate responses."
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:lineSpacingExtra="2dp" />
 
                 <com.google.android.material.button.MaterialButton
@@ -642,10 +642,10 @@
                 android:layout_height="wrap_content"
                 android:text="COMMUNITY &amp; DISCUSSION GROUPS"
                 android:textColor="?attr/themeAccent"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.10"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:layout_marginBottom="10dp" />
 
             <LinearLayout
@@ -690,9 +690,9 @@
                             android:layout_height="wrap_content"
                             android:text="Official Telegram Channel"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium" />
+                            android:fontFamily="@font/jarvis_sans_medium" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -746,9 +746,9 @@
                             android:layout_height="wrap_content"
                             android:text="Telegram Discussion Group"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium" />
+                            android:fontFamily="@font/jarvis_sans_medium" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -802,9 +802,9 @@
                             android:layout_height="wrap_content"
                             android:text="Follow on Instagram"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium" />
+                            android:fontFamily="@font/jarvis_sans_medium" />
 
                         <TextView
                             android:layout_width="wrap_content"

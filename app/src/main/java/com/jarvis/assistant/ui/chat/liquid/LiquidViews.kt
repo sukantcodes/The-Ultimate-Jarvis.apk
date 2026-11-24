@@ -44,7 +44,7 @@ class LiquidOrbView @JvmOverloads constructor(context: Context, attrs: Attribute
     private val gloss = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = Typeface.create("sans-serif-black", Typeface.NORMAL)
+        typeface = com.jarvis.assistant.util.JarvisFonts.bold
         textAlign = Paint.Align.CENTER
     }
     private val swirlMatrix = Matrix()

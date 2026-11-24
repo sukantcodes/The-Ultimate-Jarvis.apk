@@ -14,7 +14,7 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:textColor="?attr/themeTextPrimary"
-        android:textSize="13sp" />
+        android:textSize="14sp" />
 
     <com.google.android.material.materialswitch.MaterialSwitch
         android:id="@+id/switchParam"

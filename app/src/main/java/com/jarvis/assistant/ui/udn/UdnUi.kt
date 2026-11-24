@@ -105,8 +105,8 @@ class UdnTheme(val ctx: Context) {
         text = s; setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp); setTextColor(color)
         typeface = when (weight) {
             Weight.Regular -> Typeface.DEFAULT
-            Weight.Medium -> Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            Weight.Bold -> Typeface.create("sans-serif", Typeface.BOLD)
+            Weight.Medium -> com.jarvis.assistant.util.JarvisFonts.medium
+            Weight.Bold -> com.jarvis.assistant.util.JarvisFonts.bold
         }
         includeFontPadding = false
     }
