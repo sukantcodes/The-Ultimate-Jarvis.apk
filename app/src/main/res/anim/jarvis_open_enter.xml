@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- New screen glides in from the right with a long soft landing; it fades up quickly so the slide never looks heavy. -->
+<set xmlns:android="http://schemas.android.com/apk/res/android" android:shareInterpolator="false">
+    <translate
+        android:duration="500"
+        android:fromXDelta="24%p" android:toXDelta="0"
+        android:interpolator="@interpolator/jarvis_emphasized_decelerate" />
+    <alpha
+        android:duration="200"
+        android:fromAlpha="0.0" android:toAlpha="1.0"
+        android:interpolator="@interpolator/jarvis_standard" />
+</set>

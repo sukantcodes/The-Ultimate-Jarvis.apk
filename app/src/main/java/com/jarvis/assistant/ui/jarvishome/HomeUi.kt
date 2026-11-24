@@ -119,7 +119,7 @@ class HomeUi(private val context: Context) {
     fun chip(label: String, selected: Boolean, h: HomeTheme.Hue = hue, onClick: () -> Unit) = TextView(context).apply {
         text = label
         gravity = Gravity.CENTER
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 15.5f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
         typeface = if (selected) Typeface.create(HomeTheme.body(context), Typeface.BOLD) else HomeTheme.body(context)
         setTextColor(if (selected) Color.WHITE else muted)
         if (selected) setShadowLayer(dpf(2f), 0f, dpf(1f), ColorUtils.setAlphaComponent(Color.BLACK, 110))
@@ -137,7 +137,7 @@ class HomeUi(private val context: Context) {
     fun button(label: String, filled: Boolean = false, onClick: () -> Unit) = TextView(context).apply {
         text = label
         gravity = Gravity.CENTER
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
         typeface = Typeface.create(HomeTheme.body(context), Typeface.BOLD)
         letterSpacing = 0.02f
         setTextColor(if (filled) Color.WHITE else primary)

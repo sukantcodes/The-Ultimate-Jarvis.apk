@@ -6,7 +6,7 @@
     </style>
 
     <style name="TextAppearance.Jarvis.DialogTitle" parent="TextAppearance.Material3.TitleLarge">
-        <item name="android:fontFamily">sans-serif-black</item>
+        <item name="android:fontFamily">@font/jarvis_sans_bold</item>
         <item name="android:textSize">22sp</item>
         <item name="android:letterSpacing">0.01</item>
         <item name="android:textColor">?attr/themeTextPrimary</item>
@@ -14,8 +14,8 @@
     </style>
 
     <style name="TextAppearance.Jarvis.DialogBody" parent="TextAppearance.Material3.BodyMedium">
-        <item name="android:fontFamily">sans-serif</item>
-        <item name="android:textSize">15sp</item>
+        <item name="android:fontFamily">@font/jarvis_sans</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:lineSpacingExtra">3dp</item>
         <item name="android:textColor">?attr/themeTextSecondary</item>
     </style>
@@ -24,13 +24,13 @@
         <item name="android:textColor">?attr/themeTextPrimary</item>
         <item name="android:textColorHint">?attr/themeTextMuted</item>
         <item name="android:textSize">16sp</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">@font/jarvis_sans_medium</item>
         <item name="android:includeFontPadding">false</item>
         <item name="android:minHeight">48dp</item>
     </style>
 
     <style name="Widget.Jarvis.Dialog.ActionButton" parent="Widget.Material3.Button.TextButton">
-        <item name="android:fontFamily">sans-serif-bold</item>
+        <item name="android:fontFamily">@font/jarvis_sans_bold</item>
         <item name="android:textSize">14sp</item>
         <item name="android:letterSpacing">0.05</item>
         <item name="android:minHeight">48dp</item>

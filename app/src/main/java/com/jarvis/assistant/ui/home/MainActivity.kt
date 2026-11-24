@@ -279,11 +279,16 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
         }
         UpdatePromptController(this).attach()
         observeViewModel()
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        onBackPressedDispatcher.addCallback(this, object : com.jarvis.assistant.util.PredictiveBack.MotionCallback(
+            this,
+            target = { binding.fragmentContainer },
+            shouldAnimate = { currentTab != TAB_HOME && !binding.drawerLayout.isDrawerOpen(GravityCompat.START) }
+        ) {
             override fun handleOnBackPressed() {
                 if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
                     binding.drawerLayout.closeDrawer(GravityCompat.START)
                 } else if (currentTab != TAB_HOME) {
+                    endMotion()
                     selectTab(TAB_HOME)
                 } else {
                     // Preserve Android's normal root behavior (return to launcher) only
@@ -639,7 +644,27 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
         else -> homeFragment
     }
 
+    private var tabSnapshotPending = false
+
     fun selectTab(tab: Int) {
+        // See-through Settings shows the screen you came from under its glass, so picture it before the switch.
+        if (tab == TAB_SETTINGS && currentTab != TAB_SETTINGS && ::binding.isInitialized && !tabSnapshotPending &&
+            com.jarvis.assistant.ui.glass.ScreenSnapshot.wanted()
+        ) {
+            tabSnapshotPending = true
+            val at = IntArray(2)
+            binding.bottomDock.getLocationInWindow(at)
+            val crop = (window.decorView.height - at[1]).coerceAtLeast(0)
+            com.jarvis.assistant.ui.glass.ScreenSnapshot.capture(this, crop) {
+                tabSnapshotPending = false
+                selectTabNow(tab)
+            }
+            return
+        }
+        selectTabNow(tab)
+    }
+
+    private fun selectTabNow(tab: Int) {
         val previousTab = currentTab
         currentTab = tab
         val drawerItem = when (tab) {
@@ -668,25 +693,65 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
         }
         trans.commitNowAllowingStateLoss()
 
+        val density = resources.displayMetrics.density
+        val slide = 44f * density
+        val outgoingFragment = if (previousTab != tab) fragmentForTab(previousTab) else null
         supportFragmentManager.fragments.forEach { fragment ->
             val v = fragment.view ?: return@forEach
             if (fragment === targetFragment) {
                 v.visibility = View.VISIBLE
                 com.jarvis.assistant.util.ThemeManager.applyDynamicBackground(v)
+                v.animate().cancel()
                 if (previousTab != tab) {
+                    // Incoming tab: glides in from the side it logically lives on, easing to a very soft stop.
+                    v.pivotX = v.width / 2f
+                    v.pivotY = v.height / 2f
                     v.alpha = 0f
-                    v.translationX = if (tab > previousTab) 18f else -18f
-                    v.animate().cancel()
+                    v.scaleX = 0.96f
+                    v.scaleY = 0.96f
+                    v.translationX = if (tab > previousTab) slide else -slide
                     v.animate()
                         .alpha(1f)
+                        .scaleX(1f)
+                        .scaleY(1f)
                         .translationX(0f)
-                        .setDuration(190L)
-                        .setInterpolator(android.view.animation.DecelerateInterpolator())
+                        .setDuration(420L)
+                        .setInterpolator(android.view.animation.PathInterpolator(0.05f, 0.7f, 0.1f, 1f))
+                        .withLayer()
                         .start()
                 } else {
                     v.alpha = 1f
+                    v.scaleX = 1f
+                    v.scaleY = 1f
                     v.translationX = 0f
                 }
+            } else if (fragment === outgoingFragment && v.width > 0) {
+                // Outgoing tab: drifts away the opposite way and fades while the new one arrives (a real cross-motion,
+                // not a cut). FragmentManager already hid it, so it is shown again just for the exit.
+                val outgoingTab = previousTab
+                v.animate().cancel()
+                v.visibility = View.VISIBLE
+                v.pivotX = v.width / 2f
+                v.pivotY = v.height / 2f
+                v.animate()
+                    .alpha(0f)
+                    .scaleX(0.97f)
+                    .scaleY(0.97f)
+                    .translationX(if (tab > previousTab) -slide * 0.6f else slide * 0.6f)
+                    .setDuration(240L)
+                    .setInterpolator(android.view.animation.PathInterpolator(0.3f, 0f, 0.8f, 0.15f))
+                    .withLayer()
+                    .withEndAction {
+                        // Only reset if the person has not come back to that tab meanwhile.
+                        if (currentTab != outgoingTab) {
+                            v.visibility = View.GONE
+                            v.alpha = 1f
+                            v.scaleX = 1f
+                            v.scaleY = 1f
+                            v.translationX = 0f
+                        }
+                    }
+                    .start()
             } else {
                 v.animate().cancel()
                 v.visibility = View.GONE

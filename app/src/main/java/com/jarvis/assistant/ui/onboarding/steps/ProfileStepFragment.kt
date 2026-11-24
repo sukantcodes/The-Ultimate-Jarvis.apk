@@ -110,7 +110,7 @@ class ProfileStepFragment : StepFragment() {
             setHintTextColor(withAlpha(Palette.TEXT_DIM, 140))
             setTextColor(Palette.TEXT)
             setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 17f)
-            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+            typeface = com.jarvis.assistant.util.JarvisFonts.regular
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             maxLines = 1
             filters = arrayOf(android.text.InputFilter.LengthFilter(40))

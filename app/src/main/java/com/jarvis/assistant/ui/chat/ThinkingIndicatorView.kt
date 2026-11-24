@@ -47,7 +47,7 @@ class ThinkingIndicatorView @JvmOverloads constructor(
     private val beadSpec = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14f, resources.displayMetrics)
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        typeface = com.jarvis.assistant.util.JarvisFonts.medium
         color = baseText
     }
     private val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG)

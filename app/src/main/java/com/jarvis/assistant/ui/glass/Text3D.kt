@@ -48,8 +48,8 @@ internal object Text3D {
         val d = tv.resources.displayMetrics.density
         val sp = tv.textSize / tv.resources.displayMetrics.scaledDensity
         val heading = sp >= 17f || tv.typeface?.isBold == true
-        tv.typeface = if (heading) Typeface.create("sans-serif-black", Typeface.NORMAL)
-        else Typeface.create("sans-serif-medium", Typeface.BOLD)
+        tv.typeface = if (heading) com.jarvis.assistant.util.JarvisFonts.bold
+        else com.jarvis.assistant.util.JarvisFonts.bold
 
         // tiny intro / helper text becomes readable (buttons and chips keep their size so layouts hold)
         if (sp < 12f && tv !is android.widget.Button && tv !is android.widget.CompoundButton && tv !is EditText) {

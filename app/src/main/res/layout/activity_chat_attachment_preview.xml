@@ -37,7 +37,7 @@
                 android:layout_height="wrap_content"
                 android:text="JARVIS CHAT · LOCAL FILE"
                 android:textColor="#DDEBFF"
-                android:textSize="10sp"
+                android:textSize="12sp"
                 android:letterSpacing="0.08" />
         </LinearLayout>
 

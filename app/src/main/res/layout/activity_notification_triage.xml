@@ -50,7 +50,7 @@
                         android:id="@+id/tvHeaderTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-medium"
+                        android:fontFamily="@font/jarvis_sans_medium"
                         android:text="Notification Triage"
                         android:textColor="?attr/themeTextPrimary"
                         android:textSize="20sp"
@@ -75,7 +75,7 @@
                     android:paddingVertical="5dp"
                     android:text="TRIAGE AI"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="10sp"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
@@ -154,7 +154,7 @@
                 android:letterSpacing="0.1"
                 android:text="TRIAGE MODE SELECTION"
                 android:textColor="?attr/themeAccent"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <!-- Card: Smart Urgent (Default/Recommended) -->
@@ -204,7 +204,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="Smart Urgent"
                                 android:textColor="?attr/themeTextPrimary"
-                                android:textSize="15sp"
+                                android:textSize="16sp"
                                 android:textStyle="bold" />
 
                             <TextView
@@ -216,7 +216,7 @@
                                 android:paddingVertical="2dp"
                                 android:text="RECOMMENDED"
                                 android:textColor="?attr/themeTextPrimary"
-                                android:textSize="9sp"
+                                android:textSize="12sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
@@ -273,7 +273,7 @@
                             android:layout_height="wrap_content"
                             android:text="VIP Whitelist Only"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -329,7 +329,7 @@
                             android:layout_height="wrap_content"
                             android:text="All Messages"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
+                            android:textSize="16sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -352,7 +352,7 @@
                 android:letterSpacing="0.1"
                 android:text="VIP CONTACTS &amp; GROUPS"
                 android:textColor="?attr/themeAccent"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <com.google.android.material.card.MaterialCardView
@@ -452,7 +452,7 @@
                 android:letterSpacing="0.1"
                 android:text="VOICE DISPATCH &amp; FILTERS"
                 android:textColor="?attr/themeAccent"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <com.google.android.material.card.MaterialCardView
@@ -661,7 +661,7 @@
                 android:insetBottom="0dp"
                 android:text="SIMULATE TRIAGE ALERT"
                 android:textColor="?attr/themeTextPrimary"
-                android:textSize="13sp"
+                android:textSize="14sp"
                 android:textStyle="bold"
                 app:cornerRadius="14dp" />
 

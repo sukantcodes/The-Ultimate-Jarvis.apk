@@ -45,7 +45,7 @@
             android:text="CODE"
             android:textColor="?attr/themeTextPrimary"
             android:textSize="14sp"
-            android:fontFamily="sans-serif-medium" />
+            android:fontFamily="@font/jarvis_sans_medium" />
 
         <TextView
             android:id="@+id/tvWritingStatus"
@@ -61,7 +61,7 @@
             android:background="@drawable/bg_code_writing_badge"
             android:text="✦ Writing code…"
             android:textColor="?attr/themeAccent"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:visibility="gone" />
 
@@ -87,7 +87,7 @@
                 android:layout_height="wrap_content"
                 android:text="▼"
                 android:textColor="?attr/themeTextMuted"
-                android:textSize="10sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -111,7 +111,7 @@
             android:gravity="center"
             android:text="↗"
             android:textColor="?attr/themeAccent"
-            android:textSize="15sp"
+            android:textSize="16sp"
             android:textStyle="bold"
             android:contentDescription="Open fullscreen viewer"
             android:clickable="true"
@@ -169,7 +169,7 @@
                 android:layout_marginStart="8dp"
                 android:text="terminal ~/workspace"
                 android:textColor="#78909C"
-                android:textSize="9sp"
+                android:textSize="12sp"
                 android:fontFamily="monospace" />
         </LinearLayout>
 
@@ -216,7 +216,7 @@
         android:background="#0A0E17"
         android:text="Tap tag to toggle mini window · Open ↗ for fullscreen viewer"
         android:textColor="#78909C"
-        android:textSize="10sp"
+        android:textSize="12sp"
         android:textStyle="bold"
         android:letterSpacing="0.04" />
 

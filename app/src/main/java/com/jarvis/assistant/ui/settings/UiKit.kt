@@ -31,7 +31,8 @@ object UiKit {
 
     fun card(ctx: Context): LinearLayout = LinearLayout(ctx).apply {
         orientation = LinearLayout.VERTICAL
-        com.jarvis.assistant.ui.glass.LiquidGlass.apply(this, 24f)
+        tag = com.jarvis.assistant.ui.glass.SettingsGlassKit.CARD_TAG
+        background = com.jarvis.assistant.ui.glass.GlassMode.plainCardBackground(ctx, dp(ctx, 24).toFloat())
         val p = dp(ctx, 16); setPadding(p, p, p, p)
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { bottomMargin = dp(ctx, 12) }

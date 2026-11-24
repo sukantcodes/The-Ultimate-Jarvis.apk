@@ -24,7 +24,7 @@
             android:text="J"
             android:textColor="?attr/themeTextPrimary"
             android:textSize="24sp"
-            android:fontFamily="sans-serif-medium"
+            android:fontFamily="@font/jarvis_sans_medium"
             android:includeFontPadding="false" />
 
         <LinearLayout
@@ -43,7 +43,7 @@
                 android:text="J.A.R.V.I.S."
                 android:textColor="?attr/themeTextPrimary"
                 android:textSize="18sp"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:textStyle="bold"
                 android:includeFontPadding="false" />
 
@@ -85,8 +85,8 @@
             android:layout_height="wrap_content"
             android:text="Device Network"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="11sp"
-            android:fontFamily="sans-serif-medium"
+            android:textSize="12sp"
+            android:fontFamily="@font/jarvis_sans_medium"
             android:includeFontPadding="false" />
     </LinearLayout>
 </LinearLayout>

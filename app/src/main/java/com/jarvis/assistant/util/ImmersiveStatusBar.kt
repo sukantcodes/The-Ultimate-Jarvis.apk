@@ -59,6 +59,10 @@ object ImmersiveStatusBar {
             val window = activity.window
             WindowCompat.setDecorFitsSystemWindows(window, false)
             val content = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: return
+            if (activity is JarvisHandlesInsets || com.jarvis.assistant.ui.glass.SettingsGlassKit.isTarget(activity)) {
+                com.jarvis.assistant.ui.glass.SettingsGlassKit.upgrade(activity)
+                return
+            }
             if (content.getTag(TAG_KEY) == "e2e") return
             content.setTag(TAG_KEY, "e2e")
             val hostsStrip = activity is JarvisStatusStripHost

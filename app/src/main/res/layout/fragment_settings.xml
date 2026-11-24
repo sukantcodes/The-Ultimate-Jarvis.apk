@@ -47,12 +47,12 @@
                     android:id="@+id/tvSettingsOverline"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:letterSpacing="0.24"
                     android:text="@string/set_overline"
                     android:textAllCaps="true"
                     android:textColor="?attr/themeAccent"
-                    android:textSize="10sp"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -60,7 +60,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_serif_semibold"
                     android:letterSpacing="-0.04"
                     android:text="@string/set_screen_title"
                     android:textColor="?attr/themeTextPrimary"
@@ -72,11 +72,11 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:fontFamily="sans-serif"
+                    android:fontFamily="@font/jarvis_sans"
                     android:letterSpacing="0.01"
                     android:text="@string/set_screen_subtitle"
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="13sp" />
+                    android:textSize="14sp" />
             </LinearLayout>
 
             <FrameLayout
@@ -92,6 +92,97 @@
                     android:src="@drawable/ic_sparkle"
                     app:tint="?attr/themeAccent" />
             </FrameLayout>
+        </LinearLayout>
+
+        <!-- Search pill + background picker -->
+        <LinearLayout
+            android:id="@+id/searchRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <com.jarvis.assistant.ui.glass.LiquidGlassLayout
+                android:id="@+id/glassSearch"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                app:lgCornerRadius="24dp"
+                app:lgBezel="20"
+                app:lgRefraction="14"
+                app:lgVeil="0.08"
+                app:lgSource="@id/glassBackdrop"
+                app:lgPlainBackground="@drawable/bg_lg_card"
+                app:lgPlainElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="6dp">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_search_deck"
+                        app:tint="?attr/themeTextMuted" />
+
+                    <EditText
+                        android:id="@+id/etSettingsSearch"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:background="@null"
+                        android:hint="@string/set_search_hint"
+                        android:imeOptions="actionSearch"
+                        android:importantForAutofill="no"
+                        android:inputType="text"
+                        android:maxLines="1"
+                        android:textColor="?attr/themeTextPrimary"
+                        android:textColorHint="?attr/themeTextMuted"
+                        android:textSize="15sp" />
+
+                    <ImageButton
+                        android:id="@+id/btnSearchClear"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/set_search_clear"
+                        android:padding="11dp"
+                        android:src="@drawable/ic_close"
+                        android:visibility="gone"
+                        app:tint="?attr/themeTextMuted" />
+                </LinearLayout>
+            </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
+
+            <com.jarvis.assistant.ui.glass.LiquidGlassLayout
+                android:id="@+id/glassSceneButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="10dp"
+                app:lgCornerRadius="24dp"
+                app:lgBezel="20"
+                app:lgRefraction="14"
+                app:lgVeil="0.08"
+                app:lgSource="@id/glassBackdrop"
+                app:lgPlainBackground="@drawable/bg_lg_card"
+                app:lgPlainElevation="0dp">
+
+                <ImageButton
+                    android:id="@+id/btnSceneStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/set_scene_button"
+                    android:padding="13dp"
+                    android:src="@drawable/ic_sparkle"
+                    app:tint="?attr/themeAccent" />
+            </com.jarvis.assistant.ui.glass.LiquidGlassLayout>
         </LinearLayout>
 
     </LinearLayout>
@@ -114,6 +205,14 @@
             android:orientation="vertical"
             android:paddingTop="12dp"
             android:paddingBottom="32dp">
+
+            <!-- Search results (shown only while something is typed) -->
+            <LinearLayout
+                android:id="@+id/searchResults"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone" />
 
             <!-- Identity deck: gradient-ringed photo, name, role and quick status chips -->
             <com.jarvis.assistant.ui.glass.LiquidGlassLayout
@@ -183,7 +282,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:ellipsize="end"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:includeFontPadding="false"
                             android:letterSpacing="-0.02"
                             android:maxLines="1"
@@ -198,13 +297,13 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="6dp"
                             android:ellipsize="end"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:includeFontPadding="false"
                             android:letterSpacing="0.1"
                             android:maxLines="1"
                             android:text="JARVIS OPERATOR • PRIMARY USER"
                             android:textColor="?attr/themeTextMuted"
-                            android:textSize="10sp" />
+                            android:textSize="12sp" />
                     </LinearLayout>
 
                     <FrameLayout
@@ -269,9 +368,9 @@
                             android:layout_height="wrap_content"
                             android:text="VOICE ENROLLED"
                             android:textColor="@color/status_green"
-                            android:textSize="10sp"
+                            android:textSize="12sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:letterSpacing="0.05"
                             android:layout_marginStart="5dp" />
                     </LinearLayout>
@@ -299,9 +398,9 @@
                             android:layout_height="wrap_content"
                             android:text="JARVIS PRO"
                             android:textColor="?attr/themeAccent"
-                            android:textSize="10sp"
+                            android:textSize="12sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:letterSpacing="0.05"
                             android:layout_marginStart="5dp" />
                     </LinearLayout>
@@ -327,11 +426,11 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="6dp"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:letterSpacing="0.05"
                             android:text="NETWORK"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="10sp"
+                            android:textSize="12sp"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </LinearLayout>
@@ -384,7 +483,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_ai"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -444,7 +543,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_voice"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -504,7 +603,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_security"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -564,7 +663,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_alerts"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -624,7 +723,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_memory"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -684,7 +783,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_permissions"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -744,7 +843,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_appearance"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -804,7 +903,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_about"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"
@@ -864,7 +963,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="14dp"
                     android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:text="@string/set_section_owner"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="16sp"

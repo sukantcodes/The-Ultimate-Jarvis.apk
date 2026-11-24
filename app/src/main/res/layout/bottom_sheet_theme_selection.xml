@@ -25,7 +25,7 @@
         android:text="Select App Theme"
         android:textColor="?attr/themeTextPrimary"
         android:textSize="20sp"
-        android:fontFamily="sans-serif-medium"
+        android:fontFamily="@font/jarvis_sans_medium"
         android:textStyle="bold" />
 
     <TextView
@@ -34,7 +34,7 @@
         android:text="Restyles the entire app and the neural orb"
         android:textColor="?attr/themeTextMuted"
         android:textSize="12sp"
-        android:fontFamily="sans-serif"
+        android:fontFamily="@font/jarvis_sans"
         android:layout_marginTop="2dp"
         android:layout_marginBottom="16dp" />
 
@@ -174,7 +174,7 @@
                         android:text="100%"
                         android:textColor="?attr/themeAccent"
                         android:textStyle="bold"
-                        android:textSize="13sp" />
+                        android:textSize="14sp" />
                 </LinearLayout>
 
                 <SeekBar
@@ -195,7 +195,7 @@
                     android:layout_height="wrap_content"
                     android:text="Off                                      Maximum"
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="10sp" />
+                    android:textSize="12sp" />
 
                 <View
                     android:layout_width="match_parent"
@@ -224,7 +224,7 @@
                         android:text="100%"
                         android:textColor="?attr/themeAccent"
                         android:textStyle="bold"
-                        android:textSize="13sp" />
+                        android:textSize="14sp" />
                 </LinearLayout>
 
                 <SeekBar
@@ -245,7 +245,7 @@
                     android:layout_height="wrap_content"
                     android:text="60%                                      140%"
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="10sp" />
+                    android:textSize="12sp" />
 
                 <View
                     android:layout_width="match_parent"
@@ -287,10 +287,10 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal">
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Plain" android:textColor="?attr/themeTextMuted" android:textSize="10sp" />
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Rectangular" android:textColor="?attr/themeTextMuted" android:textSize="10sp" />
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Pillowy" android:textColor="?attr/themeTextMuted" android:textSize="10sp" />
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="end" android:text="Circular" android:textColor="?attr/themeTextMuted" android:textSize="10sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Plain" android:textColor="?attr/themeTextMuted" android:textSize="12sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Rectangular" android:textColor="?attr/themeTextMuted" android:textSize="12sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Pillowy" android:textColor="?attr/themeTextMuted" android:textSize="12sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="end" android:text="Circular" android:textColor="?attr/themeTextMuted" android:textSize="12sp" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -323,8 +323,8 @@
                         android:layout_height="wrap_content"
                         android:text="Light"
                         android:textColor="?attr/themeTextPrimary"
-                        android:textSize="15sp"
-                        android:fontFamily="sans-serif-medium"
+                        android:textSize="16sp"
+                        android:fontFamily="@font/jarvis_sans_medium"
                         android:textStyle="bold" />
 
                     <TextView
@@ -333,7 +333,7 @@
                         android:text="Crisp studio white • Blue &amp; Violet accents"
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="12sp"
-                        android:fontFamily="sans-serif" />
+                        android:fontFamily="@font/jarvis_sans" />
                 </LinearLayout>
 
                 <ImageView
@@ -374,8 +374,8 @@
                         android:layout_height="wrap_content"
                         android:text="Dark"
                         android:textColor="?attr/themeTextPrimary"
-                        android:textSize="15sp"
-                        android:fontFamily="sans-serif-medium"
+                        android:textSize="16sp"
+                        android:fontFamily="@font/jarvis_sans_medium"
                         android:textStyle="bold" />
 
                     <TextView
@@ -384,7 +384,7 @@
                         android:text="Deep midnight cosmic • Neon cyan &amp; purple"
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="12sp"
-                        android:fontFamily="sans-serif" />
+                        android:fontFamily="@font/jarvis_sans" />
                 </LinearLayout>
 
                 <ImageView
@@ -425,8 +425,8 @@
                         android:layout_height="wrap_content"
                         android:text="Red"
                         android:textColor="?attr/themeTextPrimary"
-                        android:textSize="15sp"
-                        android:fontFamily="sans-serif-medium"
+                        android:textSize="16sp"
+                        android:fontFamily="@font/jarvis_sans_medium"
                         android:textStyle="bold" />
 
                     <TextView
@@ -435,7 +435,7 @@
                         android:text="Obsidian crimson • Laser coral &amp; flame"
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="12sp"
-                        android:fontFamily="sans-serif" />
+                        android:fontFamily="@font/jarvis_sans" />
                 </LinearLayout>
 
                 <ImageView
@@ -476,8 +476,8 @@
                         android:layout_height="wrap_content"
                         android:text="Sunset"
                         android:textColor="?attr/themeTextPrimary"
-                        android:textSize="15sp"
-                        android:fontFamily="sans-serif-medium"
+                        android:textSize="16sp"
+                        android:fontFamily="@font/jarvis_sans_medium"
                         android:textStyle="bold" />
 
                     <TextView
@@ -486,7 +486,7 @@
                         android:text="Warm pastel peach • Coral &amp; magenta twilight"
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="12sp"
-                        android:fontFamily="sans-serif" />
+                        android:fontFamily="@font/jarvis_sans" />
                 </LinearLayout>
 
                 <ImageView
@@ -526,8 +526,8 @@
                         android:layout_height="wrap_content"
                         android:text="Crystal Mirror"
                         android:textColor="?attr/themeTextPrimary"
-                        android:textSize="15sp"
-                        android:fontFamily="sans-serif-medium"
+                        android:textSize="16sp"
+                        android:fontFamily="@font/jarvis_sans_medium"
                         android:textStyle="bold" />
 
                     <TextView
@@ -536,7 +536,7 @@
                         android:text="See-through glass over dreamy 4K scenes • Blur mode (Settings › Transparent Background)"
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="12sp"
-                        android:fontFamily="sans-serif" />
+                        android:fontFamily="@font/jarvis_sans" />
                 </LinearLayout>
 
                 <ImageView
@@ -583,8 +583,8 @@
                             android:layout_height="wrap_content"
                             android:text="Custom Background"
                             android:textColor="?attr/themeTextPrimary"
-                            android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
+                            android:textSize="16sp"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:textStyle="bold" />
 
                         <TextView
@@ -594,7 +594,7 @@
                             android:text="Choose any HEX colour (#RRGGBB)"
                             android:textColor="?attr/themeTextMuted"
                             android:textSize="12sp"
-                            android:fontFamily="sans-serif" />
+                            android:fontFamily="@font/jarvis_sans" />
                     </LinearLayout>
 
                     <ImageView

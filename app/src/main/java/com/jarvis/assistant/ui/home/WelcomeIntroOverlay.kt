@@ -175,7 +175,7 @@ object WelcomeIntroOverlay {
                 text = subtitle
                 setTextColor(panelTextSecondary)
                 textSize = 10f
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                typeface = com.jarvis.assistant.util.JarvisFonts.medium
                 letterSpacing = 0.12f
             }
             labels.addView(titleView)
@@ -185,7 +185,7 @@ object WelcomeIntroOverlay {
                 text = "↗"
                 textSize = 23f
                 setTextColor(accent)
-                typeface = Typeface.DEFAULT_BOLD
+                typeface = com.jarvis.assistant.util.JarvisFonts.bold
             }
             button.addView(arrow)
             return button
@@ -222,7 +222,7 @@ object WelcomeIntroOverlay {
                 textAlignment = View.TEXT_ALIGNMENT_CENTER
                 setTextColor(panelText)
                 textSize = 21f
-                typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+                typeface = com.jarvis.assistant.util.JarvisFonts.bold
                 letterSpacing = 0.12f
                 setShadowLayer(dp(activity, 10).toFloat(), 0f, dp(activity, 2).toFloat(), Color.argb(45, 35, 80, 140))
                 setPadding(dp(activity, 4), dp(activity, 10), dp(activity, 4), dp(activity, 10))
@@ -239,12 +239,12 @@ object WelcomeIntroOverlay {
                 ),
                 makeSocialButton(
                     "YOUTUBE", "WATCH · VIDEOS & PROJECTS", R.drawable.ic_social_youtube,
-                    Color.rgb(255, 65, 65), Typeface.create("sans-serif-condensed", Typeface.BOLD),
+                    Color.rgb(255, 65, 65), com.jarvis.assistant.util.JarvisFonts.bold,
                     "https://www.youtube.com/@Sukant_Codes", 15f
                 ),
                 makeSocialButton(
                     "TELEGRAM", "JOIN · OFFICIAL COMMUNITY", R.drawable.ic_social_telegram,
-                    Color.rgb(55, 173, 255), Typeface.create("sans-serif-medium", Typeface.BOLD),
+                    Color.rgb(55, 173, 255), com.jarvis.assistant.util.JarvisFonts.bold,
                     "https://t.me/sukantcodesbycreator", 28f
                 )
             )
@@ -272,7 +272,7 @@ object WelcomeIntroOverlay {
                 textAlignment = View.TEXT_ALIGNMENT_CENTER
                 setTextColor(Color.WHITE)
                 textSize = 13f
-                typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+                typeface = com.jarvis.assistant.util.JarvisFonts.bold
                 letterSpacing = 0.10f
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.RECTANGLE
@@ -297,7 +297,7 @@ object WelcomeIntroOverlay {
                 setTextColor(panelTextMuted)
                 textSize = 9f
                 letterSpacing = 0.16f
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                typeface = com.jarvis.assistant.util.JarvisFonts.medium
                 setPadding(0, dp(activity, 9), 0, 0)
             }
             bottom.addView(hint)

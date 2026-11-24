@@ -157,7 +157,7 @@ class AlarmRingActivity : AppCompatActivity() {
         gravity = Gravity.CENTER
         setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp)
         setTextColor(Color.parseColor(color))
-        if (bold) typeface = Typeface.create("sans-serif-light", Typeface.BOLD)
+        if (bold) typeface = com.jarvis.assistant.util.JarvisFonts.bold
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
@@ -165,7 +165,7 @@ class AlarmRingActivity : AppCompatActivity() {
         text = label
         gravity = Gravity.CENTER
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
-        typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+        typeface = com.jarvis.assistant.util.JarvisFonts.bold
         setTextColor(Color.WHITE)
         background = GradientDrawable().apply { cornerRadius = dp(36).toFloat(); setColor(Color.parseColor(color)) }
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(72)).apply { topMargin = dp(16) }

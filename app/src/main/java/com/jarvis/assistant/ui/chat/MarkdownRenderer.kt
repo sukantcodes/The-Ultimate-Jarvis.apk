@@ -64,10 +64,13 @@ object MarkdownRenderer {
     private var emph = 0
     private var variant = 0
 
-    private fun headingFont(level: Int): String = when (variant) {
-        0 -> when (level) { 1 -> "sans-serif-black"; 2 -> "sans-serif-condensed"; else -> "sans-serif-medium" }
-        1 -> when (level) { 1, 2 -> "serif"; else -> "sans-serif-medium" }
-        else -> when (level) { 1 -> "sans-serif-condensed"; 2 -> "sans-serif-black"; 3 -> "casual"; else -> "sans-serif-medium" }
+    /** Headings use the editorial serif at every level, like the answer text around them. */
+    private fun headingFont(level: Int): android.graphics.Typeface = com.jarvis.assistant.util.JarvisFonts.serifSemibold
+
+    /** Applies a bundled typeface to a span of text (TypefaceSpan only takes family names before Android 9). */
+    private class FaceSpan(private val face: android.graphics.Typeface) : android.text.style.MetricAffectingSpan() {
+        override fun updateDrawState(tp: android.text.TextPaint) { tp.typeface = face }
+        override fun updateMeasureState(tp: android.text.TextPaint) { tp.typeface = face }
     }
 
     fun render(source: String, density: Float, palette: AnswerPalette.Palette): CharSequence {
@@ -129,7 +132,7 @@ object MarkdownRenderer {
                 appendInline(out, h.groupValues[2], accent)
                 val level = h.groupValues[1].length
                 val scale = when (level) { 1 -> 1.38f; 2 -> 1.24f; 3 -> 1.12f; else -> 1.04f }
-                out.setSpan(TypefaceSpan(headingFont(level)), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                out.setSpan(FaceSpan(headingFont(level)), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 out.setSpan(StyleSpan(Typeface.BOLD), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 out.setSpan(RelativeSizeSpan(scale), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 val hc = when (level) { 1 -> accent; 2 -> accent2; 3 -> androidx.core.graphics.ColorUtils.blendARGB(accent, accent2, 0.5f); else -> 0 }
@@ -202,7 +205,7 @@ object MarkdownRenderer {
                 val base = dp(14, density) * level(n.groupValues[1])
                 out.append(n.groupValues[2]).append(".  ")
                 out.setSpan(ForegroundColorSpan(accent2), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                out.setSpan(TypefaceSpan("sans-serif-black"), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                out.setSpan(StyleSpan(android.graphics.Typeface.BOLD), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 out.setSpan(RelativeSizeSpan(1.1f), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 appendInline(out, n.groupValues[3], accent)
                 out.setSpan(LeadingMarginSpan.Standard(base, base + dp(24, density)), s, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -325,7 +328,7 @@ object MarkdownRenderer {
             when {
                 tok.startsWith("**") || tok.startsWith("__") -> {
                     out.append(tok.substring(2, tok.length - 2))
-                    out.setSpan(TypefaceSpan("sans-serif-black"), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    out.setSpan(StyleSpan(android.graphics.Typeface.BOLD), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     if (emph != 0) out.setSpan(ForegroundColorSpan(emph), start, out.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
                 tok.startsWith("==") -> {

@@ -84,7 +84,7 @@
                 android:textColor="?attr/themeTextPrimary"
                 android:textSize="18sp"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium" />
+                android:fontFamily="@font/jarvis_sans_medium" />
 
             <TextView
                 android:id="@+id/tvChatSubtitle"
@@ -92,8 +92,8 @@
                 android:layout_height="wrap_content"
                 android:text="Your intelligent workspace  ·  Ready"
                 android:textColor="?attr/themeTextSecondary"
-                android:textSize="11sp"
-                android:fontFamily="sans-serif" />
+                android:textSize="12sp"
+                android:fontFamily="@font/jarvis_sans" />
 
             <TextView
                 android:id="@+id/tvProviderModel"
@@ -104,8 +104,8 @@
                 android:ellipsize="end"
                 android:visibility="gone"
                 android:textColor="?attr/themeAccent"
-                android:textSize="10sp"
-                android:fontFamily="sans-serif-medium" />
+                android:textSize="12sp"
+                android:fontFamily="@font/jarvis_sans_medium" />
         </LinearLayout>
 
         <!-- Status chips scroll sideways on narrow screens instead of squeezing or hiding the title -->
@@ -152,7 +152,7 @@
                 android:layout_marginStart="5dp"
                 android:text="0%"
                 android:textColor="?attr/themeAccent"
-                android:textSize="10sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.04" />
         </LinearLayout>
@@ -168,7 +168,7 @@
             android:background="@drawable/bg_chat_token_badge"
             android:text="⚡ 0 TOKENS"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="10sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:letterSpacing="0.05"
             android:clickable="true"
@@ -188,7 +188,7 @@
             android:background="@drawable/bg_chat_token_badge"
             android:text="⚡ HUD"
             android:textColor="?attr/themeAccent"
-            android:textSize="10sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:letterSpacing="0.05"
             android:clickable="true"
@@ -216,7 +216,7 @@
             android:background="@drawable/bg_chat_status"
             android:text="● READY"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="10sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:letterSpacing="0.06" />
 
@@ -307,7 +307,7 @@
             android:textColor="?attr/themeTextPrimary"
             android:textSize="24sp"
             android:textStyle="bold"
-            android:fontFamily="sans-serif-medium"
+            android:fontFamily="@font/jarvis_sans_medium"
             android:gravity="center" />
 
         <TextView
@@ -316,7 +316,7 @@
             android:layout_marginTop="7dp"
             android:text="Ask anything, explore an idea, or attach a file for a deeper analysis."
             android:textColor="?attr/themeTextMuted"
-            android:textSize="13sp"
+            android:textSize="14sp"
             android:gravity="center"
             android:lineSpacingExtra="3dp" />
 
@@ -330,7 +330,7 @@
             android:paddingEnd="18dp"
             android:text="✦  Explain a topic in simple steps"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="13sp"
+            android:textSize="14sp"
             android:clickable="true"
             android:focusable="true" />
 
@@ -344,7 +344,7 @@
             android:paddingEnd="18dp"
             android:text="✧  Help me write or improve something"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="13sp"
+            android:textSize="14sp"
             android:clickable="true"
             android:focusable="true" />
 
@@ -358,7 +358,7 @@
             android:paddingEnd="18dp"
             android:text="⌁  Analyze a document or code file"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="13sp"
+            android:textSize="14sp"
             android:clickable="true"
             android:focusable="true" />
     </com.jarvis.assistant.ui.chat.liquid.LiquidWelcomeLayout>
@@ -483,8 +483,8 @@
                 android:layout_weight="1"
                 android:text="Listening… speak now"
                 android:textColor="#E1F5FE"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium"
+                android:textSize="14sp"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:maxLines="2"
                 android:ellipsize="end" />
 
@@ -535,8 +535,8 @@
                 android:hint="Message JARVIS…"
                 android:textColorHint="?attr/themeTextMuted"
                 android:textColor="?attr/themeTextPrimary"
-                android:textSize="15sp"
-                android:fontFamily="sans-serif"
+                android:textSize="16sp"
+                android:fontFamily="@font/jarvis_sans"
                 android:background="@null"
                 android:minLines="1"
                 android:maxLines="5"

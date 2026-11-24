@@ -47,7 +47,7 @@
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="26sp"
                     android:textStyle="bold"
-                    android:fontFamily="sans-serif-medium" />
+                    android:fontFamily="@font/jarvis_sans_medium" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -55,15 +55,15 @@
                     android:layout_marginTop="2dp"
                     android:text="Jarvis updates &amp; announcements"
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="13sp"
-                    android:fontFamily="sans-serif" />
+                    android:textSize="14sp"
+                    android:fontFamily="@font/jarvis_sans" />
             </LinearLayout>
 
             <TextView
                 android:id="@+id/tvVersionBadge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:gravity="center"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp"
@@ -71,7 +71,7 @@
                 android:paddingBottom="7dp"
                 android:text="v1.8.7"
                 android:textColor="?attr/themeAccent"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </com.jarvis.assistant.ui.glass.LiquidGlassLayout>

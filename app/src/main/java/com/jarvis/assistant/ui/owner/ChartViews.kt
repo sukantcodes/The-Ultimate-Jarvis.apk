@@ -100,7 +100,7 @@ class TrendChartView @JvmOverloads constructor(context: Context, attrs: Attribut
 class DistributionView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
     private var items: List<Pair<String, Int>> = emptyList()
     private var colors: IntArray = OwnerPalette.CYCLE
-    private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = dp(13f); typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL) }
+    private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = dp(13f); typeface = com.jarvis.assistant.util.JarvisFonts.medium }
     private val countPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = dp(13f); typeface = Typeface.MONOSPACE; textAlign = Paint.Align.RIGHT }
     private val bar = Paint(Paint.ANTI_ALIAS_FLAG)
     private val track = Paint(Paint.ANTI_ALIAS_FLAG)

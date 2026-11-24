@@ -43,7 +43,7 @@
                 android:text="AI Persona"
                 android:textColor="?attr/themeTextPrimary"
                 android:textSize="20sp"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:textStyle="bold" />
 
             <TextView
@@ -52,7 +52,7 @@
                 android:text="Choose your companion personality"
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp"
-                android:fontFamily="sans-serif" />
+                android:fontFamily="@font/jarvis_sans" />
         </LinearLayout>
     </LinearLayout>
 
@@ -94,7 +94,7 @@
                         android:layout_height="wrap_content"
                         android:text="YOUR OPERATOR PROFILE"
                         android:textColor="?attr/themeAccent"
-                        android:textSize="10sp"
+                        android:textSize="12sp"
                         android:letterSpacing="0.08"
                         android:textStyle="bold" />
 
@@ -127,6 +127,7 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="16dp"
                 android:clickable="true"
                 android:focusable="true"
@@ -164,7 +165,7 @@
                             android:text="Jarvis Pro"
                             android:textColor="?attr/themeTextPrimary"
                             android:textSize="16sp"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:textStyle="bold" />
 
                         <TextView
@@ -174,9 +175,9 @@
                             android:singleLine="true"
                             android:maxLines="1"
                             android:textColor="@color/accent_sapphire"
-                            android:textSize="10sp"
+                            android:textSize="12sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:background="@drawable/bg_jarvis_chip"
                             android:paddingStart="6dp"
                             android:paddingEnd="6dp"
@@ -191,7 +192,7 @@
                         android:text="Intelligent, witty &amp; strategic assistant by ♪Sukant♪Codes♪ X"
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="12sp"
-                        android:fontFamily="sans-serif"
+                        android:fontFamily="@font/jarvis_sans"
                         android:layout_marginTop="2dp" />
                 </LinearLayout>
 
@@ -211,6 +212,7 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="16dp"
                 android:clickable="true"
                 android:focusable="true"
@@ -248,7 +250,7 @@
                             android:text="Girlfriend Mode (Pari)"
                             android:textColor="?attr/themeTextPrimary"
                             android:textSize="16sp"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:textStyle="bold" />
 
                         <TextView
@@ -258,9 +260,9 @@
                             android:singleLine="true"
                             android:maxLines="1"
                             android:textColor="#EC4899"
-                            android:textSize="10sp"
+                            android:textSize="12sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:background="@drawable/bg_jarvis_chip"
                             android:paddingStart="6dp"
                             android:paddingEnd="6dp"
@@ -275,7 +277,7 @@
                         android:text="Caring, warm, affectionate Hinglish companion"
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="12sp"
-                        android:fontFamily="sans-serif"
+                        android:fontFamily="@font/jarvis_sans"
                         android:layout_marginTop="2dp" />
                 </LinearLayout>
 
@@ -295,6 +297,7 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="16dp"
                 android:clickable="true"
                 android:focusable="true"
@@ -332,7 +335,7 @@
                             android:text="Boyfriend Mode (Kabir)"
                             android:textColor="?attr/themeTextPrimary"
                             android:textSize="16sp"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:textStyle="bold" />
 
                         <TextView
@@ -342,9 +345,9 @@
                             android:singleLine="true"
                             android:maxLines="1"
                             android:textColor="#3B82F6"
-                            android:textSize="10sp"
+                            android:textSize="12sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:background="@drawable/bg_jarvis_chip"
                             android:paddingStart="6dp"
                             android:paddingEnd="6dp"
@@ -359,7 +362,7 @@
                         android:text="Charismatic, protective &amp; supportive partner"
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="12sp"
-                        android:fontFamily="sans-serif"
+                        android:fontFamily="@font/jarvis_sans"
                         android:layout_marginTop="2dp" />
                 </LinearLayout>
 
@@ -379,6 +382,7 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="16dp"
                 android:clickable="true"
                 android:focusable="true"
@@ -416,7 +420,7 @@
                             android:text="♪Sukant♪Codes♪ Mode"
                             android:textColor="?attr/themeTextPrimary"
                             android:textSize="16sp"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:textStyle="bold" />
 
                         <TextView
@@ -426,9 +430,9 @@
                             android:singleLine="true"
                             android:maxLines="1"
                             android:textColor="#10B981"
-                            android:textSize="10sp"
+                            android:textSize="12sp"
                             android:textStyle="bold"
-                            android:fontFamily="sans-serif-medium"
+                            android:fontFamily="@font/jarvis_sans_medium"
                             android:background="@drawable/bg_jarvis_chip"
                             android:paddingStart="6dp"
                             android:paddingEnd="6dp"
@@ -443,7 +447,7 @@
                         android:text="Ultra-fast code architecture, research &amp; deep reasoning"
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="12sp"
-                        android:fontFamily="sans-serif"
+                        android:fontFamily="@font/jarvis_sans"
                         android:layout_marginTop="2dp" />
                 </LinearLayout>
 
@@ -461,8 +465,8 @@
                 android:layout_height="wrap_content"
                 android:text="User Name (Default: ♪Sukant♪Codes♪ )"
                 android:textColor="?attr/themeTextMuted"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium"
+                android:textSize="14sp"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:textStyle="bold"
                 android:layout_marginBottom="10dp" />
 
@@ -471,6 +475,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="16dp"
                 android:layout_marginBottom="16dp">
 
@@ -480,7 +485,7 @@
                     android:text="How should this persona address you?"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:textStyle="bold" />
 
                 <com.google.android.material.textfield.TextInputLayout
@@ -503,7 +508,7 @@
                         android:inputType="textPersonName"
                         android:textColor="?attr/themeTextPrimary"
                         android:textSize="14sp"
-                        android:fontFamily="sans-serif" />
+                        android:fontFamily="@font/jarvis_sans" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
@@ -513,8 +518,8 @@
                 android:layout_height="wrap_content"
                 android:text="Voice Tone"
                 android:textColor="?attr/themeTextMuted"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium"
+                android:textSize="14sp"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:textStyle="bold"
                 android:layout_marginBottom="8dp" />
 
@@ -523,6 +528,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="14dp"
                 android:layout_marginBottom="24dp">
 
@@ -532,8 +538,8 @@
                     android:layout_height="wrap_content"
                     android:text="Aoede (Warm, expressive female voice)"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="13sp"
-                    android:fontFamily="sans-serif-medium"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:paddingTop="8dp"
                     android:paddingBottom="8dp" />
 
@@ -548,8 +554,8 @@
                     android:layout_height="wrap_content"
                     android:text="Kore (Gentle, calm female voice)"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="13sp"
-                    android:fontFamily="sans-serif-medium"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:paddingTop="6dp"
                     android:paddingBottom="6dp" />
 
@@ -564,8 +570,8 @@
                     android:layout_height="wrap_content"
                     android:text="Fenrir (Deep, protective charismatic male voice)"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="13sp"
-                    android:fontFamily="sans-serif-medium"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:paddingTop="6dp"
                     android:paddingBottom="6dp" />
 
@@ -580,8 +586,8 @@
                     android:layout_height="wrap_content"
                     android:text="Puck (Crisp, modern dynamic male voice)"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="13sp"
-                    android:fontFamily="sans-serif-medium"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:paddingTop="6dp"
                     android:paddingBottom="6dp" />
 
@@ -596,8 +602,8 @@
                     android:layout_height="wrap_content"
                     android:text="Charon (Distinguished butler male voice)"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="13sp"
-                    android:fontFamily="sans-serif-medium"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:paddingTop="6dp"
                     android:paddingBottom="6dp" />
             </RadioGroup>
@@ -625,9 +631,9 @@
             app:backgroundTint="@null"
             android:text="Activate Persona"
             android:textColor="#FFFFFF"
-            android:textSize="15sp"
+            android:textSize="16sp"
             android:textStyle="bold"
-            android:fontFamily="sans-serif-medium"
+            android:fontFamily="@font/jarvis_sans_medium"
             android:textAllCaps="false" />
     </LinearLayout>
 

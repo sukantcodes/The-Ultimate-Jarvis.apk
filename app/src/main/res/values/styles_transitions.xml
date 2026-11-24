@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Screen-to-screen motion shared by every theme: forward slides in, back reveals the previous screen. -->
+    <style name="Jarvis.Activity.Transitions" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/jarvis_open_enter</item>
+        <item name="android:activityOpenExitAnimation">@anim/jarvis_open_exit</item>
+        <item name="android:activityCloseEnterAnimation">@anim/jarvis_close_enter</item>
+        <item name="android:activityCloseExitAnimation">@anim/jarvis_close_exit</item>
+    </style>
+</resources>

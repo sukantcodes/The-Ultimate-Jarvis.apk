@@ -19,6 +19,9 @@ import com.jarvis.assistant.R
 /** Marker for activities that draw [JarvisStatusStrip] themselves, so the generic inset padding skips the top edge. */
 interface JarvisStatusStripHost
 
+/** Marker for screens that pad their own content for the camera, bars and keyboard (so the global padding is skipped). */
+interface JarvisHandlesInsets
+
 /**
  * Jarvis's own status strip. The phone's system status bar (clock, battery, signal) is hidden inside the app, so this strip
  * takes over that top area and shows Jarvis' state, the time and the battery. Its height follows the camera cut-out, and it
@@ -46,11 +49,11 @@ class JarvisStatusStrip @JvmOverloads constructor(
 
         label.apply {
             text = "● JARVIS ONLINE"; setTextColor(accent); maxLines = 1
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f); typeface = Typeface.DEFAULT_BOLD; letterSpacing = 0.08f
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); typeface = com.jarvis.assistant.util.JarvisFonts.bold; letterSpacing = 0.08f
         }
         clock.apply {
             format12Hour = "h:mm"; format24Hour = "HH:mm"; setTextColor(color); maxLines = 1
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); typeface = Typeface.DEFAULT_BOLD
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); typeface = com.jarvis.assistant.util.JarvisFonts.bold
         }
         battery.apply {
             setTextColor(color); maxLines = 1; setPadding(dp(10f), 0, 0, 0)

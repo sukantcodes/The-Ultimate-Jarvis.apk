@@ -64,6 +64,7 @@ class JarvisApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.jarvis.assistant.util.PredictiveBack.install(this)
         com.jarvis.assistant.util.CrashReporter.install(this)
         SecurityManager.verify(this)
         instance = this

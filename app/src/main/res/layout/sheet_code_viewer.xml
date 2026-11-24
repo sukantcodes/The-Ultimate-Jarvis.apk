@@ -44,7 +44,7 @@
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium" />
+                android:fontFamily="@font/jarvis_sans_medium" />
 
             <TextView
                 android:id="@+id/tvCodeSubtitle"
@@ -90,7 +90,7 @@
             android:layout_height="wrap_content"
             android:text="THEME:"
             android:textColor="#90A4AE"
-            android:textSize="10sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:letterSpacing="0.08"
             android:layout_marginEnd="8dp" />
@@ -106,7 +106,7 @@
             android:background="@drawable/bg_auto_approve_badge_active"
             android:text="Cyber Dark+"
             android:textColor="#00E5FF"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:clickable="true"
             android:focusable="true" />
@@ -122,7 +122,7 @@
             android:background="@drawable/bg_auto_approve_badge_inactive"
             android:text="Dracula"
             android:textColor="#90A4AE"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:clickable="true"
             android:focusable="true" />
 
@@ -136,7 +136,7 @@
             android:background="@drawable/bg_auto_approve_badge_inactive"
             android:text="Monokai Neon"
             android:textColor="#90A4AE"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:clickable="true"
             android:focusable="true" />
     </LinearLayout>
@@ -164,7 +164,7 @@
                     android:layout_height="wrap_content"
                     android:textColor="#546E7A"
                     android:fontFamily="monospace"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:lineSpacingExtra="4dp"
                     android:gravity="end"
                     android:paddingEnd="12dp" />
@@ -175,7 +175,7 @@
                     android:layout_height="wrap_content"
                     android:textColor="#ECEFF1"
                     android:fontFamily="monospace"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:lineSpacingExtra="4dp"
                     android:textIsSelectable="true" />
             </LinearLayout>

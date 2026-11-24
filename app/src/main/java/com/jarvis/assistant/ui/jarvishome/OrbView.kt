@@ -36,7 +36,7 @@ class OrbView(context: Context) : View(context) {
     private val spec = Paint(Paint.ANTI_ALIAS_FLAG)
     private val glow = Paint(Paint.ANTI_ALIAS_FLAG)
     private val arc = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 2.6f * d; strokeCap = Paint.Cap.ROUND; color = Color.WHITE }
-    private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER; typeface = Typeface.DEFAULT_BOLD }
+    private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.CENTER; typeface = com.jarvis.assistant.util.JarvisFonts.bold }
     private val oval = RectF()
 
     fun configure(hue: HomeTheme.Hue, glyph: String): OrbView { this.hue = hue; this.glyph = glyph; invalidate(); return this }

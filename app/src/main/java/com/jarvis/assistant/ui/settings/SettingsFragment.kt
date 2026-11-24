@@ -80,6 +80,8 @@ class SettingsFragment : Fragment() {
         }
         setupProfileCard()
         setupCategories()
+        setupSearch()
+        binding.btnSceneStyle.setOnClickListener { SettingsSceneSheet.show(requireActivity()) }
         // A persisted session is hydrated immediately, then its server profile may arrive asynchronously.
         viewLifecycleOwner.lifecycleScope.launch {
             com.jarvis.assistant.auth.AuthManager.session.collect {
@@ -92,7 +94,12 @@ class SettingsFragment : Fragment() {
 
     private fun setupCategories() {
         fun go(row: View, target: Class<*>) {
-            row.setOnClickListener { startActivity(Intent(requireContext(), target)) }
+            row.setOnClickListener {
+                // In See-through mode the next screen shows this one underneath its glass: take the picture first.
+                com.jarvis.assistant.ui.glass.ScreenSnapshot.capture(requireActivity()) {
+                    if (isAdded) startActivity(Intent(requireContext(), target))
+                }
+            }
         }
         go(binding.rowCatAi, AiSettingsActivity::class.java)
         go(binding.rowCatVoice, VoiceSettingsActivity::class.java)
@@ -103,6 +110,83 @@ class SettingsFragment : Fragment() {
         go(binding.rowCatAppearance, AppearanceSettingsActivity::class.java)
         go(binding.rowCatAbout, AboutSettingsActivity::class.java)
         go(binding.rowCatOwner, OwnerSettingsActivity::class.java)
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Search
+    // ------------------------------------------------------------------------------------------
+
+    private fun setupSearch() {
+        binding.etSettingsSearch.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) = Unit
+            override fun afterTextChanged(s: android.text.Editable?) {
+                if (_binding != null) showSearchResults(s?.toString().orEmpty())
+            }
+        })
+        binding.btnSearchClear.setOnClickListener { binding.etSettingsSearch.setText("") }
+        binding.etSettingsSearch.setOnEditorActionListener { v, _, _ ->
+            val imm = requireContext().getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+            imm?.hideSoftInputFromWindow(v.windowToken, 0)
+            true
+        }
+    }
+
+    /** Swaps the hub for a single glass card of matches while something is typed. */
+    private fun showSearchResults(query: String) {
+        val searching = query.isNotBlank()
+        binding.btnSearchClear.visibility = if (searching) View.VISIBLE else View.GONE
+        val content = binding.settingsContent
+        for (i in 0 until content.childCount) {
+            val child = content.getChildAt(i)
+            child.visibility = if (child === binding.searchResults) (if (searching) View.VISIBLE else View.GONE)
+            else (if (searching) View.GONE else View.VISIBLE)
+        }
+        val box = binding.searchResults
+        box.removeAllViews()
+        if (!searching) return
+        val ctx = requireContext()
+        val dp = { v: Int -> UiKit.dp(ctx, v) }
+        val results = SettingsIndex.search(query)
+        val glass = layoutInflater.inflate(R.layout.view_glass_card, box, false) as ViewGroup
+        val list = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(dp(16), dp(10), dp(16), dp(10))
+        }
+        if (results.isEmpty()) {
+            list.addView(UiKit.text(ctx, getString(R.string.set_search_empty), 14f, muted = true).apply { setPadding(0, dp(14), 0, dp(14)) })
+        }
+        results.forEachIndexed { i, entry ->
+            val row = android.widget.LinearLayout(ctx).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                setPadding(0, dp(12), 0, dp(12))
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { openSearchResult(entry) }
+            }
+            row.addView(UiKit.text(ctx, entry.title, 16f, bold = true))
+            row.addView(UiKit.text(ctx, entry.category + " › " + entry.detail, 12f, muted = true).apply {
+                maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END
+            })
+            list.addView(row)
+            if (i < results.size - 1) {
+                list.addView(View(ctx).apply { setBackgroundColor(android.graphics.Color.argb(40, 128, 128, 128)) },
+                    android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1))
+            }
+        }
+        glass.addView(list, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        box.addView(glass)
+    }
+
+    private fun openSearchResult(entry: SettingsIndex.Entry) {
+        val imm = requireContext().getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+        imm?.hideSoftInputFromWindow(binding.etSettingsSearch.windowToken, 0)
+        com.jarvis.assistant.ui.glass.ScreenSnapshot.capture(requireActivity()) {
+            if (!isAdded) return@capture
+            val intent = Intent(requireContext(), entry.target)
+            entry.focusRow?.let { intent.putExtra(SettingsScreenActivity.EXTRA_FOCUS_ROW, it) }
+            startActivity(intent)
+        }
     }
 
     /** Paints the identity card, avatar ring, chips and icon tiles in the active theme's colours. */
@@ -126,6 +210,7 @@ class SettingsFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        com.jarvis.assistant.ui.glass.GlassBackdropView.refreshAll()
         if (_binding != null) {
             applyIconShape()
             loadUserData()

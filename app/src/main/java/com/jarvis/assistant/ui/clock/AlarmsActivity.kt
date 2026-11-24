@@ -156,7 +156,7 @@ class AlarmsActivity : ClockPageActivity() {
         text = label
         gravity = Gravity.CENTER
         textSize = 12f
-        typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+        typeface = com.jarvis.assistant.util.JarvisFonts.bold
         setTextColor(themeColor(R.attr.themeTextPrimary, 0xFFFFFFFF.toInt()))
         background = GradientDrawable().apply {
             cornerRadius = dp(12).toFloat()
@@ -307,7 +307,7 @@ class AlarmsActivity : ClockPageActivity() {
                 contentDescription = d.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault())
                 gravity = Gravity.CENTER
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+                typeface = com.jarvis.assistant.util.JarvisFonts.bold
                 layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginEnd = dp(4) }
                 isClickable = true
                 isFocusable = true

@@ -41,7 +41,7 @@
                 android:text="API &amp; Connection"
                 android:textColor="@color/text_primary"
                 android:textSize="20sp"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:textStyle="bold" />
 
             <TextView
@@ -50,7 +50,7 @@
                 android:text="Gemini Live WebSocket &amp; Engine"
                 android:textColor="@color/text_muted"
                 android:textSize="12sp"
-                android:fontFamily="sans-serif" />
+                android:fontFamily="@font/jarvis_sans" />
         </LinearLayout>
     </LinearLayout>
 
@@ -76,6 +76,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="20dp"
                 android:layout_marginBottom="20dp">
 
@@ -98,8 +99,8 @@
                         android:layout_height="wrap_content"
                         android:text="ONLINE • READY"
                         android:textColor="?attr/themeTextPrimary"
-                        android:textSize="13sp"
-                        android:fontFamily="sans-serif-medium"
+                        android:textSize="14sp"
+                        android:fontFamily="@font/jarvis_sans_medium"
                         android:textStyle="bold"
                         android:letterSpacing="0.06"
                         android:layout_marginStart="8dp" />
@@ -116,7 +117,7 @@
                         android:text="Ping: -- ms"
                         android:textColor="?attr/themeAccent"
                         android:textSize="12sp"
-                        android:fontFamily="sans-serif-medium"
+                        android:fontFamily="@font/jarvis_sans_medium"
                         android:textStyle="bold" />
                 </LinearLayout>
 
@@ -127,7 +128,7 @@
                     android:text="wss://generativelanguage.googleapis.com (Gemini 2.0 Live Protocol)"
                     android:textColor="?attr/themeTextMuted"
                     android:textSize="12sp"
-                    android:fontFamily="sans-serif"
+                    android:fontFamily="@font/jarvis_sans"
                     android:layout_marginTop="8dp" />
 
                 <com.google.android.material.button.MaterialButton
@@ -141,7 +142,7 @@
                     android:textColor="?attr/themeAccent"
                     android:textSize="12sp"
                     android:textAllCaps="false"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:layout_marginTop="12dp"
                     app:icon="@drawable/ic_settings_wave"
                     app:iconSize="16dp"
@@ -154,8 +155,8 @@
                 android:layout_height="wrap_content"
                 android:text="API Credentials"
                 android:textColor="?attr/themeTextMuted"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium"
+                android:textSize="14sp"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:textStyle="bold"
                 android:layout_marginBottom="8dp" />
 
@@ -164,6 +165,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="18dp"
                 android:layout_marginBottom="18dp">
 
@@ -172,8 +174,8 @@
                     android:layout_height="wrap_content"
                     android:text="Gemini API Key"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="15sp"
-                    android:fontFamily="sans-serif-medium"
+                    android:textSize="16sp"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:textStyle="bold" />
 
                 <TextView
@@ -182,7 +184,7 @@
                     android:text="Direct authorization key from Google AI Studio"
                     android:textColor="?attr/themeTextMuted"
                     android:textSize="12sp"
-                    android:fontFamily="sans-serif"
+                    android:fontFamily="@font/jarvis_sans"
                     android:layout_marginTop="2dp" />
 
                 <com.google.android.material.textfield.TextInputLayout
@@ -206,7 +208,7 @@
                         android:inputType="textPassword"
                         android:textColor="?attr/themeTextPrimary"
                         android:textSize="14sp"
-                        android:fontFamily="sans-serif" />
+                        android:fontFamily="@font/jarvis_sans" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
@@ -217,9 +219,9 @@
                     android:paddingEnd="12dp"
                     android:text="@string/get_gemini_api_key"
                     android:textColor="#4285F4"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:textStyle="bold"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:clickable="true"
                     android:focusable="true"
                     android:background="?attr/selectableItemBackground"
@@ -242,7 +244,7 @@
                         android:textColor="?attr/themeAccent"
                         android:textSize="12sp"
                         android:textAllCaps="false"
-                        android:fontFamily="sans-serif-medium"
+                        android:fontFamily="@font/jarvis_sans_medium"
                         android:layout_marginEnd="8dp" />
 
                     <com.google.android.material.button.MaterialButton
@@ -256,7 +258,7 @@
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="12sp"
                         android:textAllCaps="false"
-                        android:fontFamily="sans-serif-medium" />
+                        android:fontFamily="@font/jarvis_sans_medium" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -266,8 +268,8 @@
                 android:layout_height="wrap_content"
                 android:text="Model Engine"
                 android:textColor="?attr/themeTextMuted"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium"
+                android:textSize="14sp"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:textStyle="bold"
                 android:layout_marginBottom="8dp" />
 
@@ -276,6 +278,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="14dp"
                 android:layout_marginBottom="18dp">
 
@@ -285,8 +288,8 @@
                     android:layout_height="wrap_content"
                     android:text="gemini-3.1-flash (Ultra-Low Latency Live • ~700ms Recommended)"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="13sp"
-                    android:fontFamily="sans-serif-medium"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:paddingTop="8dp"
                     android:paddingBottom="8dp" />
 
@@ -301,8 +304,8 @@
                     android:layout_height="wrap_content"
                     android:text="gemini-3.8-live (Flagship Conversational Intelligence)"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="13sp"
-                    android:fontFamily="sans-serif-medium"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:paddingTop="8dp"
                     android:paddingBottom="8dp" />
 
@@ -319,8 +322,8 @@
                     android:layout_height="wrap_content"
                     android:text="gemini-3.1-flash (Balanced Multi-Model Autonomous Agent)"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="13sp"
-                    android:fontFamily="sans-serif-medium"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:paddingTop="8dp"
                     android:paddingBottom="8dp" />
             </RadioGroup>
@@ -331,8 +334,8 @@
                 android:layout_height="wrap_content"
                 android:text="Custom Endpoint (Optional)"
                 android:textColor="?attr/themeTextMuted"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium"
+                android:textSize="14sp"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:textStyle="bold"
                 android:layout_marginBottom="8dp" />
 
@@ -341,6 +344,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="18dp"
                 android:layout_marginBottom="24dp">
 
@@ -349,8 +353,8 @@
                     android:layout_height="wrap_content"
                     android:text="Custom Gateway URL"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="15sp"
-                    android:fontFamily="sans-serif-medium"
+                    android:textSize="16sp"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:textStyle="bold" />
 
                 <TextView
@@ -359,7 +363,7 @@
                     android:text="Legacy gateway URL. For a fully working custom endpoint with its own key and model, use Custom AI Providers below."
                     android:textColor="?attr/themeTextMuted"
                     android:textSize="12sp"
-                    android:fontFamily="sans-serif"
+                    android:fontFamily="@font/jarvis_sans"
                     android:layout_marginTop="2dp" />
 
                 <com.google.android.material.textfield.TextInputLayout
@@ -381,7 +385,7 @@
                         android:inputType="textUri"
                         android:textColor="?attr/themeTextPrimary"
                         android:textSize="14sp"
-                        android:fontFamily="sans-serif" />
+                        android:fontFamily="@font/jarvis_sans" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
@@ -390,8 +394,8 @@
                 android:layout_height="wrap_content"
                 android:text="Custom AI Providers"
                 android:textColor="?attr/themeTextMuted"
-                android:textSize="13sp"
-                android:fontFamily="sans-serif-medium"
+                android:textSize="14sp"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:textStyle="bold"
                 android:layout_marginBottom="8dp" />
 
@@ -400,6 +404,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="18dp"
                 android:layout_marginBottom="24dp">
 
@@ -410,7 +415,7 @@
                     android:text="Using built-in engines (Gemini / Groq)"
                     android:textColor="?attr/themeTextPrimary"
                     android:textSize="14sp"
-                    android:fontFamily="sans-serif-medium" />
+                    android:fontFamily="@font/jarvis_sans_medium" />
 
                 <TextView
                     android:id="@+id/tvProviderDetail"
@@ -420,7 +425,7 @@
                     android:text="Add your own OpenAI-compatible or Gemini-compatible endpoint with its own key and model. It powers both voice and ChatBox when it is active."
                     android:textColor="?attr/themeTextMuted"
                     android:textSize="12sp"
-                    android:fontFamily="sans-serif" />
+                    android:fontFamily="@font/jarvis_sans" />
 
                 <LinearLayout
                     android:id="@+id/llProviderList"
@@ -499,8 +504,8 @@
                     android:layout_weight="1"
                     android:text="Autonomous Permissions"
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="13sp"
-                    android:fontFamily="sans-serif-medium"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/jarvis_sans_medium"
                     android:textStyle="bold" />
 
                 <TextView
@@ -510,7 +515,7 @@
                     android:text="★ UNRESTRICTED"
                     android:background="@drawable/bg_auto_approve_badge_active"
                     android:textColor="#000000"
-                    android:textSize="9sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     android:paddingStart="8dp"
                     android:paddingEnd="8dp"
@@ -564,7 +569,7 @@
                             android:layout_height="wrap_content"
                             android:text="Zero-prompt autonomy · Complete bypass"
                             android:textColor="#80D8FF"
-                            android:textSize="11sp"
+                            android:textSize="12sp"
                             android:layout_marginTop="2dp" />
                     </LinearLayout>
 
@@ -602,7 +607,7 @@
                         android:layout_marginEnd="4dp"
                         android:text="⚡ Terminal"
                         android:textColor="#80D8FF"
-                        android:textSize="10sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -616,7 +621,7 @@
                         android:layout_marginEnd="4dp"
                         android:text="📁 File Edits"
                         android:textColor="#80D8FF"
-                        android:textSize="10sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -630,7 +635,7 @@
                         android:layout_marginEnd="4dp"
                         android:text="🌐 Web"
                         android:textColor="#80D8FF"
-                        android:textSize="10sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -643,7 +648,7 @@
                         android:paddingBottom="5dp"
                         android:text="✦ Destructive"
                         android:textColor="#FFD700"
-                        android:textSize="10sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
@@ -669,7 +674,7 @@
                         android:layout_marginStart="8dp"
                         android:text="ACTIVE · All actions auto-approved without prompts"
                         android:textColor="#00E676"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
@@ -697,9 +702,9 @@
             app:backgroundTint="@null"
             android:text="Save &amp; Apply Configuration"
             android:textColor="#FFFFFF"
-            android:textSize="15sp"
+            android:textSize="16sp"
             android:textStyle="bold"
-            android:fontFamily="sans-serif-medium"
+            android:fontFamily="@font/jarvis_sans_medium"
             android:textAllCaps="false" />
     </LinearLayout>
 

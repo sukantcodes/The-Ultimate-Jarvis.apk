@@ -386,6 +386,14 @@ class AppPreferences(context: Context) {
         get() = prefs.getBoolean("liquid_glass_enabled", true)
         set(value) { prefs.edit().putBoolean("liquid_glass_enabled", value).commit() }
 
+    /**
+     * The animated scene behind every Settings screen: "auto" (see-through on the Transparent theme, Aurora otherwise),
+     * "aurora", "nebula", "waves", "constellation", "prism", "silk" or "seethrough".
+     */
+    var settingsScene: String
+        get() = prefs.getString("settings_scene", "auto") ?: "auto"
+        set(value) { prefs.edit().putString("settings_scene", value).apply() }
+
     /** Liquid ripple on every touch plus the jelly squish of pressed buttons. */
     var liquidTouchEnabled: Boolean
         get() = prefs.getBoolean("liquid_touch_enabled", true)

@@ -61,16 +61,16 @@ fun text(
     setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sizeSp)
     setTextColor(color)
     this.gravity = gravity
-    typeface = if (bold) Typeface.create("sans-serif-medium", Typeface.BOLD) else Typeface.create("sans-serif", Typeface.NORMAL)
+    typeface = if (bold) com.jarvis.assistant.util.JarvisFonts.bold else com.jarvis.assistant.util.JarvisFonts.regular
     setLineSpacing(0f, 1.15f)
     includeFontPadding = false
 }
 
 fun pill(context: Context, label: String, color: Int): TextView = TextView(context).apply {
     text = label
-    setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11f)
+    setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12f)
     setTextColor(color)
-    typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+    typeface = com.jarvis.assistant.util.JarvisFonts.bold
     letterSpacing = 0.06f
     includeFontPadding = false
     setPadding(context.dp(10), context.dp(5), context.dp(10), context.dp(5))
@@ -97,7 +97,7 @@ fun primaryButton(context: Context, label: String, onClick: () -> Unit): Button 
     stateListAnimator = null
     setTextColor(Color.parseColor("#04101C"))
     setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16f)
-    typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+    typeface = com.jarvis.assistant.util.JarvisFonts.bold
     minHeight = context.dp(52)
     minimumHeight = context.dp(52)
     val shape = GradientDrawable(
@@ -113,8 +113,8 @@ fun secondaryButton(context: Context, label: String, accent: Int = Palette.CYAN,
         isAllCaps = false
         stateListAnimator = null
         setTextColor(accent)
-        setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15f)
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 16f)
+        typeface = com.jarvis.assistant.util.JarvisFonts.medium
         minHeight = context.dp(48)
         minimumHeight = context.dp(48)
         val shape = glass(context, 24, accent)

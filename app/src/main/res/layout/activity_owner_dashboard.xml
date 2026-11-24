@@ -40,7 +40,7 @@
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.04"
-                android:fontFamily="sans-serif-condensed" />
+                android:fontFamily="@font/jarvis_sans" />
 
             <TextView
                 android:id="@+id/tvDashSubtitle"
@@ -206,7 +206,7 @@
                     android:layout_height="wrap_content"
                     android:layout_margin="5dp"
                     android:textColor="?attr/themeTextMuted"
-                    android:textSize="11sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
         </androidx.core.widget.NestedScrollView>
 
@@ -297,7 +297,7 @@
             android:paddingHorizontal="16dp"
             android:text="@string/owner_prev"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="13sp" />
+            android:textSize="14sp" />
 
         <TextView
             android:id="@+id/tvPage"
@@ -319,6 +319,6 @@
             android:paddingHorizontal="16dp"
             android:text="@string/owner_next"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="13sp" />
+            android:textSize="14sp" />
     </LinearLayout>
 </LinearLayout>

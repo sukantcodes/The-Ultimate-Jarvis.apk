@@ -83,11 +83,11 @@ object HomeTheme {
         runCatching { ResourcesCompat.getFont(context.applicationContext, res) }.getOrNull() ?: fallback
 
     /** Orbitron: wide, techy, heavy. For titles and big numbers. */
-    fun display(context: Context): Typeface = display ?: load(context, R.font.orbitron, Typeface.create("sans-serif-black", Typeface.BOLD)).also { display = it }
+    fun display(context: Context): Typeface = display ?: load(context, R.font.jarvis_serif_semibold, com.jarvis.assistant.util.JarvisFonts.bold).also { display = it }
 
     /** Rajdhani SemiBold: the main reading face; made thicker with a bold style where the screen needs weight. */
-    fun body(context: Context): Typeface = body ?: load(context, R.font.rajdhani_semibold, Typeface.create("sans-serif-medium", Typeface.NORMAL)).also { body = it }
+    fun body(context: Context): Typeface = body ?: load(context, R.font.jarvis_sans_semibold, com.jarvis.assistant.util.JarvisFonts.medium).also { body = it }
 
     /** Rajdhani Medium: quiet captions. */
-    fun soft(context: Context): Typeface = soft ?: load(context, R.font.rajdhani_medium, Typeface.create("sans-serif", Typeface.NORMAL)).also { soft = it }
+    fun soft(context: Context): Typeface = soft ?: load(context, R.font.jarvis_sans_medium, com.jarvis.assistant.util.JarvisFonts.regular).also { soft = it }
 }

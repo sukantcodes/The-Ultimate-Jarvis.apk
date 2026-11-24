@@ -39,7 +39,7 @@
                 android:text="Overlay Avatars"
                 android:textColor="?attr/themeTextPrimary"
                 android:textSize="20sp"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:textStyle="bold" />
 
             <TextView
@@ -72,7 +72,7 @@
             android:paddingEnd="18dp"
             android:text="Show floating overlay"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="15sp" />
+            android:textSize="16sp" />
     </com.google.android.material.card.MaterialCardView>
 
     <com.google.android.material.card.MaterialCardView
@@ -130,7 +130,7 @@
                 android:layout_height="wrap_content"
                 android:text="Dock the avatar to an edge; dragging it will choose the nearest edge."
                 android:textColor="?attr/themeTextMuted"
-                android:textSize="11sp" />
+                android:textSize="12sp" />
 
             <Spinner
                 android:id="@+id/spinnerOverlayEdge"
@@ -149,9 +149,9 @@
         android:paddingBottom="12dp"
         android:text="CHOOSE AN AVATAR"
         android:textColor="?attr/themeTextMuted"
-        android:textSize="11sp"
+        android:textSize="12sp"
         android:letterSpacing="0.08"
-        android:fontFamily="sans-serif-medium"
+        android:fontFamily="@font/jarvis_sans_medium"
         android:textStyle="bold" />
 
     <TextView

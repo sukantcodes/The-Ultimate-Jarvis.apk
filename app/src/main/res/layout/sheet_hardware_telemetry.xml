@@ -53,7 +53,7 @@
                     android:textSize="17sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.06"
-                    android:fontFamily="sans-serif-black" />
+                    android:fontFamily="@font/jarvis_sans_bold" />
 
                 <TextView
                     android:id="@+id/tvHeaderSubtitle"
@@ -63,7 +63,7 @@
                     android:text="Iron-Man Real-Time Hardware HUD"
                     android:textColor="?attr/themeTextSecondary"
                     android:textSize="12sp"
-                    android:fontFamily="sans-serif-medium" />
+                    android:fontFamily="@font/jarvis_sans_medium" />
             </LinearLayout>
 
             <!-- Status Pulse Badge -->
@@ -77,10 +77,10 @@
                 android:paddingBottom="5dp"
                 android:text="ONLINE"
                 android:textColor="?attr/themeTextPrimary"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.05"
-                android:fontFamily="sans-serif-black" />
+                android:fontFamily="@font/jarvis_sans_bold" />
         </LinearLayout>
 
         <!-- Card 1: CPU SoC Architecture -->
@@ -116,10 +116,10 @@
                     android:layout_weight="1"
                     android:text="CPU SOC ARCHITECTURE"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.04"
-                    android:fontFamily="sans-serif-black" />
+                    android:fontFamily="@font/jarvis_sans_bold" />
 
                 <TextView
                     android:id="@+id/tvCpuLoadBadge"
@@ -131,9 +131,9 @@
                     android:paddingBottom="3dp"
                     android:text="0% LOAD"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
-                    android:fontFamily="sans-serif-medium" />
+                    android:fontFamily="@font/jarvis_sans_medium" />
             </LinearLayout>
 
             <TextView
@@ -188,10 +188,10 @@
                     android:layout_weight="1"
                     android:text="SYSTEM RAM UTILIZATION"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.04"
-                    android:fontFamily="sans-serif-black" />
+                    android:fontFamily="@font/jarvis_sans_bold" />
 
                 <TextView
                     android:id="@+id/tvMemoryLoadBadge"
@@ -203,9 +203,9 @@
                     android:paddingBottom="3dp"
                     android:text="0% USED"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
-                    android:fontFamily="sans-serif-medium" />
+                    android:fontFamily="@font/jarvis_sans_medium" />
             </LinearLayout>
 
             <TextView
@@ -260,10 +260,10 @@
                     android:layout_weight="1"
                     android:text="POWER &amp; THERMAL MATRIX"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.04"
-                    android:fontFamily="sans-serif-black" />
+                    android:fontFamily="@font/jarvis_sans_bold" />
 
                 <TextView
                     android:id="@+id/tvThermalStatusBadge"
@@ -275,9 +275,9 @@
                     android:paddingBottom="3dp"
                     android:text="NOMINAL"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
-                    android:fontFamily="sans-serif-medium" />
+                    android:fontFamily="@font/jarvis_sans_medium" />
             </LinearLayout>
 
             <TextView
@@ -341,10 +341,10 @@
                     android:layout_weight="1"
                     android:text="STORAGE &amp; TELEMETRY LINK"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="13sp"
+                    android:textSize="14sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.04"
-                    android:fontFamily="sans-serif-black" />
+                    android:fontFamily="@font/jarvis_sans_bold" />
 
                 <TextView
                     android:id="@+id/tvNetworkBadge"
@@ -356,9 +356,9 @@
                     android:paddingBottom="3dp"
                     android:text="OFFLINE"
                     android:textColor="?attr/themeTextPrimary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
-                    android:fontFamily="sans-serif-medium" />
+                    android:fontFamily="@font/jarvis_sans_medium" />
             </LinearLayout>
 
             <TextView
@@ -432,7 +432,7 @@
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.05"
-                    android:fontFamily="sans-serif-black" />
+                    android:fontFamily="@font/jarvis_sans_bold" />
             </LinearLayout>
 
             <View
@@ -474,7 +474,7 @@
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.05"
-                    android:fontFamily="sans-serif-black" />
+                    android:fontFamily="@font/jarvis_sans_bold" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

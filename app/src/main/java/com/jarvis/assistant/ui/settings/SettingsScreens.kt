@@ -571,6 +571,10 @@ class AppearanceSettingsActivity : SettingsScreenActivity() {
         binding.rowOverlayAvatars.setOnClickListener { open(OverlayAvatarActivity::class.java) }
         binding.rowCrystalBackground.setOnClickListener { open(CrystalBackgroundActivity::class.java) }
         binding.rowRefreshRate.setOnClickListener { showRefreshRateDialog() }
+        binding.rowSettingsScene.setOnClickListener {
+            SettingsSceneSheet.show(this) { binding.tvCurrentScene.text = SettingsSceneSheet.currentLabel() }
+        }
+        binding.tvCurrentScene.text = SettingsSceneSheet.currentLabel()
 
         binding.switchLiquidGlass.isChecked = preferences.liquidGlassEnabled
         binding.switchLiquidGlass.setOnCheckedChangeListener { _, enabled ->

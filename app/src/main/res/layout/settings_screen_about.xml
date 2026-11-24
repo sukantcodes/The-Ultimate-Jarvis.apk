@@ -61,11 +61,11 @@
             android:layout_marginStart="14dp"
             android:layout_weight="1"
             android:ellipsize="end"
-            android:fontFamily="sans-serif-medium"
+            android:fontFamily="@font/jarvis_serif_semibold"
             android:maxLines="2"
             android:text="@string/set_section_about"
             android:textColor="?attr/themeTextPrimary"
-            android:textSize="22sp"
+            android:textSize="26sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -310,7 +310,7 @@
                 android:text="@string/set_footer_credit"
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/jarvis_sans_medium"
                 android:lineSpacingExtra="4dp"
                 android:gravity="center"
                 android:clickable="true"

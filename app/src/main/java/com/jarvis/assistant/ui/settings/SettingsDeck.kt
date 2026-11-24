@@ -329,7 +329,7 @@ object SettingsDeck {
                 text = category.label
                 textSize = 13f
                 isAllCaps = false
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                typeface = com.jarvis.assistant.util.JarvisFonts.medium
                 gravity = Gravity.CENTER_VERTICAL
                 includeFontPadding = false
                 setPadding(px(ctx, 14f), 0, px(ctx, 16f), 0)

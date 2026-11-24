@@ -190,7 +190,7 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
                 gravity = Gravity.CENTER
                 setTextColor(Color.rgb(176, 189, 216))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 14.5f)
-                typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+                typeface = com.jarvis.assistant.util.JarvisFonts.regular
                 setLineSpacing(ctx.dp(3f), 1f)
                 setPadding(0, ctx.dp(10f).toInt(), 0, 0)
             }
@@ -343,8 +343,8 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
             val text = TextView(ctx).apply {
                 this.text = message
                 setTextColor(Color.rgb(206, 216, 238))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                typeface = com.jarvis.assistant.util.JarvisFonts.regular
                 setLineSpacing(ctx.dp(3f), 1f)
                 setPadding(ctx.dp(14f).toInt(), ctx.dp(12f).toInt(), ctx.dp(14f).toInt(), ctx.dp(12f).toInt())
                 background = fieldBackground(ctx, d.palette.accent1, focused = false)
@@ -469,7 +469,7 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
                 setTextColor(Color.WHITE)
                 highlightColor = Color.argb(110, Color.red(accent), Color.green(accent), Color.blue(accent))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                typeface = com.jarvis.assistant.util.JarvisFonts.medium
                 letterSpacing = 0.03f
                 gravity = Gravity.CENTER_VERTICAL or Gravity.START
                 setSingleLine()
@@ -503,7 +503,7 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
                 this.text = text
                 setTextColor(Color.rgb(222, 230, 248))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 14.5f)
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                typeface = com.jarvis.assistant.util.JarvisFonts.medium
                 setPadding(ctx.dp(14f).toInt(), 0, 0, 0)
             }
             fun paint() {
@@ -563,7 +563,7 @@ internal class PremiumOptionList(
             val dot = View(ctx)
             val tv = TextView(ctx).apply {
                 this.text = text
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15.5f)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                 setPadding(ctx.dp(14f).toInt(), 0, 0, 0)
                 maxLines = 2
                 ellipsize = TextUtils.TruncateAt.END
@@ -605,7 +605,7 @@ internal class PremiumOptionList(
             rows[i].background = rowDrawable(ctx, palette, on)
             dots[i].background = radioDrawable(ctx, on)
             texts[i].setTextColor(if (on) Color.WHITE else Color.rgb(214, 223, 245))
-            texts[i].typeface = Typeface.create("sans-serif-medium", if (on) Typeface.BOLD else Typeface.NORMAL)
+            texts[i].typeface = if (on) com.jarvis.assistant.util.JarvisFonts.bold else com.jarvis.assistant.util.JarvisFonts.medium
         }
     }
 }
@@ -765,7 +765,11 @@ private fun label(ctx: Context, text: String, sizeSp: Float, color: Int, family:
         gravity = Gravity.CENTER
         setTextColor(color)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp)
-        typeface = Typeface.create(family, Typeface.NORMAL)
+        typeface = when {
+            family.contains("black") || family.contains("bold") -> com.jarvis.assistant.util.JarvisFonts.bold
+            family.contains("medium") -> com.jarvis.assistant.util.JarvisFonts.semibold
+            else -> com.jarvis.assistant.util.JarvisFonts.regular
+        }
         letterSpacing = tracking
         includeFontPadding = false
     }
@@ -803,7 +807,7 @@ private fun keycapButton(ctx: Context, text: String, primary: Boolean, a1: Int, 
         gravity = Gravity.CENTER
         setTextColor(if (primary) Color.WHITE else Color.rgb(214, 224, 247))
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
-        typeface = Typeface.create("sans-serif-black", Typeface.NORMAL)
+        typeface = com.jarvis.assistant.util.JarvisFonts.bold
         letterSpacing = 0.09f
         includeFontPadding = false
         setPadding(ctx.dp(12f).toInt(), 0, ctx.dp(12f).toInt(), ctx.dp(4f).toInt())

@@ -177,7 +177,7 @@ class SkillStoreActivity : AppCompatActivity() {
             text = "${skill.description}\n\n${if (skill.builtIn) "Built in" else "Store skill"}" +
                 (if (skill.updated.isNotBlank() && !skill.builtIn) " \u00b7 version ${skill.updated}" else "") +
                 "\n\n$preview"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             setTextIsSelectable(true)
             setPadding(dp(22), dp(8), dp(22), dp(8))
         }
@@ -361,7 +361,7 @@ class SkillStoreActivity : AppCompatActivity() {
         text = value
         setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp)
         setTextColor(themeColor(if (primary) R.attr.themeTextPrimary else R.attr.themeTextMuted, if (primary) 0xFFFFFFFF.toInt() else 0xFF9AA4B2.toInt()))
-        if (bold) typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+        if (bold) typeface = com.jarvis.assistant.util.JarvisFonts.bold
     }
 
     private fun card() = LinearLayout(this).apply {
@@ -384,7 +384,7 @@ class SkillStoreActivity : AppCompatActivity() {
 
     private fun badge(label: String) = TextView(this).apply {
         text = label
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
         setTextColor(themeColor(R.attr.themeTextMuted, 0xFF9AA4B2.toInt()))
         setPadding(dp(8), dp(2), dp(8), dp(2))
         background = GradientDrawable().apply {
@@ -399,8 +399,8 @@ class SkillStoreActivity : AppCompatActivity() {
     private fun button(label: String, onClick: () -> Unit) = TextView(this).apply {
         text = label
         gravity = Gravity.CENTER
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-        typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+        typeface = com.jarvis.assistant.util.JarvisFonts.bold
         setTextColor(themeColor(R.attr.themeTextPrimary, 0xFFFFFFFF.toInt()))
         setPadding(dp(16), dp(8), dp(16), dp(8))
         background = GradientDrawable().apply {

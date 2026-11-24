@@ -431,11 +431,11 @@ class HealthRingView @JvmOverloads constructor(context: Context, attrs: Attribut
     private val arc = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND }
     private val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
-        typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+        typeface = com.jarvis.assistant.util.JarvisFonts.regular
     }
     private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        typeface = com.jarvis.assistant.util.JarvisFonts.medium
         letterSpacing = 0.16f
     }
 

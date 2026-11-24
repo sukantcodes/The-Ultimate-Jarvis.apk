@@ -10,6 +10,7 @@ import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -113,6 +114,7 @@ class JarvisTerminalActivity : AppCompatActivity() {
     private lateinit var outputView: TextView
     private lateinit var promptLabel: TextView
     private lateinit var input: EditText
+    private val handlesImeItself = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
     private lateinit var extraKeys: LinearLayout
     private lateinit var menuButton: TextView
     private lateinit var scrim: View
@@ -130,12 +132,16 @@ class JarvisTerminalActivity : AppCompatActivity() {
         fontSp = prefs.getFloat("font_sp", 13f).coerceIn(MIN_FONT, MAX_FONT)
         scheme = SCHEMES.getOrElse(prefs.getInt("scheme", 0)) { SCHEMES[0] }
         keepScreenOn = prefs.getBoolean("keep_on", false)
+        // The keyboard must move the layout exactly once. On Android 11+ the window stops resizing for the keyboard and
+        // the inset listener below lifts the extra keys by the keyboard height. Before that, Android resizes the window
+        // itself and the listener must not add the keyboard a second time (that is what threw the keys far up).
+        if (handlesImeItself) WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(buildUi())
         installSelectionActions()
         applyScheme()
         applyFont()
         applyKeepScreenOn()
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+        onBackPressedDispatcher.addCallback(this, object : com.jarvis.assistant.util.PredictiveBack.MotionCallback(this, shouldAnimate = { !drawerOpen }) {
             override fun handleOnBackPressed() {
                 if (drawerOpen) closeDrawer() else { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
             }
@@ -940,7 +946,12 @@ class JarvisTerminalActivity : AppCompatActivity() {
         root = FrameLayout(this)
         main = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
+            val types = if (handlesImeItself) {
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime()
+            } else {
+                WindowInsetsCompat.Type.systemBars()
+            }
+            val bars = insets.getInsets(types)
             main.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             (menuButton.layoutParams as FrameLayout.LayoutParams).apply { topMargin = bars.top + dp(6); rightMargin = bars.right + dp(8) }
             menuButton.requestLayout()
