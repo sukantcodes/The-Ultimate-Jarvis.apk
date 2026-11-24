@@ -55,7 +55,7 @@
 
     <string name="ota_history_title">Update history</string>
     <string name="ota_history_empty">Nothing yet. Updates you check, download or install appear here.</string>
-    <string name="ota_history_line" formatted="true">%1$s · v%2$s · %3$s</string>
+    <string name="ota_history_line" formatted="true">%1$s · v%2$s</string>
 
     <!-- Launch popup (UpdatePromptController) -->
     <string name="ota_popup_eyebrow">JARVIS · SOFTWARE UPDATE</string>

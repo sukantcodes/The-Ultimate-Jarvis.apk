@@ -15,7 +15,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.jarvis.assistant.BuildConfig
 import com.jarvis.assistant.R
-import com.jarvis.assistant.updates.OtaSettings
 import com.jarvis.assistant.activitylog.ActivityLog
 import com.jarvis.assistant.activitylog.ActivityLogSettings
 import com.jarvis.assistant.audio.AutoSleepSettings
@@ -662,7 +661,7 @@ class AboutSettingsActivity : SettingsScreenActivity() {
         binding.rowPrivacyPolicy.setOnClickListener { open(PrivacyShieldActivity::class.java) }
         binding.rowSoftwareUpdates.setOnClickListener { open(SoftwareUpdatesActivity::class.java) }
         binding.tvSoftwareUpdatesSubtitle.text = getString(
-            R.string.set_softwareupdates_version, BuildConfig.VERSION_NAME, OtaSettings(this).branch
+            R.string.set_softwareupdates_version, BuildConfig.VERSION_NAME
         )
         binding.rowAppIdentity.setOnClickListener {
             PremiumDialog.info(

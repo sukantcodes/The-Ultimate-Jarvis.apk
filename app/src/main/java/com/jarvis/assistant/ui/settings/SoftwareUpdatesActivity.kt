@@ -18,10 +18,8 @@ import androidx.appcompat.widget.SwitchCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.jarvis.assistant.BuildConfig
 import com.jarvis.assistant.R
-import com.jarvis.assistant.updates.OtaConfig
 import com.jarvis.assistant.updates.OtaFeed
 import com.jarvis.assistant.updates.OtaFormat
 import com.jarvis.assistant.updates.OtaManager
@@ -56,8 +54,6 @@ class SoftwareUpdatesActivity : AppCompatActivity() {
     private lateinit var notesMeta: TextView
     private lateinit var notesBody: TextView
     private lateinit var notesHash: TextView
-    private lateinit var branchRow: LinearLayout
-    private lateinit var branchValue: TextView
     private lateinit var historyList: LinearLayout
 
     private var lastState: OtaState = OtaState.Idle
@@ -202,27 +198,6 @@ class SoftwareUpdatesActivity : AppCompatActivity() {
         card.addView(switchRow(R.string.ota_set_wifi_title, R.string.ota_set_wifi_sub, settings.wifiOnly) {
             settings.wifiOnly = it
         })
-        card.addView(divider())
-
-        branchRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(48)
-            setPadding(0, dp(12), 0, dp(12))
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { chooseBranch() }
-        }
-        val info = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        info.addView(text(getString(R.string.ota_set_branch_title), 16f, primary = true, bold = true))
-        branchValue = text(settings.branch, 13f, primary = false).apply { setPadding(0, dp(2), dp(8), 0) }
-        info.addView(branchValue)
-        branchRow.addView(info)
-        branchRow.addView(text("›", 22f, primary = false))
-        card.addView(branchRow)
         content.addView(card)
     }
 
@@ -344,7 +319,6 @@ class SoftwareUpdatesActivity : AppCompatActivity() {
     }
 
     private fun renderFeed(feed: OtaFeed?) {
-        branchValue.text = settings.branch
         val offered = feed?.release?.takeIf { it.versionCode > BuildConfig.VERSION_CODE }
         renderNotes(lastState.releaseOrNull() ?: offered)
         renderHistory()
@@ -380,7 +354,7 @@ class SoftwareUpdatesActivity : AppCompatActivity() {
                 setPadding(0, dp(8), 0, dp(8))
             }
             row.addView(
-                text(getString(R.string.ota_history_line, entry.event, entry.versionName, entry.branch), 14f, primary = true, bold = true)
+                text(getString(R.string.ota_history_line, entry.event, entry.versionName), 14f, primary = true, bold = true)
             )
             val detail = format.format(Date(entry.timeMs)) + if (entry.detail.isBlank()) "" else " · " + entry.detail
             row.addView(text(detail, 12f, primary = false).apply { setPadding(0, dp(2), 0, 0) })
@@ -422,31 +396,6 @@ class SoftwareUpdatesActivity : AppCompatActivity() {
 
     private fun onSecondary() {
         lifecycleScope.launch { OtaManager.check(applicationContext, manual = true) }
-    }
-
-    private fun chooseBranch() {
-        val feed = OtaManager.feed.value
-        val names = LinkedHashSet<String>()
-        names.add(OtaConfig.DEFAULT_BRANCH)
-        feed?.branches?.forEach { names.add(it.name) }
-        names.add(settings.branch)
-        val options = names.toList()
-        val labels = options.map {
-            if (it == (feed?.defaultBranch ?: OtaConfig.DEFAULT_BRANCH)) it + getString(R.string.ota_branch_default_suffix) else it
-        }
-        MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_Jarvis_MaterialDialog)
-            .setTitle(R.string.ota_branch_dialog_title)
-            .setSingleChoiceItems(labels.toTypedArray(), options.indexOf(settings.branch)) { dialog, which ->
-                dialog.dismiss()
-                val picked = options[which]
-                if (picked != settings.branch) {
-                    settings.branch = picked
-                    branchValue.text = picked
-                    lifecycleScope.launch { OtaManager.check(applicationContext, manual = true) }
-                }
-            }
-            .setNegativeButton(R.string.ota_branch_cancel, null)
-            .show()
     }
 
     // ---- View helpers (same look as the Clock pages) --------------------------------------------
