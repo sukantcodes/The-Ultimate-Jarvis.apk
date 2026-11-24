@@ -127,10 +127,11 @@ class LiquidGlassLayout @JvmOverloads constructor(
                     outline.setRoundRect(0, 0, view.width, view.height, cornerRadiusPx)
                 }
             }
-            elevation = 8f * density
+            elevation = 4f * density
             if (Build.VERSION.SDK_INT >= 28) {
-                outlineSpotShadowColor = 0xFF000000.toInt()
-                outlineAmbientShadowColor = 0xFF000000.toInt()
+                // A faint, cool shadow: clear glass must not sit in a dark frame.
+                outlineSpotShadowColor = 0x40203048
+                outlineAmbientShadowColor = 0x26203048
             }
         }
     }
@@ -301,11 +302,9 @@ class LiquidGlassLayout @JvmOverloads constructor(
     @RequiresApi(33)
     private fun effectiveVeil(): Float = if (lens) veil * LENS_VEIL_FACTOR else veil
 
-    private fun lensZoom(crystal: Boolean): Float = when {
-        !lens -> if (crystal) CrystalTheme.LENS_ZOOM else 1f
-        crystal -> CrystalTheme.LENS_ZOOM * 1.08f
-        else -> LENS_ZOOM
-    }
+    /** Glass refracts at its edge but never magnifies what is behind it. */
+    @Suppress("UNUSED_PARAMETER")
+    private fun lensZoom(crystal: Boolean): Float = 1f
 
     private fun buildGlassShader(b: Bitmap, w: Int, h: Int): Shader {
         val content = BitmapShader(b, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {

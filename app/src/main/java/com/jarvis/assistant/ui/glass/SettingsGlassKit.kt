@@ -26,7 +26,7 @@ object SettingsGlassKit {
         "ApiConnectionActivity", "CustomProviderEditorActivity", "FaceLockActivity", "HandsFreeActivity",
         "KeyManagerActivity", "MayaModeActivity", "MoreThemeColoursActivity", "PersonaActivity",
         "PrivacyShieldActivity", "ScreenUnlockActivity", "ToolSettingsActivity", "WorkRoutingActivity",
-        "CrystalBackgroundActivity", "VoiceEnrollmentActivity", "UdnActivity"
+        "CrystalBackgroundActivity", "VoiceEnrollmentActivity", "UdnActivity", "SoftwareUpdatesActivity"
     )
 
     fun isTarget(activity: Activity): Boolean =

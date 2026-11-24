@@ -146,7 +146,7 @@ internal class PremiumDialog private constructor(private val ctx: Context) {
         card = cardView
         // iOS-style liquid glass body: a dark scrim keeps the light text readable on any theme, and the glass
         // material (lens, prism rim, specular highlight) sits on top of it.
-        com.jarvis.assistant.ui.glass.LiquidGlass.apply(cardView, 30f, a2, elevationDp = 22f)
+        com.jarvis.assistant.ui.glass.LiquidGlass.apply(cardView, 30f, a2, elevationDp = 10f)
         val glassBody = cardView.background
         val scrim = GradientDrawable().apply {
             setColor(Color.argb(150, 6, 8, 20))

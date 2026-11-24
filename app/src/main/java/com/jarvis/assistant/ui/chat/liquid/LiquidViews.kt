@@ -114,7 +114,7 @@ class LiquidOrbView @JvmOverloads constructor(context: Context, attrs: Attribute
         val density = resources.displayMetrics.density
 
         fun a(color: Int, alpha: Float) = ColorUtils.setAlphaComponent(color, (255 * alpha.coerceIn(0f, 1f)).toInt())
-        val deep = ColorUtils.blendARGB(t.secondary, Color.BLACK, 0.45f)
+        val deep = ColorUtils.blendARGB(t.secondary, t.specular, 0.18f)
 
         halo.shader = RadialGradient(cx, cy, haloRadius, a(t.accent, 0.50f), a(t.accent, 0f), Shader.TileMode.CLAMP)
         body.shader = RadialGradient(

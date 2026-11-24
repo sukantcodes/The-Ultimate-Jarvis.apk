@@ -52,8 +52,8 @@ object LiquidGlass {
         view.elevation = elevationDp * density
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && elevationDp > 0f) {
             // Clear glass casts a plain, soft shadow; a coloured shadow would read as a stain around the pane.
-            view.outlineAmbientShadowColor = 0xFF000000.toInt()
-            view.outlineSpotShadowColor = 0xFF000000.toInt()
+            view.outlineAmbientShadowColor = 0x26203048
+            view.outlineSpotShadowColor = 0x40203048
         }
         // Glass cards are static; only the screen backdrop animates, and the cards simply show it through.
         view.setTag(TAG_KEY, true)

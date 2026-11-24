@@ -486,12 +486,15 @@ class SoftwareUpdatesActivity : AppCompatActivity() {
     private fun card() = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(18), dp(16), dp(18), dp(16))
+        // Tagged so the shared Settings glass kit turns it into the same lens-glass pane as every Settings card.
+        // With Liquid Glass off the kit leaves it alone, so it keeps this flat card.
+        tag = com.jarvis.assistant.ui.glass.SettingsGlassKit.CARD_TAG
         background = GradientDrawable().apply {
             cornerRadius = dp(24).toFloat()
             setColor(themeColor(R.attr.themeCardBg))
             setStroke(dp(1), themeColor(R.attr.themeCardBorder))
         }
-        elevation = dp(3).toFloat()
+        if (com.jarvis.assistant.ui.glass.GlassMode.plain()) elevation = dp(3).toFloat()
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { bottomMargin = dp(16) }
     }
