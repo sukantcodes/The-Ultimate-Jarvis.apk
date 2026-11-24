@@ -36,7 +36,6 @@
     <string name="ota_notes_title">What\'s new</string>
     <string name="ota_notes_empty">No release notes were published for this build.</string>
     <string name="ota_release_meta" formatted="true">Build %1$d · %2$s · %3$s</string>
-    <string name="ota_release_hash" formatted="true">SHA-256 %1$s</string>
 
     <string name="ota_settings_title">Update settings</string>
     <string name="ota_set_autocheck_title">Automatic checking</string>

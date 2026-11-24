@@ -4,7 +4,12 @@ import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.format.DateUtils
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
+import android.text.style.TypefaceSpan
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -23,6 +28,7 @@ import com.jarvis.assistant.R
 import com.jarvis.assistant.updates.OtaFeed
 import com.jarvis.assistant.updates.OtaFormat
 import com.jarvis.assistant.updates.OtaManager
+import com.jarvis.assistant.updates.OtaPromptPolicy
 import com.jarvis.assistant.updates.OtaRelease
 import com.jarvis.assistant.updates.OtaScheduler
 import com.jarvis.assistant.updates.OtaSettings
@@ -52,8 +58,7 @@ class SoftwareUpdatesActivity : AppCompatActivity() {
     private lateinit var notesCard: LinearLayout
     private lateinit var notesHeading: TextView
     private lateinit var notesMeta: TextView
-    private lateinit var notesBody: TextView
-    private lateinit var notesHash: TextView
+    private lateinit var notesList: LinearLayout
     private lateinit var historyList: LinearLayout
 
     private var lastState: OtaState = OtaState.Idle
@@ -170,12 +175,10 @@ class SoftwareUpdatesActivity : AppCompatActivity() {
         notesCard = card().apply { visibility = View.GONE }
         notesHeading = text(getString(R.string.ota_notes_title), 18f, primary = true, bold = true)
         notesMeta = text("", 12f, primary = false).apply { setPadding(0, dp(2), 0, dp(8)) }
-        notesBody = text("", 14f, primary = true).apply { setLineSpacing(0f, 1.15f) }
-        notesHash = text("", 11f, primary = false).apply { setPadding(0, dp(10), 0, 0) }
+        notesList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         notesCard.addView(notesHeading)
         notesCard.addView(notesMeta)
-        notesCard.addView(notesBody)
-        notesCard.addView(notesHash)
+        notesCard.addView(notesList)
         content.addView(notesCard)
     }
 
@@ -335,8 +338,62 @@ class SoftwareUpdatesActivity : AppCompatActivity() {
             R.string.ota_release_meta, release.versionCode, OtaFormat.bytes(release.sizeBytes),
             OtaFormat.published(release.publishedAt)
         )
-        notesBody.text = release.releaseNotes.ifBlank { getString(R.string.ota_notes_empty) }
-        notesHash.text = getString(R.string.ota_release_hash, OtaFormat.shortHash(release.sha256))
+        renderWhatsNew(OtaPromptPolicy.conciseNotes(release.releaseNotes, maxLines = 12, maxLineChars = 160))
+    }
+
+    /** "What's new" as coloured bullet points: a bold, accent-coloured lead-in (text before a colon) and a light detail. */
+    private fun renderWhatsNew(points: List<String>) {
+        notesList.removeAllViews()
+        if (points.isEmpty()) {
+            notesList.addView(text(getString(R.string.ota_notes_empty), 14f, primary = false))
+            return
+        }
+        val accents = intArrayOf(ThemeManager.getThemeAccentColor(), ThemeManager.getThemeSecondaryColor())
+        points.forEachIndexed { index, point ->
+            val tone = accents[index % accents.size]
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(0, dp(6), 0, dp(6))
+            }
+            row.addView(
+                TextView(this).apply {
+                    text = "●"
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                    setTextColor(tone)
+                    setPadding(0, dp(4), dp(12), 0)
+                }
+            )
+            row.addView(
+                TextView(this).apply {
+                    text = styledPoint(point, tone)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14.5f)
+                    setLineSpacing(0f, 1.15f)
+                    setTextColor(themeColor(R.attr.themeTextPrimary))
+                },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            )
+            notesList.addView(row)
+        }
+    }
+
+    private fun styledPoint(point: String, tone: Int): CharSequence {
+        val colon = point.indexOf(':')
+        val out = SpannableStringBuilder()
+        if (colon in 3..40 && colon < point.length - 1) {
+            val lead = point.substring(0, colon + 1)
+            out.append(lead)
+            out.setSpan(StyleSpan(Typeface.BOLD), 0, lead.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            out.setSpan(TypefaceSpan("sans-serif-medium"), 0, lead.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            out.setSpan(ForegroundColorSpan(tone), 0, lead.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            val detail = point.substring(colon + 1)
+            val start = out.length
+            out.append(detail)
+            out.setSpan(TypefaceSpan("sans-serif-light"), start, out.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        } else {
+            out.append(point)
+            out.setSpan(TypefaceSpan("sans-serif-medium"), 0, out.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        return out
     }
 
     private fun renderHistory() {

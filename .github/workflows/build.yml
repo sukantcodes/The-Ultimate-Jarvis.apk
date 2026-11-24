@@ -413,15 +413,10 @@ jobs:
       shell: bash
       run: |
         set -euo pipefail
-        {
-          echo "JARVIS ${{ steps.version.outputs.name }} (build ${{ steps.version.outputs.code }}) from branch ${GITHUB_REF_NAME}"
-          echo
-          echo "Changes:"
-          jq -r '[.commits[]?.message | split("\n")[0]] | .[0:15][] | "- " + .' "$GITHUB_EVENT_PATH" 2>/dev/null || true
-        } > ota-out/notes.md
-        if [[ "$(wc -l < ota-out/notes.md)" -le 3 ]]; then echo "- $(git log -1 --pretty=%s)" >> ota-out/notes.md; fi
+        # Release notes are only the change list (one "- " point per commit); no branch name and no checksum.
+        jq -r '[.commits[]?.message | split("\n")[0]] | .[0:15][] | "- " + .' "$GITHUB_EVENT_PATH" 2>/dev/null > ota-out/notes.md || true
+        if [[ ! -s ota-out/notes.md ]]; then echo "- $(git log -1 --pretty=%s)" > ota-out/notes.md; fi
         head -c 6000 ota-out/notes.md > ota-out/notes.trimmed && mv ota-out/notes.trimmed ota-out/notes.md
-        sha256sum ota-out/${{ steps.version.outputs.asset }} | awk '{print "SHA-256: " toupper($1)}' >> ota-out/notes.md
     - name: Publish APK to GitHub Releases
       if: steps.gate.outputs.publish == 'true'
       id: upload
