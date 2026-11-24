@@ -127,6 +127,7 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="16dp"
                 android:clickable="true"
                 android:focusable="true"
@@ -211,6 +212,7 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="16dp"
                 android:clickable="true"
                 android:focusable="true"
@@ -295,6 +297,7 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="16dp"
                 android:clickable="true"
                 android:focusable="true"
@@ -379,6 +382,7 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="16dp"
                 android:clickable="true"
                 android:focusable="true"
@@ -471,6 +475,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="16dp"
                 android:layout_marginBottom="16dp">
 
@@ -523,6 +528,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_jarvis_card"
+        android:tag="jarvis_glass_card"
                 android:padding="14dp"
                 android:layout_marginBottom="24dp">
 

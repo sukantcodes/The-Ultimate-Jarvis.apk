@@ -643,7 +643,27 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
         else -> homeFragment
     }
 
+    private var tabSnapshotPending = false
+
     fun selectTab(tab: Int) {
+        // See-through Settings shows the screen you came from under its glass, so picture it before the switch.
+        if (tab == TAB_SETTINGS && currentTab != TAB_SETTINGS && ::binding.isInitialized && !tabSnapshotPending &&
+            com.jarvis.assistant.ui.glass.ScreenSnapshot.wanted()
+        ) {
+            tabSnapshotPending = true
+            val at = IntArray(2)
+            binding.bottomDock.getLocationInWindow(at)
+            val crop = (window.decorView.height - at[1]).coerceAtLeast(0)
+            com.jarvis.assistant.ui.glass.ScreenSnapshot.capture(this, crop) {
+                tabSnapshotPending = false
+                selectTabNow(tab)
+            }
+            return
+        }
+        selectTabNow(tab)
+    }
+
+    private fun selectTabNow(tab: Int) {
         val previousTab = currentTab
         currentTab = tab
         val drawerItem = when (tab) {

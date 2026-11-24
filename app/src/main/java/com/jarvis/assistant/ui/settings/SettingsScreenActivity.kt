@@ -27,7 +27,7 @@ import com.jarvis.assistant.util.ThemeManager
  * Base for every Settings category screen. Each category (AI, Voice, Security, ...) is its own Activity with its own
  * standalone layout; this class holds only what they all share: theme, backdrop, system-bar insets and small helpers.
  */
-abstract class SettingsScreenActivity : AppCompatActivity() {
+abstract class SettingsScreenActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisHandlesInsets {
 
     protected val preferences by lazy { JarvisApp.instance.preferences }
 
@@ -37,6 +37,12 @@ abstract class SettingsScreenActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeManager.applyTheme(this)
         super.onCreate(savedInstanceState)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Picks up a background chosen on another screen.
+        com.jarvis.assistant.ui.glass.GlassBackdropView.refreshAll()
     }
 
     /** Paints the shared look: back button, backdrop, glass card, switches, icon tiles and system-bar padding. */
@@ -51,11 +57,41 @@ abstract class SettingsScreenActivity : AppCompatActivity() {
         // Insets pad the content column only, so the backdrop still reaches the very edges of the screen.
         val column = root.findViewById<View>(R.id.contentColumn) ?: root
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            column.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            column.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
             insets
         }
         ViewCompat.requestApplyInsets(root)
+        intent.getStringExtra(EXTRA_FOCUS_ROW)?.let { name -> root.post { focusRow(root, name) } }
+    }
+
+    /** Scrolls to a row found through Settings search and pulses it, so the person sees exactly where it is. */
+    private fun focusRow(root: View, idName: String) {
+        val id = resources.getIdentifier(idName, "id", packageName)
+        val row = if (id != 0) root.findViewById<View>(id) else null
+        if (row == null) return
+        val scroll = root.findViewById<android.widget.ScrollView>(R.id.screenScroll)
+        if (scroll != null) {
+            var y = row.top
+            var p = row.parent
+            while (p is View && p !== scroll) { y += (p as View).top; p = (p as View).parent }
+            scroll.postDelayed({ scroll.smoothScrollTo(0, (y - 140).coerceAtLeast(0)) }, 120L)
+        }
+        val pulse = GradientDrawable().apply {
+            cornerRadius = 18f * resources.displayMetrics.density
+            setColor(ColorUtils.setAlphaComponent(ThemeManager.getThemeAccentColor(), 255))
+        }
+        row.foreground = pulse
+        android.animation.ValueAnimator.ofInt(150, 0, 150, 0).apply {
+            duration = 1500L
+            startDelay = 350L
+            addUpdateListener { pulse.alpha = it.animatedValue as Int }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) { row.foreground = null }
+            })
+            start()
+        }
     }
 
     /** Repaints the icon tiles, used after the icon shape changes. */
@@ -72,7 +108,8 @@ abstract class SettingsScreenActivity : AppCompatActivity() {
     }
 
     protected fun open(target: Class<*>) {
-        startActivity(Intent(this, target))
+        // In See-through mode the next screen shows this one underneath its glass, so take the picture first.
+        com.jarvis.assistant.ui.glass.ScreenSnapshot.capture(this) { startActivity(Intent(this, target)) }
     }
 
     protected fun toast(message: String, long: Boolean = false) {
@@ -85,5 +122,10 @@ abstract class SettingsScreenActivity : AppCompatActivity() {
         } catch (_: Exception) {
             toast("Unable to open link")
         }
+    }
+
+    companion object {
+        /** Intent extra naming the id of a row (for example "rowVoiceGender") to scroll to and highlight. */
+        const val EXTRA_FOCUS_ROW = "focus_row"
     }
 }

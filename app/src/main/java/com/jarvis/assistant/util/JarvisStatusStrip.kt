@@ -19,6 +19,9 @@ import com.jarvis.assistant.R
 /** Marker for activities that draw [JarvisStatusStrip] themselves, so the generic inset padding skips the top edge. */
 interface JarvisStatusStripHost
 
+/** Marker for screens that pad their own content for the camera, bars and keyboard (so the global padding is skipped). */
+interface JarvisHandlesInsets
+
 /**
  * Jarvis's own status strip. The phone's system status bar (clock, battery, signal) is hidden inside the app, so this strip
  * takes over that top area and shows Jarvis' state, the time and the battery. Its height follows the camera cut-out, and it
