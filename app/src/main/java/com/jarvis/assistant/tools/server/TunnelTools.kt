@@ -13,7 +13,12 @@ import java.util.Locale
  * destructive, so no "always allow" can skip the question), says exactly which port and for how long, and only reports
  * a link after Cloudflare has accepted it. Stopping and looking never ask.
  */
-class TunnelTools(private val tunnels: TunnelManager, private val servers: ServerManager) {
+class TunnelTools(
+    private val tunnels: TunnelManager,
+    private val servers: ServerManager,
+    /** Lets the approval question get a project's preview and tunnel ready while the person is still reading it. */
+    private val workspace: Workspace? = null
+) {
     fun all(): List<Tool> = listOf(Detect(), Start(), Status(), Stop())
 
     private fun JsonObject.intArg(name: String): Int? =
@@ -59,7 +64,11 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
         } catch (e: java.io.IOException) { Target.Bad(e.message ?: "The preview could not be started.") }
     }
 
-    private fun minutesText(m: Int) = if (m % 60 == 0 && m >= 60) "${m / 60} h" else "$m min"
+    private fun minutesText(m: Int) = when {
+        m % 1440 == 0 && m >= 2880 -> "${m / 1440} days"
+        m % 60 == 0 && m >= 60 -> "${m / 60} h"
+        else -> "$m min"
+    }
     private fun clockText(ms: Long) = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(ms))
 
     private fun describeLive(t: Tunnel, url: String, verified: Boolean, matches: Boolean?): String = buildString {
@@ -87,21 +96,35 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
     inner class Start : Tool {
         override val spec = ToolSpec("port_forward_start",
             "Create a temporary public HTTPS link (Cloudflare Quick Tunnel) to a website or server running on this phone, so anyone on the internet can open it. Use for \"create a public link for my website\", \"expose my localhost\", \"forward port 3000\". " +
-                "Give a port, or a project name (its preview is started automatically if it is not running, so this ONE call is enough: do not call preview_start, deploy, build or run any other command first), or neither to use the one detected local server. The link is ready in seconds and lasts 30 minutes by default, and it keeps working on any device even after the app is closed. The person is always asked first. Only say the link works after this tool returns it, then reply with just the link.",
+                "Give a port, or a project name (its preview is started automatically if it is not running, so this ONE call is enough: do not call preview_start, deploy, build or run any other command first), or neither to use the one detected local server. The link is ready in seconds and lasts 24 hours by default, and it keeps working on any device even after the app is closed. The person is always asked first. Only say the link works after this tool returns it, then reply with just the link.",
             listOf(
                 ToolParam("port", "integer", "Local port to share, for example 3000."),
                 ToolParam("name", "string", "Name of a running preview project (see preview_status)."),
-                ToolParam("minutes", "integer", "How long the link stays open (default 30, at most 1440 = 24 hours).")
+                ToolParam("minutes", "integer", "How long the link stays open (default 1440 = 24 hours, at most 10080 = 7 days).")
             ), Risk.NETWORK, "server")
 
-        private fun minutes(args: JsonObject) = (args.intArg("minutes") ?: 30).coerceIn(1, 1440)
+        private fun minutes(args: JsonObject) = (args.intArg("minutes") ?: 1440).coerceIn(1, 10_080)
 
         override fun describe(args: JsonObject): String = when (val t = resolve(args)) {
             is Target.Bad -> "Nothing will be shared yet: ${t.message}"
-            is Target.NeedsPreview -> "PUBLIC INTERNET ACCESS\nStart a preview of ${t.name} on this phone and make it reachable from anywhere through a temporary Cloudflare link. " +
-                "Anyone who gets the link can open it and see everything this project serves, for ${minutesText(minutes(args))} or until you stop it."
-            is Target.Ok -> "PUBLIC INTERNET ACCESS\nMake ${t.label} (port ${t.port}) on this phone reachable from anywhere through a temporary Cloudflare link. " +
-                "Anyone who gets the link can open it and see everything this server serves, for ${minutesText(minutes(args))} or until you stop it."
+            is Target.NeedsPreview -> { prepareProject(t.name); "PUBLIC INTERNET ACCESS\nStart a preview of ${t.name} on this phone and make it reachable from anywhere through a temporary Cloudflare link. " +
+                "Anyone who gets the link can open it and see everything this project serves, for ${minutesText(minutes(args))} or until you stop it." }
+            is Target.Ok -> { tunnels.prepare(t.port); "PUBLIC INTERNET ACCESS\nMake ${t.label} (port ${t.port}) on this phone reachable from anywhere through a temporary Cloudflare link. " +
+                "Anyone who gets the link can open it and see everything this server serves, for ${minutesText(minutes(args))} or until you stop it." }
+        }
+
+        /**
+         * While the approval question is on screen the preview of the named project is started (it only listens on this
+         * phone) and a tunnel for it is prepared, so approving is nearly instant. Nothing is public until the person approves.
+         */
+        private fun prepareProject(name: String) {
+            val ws = workspace ?: return
+            try {
+                val d = ws.project(name)
+                val serveDir = listOf("dist", "build").map { java.io.File(d, it) }.firstOrNull { java.io.File(it, "index.html").isFile } ?: d
+                if (!java.io.File(serveDir, "index.html").isFile) return
+                tunnels.prepare(servers.start(d.name, serveDir).boundPort)
+            } catch (_: Exception) { }
         }
 
         override fun isDestructive(args: JsonObject, ctx: ToolContext) = true
@@ -135,6 +158,12 @@ class TunnelTools(private val tunnels: TunnelManager, private val servers: Serve
                         is TunnelState.Preparing -> if (s.detail != lastDetail) { lastDetail = s.detail; ctx.progress(s.detail) }
                         is TunnelState.Connecting -> if (lastDetail != "c") { lastDetail = "c"; ctx.progress("Connecting to Cloudflare…") }
                         is TunnelState.Reconnecting -> Unit
+                    }
+                    // Within 10 seconds the person has the link: if the address is known by then it is handed over even though the tunnel
+                    // is still finishing (the link starts working within moments; the strip in the chat shows when it is confirmed).
+                    val connecting = cur.state as? TunnelState.Connecting
+                    if (connecting?.url != null && System.currentTimeMillis() - begun >= 10_000L) {
+                        return ToolResult.Ok("Public link ready: ${connecting.url}\nIt shares ${t.label} (port ${t.port}) and stays open until ${clockText(cur.expiresAt)}.\nThe tunnel is still finishing its connection, so if the page does not open in the first seconds, wait a moment and reload; the link itself will not change.")
                     }
                     val limit = if (lastDetail.startsWith("Installing")) 100_000L else 45_000L
                     if (ctx.cancelled) { tunnels.stopById(id); return ToolResult.Error("Cancelled. No public link was left open.") }

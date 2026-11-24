@@ -114,7 +114,7 @@ class TunnelTest {
         val s = TunnelScript.build(3000, "127.0.0.1", 1800, true)
         assertTrue(s.contains("trap '' PIPE"))
         assertTrue(s.contains(">\"\$LOG\" 2>&1"))
-        assertEquals(30, TunnelManager.Config().defaultMinutes)
+        assertEquals(1440, TunnelManager.Config().defaultMinutes)
     }
 
     // ---- manager ----

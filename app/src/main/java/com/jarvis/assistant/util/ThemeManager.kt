@@ -306,38 +306,45 @@ object ThemeManager {
     ) : Drawable() {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isDither = true }
 
+        private var glows: List<Shader> = emptyList()
+
+        override fun onBoundsChange(area: android.graphics.Rect) {
+            super.onBoundsChange(area)
+            if (area.isEmpty) { glows = emptyList(); return }
+            val width = area.width().toFloat()
+            val height = area.height().toFloat()
+            val big = maxOf(width, height)
+            // Keep pearl palettes luminous but restrained; darker palettes retain richer colour.
+            val strongA = if (lightCanvas) 0x22 else 0x48
+            val softA = if (lightCanvas) 0x16 else 0x30
+            glows = listOf(
+                glow(area.left + width * 0.82f, area.top + height * 0.10f, big * 0.95f, firstColor, strongA),
+                glow(area.left + width * 0.10f, area.top + height * 0.88f, big * 0.85f, secondColor, strongA),
+                glow(area.left + width * 0.08f, area.top + height * 0.38f, big * 0.55f, secondColor, softA / 2),
+                glow(area.left + width * 0.92f, area.top + height * 0.66f, big * 0.55f, firstColor, softA / 2)
+            )
+        }
+
+        // Shaders are built once per size; draw() allocates nothing.
         override fun draw(canvas: Canvas) {
             val area = bounds
             if (area.isEmpty) return
             canvas.drawColor(baseColor)
-            val width = area.width().toFloat()
-            val height = area.height().toFloat()
-            val big = maxOf(width, height)
-
-            // Keep pearl palettes luminous but restrained; darker palettes retain richer colour.
-            val strongA = if (lightCanvas) 0x22 else 0x48
-            val softA = if (lightCanvas) 0x16 else 0x30
-            drawGlow(canvas, area.left + width * 0.82f, area.top + height * 0.10f, big * 0.95f, firstColor, strongA)
-            drawGlow(canvas, area.left + width * 0.10f, area.top + height * 0.88f, big * 0.85f, secondColor, strongA)
-            drawGlow(canvas, area.left + width * 0.08f, area.top + height * 0.38f, big * 0.55f, secondColor, softA / 2)
-            drawGlow(canvas, area.left + width * 0.92f, area.top + height * 0.66f, big * 0.55f, firstColor, softA / 2)
-        }
-
-        private fun drawGlow(canvas: Canvas, cx: Float, cy: Float, radius: Float, color: Int, alpha: Int) {
-            paint.shader = RadialGradient(
-                cx, cy, radius.coerceAtLeast(1f),
-                intArrayOf(
-                    withAlpha(color, alpha),
-                    withAlpha(color, (alpha * 0.55f).toInt()),
-                    withAlpha(color, (alpha * 0.18f).toInt()),
-                    withAlpha(color, 0)
-                ),
-                floatArrayOf(0f, 0.38f, 0.72f, 1f),
-                Shader.TileMode.CLAMP
-            )
-            canvas.drawRect(bounds, paint)
+            for (g in glows) { paint.shader = g; canvas.drawRect(area, paint) }
             paint.shader = null
         }
+
+        private fun glow(cx: Float, cy: Float, radius: Float, color: Int, alpha: Int): Shader = RadialGradient(
+            cx, cy, radius.coerceAtLeast(1f),
+            intArrayOf(
+                withAlpha(color, alpha),
+                withAlpha(color, (alpha * 0.55f).toInt()),
+                withAlpha(color, (alpha * 0.18f).toInt()),
+                withAlpha(color, 0)
+            ),
+            floatArrayOf(0f, 0.38f, 0.72f, 1f),
+            Shader.TileMode.CLAMP
+        )
 
         override fun setAlpha(alpha: Int) { paint.alpha = alpha.coerceIn(0, 255); invalidateSelf() }
         override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) { paint.colorFilter = colorFilter; invalidateSelf() }

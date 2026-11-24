@@ -868,7 +868,7 @@ function updateParticles(dt){
 /* ---------- Resize / loop ---------- */
 function handleResize(){
   const deviceMemory=navigator.deviceMemory||4, cores=navigator.hardwareConcurrency||4;
-  const qualityCap=deviceMemory>=6&&cores>=8?3:2;
+  const qualityCap=deviceMemory>=6&&cores>=8?2:1.5;
   const w=Math.max(stage.clientWidth,1),h=Math.max(stage.clientHeight,1),pr=Math.min(window.devicePixelRatio||1,qualityCap);
   renderer.setPixelRatio(pr);renderer.setSize(w,h,false);
   camera.aspect=w/h;

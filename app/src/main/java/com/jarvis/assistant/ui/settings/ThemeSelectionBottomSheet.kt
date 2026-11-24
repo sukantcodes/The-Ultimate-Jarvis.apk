@@ -256,6 +256,7 @@ class ThemeSelectionBottomSheet : BottomSheetDialogFragment() {
                 if (!fromUser) return
                 preferences.settingsIconShape = progress
                 (parentFragment as? SettingsFragment)?.applyIconShape()
+                (activity as? AppearanceSettingsActivity)?.applyIconShape()
             }
             override fun onStartTrackingTouch(bar: android.widget.SeekBar?) {}
             override fun onStopTrackingTouch(bar: android.widget.SeekBar?) {}

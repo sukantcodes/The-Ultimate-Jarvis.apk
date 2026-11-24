@@ -872,6 +872,13 @@ class ChatFragment : Fragment() {
         val text = binding.etMessageInput.text?.toString()?.trim().orEmpty()
         stickToBottom = true // sending a message always brings you back to the live end of the chat
         if (tryImageShortcut(text)) return
+        // Asking for a public link: start getting a tunnel ready right now, while the model is still working out the request.
+        if (text.isNotBlank() && PUBLIC_LINK_ASK.containsMatchIn(text)) {
+            val appCtx = requireContext().applicationContext
+            viewLifecycleOwner.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try { com.jarvis.assistant.tools.ToolRuntime.get(appCtx).tunnels?.prepareLikely() } catch (_: Throwable) { }
+            }
+        }
         if (text.isNotBlank() && com.jarvis.assistant.udn.UdnVoiceRouter.matches(requireContext().applicationContext, text)) {
             binding.etMessageInput.text?.clear()
             val appCtx = requireContext().applicationContext
@@ -1097,6 +1104,8 @@ class ChatFragment : Fragment() {
         }
     }
 
+    /** Words that mean the person wants a public link: the tunnel starts getting ready as soon as the message is sent. */
+    private val PUBLIC_LINK_ASK = Regex("(?i)(\\b(public|shareable|sharable)\\b.{0,40}\\b(link|url)\\b)|(\\b(port.?forward|tunnel|expose)\\b)|(\\b(link|url)\\b.{0,30}\\b(share|anyone|public)\\b)")
     private var wakePausedForMic = false
     private var lastPartialText = ""
     private var voiceBusyRetried = false

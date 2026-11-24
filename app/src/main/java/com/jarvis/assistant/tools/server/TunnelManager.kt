@@ -52,16 +52,18 @@ class TunnelManager(
 ) : AutoCloseable {
 
     data class Config(
-        val maxTunnels: Int = 10,
-        val defaultMinutes: Int = 30,
-        val maxMinutes: Int = 1440,
+        val maxTunnels: Int = 50,
+        val defaultMinutes: Int = 1440,
+        val maxMinutes: Int = 10_080,
         val monitorIntervalMs: Long = 2_000,
         val missesBeforeStop: Int = 4,
         val startupLimitMs: Long = 60_000,
         /** No address from Cloudflare this long after the program started: it is stuck, so start a fresh one instead of waiting out [startupLimitMs]. */
-        val urlLimitMs: Long = 15_000,
+        val urlLimitMs: Long = 6_000,
         /** Address received but the tunnel is still not accepted this long after the program started: start a fresh one. */
-        val registerLimitMs: Long = 25_000,
+        val registerLimitMs: Long = 10_000,
+        /** Termux itself (cold start) gets this long to print its first line before the attempt is restarted. */
+        val firstOutputLimitMs: Long = 15_000,
         val installLimitMs: Long = 300_000,
         val reconnectLimitMs: Long = 180_000,
         val verifyFirstDelayMs: Long = 0,
@@ -77,10 +79,18 @@ class TunnelManager(
         /** While a link is live and has been seen working from this phone, it is fetched this often; a dead link is rebuilt. */
         val healthIntervalMs: Long = 30_000,
         val healthFailsBeforeHeal: Int = 3,
-        val maxHeals: Int = 2
+        val maxHeals: Int = 2,
+        /** An armed (prepared in advance) tunnel waits this long for the person's approval, then ends and is rebuilt on demand. */
+        val armLimitMs: Long = 600_000,
+        /** After the approval, the armed tunnel must report ACTIVE within this time or the normal start takes over. */
+        val activateLimitMs: Long = 8_000,
+        /** Tunnels prepared in advance at the same time. */
+        val maxStandby: Int = 2,
+        /** Switch for preparing links in advance. */
+        val armEnabled: Boolean = true
     )
 
-    private class Entry(val id: String, val port: Int, val host: String, val label: String, val startedAt: Long, val expiresAt: Long) {
+    private class Entry(val id: String, val port: Int, @Volatile var host: String, @Volatile var label: String, @Volatile var startedAt: Long, @Volatile var expiresAt: Long) {
         @Volatile var state: TunnelState = TunnelState.Preparing("Starting the tunnel")
         @Volatile var command: RunningCommand? = null
         @Volatile var url: String? = null
@@ -98,6 +108,20 @@ class TunnelManager(
         // HTTP/2 (TCP) connects first time on every network; QUIC (UDP) is blocked on many mobile and Wi-Fi networks and cloudflared then wastes a long time falling back.
         @Volatile var protocol = "http2"
         @Volatile var announced = false
+        /** When the tunnel program printed its first line (0 = nothing yet). Restart limits count from here, so a cold Termux start does not eat the budget. */
+        @Volatile var firstOutputAt = 0L
+        // Prepared-in-advance (armed) tunnels: see TunnelScript.buildArmed.
+        /** The next process to start is the armed kind. Set false once the person approves, so a restart is the normal kind. */
+        @Volatile var scriptArmed = false
+        /** The process running now is the armed kind and has not said ACTIVE yet. */
+        @Volatile var procArmed = false
+        @Volatile var activated = false
+        @Volatile var activeConfirmed = false
+        @Volatile var activatedAt = 0L
+        /** The tunnel was already connected when the person approved. */
+        @Volatile var preArmed = false
+        @Volatile var gw = 0
+        @Volatile var knockBase = 0
         @Volatile var attempt = 1
         @Volatile var heals = 0
         @Volatile var generation = 0
@@ -114,12 +138,15 @@ class TunnelManager(
 
     private val lock = Any()
     private val entries = LinkedHashMap<String, Entry>()
+    /** Tunnels prepared in advance, by port. Not shown to anyone and not reachable (they point at a port where nothing listens) until approved. */
+    private val standby = LinkedHashMap<Int, Entry>()
+    @Volatile private var armOff = false
     private val _tunnels = MutableStateFlow<List<Tunnel>>(emptyList())
 
     /** Every link that is open, opening, or recently ended, oldest first. */
     val tunnels: StateFlow<List<Tunnel>> = _tunnels.asStateFlow()
 
-    private val stopListener: AutoCloseable = servers.addStopListener { _, port -> stop(port, StopReason.SERVER_STOPPED) }
+    private val stopListener: AutoCloseable = servers.addStopListener { _, port -> stop(port, StopReason.SERVER_STOPPED); dropStandbyFor(port) }
 
     fun get(id: String): Tunnel? = synchronized(lock) { entries[id]?.snapshot() }
     fun active(): List<Tunnel> = synchronized(lock) { entries.values.filter { !it.terminal }.map { it.snapshot() } }
@@ -153,17 +180,139 @@ class TunnelManager(
             ?: return StartResult.Rejected("Nothing is listening on port $port, so there is nothing to share. Start the server first, then try again.")
         val mins = (minutes ?: config.defaultMinutes).coerceIn(1, config.maxMinutes)
         val now = clock()
+        var promoted = false
         val entry = synchronized(lock) {
             entries.values.firstOrNull { it.port == port && !it.terminal }?.let { return StartResult.AlreadyActive(it.snapshot()) }
             if (entries.values.count { !it.terminal } >= config.maxTunnels) {
                 return StartResult.Rejected("${config.maxTunnels} public links are already open. Stop one first.")
             }
-            val name = label?.takeIf { it.isNotBlank() } ?: "Port $port"
-            Entry(UUID.randomUUID().toString().take(8), port, host, name.take(60), now, now + mins * 60_000L)
-                .also { entries[it.id] = it; publishLocked() }
+            val name = (label?.takeIf { it.isNotBlank() } ?: "Port $port").take(60)
+            val ready = standby.remove(port)?.takeIf { !it.terminal && it.scriptArmed && !armOff }
+            if (ready != null) {
+                // A tunnel for this port was prepared while the person read the question: it only needs to be opened.
+                ready.label = name; ready.startedAt = now; ready.expiresAt = now + mins * 60_000L
+                ready.scriptArmed = false; ready.activated = true; ready.activatedAt = now; ready.preArmed = ready.registered
+                ready.host = host
+                entries[ready.id] = ready; publishLocked()
+                promoted = true
+                ready
+            } else {
+                Entry(UUID.randomUUID().toString().take(8), port, host, name, now, now + mins * 60_000L)
+                    .also { entries[it.id] = it; publishLocked() }
+            }
+        }
+        if (promoted) {
+            if (!knock(entry, mins)) fallbackClassic(entry)
+            return StartResult.Started(entry.snapshot())
         }
         launchProcess(entry, mins * 60)
         return StartResult.Started(entry.snapshot())
+    }
+
+    // ---- links prepared in advance ----------------------------------------------------------------------------
+
+    /**
+     * Gets a tunnel for [port] ready before anyone asks for the link: Cloudflare's address, the connection to its edge and the
+     * wait for the name to spread all happen now, in the background. Nothing is reachable through it (it points at an empty
+     * port) and nothing is shown until [start] is called, which then takes about a second. Safe to call again and again; does
+     * nothing if Termux is not the backend, if a link for the port already exists, or if preparing failed before.
+     */
+    fun prepare(port: Int) {
+        if (!config.armEnabled || armOff || !backend.isRemote) return
+        if (PortPolicy.check(port) != null) return
+        val e: Entry
+        synchronized(lock) {
+            if (entries.values.any { it.port == port && !it.terminal }) return
+            standby.values.removeAll { it.terminal }
+            if (standby[port] != null) return
+            while (standby.size >= config.maxStandby) {
+                val oldest = standby.entries.first()
+                standby.remove(oldest.key)
+                val victim = oldest.value
+                scope.launch(Dispatchers.IO) { discardStandby(victim) }
+            }
+            val now = clock()
+            e = Entry(UUID.randomUUID().toString().take(8), port, "127.0.0.1", "Port $port", now, now + config.armLimitMs)
+            e.scriptArmed = true
+            e.gw = freePort()
+            e.knockBase = 30_000 + java.util.Random().nextInt(3_500) * 8
+            standby[port] = e
+        }
+        scope.launch(Dispatchers.IO) {
+            val host = probe.listeningHost(port)
+            if (host == null) { discardStandby(e); return@launch }
+            e.host = host
+            launchProcess(e, 0)
+        }
+    }
+
+    /** Prepares a tunnel for the one preview that is running and not shared yet, if there is exactly one (the likely target of "make a public link"). */
+    fun prepareLikely() {
+        if (!config.armEnabled || armOff || !backend.isRemote) return
+        scope.launch(Dispatchers.IO) {
+            val managed = servers.running().values.map { it.boundPort }.filter { it > 0 }
+            val shared = synchronized(lock) { entries.values.filter { !it.terminal }.map { it.port }.toSet() }
+            val open = managed.filter { it !in shared }
+            if (open.size == 1) prepare(open[0])
+        }
+    }
+
+    private fun freePort(): Int = try {
+        java.net.ServerSocket(0, 1, java.net.InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))).use { it.localPort }
+    } catch (_: Exception) { 40_000 + java.util.Random().nextInt(20_000) }
+
+    /**
+     * Tells the prepared tunnel to go live. The script polls four loopback ports, one per time limit (30 min, 1 h, 3 h, 24 h);
+     * opening the one that fits the requested time is the signal, and the script then also knows how long the link may live
+     * even if JARVIS is killed. Returns false when the port could not be opened.
+     */
+    private fun knock(e: Entry, minutes: Int): Boolean {
+        val tier = TIERS.indexOfFirst { minutes <= it }.let { if (it < 0) TIERS.size - 1 else it }
+        val ss = try {
+            java.net.ServerSocket(e.knockBase + tier, 1, java.net.InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)))
+        } catch (_: Exception) { return false }
+        scope.launch(Dispatchers.IO) {
+            try { ss.soTimeout = 10_000; ss.accept().close() } catch (_: Exception) { } finally { try { ss.close() } catch (_: Exception) { } }
+        }
+        return true
+    }
+
+    /** A prepared tunnel that could not be used (or is not wanted any more): ends it quietly. It was never visible. */
+    private fun discardStandby(e: Entry) {
+        val cmd: RunningCommand?
+        synchronized(lock) {
+            standby.values.remove(e)
+            if (e.terminal) return
+            e.stopReason = StopReason.USER
+            e.state = TunnelState.Stopped(StopReason.USER, null)
+            cmd = e.command
+        }
+        e.verify?.cancel(); e.monitor?.cancel()
+        if (cmd != null) kill(cmd, sync = false)
+    }
+
+    private fun dropStandbyFor(port: Int) {
+        val e = synchronized(lock) { standby.remove(port) } ?: return
+        discardStandby(e)
+    }
+
+    /**
+     * The prepared tunnel did not become active (no socat, a port clash, or no answer in time): throw it away and start the
+     * normal way for the same link. The person just waits a little longer; nothing is lost.
+     */
+    private fun fallbackClassic(e: Entry) {
+        val old: RunningCommand?
+        synchronized(lock) {
+            if (e.terminal) return
+            e.scriptArmed = false; e.procArmed = false; e.activeConfirmed = false; e.preArmed = false
+            old = e.command; e.command = null
+            e.url = null; e.registered = false; e.verified = false; e.verifyStarted = false; e.matchesLocal = null; e.announced = false; e.firstOutputAt = 0L
+            e.installing = false; e.failMessage = null; e.reconnectSince = 0; e.healthFails = 0
+            setLocked(e, TunnelState.Preparing("Starting the tunnel"))
+        }
+        e.verify?.cancel(); e.monitor?.cancel()
+        old?.let { kill(it, sync = false) }
+        scope.launch(Dispatchers.IO) { if (!e.terminal) launchProcess(e, 0) }
     }
 
     /** Closes the link to [port], if there is one. Returns at once; the process is stopped in the background. */
@@ -188,6 +337,8 @@ class TunnelManager(
     /** Ends every link and stops listening to previews. Processes are stopped before this returns. */
     override fun close() {
         runCatching { stopListener.close() }
+        val prepared = synchronized(lock) { standby.values.toList().also { standby.clear() } }
+        prepared.forEach { e -> runCatching { e.command?.let { kill(it, sync = true) } } }
         val open = synchronized(lock) { entries.values.filter { !it.terminal } }
         open.forEach { stopEntry(it, StopReason.APP_CLOSED, sync = true) }
     }
@@ -196,8 +347,9 @@ class TunnelManager(
 
     private fun launchProcess(e: Entry, ttlSeconds: Int) {
         val ttl = if (ttlSeconds > 0) ttlSeconds else ((e.expiresAt - clock()) / 1000).toInt().coerceAtLeast(30)
-        val script = TunnelScript.build(e.port, e.host, ttl, install = backend.isRemote, protocol = e.protocol)
-        val gen = synchronized(lock) { e.launchedAt = clock(); ++e.generation }
+        val script = if (e.scriptArmed) TunnelScript.buildArmed(e.port, e.host, e.gw, e.knockBase, (config.armLimitMs / 1000).toInt())
+            else TunnelScript.build(e.port, e.host, ttl, install = backend.isRemote, protocol = e.protocol)
+        val gen = synchronized(lock) { e.launchedAt = clock(); e.procArmed = e.scriptArmed; ++e.generation }
         val cmd = try {
             // Output from an earlier process of this link (killed during a retry) must not change the new one.
             backend.launch(script, workspaceRoot, backend.environment(workspaceRoot)) { chunk -> if (e.generation == gen) onOutput(e, chunk) }
@@ -212,6 +364,7 @@ class TunnelManager(
     }
 
     private fun onOutput(e: Entry, chunk: String) {
+        if (e.firstOutputAt == 0L) e.firstOutputAt = clock()
         val events = ArrayList<CloudflaredLog.Event>()
         synchronized(e.partial) {
             e.partial.append(chunk)
@@ -233,6 +386,8 @@ class TunnelManager(
         var failure: String? = null
         var retryable = false
         var verifyUrl: String? = null
+        var fallback = false
+        var drop = false
         synchronized(lock) {
             if (e.terminal) return
             e.sawOutput = true
@@ -266,9 +421,23 @@ class TunnelManager(
                 is CloudflaredLog.Event.ServerGone -> if (e.stopReason == null) e.stopReason = StopReason.SERVER_STOPPED
                 is CloudflaredLog.Event.Expired -> if (e.stopReason == null) e.stopReason = StopReason.EXPIRED
                 is CloudflaredLog.Event.Closed -> Unit
+                is CloudflaredLog.Event.Active -> {
+                    e.activeConfirmed = true
+                    val u = e.url
+                    // The tunnel was already connected and its name had time to spread, so the link is usable right now.
+                    if (u != null && e.registered && (e.state is TunnelState.Connecting || e.state is TunnelState.Preparing)) {
+                        e.announced = true
+                        setLocked(e, TunnelState.Live(u, false, null))
+                    }
+                    verifyUrl = verifyTargetLocked(e)
+                }
+                is CloudflaredLog.Event.ArmUnsupported -> { armOff = true; if (e.activated) fallback = true else drop = true }
+                is CloudflaredLog.Event.ArmExpired -> if (e.stopReason == null) e.stopReason = StopReason.EXPIRED
             }
             Unit
         }
+        if (drop) { discardStandby(e); return }
+        if (fallback) { fallbackClassic(e); return }
         failure?.let { if (!(retryable && retry(e, heal = false))) fail(e, it) }
         verifyUrl?.let { startVerify(e, it) }
     }
@@ -277,6 +446,8 @@ class TunnelManager(
     private fun verifyTargetLocked(e: Entry): String? {
         val u = e.url
         if (u == null || !e.registered || e.verifyStarted) return null
+        // A prepared tunnel is only checked once it is active: before that it points at an empty port and would answer 502.
+        if (e.procArmed && !e.activeConfirmed) return null
         e.verifyStarted = true
         return u
     }
@@ -327,7 +498,7 @@ class TunnelManager(
             else { if (e.attempt >= config.maxAttempts) return false; e.attempt++ }
             e.protocol = "http2"
             old = e.command; e.command = null
-            e.url = null; e.registered = false; e.verified = false; e.verifyStarted = false; e.matchesLocal = null; e.announced = false
+            e.url = null; e.registered = false; e.verified = false; e.verifyStarted = false; e.matchesLocal = null; e.announced = false; e.firstOutputAt = 0L
             e.healthFails = 0; e.reconnectSince = 0; e.installing = false; e.failMessage = null
             e.note = if (heal) "The link stopped answering, so a new one was made. The old address no longer works." else null
             setLocked(e, TunnelState.Preparing(
@@ -351,17 +522,22 @@ class TunnelManager(
             if (!cmd.isAlive) { endedByItself(e); return }
             val now = clock()
             if (now >= e.expiresAt) { stopEntry(e, StopReason.EXPIRED, sync = false); return }
+            if (e.activated && e.procArmed && !e.activeConfirmed && now - e.activatedAt > config.activateLimitMs) { fallbackClassic(e); return }
             if (probe.isListening(e.port)) misses = 0 else misses++
             if (misses >= config.missesBeforeStop) { stopEntry(e, StopReason.SERVER_STOPPED, sync = false); return }
             when (e.state) {
                 is TunnelState.Preparing, is TunnelState.Connecting -> {
-                    // A start that is stuck is restarted early instead of waiting out the full minute.
+                    // A start that is stuck is restarted early instead of waiting out the full minute. Later attempts get more time,
+                    // so a genuinely slow network still gets through; the clock starts when the program prints its first line.
+                    val grow = when (e.attempt) { 0, 1 -> 1L; 2 -> 2L; else -> 3L }
                     val limit = when {
                         e.installing -> config.installLimitMs
-                        e.url == null -> minOf(config.urlLimitMs, config.startupLimitMs)
-                        else -> minOf(config.registerLimitMs, config.startupLimitMs)
+                        e.firstOutputAt == 0L -> config.firstOutputLimitMs
+                        e.url == null -> minOf(config.urlLimitMs * grow, config.startupLimitMs)
+                        else -> minOf(config.registerLimitMs * grow, config.startupLimitMs)
                     }
-                    if (now - e.launchedAt > limit) { if (!retry(e, heal = false)) fail(e, startupTimeoutMessage(e)); return }
+                    val base = if (e.firstOutputAt > 0L) e.firstOutputAt else e.launchedAt
+                    if (now - base > limit) { if (!retry(e, heal = false)) fail(e, startupTimeoutMessage(e)); return }
                 }
                 is TunnelState.Live -> if (e.verified && System.currentTimeMillis() - e.lastHealthAt >= config.healthIntervalMs) {
                     e.lastHealthAt = System.currentTimeMillis()
@@ -453,6 +629,9 @@ class TunnelManager(
     private fun publishLocked() { _tunnels.value = entries.values.map { it.snapshot() } }
 
     companion object {
+        /** Time limits (minutes) a prepared tunnel can be opened with. The script knows the same four. */
+        private val TIERS = intArrayOf(30, 60, 180, 1440, 10_080)
+
         fun isCloudflaredOnPath(): Boolean =
             (System.getenv("PATH") ?: "").split(':').any { it.isNotEmpty() && File(it, "cloudflared").canExecute() }
     }
