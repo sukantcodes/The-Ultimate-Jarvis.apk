@@ -199,7 +199,7 @@ class TunnelTest {
         m.start(3000); b.commands[0].say(UP); await("live") { m.first().state is TunnelState.Live }
         probe.open.remove(3000)
         await("closed") { (m.first().state as? TunnelState.Stopped)?.reason == StopReason.SERVER_STOPPED }
-        assertTrue(b.commands[0].killed.get())
+        await("process killed") { b.commands[0].killed.get() }
         m.close()
     }
 
@@ -216,7 +216,7 @@ class TunnelTest {
         m.start(3000, minutes = 5); b.commands[0].say(UP); await("live") { m.first().state is TunnelState.Live }
         now += 6 * 60_000L
         await("expired") { (m.first().state as? TunnelState.Stopped)?.reason == StopReason.EXPIRED }
-        assertTrue(b.commands[0].killed.get())
+        await("process killed") { b.commands[0].killed.get() }
         m.close()
     }
 
@@ -299,7 +299,7 @@ class TunnelTest {
         b.commands[0].say("[jarvis] STARTING\nfailed to request quick Tunnel: dial tcp: i/o timeout\n")
         await("second attempt") { b.commands.size == 2 }
         assertTrue(b.scripts[0].contains("--protocol http2")); assertTrue(b.scripts[1].contains("--protocol http2"))
-        assertTrue(b.commands[0].killed.get())
+        await("process killed") { b.commands[0].killed.get() }
         assertTrue(m.first().state is TunnelState.Preparing)
         b.commands[1].say(up(LINK))
         await("live") { m.first().state is TunnelState.Live }
@@ -333,7 +333,7 @@ class TunnelTest {
         m.start(3000); b.commands[0].say(up(LINK)); await("live") { (m.first().state as? TunnelState.Live)?.verified == true }
         verifies = false
         await("rebuilding") { b.commands.size == 2 }
-        assertTrue(b.commands[0].killed.get())
+        await("process killed") { b.commands[0].killed.get() }
         assertTrue(m.first().note!!.contains("new one"))
         verifies = true
         b.commands[1].say(up(LINK2))
