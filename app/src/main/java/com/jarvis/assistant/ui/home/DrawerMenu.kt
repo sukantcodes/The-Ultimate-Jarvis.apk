@@ -1,5 +1,7 @@
 package com.jarvis.assistant.ui.home
 
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.LinearLayout
@@ -29,9 +31,18 @@ class DrawerMenu(private val container: LinearLayout) {
     lateinit var header: View
         private set
 
+    private fun dpf(v: Float) = v * ctx.resources.displayMetrics.density
+
+    /** A light frosted backing so the dark ink is readable whatever the glass behind it shows (dark themes included). */
+    private fun backing(radiusDp: Float, alpha: Int) = GradientDrawable().apply {
+        setColor(Color.argb(alpha, 255, 255, 255))
+        cornerRadius = dpf(radiusDp)
+    }
+
     fun build() {
         val inflater = LayoutInflater.from(ctx)
         header = inflater.inflate(R.layout.nav_drawer_header, container, false)
+        header.findViewById<View>(R.id.drawerHeaderCard)?.background = backing(26f, 190)
         container.addView(header)
 
         group(inflater, null, listOf(
@@ -62,6 +73,10 @@ class DrawerMenu(private val container: LinearLayout) {
         if (title != null) {
             val heading = inflater.inflate(R.layout.drawer_section_title, container, false) as TextView
             heading.text = title
+            heading.setTextColor(0xFF3A4252.toInt())
+            heading.background = backing(12f, 170)
+            heading.setPadding(dpf(10f).toInt(), dpf(3f).toInt(), dpf(10f).toInt(), dpf(3f).toInt())
+            heading.layoutParams = (heading.layoutParams as LinearLayout.LayoutParams).apply { width = LinearLayout.LayoutParams.WRAP_CONTENT }
             container.addView(heading)
         }
         for (e in entries) {
@@ -69,6 +84,8 @@ class DrawerMenu(private val container: LinearLayout) {
             // Glass panes lift a little off the page by default; on the drawer's glass they sit flat, so none casts a shadow
             // over its neighbours.
             v.elevation = 0f
+            // The row's content sits on the frosted backing; the glass pane shows around and through its edges.
+            ((v as? android.view.ViewGroup)?.let { g -> if (g.childCount > 1) g.getChildAt(1) else null })?.background = backing(22f, 178)
             v.contentDescription = v.findViewById<TextView>(R.id.drawerItemTitle)?.text
             v.setOnClickListener { onItemClick?.invoke(e.id) }
             container.addView(v)
