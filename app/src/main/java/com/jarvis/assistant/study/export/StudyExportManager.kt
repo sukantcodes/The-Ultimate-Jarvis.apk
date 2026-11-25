@@ -73,32 +73,32 @@ object StudyExportManager {
             val metaPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = accent
                 textSize = 9.5f
-                typeface = JarvisFonts.displayBold(appCtx) ?: android.graphics.Typeface.DEFAULT_BOLD
+                typeface = JarvisFonts.displayBold
             }
             val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = inkDark
                 textSize = 13.5f
-                typeface = JarvisFonts.semibold(appCtx) ?: android.graphics.Typeface.DEFAULT_BOLD
+                typeface = JarvisFonts.semibold
             }
             val bodyPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = inkDark
                 textSize = 11.2f
-                typeface = JarvisFonts.medium(appCtx) ?: android.graphics.Typeface.DEFAULT
+                typeface = JarvisFonts.medium
             }
             val mathPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = inkDark
                 textSize = 12.6f
-                typeface = JarvisFonts.serifSemibold(appCtx) ?: android.graphics.Typeface.SERIF
+                typeface = JarvisFonts.serifSemibold
             }
             val subPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = inkMuted
                 textSize = 9.8f
-                typeface = JarvisFonts.regular(appCtx) ?: android.graphics.Typeface.DEFAULT
+                typeface = JarvisFonts.regular
             }
             val monoPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = inkDark
                 textSize = 9.2f
-                typeface = JarvisFonts.mono(appCtx) ?: android.graphics.Typeface.MONOSPACE
+                typeface = JarvisFonts.mono
             }
 
             val boxFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }

@@ -263,8 +263,9 @@ class StudySpeechSynchronizer(context: Context) {
                 created = TextToSpeech(appContext) { status ->
                     localTtsInitializing = false
                     localTtsReady = (status == TextToSpeech.SUCCESS)
-                    if (localTtsReady) {
-                        created?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    val engine = created
+                    if (localTtsReady && engine != null) {
+                        engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                             override fun onStart(utteranceId: String?) = Unit
                             override fun onDone(utteranceId: String?) {
                                 handleUtteranceFinish(utteranceId)
@@ -278,9 +279,9 @@ class StudySpeechSynchronizer(context: Context) {
                             }
                         })
                         val pending = pendingUtterance
-                        if (pending != null && epoch.get() == pending.epochId && created != null) {
+                        if (pending != null && epoch.get() == pending.epochId) {
                             pendingUtterance = null
-                            dispatchLocalTts(created, pending)
+                            dispatchLocalTts(engine, pending)
                         }
                     } else {
                         val pending = pendingUtterance

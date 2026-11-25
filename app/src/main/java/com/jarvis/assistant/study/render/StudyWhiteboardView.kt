@@ -144,23 +144,23 @@ class StudyWhiteboardView @JvmOverloads constructor(
     private val eraseSweepPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
 
     private val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = JarvisFonts.displayBold(context) ?: android.graphics.Typeface.DEFAULT_BOLD
+        typeface = JarvisFonts.displayBold
         textSize = 13.5f * sp
     }
     private val bodyPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = JarvisFonts.medium(context) ?: android.graphics.Typeface.DEFAULT
+        typeface = JarvisFonts.medium
         textSize = 15.5f * sp
     }
     private val mathPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = JarvisFonts.serifSemibold(context) ?: android.graphics.Typeface.SERIF
+        typeface = JarvisFonts.serifSemibold
         textSize = 18.0f * sp
     }
     private val explainPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = JarvisFonts.regular(context) ?: android.graphics.Typeface.DEFAULT
+        typeface = JarvisFonts.regular
         textSize = 13.5f * sp
     }
     private val codePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = JarvisFonts.mono(context) ?: android.graphics.Typeface.MONOSPACE
+        typeface = JarvisFonts.mono
         textSize = 12.8f * sp
     }
 
@@ -721,7 +721,7 @@ class StudyWhiteboardView @JvmOverloads constructor(
         val hintPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             color = pal.inkSecondary
             textSize = 15f * sp
-            typeface = JarvisFonts.medium(context) ?: android.graphics.Typeface.DEFAULT
+            typeface = JarvisFonts.medium
         }
         val title = "Ask by text, voice, photo, or PDF below"
         val sub = "JARVIS writes only verified educational steps, equations & diagrams here."
@@ -785,7 +785,7 @@ class StudyWhiteboardView @JvmOverloads constructor(
         if (sol.question.isNotBlank()) {
             val qPaint = TextPaint(bodyPaint).apply {
                 color = pal.inkPrimary
-                typeface = JarvisFonts.semibold(context) ?: android.graphics.Typeface.DEFAULT_BOLD
+                typeface = JarvisFonts.semibold
             }
             val ql = buildStaticLayout(StudyMathRenderer.normalizeSymbols(sol.question), qPaint, innerW.toInt())
             val top = y
@@ -923,7 +923,7 @@ class StudyWhiteboardView @JvmOverloads constructor(
             } else {
                 val fp = TextPaint(bodyPaint).apply {
                     color = pal.inkPrimary
-                    typeface = JarvisFonts.semibold(context) ?: android.graphics.Typeface.DEFAULT_BOLD
+                    typeface = JarvisFonts.semibold
                 }
                 val fl = buildStaticLayout(StudyMathRenderer.normalizeSymbols(sol.finalAnswer), fp, innerW.toInt())
                 finalTxt = fl
@@ -968,7 +968,7 @@ class StudyWhiteboardView @JvmOverloads constructor(
 
         val qp = TextPaint(explainPaint).apply {
             color = pal.warning
-            typeface = JarvisFonts.semibold(context) ?: android.graphics.Typeface.DEFAULT_BOLD
+            typeface = JarvisFonts.semibold
         }
         val ql = buildStaticLayout("Doubt: ${StudyMathRenderer.normalizeSymbols(d.question)}", qp, innerW.toInt())
         val qY = cy

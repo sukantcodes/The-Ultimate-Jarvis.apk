@@ -437,7 +437,7 @@ object StudyOfflineSolver {
                 cur = qVal
             }
             steps += StudyStep(0, "Repeated Division by 2", remainders.joinToString("\n"), emptyList(), localize(lang, "Divide repeatedly by 2 and record each remainder.", "बार-बार 2 से भाग दें और शेषफल नोट करें।", "Bar-bar 2 se divide karke remainder note karte hain."))
-            steps += StudyStep(1, "Read Bottom-to-Top", "$n_{10} = $bin_{2}", listOf("$n_{10} = $bin_{2}"), localize(lang, "Read the remainders from bottom to top to form the binary digits.", "बाइनरी संख्या पाने के लिए शेषफल नीचे से ऊपर पढ़ें।", "Remainders bottom-to-top padhne par binary number milta hai."), highlightTokens = listOf(bin))
+            steps += StudyStep(1, "Read Bottom-to-Top", "${n}_{10} = ${bin}_{2}", listOf("${n}_{10} = ${bin}_{2}"), localize(lang, "Read the remainders from bottom to top to form the binary digits.", "बाइनरी संख्या पाने के लिए शेषफल नीचे से ऊपर पढ़ें।", "Remainders bottom-to-top padhne par binary number milta hai."), highlightTokens = listOf(bin))
             return StudySolution(
                 subject = StudySubject.COMPUTER_SCIENCE,
                 topic = "Number Systems (Decimal to Binary)",

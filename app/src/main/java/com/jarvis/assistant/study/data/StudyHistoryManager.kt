@@ -218,7 +218,7 @@ class StudyHistoryManager(
             return StudyHistoryManager(
                 dao = db.studySessionDao(),
                 prefs = prefs,
-                defaultGlobalLanguageProvider = { appPrefs.conversationLanguage }
+                defaultGlobalLanguageProvider = { appPrefs.language }
             )
         }
     }

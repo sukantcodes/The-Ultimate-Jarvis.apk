@@ -86,7 +86,7 @@ class StudyInputManager(
 
     private var speechRecognizer: SpeechRecognizer? = null
     private var pausedWakeWord: Boolean = false
-    private var recognizerAttempts: List<String?> = emptyList()
+    private var recognizerCandidateCount: Int = 0
     private var recognizerAttemptIdx: Int = 0
     private var activeVoiceLanguage: StudyLanguage = StudyLanguage.AUTO
     private var activeVoiceListener: VoiceListener? = null
@@ -119,7 +119,7 @@ class StudyInputManager(
         activeVoiceLanguage = language
         activeVoiceListener = listener
         lastPartialTranscript = ""
-        recognizerAttempts = SpeechRecognizerFactory.candidates(appContext)
+        recognizerCandidateCount = SpeechRecognizerFactory.candidates(appContext).size
         recognizerAttemptIdx = 0
 
         // Brief delay lets the background wake-word AudioRecord release the mic hardware cleanly.
@@ -132,10 +132,10 @@ class StudyInputManager(
 
     private fun startAttempt() {
         val listener = activeVoiceListener ?: return
-        val componentPkg = recognizerAttempts.getOrNull(recognizerAttemptIdx)
+        val attempt = recognizerAttemptIdx
         mainHandler.post {
             runCatching {
-                val sr = SpeechRecognizerFactory.create(appContext, componentPkg)
+                val sr = SpeechRecognizerFactory.create(appContext, attempt)
                 speechRecognizer = sr
                 sr.setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {
@@ -154,7 +154,7 @@ class StudyInputManager(
 
                     override fun onError(error: Int) {
                         if (error == SpeechRecognizer.ERROR_CLIENT || error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
-                            if (recognizerAttemptIdx + 1 < recognizerAttempts.size) {
+                            if (recognizerAttemptIdx + 1 < recognizerCandidateCount) {
                                 recognizerAttemptIdx++
                                 releaseRecognizerOnly()
                                 startAttempt()
@@ -333,7 +333,7 @@ class StudyInputManager(
                         val bmp = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
                         try {
                             Canvas(bmp).drawColor(Color.WHITE)
-                            page.render(bmp, null, null, PdfRenderer.PAGE_RENDER_MODE_FOR_DISPLAY)
+                            page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                             val bytes = compressJpegBounded(bmp, maxBytes = 880_000)
                             val thumb = createPreviewBitmap(bmp, maxDimension = 540)
                             ProcessedImage(

@@ -196,15 +196,11 @@ class StudyBoardActivity : AppCompatActivity(), JarvisHandlesInsets {
     }
 
     private fun setupTypography() {
-        JarvisFonts.displayBold(this)?.let { binding.tvStudyTitle.typeface = it }
-        JarvisFonts.medium(this)?.let {
-            binding.tvStudyMeta.typeface = it
-            binding.tvStudyLiveExplanation.typeface = it
-        }
-        JarvisFonts.monoMedium(this)?.let {
-            binding.btnStudySpeed.typeface = it
-            binding.tvStudyStepCounter.typeface = it
-        }
+        binding.tvStudyTitle.typeface = JarvisFonts.displayBold
+        binding.tvStudyMeta.typeface = JarvisFonts.medium
+        binding.tvStudyLiveExplanation.typeface = JarvisFonts.medium
+        binding.btnStudySpeed.typeface = JarvisFonts.monoMedium
+        binding.tvStudyStepCounter.typeface = JarvisFonts.monoMedium
     }
 
     private fun setupWhiteboard() {
