@@ -1,12 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/drawerHeaderCard"
+<!-- Drawer identity card: its own glass pane on the drawer's base glass. -->
+<com.jarvis.assistant.ui.glass.LiquidGlassLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/drawerHeaderGlass"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginStart="14dp"
-    android:layout_marginEnd="14dp"
     android:layout_marginTop="14dp"
+    android:layout_marginEnd="14dp"
     android:layout_marginBottom="8dp"
+    app:lgAutoRefresh="false"
+    app:lgBezel="18"
+    app:lgCornerRadius="26dp"
+    app:lgPlainBackground="@drawable/bg_drawer_item_plain"
+    app:lgPlainElevation="0dp"
+    app:lgRefraction="12"
+    app:lgSource="@id/drawerSnapshot"
+    app:lgVeil="0.10">
+
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/drawerHeaderCard"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="18dp">
 
@@ -90,3 +105,4 @@
             android:includeFontPadding="false" />
     </LinearLayout>
 </LinearLayout>
+</com.jarvis.assistant.ui.glass.LiquidGlassLayout>

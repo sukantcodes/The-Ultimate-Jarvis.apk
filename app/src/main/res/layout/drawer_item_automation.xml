@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Drawer option: Automation Studio. Its own glass pane, stacked on the drawer's base glass; both refract the same frozen screen picture. -->
+<com.jarvis.assistant.ui.glass.LiquidGlassLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/drawerAutomation"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="14dp"
+    android:layout_marginTop="4dp"
+    android:layout_marginEnd="14dp"
+    android:layout_marginBottom="4dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+    app:lgAutoRefresh="false"
+    app:lgBezel="14"
+    app:lgCornerRadius="22dp"
+    app:lgPlainBackground="@drawable/bg_drawer_item_plain"
+    app:lgPlainElevation="0dp"
+    app:lgRefraction="10"
+    app:lgSource="@id/drawerSnapshot"
+    app:lgVeil="0.10">
+
+    <!-- Selected wash, painted in the accent colour by code. -->
+    <View
+        android:id="@+id/drawerItemWash"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:minHeight="60dp"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="10dp">
+
+        <FrameLayout
+            android:id="@+id/drawerItemIconBox"
+            android:layout_width="40dp"
+            android:layout_height="40dp">
+
+            <ImageView
+                android:id="@+id/drawerItemIcon"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_settings_automation" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/drawerItemTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="14dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:text="Automation Studio"
+            android:textAppearance="@style/TextAppearance.Jarvis.DrawerItem"
+            android:textColor="#FF111827" />
+
+        <View
+            android:id="@+id/drawerItemCheck"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:importantForAccessibility="no"
+            android:visibility="gone" />
+    </LinearLayout>
+</com.jarvis.assistant.ui.glass.LiquidGlassLayout>

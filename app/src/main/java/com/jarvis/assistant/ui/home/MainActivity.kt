@@ -570,6 +570,9 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density + 0.5f).toInt()
 
+    /** The drawer's options: one layout file and one glass pane each, built once on first use. */
+    private val drawerMenu: DrawerMenu by lazy { DrawerMenu(binding.drawerItems).also { it.build() } }
+
     private fun configureNavigationDrawer() {
         val availableWidth = (resources.displayMetrics.widthPixels - dp(32)).coerceAtLeast(dp(240))
         val drawerWidth = minOf(dp(360), availableWidth)
@@ -578,7 +581,11 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
         }
         binding.drawerPanel.requestLayout()
         binding.drawerSnapshot.setBleed(dp(28).toFloat())
-        DrawerDeck.apply(binding.navDrawer)
+        // Siblings draw in elevation order, so the base glass (4dp by default) would paint OVER the menu and hide every
+        // option. It sits flat at 0 and the menu is lifted above it.
+        binding.drawerGlass.elevation = 0f
+        binding.navDrawer.elevation = dp(8).toFloat()
+        drawerMenu.restyle()
         // The glass behind the drawer shows a frozen picture of the screen taken as the drawer starts to open: nothing animates in it.
         var snapped = false
         binding.drawerLayout.addDrawerListener(object : androidx.drawerlayout.widget.DrawerLayout.SimpleDrawerListener() {
@@ -587,6 +594,7 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
                     snapped = true
                     binding.drawerSnapshot.capture(binding.rootMainLayout, drawerWidth)
                     binding.drawerGlass.invalidate()
+                    drawerMenu.invalidateGlass()
                 }
             }
             override fun onDrawerClosed(drawerView: View) {
@@ -605,13 +613,13 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
     private fun refreshDrawerHeader() {
         if (!::binding.isInitialized) return
         val name = runCatching { com.jarvis.assistant.JarvisApp.instance.preferences.userName }.getOrDefault("")
-        DrawerDeck.bindHeader(binding.navDrawer, com.jarvis.assistant.udn.UdnManager.get(applicationContext).state.value, name)
+        DrawerDeck.bindHeader(drawerMenu.header, com.jarvis.assistant.udn.UdnManager.get(applicationContext).state.value, name)
     }
 
     private fun setupDrawerNavigation() {
-        binding.navDrawer.setNavigationItemSelectedListener { item ->
+        drawerMenu.onItemClick = { itemId ->
             binding.drawerLayout.closeDrawer(GravityCompat.START)
-            when (item.itemId) {
+            when (itemId) {
                 R.id.drawerHome -> selectTab(TAB_HOME)
                 R.id.drawerChat -> selectTab(TAB_CHAT)
                 R.id.drawerJarvisHome -> startActivity(Intent(this, com.jarvis.assistant.ui.jarvishome.HomeActivity::class.java))
@@ -623,22 +631,20 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
                 R.id.drawerMemories -> startActivity(Intent(this, com.jarvis.assistant.ui.memory.MemoryActivity::class.java))
                 R.id.drawerScreenShare -> toggleScreenShare()
                 R.id.drawerAccount -> onAccountClicked()
-                else -> return@setNavigationItemSelectedListener false
+                else -> Unit
             }
-            true
         }
     }
 
     /** "Sign in / Create account" for guests; "Log out · email" when signed in. */
     private fun updateAccountMenuItem() {
         refreshDrawerHeader()
-        val item = binding.navDrawer.menu.findItem(R.id.drawerAccount) ?: return
         val email = AuthManager.email
-        item.title = when {
+        drawerMenu.setTitle(R.id.drawerAccount, when {
             !AuthManager.isSignedIn -> getString(R.string.drawer_account_sign_in)
             email != null -> getString(R.string.drawer_account_logout) + " · " + email
             else -> getString(R.string.drawer_account_logout)
-        }
+        })
     }
 
     private fun onAccountClicked() {
@@ -701,7 +707,7 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
             TAB_UPDATES -> R.id.drawerUpdates
             else -> R.id.drawerHome
         }
-        if (::binding.isInitialized) binding.navDrawer.setCheckedItem(drawerItem)
+        if (::binding.isInitialized) drawerMenu.setChecked(drawerItem)
 
         val targetFragment = fragmentForTab(tab)
         val trans = supportFragmentManager.beginTransaction().setReorderingAllowed(true)

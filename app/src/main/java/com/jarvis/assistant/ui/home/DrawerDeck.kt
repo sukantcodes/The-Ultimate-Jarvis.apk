@@ -16,7 +16,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.view.GravityCompat
-import com.google.android.material.navigation.NavigationView
 import com.jarvis.assistant.R
 import com.jarvis.assistant.auth.AuthManager
 import com.jarvis.assistant.udn.UdnState
@@ -70,71 +69,34 @@ object DrawerDeck {
     }
 
     /**
-     * Paints the drawer as white glass. The lens glass itself (frozen, blurred screen picture, same glass as Settings, no zoom)
-     * is the pane behind the menu; this adds the white frost over it, the dark text and the icon badges.
+     * Styles one drawer option (its own glass pane, see DrawerMenu): a coloured squircle badge behind the icon, the dark
+     * ink on white glass, and when [checked] an accent wash, accent title and a small dot. Never changes what it does.
      */
-    fun apply(nav: NavigationView) {
-        val ctx = nav.context
+    fun styleItem(root: View, itemId: Int, checked: Boolean) {
+        val ctx = root.context
         val accent = ThemeManager.getThemeAccentColor()
-        val r = dp(ctx, 28f)
-        val radii = floatArrayOf(0f, 0f, r, r, r, r, 0f, 0f)
-
-        nav.background = LayerDrawable(arrayOf(
-            GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xD0FFFFFF.toInt(), 0xB8FFFFFF.toInt())).apply { cornerRadii = radii },
-            GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(alpha(accent, 0.10f), alpha(accent, 0f))).apply { cornerRadii = radii },
-            GradientDrawable().apply { setColor(Color.TRANSPARENT); cornerRadii = radii; setStroke(px(ctx, 1f), 0x1A000000) }
-        ))
-
-        nav.itemTextColor = ColorStateList(
-            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-            intArrayOf(ink(accent, 0.55f), INK)
-        )
-        nav.itemIconTintList = null // each icon carries its own colour
-        nav.setItemIconSize(px(ctx, 40f))
-
-        flatten(nav).forEach { item ->
-            val icon = item.icon ?: return@forEach
-            item.icon = badged(ctx, icon, rotate(accent, toneOffsets[item.itemId] ?: 0f))
+        val tone = rotate(accent, toneOffsets[itemId] ?: 0f)
+        val box = root.findViewById<View>(R.id.drawerItemIconBox)
+        box?.background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(alpha(tone, 0.26f), alpha(tone, 0.08f))).apply {
+            cornerRadius = dp(ctx, 13f); setStroke(px(ctx, 1f), alpha(tone, 0.40f))
         }
-
-        // identity card
-        nav.getHeaderView(0)?.findViewById<View>(R.id.drawerHeaderCard)?.let { card ->
-            val cr = dp(ctx, 26f)
-            card.background = LayerDrawable(arrayOf(
-                GradientDrawable().apply { setColor(0xA6FFFFFF.toInt()); cornerRadius = cr },
-                GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(alpha(accent, 0.16f), alpha(accent, 0.03f))).apply { cornerRadius = cr },
-                GradientDrawable().apply { setColor(Color.TRANSPARENT); cornerRadius = cr; setStroke(px(ctx, 1f), alpha(accent, 0.30f)) }
-            ))
-        }
-    }
-
-    private fun flatten(nav: NavigationView): List<android.view.MenuItem> {
-        val out = ArrayList<android.view.MenuItem>()
-        fun walk(menu: android.view.Menu) {
-            for (i in 0 until menu.size()) {
-                val it = menu.getItem(i)
-                if (it.hasSubMenu()) walk(it.subMenu!!) else out += it
+        root.findViewById<android.widget.ImageView>(R.id.drawerItemIcon)?.imageTintList = ColorStateList.valueOf(ink(tone, 0.72f))
+        root.findViewById<TextView>(R.id.drawerItemTitle)?.setTextColor(if (checked) ink(accent, 0.55f) else INK)
+        root.findViewById<View>(R.id.drawerItemWash)?.apply {
+            visibility = if (checked) View.VISIBLE else View.GONE
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(alpha(accent, 0.20f), alpha(accent, 0.06f))).apply {
+                cornerRadius = dp(ctx, 22f); setStroke(px(ctx, 1f), alpha(accent, 0.55f))
             }
         }
-        walk(nav.menu)
-        return out
-    }
-
-    private fun badged(ctx: Context, icon: Drawable, tone: Int): Drawable {
-        val size = px(ctx, 40f)
-        val badge = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(alpha(tone, 0.26f), alpha(tone, 0.08f))).apply {
-            cornerRadius = dp(ctx, 13f); setStroke(px(ctx, 1f), alpha(tone, 0.40f)); setSize(size, size)
+        root.findViewById<View>(R.id.drawerItemCheck)?.apply {
+            visibility = if (checked) View.VISIBLE else View.GONE
+            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(ink(accent, 0.6f)) }
         }
-        val tinted = DrawableCompat.wrap(icon.constantState?.newDrawable()?.mutate() ?: icon.mutate())
-        DrawableCompat.setTint(tinted, ink(tone, 0.72f))
-        val inset = InsetDrawable(tinted, px(ctx, 10f))
-        return LayerDrawable(arrayOf(badge, inset)).apply { setBounds(0, 0, size, size) }
     }
 
     /** Fills the identity card from the account and the live network state. Safe to call repeatedly. */
-    fun bindHeader(nav: NavigationView, udn: UdnState, userName: String) {
-        val head = nav.getHeaderView(0) ?: return
-        val ctx = nav.context
+    fun bindHeader(head: View, udn: UdnState, userName: String) {
+        val ctx = head.context
         val accent = ThemeManager.getThemeAccentColor()
         val email = AuthManager.email
         val signedIn = AuthManager.isSignedIn

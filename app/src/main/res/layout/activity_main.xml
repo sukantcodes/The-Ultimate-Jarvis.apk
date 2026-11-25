@@ -351,25 +351,25 @@
             app:lgPlainBackground="@drawable/bg_drawer_plain_white"
             app:lgPlainElevation="0dp" />
 
-        <com.google.android.material.navigation.NavigationView
+        <!-- The drawer's options: one layout per option, each its own glass pane (see DrawerMenu). Sits above the base glass. -->
+        <ScrollView
             android:id="@+id/navDrawer"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:background="@android:color/transparent"
-            android:elevation="0dp"
-            app:elevation="0dp"
-            app:itemIconTint="?attr/themeAccent"
-            app:itemIconSize="40dp"
-            app:itemIconPadding="14dp"
-            app:itemHorizontalPadding="22dp"
-            app:itemBackground="@drawable/bg_drawer_item_white"
-            app:itemTextAppearance="@style/TextAppearance.Jarvis.DrawerItem"
-            app:itemTextColor="#FF111827"
-            app:itemRippleColor="?attr/themeAccentLight"
-            app:subheaderColor="#FF5B6576"
-            app:subheaderTextAppearance="@style/TextAppearance.Jarvis.DrawerHeading"
-            app:headerLayout="@layout/nav_drawer_header"
-            app:menu="@menu/nav_drawer_menu" />
+            android:clipToPadding="false"
+            android:elevation="8dp"
+            android:fillViewport="false"
+            android:overScrollMode="never"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/drawerItems"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingBottom="24dp" />
+        </ScrollView>
     </FrameLayout>
 
 </androidx.drawerlayout.widget.DrawerLayout>
