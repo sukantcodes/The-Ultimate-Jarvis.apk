@@ -46,3 +46,6 @@
 -keep class com.jarvis.assistant.tools.tasks.TaskStep { *; }
 -keep class com.jarvis.assistant.tools.tasks.TaskRecord { *; }
 -keepclassmembers enum com.jarvis.assistant.tools.tasks.** { *; }
+-keep class com.jarvis.assistant.study.model.** { *; }
+-keep class com.jarvis.assistant.study.data.** { *; }
+-keepclassmembers enum com.jarvis.assistant.study.model.** { *; }

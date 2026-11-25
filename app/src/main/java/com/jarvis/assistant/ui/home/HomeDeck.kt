@@ -109,6 +109,7 @@ object HomeDeck {
         press(b.cardWeather)
 
         // Shortcuts and quick actions: one colour each.
+        styleTile(b.btnHomeStudyBoard, rotate(accent, 325f))
         styleTile(b.btnHomeAutomation, tones[0])
         styleTile(b.btnHomeNetwork, tones[2])
         styleTile(b.btnHomeMaya, tones[3])

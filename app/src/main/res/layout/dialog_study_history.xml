@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_study_glass_card"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Saved Lessons &amp; Sessions"
+        android:textColor="?attr/themeTextPrimary"
+        android:textSize="17sp"
+        android:textStyle="bold" />
+
+    <EditText
+        android:id="@+id/etHistorySearch"
+        android:layout_width="match_parent"
+        android:layout_height="46dp"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/bg_study_input_field"
+        android:hint="Search saved questions, topics or formulas…"
+        android:imeOptions="actionSearch"
+        android:inputType="text"
+        android:paddingHorizontal="14dp"
+        android:singleLine="true"
+        android:textColor="?attr/themeTextPrimary"
+        android:textColorHint="?attr/themeTextSecondary"
+        android:textSize="13.5sp" />
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/containerSubjectFilterChips"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
+
+    <TextView
+        android:id="@+id/tvHistoryEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:padding="24dp"
+        android:text="No lessons match your filter yet."
+        android:textColor="?attr/themeTextSecondary"
+        android:textSize="13.5sp"
+        android:visibility="gone" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvStudyHistory"
+        android:layout_width="match_parent"
+        android:layout_height="340dp"
+        android:layout_marginTop="6dp" />
+</LinearLayout>

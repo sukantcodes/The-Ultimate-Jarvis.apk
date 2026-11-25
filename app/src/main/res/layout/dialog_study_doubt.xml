@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_study_glass_card"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tvDoubtTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Ask a Follow-Up Doubt"
+        android:textColor="?attr/themeTextPrimary"
+        android:textSize="17sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvDoubtTarget"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:textColor="?attr/themeAccent"
+        android:textSize="12.5sp" />
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/containerDoubtQuickPrompts"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_study_input_field"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="4dp">
+
+        <EditText
+            android:id="@+id/etDoubtQuestion"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@android:color/transparent"
+            android:hint="Why did you use this formula or sign?"
+            android:inputType="textCapSentences|textMultiLine"
+            android:maxLines="4"
+            android:minHeight="48dp"
+            android:paddingHorizontal="10dp"
+            android:textColor="?attr/themeTextPrimary"
+            android:textColorHint="?attr/themeTextSecondary"
+            android:textSize="14sp" />
+
+        <ImageButton
+            android:id="@+id/btnDoubtVoice"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/study_cd_mic"
+            android:padding="10dp"
+            android:src="@drawable/ic_study_mic"
+            app:tint="?attr/themeAccent" />
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnDoubtSubmit"
+        style="?android:attr/borderlessButtonStyle"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_study_glass_pill"
+        android:text="Clarify on Board"
+        android:textAllCaps="false"
+        android:textColor="?attr/themeAccent"
+        android:textSize="14.5sp"
+        android:textStyle="bold" />
+</LinearLayout>

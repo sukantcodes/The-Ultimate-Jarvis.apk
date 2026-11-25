@@ -1,0 +1,594 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/studyRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/themeBg">
+
+    <LinearLayout
+        android:id="@+id/studyContentContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:padding="6dp">
+
+        <!-- Left Pane (64%): Expansive Live Whiteboard -->
+        <FrameLayout
+            android:id="@+id/studyBoardContainer"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="6dp"
+            android:layout_weight="1.8"
+            android:background="@drawable/bg_study_glass_card"
+            android:clipToOutline="true">
+
+            <com.jarvis.assistant.study.render.StudyWhiteboardView
+                android:id="@+id/studyWhiteboard"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <LinearLayout
+                android:id="@+id/studyBoardOverlayTools"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|end"
+                android:layout_margin="8dp"
+                android:background="@drawable/bg_study_glass_pill"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="4dp">
+
+                <ImageButton
+                    android:id="@+id/btnStudyUndo"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_undo"
+                    android:padding="11dp"
+                    android:src="@drawable/ic_study_undo"
+                    app:tint="?attr/themeTextSecondary" />
+
+                <ImageButton
+                    android:id="@+id/btnStudyRedo"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_redo"
+                    android:padding="11dp"
+                    android:src="@drawable/ic_study_redo"
+                    app:tint="?attr/themeTextSecondary" />
+
+                <ImageButton
+                    android:id="@+id/btnStudyZoomOut"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_zoom_out"
+                    android:padding="11dp"
+                    android:src="@drawable/ic_study_zoom_out"
+                    app:tint="?attr/themeTextPrimary" />
+
+                <ImageButton
+                    android:id="@+id/btnStudyZoomIn"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_zoom_in"
+                    android:padding="11dp"
+                    android:src="@drawable/ic_study_zoom_in"
+                    app:tint="?attr/themeTextPrimary" />
+
+                <ImageButton
+                    android:id="@+id/btnStudyFitLive"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_zoom_reset"
+                    android:padding="11dp"
+                    android:src="@drawable/ic_study_fit"
+                    app:tint="?attr/themeAccent" />
+
+                <ImageButton
+                    android:id="@+id/btnStudyClear"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_clear"
+                    android:padding="11dp"
+                    android:src="@drawable/ic_study_clear"
+                    app:tint="?attr/themeTextSecondary" />
+
+                <ImageButton
+                    android:id="@+id/btnStudyFullscreen"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_fullscreen"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_study_fullscreen"
+                    app:tint="?attr/themeAccent" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/studyFullscreenMiniBar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|center_horizontal"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/bg_study_glass_pill"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="6dp"
+                android:visibility="gone">
+
+                <ImageButton
+                    android:id="@+id/btnFsPrev"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_prev"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_study_prev"
+                    app:tint="?attr/themeTextPrimary" />
+
+                <ImageButton
+                    android:id="@+id/btnFsPlayPause"
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_play_pause"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_study_pause"
+                    app:tint="?attr/themeAccent" />
+
+                <ImageButton
+                    android:id="@+id/btnFsNext"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_next"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_study_next"
+                    app:tint="?attr/themeTextPrimary" />
+
+                <ImageButton
+                    android:id="@+id/btnFsExit"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_fullscreen"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_study_fullscreen"
+                    app:tint="?attr/themeAccent" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/studyStatusBanner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                android:layout_margin="10dp"
+                android:background="@drawable/bg_study_glass_card"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="8dp"
+                android:visibility="gone">
+
+                <ProgressBar
+                    android:id="@+id/studyLoadingSpinner"
+                    style="?android:attr/progressBarStyleSmall"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginEnd="8dp"
+                    android:indeterminateTint="?attr/themeAccent" />
+
+                <TextView
+                    android:id="@+id/tvStudyBannerMessage"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:maxLines="3"
+                    android:textColor="?attr/themeTextPrimary"
+                    android:textSize="12.5sp" />
+
+                <Button
+                    android:id="@+id/btnStudyRetry"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="44dp"
+                    android:minWidth="56dp"
+                    android:text="Retry"
+                    android:textColor="?attr/themeAccent"
+                    android:textSize="12.5sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- Right Pane (36%): Controls, Explanation & Unified Inputs -->
+        <LinearLayout
+            android:id="@+id/studyBottomDock"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1.0"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:id="@+id/studyHeaderBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingBottom="4dp">
+
+                <ImageButton
+                    android:id="@+id/btnStudyBack"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_back"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_study_back"
+                    app:tint="?attr/themeTextPrimary" />
+
+                <LinearLayout
+                    android:id="@+id/studyHeaderTitleBlock"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="4dp">
+
+                    <TextView
+                        android:id="@+id/tvStudyTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="@string/study_board_title"
+                        android:textColor="?attr/themeTextPrimary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvStudyMeta"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="@string/study_board_subtitle"
+                        android:textColor="?attr/themeAccent"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <ImageButton
+                    android:id="@+id/btnStudyHistory"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_history"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_study_history"
+                    app:tint="?attr/themeTextPrimary" />
+
+                <ImageButton
+                    android:id="@+id/btnStudyPersonalize"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_personalize"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_study_tune"
+                    app:tint="?attr/themeAccent" />
+
+                <ImageButton
+                    android:id="@+id/btnStudyVoiceToggle"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_voice_toggle"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_study_volume"
+                    app:tint="?attr/themeTextSecondary" />
+
+                <ImageButton
+                    android:id="@+id/btnStudyExport"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/study_cd_export"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_study_export"
+                    app:tint="?attr/themeTextPrimary" />
+            </LinearLayout>
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:fillViewport="true">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:id="@+id/studyExplanationBar"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:background="@drawable/bg_study_glass_card"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:padding="10dp"
+                        android:visibility="gone">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvStudyStepCounter"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textColor="?attr/themeAccent"
+                                android:textSize="11.5sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvStudyLiveExplanation"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:textColor="?attr/themeTextPrimary"
+                                android:textSize="12.5sp" />
+                        </LinearLayout>
+
+                        <ImageButton
+                            android:id="@+id/btnStudyAskDoubt"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Ask doubt about this step"
+                            android:padding="10dp"
+                            android:src="@drawable/ic_study_doubt"
+                            app:tint="?attr/themeAccent" />
+                    </LinearLayout>
+
+                    <HorizontalScrollView
+                        android:id="@+id/studyPlaybackScroll"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:id="@+id/studyPlaybackBar"
+                            android:layout_width="wrap_content"
+                            android:layout_height="44dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <ImageButton
+                                android:id="@+id/btnStudyPrev"
+                                android:layout_width="44dp"
+                                android:layout_height="44dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="@string/study_cd_prev"
+                                android:padding="10dp"
+                                android:src="@drawable/ic_study_prev"
+                                app:tint="?attr/themeTextPrimary" />
+
+                            <ImageButton
+                                android:id="@+id/btnStudyPlayPause"
+                                android:layout_width="46dp"
+                                android:layout_height="44dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="@string/study_cd_play_pause"
+                                android:padding="10dp"
+                                android:src="@drawable/ic_study_play"
+                                app:tint="?attr/themeAccent" />
+
+                            <ImageButton
+                                android:id="@+id/btnStudyNext"
+                                android:layout_width="44dp"
+                                android:layout_height="44dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="@string/study_cd_next"
+                                android:padding="10dp"
+                                android:src="@drawable/ic_study_next"
+                                app:tint="?attr/themeTextPrimary" />
+
+                            <ImageButton
+                                android:id="@+id/btnStudyReplayStep"
+                                android:layout_width="44dp"
+                                android:layout_height="44dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="@string/study_cd_replay_step"
+                                android:padding="10dp"
+                                android:src="@drawable/ic_study_replay"
+                                app:tint="?attr/themeTextPrimary" />
+
+                            <Button
+                                android:id="@+id/btnStudyReplayAll"
+                                style="?android:attr/borderlessButtonStyle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="44dp"
+                                android:minWidth="56dp"
+                                android:paddingHorizontal="6dp"
+                                android:text="Replay All"
+                                android:textAllCaps="false"
+                                android:textColor="?attr/themeTextPrimary"
+                                android:textSize="11.5sp" />
+
+                            <Button
+                                android:id="@+id/btnStudySpeed"
+                                style="?android:attr/borderlessButtonStyle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="44dp"
+                                android:minWidth="46dp"
+                                android:paddingHorizontal="6dp"
+                                android:text="1.0x"
+                                android:textAllCaps="false"
+                                android:textColor="?attr/themeAccent"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+
+                            <ImageButton
+                                android:id="@+id/btnStudyBookmark"
+                                android:layout_width="44dp"
+                                android:layout_height="44dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="@string/study_cd_bookmark"
+                                android:padding="10dp"
+                                android:src="@drawable/ic_study_bookmark"
+                                app:tint="?attr/themeTextSecondary" />
+
+                            <Button
+                                android:id="@+id/btnStudyToggleExplain"
+                                style="?android:attr/borderlessButtonStyle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="44dp"
+                                android:minWidth="48dp"
+                                android:paddingHorizontal="6dp"
+                                android:text="Notes"
+                                android:textAllCaps="false"
+                                android:textColor="?attr/themeSecondary"
+                                android:textSize="11.5sp" />
+
+                            <ImageButton
+                                android:id="@+id/btnStudySave"
+                                android:layout_width="44dp"
+                                android:layout_height="44dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="Save lesson"
+                                android:padding="10dp"
+                                android:src="@drawable/ic_study_save"
+                                app:tint="?attr/themeTextPrimary" />
+                        </LinearLayout>
+                    </HorizontalScrollView>
+
+                    <HorizontalScrollView
+                        android:id="@+id/studySymbolStrip"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:scrollbars="none"
+                        android:visibility="gone">
+
+                        <LinearLayout
+                            android:id="@+id/studySymbolContainer"
+                            android:layout_width="wrap_content"
+                            android:layout_height="44dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal" />
+                    </HorizontalScrollView>
+                </LinearLayout>
+            </ScrollView>
+
+            <!-- Bottom Input Field & Tools -->
+            <LinearLayout
+                android:id="@+id/studyInputDock"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/bg_study_input_field"
+                android:orientation="vertical"
+                android:padding="4dp">
+
+                <EditText
+                    android:id="@+id/etStudyQuestion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@android:color/transparent"
+                    android:hint="@string/study_question_hint"
+                    android:imeOptions="actionSend"
+                    android:inputType="textCapSentences|textMultiLine"
+                    android:maxLines="3"
+                    android:minHeight="44dp"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="6dp"
+                    android:textColor="?attr/themeTextPrimary"
+                    android:textColorHint="?attr/themeTextSecondary"
+                    android:textSize="13.5sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageButton
+                        android:id="@+id/btnStudyCamera"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/study_cd_camera"
+                        android:padding="10dp"
+                        android:src="@drawable/ic_study_camera"
+                        app:tint="?attr/themeTextPrimary" />
+
+                    <ImageButton
+                        android:id="@+id/btnStudyGallery"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/study_cd_gallery"
+                        android:padding="10dp"
+                        android:src="@drawable/ic_study_gallery"
+                        app:tint="?attr/themeTextPrimary" />
+
+                    <ImageButton
+                        android:id="@+id/btnStudyPdf"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/study_cd_pdf"
+                        android:padding="10dp"
+                        android:src="@drawable/ic_study_pdf"
+                        app:tint="?attr/themeTextPrimary" />
+
+                    <Button
+                        android:id="@+id/btnStudySymbols"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:contentDescription="@string/study_cd_symbols"
+                        android:minWidth="44dp"
+                        android:padding="0dp"
+                        android:text="Σ"
+                        android:textColor="?attr/themeSecondary"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <Space
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <ImageButton
+                        android:id="@+id/btnStudyMic"
+                        android:layout_width="46dp"
+                        android:layout_height="46dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/study_cd_mic"
+                        android:padding="10dp"
+                        android:src="@drawable/ic_study_mic"
+                        app:tint="?attr/themeAccent" />
+
+                    <ImageButton
+                        android:id="@+id/btnStudySend"
+                        android:layout_width="46dp"
+                        android:layout_height="46dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/study_cd_send"
+                        android:padding="10dp"
+                        android:src="@drawable/ic_study_send"
+                        app:tint="?attr/themeAccent" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

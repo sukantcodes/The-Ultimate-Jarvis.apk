@@ -54,6 +54,16 @@
       "engine": "telemetry/HardwareTelemetryEngine.kt",
       "bottom_sheet": "ui/telemetry/HardwareTelemetryBottomSheet.kt",
       "description": "Real-time SoC CPU, RAM, battery thermals, storage, and Iron-Man voice reports"
+    },
+    "study_board": {
+      "activity": "study/ui/StudyBoardActivity.kt",
+      "view_model": "study/ui/StudyBoardViewModel.kt",
+      "whiteboard": "study/render/StudyWhiteboardView.kt",
+      "ai_engine": "study/ai/StudyAIEngine.kt",
+      "offline_solver": "study/ai/StudyOfflineSolver.kt",
+      "database": "study/data/StudyBoardDatabase.kt",
+      "exporter": "study/export/StudyExportManager.kt",
+      "description": "Personalized AI classroom whiteboard teacher supporting typed, spoken, photo/OCR and PDF questions with progressive math, diagrams, voice sync, doubts, Room history and A4 PDF/PNG export"
     }
   },
   "self_modification": {

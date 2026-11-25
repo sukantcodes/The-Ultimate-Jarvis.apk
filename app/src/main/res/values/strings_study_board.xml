@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="study_board_title">Study Board</string>
+    <string name="study_board_subtitle">Live AI whiteboard teacher</string>
+    <string name="study_question_hint">Ask Math, Physics, Chem, Bio, CS or English…</string>
+    <string name="study_cd_back">Close Study Board</string>
+    <string name="study_cd_history">Saved lessons and history</string>
+    <string name="study_cd_personalize">Teaching level, language and depth</string>
+    <string name="study_cd_voice_toggle">Toggle voice explanation</string>
+    <string name="study_cd_export">Save or export lesson</string>
+    <string name="study_cd_fullscreen">Toggle full-screen board</string>
+    <string name="study_cd_camera">Take textbook or handwritten photo</string>
+    <string name="study_cd_gallery">Choose image from gallery</string>
+    <string name="study_cd_pdf">Import PDF document</string>
+    <string name="study_cd_symbols">Insert math or science symbols</string>
+    <string name="study_cd_mic">Speak question or doubt</string>
+    <string name="study_cd_send">Teach on whiteboard</string>
+    <string name="study_cd_prev">Previous step</string>
+    <string name="study_cd_play_pause">Play or pause board writing</string>
+    <string name="study_cd_next">Next step</string>
+    <string name="study_cd_replay_step">Replay current step</string>
+    <string name="study_cd_replay_all">Replay entire solution</string>
+    <string name="study_cd_bookmark">Bookmark active step</string>
+    <string name="study_cd_explanations">Toggle explanations</string>
+    <string name="study_cd_zoom_in">Zoom in board</string>
+    <string name="study_cd_zoom_out">Zoom out board</string>
+    <string name="study_cd_zoom_reset">Reset zoom and follow live writing</string>
+    <string name="study_cd_undo">Undo board action</string>
+    <string name="study_cd_redo">Redo board action</string>
+    <string name="study_cd_clear">Clear whiteboard</string>
+</resources>

@@ -52,6 +52,7 @@ object AppNavigator {
         AppDestination("clock_display", "Clock display", "Clock", "Clock display settings.", P + "ui.clock.ClockDisplayActivity"),
         AppDestination("alarm_behaviour", "Alarm behaviour", "Clock", "Snooze, volume and ring behaviour.", P + "ui.clock.AlarmBehaviourActivity"),
         AppDestination("skill_store", "Skill store", "Features", "Installed skills and the skill store.", P + "ui.skills.SkillStoreActivity"),
+        AppDestination("study_board", "Study Board", "Features", "AI classroom whiteboard teacher for math, science, code and PDFs.", P + "study.ui.StudyBoardActivity"),
         AppDestination("memory", "Memory", "Features", "What Jarvis remembers.", P + "ui.memory.MemoryActivity"),
         AppDestination("terminal", "Terminal", "Features", "The Jarvis terminal.", P + "ui.terminal.JarvisTerminalActivity"),
         AppDestination("automation_studio", "Automation studio", "Features", "Build and run automations.", P + "studio.ui.AutomationStudioActivity"),
