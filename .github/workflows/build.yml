@@ -431,9 +431,20 @@ jobs:
           exit 1
         fi
         echo "created=attempted" >> "$GITHUB_OUTPUT"
-        gh release create "$TAG" "${{ steps.verify.outputs.apk }}" \
-          --target "$GITHUB_SHA" --title "JARVIS ${{ steps.version.outputs.name }} (${GITHUB_REF_NAME})" \
-          --notes-file ota-out/notes.md --latest=false
+        # GitHub's release/asset upload API fails transiently now and then. Retry a few times, and remove any
+        # half-created release/tag between attempts so the retry starts clean (the tag was verified absent above).
+        for attempt in 1 2 3; do
+          if gh release create "$TAG" "${{ steps.verify.outputs.apk }}" \
+            --target "$GITHUB_SHA" --title "JARVIS ${{ steps.version.outputs.name }} (${GITHUB_REF_NAME})" \
+            --notes-file ota-out/notes.md --latest=false; then
+            exit 0
+          fi
+          echo "::warning::Release upload attempt $attempt failed."
+          gh release delete "$TAG" --cleanup-tag --yes >/dev/null 2>&1 || true
+          sleep $((attempt * 15))
+        done
+        echo "::error::Publishing release $TAG failed after 3 attempts."
+        exit 1
     - name: Re-download from the public URL and re-verify
       if: steps.gate.outputs.publish == 'true'
       shell: bash
