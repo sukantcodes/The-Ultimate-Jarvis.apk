@@ -86,7 +86,7 @@
                 android:layout_height="44dp"
                 android:text="Scan Page"
                 android:textAllCaps="false"
-                android:textColor="?attr/themeSecondary" />
+                android:textColor="?attr/themeAccent2" />
         </LinearLayout>
 
         <TextView

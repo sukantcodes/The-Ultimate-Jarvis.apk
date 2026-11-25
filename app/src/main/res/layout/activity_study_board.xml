@@ -452,7 +452,7 @@
                         android:paddingHorizontal="8dp"
                         android:text="Notes"
                         android:textAllCaps="false"
-                        android:textColor="?attr/themeSecondary"
+                        android:textColor="?attr/themeAccent2"
                         android:textSize="12sp" />
 
                     <ImageButton
@@ -533,7 +533,7 @@
                     android:minWidth="44dp"
                     android:padding="0dp"
                     android:text="Σ"
-                    android:textColor="?attr/themeSecondary"
+                    android:textColor="?attr/themeAccent2"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
