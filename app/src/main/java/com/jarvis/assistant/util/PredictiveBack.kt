@@ -55,6 +55,7 @@ object PredictiveBack {
 
     /** Finishes [activity] with the shared "leave toward the previous screen" transition. */
     fun finishWithTransition(activity: Activity) {
+        com.jarvis.assistant.ui.glass.TransitionQuiet.begin()
         if (Build.VERSION.SDK_INT >= 34) {
             activity.overrideActivityTransition(
                 Activity.OVERRIDE_TRANSITION_CLOSE, R.anim.jarvis_close_enter, R.anim.jarvis_close_exit
@@ -83,6 +84,7 @@ object PredictiveBack {
         }
 
         fun start(event: BackEventCompat) {
+            com.jarvis.assistant.ui.glass.TransitionQuiet.begin(900L)
             val v = target() ?: return
             settle?.cancel()
             v.pivotX = v.width / 2f

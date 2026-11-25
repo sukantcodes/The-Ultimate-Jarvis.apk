@@ -65,7 +65,7 @@ class LensGlassDrawable(
 
     // The backdrop drifts slowly, so the glass refreshes at about 10 fps (every second clock beat): same look, half the work.
     private var beat = 0
-    private val tick = Runnable { if ((beat++ and 1) == 0 && host.isShown) host.invalidate() }
+    private val tick = Runnable { if ((beat++ and 1) == 0 && host.isShown && !AuroraClock.quiet) host.invalidate() }
     private val attachListener = object : View.OnAttachStateChangeListener {
         override fun onViewAttachedToWindow(v: View) = AuroraClock.register(tick)
         override fun onViewDetachedFromWindow(v: View) = AuroraClock.unregister(tick)
@@ -204,7 +204,7 @@ class LensGlassDrawable(
         val b = bmps[next]
         val bc = canvases[next]
         var painted = false
-        if (b != null && bc != null && !LiquidGlassLayoutGate.capturing()) {
+        if (b != null && bc != null && !LiquidGlassLayoutGate.capturing() && !(AuroraClock.quiet && hasFrame)) {
             if (captureScene(b, bc)) {
                 cur = next
                 hasFrame = true
