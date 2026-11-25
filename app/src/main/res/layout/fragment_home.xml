@@ -239,10 +239,10 @@
     <HorizontalScrollView
         android:id="@+id/homeLaunchpad"
         android:layout_width="0dp"
-        android:layout_height="58dp"
+        android:layout_height="wrap_content"
         android:layout_marginBottom="6dp"
         android:clipToPadding="false"
-        android:fillViewport="false"
+        android:fillViewport="true"
         android:overScrollMode="never"
         android:scrollbars="none"
         app:layout_constraintTop_toBottomOf="@id/cardWeather"
@@ -252,13 +252,16 @@
 
         <LinearLayout
             android:layout_width="wrap_content"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:orientation="horizontal">
 
             <LinearLayout
                 android:id="@+id/btnHomeAutomation"
-                android:layout_width="126dp"
-                android:layout_height="match_parent"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minWidth="136dp"
+                android:minHeight="58dp"
                 android:layout_marginEnd="8dp"
                 android:background="@drawable/bg_home_card_premium"
                 android:clickable="true"
@@ -285,30 +288,43 @@
                     android:orientation="vertical">
 
                     <TextView
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Automation"
                         android:textColor="?attr/themeTextPrimary"
                         android:textSize="12sp"
                         android:textStyle="bold"
-                        android:fontFamily="@font/jarvis_sans_medium"
-                        android:maxLines="1" />
+                        android:fontFamily="@font/jarvis_sans_medium" 
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="8sp"
+                android:autoSizeMaxTextSize="12sp"
+                android:autoSizeStepGranularity="0.5sp" />
 
                     <TextView
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Build tasks"
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="12sp"
-                        android:fontFamily="@font/jarvis_sans"
-                        android:maxLines="1" />
+                        android:fontFamily="@font/jarvis_sans" 
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="8sp"
+                android:autoSizeMaxTextSize="11sp"
+                android:autoSizeStepGranularity="0.5sp" />
                 </LinearLayout>
             </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/btnHomeMaya"
-                android:layout_width="126dp"
-                android:layout_height="match_parent"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minWidth="136dp"
+                android:minHeight="58dp"
                 android:layout_marginEnd="8dp"
                 android:background="@drawable/bg_home_card_premium"
                 android:clickable="true"
@@ -335,30 +351,43 @@
                     android:orientation="vertical">
 
                     <TextView
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Maya Mode"
                         android:textColor="?attr/themeTextPrimary"
                         android:textSize="12sp"
                         android:textStyle="bold"
-                        android:fontFamily="@font/jarvis_sans_medium"
-                        android:maxLines="1" />
+                        android:fontFamily="@font/jarvis_sans_medium" 
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="8sp"
+                android:autoSizeMaxTextSize="12sp"
+                android:autoSizeStepGranularity="0.5sp" />
 
                     <TextView
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Companion"
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="12sp"
-                        android:fontFamily="@font/jarvis_sans"
-                        android:maxLines="1" />
+                        android:fontFamily="@font/jarvis_sans" 
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="8sp"
+                android:autoSizeMaxTextSize="11sp"
+                android:autoSizeStepGranularity="0.5sp" />
                 </LinearLayout>
             </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/btnHomeNetwork"
-                android:layout_width="126dp"
-                android:layout_height="match_parent"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minWidth="136dp"
+                android:minHeight="58dp"
                 android:background="@drawable/bg_home_card_premium"
                 android:clickable="true"
                 android:focusable="true"
@@ -384,24 +413,34 @@
                     android:orientation="vertical">
 
                     <TextView
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Network"
                         android:textColor="?attr/themeTextPrimary"
                         android:textSize="12sp"
                         android:textStyle="bold"
-                        android:fontFamily="@font/jarvis_sans_medium"
-                        android:maxLines="1" />
+                        android:fontFamily="@font/jarvis_sans_medium" 
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="8sp"
+                android:autoSizeMaxTextSize="12sp"
+                android:autoSizeStepGranularity="0.5sp" />
 
                     <TextView
                         android:id="@+id/tvHomeNetworkStatus"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Devices"
                         android:textColor="?attr/themeTextMuted"
                         android:textSize="12sp"
-                        android:fontFamily="@font/jarvis_sans"
-                        android:maxLines="1" />
+                        android:fontFamily="@font/jarvis_sans" 
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="8sp"
+                android:autoSizeMaxTextSize="11sp"
+                android:autoSizeStepGranularity="0.5sp" />
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>
@@ -423,35 +462,36 @@
         <LinearLayout
             android:id="@+id/btnScreenShareQuick"
             android:layout_width="0dp"
-            android:layout_height="66dp"
+            android:layout_height="wrap_content"
+            android:minHeight="76dp"
             android:layout_weight="1"
             android:layout_marginEnd="5dp"
             android:background="@drawable/bg_home_card_premium"
             android:orientation="vertical"
             android:gravity="center"
-            android:padding="6dp"
+            android:padding="8dp"
             android:clickable="true"
             android:focusable="true"
             android:contentDescription="Start or stop screen sharing">
 
             <ImageView
-                android:layout_width="26dp"
-                    android:layout_height="26dp"
-                    android:padding="7dp"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:padding="7dp"
                     android:background="@drawable/bg_home_badge_accent"
                 android:src="@drawable/ic_screen_share"
                     app:tint="?attr/themeAccent"
-                android:layout_marginBottom="2dp"
+                android:layout_marginBottom="4dp"
         android:importantForAccessibility="no" />
 
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:gravity="center">
 
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="center"
                     android:text="Screen"
@@ -459,18 +499,31 @@
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:fontFamily="@font/jarvis_sans_medium"
-                    android:includeFontPadding="false" />
+                    android:includeFontPadding="false" 
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="8sp"
+                android:autoSizeMaxTextSize="12sp"
+                android:autoSizeStepGranularity="0.5sp" />
 
                 <TextView
                     android:id="@+id/tvQuickScreenShareStatus"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Share"
                     android:textColor="?attr/themeTextMuted"
                     android:textSize="12sp"
                     android:fontFamily="@font/jarvis_sans"
                     android:includeFontPadding="false"
-                    android:layout_marginTop="2dp" />
+                    android:layout_marginTop="2dp" 
+                android:gravity="center"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="8sp"
+                android:autoSizeMaxTextSize="11sp"
+                android:autoSizeStepGranularity="0.5sp" />
             </LinearLayout>
         </LinearLayout>
 
@@ -478,36 +531,37 @@
         <LinearLayout
             android:id="@+id/btnSavedMemories"
             android:layout_width="0dp"
-            android:layout_height="66dp"
+            android:layout_height="wrap_content"
+            android:minHeight="76dp"
             android:layout_weight="1"
             android:layout_marginStart="5dp"
             android:layout_marginEnd="5dp"
             android:background="@drawable/bg_home_card_premium"
             android:orientation="vertical"
             android:gravity="center"
-            android:padding="6dp"
+            android:padding="8dp"
             android:clickable="true"
             android:focusable="true"
             android:contentDescription="Open saved memories">
 
             <ImageView
-                android:layout_width="26dp"
-                    android:layout_height="26dp"
-                    android:padding="7dp"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:padding="7dp"
                     android:background="@drawable/bg_home_badge_accent"
                 android:src="@drawable/ic_stack_memory"
                     app:tint="?attr/themeAccent"
-                android:layout_marginBottom="2dp"
+                android:layout_marginBottom="4dp"
         android:importantForAccessibility="no" />
 
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:gravity="center">
 
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="center"
                     android:text="Memories"
@@ -515,17 +569,30 @@
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:fontFamily="@font/jarvis_sans_medium"
-                    android:includeFontPadding="false" />
+                    android:includeFontPadding="false" 
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="8sp"
+                android:autoSizeMaxTextSize="12sp"
+                android:autoSizeStepGranularity="0.5sp" />
 
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Recall Core"
                     android:textColor="?attr/themeTextMuted"
                     android:textSize="12sp"
                     android:fontFamily="@font/jarvis_sans"
                     android:includeFontPadding="false"
-                    android:layout_marginTop="2dp" />
+                    android:layout_marginTop="2dp" 
+                android:gravity="center"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="8sp"
+                android:autoSizeMaxTextSize="11sp"
+                android:autoSizeStepGranularity="0.5sp" />
             </LinearLayout>
         </LinearLayout>
 
@@ -533,35 +600,36 @@
         <LinearLayout
             android:id="@+id/btnConversationLanguageQuick"
             android:layout_width="0dp"
-            android:layout_height="66dp"
+            android:layout_height="wrap_content"
+            android:minHeight="76dp"
             android:layout_weight="1"
             android:layout_marginStart="5dp"
             android:background="@drawable/bg_home_card_premium"
             android:orientation="vertical"
             android:gravity="center"
-            android:padding="6dp"
+            android:padding="8dp"
             android:clickable="true"
             android:focusable="true"
             android:contentDescription="Change conversation language">
 
             <ImageView
-                android:layout_width="26dp"
-                    android:layout_height="26dp"
-                    android:padding="7dp"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:padding="7dp"
                     android:background="@drawable/bg_home_badge_accent"
                 android:src="@drawable/ic_settings_language"
                     app:tint="?attr/themeAccent"
-                android:layout_marginBottom="2dp"
+                android:layout_marginBottom="4dp"
         android:importantForAccessibility="no" />
 
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:gravity="center">
 
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="center"
                     android:text="Language"
@@ -569,21 +637,31 @@
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:fontFamily="@font/jarvis_sans_medium"
-                    android:includeFontPadding="false" />
+                    android:includeFontPadding="false" 
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="8sp"
+                android:autoSizeMaxTextSize="12sp"
+                android:autoSizeStepGranularity="0.5sp" />
 
                 <TextView
                     android:id="@+id/tvQuickLanguageStatus"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Auto"
                     android:textColor="?attr/themeTextMuted"
                     android:textSize="12sp"
                     android:fontFamily="@font/jarvis_sans"
-                    android:singleLine="true"
-                    android:maxLines="1"
-                    android:ellipsize="end"
                     android:includeFontPadding="false"
-                    android:layout_marginTop="2dp" />
+                    android:layout_marginTop="2dp" 
+                android:gravity="center"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="8sp"
+                android:autoSizeMaxTextSize="11sp"
+                android:autoSizeStepGranularity="0.5sp" />
             </LinearLayout>
         </LinearLayout>
 
