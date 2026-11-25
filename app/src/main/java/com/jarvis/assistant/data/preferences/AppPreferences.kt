@@ -386,6 +386,11 @@ class AppPreferences(context: Context) {
         get() = prefs.getBoolean("liquid_glass_enabled", true)
         set(value) { prefs.edit().putBoolean("liquid_glass_enabled", value).commit() }
 
+    /** Headings, labels, values and captions each get their own colour everywhere in the app (default on). */
+    var coloredText: Boolean
+        get() = prefs.getBoolean("colored_text", true)
+        set(value) { prefs.edit().putBoolean("colored_text", value).apply() }
+
     /**
      * The animated scene behind every Settings screen: "auto" (see-through on the Transparent theme, Aurora otherwise),
      * "aurora", "nebula", "waves", "constellation", "prism", "silk" or "seethrough".

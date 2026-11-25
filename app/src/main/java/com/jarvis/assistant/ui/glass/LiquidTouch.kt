@@ -43,11 +43,18 @@ object LiquidTouch {
         if (installed) return
         installed = true
         app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
-            override fun onActivityStarted(activity: Activity) { attach(activity) }
+            override fun onActivityStarted(activity: Activity) {
+                attach(activity)
+                TextRoles.refreshNow(activity.window)
+            }
             override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
                 // Dialogs and bottom sheets live in their own window, so each gets the same liquid layer when it opens.
                 (activity as? androidx.fragment.app.FragmentActivity)?.supportFragmentManager?.registerFragmentLifecycleCallbacks(
                     object : androidx.fragment.app.FragmentManager.FragmentLifecycleCallbacks() {
+                        override fun onFragmentViewCreated(fm: androidx.fragment.app.FragmentManager, f: androidx.fragment.app.Fragment, v: View, savedInstanceState: Bundle?) {
+                            try { TextRoles.styleTree(v) } catch (_: Throwable) {}
+                            v.postDelayed({ try { TextRoles.styleTree(v) } catch (_: Throwable) {} }, 350L)
+                        }
                         override fun onFragmentStarted(fm: androidx.fragment.app.FragmentManager, f: androidx.fragment.app.Fragment) {
                             val dialog = (f as? androidx.fragment.app.DialogFragment)?.dialog ?: return
                             dialog.window?.let { attachWindow(it, dialog.context) }
@@ -87,7 +94,7 @@ object LiquidTouch {
 
     private fun attachWindow(window: Window, context: Context) {
         // Liquid glass off: no ripple layer and no bubble sheen anywhere (the dock bar has its own touch effects).
-        if (GlassMode.plain()) return
+        if (GlassMode.plain()) { TextRoles.attachPlain(window); return }
         try {
             val decor = window.decorView as? ViewGroup ?: return
             if (window.callback is TouchCallback) return

@@ -6,4 +6,6 @@
     <string name="set_scene_sheet_hint">Pick a scene for every Settings screen. See-through shows the screen underneath through the glass.</string>
     <string name="set_search_clear">Clear search</string>
     <string name="set_scene_button">Change background</string>
+    <string name="set_coloredtext_title">Colourful text</string>
+    <string name="set_coloredtext_subtitle">Headings, labels, values and captions each get their own colour</string>
 </resources>

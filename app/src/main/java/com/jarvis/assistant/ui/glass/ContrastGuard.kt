@@ -74,6 +74,13 @@ internal object ContrastGuard {
         iv.setTag(FIXED_TAG, fixed)
     }
 
+    /** How readable [color] is on what [v] is really drawn on, or null when that background can't be judged. */
+    fun contrastOn(v: View, color: Int): Double? {
+        val themeBg = themeColor(v, R.attr.themeBg) ?: return null
+        val bg = backgroundBehind(v, themeBg) ?: return null
+        return ColorUtils.calculateContrast(ColorUtils.compositeColors(color, bg), bg)
+    }
+
     /** The colour to use instead, or null when the current one is fine (or can't be judged). */
     private fun fixedColor(v: View, color: Int, minRatio: Double = MIN_RATIO): Int? {
         val themeBg = themeColor(v, R.attr.themeBg) ?: return null

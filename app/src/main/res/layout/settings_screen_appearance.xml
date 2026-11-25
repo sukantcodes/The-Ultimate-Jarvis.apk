@@ -323,6 +323,112 @@
                     android:layout_height="1dp" />
 
                 <LinearLayout
+                    android:id="@+id/rowColoredText"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_sparkle"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle.Appearance"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_coloredtext_title" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Appearance"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_coloredtext_subtitle" />
+                    </LinearLayout>
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchColoredText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:contentDescription="@string/set_coloredtext_title" />
+                </LinearLayout>
+
+                <View
+                    style="@style/Widget.JarvisSettings.Divider.Appearance"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
+                <LinearLayout
+                    android:id="@+id/rowColoredText"
+                    style="@style/Widget.JarvisSettings.Row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <FrameLayout
+                        style="@style/Widget.JarvisSettings.IconBox"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_sparkle"
+                            app:tint="?attr/themeAccent" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowTitle.Appearance"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_coloredtext_title" />
+
+                        <TextView
+                            style="@style/Widget.JarvisSettings.RowSubtitle.Appearance"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/set_coloredtext_subtitle" />
+                    </LinearLayout>
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchColoredText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:contentDescription="@string/set_coloredtext_title" />
+                </LinearLayout>
+
+                <View
+                    style="@style/Widget.JarvisSettings.Divider.Appearance"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp" />
+
+                <LinearLayout
                     android:id="@+id/rowRefreshRate"
                     style="@style/Widget.JarvisSettings.Row"
                     android:layout_width="match_parent"

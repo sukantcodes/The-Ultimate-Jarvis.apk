@@ -570,6 +570,12 @@ class AppearanceSettingsActivity : SettingsScreenActivity() {
         binding.rowOverlayAvatars.setOnClickListener { open(OverlayAvatarActivity::class.java) }
         binding.rowCrystalBackground.setOnClickListener { open(CrystalBackgroundActivity::class.java) }
         binding.rowRefreshRate.setOnClickListener { showRefreshRateDialog() }
+        binding.switchColoredText.isChecked = preferences.coloredText
+        binding.switchColoredText.setOnCheckedChangeListener { _, on ->
+            preferences.coloredText = on
+            com.jarvis.assistant.ui.glass.TextRoles.refreshNow(window)
+        }
+        binding.rowColoredText.setOnClickListener { binding.switchColoredText.toggle() }
         binding.rowSettingsScene.setOnClickListener {
             SettingsSceneSheet.show(this) { binding.tvCurrentScene.text = SettingsSceneSheet.currentLabel() }
         }

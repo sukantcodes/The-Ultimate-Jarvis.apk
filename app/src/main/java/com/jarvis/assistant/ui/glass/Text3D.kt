@@ -41,7 +41,10 @@ internal object Text3D {
         if (ContrastGuard.onWhiteGlass(tv)) return
         if (tv.typeface == com.jarvis.assistant.util.JarvisFonts.mono || tv.typeface == com.jarvis.assistant.util.JarvisFonts.monoBold || tv.typeface == Typeface.MONOSPACE || tv.typeface?.let { it == Typeface.create("monospace", Typeface.NORMAL) } == true) return
         // readable first: fix a low-contrast colour, then style for the colour the text really has
-        if (tv !is EditText) ContrastGuard.checkText(tv, 4.5)
+        if (tv !is EditText) {
+            TextRoles.apply(tv) // a colour for the job the text does
+            ContrastGuard.checkText(tv, 4.5)
+        }
         val color = tv.currentTextColor
         if ((tv.getTag(DONE_TAG) as? Int) == color) return
         tv.setTag(DONE_TAG, color)
