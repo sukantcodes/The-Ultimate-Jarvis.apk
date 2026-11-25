@@ -88,6 +88,16 @@ object DrawerDeck {
                 cornerRadius = dp(ctx, 22f); setStroke(px(ctx, 1f), alpha(accent, 0.55f))
             }
         }
+        // The row's content sits on a light frosted backing (see DrawerMenu); the selected option's backing carries the accent.
+        (root as? android.view.ViewGroup)?.takeIf { it.childCount > 1 }?.getChildAt(1)?.background = GradientDrawable().apply {
+            cornerRadius = dp(ctx, 22f)
+            if (checked) {
+                setColor(ColorUtils.setAlphaComponent(ColorUtils.blendARGB(Color.WHITE, accent, 0.16f), 215))
+                setStroke(px(ctx, 1f), alpha(accent, 0.6f))
+            } else {
+                setColor(Color.argb(178, 255, 255, 255))
+            }
+        }
         root.findViewById<View>(R.id.drawerItemCheck)?.apply {
             visibility = if (checked) View.VISIBLE else View.GONE
             background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(ink(accent, 0.6f)) }
