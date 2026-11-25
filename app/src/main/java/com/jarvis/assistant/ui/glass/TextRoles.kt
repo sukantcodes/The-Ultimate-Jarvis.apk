@@ -185,7 +185,7 @@ internal object TextRoles {
     // ------------------------------------------------------------------------------------------
 
     private var paletteKey = 0L
-    private val palette = HashMap<Role, FloatArray>()
+    private val palette = HashMap<Int, FloatArray>()
 
     private fun hueOf(color: Int): Pair<Float, Float> {
         val hsl = FloatArray(3)
@@ -193,7 +193,14 @@ internal object TextRoles {
         return hsl[0] to hsl[1]
     }
 
-    private fun base(role: Role): FloatArray {
+    // Hue steps that keep neighbours clearly apart; each text picks one from its own wording, so it never changes.
+    private val spread = floatArrayOf(0f, 72f, 144f, 216f, 288f)
+
+    private fun variantOf(tv: TextView, role: Role): Int =
+        if (role == Role.HEADING || role == Role.VALUE) 0
+        else (tv.text.toString().trim().lowercase().hashCode() and 0x7FFFFFFF) % spread.size
+
+    private fun base(role: Role, variant: Int): FloatArray {
         val accent = try { ThemeManager.getThemeAccentColor() } catch (_: Throwable) { 0xFF4FA3FF.toInt() }
         val secondary = try { ThemeManager.getThemeSecondaryColor() } catch (_: Throwable) { accent }
         val light = try { ThemeManager.isCurrentThemeLight() } catch (_: Throwable) { false }
@@ -201,25 +208,30 @@ internal object TextRoles {
         if (key != paletteKey) {
             paletteKey = key
             palette.clear()
+        }
+        return palette.getOrPut(role.ordinal * 8 + variant) {
             var (accH, accS) = hueOf(accent)
             if (accS < 0.15f) accH = 215f // neutral accents still get a real colour
             var secH = hueOf(secondary).first
             if (abs(((secH - accH + 540f) % 360f) - 180f) > 155f || hueOf(secondary).second < 0.15f) secH = (accH + 60f) % 360f
-            val s = if (light) 0.72f else 0.82f
+            val s = if (light) 0.78f else 0.86f
             val l = if (light) 0.30f else 0.72f
-            palette[Role.HEADING] = floatArrayOf(accH, s, l)
-            palette[Role.SUBHEADING] = floatArrayOf(secH, s * 0.95f, if (light) l + 0.04f else l - 0.02f)
-            palette[Role.LABEL] = floatArrayOf((accH + 38f) % 360f, s, l + 0.02f)
-            palette[Role.VALUE] = floatArrayOf(160f, 0.70f, if (light) 0.27f else 0.68f)
-            palette[Role.CAPTION] = floatArrayOf((accH + 195f) % 360f, 0.34f, if (light) 0.36f else 0.72f)
-            palette[Role.SECONDARY] = floatArrayOf(accH, 0.30f, if (light) 0.30f else 0.80f)
+            val off = spread[variant]
+            when (role) {
+                Role.HEADING -> floatArrayOf(accH, s, l)
+                Role.SUBHEADING -> floatArrayOf((secH + off) % 360f, s, if (light) l + 0.04f else l - 0.02f)
+                Role.LABEL -> floatArrayOf((accH + 38f + off) % 360f, s, l + 0.02f)
+                Role.VALUE -> floatArrayOf(160f, 0.74f, if (light) 0.27f else 0.68f)
+                Role.CAPTION -> floatArrayOf((accH + 195f + off) % 360f, 0.55f, if (light) 0.34f else 0.74f)
+                Role.SECONDARY -> floatArrayOf((accH + 20f + off) % 360f, 0.50f, if (light) 0.30f else 0.80f)
+                else -> floatArrayOf(0f, 0f, 0.5f)
+            }
         }
-        return palette[role] ?: floatArrayOf(0f, 0f, 0.5f)
     }
 
     /** The role's colour, nudged lighter or darker until it reads at 5:1 on what it sits on; null when that can't be judged. */
     private fun fit(tv: TextView, role: Role): Int? {
-        val hsl = base(role)
+        val hsl = base(role, variantOf(tv, role))
         val light = try { ThemeManager.isCurrentThemeLight() } catch (_: Throwable) { false }
         for (direction in intArrayOf(if (light) -1 else 1, if (light) 1 else -1)) {
             var l = hsl[2]

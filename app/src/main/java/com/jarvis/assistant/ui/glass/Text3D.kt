@@ -49,22 +49,12 @@ internal object Text3D {
         if ((tv.getTag(DONE_TAG) as? Int) == color) return
         tv.setTag(DONE_TAG, color)
 
-        val d = tv.resources.displayMetrics.density
         val sp = tv.textSize / tv.resources.displayMetrics.scaledDensity
-        val heading = sp >= 17f || tv.typeface?.isBold == true
-        tv.typeface = if (heading) com.jarvis.assistant.util.JarvisFonts.bold
-        else com.jarvis.assistant.util.JarvisFonts.bold
 
-        // tiny intro / helper text becomes readable (buttons and chips keep their size so layouts hold)
+        // Crisp text: keep the font each screen chose (no forced bold) and no soft shadow, which is what made text look blurry.
+        // Tiny intro / helper text becomes readable (buttons and chips keep their size so layouts hold).
         if (sp < 12f && tv !is android.widget.Button && tv !is android.widget.CompoundButton && tv !is EditText) {
             tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-        }
-
-        // 3D: a sharp raised edge. Glow text that already has its own shadow keeps it.
-        if (tv.shadowRadius <= 0f) {
-            val light = ColorUtils.calculateLuminance(ColorUtils.setAlphaComponent(color, 255)) > 0.5
-            val shadow = if (light) Color.argb(150, 0, 0, 0) else Color.argb(170, 255, 255, 255)
-            tv.setShadowLayer(0.8f * d, 0.6f * d, (if (light) 1.6f else 1.2f) * d, shadow)
         }
     }
 }

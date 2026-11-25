@@ -81,7 +81,7 @@ object DrawerDeck {
             cornerRadius = dp(ctx, 13f); setStroke(px(ctx, 1f), alpha(tone, 0.40f))
         }
         root.findViewById<android.widget.ImageView>(R.id.drawerItemIcon)?.imageTintList = ColorStateList.valueOf(ink(tone, 0.72f))
-        root.findViewById<TextView>(R.id.drawerItemTitle)?.setTextColor(if (checked) ink(accent, 0.55f) else INK)
+        root.findViewById<TextView>(R.id.drawerItemTitle)?.setTextColor(if (checked) ink(accent, 0.55f) else ink(tone, 0.5f))
         root.findViewById<View>(R.id.drawerItemWash)?.apply {
             visibility = if (checked) View.VISIBLE else View.GONE
             background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(alpha(accent, 0.20f), alpha(accent, 0.06f))).apply {
@@ -111,8 +111,8 @@ object DrawerDeck {
         val email = AuthManager.email
         val signedIn = AuthManager.isSignedIn
         val display = userName.ifBlank { email?.substringBefore('@') ?: "J.A.R.V.I.S." }
-        head.findViewById<TextView>(R.id.tvDrawerName)?.setTextColor(INK)
-        head.findViewById<TextView>(R.id.tvDrawerEmail)?.setTextColor(INK_MUTED)
+        head.findViewById<TextView>(R.id.tvDrawerName)?.setTextColor(ink(rotate(accent, 20f), 0.5f))
+        head.findViewById<TextView>(R.id.tvDrawerEmail)?.setTextColor(ink(rotate(accent, 200f), 0.55f))
         head.findViewById<TextView>(R.id.tvDrawerAvatar)?.setTextColor(INK)
         head.findViewById<TextView>(R.id.tvDrawerName)?.text = if (signedIn || userName.isNotBlank()) display else "J.A.R.V.I.S."
         head.findViewById<TextView>(R.id.tvDrawerEmail)?.text = email ?: "Guest · personal AI assistant"
