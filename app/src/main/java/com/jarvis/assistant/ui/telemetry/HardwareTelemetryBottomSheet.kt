@@ -4,6 +4,13 @@ import android.app.Dialog
 import android.content.Context
 import android.content.res.ColorStateList
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.widget.FrameLayout
+import android.widget.Toast
+import com.google.android.material.shape.CornerFamily
+import com.google.android.material.shape.MaterialShapeDrawable
+import com.google.android.material.shape.ShapeAppearanceModel
 import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
@@ -40,6 +47,12 @@ class HardwareTelemetryBottomSheet : BottomSheetDialogFragment() {
     private var _binding: SheetHardwareTelemetryBinding? = null
     private val binding get() = _binding!!
 
+    // The phone's own text-to-speech engine reads the report aloud.
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
+    private var speaking = false
+    private var pendingReport: String? = null
+
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         return BottomSheetDialog(requireContext(), R.style.ThemeOverlay_Jarvis_BottomSheet).apply {
             behavior.state = BottomSheetBehavior.STATE_EXPANDED
@@ -54,6 +67,28 @@ class HardwareTelemetryBottomSheet : BottomSheetDialogFragment() {
     ): View {
         _binding = SheetHardwareTelemetryBinding.inflate(inflater, container, false)
         return binding.root
+    }
+
+    override fun onStart() {
+        super.onStart()
+        roundSheetCorners()
+    }
+
+    /** The sheet itself is drawn with round top corners, and everything inside is clipped to them (no square edges). */
+    private fun roundSheetCorners() {
+        val sheet = (dialog as? BottomSheetDialog)?.findViewById<FrameLayout>(com.google.android.material.R.id.design_bottom_sheet) ?: return
+        val radius = 28f * resources.displayMetrics.density
+        val shape = ShapeAppearanceModel.builder()
+            .setTopLeftCorner(CornerFamily.ROUNDED, radius)
+            .setTopRightCorner(CornerFamily.ROUNDED, radius)
+            .setBottomLeftCorner(CornerFamily.ROUNDED, 0f)
+            .setBottomRightCorner(CornerFamily.ROUNDED, 0f)
+            .build()
+        sheet.background = MaterialShapeDrawable(shape).apply {
+            fillColor = ColorStateList.valueOf(resolveThemeColor(R.attr.themeSurface))
+        }
+        sheet.clipToOutline = true
+        sheet.layoutParams = sheet.layoutParams.apply { width = ViewGroup.LayoutParams.MATCH_PARENT }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -277,20 +312,72 @@ class HardwareTelemetryBottomSheet : BottomSheetDialogFragment() {
         }
     }
 
+    /** Reads the report aloud with the device's text-to-speech; tapping again while it speaks stops it. */
     private fun vocalizeReport() {
         val context = context ?: return
-        val speechReport = HardwareTelemetryEngine.generateIronManSpeechReport(context)
+        if (speaking) { stopSpeaking(); return }
+        val report = HardwareTelemetryEngine.generateIronManSpeechReport(context)
+        if (tts == null) {
+            pendingReport = report
+            tts = TextToSpeech(context.applicationContext) { status ->
+                if (status == TextToSpeech.SUCCESS) {
+                    ttsReady = true
+                    configureVoice()
+                    pendingReport?.let { speakNow(it) }
+                    pendingReport = null
+                } else {
+                    tts = null
+                    pendingReport = null
+                    _binding?.root?.post {
+                        Toast.makeText(requireContext().applicationContext, "No text-to-speech engine is available on this phone.", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+            return
+        }
+        if (ttsReady) speakNow(report) else pendingReport = report
+    }
 
-        try {
-            val dispatcher = com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher.getInstance(context)
-            dispatcher.speak(speechReport)
-        } catch (_: Throwable) {
-            com.jarvis.assistant.voice.JarvisVoiceController.speakTurnResponse(
-                context = context,
-                turnId = "telemetry_${System.currentTimeMillis()}",
-                userPrompt = "System status report",
-                fullResponse = speechReport
-            )
+    private fun configureVoice() {
+        val engine = tts ?: return
+        val result = engine.setLanguage(Locale.getDefault())
+        if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) engine.setLanguage(Locale.US)
+        engine.setSpeechRate(0.98f)
+        engine.setAudioAttributes(
+            android.media.AudioAttributes.Builder()
+                .setUsage(android.media.AudioAttributes.USAGE_ASSISTANT)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+        )
+        engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) = showSpeaking(true)
+            override fun onDone(utteranceId: String?) = showSpeaking(false)
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) = showSpeaking(false)
+            override fun onStop(utteranceId: String?, interrupted: Boolean) = showSpeaking(false)
+        })
+    }
+
+    private fun speakNow(text: String) {
+        val engine = tts ?: return
+        val limit = TextToSpeech.getMaxSpeechInputLength() - 1
+        val chunks = text.chunked(limit.coerceAtLeast(500))
+        chunks.forEachIndexed { i, part ->
+            engine.speak(part, if (i == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD, null, "telemetry_report_$i")
+        }
+        showSpeaking(true)
+    }
+
+    private fun stopSpeaking() {
+        tts?.stop()
+        showSpeaking(false)
+    }
+
+    /** Called from the speech engine's thread, so the button is updated on the main thread. */
+    private fun showSpeaking(on: Boolean) {
+        speaking = on
+        _binding?.root?.post {
+            _binding?.tvVocalizeText?.text = if (on) "STOP SPEAKING" else "VOCALIZE REPORT"
         }
     }
 
@@ -301,6 +388,10 @@ class HardwareTelemetryBottomSheet : BottomSheetDialogFragment() {
     }
 
     override fun onDestroyView() {
+        runCatching { tts?.stop(); tts?.shutdown() }
+        tts = null
+        ttsReady = false
+        speaking = false
         super.onDestroyView()
         _binding = null
     }

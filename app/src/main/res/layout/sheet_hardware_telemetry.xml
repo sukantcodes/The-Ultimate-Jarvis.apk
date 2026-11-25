@@ -6,7 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:fillViewport="true"
-    android:background="?attr/themeSurface"
+    android:background="@android:color/transparent"
     android:overScrollMode="never">
 
     <LinearLayout
