@@ -69,7 +69,7 @@ class StudyEndToEndIntegrationTest {
     }
 
     @Test
-    fun roomHistoryOrganizesBySubjectSearchesBookmarksAndResumesInterruptedSessions() = runBlocking {
+    fun roomHistoryOrganizesBySubjectSearchesBookmarksAndResumesInterruptedSessions(): Unit = runBlocking {
         val bioSol = StudySolution(
             id = "bio-1",
             subject = StudySubject.BIOLOGY,
@@ -116,10 +116,11 @@ class StudyEndToEndIntegrationTest {
         val enriched = historyManager.loadEnrichedProfile()
         assertEquals(1, enriched.completedSessionsCount)
         assertTrue(enriched.recentTopics.any { it.contains("Plant Cell") || it.contains("Combustion") })
+        Unit
     }
 
     @Test
-    fun aiEngineStreamsMultiSubjectSolutionHandlesDoubtAndNetworkInterruption() = runBlocking {
+    fun aiEngineStreamsMultiSubjectSolutionHandlesDoubtAndNetworkInterruption(): Unit = runBlocking {
         val transport = FakeTransport()
         val provider = Fixtures.resolved(protocol = ProviderProtocol.OPENAI_COMPATIBLE)
         val configSource = object : ChatConfigSource {
@@ -180,61 +181,64 @@ class StudyEndToEndIntegrationTest {
         )
         val dropEvents = engine.streamSolution("Balance Fe + H2O", TeacherProfile()).toList()
         assertTrue(dropEvents.any { it is StudyStreamEvent.Error })
+        Unit
     }
 
     @Test
-    fun exportManagerGeneratesValidMultiPagePdfWithDiagramsAndDoubts() = runBlocking {
-        val solution = StudySolution(
-            subject = StudySubject.MATHEMATICS,
-            topic = "Quadratic Equation",
-            educationLevel = EducationLevel.CLASS_9_10,
-            question = "Solve x^2 - 5x + 6 = 0",
-            givenValues = listOf("a = 1, b = -5, c = 6"),
-            formulas = listOf("x = (-b ± √(b² - 4ac)) / 2a"),
-            steps = (0..5).map { idx ->
-                StudyStep(
-                    stepIndex = idx,
-                    label = "Step ${idx + 1}",
-                    boardText = "Work row ${idx + 1}: factorize expression step ${idx + 1}.",
-                    mathExpressions = listOf("\\frac{5 \\pm \\sqrt{25 - 24}}{2}"),
-                    explanation = "Detailed algebraic reasoning for step ${idx + 1}.",
-                    diagram = if (idx == 5) {
-                        StudyDiagramSpec(
-                            "graph",
-                            "Parabola",
-                            listOf(
-                                DiagramElement.Axis(),
-                                DiagramElement.Curve(listOf(20f to 30f, 50f to 80f, 80f to 30f), "y = x^2 - 5x + 6")
+    fun exportManagerGeneratesValidMultiPagePdfWithDiagramsAndDoubts() {
+        runBlocking {
+            val solution = StudySolution(
+                subject = StudySubject.MATHEMATICS,
+                topic = "Quadratic Equation",
+                educationLevel = EducationLevel.CLASS_9_10,
+                question = "Solve x^2 - 5x + 6 = 0",
+                givenValues = listOf("a = 1, b = -5, c = 6"),
+                formulas = listOf("x = (-b ± √(b² - 4ac)) / 2a"),
+                steps = (0..5).map { idx ->
+                    StudyStep(
+                        stepIndex = idx,
+                        label = "Step ${idx + 1}",
+                        boardText = "Work row ${idx + 1}: factorize expression step ${idx + 1}.",
+                        mathExpressions = listOf("\\frac{5 \\pm \\sqrt{25 - 24}}{2}"),
+                        explanation = "Detailed algebraic reasoning for step ${idx + 1}.",
+                        diagram = if (idx == 5) {
+                            StudyDiagramSpec(
+                                "graph",
+                                "Parabola",
+                                listOf(
+                                    DiagramElement.Axis(),
+                                    DiagramElement.Curve(listOf(20f to 30f, 50f to 80f, 80f to 30f), "y = x^2 - 5x + 6")
+                                )
                             )
-                        )
-                    } else null
-                )
-            },
-            finalAnswer = "x = 3 or x = 2",
-            verificationStatus = VerificationStatus.VERIFIED,
-            doubts = listOf(
-                StudyDoubtEntry(
-                    targetStepIndex = 0,
-                    targetFocus = "Step 1",
-                    question = "Why is a = 1?",
-                    boardSummary = "Coefficient of x^2 is implicitly 1.",
-                    explanation = "When no number precedes x^2, its coefficient is 1."
+                        } else null
+                    )
+                },
+                finalAnswer = "x = 3 or x = 2",
+                verificationStatus = VerificationStatus.VERIFIED,
+                doubts = listOf(
+                    StudyDoubtEntry(
+                        targetStepIndex = 0,
+                        targetFocus = "Step 1",
+                        question = "Why is a = 1?",
+                        boardSummary = "Coefficient of x^2 is implicitly 1.",
+                        explanation = "When no number precedes x^2, its coefficient is 1."
+                    )
                 )
             )
-        )
 
-        val result = StudyExportManager.exportSolutionPdf(app, solution)
-        assertTrue(result.isSuccess)
-        val pdfFile = result.getOrThrow().cacheFile
-        assertTrue(pdfFile.exists())
-        val bytes = pdfFile.readBytes()
-        assertTrue(bytes.size > 800)
-        assertEquals("%PDF-", String(bytes, 0, 5))
-        pdfFile.delete()
+            val result = StudyExportManager.exportSolutionPdf(app, solution)
+            assertTrue(result.isSuccess)
+            val pdfFile = result.getOrThrow().cacheFile
+            assertTrue(pdfFile.exists())
+            val bytes = pdfFile.readBytes()
+            assertTrue(bytes.size > 800)
+            assertEquals("%PDF-", String(bytes, 0, 5))
+            pdfFile.delete()
+        }
     }
 
     @Test
-    fun viewModelGuardsDuplicateRequestsAndRecoversAcrossRecreation() = runBlocking {
+    fun viewModelGuardsDuplicateRequestsAndRecoversAcrossRecreation(): Unit = runBlocking {
         val transport = FakeTransport()
         val provider = Fixtures.resolved(protocol = ProviderProtocol.OPENAI_COMPATIBLE)
         val configSource = object : ChatConfigSource {
@@ -256,6 +260,14 @@ class StudyEndToEndIntegrationTest {
             )
         )
 
+        suspend fun pumpUntil(timeoutMs: Long = 4000L, predicate: () -> Boolean) {
+            val start = System.currentTimeMillis()
+            while (!predicate() && System.currentTimeMillis() - start < timeoutMs) {
+                org.robolectric.shadows.ShadowLooper.shadowMainLooper().idleFor(java.time.Duration.ofMillis(25))
+                delay(25L)
+            }
+        }
+
         val engine = StudyAIEngine(configSource, transport, null, { "" }, isOnlineProvider = { true })
         val vm1 = StudyBoardViewModel.createForTest(
             application = app,
@@ -269,12 +281,12 @@ class StudyEndToEndIntegrationTest {
         // Duplicate identical submission while streaming must only trigger ONE transport request!
         vm1.submitQuestion("Change to passive: She wrote a letter.")
         vm1.submitQuestion("  change to passive: she wrote a letter.  ")
-        delay(500L)
+        pumpUntil { vm1.animationEngine.getSolution()?.finalAnswer?.isNotBlank() == true && !vm1.uiState.value.isGenerating }
         assertEquals(1, transport.requests.size)
 
         // Save progress and simulate Activity/ViewModel recreation restoring from Room DB
         vm1.saveProgressOnBackground()
-        delay(120L)
+        pumpUntil(400L) { false }
 
         val vm2 = StudyBoardViewModel.createForTest(
             application = app,
@@ -284,7 +296,7 @@ class StudyEndToEndIntegrationTest {
             inputManager = StudyInputManager(app, engine),
             speechSync = StudySpeechSynchronizer(app)
         )
-        delay(200L)
+        pumpUntil { vm2.animationEngine.getSolution() != null }
         val restored = vm2.animationEngine.getSolution()
         assertNotNull(restored)
         assertEquals(StudySubject.ENGLISH, restored!!.subject)

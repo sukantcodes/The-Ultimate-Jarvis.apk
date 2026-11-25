@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.LayoutInflater
 import android.view.View
+import androidx.appcompat.view.ContextThemeWrapper
+import com.jarvis.assistant.R
 import com.jarvis.assistant.databinding.ActivityStudyBoardBinding
 import com.jarvis.assistant.study.model.EducationLevel
 import com.jarvis.assistant.study.model.StudySolution
@@ -36,23 +38,25 @@ class StudyUiAndComplianceTest {
     }
 
     @Test
-    fun portraitAndLandscapeActivityLifecycleAndRotationRecoverSmoothly() {
+    fun portraitActivityAndLandscapeThemedLayoutRenderCleanlyWithoutOverflow() {
         val controller = Robolectric.buildActivity(StudyBoardActivity::class.java)
         val portraitActivity = controller.setup().get()
-        assertNotNull(portraitActivity.findViewById<StudyWhiteboardView>(com.jarvis.assistant.R.id.studyWhiteboard))
+        assertNotNull(portraitActivity.findViewById<StudyWhiteboardView>(R.id.studyWhiteboard))
 
-        // Simulate configuration orientation change (rotation) and clean lifecycle teardown
+        // Wrap landscape config context with explicit JARVIS theme so ?attr/theme* attributes resolve natively
         val landConfig = Configuration(portraitActivity.resources.configuration).apply {
             orientation = Configuration.ORIENTATION_LANDSCAPE
         }
-        val landContext = portraitActivity.createConfigurationContext(landConfig)
-        val landBinding = ActivityStudyBoardBinding.inflate(LayoutInflater.from(landContext))
+        val themedLandContext = ContextThemeWrapper(
+            portraitActivity.createConfigurationContext(landConfig),
+            R.style.Theme_JarvisAssistant_Dark
+        )
+        val landBinding = ActivityStudyBoardBinding.inflate(LayoutInflater.from(themedLandContext))
         assertNotNull(landBinding.studyWhiteboard)
         assertNotNull(landBinding.btnStudyCamera)
         assertNotNull(landBinding.btnStudyPdf)
         assertNotNull(landBinding.btnStudyPlayPause)
 
-        // Measure, layout and draw whiteboard in both compact 320dp portrait & wide landscape
         val wb = landBinding.studyWhiteboard
         val engine = StudyAnimationEngine()
         engine.loadSavedSolution(
@@ -76,7 +80,7 @@ class StudyUiAndComplianceTest {
             override fun onUserScrolledManually(followingLive: Boolean) = Unit
         })
 
-        // 320dp compact portrait width check (at 1x density) & 800px landscape check
+        // 320dp compact portrait width check & landscape check
         listOf(320 to 520, 800 to 420).forEach { (w, h) ->
             wb.measure(
                 View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
@@ -89,6 +93,15 @@ class StudyUiAndComplianceTest {
             bmp.recycle()
         }
 
+        controller.pause().stop().destroy()
+    }
+
+    @Test
+    @Config(sdk = [34], qualifiers = "land")
+    fun nativeLandscapeOrientationLaunchesStudyBoardActivity() {
+        val controller = Robolectric.buildActivity(StudyBoardActivity::class.java)
+        val activity = controller.setup().get()
+        assertNotNull(activity.findViewById<StudyWhiteboardView>(R.id.studyWhiteboard))
         controller.pause().stop().destroy()
     }
 }

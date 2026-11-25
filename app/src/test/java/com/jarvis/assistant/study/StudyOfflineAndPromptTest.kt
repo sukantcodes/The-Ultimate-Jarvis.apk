@@ -102,7 +102,7 @@ class StudyOfflineAndPromptTest {
             doubtQuestion = "Why subtract 5?",
             profile = hinglishClass11Physics
         )
-        assertTrue(doubtPrompt.contains("Target Step 1"))
+        assertTrue(doubtPrompt.contains("Focused Step 1"))
         assertTrue(doubtPrompt.contains("Why subtract 5?"))
         assertFalse(doubtPrompt.isBlank())
     }

@@ -30,11 +30,13 @@ class StudyRenderAndAnimationTest {
         assertTrue(ast.any { it is StudyMathRenderer.MathNode.Fraction })
 
         val paint = TextPaint().apply { textSize = 36f }
-        // Very narrow maxWidth simulating a 320dp portrait viewport
+        // Calibrate width dynamically against active Paint metrics (handles both Robolectric stub metrics and Android Skia)
+        val charW = paint.measureText("M").coerceAtLeast(1f)
+        val narrowWidth = charW * 16f
         val longExpr = "a_1 + b_2 + \\frac{x^2 + 3x + 5}{x + 1} + \\sqrt{16x^2 + 9} + \\sin(\\theta) = 42"
-        val measured = StudyMathRenderer.measure(longExpr, paint, maxWidthPx = 220f)
+        val measured = StudyMathRenderer.measure(longExpr, paint, maxWidthPx = narrowWidth)
         assertTrue(measured.lines.size >= 2)
-        assertTrue(measured.totalWidth <= 220.5f)
+        assertTrue(measured.totalWidth <= narrowWidth + 0.5f)
         assertTrue(measured.totalHeight > paint.textSize)
     }
 

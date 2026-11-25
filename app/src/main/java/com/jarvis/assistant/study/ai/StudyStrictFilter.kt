@@ -12,7 +12,7 @@ object StudyStrictFilter {
 
     private val conversationalOpenerPatterns = listOf(
         Regex("^(?:hello|hi+|hey|namaste|greetings|welcome|good (?:morning|afternoon|evening))\\b[!.,:\\s-]*", RegexOption.IGNORE_CASE),
-        Regex("^(?:sure|certainly|of course|absolutely|alright|okay|ok|great question|good question|nice question|let'?s see|let me explain|let'?s solve(?: this)?|let'?s break(?: this)? down|i'?d be happy to help|i can help(?: you)? with that|here is (?:the|your) (?:step-by-step )?(?:solution|answer|explanation))\\b[!.,:\\s-]*", RegexOption.IGNORE_CASE),
+        Regex("^(?:sure|certainly|of course|absolutely|alright|okay|ok|great question|good question|nice question|let'?s see|let me explain|let'?s solve(?: this)?(?: step[- ]by[- ]step)?|let'?s break(?: this)? down|step[- ]by[- ]step(?: solution)?|i'?d be happy to help|i can help(?: you)? with that|here is (?:the|your) (?:step-by-step )?(?:solution|answer|explanation))\\b[!.,:\\s-]*", RegexOption.IGNORE_CASE),
         Regex("^(?:haan|hanji|bilkul|chaliye|aaiye|dekhte hain|chalo solve karte hain|toh chaliye)\\b[!.,:\\s-]*", RegexOption.IGNORE_CASE)
     )
 

@@ -95,7 +95,7 @@ object StudyResponseValidator {
         )
         is DiagramElement.CircleArc -> el.copy(
             cx = clampCoord(el.cx), cy = clampCoord(el.cy),
-            radius = el.radius.takeIf { it.isFinite() }?.coerceIn(2f, 46f) ?: 14f
+            radius = el.radius.takeIf { it.isFinite() }?.coerceIn(2f, 44f) ?: 14f
         )
         is DiagramElement.RectBox -> el.copy(
             x = clampCoord(el.x), y = clampCoord(el.y),
