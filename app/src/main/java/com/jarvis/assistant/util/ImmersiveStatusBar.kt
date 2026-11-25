@@ -40,9 +40,12 @@ object ImmersiveStatusBar {
                     }, true
                 )
             }
-            override fun onActivityStarted(activity: Activity) { apply(activity.window); edgeToEdge(activity) }
+            override fun onActivityStarted(activity: Activity) {
+                com.jarvis.assistant.ui.glass.TransitionQuiet.begin()
+                apply(activity.window); edgeToEdge(activity)
+            }
             override fun onActivityResumed(activity: Activity) { apply(activity.window); edgeToEdge(activity) }
-            override fun onActivityPaused(activity: Activity) {}
+            override fun onActivityPaused(activity: Activity) { com.jarvis.assistant.ui.glass.TransitionQuiet.begin() }
             override fun onActivityStopped(activity: Activity) {}
             override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
             override fun onActivityDestroyed(activity: Activity) {}

@@ -692,6 +692,7 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
     }
 
     private fun selectTabNow(tab: Int) {
+        com.jarvis.assistant.ui.glass.TransitionQuiet.begin(520L)
         val previousTab = currentTab
         currentTab = tab
         val drawerItem = when (tab) {

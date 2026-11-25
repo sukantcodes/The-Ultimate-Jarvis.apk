@@ -3,6 +3,8 @@ package com.jarvis.assistant.ui.glass
 import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.Path
 import android.graphics.RadialGradient
 import android.graphics.Shader
@@ -23,6 +25,11 @@ enum class SettingsScene(val key: String, val label: String, val blurb: String) 
     CONSTELLATION("constellation", "Constellation", "Linked stars that drift"),
     PRISM("prism", "Prism", "Rotating crystal facets"),
     SILK("silk", "Silk", "Flowing satin ribbons"),
+    MESH("mesh", "Mesh Flow", "Soft colour clouds that melt together"),
+    BOKEH("bokeh", "Bokeh", "Glowing orbs drifting upward"),
+    RIPPLES("ripples", "Ripples", "Calm rings spreading across the glass"),
+    FIREFLIES("fireflies", "Fireflies", "Tiny lights floating in the dark"),
+    DUSK("dusk", "Dusk", "A slow, glowing colour wash"),
     SEE_THROUGH("seethrough", "See-through", "The screen underneath, behind glass");
 
     companion object {
@@ -71,7 +78,48 @@ class SceneRenderer(private val density: Float) {
     private val nodeVx = FloatArray(52)
     private val nodeVy = FloatArray(52)
 
+    // Palette scenes: the theme's two colours plus three harmonious neighbours, so every theme gets rich colour.
+    private val palette = IntArray(5)
+    private val meshBlobs = arrayOfNulls<RadialGradient>(5)
+    private var meshRadius = 0f
+    private val bokehSprites = arrayOfNulls<RadialGradient>(5)
+    private val fireSprites = arrayOfNulls<RadialGradient>(3)
+    private var duskA: LinearGradient? = null
+    private var duskB: LinearGradient? = null
+    private var duskSun: RadialGradient? = null
+    private val screen = PorterDuffXfermode(PorterDuff.Mode.SCREEN)
+    private var isLight = false
+
+    private val bokehX = FloatArray(18)
+    private val bokehSize = FloatArray(18)
+    private val bokehSpeed = FloatArray(18)
+    private val bokehPhase = FloatArray(18)
+    private val flyX = FloatArray(38)
+    private val flyY = FloatArray(38)
+    private val flyS1 = FloatArray(38)
+    private val flyS2 = FloatArray(38)
+    private val flyPhase = FloatArray(38)
+    private val flySize = FloatArray(38)
+
+    private fun hue(color: Int, degrees: Float): Int {
+        val hsl = FloatArray(3)
+        ColorUtils.colorToHSL(color, hsl)
+        hsl[0] = (hsl[0] + degrees + 360f) % 360f
+        hsl[1] = hsl[1].coerceAtLeast(0.55f)
+        return ColorUtils.HSLToColor(hsl)
+    }
+
     init {
+        val extra = Random(3)
+        for (i in 0 until 18) {
+            bokehX[i] = extra.nextFloat(); bokehSize[i] = 18f + extra.nextFloat() * 52f
+            bokehSpeed[i] = 0.014f + extra.nextFloat() * 0.03f; bokehPhase[i] = extra.nextFloat()
+        }
+        for (i in 0 until 38) {
+            flyX[i] = 0.05f + extra.nextFloat() * 0.9f; flyY[i] = 0.05f + extra.nextFloat() * 0.9f
+            flyS1[i] = 0.12f + extra.nextFloat() * 0.3f; flyS2[i] = 0.1f + extra.nextFloat() * 0.3f
+            flyPhase[i] = extra.nextFloat() * 6.28f; flySize[i] = 3f + extra.nextFloat() * 5f
+        }
         val rnd = Random(11)
         for (i in starX.indices) {
             starX[i] = rnd.nextFloat(); starY[i] = rnd.nextFloat()
@@ -128,6 +176,29 @@ class SceneRenderer(private val density: Float) {
             val col = if (i % 2 == 0) accent else secondary
             facets[i] = LinearGradient(-r, -r, r, r, a(col, (110 * k).toInt()), a(third, (14 * k).toInt()), Shader.TileMode.CLAMP)
         }
+        palette[0] = accent; palette[1] = secondary
+        palette[2] = hue(accent, 55f); palette[3] = hue(secondary, -55f)
+        palette[4] = ColorUtils.blendARGB(accent, 0xFFFFFFFF.toInt(), 0.3f)
+        meshRadius = big * 0.58f
+        for (i in 0 until 5) {
+            meshBlobs[i] = RadialGradient(0f, 0f, meshRadius,
+                intArrayOf(a(palette[i], (190 * k).toInt()), a(palette[i], (80 * k).toInt()), a(palette[i], 0)),
+                floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
+            bokehSprites[i] = RadialGradient(0f, 0f, 100f,
+                intArrayOf(a(palette[i], 14), a(palette[i], (60 * k).toInt()), a(palette[i], (120 * k).toInt()), a(palette[i], 0)),
+                floatArrayOf(0f, 0.62f, 0.9f, 1f), Shader.TileMode.CLAMP)
+        }
+        for (i in 0 until 3) {
+            val c = palette[(i * 2) % 5]
+            fireSprites[i] = RadialGradient(0f, 0f, 100f,
+                intArrayOf(a(c, 255), a(c, (110 * k).toInt()), a(c, 0)), floatArrayOf(0f, 0.22f, 1f), Shader.TileMode.CLAMP)
+        }
+        duskA = LinearGradient(0f, 0f, 0f, h,
+            intArrayOf(a(palette[0], (150 * k).toInt()), a(palette[2], (110 * k).toInt()), a(palette[1], (150 * k).toInt())), null, Shader.TileMode.CLAMP)
+        duskB = LinearGradient(0f, 0f, 0f, h,
+            intArrayOf(a(palette[3], (150 * k).toInt()), a(palette[4], (100 * k).toInt()), a(palette[0], (150 * k).toInt())), null, Shader.TileMode.CLAMP)
+        duskSun = RadialGradient(0f, 0f, big * 0.5f,
+            intArrayOf(a(palette[4], (170 * k).toInt()), a(palette[4], 0)), null, Shader.TileMode.CLAMP)
         for (i in nodeX.indices) {
             nodeX[i] = rnd.nextFloat() * w; nodeY[i] = rnd.nextFloat() * h
             val ang = rnd.nextFloat() * 6.28f
@@ -142,16 +213,102 @@ class SceneRenderer(private val density: Float) {
         val dt = (t - lastT).coerceIn(0f, 0.25f)
         lastT = t
         val k = if (light) 0.6f else 1f
+        isLight = light
         when (scene) {
             SettingsScene.NEBULA -> nebula(canvas, t, k, ink)
             SettingsScene.WAVES -> waves(canvas, t)
             SettingsScene.CONSTELLATION -> constellation(canvas, dt, k, accent, ink)
             SettingsScene.PRISM -> prism(canvas, t, ink, k)
             SettingsScene.SILK -> silk(canvas, t, k)
+            SettingsScene.MESH -> mesh(canvas, t)
+            SettingsScene.BOKEH -> bokeh(canvas, t)
+            SettingsScene.RIPPLES -> ripples(canvas, t, k)
+            SettingsScene.FIREFLIES -> fireflies(canvas, t, k)
+            SettingsScene.DUSK -> dusk(canvas, t)
             else -> Unit
         }
         paint.shader = null
+        paint.xfermode = null
+        paint.alpha = 255
         stroke.shader = null
+    }
+
+    private fun mesh(c: Canvas, t: Float) {
+        // SCREEN blending lets the colours glow into one another on dark themes; light themes use plain alpha.
+        paint.xfermode = if (isLight) null else screen
+        for (i in 0 until 5) {
+            val cx = w * (0.5f + 0.42f * sin(t * 0.05f * (i + 1) + i * 1.7f))
+            val cy = h * (0.5f + 0.42f * cos(t * 0.04f * (i + 2) + i * 2.3f))
+            val s = 1f + 0.18f * sin(t * 0.09f + i)
+            c.save(); c.translate(cx, cy); c.scale(s, s)
+            paint.shader = meshBlobs[i]
+            c.drawCircle(0f, 0f, meshRadius, paint)
+            c.restore()
+        }
+    }
+
+    private fun bokeh(c: Canvas, t: Float) {
+        for (i in 0 until 18) {
+            val r = bokehSize[i] * density
+            val travel = h + 2f * r
+            val y = h + r - ((t * bokehSpeed[i] * h + bokehPhase[i] * travel) % travel)
+            val x = w * bokehX[i] + sin(t * 0.4f + bokehPhase[i] * 6.28f) * 20f * density
+            c.save(); c.translate(x, y); c.scale(r / 100f, r / 100f)
+            paint.shader = bokehSprites[i % 5]
+            c.drawCircle(0f, 0f, 100f, paint)
+            c.restore()
+        }
+    }
+
+    private fun ripples(c: Canvas, t: Float, k: Float) {
+        val big = max(w, h)
+        val sx = floatArrayOf(0.25f, 0.76f, 0.3f, 0.8f)
+        val sy = floatArrayOf(0.3f, 0.24f, 0.74f, 0.7f)
+        for (src in 0 until 4) {
+            val cx = w * (sx[src] + 0.03f * sin(t * 0.07f + src))
+            val cy = h * (sy[src] + 0.03f * cos(t * 0.06f + src))
+            for (ring in 0 until 3) {
+                val p = (t * 0.09f + src * 0.23f + ring / 3f) % 1f
+                val fade = (1f - p) * (1f - p)
+                val radius = p * big * 0.6f
+                stroke.strokeWidth = 9f * density
+                stroke.color = a(palette[src], (fade * 36 * k).toInt())
+                c.drawCircle(cx, cy, radius, stroke)
+                stroke.strokeWidth = 2.2f * density
+                stroke.color = a(palette[src], (fade * 140 * k).toInt())
+                c.drawCircle(cx, cy, radius, stroke)
+            }
+        }
+    }
+
+    private fun fireflies(c: Canvas, t: Float, k: Float) {
+        for (i in 0 until 38) {
+            val x = w * (flyX[i] + 0.07f * sin(t * flyS1[i] + flyPhase[i]))
+            val y = h * (flyY[i] + 0.07f * cos(t * flyS2[i] + flyPhase[i] * 1.3f))
+            val f = 0.45f + 0.55f * (0.5f + 0.5f * sin(t * (0.8f + flyS1[i] * 3f) + flyPhase[i] * 2f))
+            val glow = flySize[i] * density * 4f
+            c.save(); c.translate(x, y); c.scale(glow / 100f, glow / 100f)
+            paint.shader = fireSprites[i % 3]
+            paint.alpha = (255 * f * (if (isLight) 0.7f else 1f)).toInt()
+            c.drawCircle(0f, 0f, 100f, paint)
+            c.restore()
+        }
+        paint.shader = null
+        paint.alpha = 255
+    }
+
+    private fun dusk(c: Canvas, t: Float) {
+        paint.shader = duskA
+        paint.alpha = 255
+        c.drawRect(0f, 0f, w, h, paint)
+        paint.shader = duskB
+        paint.alpha = (255 * (0.5f + 0.5f * sin(t * 0.07f))).toInt()
+        c.drawRect(0f, 0f, w, h, paint)
+        paint.alpha = 255
+        c.save(); c.translate(w * (0.5f + 0.25f * sin(t * 0.05f)), h * (0.62f + 0.08f * cos(t * 0.06f)))
+        paint.shader = duskSun
+        c.drawCircle(0f, 0f, max(w, h) * 0.5f, paint)
+        c.restore()
     }
 
     private fun nebula(c: Canvas, t: Float, k: Float, ink: Int) {

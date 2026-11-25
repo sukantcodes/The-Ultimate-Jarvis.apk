@@ -201,7 +201,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
         override fun run() {
             if (!isAttachedToWindow) return
             val visible = isShown
-            if (autoRefresh && visible && !capturing) invalidate()
+            if (autoRefresh && visible && !capturing && !AuroraClock.quiet) invalidate()
             // 30 fps normally; when each capture is expensive (a busy chat streaming and animating) it spaces them out so the
             // list keeps its frames. The backdrop is heavily blurred, so a lower refresh there is not visible.
             val gap = if (visible) maxOf(33L, (captureCostMs * 6f).toLong()).coerceAtMost(130L) else 250L
@@ -223,7 +223,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
             }
             // The dock keeps a full-rate backdrop unless capturing it gets costly; then it halves, never lower than ~22 fps.
             val step = maxOf(frameStep, Math.ceil((captureCostMs / 5f).toDouble()).toInt()).coerceAtMost(4 * frameStep)
-            if (frameCount++ % step == 0 && autoRefresh && !capturing) invalidate()
+            if (frameCount++ % step == 0 && autoRefresh && !capturing && !AuroraClock.quiet) invalidate()
             Choreographer.getInstance().postFrameCallback(this)
         }
     }

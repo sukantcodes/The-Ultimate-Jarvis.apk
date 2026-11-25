@@ -39,6 +39,10 @@ object ScreenSnapshot {
         val width = window.decorView.width
         val height = window.decorView.height - cropBottomPx
         if (width <= 0 || height <= 0) { done?.invoke(); return }
+        // Navigation never waits more than a moment for the picture: whichever comes first runs [done], once.
+        val finished = java.util.concurrent.atomic.AtomicBoolean(false)
+        val finish = { if (finished.compareAndSet(false, true)) done?.invoke() }
+        main.postDelayed({ finish() }, 140L)
         try {
             val bmp = Bitmap.createBitmap((width / 2).coerceAtLeast(1), (height / 2).coerceAtLeast(1), Bitmap.Config.ARGB_8888)
             PixelCopy.request(window, Rect(0, 0, width, height), bmp, { result ->
@@ -46,10 +50,10 @@ object ScreenSnapshot {
                     bitmap = bmp
                     listeners.toList().forEach { it.run() }
                 }
-                done?.invoke()
+                finish()
             }, main)
         } catch (_: Throwable) {
-            done?.invoke()
+            finish()
         }
     }
 }
