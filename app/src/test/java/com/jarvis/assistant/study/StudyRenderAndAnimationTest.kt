@@ -30,12 +30,12 @@ class StudyRenderAndAnimationTest {
         assertTrue(ast.any { it is StudyMathRenderer.MathNode.Fraction })
 
         val paint = TextPaint().apply { textSize = 36f }
-        // Calibrate width dynamically against active Paint metrics (handles both Robolectric stub metrics and Android Skia)
+        // Exceed StudyMathRenderer's 120f minimum wrap threshold cleanly even with 1px/char Robolectric stub Paint
         val charW = paint.measureText("M").coerceAtLeast(1f)
-        val narrowWidth = charW * 16f
-        val longExpr = "a_1 + b_2 + \\frac{x^2 + 3x + 5}{x + 1} + \\sqrt{16x^2 + 9} + \\sin(\\theta) = 42"
+        val narrowWidth = maxOf(140f, charW * 16f)
+        val longExpr = (1..18).joinToString(" + ") { "\\frac{x_$it^2 + $it}{y_$it + 1}" } + " + \\sqrt{16x^2 + 9} = 42"
         val measured = StudyMathRenderer.measure(longExpr, paint, maxWidthPx = narrowWidth)
-        assertTrue(measured.lines.size >= 2)
+        assertTrue("Expected wrapped lines >= 2, got ${measured.lines.size} for totalWidth=${measured.totalWidth}", measured.lines.size >= 2)
         assertTrue(measured.totalWidth <= narrowWidth + 0.5f)
         assertTrue(measured.totalHeight > paint.textSize)
     }

@@ -23,6 +23,10 @@ object StudyStrictFilter {
         Regex("^(?:thank you|thanks|shukriya|dhanyavaad)[!.]*$", RegexOption.IGNORE_CASE)
     )
 
+    private val trailingFillerClausePatterns = listOf(
+        Regex("(?:^|\\s)(?:hope this helps|hope that clears it up|happy learning|keep practicing|keep studying|good luck|you'?ve got this|feel free to ask[^.!]*|let me know if[^.!]*|does that make sense|thank you|thanks)[!.]*\\s*$", RegexOption.IGNORE_CASE)
+    )
+
     private val fillerSentencePrefix = listOf(
         "sure, let's ", "sure! ", "certainly, ", "of course, ", "great question! ",
         "here's how we solve ", "let's work through ", "now let's carefully ",
@@ -38,6 +42,7 @@ object StudyStrictFilter {
             if (current.isEmpty()) continue
             if (isPureFiller(current)) continue
             current = stripLeadingOpeners(current)
+            current = stripTrailingFillerClauses(current)
             if (current.isBlank() || isPureFiller(current)) continue
             kept.add(current)
         }
@@ -49,7 +54,7 @@ object StudyStrictFilter {
         var text = raw.replace("\r\n", "\n").trim()
         // Remove conversational framing sentences at start/end while keeping genuine pedagogical reasoning.
         val lines = text.lines().mapNotNull { line ->
-            val trimmed = stripLeadingOpeners(line.trim())
+            val trimmed = stripTrailingFillerClauses(stripLeadingOpeners(line.trim()))
             if (trimmed.isBlank() || isPureFiller(trimmed)) null else trimmed
         }
         text = lines.joinToString(" ").replace(Regex("\\s+"), " ").trim()
@@ -58,6 +63,7 @@ object StudyStrictFilter {
                 text = text.substring(prefix.length).trim()
             }
         }
+        text = stripTrailingFillerClauses(text)
         return if (isPureFiller(text)) "" else text
     }
 
@@ -111,6 +117,22 @@ object StudyStrictFilter {
                     } else if (m.value.length == text.length) {
                         return ""
                     }
+                }
+            }
+        }
+        return text
+    }
+
+    private fun stripTrailingFillerClauses(input: String): String {
+        var text = input.trim()
+        var changed = true
+        while (changed && text.isNotEmpty()) {
+            changed = false
+            for (pattern in trailingFillerClausePatterns) {
+                val m = pattern.find(text)
+                if (m != null && m.value.isNotEmpty()) {
+                    text = text.substring(0, m.range.first).trimEnd()
+                    changed = true
                 }
             }
         }

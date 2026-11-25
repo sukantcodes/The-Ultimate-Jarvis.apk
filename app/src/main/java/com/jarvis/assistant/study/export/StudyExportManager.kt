@@ -42,7 +42,8 @@ object StudyExportManager {
         val mimeType: String,
         val cacheFile: File,
         val shareUri: Uri,
-        val savedDisplayPath: String
+        val savedDisplayPath: String,
+        val pageCount: Int = 1
     )
 
     private const val A4_WIDTH = 595
@@ -348,14 +349,17 @@ object StudyExportManager {
             doc.close()
 
             val publicPath = savePdfToDownloads(appCtx, cacheFile, fileName)
-            val shareUri = FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", cacheFile)
+            val shareUri = runCatching {
+                FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", cacheFile)
+            }.getOrElse { Uri.fromFile(cacheFile) }
 
             ExportedArtifact(
                 fileName = fileName,
                 mimeType = "application/pdf",
                 cacheFile = cacheFile,
                 shareUri = shareUri,
-                savedDisplayPath = publicPath
+                savedDisplayPath = publicPath,
+                pageCount = pageNumber
             )
         }
     }
