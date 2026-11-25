@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.LayoutInflater
 import android.view.View
-import androidx.test.core.app.ApplicationProvider
 import com.jarvis.assistant.databinding.ActivityStudyBoardBinding
 import com.jarvis.assistant.study.model.EducationLevel
 import com.jarvis.assistant.study.model.StudySolution

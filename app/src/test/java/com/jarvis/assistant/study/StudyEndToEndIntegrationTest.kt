@@ -4,13 +4,13 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.room.Room
-import androidx.test.core.app.ApplicationProvider
 import com.jarvis.assistant.provider.ChatConfigSource
 import com.jarvis.assistant.provider.ChatResolution
 import com.jarvis.assistant.provider.FakeTransport
 import com.jarvis.assistant.provider.Fixtures
 import com.jarvis.assistant.provider.ProviderProtocol
 import com.jarvis.assistant.provider.TransportException
+import com.jarvis.assistant.provider.TransportFailure
 import com.jarvis.assistant.provider.WorkCategory
 import com.jarvis.assistant.study.ai.StudyAIEngine
 import com.jarvis.assistant.study.data.StudyBoardDatabase
@@ -42,6 +42,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -54,7 +55,7 @@ class StudyEndToEndIntegrationTest {
 
     @Before
     fun setUp() {
-        app = ApplicationProvider.getApplicationContext()
+        app = RuntimeEnvironment.getApplication()
         db = Room.inMemoryDatabaseBuilder(app, StudyBoardDatabase::class.java)
             .allowMainThreadQueries()
             .build()
@@ -122,6 +123,7 @@ class StudyEndToEndIntegrationTest {
         val transport = FakeTransport()
         val provider = Fixtures.resolved(protocol = ProviderProtocol.OPENAI_COMPATIBLE)
         val configSource = object : ChatConfigSource {
+            override fun resolveChat(): ChatResolution = ChatResolution.Ready(provider)
             override fun resolveChat(category: WorkCategory): ChatResolution = ChatResolution.Ready(provider)
         }
 
@@ -173,7 +175,7 @@ class StudyEndToEndIntegrationTest {
             FakeTransport.StreamRule(
                 matches = { true },
                 lines = emptyList(),
-                failWith = TransportException("Connection reset by peer")
+                failWith = TransportException(TransportFailure.UNREACHABLE, "Connection reset by peer")
             )
         )
         val dropEvents = engine.streamSolution("Balance Fe + H2O", TeacherProfile()).toList()
@@ -236,6 +238,7 @@ class StudyEndToEndIntegrationTest {
         val transport = FakeTransport()
         val provider = Fixtures.resolved(protocol = ProviderProtocol.OPENAI_COMPATIBLE)
         val configSource = object : ChatConfigSource {
+            override fun resolveChat(): ChatResolution = ChatResolution.Ready(provider)
             override fun resolveChat(category: WorkCategory): ChatResolution = ChatResolution.Ready(provider)
         }
         val streamBody = listOf(

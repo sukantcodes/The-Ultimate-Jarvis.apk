@@ -82,19 +82,19 @@ class StudyOfflineAndPromptTest {
         val prompt = StudyPromptBuilder.buildTeachSystemPrompt(
             "A projectile is launched at 20 m/s at 30 degree. Find range.",
             hinglishClass11Physics,
-            memoryContext = ""
+            memorySummary = ""
         )
         assertTrue(prompt.contains("Classes 11–12"))
         assertTrue(prompt.contains("Hinglish"))
-        assertTrue(prompt.contains("PHYSICS FORMAT"))
-        assertTrue(prompt.contains("NEVER print greetings"))
+        assertTrue(prompt.contains("- Physics:"))
+        assertTrue(prompt.contains("NEVER output greetings"))
         assertTrue(prompt.contains("Projectile Motion"))
 
         val chemPrompt = StudyPromptBuilder.buildTeachSystemPrompt(
             "Balance Fe + O2 -> Fe2O3",
             defaultProfile
         )
-        assertTrue(chemPrompt.contains("CHEMISTRY FORMAT"))
+        assertTrue(chemPrompt.contains("- Chemistry:"))
 
         val doubtPrompt = StudyPromptBuilder.buildDoubtPrompt(
             solution = StudySolution(question = "2x + 5 = 15", steps = listOf(StudyStep(0, "Step 1", "2x = 10"))),

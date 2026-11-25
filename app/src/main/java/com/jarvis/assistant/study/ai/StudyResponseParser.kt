@@ -98,8 +98,8 @@ class StudyResponseParser {
         val firstBrace = cleaned.indexOf('{')
         if (firstBrace < 0) return
         val sample = cleaned.substring(firstBrace)
-        // Wait until we see enough characters to distinguish NDJSON (`"kind"`) from monolithic (`"steps"` / `"subject"`)
-        if (sample.contains("\"kind\"")) {
+        // Wait until we see enough characters to distinguish NDJSON (`"kind"`/`"event"`) from monolithic (`"steps"` / `"subject"`)
+        if (sample.contains("\"kind\"") || sample.contains("\"event\"")) {
             ndjsonMode = true
         } else if (sample.contains("\"steps\"") || sample.contains("\"subject\"") || sample.contains("\"final_answer\"") || sample.contains("\"finalAnswer\"")) {
             ndjsonMode = false
@@ -123,7 +123,10 @@ class StudyResponseParser {
     }
 
     private fun dispatchLineObject(obj: JSONObject, out: MutableList<ParsedEvent>) {
-        val kind = obj.optString("kind").lowercase().trim()
+        val kind = obj.optString("kind")
+            .ifBlank { obj.optString("event") }
+            .lowercase()
+            .trim()
         when (kind) {
             "meta", "header", "metadata" -> {
                 if (!emittedMeta) {
@@ -270,7 +273,9 @@ class StudyResponseParser {
 
     private fun parseFinal(obj: JSONObject): ParsedEvent.Final {
         val answer = obj.optString("final_answer").ifBlank { obj.optString("finalAnswer") }
-        val statusStr = obj.optString("verification_status").ifBlank { obj.optString("verificationStatus") }
+        val statusStr = obj.optString("verification_status")
+            .ifBlank { obj.optString("verificationStatus") }
+            .ifBlank { obj.optString("verification") }
         val status = when {
             statusStr.equals("verified", ignoreCase = true) -> VerificationStatus.VERIFIED
             statusStr.equals("uncertain", ignoreCase = true) || statusStr.equals("unverified", ignoreCase = true) -> VerificationStatus.UNCERTAIN
