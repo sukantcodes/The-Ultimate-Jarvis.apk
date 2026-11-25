@@ -32,6 +32,52 @@ object SettingsGlassKit {
     fun isTarget(activity: Activity): Boolean =
         activity.javaClass.simpleName in TARGETS && activity.javaClass.name.startsWith("com.jarvis.assistant")
 
+    /** Screens that get only the animated Settings backdrop behind them; their own cards and layout are left exactly as they are. */
+    private val BACKDROP_ONLY = setOf("HomeActivity", "UdnActivity", "AutomationStudioActivity", "AutomationEditorActivity")
+
+    fun isBackdropOnly(activity: Activity): Boolean =
+        activity.javaClass.simpleName in BACKDROP_ONLY && activity.javaClass.name.startsWith("com.jarvis.assistant")
+
+    /**
+     * Puts the animated Settings scene (the one chosen under Appearance) behind a screen. The screen's own background is
+     * removed so the scene shows; its content, cards and behaviour are untouched.
+     */
+    fun addBackdrop(activity: Activity) {
+        if (!isBackdropOnly(activity)) return
+        val content = activity.findViewById<ViewGroup>(android.R.id.content) ?: return
+        if (content.getTag(R.id.settings_glass_kit_tag) != null) return
+        val original = content.getChildAt(0) ?: return
+        content.setTag(R.id.settings_glass_kit_tag, true)
+
+        content.removeView(original)
+        val wrapper = FrameLayout(activity)
+        val backdrop = GlassBackdropView(activity).apply {
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        wrapper.addView(backdrop, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        original.background = null
+        wrapper.addView(original, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        content.addView(wrapper, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+
+        // Screens that size themselves for the bars (the Device Network) keep doing that; the others are padded here.
+        if (activity !is JarvisHandlesInsets) {
+            val orig = intArrayOf(original.paddingLeft, original.paddingTop, original.paddingRight, original.paddingBottom)
+            ViewCompat.setOnApplyWindowInsetsListener(wrapper) { _, insets ->
+                val cut = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+                val bars = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+                val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+                original.setPadding(
+                    orig[0] + maxOf(cut.left, bars.left),
+                    orig[1] + cut.top,
+                    orig[2] + maxOf(cut.right, bars.right),
+                    orig[3] + maxOf(bars.bottom, cut.bottom, ime.bottom)
+                )
+                insets
+            }
+            ViewCompat.requestApplyInsets(wrapper)
+        }
+    }
+
     fun upgrade(activity: Activity) {
         if (!isTarget(activity)) return
         val content = activity.findViewById<ViewGroup>(android.R.id.content) ?: return

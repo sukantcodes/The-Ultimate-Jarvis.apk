@@ -62,6 +62,10 @@ object ImmersiveStatusBar {
             val window = activity.window
             WindowCompat.setDecorFitsSystemWindows(window, false)
             val content = window.decorView.findViewById<ViewGroup>(android.R.id.content) ?: return
+            if (com.jarvis.assistant.ui.glass.SettingsGlassKit.isBackdropOnly(activity)) {
+                com.jarvis.assistant.ui.glass.SettingsGlassKit.addBackdrop(activity)
+                return
+            }
             if (activity is JarvisHandlesInsets || com.jarvis.assistant.ui.glass.SettingsGlassKit.isTarget(activity)) {
                 com.jarvis.assistant.ui.glass.SettingsGlassKit.upgrade(activity)
                 return
