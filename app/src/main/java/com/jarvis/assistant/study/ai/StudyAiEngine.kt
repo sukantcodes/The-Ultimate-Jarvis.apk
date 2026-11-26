@@ -111,7 +111,11 @@ object StudyAiEngine {
                     // Another key can only help before any text was shown; after that, retrying would repeat steps.
                     if (!emitted && failure.rotates && attempt < MAX_LEASE_ATTEMPTS) continue
                 }
-                if (err.kind == ProviderErrorKind.MODEL_NOT_FOUND && !emitted && base.profileId == "builtin-gemini") {
+                // A model that is missing, or one that answers with a server error (overloaded, 503...), should not block the
+                // board: try the next model before giving up. (A plain network failure has no HTTP code and is not retried here.)
+                val modelProblem = err.kind == ProviderErrorKind.MODEL_NOT_FOUND ||
+                    (err.kind == ProviderErrorKind.UNAVAILABLE && err.httpCode != null)
+                if (modelProblem && !emitted && base.profileId == "builtin-gemini") {
                     val next = GEMINI_FALLBACK_MODELS.firstOrNull { it !in triedModels }
                     if (next != null) {
                         triedModels.add(next)
@@ -144,7 +148,10 @@ object StudyAiEngine {
             err.kind != ProviderErrorKind.INVALID_CONFIG && err.kind != ProviderErrorKind.INVALID_ENDPOINT
         val text = when (err.kind) {
             ProviderErrorKind.RATE_LIMITED -> "The AI service is busy or the quota is used up. Wait a moment and retry."
-            ProviderErrorKind.TIMEOUT, ProviderErrorKind.UNAVAILABLE -> "The connection to the AI service failed. Check your internet and retry."
+            // With an HTTP code the phone did reach Google, so it is not an internet problem: show what Google said.
+            ProviderErrorKind.UNAVAILABLE -> if (err.httpCode != null) err.message else "The connection to the AI service failed. Check your internet and retry."
+            ProviderErrorKind.TIMEOUT -> "The AI service took too long to answer. Check your internet and retry."
+            ProviderErrorKind.MODEL_NOT_FOUND -> "${err.message} Open Settings and pick a different Gemini model, then retry."
             ProviderErrorKind.STREAM_INTERRUPTED -> "The connection dropped while the solution was being written."
             else -> err.message
         }
