@@ -38,6 +38,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.R
 import com.jarvis.assistant.study.Ink
+import com.jarvis.assistant.study.StepKind
 import com.jarvis.assistant.study.StudyPlayback
 import com.jarvis.assistant.study.voice.StudyVoiceInput
 import com.jarvis.assistant.ui.glass.GlassBackdropView
@@ -96,11 +97,16 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     private var fullscreen = false
     private lateinit var fsOverlay: LinearLayout
     private lateinit var fsPlay: ImageButton
+    private lateinit var fitAllPill: TextView
     private lateinit var zoomResetPill: TextView
     private lateinit var followPenPill: TextView
+    private lateinit var progressTrack: FrameLayout
+    private lateinit var progressFill: View
 
     private var explainExpanded = false
     private var currentZoom = 1f
+    private var hasBoardOverflow = false
+    private var lastProgressFrac = -1f
     private var activeBoardHighlight: Boolean? = null
     private var listening = false
     private var cameraFile: File? = null
@@ -266,9 +272,24 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         }
         board = StudyBoardView(this).apply {
             host = this@StudyBoardActivity
-            onViewportChanged = { z, _ -> currentZoom = z; updateViewportPills() }
+            onViewportChanged = { z, _, overflow ->
+                currentZoom = z
+                hasBoardOverflow = overflow
+                updateViewportPills()
+            }
         }
         boardFrame.addView(board, FrameLayout.LayoutParams(-1, -1))
+
+        // Top hairline gradient playback/drawing progress indicator inside the whiteboard frame
+        progressFill = View(this).apply {
+            background = StudyTheme.gradientPillDrawable(this@StudyBoardActivity, 2f, pal.accent, pal.secondary)
+        }
+        progressTrack = FrameLayout(this).apply {
+            background = GradientDrawable().apply { setColor(StudyTheme.alpha(pal.cardBorder, 0.25f)) }
+            visibility = View.GONE
+            addView(progressFill, FrameLayout.LayoutParams(0, dp(3)))
+        }
+        boardFrame.addView(progressTrack, FrameLayout.LayoutParams(-1, dp(3), Gravity.TOP))
 
         val zoom = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -289,14 +310,32 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
                 board.zoomBy(1f / 1.4f)
             }
         )
+        zoom.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            if (v.height > 0) board.safeBottomPx = v.height + dpf(24f)
+        }
         boardFrame.addView(zoom, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply {
             setMargins(0, 0, dp(12), dp(12))
         })
 
-        // Floating viewport pills (Reset Zoom / Follow Pen)
+        // Floating viewport pills (Fit board / 1.0x Reset / Follow Pen)
         val viewportPills = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+        }
+        fitAllPill = StudyTheme.label(this, "Fit board", 12f, pal.floatPanelInk, bold = true).apply {
+            minHeight = dp(44)
+            gravity = Gravity.CENTER
+            setPadding(dp(14), dp(8), dp(14), dp(8))
+            elevation = dpf(4f)
+            background = StudyTheme.pillDrawable(this@StudyBoardActivity, 22f, pal.floatPanelBg, pal.floatPanelBorder)
+            isClickable = true
+            isFocusable = true
+            visibility = View.GONE
+            StudyTheme.applyPressSpring(this, 0.94f)
+            setOnClickListener {
+                board.followPen = false
+                board.fitToBoard()
+            }
         }
         zoomResetPill = StudyTheme.label(this, "", 12f, pal.floatPanelInk, bold = true).apply {
             minHeight = dp(44)
@@ -326,10 +365,11 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
                 updateViewportPills()
             }
         }
+        viewportPills.addView(fitAllPill, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) })
         viewportPills.addView(zoomResetPill, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) })
         viewportPills.addView(followPenPill)
         boardFrame.addView(viewportPills, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply {
-            setMargins(dp(12), 0, 0, dp(12))
+            setMargins(dp(12), 0, dp(72), dp(12))
         })
 
         // Fullscreen Floating Controls
@@ -557,7 +597,56 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             StudyTheme.applyPressSpring(this, 0.95f)
             setOnClickListener { vm.interrupted.value?.let { vm.openSession(it.first); vm.dismissInterrupted() } }
         }
-        box.addView(resumeButton, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(16) })
+        box.addView(resumeButton, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(14) })
+
+        // Interactive live starter showcase chips ("Try live on the board")
+        box.addView(
+            StudyTheme.label(this, "TRY LIVE ON THE BOARD", 10.5f, paperMuted, hud = true).apply {
+                letterSpacing = 0.12f
+                setPadding(0, dp(18), 0, dp(8))
+            }
+        )
+        val starters = listOf(
+            Triple("Human heart diagram", "Draw a detailed labelled diagram of the human heart", StudyPalette.color(Ink.WARN)),
+            Triple("Convex lens rays", "Draw a labelled ray diagram of image formation by a convex lens", paperAccent),
+            Triple("Plant cell structure", "Draw a neatly labelled diagram of a plant cell", StudyPalette.color(Ink.RESULT)),
+            Triple("Plot y = x^2 - 4", "Plot y = x^2 - 4 and y = 2x and find their intersection", StudyPalette.color(Ink.VIOLET)),
+            Triple("Solve 2x^2 - 5x - 3 = 0", "Solve 2x^2 - 5x - 3 = 0 step by step", StudyPalette.color(Ink.TEAL))
+        )
+        val demoScroller = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        val demoRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        for ((title, prompt, tone) in starters) {
+            demoRow.addView(
+                StudyTheme.label(this, title, 12f, tone, bold = true).apply {
+                    minHeight = dp(44)
+                    gravity = Gravity.CENTER
+                    setPadding(dp(13), dp(8), dp(13), dp(8))
+                    background = StudyTheme.pillDrawable(
+                        this@StudyBoardActivity, 16f,
+                        StudyTheme.alpha(tone, 0.10f),
+                        StudyTheme.alpha(tone, 0.36f)
+                    )
+                    isClickable = true
+                    isFocusable = true
+                    StudyTheme.applyPressSpring(this, 0.95f)
+                    setOnClickListener {
+                        hideKeyboard()
+                        board.followPen = true
+                        vm.newQuestionMode()
+                        vm.submit(prompt)
+                    }
+                },
+                LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) }
+            )
+        }
+        demoScroller.addView(demoRow)
+        box.addView(demoScroller, LinearLayout.LayoutParams(-2, -2))
 
         scroll.addView(box, FrameLayout.LayoutParams(-1, -1))
         return scroll
@@ -774,13 +863,48 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     private fun updateViewportPills() {
         if (!::board.isInitialized) return
         val pb = vm.playback
-        val showZoom = currentZoom > 1.05f
+        val hasContent = vm.hasContent
+        val showFit = hasContent && hasBoardOverflow && currentZoom > board.fitAllZoom() + 0.04f
+        fitAllPill.visibility = if (showFit) View.VISIBLE else View.GONE
+
+        val showZoom = hasContent && kotlin.math.abs(currentZoom - 1f) > 0.05f
         zoomResetPill.visibility = if (showZoom) View.VISIBLE else View.GONE
         if (showZoom) {
-            zoomResetPill.text = String.format(java.util.Locale.US, "%.1f× · Fit", currentZoom)
+            val pct = (currentZoom * 100f + 0.5f).toInt()
+            zoomResetPill.text = "$pct% · 100%"
         }
         val showFollow = pb.state == StudyPlayback.State.PLAYING && !board.followPen
         followPenPill.visibility = if (showFollow) View.VISIBLE else View.GONE
+    }
+
+    private fun updateProgressBar() {
+        if (!::progressTrack.isInitialized) return
+        val total = vm.blocks.value.size
+        if (total <= 0) {
+            progressTrack.visibility = View.GONE
+            lastProgressFrac = -1f
+            return
+        }
+        progressTrack.visibility = View.VISIBLE
+        val pb = vm.playback
+        val frac = when {
+            pb.state == StudyPlayback.State.FINISHED -> 1f
+            pb.current < 0 -> 0f
+            else -> ((pb.current + pb.progress) / total.toFloat()).coerceIn(0f, 1f)
+        }
+        if (kotlin.math.abs(frac - lastProgressFrac) >= 0.01f || frac == 1f) {
+            lastProgressFrac = frac
+            val trackW = progressTrack.width
+            if (trackW > 0) {
+                val targetW = (trackW * frac).toInt().coerceIn(0, trackW)
+                if (progressFill.layoutParams.width != targetW) {
+                    progressFill.layoutParams = (progressFill.layoutParams as FrameLayout.LayoutParams).apply { width = targetW }
+                    progressFill.requestLayout()
+                }
+            } else {
+                progressTrack.post { updateProgressBar() }
+            }
+        }
     }
 
     private fun updateStatusAnimations(active: Boolean) {
@@ -882,6 +1006,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         (statusDot.background as? GradientDrawable)?.setColor(dotColor)
         updateStatusAnimations(pb.state == StudyPlayback.State.PLAYING || vm.isBusy)
         updateViewportPills()
+        updateProgressBar()
 
         val boardHighlight = pb.state == StudyPlayback.State.PLAYING || vm.isBusy
         if (activeBoardHighlight != boardHighlight) {
@@ -913,7 +1038,25 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         redoButton.alpha = if (vm.canRedo) 1f else 0.35f
 
         val counter = vm.stepCounter()
-        stepText.text = counter
+        val activeBlock = vm.blocks.value.getOrNull(pb.current)
+        val kindTag = when {
+            activeBlock == null || activeBlock.isQuestion -> ""
+            activeBlock.isFinal -> " · Answer"
+            activeBlock.kind == StepKind.DIAGRAM -> " · Diagram"
+            activeBlock.kind == StepKind.FORMULA -> " · Formula"
+            activeBlock.kind == StepKind.DEFINITION -> " · Concept"
+            activeBlock.kind == StepKind.GIVEN -> " · Given"
+            activeBlock.kind == StepKind.REQUIRED -> " · Find"
+            else -> ""
+        }
+        val stepTint = when {
+            activeBlock?.isFinal == true -> pal.success
+            activeBlock?.kind == StepKind.DEFINITION || activeBlock?.kind == StepKind.REQUIRED -> pal.secondary
+            else -> pal.accent
+        }
+        stepText.text = if (counter.isNotEmpty()) counter + kindTag else ""
+        stepText.setTextColor(stepTint)
+        stepText.background = StudyTheme.pillDrawable(this, 10f, StudyTheme.alpha(stepTint, 0.16f), StudyTheme.alpha(stepTint, 0.35f))
         stepText.visibility = if (counter.isEmpty()) View.GONE else View.VISIBLE
 
         val showBanner = ui.message.isNotEmpty() && ui.phase != StudyViewModel.Phase.EXTRACTING

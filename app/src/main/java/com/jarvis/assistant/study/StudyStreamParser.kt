@@ -80,7 +80,7 @@ class StudyStreamParser {
     }
 
     companion object {
-        private const val MAX_OBJECT = 24_000
+        private const val MAX_OBJECT = 64_000
         private const val MAX_STRAY = 4_000
 
         fun classify(raw: String): List<StudyEvent> {

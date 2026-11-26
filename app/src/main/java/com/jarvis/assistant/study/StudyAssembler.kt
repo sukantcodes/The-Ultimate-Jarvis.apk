@@ -87,7 +87,8 @@ class StudyAssembler(private val question: String, private val level: String) {
         if (steps.size >= MAX_STEPS) return emptyList()
         val index = steps.size + 1
         val diagram = e.diagram?.let { DiagramSpec.parse(it) }
-        var content = cleanContent(e.content)
+        val preliminaryKind = if (diagram != null && e.kind == StepKind.STEP) StepKind.DIAGRAM else e.kind
+        var content = if (preliminaryKind == StepKind.CODE) cleanCodeContent(e.content) else cleanContent(e.content)
         var explanation = cleanExplanation(e.explanation)
 
         if (e.diagram != null && diagram == null && content.isEmpty()) {
@@ -106,9 +107,9 @@ class StudyAssembler(private val question: String, private val level: String) {
         if (isChatter(explanation)) explanation = ""
         if (content.isEmpty() && diagram == null) return emptyList()
 
-        val kind = if (diagram != null && e.kind == StepKind.STEP) StepKind.DIAGRAM else e.kind
+        val kind = preliminaryKind
         val prose = e.proseHint || kind == StepKind.DEFINITION && !StudyMath.looksLikeMath(content) ||
-            kind == StepKind.STEP && !StudyMath.looksLikeMath(content) ||
+            (kind == StepKind.STEP || kind == StepKind.RESULT || kind == StepKind.GIVEN || kind == StepKind.REQUIRED) && !StudyMath.looksLikeMath(content) ||
             (subject == StudySubject.ENGLISH && !StudyMath.looksLikeMath(content))
 
         var check = StepCheck.NOT_CHECKED
@@ -205,15 +206,39 @@ class StudyAssembler(private val question: String, private val level: String) {
 
         fun cleanLine(s: String) = s.replace(Regex("\\s+"), " ").trim()
 
-        /** Strips markdown, math fences and stray dollar signs so board text is plain lesson content. */
+        /** Strips markdown, code fences, inline backticks and stray dollar signs so board text reads cleanly instead of code. */
         fun cleanContent(raw: String): String {
             var s = raw.trim()
-            s = s.removePrefix("```").removeSuffix("```").trim()
+            if (s.startsWith("```")) {
+                s = s.replaceFirst(Regex("^```[a-zA-Z0-9_-]*\\s*"), "")
+            }
+            if (s.endsWith("```")) s = s.removeSuffix("```")
+            s = s.trim()
             s = s.replace("\\[", "").replace("\\]", "").replace("\\(", "").replace("\\)", "")
             s = s.replace("$$", "").replace("$", "")
             s = s.replace("**", "").replace("__", "")
-            s = s.lines().joinToString("\n") { it.trimEnd() }.trim()
-            return s.take(1200)
+            s = s.replace(Regex("`([^`]+)`"), "$1").replace("`", "")
+            s = s.replace(Regex("\\\\(?:textbf|textit|emph|textsf)\\s*\\{([^{}]*)\\}"), "$1")
+            s = s.lines().joinToString("\n") { line ->
+                var l = line.trimEnd()
+                l = l.replace(Regex("^\\s{0,3}#{1,6}\\s+"), "")
+                l = l.replace(Regex("^\\s*>\\s?"), "")
+                l = l.replace(Regex("^\\s*[-*]\\s+"), "• ")
+                // Strip paired markdown single-asterisk emphasis (*word*) while preserving math multiplication (a * b)
+                l = l.replace(Regex("(?<=^|[\\s(])\\*([^\\s*][^*]*?[^\\s*]|[^\\s*])\\*(?=[\\s.,;:!?)]|$)"), "$1")
+                l
+            }.trim()
+            return s.take(1600)
+        }
+
+        /** Cleans actual programming snippets while preserving indentation and syntax tokens. */
+        fun cleanCodeContent(raw: String): String {
+            var s = raw.trim()
+            if (s.startsWith("```")) {
+                s = s.replaceFirst(Regex("^```[a-zA-Z0-9_+-]*\\r?\\n?"), "")
+            }
+            if (s.endsWith("```")) s = s.removeSuffix("```")
+            return s.trimEnd().take(2400)
         }
 
         private val SPOKEN_REJECT = Regex("\\b(as an ai|language model|hope this helps|thank you|feel free|happy to help|great question)\\b", RegexOption.IGNORE_CASE)
@@ -231,8 +256,8 @@ class StudyAssembler(private val question: String, private val level: String) {
         }
 
         fun cleanExplanation(raw: String): String {
-            var s = raw.trim().replace("**", "").replace("$$", "").replace("$", "")
-            s = s.replace(Regex("^[-*•]\\s+"), "")
+            var s = raw.trim().replace("**", "").replace("__", "").replace("$$", "").replace("$", "").replace("`", "")
+            s = s.replace(Regex("^#{1,6}\\s+"), "").replace(Regex("^[-*•]\\s+"), "")
             return cleanLine(s).take(320)
         }
 

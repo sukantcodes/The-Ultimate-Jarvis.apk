@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import com.jarvis.assistant.study.BoardBlock
+import com.jarvis.assistant.study.Ink
 import com.jarvis.assistant.study.StepKind
 import java.io.OutputStream
 import java.text.DateFormat
@@ -24,10 +25,16 @@ object StudyExport {
         (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.isLowRamDevice == true
 
     private fun drawBlock(painter: StudyPainter, canvas: Canvas, b: BoardBlock, showNotes: Boolean, bookmarks: Set<Int>) {
-        if (b.kind == StepKind.FORMULA && !b.isQuestion) painter.drawBlockBackground(canvas, b, StudyBoardView.BOARD_WIDTH, StudyBoardView.MARGIN, 0xFF0B63C5.toInt(), 0x14)
-        if (b.isFinal) painter.drawBlockBackground(canvas, b, StudyBoardView.BOARD_WIDTH, StudyBoardView.MARGIN, 0xFF0A8A56.toInt(), 0x1A)
+        if (!b.isQuestion) {
+            when {
+                b.isFinal -> painter.drawBlockBackground(canvas, b, StudyBoardView.BOARD_WIDTH, StudyBoardView.MARGIN, StudyPalette.color(Ink.RESULT), 26)
+                b.kind == StepKind.FORMULA -> painter.drawBlockBackground(canvas, b, StudyBoardView.BOARD_WIDTH, StudyBoardView.MARGIN, StudyPalette.color(Ink.ACCENT), 20)
+                b.kind == StepKind.DEFINITION || b.kind == StepKind.REQUIRED -> painter.drawBlockBackground(canvas, b, StudyBoardView.BOARD_WIDTH, StudyBoardView.MARGIN, StudyPalette.color(Ink.VIOLET), 14)
+                b.kind == StepKind.GIVEN -> painter.drawBlockBackground(canvas, b, StudyBoardView.BOARD_WIDTH, StudyBoardView.MARGIN, StudyPalette.color(Ink.TEAL), 14)
+            }
+        }
         painter.drawOps(canvas, b.allOps(showNotes), 1f)
-        if (!b.isQuestion && bookmarks.contains(b.stepIndex)) painter.drawBookmark(canvas, b, StudyBoardView.BOARD_WIDTH, StudyBoardView.MARGIN, 0xFFE0A100.toInt())
+        if (!b.isQuestion && bookmarks.contains(b.stepIndex)) painter.drawBookmark(canvas, b, StudyBoardView.BOARD_WIDTH, StudyBoardView.MARGIN, StudyPalette.color(Ink.GOLD))
     }
 
     /** One tall PNG of the whole board. The picture is scaled down on low-memory phones so it can never run out of memory. */

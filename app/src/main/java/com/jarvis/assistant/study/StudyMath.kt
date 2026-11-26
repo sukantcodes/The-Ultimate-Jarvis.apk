@@ -215,10 +215,11 @@ object StudyMath {
                 val start = p.i
                 while (!p.eof() && p.peek().isLetter()) p.i++
                 val word = p.s.substring(start, p.i)
+                if (!word.all { it.code < 128 }) return Node.Sym(word, true)
                 if (word.length == 1) return Node.Sym(word, false)
                 if (word in ROMAN_FUNCS) return Node.Sym(word, true)
-                if (word.length >= 3 && word.all { it.code < 128 }) return Node.Sym(word, true)
-                // short letter runs such as "xy" or "ab" are products of variables
+                if (word.length >= 3) return Node.Sym(word, true)
+                // short ASCII letter runs such as "xy" or "ab" are products of variables
                 return GroupNode(word.map { Node.Sym(it.toString(), false) })
             }
             else -> {
@@ -391,15 +392,16 @@ object StudyMath {
         return layoutSeq(nodes, size, Ctx(metrics, ink, stroke.coerceAtLeast(1f)), 0)
     }
 
-    /** One or more lines of typeset math that each fit [maxWidth]. Lines are positioned with baselines at [startY]. */
+    /** One or more lines of typeset math that each fit [maxWidth]. Never allows a box to overflow [maxWidth]. */
     fun layoutWrapped(latex: String, size: Float, maxWidth: Float, ink: Ink, metrics: TextMetrics, lineGap: Float): List<Box> {
         val whole = layout(latex, size, ink, metrics)
         if (whole.w <= maxWidth) return listOf(whole)
         val scale = maxWidth / whole.w
-        if (scale >= 0.78f) return listOf(layout(latex, size * scale, ink, metrics))
+        if (scale >= 0.78f) return listOf(fit(latex, size, maxWidth, ink, metrics))
         // break at top-level relations/operators, keeping each piece intact
-        val pieces = splitTopLevel(latex)
-        if (pieces.size <= 1) return listOf(layout(latex, size * maxOf(scale, 0.55f), ink, metrics))
+        var pieces = splitTopLevel(latex)
+        if (pieces.size <= 1) pieces = splitSecondary(latex)
+        if (pieces.size <= 1) return listOf(fit(latex, size, maxWidth, ink, metrics))
         val lines = ArrayList<Box>()
         var current = StringBuilder()
         for (piece in pieces) {
@@ -415,7 +417,29 @@ object StudyMath {
 
     private fun fit(latex: String, size: Float, maxWidth: Float, ink: Ink, metrics: TextMetrics): Box {
         val b = layout(latex, size, ink, metrics)
-        return if (b.w <= maxWidth) b else layout(latex, size * maxOf(maxWidth / b.w, 0.55f), ink, metrics)
+        if (b.w <= maxWidth || maxWidth <= 0f) return b
+        val targetScale = (maxWidth / b.w).coerceAtLeast(0.25f)
+        val fitted = layout(latex, size * targetScale, ink, metrics)
+        return if (fitted.w <= maxWidth + 0.5f) fitted else layout(latex, size * targetScale * (maxWidth / fitted.w), ink, metrics)
+    }
+
+    /** Secondary break points for long chains joined by arrows, products or commas when no +, -, = exist at depth 0. */
+    internal fun splitSecondary(s: String): List<String> {
+        val out = ArrayList<String>()
+        var depth = 0
+        var start = 0
+        var i = 0
+        while (i < s.length) {
+            val c = s[i]
+            if (c == '{' || c == '(') depth++
+            else if (c == '}' || c == ')') depth = maxOf(0, depth - 1)
+            else if (depth == 0 && i > start && (c == '→' || c == '⇒' || c == '⇌' || c == ',' || c == ';' || (c == ' ' && i - start >= 12))) {
+                out.add(s.substring(start, i)); start = i
+            }
+            i++
+        }
+        out.add(s.substring(start))
+        return out
     }
 
     /** Splits before top-level "=", "+", "-" (outside braces) so a long line can wrap without cutting a fraction in half. */
@@ -427,7 +451,7 @@ object StudyMath {
         while (i < s.length) {
             val c = s[i]
             if (c == '{' || c == '(') depth++
-            else if (c == '}' || c == ')') depth--
+            else if (c == '}' || c == ')') depth = maxOf(0, depth - 1)
             else if (depth == 0 && i > start && (c == '=' || c == '+' || c == '-' || c == '−')) {
                 // never split a script exponent like 10^-3 or a leading minus
                 val prev = s[i - 1]
@@ -442,17 +466,21 @@ object StudyMath {
     }
 
     /**
-     * Decides whether a step's text is mathematical or ordinary prose, so words are never forced into italic math face.
-     * A step is math when it has a LaTeX command, an "=" relation, a script, or is mostly digits and operators.
+     * Decides whether a step's text is purely mathematical or natural prose (possibly containing inline formulas), so words
+     * in explanatory sentences are never turned into italic single-letter variables.
      */
     fun looksLikeMath(text: String): Boolean {
         val t = text.trim()
         if (t.isEmpty()) return false
+        val proseWords = Regex("(?<!\\\\)\\b[\\p{L}]{3,}\\b").findAll(t).count { m ->
+            val w = m.value.lowercase()
+            w !in ROMAN_FUNCS && w !in SYMBOLS
+        }
+        val spaces = t.count { it == ' ' }
+        if (proseWords >= 4 && spaces >= 4) return false
         if (t.contains('\\') || t.contains('^') || t.contains('_') || t.contains('=') || t.contains('→') || t.contains('⇌')) return true
         val letters = t.count { it.isLetter() }
-        val spaces = t.count { it == ' ' }
-        val words = t.split(Regex("\\s+")).count { w -> w.count { it.isLetter() } >= 3 }
-        if (words >= 2 || (spaces >= 3 && letters > t.length / 2)) return false
+        if (proseWords >= 2 || (spaces >= 3 && letters > t.length / 2)) return false
         val mathish = t.count { it.isDigit() || it in "+-*/()<>.×÷−" }
         return mathish * 2 >= t.length - spaces
     }

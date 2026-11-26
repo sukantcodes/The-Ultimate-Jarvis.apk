@@ -457,3 +457,87 @@ class StudyMemoryExclusionTest {
         assertEquals("", StudyMemory().also { it.add(StudyMemory.Turn(StudyMemory.Kind.LESSON, "", "", "q", "", "", 1L)) }.block("q"))
     }
 }
+
+class StudyBoardRichDrawingAndLayoutTest {
+    private val m = FakeMetrics()
+    private val st = BoardStyle(width = 800f, baseSize = 32f, margin = 30f)
+
+    @Test fun richDiagramOrdersOutlinesThenFillsThenCalloutLabels() {
+        val raw = """
+            {
+              "title": "Human Heart Cross Section",
+              "items": [
+                {"t":"curve","pts":[[30,20],[70,20],[78,60],[50,86],[22,60]],"closed":true,"smooth":true,"fill":true,"color":"ink","fillColor":"rose","shade":"radial","layer":"outline"},
+                {"t":"oval","cx":42,"cy":40,"rx":10,"ry":12,"fill":true,"color":"warn","fillColor":"red","layer":"outline"},
+                {"t":"arc","cx":58,"cy":42,"rx":12,"ry":12,"start":0,"sweep":180,"fill":false,"color":"teal","layer":"detail"},
+                {"t":"label","ax":42,"ay":40,"x":8,"y":30,"text":"Right Atrium","color":"violet"}
+              ]
+            }
+        """.trimIndent()
+        val spec = DiagramSpec.parse(com.google.gson.JsonParser.parseString(raw).asJsonObject)
+        assertNotNull(spec)
+        val res = StudyDiagramLayout.layout(spec!!, 600f, 500f, m, 2.5f)
+        val firstStrokeIdx = res.ops.indexOfFirst { it is DrawOp.Poly && it.paintMode == PaintMode.STROKE_ONLY && it.smooth }
+        val firstFillIdx = res.ops.indexOfFirst { it.paintModeOrNull() == PaintMode.FILL_ONLY }
+        val labelIdx = res.ops.indexOfFirst { it is DrawOp.Glyphs && it.text == "Right Atrium" }
+        assertTrue(firstStrokeIdx in 0 until firstFillIdx)
+        assertTrue(firstFillIdx in 0 until labelIdx)
+    }
+
+    private fun DrawOp.paintModeOrNull(): PaintMode? = when (this) {
+        is DrawOp.Poly -> paintMode
+        is DrawOp.Oval -> paintMode
+        is DrawOp.Rect -> paintMode
+        is DrawOp.Arc -> paintMode
+        else -> null
+    }
+
+    @Test fun oversizedDiagramAndEdgeLabelsStayInsideVisibleBoardBounds() {
+        val raw = """
+            {
+              "title": "Extreme Bounds Check",
+              "items": [
+                {"t":"circle","cx":115,"cy":50,"r":28,"fill":true,"color":"blue"},
+                {"t":"rect","x":-25,"y":10,"w":40,"h":30,"fill":true,"color":"gold","rx":4},
+                {"t":"label","x":99,"y":50,"text":"Very Long Right Overflow Label Check","color":"warn"},
+                {"t":"label","x":1,"y":52,"text":"Very Long Left Label","color":"teal"}
+              ]
+            }
+        """.trimIndent()
+        val spec = DiagramSpec.parse(com.google.gson.JsonParser.parseString(raw).asJsonObject)!!
+        val res = StudyDiagramLayout.layout(spec, 500f, 400f, m, 2f)
+        val bounds = DrawBounds.measure(res.ops, m)!!
+        assertTrue("minX=${bounds.minX} must be >= 0", bounds.minX >= 0f)
+        assertTrue("maxX=${bounds.maxX} must be <= 500", bounds.maxX <= 500.5f)
+        assertTrue("maxY=${bounds.maxY} must be <= 400", bounds.maxY <= 400.5f)
+    }
+
+    @Test fun markdownCodeNoiseIsStrippedFromNonCodeSteps() {
+        val raw = "### Key Concept\n- **Chlorophyll**: Absorbs `light energy` and drives *photosynthesis*."
+        val cleaned = StudyAssembler.cleanContent(raw)
+        assertFalse(cleaned.contains("###"))
+        assertFalse(cleaned.contains("**"))
+        assertFalse(cleaned.contains("`"))
+        assertFalse(cleaned.contains("*"))
+        assertTrue(cleaned.contains("• Chlorophyll: Absorbs light energy and drives photosynthesis."))
+    }
+
+    @Test fun proseWithInlineMathRendersMultiColorAndNeverSplitsEnglishWords() {
+        val step = StudyStep(
+            1, StepKind.DEFINITION,
+            "Photosynthesis: Converts 6CO_{2} + 6H_{2}O into glucose and releases \\frac{1}{2}O_{2} energy.",
+            "Note why H_{2}O splits under light."
+        )
+        assertFalse(StudyMath.looksLikeMath(step.content))
+        val block = StudyBoardLayout.layoutStep(step, 0f, st, m)
+        val glyphs = block.ops.filterIsInstance<DrawOp.Glyphs>()
+        val inksUsed = block.ops.map { it.ink }.toSet()
+        assertTrue("Multiple colours should appear on board answers", inksUsed.size >= 3)
+        // Prose words must stay whole words (never split into 'o' 'f' italic symbols)
+        assertTrue(glyphs.any { it.text.contains("Converts") && it.face != Face.MATH_ITALIC && it.face != Face.CODE })
+        // Raw LaTeX commands like \frac must not leak literally
+        assertFalse(glyphs.any { it.text.contains("\\frac") })
+        val bounds = DrawBounds.measure(block.allOps(true), m)!!
+        assertTrue("Block width must stay inside board margins", bounds.minX >= 0f && bounds.maxX <= st.width + 0.5f)
+    }
+}

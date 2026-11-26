@@ -35,9 +35,9 @@ class StudyPrefs(context: Context) {
     var statusOn: Boolean
         get() = p.getBoolean("status_on", true)
         set(v) { p.edit().putBoolean("status_on", v).apply() }
-    /** The pen tip drawn on the board while it writes. Off by default: the board stays clean. */
+    /** The sleek stylus nib shown on the board while sketching strokes and sweeping fills. */
     var penOn: Boolean
-        get() = p.getBoolean("pen_on", false)
+        get() = p.getBoolean("pen_on", true)
         set(v) { p.edit().putBoolean("pen_on", v).apply() }
 
     /** Which AI answers the board: your Gemini API key (default) or the active custom provider. */
