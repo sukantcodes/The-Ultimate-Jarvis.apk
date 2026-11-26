@@ -177,6 +177,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
         subjectLine = label("Ask a question", 12f, 0xFF9AA6B8.toInt()).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
         titles.addView(subjectLine)
         header.addView(titles)
+        statusPill = label("", 11f, 0xFF0B1220.toInt(), true).apply { setPadding(dp(10), dp(4), dp(10), dp(4)); background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(accent) }; visibility = View.GONE }
         header.addView(statusPill, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(6) })
         header.addView(icon(R.drawable.ic_study_history, "Saved lessons") { historyLauncher.launch(Intent(this, StudyHistoryActivity::class.java)) })
         header.addView(icon(R.drawable.ic_study_tune, "Teaching settings") { StudyDialogs.settings(this, vm.prefs) { vm.setVoice(vm.prefs.voiceOn) } })
@@ -186,7 +187,6 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
         val boardFrame = FrameLayout(this)
         board = StudyBoardView(this).apply { host = this@StudyBoardActivity }
         boardFrame.addView(board, FrameLayout.LayoutParams(-1, -1))
-        statusPill = label("", 11f, 0xFF0B1220.toInt(), true).apply { setPadding(dp(10), dp(4), dp(10), dp(4)); background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(accent) }; visibility = View.GONE }
         val zoom = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = glass(18, 0xCC10141B.toInt()) }
         zoom.addView(icon(R.drawable.ic_study_zoom_in, "Zoom in", 38) { board.zoomBy(1.4f) })
         zoom.addView(icon(R.drawable.ic_study_zoom_out, "Zoom out", 38) { board.zoomBy(1f / 1.4f) })
