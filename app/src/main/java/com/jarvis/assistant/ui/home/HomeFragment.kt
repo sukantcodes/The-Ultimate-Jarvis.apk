@@ -215,6 +215,10 @@ class HomeFragment : Fragment() {
             startActivity(Intent(requireContext(), com.jarvis.assistant.ui.udn.UdnActivity::class.java))
         }
 
+        binding.btnHomeStudyBoard.setOnClickListener {
+            startActivity(Intent(requireContext(), com.jarvis.assistant.ui.studyboard.StudyBoardActivity::class.java))
+        }
+
         binding.btnHomeMaya.setOnClickListener {
             startActivity(Intent(requireContext(), com.jarvis.assistant.ui.settings.MayaModeActivity::class.java))
         }

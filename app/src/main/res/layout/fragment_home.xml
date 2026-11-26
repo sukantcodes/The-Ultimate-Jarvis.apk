@@ -443,6 +443,70 @@
                 android:autoSizeStepGranularity="0.5sp" />
                 </LinearLayout>
             </LinearLayout>
+        
+
+            <LinearLayout
+                android:id="@+id/btnHomeStudyBoard"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minWidth="136dp"
+                android:minHeight="58dp"
+                android:background="@drawable/bg_home_card_premium"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="12dp"
+                android:contentDescription="Open Study Board">
+
+                <ImageView
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:padding="7dp"
+                    android:background="@drawable/bg_home_badge_accent"
+                    android:src="@drawable/ic_study_board"
+                    app:tint="?attr/themeAccent"
+                    android:contentDescription="@null" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Study"
+                        android:textColor="?attr/themeTextPrimary"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:fontFamily="@font/jarvis_sans_medium" 
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="8sp"
+                android:autoSizeMaxTextSize="12sp"
+                android:autoSizeStepGranularity="0.5sp" />
+
+                    <TextView
+                        android:id="@+id/tvHomeStudyStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="AI whiteboard"
+                        android:textColor="?attr/themeTextMuted"
+                        android:textSize="12sp"
+                        android:fontFamily="@font/jarvis_sans" 
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="8sp"
+                android:autoSizeMaxTextSize="11sp"
+                android:autoSizeStepGranularity="0.5sp" />
+                </LinearLayout>
+            </LinearLayout>
         </LinearLayout>
     </HorizontalScrollView>
 

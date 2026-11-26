@@ -1,0 +1,332 @@
+package com.jarvis.assistant.study
+
+import org.junit.Assert.*
+import org.junit.Test
+
+class FakeMetrics : TextMetrics {
+    override fun width(text: String, size: Float, face: Face): Float = text.length * size * 0.55f
+}
+
+class StudyExpressionTest {
+    private fun ev(s: String) = StudyExpression.evaluate(s)
+    @Test fun basicArithmetic() { assertEquals(5.0, ev("10/2")!!, 1e-9); assertEquals(14.0, ev("2+3*4")!!, 1e-9) }
+    @Test fun powersAndBrackets() { assertEquals(64.0, ev("(2+2)^3")!!, 1e-9); assertEquals(-4.0, ev("-2^2")!!, 1e-9) }
+    @Test fun latexFractionAndRoot() { assertEquals(0.75, ev("\\frac{3}{4}")!!, 1e-9); assertEquals(5.0, ev("\\sqrt{25}")!!, 1e-9) }
+    @Test fun unicodeOperators() { assertEquals(12.0, ev("3 × 4")!!, 1e-9); assertEquals(2.0, ev("8 ÷ 4")!!, 1e-9) }
+    @Test fun unknownIsNull() { assertNull(ev("2x + 5")); assertNull(ev("5 m/s")); assertNull(ev("1/0")); assertNull(ev("")) }
+    @Test fun variableSampling() { assertEquals(9.0, StudyExpression.evaluate("x^2", mapOf("x" to 3.0), true)!!, 1e-9); assertEquals(6.0, StudyExpression.evaluate("2x", mapOf("x" to 3.0), true)!!, 1e-9) }
+    @Test fun deepNestingDoesNotCrash() { assertNull(ev("(".repeat(500) + "1" + ")".repeat(500))) }
+}
+
+class StudyVerifierTest {
+    @Test fun correctChainPasses() { assertTrue(StudyVerifier.check("x = 10 / 2 = 5") is StudyVerifier.Result.Ok) }
+    @Test fun wrongArithmeticIsCaught() {
+        val r = StudyVerifier.check("2x = 15 - 5 = 11")
+        assertTrue(r is StudyVerifier.Result.Mismatch)
+    }
+    @Test fun variableSidesAreSkippedNotFlagged() { assertTrue(StudyVerifier.check("2x + 5 = 15") is StudyVerifier.Result.NotApplicable) }
+    @Test fun unitsAreSkipped() { assertTrue(StudyVerifier.check("v = 20 m/s") is StudyVerifier.Result.NotApplicable) }
+    @Test fun roundedDecimalIsAccepted() { assertTrue(StudyVerifier.check("22 / 7 = 3.14") is StudyVerifier.Result.Ok) }
+    @Test fun approxSymbolIsAccepted() { assertTrue(StudyVerifier.check("\\sqrt{2} \\approx 1.41") is StudyVerifier.Result.Ok) }
+    @Test fun inequalitiesSkipped() { assertTrue(StudyVerifier.check("3 < 5") is StudyVerifier.Result.NotApplicable) }
+    @Test fun arrowsSplitSegments() { assertTrue(StudyVerifier.check("2+3 = 5 \\Rightarrow 5*2 = 10") is StudyVerifier.Result.Ok) }
+    @Test fun badSecondSegmentCaught() { assertTrue(StudyVerifier.check("2+3 = 5 \\Rightarrow 5*2 = 12") is StudyVerifier.Result.Mismatch) }
+    @Test fun wholeNumberMustBeExact() { assertTrue(StudyVerifier.check("10 / 4 = 3") is StudyVerifier.Result.Mismatch) }
+}
+
+class StudyStreamParserTest {
+    private fun run(vararg chunks: String): List<StudyEvent> {
+        val p = StudyStreamParser(); val out = ArrayList<StudyEvent>()
+        for (c in chunks) out.addAll(p.feed(c)); out.addAll(p.finish()); return out
+    }
+    @Test fun objectsSplitAcrossChunksAreEmittedOnlyWhenComplete() {
+        val p = StudyStreamParser()
+        assertTrue(p.feed("{\"type\":\"step\",\"content\":\"2x = 10\",\"expl").isEmpty())
+        val ev = p.feed("anation\":\"Simplify\"}")
+        assertEquals(1, ev.size)
+        val s = ev[0] as StudyEvent.Step
+        assertEquals("2x = 10", s.content); assertEquals("Simplify", s.explanation)
+    }
+    @Test fun bracesInsideStringsAreNotStructure() {
+        val ev = run("{\"type\":\"step\",\"content\":\"\\\\frac{1}{2} } {\"}")
+        assertEquals(1, ev.size); assertTrue(ev[0] is StudyEvent.Step)
+    }
+    @Test fun codeFencesAndProseAreStray() {
+        val ev = run("Sure, here you go:\n```json\n{\"type\":\"final\",\"answer\":\"x = 5\"}\n```")
+        assertTrue(ev.any { it is StudyEvent.Stray }); assertTrue(ev.any { it is StudyEvent.Final })
+    }
+    @Test fun truncatedStreamIsRejectedNotDropped() {
+        val ev = run("{\"type\":\"step\",\"content\":\"abc")
+        assertTrue(ev.single() is StudyEvent.Rejected)
+    }
+    @Test fun malformedObjectIsRejected() {
+        val ev = run("{\"type\":\"step\",\"content\": }")
+        assertTrue(ev.single() is StudyEvent.Rejected)
+    }
+    @Test fun twoObjectsOnOneLine() { assertEquals(2, run("{\"content\":\"a=1\"}{\"content\":\"b=2\"}").size) }
+    @Test fun metaFinalAndDeclined() {
+        val ev = run("{\"type\":\"meta\",\"subject\":\"Physics\",\"topic\":\"Kinematics\",\"level\":\"Class 11\"}",
+            "{\"type\":\"declined\",\"reason\":\"unclear\"}")
+        assertTrue(ev[0] is StudyEvent.Meta); assertTrue(ev[1] is StudyEvent.Declined)
+    }
+    @Test fun wholeLessonObjectIsExpanded() {
+        val ev = run("{\"subject\":\"Mathematics\",\"topic\":\"x\",\"steps\":[{\"content\":\"a = 1\",\"explanation\":\"e\"}],\"final_answer\":\"a = 1\"}")
+        assertTrue(ev.first() is StudyEvent.Meta); assertTrue(ev.any { it is StudyEvent.Step }); assertTrue(ev.last() is StudyEvent.Final)
+    }
+    @Test fun oneCharAtATime() {
+        val text = "{\"type\":\"step\",\"content\":\"x = 5\",\"explanation\":\"done\"}"
+        val p = StudyStreamParser(); val out = ArrayList<StudyEvent>()
+        for (c in text) out.addAll(p.feed(c.toString()))
+        assertEquals(1, out.size)
+    }
+}
+
+class StudyAssemblerTest {
+    private fun step(content: String, expl: String = "") = StudyEvent.Step(StepKind.STEP, content, expl, null, "", false)
+    private fun asm() = StudyAssembler("2x + 5 = 15", "Class 8")
+
+    @Test fun validStepsAreAddedInOrderAndAnswerCompletes() {
+        val a = asm()
+        a.accept(StudyEvent.Meta("Mathematics", "Linear Equations", "Class 8"))
+        a.accept(step("2x + 5 = 15", "Isolate x."))
+        a.accept(step("2x = 15 - 5 = 10", "Subtract 5."))
+        a.accept(StudyEvent.Final("x = 5", "", ""))
+        val l = a.lesson
+        assertEquals(listOf(1, 2), l.steps.map { it.index }); assertTrue(l.complete); assertEquals(StudySubject.MATHEMATICS, l.subject)
+        assertEquals(Verification.ARITHMETIC_CHECKED, l.verification)
+    }
+    @Test fun chatterIsNeverShown() {
+        val a = asm()
+        val u = a.accept(step("Sure, let's solve this together!"))
+        assertTrue(u.isEmpty()); assertTrue(a.lesson.steps.isEmpty())
+        assertTrue(StudyAssembler.isChatter("Hope this helps!")); assertFalse(StudyAssembler.isChatter("Subtract 5 from both sides"))
+    }
+    @Test fun arithmeticErrorStepIsRejectedAndLessonMarkedFailed() {
+        val a = asm()
+        val u = a.accept(step("2x = 15 - 5 = 11"))
+        assertTrue(u.single() is StudyAssembler.Update.StepRejected)
+        assertTrue(a.lesson.steps.isEmpty()); assertEquals(Verification.FAILED, a.lesson.verification)
+    }
+    @Test fun duplicateStepAndRepeatedConclusionAreIgnored() {
+        val a = asm()
+        a.accept(step("x = 5")); assertTrue(a.accept(step("x = 5")).isEmpty())
+        a.accept(StudyEvent.Final("x = 5", "", "")); assertTrue(a.accept(StudyEvent.Final("x = 6", "", "")).isEmpty())
+        assertEquals("x = 5", a.lesson.finalAnswer); assertTrue(a.lesson.steps.last().isFinalHighlight)
+    }
+    @Test fun nothingAfterFinal() { val a = asm(); a.accept(StudyEvent.Final("42", "", "")); assertTrue(a.accept(step("extra = 1")).isEmpty()) }
+    @Test fun missingFinalIsNeverInvented() {
+        val a = asm(); a.accept(step("x = 5"))
+        val u = a.finish(true)
+        assertTrue(u.any { it is StudyAssembler.Update.StepRejected }); assertEquals("", a.lesson.finalAnswer); assertFalse(a.lesson.complete)
+    }
+    @Test fun emptyStreamIsDeclined() { assertTrue(asm().finish(true).single() is StudyAssembler.Update.Declined) }
+    @Test fun lowConfidenceIsLabelled() {
+        val a = asm(); a.accept(step("x = 5")); a.accept(StudyEvent.Final("x = 5", "", "low"))
+        assertEquals(Verification.MODEL_UNCERTAIN, a.lesson.verification)
+    }
+    @Test fun markdownAndDollarsAreStripped() { assertEquals("x = 5", StudyAssembler.cleanContent("\$\$x = 5\$\$")) }
+}
+
+class StudyMathTest {
+    private val m = FakeMetrics()
+    @Test fun plainEquationHasNoDroppedText() {
+        val b = StudyMath.layout("2x + 5 = 15", 30f, Ink.INK, m)
+        val text = b.ops.filterIsInstance<DrawOp.Glyphs>().joinToString("") { it.text }
+        assertTrue(text.contains("2") && text.contains("x") && text.contains("15") && text.contains("="))
+    }
+    @Test fun fractionDrawsBarAndBothParts() {
+        val b = StudyMath.layout("\\frac{a+b}{c}", 30f, Ink.INK, m)
+        assertEquals(1, b.ops.count { it is DrawOp.Line })
+        val g = b.ops.filterIsInstance<DrawOp.Glyphs>()
+        assertTrue(g.any { it.text == "c" })
+    }
+    @Test fun superscriptIsSmallerAndRaised() {
+        val b = StudyMath.layout("x^2", 30f, Ink.INK, m).ops.filterIsInstance<DrawOp.Glyphs>()
+        val base = b.first { it.text == "x" }; val sup = b.first { it.text == "2" }
+        assertTrue(sup.size < base.size); assertTrue(sup.y < base.y)
+    }
+    @Test fun rootAddsRadicalPath() { assertTrue(StudyMath.layout("\\sqrt{x}", 30f, Ink.INK, m).ops.any { it is DrawOp.Poly }) }
+    @Test fun chemicalSubscripts() {
+        val g = StudyMath.layout("\\ce{H2O}", 30f, Ink.INK, m).ops.filterIsInstance<DrawOp.Glyphs>()
+        val two = g.first { it.text == "2" }; val h = g.first { it.text == "H" }
+        assertTrue(two.y > h.y && two.size < h.size)
+    }
+    @Test fun unknownCommandIsKeptAsText() {
+        val g = StudyMath.layout("\\weirdthing + 1", 30f, Ink.INK, m).ops.filterIsInstance<DrawOp.Glyphs>().joinToString("") { it.text }
+        assertTrue(g.contains("weirdthing"))
+    }
+    @Test fun malformedLatexNeverThrows() {
+        for (s in listOf("\\frac{1", "}}}{{", "x^", "\\sqrt", "_", "\\", "{" .repeat(100) + "a", "\\frac{\\frac{\\frac{a}{b}}{c}}{d}")) StudyMath.layout(s, 30f, Ink.INK, m)
+    }
+    @Test fun longFormulaFitsWidth() {
+        val long = (1..40).joinToString(" + ") { "a$it" }
+        val boxes = StudyMath.layoutWrapped(long, 30f, 400f, Ink.INK, m, 8f)
+        assertTrue(boxes.all { it.w <= 400f + 1f })
+    }
+    @Test fun mathVersusProseDetection() {
+        assertTrue(StudyMath.looksLikeMath("2x + 5 = 15")); assertTrue(StudyMath.looksLikeMath("F = ma"))
+        assertFalse(StudyMath.looksLikeMath("Subtract five from both sides")); assertFalse(StudyMath.looksLikeMath("The mitochondria produce ATP"))
+    }
+}
+
+class StudyBoardLayoutTest {
+    private val m = FakeMetrics()
+    private val st = BoardStyle(width = 700f)
+    @Test fun wrappingNeverOverflows() {
+        val lines = StudyBoardLayout.wrap("word ".repeat(80) + "x".repeat(200), 20f, Face.BODY, 300f, m)
+        assertTrue(lines.all { m.width(it, 20f, Face.BODY) <= 300f + 0.01f })
+    }
+    @Test fun blocksStackWithoutOverlap() {
+        val q = StudyBoardLayout.layoutQuestion("2x + 5 = 15", 0f, st, m)
+        val s1 = StudyBoardLayout.layoutStep(StudyStep(1, StepKind.STEP, "2x = 10", "Subtract 5 from both sides."), q.bottom, st, m)
+        val s2 = StudyBoardLayout.layoutStep(StudyStep(2, StepKind.STEP, "x = 5", ""), s1.bottom, st, m)
+        assertTrue(s1.top >= q.bottom && s2.top >= s1.bottom && s2.bottom > s2.top)
+    }
+    @Test fun notesCanBeHiddenWithoutLosingMaths() {
+        val b = StudyBoardLayout.layoutStep(StudyStep(1, StepKind.STEP, "2x = 10", "Subtract 5."), 0f, st, m)
+        assertTrue(b.allOps(true).size > b.allOps(false).size); assertTrue(b.ops.isNotEmpty())
+    }
+    @Test fun finalAnswerIsBoxed() {
+        val b = StudyBoardLayout.layoutFinal("x = 5", "", 0f, st, m)
+        assertTrue(b.isFinal && b.ops.any { it is DrawOp.Rect })
+    }
+    @Test fun diagramAndGraphProduceOps() {
+        val d = DiagramSpec.parse(com.google.gson.JsonParser.parseString("{\"items\":[{\"t\":\"line\",\"x1\":0,\"y1\":0,\"x2\":50,\"y2\":50,\"arrow\":true},{\"t\":\"label\",\"x\":50,\"y\":60,\"text\":\"F\"}],\"graph\":{\"fn\":\"x^2-4\",\"xmin\":-3,\"xmax\":3}}").asJsonObject)
+        assertNotNull(d)
+        val r = StudyDiagramLayout.layout(d!!, 500f, 400f, m, 2f)
+        assertTrue(r.ops.any { it is DrawOp.Poly } && r.ops.any { it is DrawOp.Glyphs })
+    }
+    @Test fun emptyDiagramIsNull() { assertNull(DiagramSpec.parse(com.google.gson.JsonParser.parseString("{\"items\":[]}").asJsonObject)) }
+}
+
+class StudyPromptTest {
+    @Test fun explicitLevelWinsAndAgeMapsToClass() {
+        assertTrue(StudyProfile(level = "Class 11").levelHint().contains("Class 11"))
+        assertEquals("Class 11", StudyLevels.fromAge("16")); assertEquals("college level", StudyLevels.fromAge("21")); assertNull(StudyLevels.fromAge("abc"))
+        assertTrue(StudyProfile(userAge = "16").levelHint().contains("Class 11"))
+        assertTrue(StudyProfile().levelHint().contains("never a university derivation"))
+    }
+    @Test fun systemPromptForbidsChatterAndCarriesLanguage() {
+        val s = StudyPrompt.lessonSystem(StudyProfile(language = "Hinglish"))
+        assertTrue(s.contains("Never write greetings")); assertTrue(s.contains("Hinglish")); assertFalse(StudyPrompt.lessonUser("2x+5=15").contains("system"))
+    }
+    @Test fun doubtPromptQuotesBoardAndTappedStep() {
+        val lesson = StudyLesson(question = "q", steps = listOf(StudyStep(1, StepKind.STEP, "x = 1", "e")), finalAnswer = "1")
+        val u = StudyPrompt.doubtUser(lesson, "why?", 1)
+        assertTrue(u.contains("Step 1") && u.contains("tapped step 1") && u.contains("why?"))
+    }
+    @Test fun extractionParsesAndFlagsUncertainty() {
+        val q = StudyExtraction.parse("```json\n{\"questions\":[{\"text\":\"Solve 2x+5=15\",\"confidence\":\"high\",\"has_diagram\":false},{\"text\":\"Find [unclear]\",\"confidence\":\"low\"}]}\n```")
+        assertEquals(2, q.size); assertFalse(q[0].needsConfirmation); assertTrue(q[1].needsConfirmation)
+        assertTrue(StudyExtraction.parse("I could not read it").isEmpty()); assertTrue(StudyExtraction.parse("{bad").isEmpty())
+    }
+    @Test fun doubtStepResolution() {
+        assertEquals(3, StudyDoubts.resolveStep("why in step 3 did we divide", null, 5))
+        assertEquals(2, StudyDoubts.resolveStep("the second step is confusing", null, 5))
+        assertEquals(5, StudyDoubts.resolveStep("last step samajh nahi aaya", null, 5))
+        assertEquals(4, StudyDoubts.resolveStep("why this?", 4, 5))
+        assertEquals(1, StudyDoubts.resolveStep("step 1 why", 4, 5))
+        assertNull(StudyDoubts.resolveStep("explain everything", null, 5)); assertNull(StudyDoubts.resolveStep("step 9", null, 5))
+    }
+}
+
+class StudyPlaybackTest {
+    private class Rec : StudyPlayback.Listener {
+        val started = ArrayList<Int>(); val finished = ArrayList<Int>(); var all = 0
+        override fun onBlockStarted(index: Int, replay: Boolean) { started.add(index) }
+        override fun onBlockFinished(index: Int) { finished.add(index) }
+        override fun onAllFinished() { all++ }
+    }
+    private fun pb(n: Int, open: Boolean = false): Pair<StudyPlayback, Rec> {
+        val p = StudyPlayback(); val r = Rec(); p.listener = r
+        p.setGenerationOpen(open); repeat(n) { p.addBlock(1000) }; return p to r
+    }
+    private fun run(p: StudyPlayback, ms: Long) { var t = 0L; while (t < ms) { p.advance(50); t += 50 } }
+
+    @Test fun playsBlocksInOrderThenFinishes() {
+        val (p, r) = pb(3); run(p, 10_000)
+        assertEquals(listOf(0, 1, 2), r.started); assertEquals(listOf(0, 1, 2), r.finished); assertEquals(StudyPlayback.State.FINISHED, p.state); assertEquals(1, r.all)
+    }
+    @Test fun pauseFreezesAndResumeContinues() {
+        val (p, r) = pb(2); run(p, 400); p.pause(); val at = p.progress; run(p, 5000)
+        assertEquals(at, p.progress, 0f); assertEquals(1, r.started.size); p.resume(); run(p, 5000); assertEquals(StudyPlayback.State.FINISHED, p.state)
+    }
+    @Test fun waitsForGeneratedContentThenWritesIt() {
+        val (p, r) = pb(1, open = true); run(p, 3000)
+        assertEquals(StudyPlayback.State.WAITING_FOR_CONTENT, p.state)
+        p.addBlock(800); assertEquals(listOf(0, 1), r.started); run(p, 3000); assertEquals(StudyPlayback.State.WAITING_FOR_CONTENT, p.state)
+        p.setGenerationOpen(false); assertEquals(StudyPlayback.State.FINISHED, p.state)
+    }
+    @Test fun narrationHoldsTheNextBlock() {
+        val (p, r) = pb(2); p.narrationBusy = true; run(p, 4000)
+        assertEquals(listOf(0), r.started); p.narrationBusy = false; run(p, 200); assertEquals(listOf(0, 1), r.started)
+    }
+    @Test fun previousNextAndReplay() {
+        val (p, r) = pb(3); run(p, 1500); p.next(); assertEquals(2, p.current)
+        p.previous(); assertEquals(1, p.current)
+        p.replayCurrent(); assertEquals(1, p.current); run(p, 3000); assertEquals(StudyPlayback.State.PAUSED, p.state) // stops after the replayed step
+        p.replayAll(); assertEquals(0, p.current)
+    }
+    @Test fun speedChangesDurationButNeverBelowLimits() {
+        val (p, _) = pb(1); p.speed = 100f; assertEquals(3f, p.speed, 0f); p.speed = 0f; assertEquals(0.4f, p.speed, 0f)
+    }
+    @Test fun clearResets() { val (p, _) = pb(2); run(p, 500); p.clear(); assertEquals(0, p.blockCount); assertEquals(StudyPlayback.State.IDLE, p.state) }
+}
+
+class StudyCodecTest {
+    @Test fun roundTripKeepsEverythingIncludingDiagrams() {
+        val d = com.google.gson.JsonParser.parseString("{\"items\":[{\"t\":\"circle\",\"cx\":50,\"cy\":50,\"r\":20}]}").asJsonObject
+        val step = StudyStep(1, StepKind.DIAGRAM, "", "A circle", DiagramSpec.parse(d), d.toString())
+        val lesson = StudyLesson(StudySubject.BIOLOGY, "Cell", "Draw a cell", "Class 9", listOf(step, StudyStep(2, StepKind.STEP, "a = 1", "e", check = StepCheck.ARITHMETIC_OK)), "a = 1", "", Verification.ARITHMETIC_CHECKED, true)
+        val doubt = StudyDoubt("why?", 2, listOf(StudyStep(1, StepKind.STEP, "b", "")), 123L)
+        val back = StudyLessonCodec.fromJson(StudyLessonCodec.toJson(lesson, listOf(doubt), setOf(2)))!!
+        assertEquals(lesson.question, back.lesson.question); assertEquals(2, back.lesson.steps.size); assertNotNull(back.lesson.steps[0].diagram)
+        assertEquals(StepCheck.ARITHMETIC_OK, back.lesson.steps[1].check); assertEquals(1, back.doubts.size); assertEquals(setOf(2), back.bookmarks); assertTrue(back.lesson.complete)
+    }
+    @Test fun damagedOrFutureSavesAreRejected() {
+        assertNull(StudyLessonCodec.fromJson("not json")); assertNull(StudyLessonCodec.fromJson("{\"v\":99,\"steps\":[]}")); assertNull(StudyLessonCodec.fromJson("{\"v\":1}"))
+    }
+}
+
+class StudySpeechTextTest {
+    @Test fun readsEquationsAloud() {
+        assertEquals("x squared equals 4", StudySpeechText.verbalize("x^{2} = 4"))
+        assertEquals("a over b plus 3", StudySpeechText.verbalize("\\frac{a}{b} + 3"))
+        assertEquals("x equals 10 divided by 2 equals 5", StudySpeechText.verbalize("x = 10 / 2 = 5"))
+        assertEquals("v equals 20 minus 5", StudySpeechText.verbalize("v = 20 - 5"))
+        assertEquals("square root of 25 equals 5", StudySpeechText.verbalize("\\sqrt{25} = 5"))
+    }
+    @Test fun noLatexLeaksIntoSpeech() {
+        val s = StudySpeechText.verbalize("\\Delta E = mc^{2} \\times \\frac{1}{2}")
+        assertFalse(s.contains("\\") || s.contains("{") || s.contains("^"))
+    }
+    @Test fun hindiAndHinglishWords() {
+        assertTrue(StudySpeechText.verbalize("2 + 3 = 5", "hindi").contains("जमा"))
+        assertTrue(StudySpeechText.verbalize("2 x 3", "hinglish").isNotEmpty()); assertEquals("Answer hai", StudySpeechText.answerPrefix("Hinglish"))
+    }
+}
+
+class StudyPlaybackVisibilityTest {
+    @Test fun replayingOneStepKeepsTheRestVisibleAndReplayAllHidesThem() {
+        val p = StudyPlayback(); p.setGenerationOpen(false); repeat(4) { p.addBlock(500) }
+        var t = 0L; while (t < 10_000) { p.advance(50); t += 50 }
+        assertEquals(3, p.highWater)
+        p.seek(1); assertTrue(p.othersStayVisible); assertEquals(1, p.current)
+        t = 0; while (t < 3_000) { p.advance(50); t += 50 }
+        assertEquals(StudyPlayback.State.PAUSED, p.state); assertEquals(3, p.highWater)
+        p.replayAll(); assertFalse(p.othersStayVisible); assertEquals(0, p.current)
+    }
+}
+
+class StudyPlaybackRestoreTest {
+    @Test fun jumpToEndShowsEverythingAndTruncateKeepsStateValid() {
+        val p = StudyPlayback(); p.setGenerationOpen(false); repeat(5) { p.addBlock(500) }
+        p.jumpToEnd(); assertEquals(StudyPlayback.State.FINISHED, p.state); assertEquals(4, p.current); assertEquals(4, p.highWater)
+        p.truncateTo(3); assertEquals(3, p.blockCount); assertEquals(2, p.current); assertTrue(p.highWater <= 2)
+        p.truncateTo(0); assertEquals(StudyPlayback.State.IDLE, p.state)
+    }
+    @Test fun doubtHeaderUsesItsOwnPrefix() {
+        val b = StudyBoardLayout.layoutQuestion("why divide by 2?", 0f, BoardStyle(700f), FakeMetrics(), prefix = "?")
+        assertTrue(b.ops.filterIsInstance<DrawOp.Glyphs>().any { it.text == "?" })
+    }
+}
