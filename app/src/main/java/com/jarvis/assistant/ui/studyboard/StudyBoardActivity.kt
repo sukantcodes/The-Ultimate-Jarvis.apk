@@ -106,6 +106,26 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
         board.bind(vm.playback, vm.blocks.value, vm.eraseLimit.value)
         observe()
         refresh()
+        if (savedInstanceState == null) runQuestionFrom(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        runQuestionFrom(intent)
+    }
+
+    /** "Explain this in Study Board" by voice: the question arrives in the intent and runs as soon as the board is open. */
+    private fun runQuestionFrom(intent: Intent?) {
+        val q = intent?.getStringExtra(EXTRA_QUESTION)?.trim().orEmpty()
+        if (q.isEmpty()) return
+        intent?.removeExtra(EXTRA_QUESTION) // so a rotation or a theme rebuild never asks it twice
+        val start = { vm.newQuestionMode(); vm.startLesson(q, emptyList()) }
+        if (vm.isBusy) {
+            // A new spoken question replaces the one being written: stop it, then start the new one.
+            vm.cancel()
+            window.decorView.postDelayed({ if (!isFinishing) start() }, 500L)
+        } else start()
     }
 
     // ======================================================================================================
@@ -157,6 +177,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
         subjectLine = label("Ask a question", 12f, 0xFF9AA6B8.toInt()).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
         titles.addView(subjectLine)
         header.addView(titles)
+        header.addView(statusPill, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(6) })
         header.addView(icon(R.drawable.ic_study_history, "Saved lessons") { historyLauncher.launch(Intent(this, StudyHistoryActivity::class.java)) })
         header.addView(icon(R.drawable.ic_study_tune, "Teaching settings") { StudyDialogs.settings(this, vm.prefs) { vm.setVoice(vm.prefs.voiceOn) } })
         root.addView(header)
@@ -166,7 +187,6 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
         board = StudyBoardView(this).apply { host = this@StudyBoardActivity }
         boardFrame.addView(board, FrameLayout.LayoutParams(-1, -1))
         statusPill = label("", 11f, 0xFF0B1220.toInt(), true).apply { setPadding(dp(10), dp(4), dp(10), dp(4)); background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(accent) }; visibility = View.GONE }
-        boardFrame.addView(statusPill, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { setMargins(dp(12), dp(12), 0, 0) })
         val zoom = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = glass(18, 0xCC10141B.toInt()) }
         zoom.addView(icon(R.drawable.ic_study_zoom_in, "Zoom in", 38) { board.zoomBy(1.4f) })
         zoom.addView(icon(R.drawable.ic_study_zoom_out, "Zoom out", 38) { board.zoomBy(1f / 1.4f) })
@@ -315,7 +335,8 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
             pb.state == StudyPlayback.State.WAITING_FOR_CONTENT && ui.phase == StudyViewModel.Phase.GENERATING -> "Thinking…"
             else -> ""
         }
-        statusPill.visibility = if (status.isEmpty()) View.GONE else View.VISIBLE
+        board.showPen = vm.prefs.penOn
+        statusPill.visibility = if (status.isEmpty() || !vm.prefs.statusOn) View.GONE else View.VISIBLE
         statusPill.text = status
 
         playButton.setImageResource(if (pb.state == StudyPlayback.State.PLAYING) R.drawable.ic_study_pause else R.drawable.ic_study_play)
@@ -501,6 +522,8 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
     }
 
     companion object {
+        /** Intent extra: a question to solve as soon as the board opens (used by the voice assistant). */
+        const val EXTRA_QUESTION = "study_question"
         private const val BG = 0xFF06080C.toInt()
         private const val PANEL = 0xFF10141B.toInt()
         private const val STROKE = 0xFF263040.toInt()

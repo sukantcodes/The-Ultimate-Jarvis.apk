@@ -57,6 +57,10 @@ object StudyDialogs {
         val depth = spinner(a, depthNames, prefs.depth.label); col.addView(depth)
         col.addView(caption(a, "Narration and microphone language"))
         val voice = spinner(a, listOf("Auto", "English", "Hindi"), prefs.voiceLanguage); col.addView(voice)
+        val statusBox = CheckBox(a).apply { text = "Show Thinking / Writing status (top bar)"; isChecked = prefs.statusOn }
+        val penBox = CheckBox(a).apply { text = "Show the pen on the board while it writes"; isChecked = prefs.penOn }
+        col.addView(caption(a, "Board"))
+        col.addView(statusBox); col.addView(penBox)
         col.addView(TextView(a).apply {
             text = "Auto level uses the class named in your question, then your age from your profile. Hinglish is narrated with an English (India) voice."
             textSize = 11f; alpha = 0.6f; setPadding(0, dp(a, 10), 0, 0)
@@ -68,6 +72,8 @@ object StudyDialogs {
                 prefs.language = lang.selectedItem.toString()
                 prefs.depth = StudyProfile.Depth.values()[depth.selectedItemPosition]
                 prefs.voiceLanguage = voice.selectedItem.toString()
+                prefs.statusOn = statusBox.isChecked
+                prefs.penOn = penBox.isChecked
                 onSaved()
             }
             .setNegativeButton("Cancel", null).show()

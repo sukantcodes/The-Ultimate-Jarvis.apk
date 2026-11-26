@@ -215,6 +215,7 @@
         <activity
             android:name=".ui.studyboard.StudyBoardActivity"
             android:exported="false"
+            android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="keyboardHidden|screenLayout|smallestScreenSize|density" />
         <activity

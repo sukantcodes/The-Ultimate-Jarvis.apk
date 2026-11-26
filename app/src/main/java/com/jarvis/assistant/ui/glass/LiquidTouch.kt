@@ -93,6 +93,8 @@ object LiquidTouch {
     private fun attach(activity: Activity) = attachWindow(activity.window, activity)
 
     private fun attachWindow(window: Window, context: Context) {
+        // The Study Board's white page must stay completely clean: no touch ripples or glass effects drawn over it.
+        if (context is com.jarvis.assistant.ui.studyboard.StudyBoardActivity) return
         // Liquid glass off: no ripple layer and no bubble sheen anywhere (the dock bar has its own touch effects).
         if (GlassMode.plain()) { TextRoles.attachPlain(window); return }
         try {

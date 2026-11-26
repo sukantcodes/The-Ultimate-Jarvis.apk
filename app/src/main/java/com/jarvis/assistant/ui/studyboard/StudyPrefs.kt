@@ -31,6 +31,15 @@ class StudyPrefs(context: Context) {
         get() = p.getBoolean("notes_on", true)
         set(v) { p.edit().putBoolean("notes_on", v).apply() }
 
+    /** The small "Thinking / Writing / Reading" label in the top bar (never on the board itself). */
+    var statusOn: Boolean
+        get() = p.getBoolean("status_on", true)
+        set(v) { p.edit().putBoolean("status_on", v).apply() }
+    /** The pen tip drawn on the board while it writes. Off by default: the board stays clean. */
+    var penOn: Boolean
+        get() = p.getBoolean("pen_on", false)
+        set(v) { p.edit().putBoolean("pen_on", v).apply() }
+
     /** Which AI answers the board: your Gemini API key (default) or the active custom provider. */
     var provider: String
         get() = p.getString("ai_provider", PROVIDER_GEMINI) ?: PROVIDER_GEMINI

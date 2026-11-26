@@ -3158,6 +3158,16 @@ class JarvisConversationService : Service() {
                         }
                     }
 
+                    in com.jarvis.assistant.study.StudyTools.NAMES -> {
+                        // Study Board: opens the whiteboard teacher with the spoken question and runs it.
+                        val study = com.jarvis.assistant.study.StudyTools.execute(applicationContext, name, args)
+                        val studyKeys = study.keys()
+                        while (studyKeys.hasNext()) {
+                            val key = studyKeys.next()
+                            result.put(key, study.get(key))
+                        }
+                    }
+
                     in com.jarvis.assistant.clock.ClockTools.NAMES -> {
                         // Alarm clock: same engine as Settings > Clock. The am/pm check reads the user's real transcript.
                         val clock = com.jarvis.assistant.clock.ClockTools.execute(

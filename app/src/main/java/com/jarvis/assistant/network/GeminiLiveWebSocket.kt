@@ -1001,6 +1001,9 @@ open class GeminiLiveWebSocket(
                         // 27. JARVIS Home smart devices: control, list, run scenes
                         com.jarvis.assistant.home.HomeTools.declarations().forEach { put(it) }
 
+                        // 28. Study Board: "explain this in Study Board" opens the board and runs the question
+                        com.jarvis.assistant.study.StudyTools.declarations().forEach { put(it) }
+
                     })
                 }))
             })

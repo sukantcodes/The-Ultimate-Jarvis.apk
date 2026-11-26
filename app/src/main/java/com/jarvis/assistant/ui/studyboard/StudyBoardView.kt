@@ -39,6 +39,8 @@ class StudyBoardView(context: Context) : View(context) {
     private var blocks: List<BoardBlock> = emptyList()
     private var playback: StudyPlayback? = null
     var showNotes: Boolean = true
+    /** Draw the pen tip while writing. Off by default so the board stays completely clean. */
+    var showPen: Boolean = false
         set(v) { field = v; invalidate() }
     var selectedBlock: Int = -1
         set(v) { field = v; invalidate() }
@@ -176,7 +178,7 @@ class StudyBoardView(context: Context) : View(context) {
             val ops = b.allOps(showNotes)
             // the pen writes the step first and its note afterwards
             painter.drawOps(canvas, ops, fraction, alpha)
-            if (i == cur && fraction < 1f && painter.tipVisible && !tipDrawn) { painter.drawPen(canvas, painter.tipX, painter.tipY, accent); tipDrawn = true }
+            if (showPen && i == cur && fraction < 1f && painter.tipVisible && !tipDrawn) { painter.drawPen(canvas, painter.tipX, painter.tipY, accent); tipDrawn = true }
             if (i == selectedBlock) painter.drawSelection(canvas, b, BOARD_WIDTH, MARGIN, accent)
             if (!b.isQuestion && bookmarkedBlocks.contains(b.stepIndex) && fraction >= 1f) painter.drawBookmark(canvas, b, BOARD_WIDTH, MARGIN, 0xFFE0A100.toInt())
         }
