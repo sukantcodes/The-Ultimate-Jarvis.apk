@@ -44,7 +44,9 @@ class StudyAiException(message: String, val retryable: Boolean = true, val offli
 object StudyAiEngine {
 
     private const val GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
-    private const val GEMINI_DEFAULT_MODEL = "gemini-2.5-flash"
+    private const val GEMINI_DEFAULT_MODEL = "gemini-3.8-flash"
+    /** Tried in order when Google reports a model as retired or unavailable, so one retired id never blocks the board. */
+    private val GEMINI_FALLBACK_MODELS = listOf("gemini-3.8-flash", "gemini-3.1-flash", "gemini-flash-latest")
     private const val MAX_LEASE_ATTEMPTS = 3
 
     class Request(
@@ -65,7 +67,8 @@ object StudyAiEngine {
                 retryable = true, offline = true
             )
         }
-        val base = resolve(app, request)
+        var base = resolve(app, request)
+        val triedModels = HashSet<String>().apply { add(base.modelId) }
         val transport = ProviderRuntime.transport()
         val client = ChatClientFactory.create(base.protocol, transport)
         val pooled = base.auth.secret?.isBlank != false
@@ -107,6 +110,15 @@ object StudyAiEngine {
                     tried.add(lease.keyId)
                     // Another key can only help before any text was shown; after that, retrying would repeat steps.
                     if (!emitted && failure.rotates && attempt < MAX_LEASE_ATTEMPTS) continue
+                }
+                if (err.kind == ProviderErrorKind.MODEL_NOT_FOUND && !emitted && base.profileId == "builtin-gemini") {
+                    val next = GEMINI_FALLBACK_MODELS.firstOrNull { it !in triedModels }
+                    if (next != null) {
+                        triedModels.add(next)
+                        base = base.copy(modelId = next, model = ModelInfo(id = next, manual = true))
+                        tried.clear()
+                        continue
+                    }
                 }
                 throw mapError(err)
             } finally {
