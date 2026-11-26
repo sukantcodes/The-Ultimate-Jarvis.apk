@@ -243,7 +243,9 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
         bookmarkButton = icon(R.drawable.ic_study_bookmark, "Bookmark the selected step") { vm.toggleBookmark() }
         row.addView(bookmarkButton)
         row.addView(icon(R.drawable.ic_study_star, "Save this lesson") { vm.saveSession() })
-        row.addView(icon(R.drawable.ic_study_export, "Export") { showExportMenu(it) })
+        lateinit var exportButton: ImageButton
+        exportButton = icon(R.drawable.ic_study_export, "Export") { showExportMenu(exportButton) }
+        row.addView(exportButton)
         scroller.addView(row)
         return scroller
     }
