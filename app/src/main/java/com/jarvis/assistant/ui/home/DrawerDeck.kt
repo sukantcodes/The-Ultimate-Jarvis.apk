@@ -49,7 +49,7 @@ object DrawerDeck {
 
     private val toneOffsets = mapOf(
         R.id.drawerHome to 0f, R.id.drawerChat to 50f,
-        R.id.drawerJarvisHome to 110f, R.id.drawerTerminal to 170f, R.id.drawerAutomation to 230f,
+        R.id.drawerJarvisHome to 110f, R.id.drawerStudyBoard to 325f, R.id.drawerTerminal to 170f, R.id.drawerAutomation to 230f,
         R.id.drawerMemories to 290f, R.id.drawerScreenShare to 25f,
         R.id.drawerDeviceNetwork to 80f,
         R.id.drawerSettings to 140f, R.id.drawerUpdates to 200f,

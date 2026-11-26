@@ -111,6 +111,7 @@ object HomeDeck {
         // Shortcuts and quick actions: one colour each.
         styleTile(b.btnHomeAutomation, tones[0])
         styleTile(b.btnHomeNetwork, tones[2])
+        styleTile(b.btnHomeStudyBoard, rotate(accent, 325f))
         styleTile(b.btnHomeMaya, tones[3])
         styleTile(b.btnScreenShareQuick, tones[4])
         styleTile(b.btnSavedMemories, tones[1])

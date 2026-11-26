@@ -623,6 +623,7 @@ class MainActivity : AppCompatActivity(), com.jarvis.assistant.util.JarvisStatus
                 R.id.drawerHome -> selectTab(TAB_HOME)
                 R.id.drawerChat -> selectTab(TAB_CHAT)
                 R.id.drawerJarvisHome -> startActivity(Intent(this, com.jarvis.assistant.ui.jarvishome.HomeActivity::class.java))
+                R.id.drawerStudyBoard -> startActivity(Intent(this, com.jarvis.assistant.ui.studyboard.StudyBoardActivity::class.java))
                 R.id.drawerTerminal -> startActivity(Intent(this, com.jarvis.assistant.ui.terminal.JarvisTerminalActivity::class.java))
                 R.id.drawerSettings -> selectTab(TAB_SETTINGS)
                 R.id.drawerDeviceNetwork -> startActivity(Intent(this, com.jarvis.assistant.ui.udn.UdnActivity::class.java))

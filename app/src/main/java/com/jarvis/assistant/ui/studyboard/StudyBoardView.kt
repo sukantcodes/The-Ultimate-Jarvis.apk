@@ -3,15 +3,20 @@ package com.jarvis.assistant.ui.studyboard
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Outline
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewOutlineProvider
+import android.view.animation.DecelerateInterpolator
+import androidx.core.graphics.ColorUtils
 import com.jarvis.assistant.study.BoardBlock
 import com.jarvis.assistant.study.StepKind
 import com.jarvis.assistant.study.StudyPlayback
+import com.jarvis.assistant.util.ThemeManager
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
@@ -33,6 +38,9 @@ class StudyBoardView(context: Context) : View(context) {
     }
 
     var host: Host? = null
+    /** Notifies the UI chrome when zoom scale or follow-pen state changes so overlay pills can react smoothly. */
+    var onViewportChanged: ((zoom: Float, followPen: Boolean) -> Unit)? = null
+
     private val fonts = StudyFonts(context)
     private val painter = StudyPainter(fonts)
 
@@ -47,10 +55,18 @@ class StudyBoardView(context: Context) : View(context) {
     var bookmarkedBlocks: Set<Int> = emptySet()
         set(v) { field = v; invalidate() }
     var followPen: Boolean = true
+        set(v) {
+            if (field != v) {
+                field = v
+                notifyViewport()
+            }
+        }
 
     private var zoom = 1f
     private var tx = 0f
     private var ty = 0f
+    private var lastReportedZoom = 1f
+    private var lastReportedFollow = true
 
     // erase / restore animation of the tail of the board
     private var limit = Int.MAX_VALUE
@@ -59,20 +75,58 @@ class StudyBoardView(context: Context) : View(context) {
     private var animAlpha = 1f
     private var animating = false
     private var animator: ValueAnimator? = null
+    private var zoomAnimator: ValueAnimator? = null
 
     private var ticking = false
     private var lastTick = 0L
-    private val accent = 0xFF0B63C5.toInt()
+    private var cachedThemeAccent = 0
+    private var paperAccent = StudyPalette.color(com.jarvis.assistant.study.Ink.ACCENT)
 
     init {
         setBackgroundColor(StudyPalette.PAPER)
         clipToOutline = true
         outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
-                outline.setRoundRect(0, 0, view.width, view.height, resources.displayMetrics.density * 20f)
+                outline.setRoundRect(0, 0, view.width, view.height, resources.displayMetrics.density * 22f)
             }
         }
         contentDescription = "Study whiteboard"
+        refreshPaperAccent()
+    }
+
+    /** Derives a crisp, high-contrast board highlight colour from the active theme for selection & pen tip on paper. */
+    private fun refreshPaperAccent(): Int {
+        val raw = runCatching { ThemeManager.getThemeAccentColor() }.getOrDefault(StudyPalette.color(com.jarvis.assistant.study.Ink.ACCENT))
+        if (raw == cachedThemeAccent) return paperAccent
+        cachedThemeAccent = raw
+        val hsv = FloatArray(3)
+        Color.colorToHSV(raw, hsv)
+        if (hsv[1] > 0.12f) hsv[1] = hsv[1].coerceAtLeast(0.68f)
+        if (hsv[2] > 0.62f) hsv[2] = 0.62f
+        val candidate = Color.HSVToColor(hsv)
+        paperAccent = if (ColorUtils.calculateContrast(candidate, StudyPalette.PAPER) >= 4.2) {
+            candidate
+        } else {
+            StudyPalette.color(com.jarvis.assistant.study.Ink.ACCENT)
+        }
+        return paperAccent
+    }
+
+    private fun paperWarningColor(): Int {
+        val raw = runCatching { ThemeManager.getThemeWarningColor() }.getOrDefault(StudyPalette.color(com.jarvis.assistant.study.Ink.WARN))
+        val hsv = FloatArray(3)
+        Color.colorToHSV(raw, hsv)
+        if (hsv[2] > 0.68f) hsv[2] = 0.68f
+        if (hsv[1] > 0.12f) hsv[1] = hsv[1].coerceAtLeast(0.75f)
+        return Color.HSVToColor(hsv)
+    }
+
+    private fun notifyViewport(force: Boolean = false) {
+        if (force || abs(zoom - lastReportedZoom) >= 0.02f || followPen != lastReportedFollow) {
+            lastReportedZoom = zoom
+            lastReportedFollow = followPen
+            onViewportChanged?.invoke(zoom, followPen)
+        }
     }
 
     fun bind(playback: StudyPlayback, blocks: List<BoardBlock>, eraseLimit: Int) {
@@ -114,8 +168,13 @@ class StudyBoardView(context: Context) : View(context) {
         }
     }
 
-    override fun onAttachedToWindow() { super.onAttachedToWindow(); kick() }
-    override fun onDetachedFromWindow() { animator?.cancel(); ticking = false; super.onDetachedFromWindow() }
+    override fun onAttachedToWindow() { super.onAttachedToWindow(); refreshPaperAccent(); kick() }
+    override fun onDetachedFromWindow() {
+        animator?.cancel()
+        zoomAnimator?.cancel()
+        ticking = false
+        super.onDetachedFromWindow()
+    }
 
     // ----- erase / redo -------------------------------------------------------------------------------------
 
@@ -150,6 +209,7 @@ class StudyBoardView(context: Context) : View(context) {
         super.onDraw(canvas)
         val pb = playback ?: return
         val s = scale()
+        val accent = refreshPaperAccent()
         canvas.save()
         canvas.translate(tx, ty)
         canvas.scale(s, s)
@@ -173,14 +233,20 @@ class StudyBoardView(context: Context) : View(context) {
             if (fraction <= 0f) continue
             var alpha = 255
             if (animating && i >= animFrom && i < animTo) alpha = (255 * animAlpha).toInt()
-            if (b.kind == StepKind.FORMULA && !b.isQuestion) painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, 0xFF0B63C5.toInt(), (0x14 * alpha / 255) )
-            if (b.isFinal) painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, 0xFF0A8A56.toInt(), (0x1A * alpha / 255))
+            if (b.kind == StepKind.FORMULA && !b.isQuestion) {
+                painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, accent, (0x14 * alpha / 255))
+            }
+            if (b.isFinal) {
+                painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, StudyPalette.color(com.jarvis.assistant.study.Ink.RESULT), (0x1A * alpha / 255))
+            }
             val ops = b.allOps(showNotes)
             // the pen writes the step first and its note afterwards
             painter.drawOps(canvas, ops, fraction, alpha)
             if (showPen && i == cur && fraction < 1f && painter.tipVisible && !tipDrawn) { painter.drawPen(canvas, painter.tipX, painter.tipY, accent); tipDrawn = true }
             if (i == selectedBlock) painter.drawSelection(canvas, b, BOARD_WIDTH, MARGIN, accent)
-            if (!b.isQuestion && bookmarkedBlocks.contains(b.stepIndex) && fraction >= 1f) painter.drawBookmark(canvas, b, BOARD_WIDTH, MARGIN, 0xFFE0A100.toInt())
+            if (!b.isQuestion && bookmarkedBlocks.contains(b.stepIndex) && fraction >= 1f) {
+                painter.drawBookmark(canvas, b, BOARD_WIDTH, MARGIN, paperWarningColor())
+            }
         }
         canvas.restore()
     }
@@ -235,8 +301,41 @@ class StudyBoardView(context: Context) : View(context) {
         invalidate()
     }
 
-    fun zoomBy(factor: Float) = zoomAround(width / 2f, height / 2f, factor)
-    fun resetZoom() { zoom = 1f; tx = 0f; clampPan(); invalidate() }
+    fun zoomBy(factor: Float) = animateZoomTo(width / 2f, height / 2f, (zoom * factor).coerceIn(1f, 4f))
+
+    fun resetZoom() {
+        if (width == 0 || height == 0) {
+            zoom = 1f; tx = 0f; clampPan(); invalidate(); notifyViewport(true)
+            return
+        }
+        animateZoomTo(width / 2f, height / 2f, 1f)
+    }
+
+    private fun animateZoomTo(fx: Float, fy: Float, targetZoom: Float) {
+        zoomAnimator?.cancel()
+        val startZoom = zoom
+        val startTx = tx
+        val startTy = ty
+        val endZoom = targetZoom.coerceIn(1f, 4f)
+        if (abs(endZoom - startZoom) < 0.005f) return
+        val real = endZoom / startZoom
+        val endTx = if (endZoom <= 1.001f) 0f else fx - (fx - startTx) * real
+        val endTy = fy - (fy - startTy) * real
+        zoomAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 210L
+            interpolator = DecelerateInterpolator()
+            addUpdateListener {
+                val p = it.animatedValue as Float
+                zoom = startZoom + (endZoom - startZoom) * p
+                tx = startTx + (endTx - startTx) * p
+                ty = startTy + (endTy - startTy) * p
+                clampPan()
+                invalidate()
+                notifyViewport()
+            }
+            start()
+        }
+    }
 
     private fun zoomAround(fx: Float, fy: Float, factor: Float) {
         val newZoom = (zoom * factor).coerceIn(1f, 4f)
@@ -246,9 +345,15 @@ class StudyBoardView(context: Context) : View(context) {
         zoom = newZoom
         clampPan()
         invalidate()
+        notifyViewport()
     }
 
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+            zoomAnimator?.cancel()
+            return true
+        }
+
         override fun onScale(d: ScaleGestureDetector): Boolean {
             followPen = false; host?.onUserPanned()
             zoomAround(d.focusX, d.focusY, d.scaleFactor)
@@ -260,13 +365,14 @@ class StudyBoardView(context: Context) : View(context) {
         override fun onDown(e: MotionEvent): Boolean = true
         override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dx: Float, dy: Float): Boolean {
             if (scaleDetector.isInProgress) return false
+            zoomAnimator?.cancel()
             followPen = false; host?.onUserPanned()
             tx -= dx; ty -= dy
             clampPan(); invalidate()
             return true
         }
         override fun onDoubleTap(e: MotionEvent): Boolean {
-            if (zoom > 1.2f) resetZoom() else zoomAround(e.x, e.y, 2f)
+            if (zoom > 1.2f) resetZoom() else animateZoomTo(e.x, e.y, 2f)
             return true
         }
         override fun onSingleTapConfirmed(e: MotionEvent): Boolean {

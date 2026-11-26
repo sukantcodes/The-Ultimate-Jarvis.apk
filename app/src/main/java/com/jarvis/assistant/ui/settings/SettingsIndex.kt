@@ -75,7 +75,7 @@ object SettingsIndex {
         Entry("Transparent Background", "Daydream 4K scenes and blur", "Appearance", CrystalBackgroundActivity::class.java, null, "transparent crystal background wallpaper daydream blur"),
         Entry("More theme colours", "Pick any accent colour", "Appearance", MoreThemeColoursActivity::class.java, null, "theme colours colors accent palette"),
         Entry("Maya companion", "Secret companion settings", "Appearance", MayaModeActivity::class.java, null, "maya companion"),
-        Entry("Settings background", "Animated scenes or see-through glass", "Appearance", AppearanceSettingsActivity::class.java, "rowSettingsScene", "animation animated scene aurora nebula waves silk prism constellation see-through transparent 4k"),
+        Entry("Settings background", "Animated scenes or see-through glass", "Appearance", AppearanceSettingsActivity::class.java, "rowSettingsScene", "animation animated scene wallpaper aurora nebula waves silk prism constellation mesh bokeh ripples fireflies dusk arc core reactor neural pulse quantum orbit hud cyber matrix solar corona holo helix see-through transparent 4k"),
         Entry("Voice enrollment", "Teach Jarvis your voice", "Security", VoiceEnrollmentActivity::class.java, null, "voice enroll profile owner"),
         Entry("Device network", "Parent and child devices", "Owner", UdnActivity::class.java, null, "network devices udn parent child join")
     )

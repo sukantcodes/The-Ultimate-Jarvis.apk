@@ -51,6 +51,7 @@ class DrawerMenu(private val container: LinearLayout) {
         ))
         group(inflater, "WORKSPACE", listOf(
             Entry(R.id.drawerJarvisHome, R.layout.drawer_item_jarvis_home, false),
+            Entry(R.id.drawerStudyBoard, R.layout.drawer_item_study_board, false),
             Entry(R.id.drawerTerminal, R.layout.drawer_item_terminal, false),
             Entry(R.id.drawerAutomation, R.layout.drawer_item_automation, false),
             Entry(R.id.drawerMemories, R.layout.drawer_item_memories, false),

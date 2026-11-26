@@ -398,7 +398,8 @@ class AppPreferences(context: Context) {
 
     /**
      * The animated scene behind every Settings screen: "auto" (see-through on the Transparent theme, Aurora otherwise),
-     * "aurora", "nebula", "waves", "constellation", "prism", "silk" or "seethrough".
+     * "aurora", "nebula", "waves", "constellation", "prism", "silk", "mesh", "bokeh", "ripples", "fireflies", "dusk",
+     * "arc_reactor", "neural_pulse", "quantum_orbit", "cyber_matrix", "solar_corona", "holo_helix" or "seethrough".
      */
     var settingsScene: String
         get() = prefs.getString("settings_scene", "auto") ?: "auto"
