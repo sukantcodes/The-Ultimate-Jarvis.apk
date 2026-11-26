@@ -176,7 +176,7 @@ class CloudVoiceEngine(private val context: Context) {
         return null
     }
 
-    private fun fetchElevenLabsSpeech(text: String, profile: SpeakerProfile): ByteArray? {
+    internal fun fetchElevenLabsSpeech(text: String, profile: SpeakerProfile): ByteArray? {
         val app = (context.applicationContext as? JarvisApp)
         val apiKey = app?.preferences?.elevenLabsApiKey?.trim().orEmpty()
         if (apiKey.isBlank()) {

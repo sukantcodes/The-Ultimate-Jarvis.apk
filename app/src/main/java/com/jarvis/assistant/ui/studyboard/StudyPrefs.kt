@@ -18,7 +18,7 @@ class StudyPrefs(context: Context) {
         get() = runCatching { StudyProfile.Depth.valueOf(p.getString("depth", "AUTO") ?: "AUTO") }.getOrDefault(StudyProfile.Depth.AUTO)
         set(v) { p.edit().putString("depth", v.name).apply() }
     var voiceOn: Boolean
-        get() = p.getBoolean("voice_on", false)
+        get() = p.getBoolean("voice_on", true)
         set(v) { p.edit().putBoolean("voice_on", v).apply() }
     /** Auto, English or Hindi: the language of narration and of the microphone. */
     var voiceLanguage: String
@@ -49,6 +49,13 @@ class StudyPrefs(context: Context) {
         const val PROVIDER_GEMINI = "gemini"
         const val PROVIDER_CUSTOM = "custom"
     }
+    /** Whether the teacher remembers earlier questions of this session when answering the next one. */
+    var memoryOn: Boolean
+        get() = p.getBoolean("memory_on", true)
+        set(v) { p.edit().putBoolean("memory_on", v).apply() }
+    var memoryJson: String
+        get() = p.getString("memory_json", "") ?: ""
+        set(v) { p.edit().putString("memory_json", v).apply() }
 
     fun profile(): StudyProfile = StudyProfile(
         level = level, language = language, depth = depth,

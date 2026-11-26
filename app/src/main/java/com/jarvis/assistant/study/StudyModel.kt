@@ -80,7 +80,9 @@ data class StudyStep(
     val proseMode: Boolean = false,
     val check: StepCheck = StepCheck.NOT_CHECKED,
     /** True when this step is also the final answer, so the board highlights it instead of repeating it. */
-    val isFinalHighlight: Boolean = false
+    val isFinalHighlight: Boolean = false,
+    /** What the teacher says aloud while writing this step, in the lesson language. Empty when the model gave none. */
+    val spoken: String = ""
 )
 
 data class StudyLesson(
@@ -93,7 +95,8 @@ data class StudyLesson(
     val finalExplanation: String = "",
     val verification: Verification = Verification.NOT_VERIFIED,
     val complete: Boolean = false,
-    val declinedReason: String = ""
+    val declinedReason: String = "",
+    val finalSpoken: String = ""
 )
 
 /** A follow-up question asked about the finished lesson. The original lesson is never changed by a doubt. */
@@ -114,9 +117,10 @@ sealed class StudyEvent {
         val explanation: String,
         val diagram: com.google.gson.JsonObject?,
         val language: String,
-        val proseHint: Boolean
+        val proseHint: Boolean,
+        val spoken: String = ""
     ) : StudyEvent()
-    data class Final(val answer: String, val explanation: String, val confidence: String) : StudyEvent()
+    data class Final(val answer: String, val explanation: String, val confidence: String, val spoken: String = "") : StudyEvent()
     data class Declined(val reason: String) : StudyEvent()
     data class Rejected(val reason: String, val raw: String) : StudyEvent()
     /** Text the model wrote outside any JSON object. It is never shown on the board. */

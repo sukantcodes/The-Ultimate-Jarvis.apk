@@ -11,7 +11,7 @@ class StudyAssembler(private val question: String, private val level: String) {
         data class LessonChanged(val lesson: StudyLesson) : Update()
         data class StepAdded(val step: StudyStep) : Update()
         data class StepRestyled(val step: StudyStep) : Update()
-        data class FinalAnswer(val answer: String, val explanation: String) : Update()
+        data class FinalAnswer(val answer: String, val explanation: String, val spoken: String = "") : Update()
         data class StepRejected(val reason: String, val atIndex: Int) : Update()
         data class Declined(val reason: String) : Update()
         data class DoubtTarget(val step: Int) : Update()
@@ -26,6 +26,7 @@ class StudyAssembler(private val question: String, private val level: String) {
     private val steps = ArrayList<StudyStep>()
     private var finalAnswer = ""
     private var finalExplanation = ""
+    private var finalSpoken = ""
     private var declined = ""
     private var rejectedCount = 0
     private var seenMeta = false
@@ -39,6 +40,7 @@ class StudyAssembler(private val question: String, private val level: String) {
             steps = steps.toList(),
             finalAnswer = finalAnswer,
             finalExplanation = finalExplanation,
+            finalSpoken = finalSpoken,
             verification = currentVerification(),
             complete = finalAnswer.isNotEmpty() || declined.isNotEmpty(),
             declinedReason = declined
@@ -133,7 +135,8 @@ class StudyAssembler(private val question: String, private val level: String) {
             diagramJson = if (diagram != null) e.diagram.toString() else "",
             language = e.language.take(20),
             proseMode = prose,
-            check = check
+            check = check,
+            spoken = cleanSpoken(e.spoken)
         )
         steps.add(step)
         return listOf(Update.StepAdded(step))
@@ -156,13 +159,15 @@ class StudyAssembler(private val question: String, private val level: String) {
             out.add(Update.StepRestyled(hi))
             finalAnswer = answer
             finalExplanation = ""
-            out.add(Update.FinalAnswer(answer, ""))
+            finalSpoken = cleanSpoken(e.spoken)
+            out.add(Update.FinalAnswer(answer, "", finalSpoken))
             return out
         }
         // An answer that contains a number the work never produced would be a made-up result; flag it, never hide it.
         finalAnswer = answer
         finalExplanation = cleanExplanation(e.explanation)
-        out.add(Update.FinalAnswer(answer, finalExplanation))
+        finalSpoken = cleanSpoken(e.spoken)
+        out.add(Update.FinalAnswer(answer, finalExplanation, finalSpoken))
         return out
     }
 
@@ -209,6 +214,20 @@ class StudyAssembler(private val question: String, private val level: String) {
             s = s.replace("**", "").replace("__", "")
             s = s.lines().joinToString("\n") { it.trimEnd() }.trim()
             return s.take(1200)
+        }
+
+        private val SPOKEN_REJECT = Regex("\\b(as an ai|language model|hope this helps|thank you|feel free|happy to help|great question)\\b", RegexOption.IGNORE_CASE)
+
+        /**
+         * The line a teacher says aloud. It may sound natural ("Now subtract five from both sides"), so it is not held to the
+         * strict board filter, but markup, symbols and chatbot filler never reach the speaker.
+         */
+        fun cleanSpoken(raw: String): String {
+            var s = raw.trim().replace("**", "").replace("__", "").replace("$$", "").replace("$", "").replace("`", "")
+            s = s.replace(Regex("\\\\[a-zA-Z]+"), " ").replace(Regex("[{}^_\\\\]"), " ")
+            s = cleanLine(s)
+            if (s.isEmpty() || SPOKEN_REJECT.containsMatchIn(s)) return ""
+            return s.take(420)
         }
 
         fun cleanExplanation(raw: String): String {

@@ -17,6 +17,8 @@ class StudyTts(context: Context) {
     interface Callback {
         /** [ok] is false when the utterance failed or the language has no installed voice. */
         fun onFinished(token: Long, ok: Boolean, reason: String)
+        /** The first word is being spoken now. */
+        fun onStarted(token: Long) {}
     }
 
     private val appContext = context.applicationContext
@@ -55,7 +57,10 @@ class StudyTts(context: Context) {
     }
 
     private val listener = object : UtteranceProgressListener() {
-        override fun onStart(utteranceId: String?) {}
+        override fun onStart(utteranceId: String?) {
+            val token = utteranceId?.removePrefix("study_")?.toLongOrNull() ?: return
+            main.post { if (token == activeToken) callback?.onStarted(token) }
+        }
         override fun onDone(utteranceId: String?) { finish(utteranceId, true, "") }
         @Deprecated("Deprecated in Java")
         override fun onError(utteranceId: String?) { finish(utteranceId, false, "Speech failed.") }
@@ -67,6 +72,9 @@ class StudyTts(context: Context) {
         val token = utteranceId?.removePrefix("study_")?.toLongOrNull() ?: return
         main.post { if (token == activeToken) callback?.onFinished(token, ok, reason) }
     }
+
+    /** The token the next [speak] call will return, so a caller can recognise even an instant failure. */
+    fun nextToken(): Long = activeToken + 1
 
     /** Speaks [text] and returns its token. A new call replaces whatever is being spoken. */
     fun speak(text: String, locale: Locale): Long {

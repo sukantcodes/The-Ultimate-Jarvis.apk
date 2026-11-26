@@ -138,7 +138,8 @@ class StudyStreamParser {
                             explanation = text(o, "explanation", "explain", "why", "note"),
                             diagram = diagram,
                             language = text(o, "lang", "language"),
-                            proseHint = mode == "text" || mode == "prose"
+                            proseHint = mode == "text" || mode == "prose",
+                            spoken = text(o, "say", "spoken", "speech", "narration")
                         )
                     )
                 }
@@ -155,7 +156,8 @@ class StudyStreamParser {
         private fun finalOf(o: JsonObject, answer: String) = StudyEvent.Final(
             answer = answer,
             explanation = text(o, "explanation", "explain"),
-            confidence = text(o, "confidence").lowercase()
+            confidence = text(o, "confidence").lowercase(),
+            spoken = text(o, "say", "spoken", "speech", "narration")
         )
 
         /** Reads the first present key as text. Arrays of lines are joined with newlines; numbers are written as they are. */

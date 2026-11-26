@@ -39,7 +39,12 @@ data class StudyProfile(
 
 object StudyLevels {
     val CHOICES = listOf("Auto", "Class 6", "Class 7", "Class 8", "Class 9", "Class 10", "Class 11", "Class 12", "Undergraduate")
-    val LANGUAGES = listOf("Auto", "English", "Hindi", "Hinglish")
+    /** "Auto" follows the language of the question. Any other language the model knows works; these are the quick choices. */
+    val LANGUAGES = listOf(
+        "Auto", "English", "Hindi", "Hinglish", "Bengali", "Marathi", "Gujarati", "Tamil", "Telugu", "Kannada", "Malayalam",
+        "Punjabi", "Urdu", "Odia", "Assamese", "Nepali", "Spanish", "French", "German", "Portuguese", "Arabic", "Indonesian",
+        "Japanese", "Korean", "Chinese"
+    )
 
     /** School class from an age in years (age 6 starts Class 1), or "college level" for adults. Null when the age is unusable. */
     fun fromAge(age: String): String? {
@@ -58,6 +63,7 @@ object StudyPrompt {
 OUTPUT FORMAT (strict). Reply with JSON objects only, one object per line, nothing else: no greeting, no markdown, no code fences, no text outside the objects.
 First line:  {"type":"meta","subject":"Mathematics|Physics|Chemistry|Biology|Computer Science|English|General","topic":"short topic","level":"the level you are teaching at"}
 Then one object per board step, in teaching order:
+  Every object below may also carry "say":"..." (see CONTENT RULES).
   {"type":"given","content":"..."}                      (physics/chemistry data, only when the question has data)
   {"type":"required","content":"..."}                   (the quantity asked for, only when useful)
   {"type":"formula","content":"...","explanation":"..."}
@@ -65,13 +71,14 @@ Then one object per board step, in teaching order:
   {"type":"step","content":"...","explanation":"..."}   (a calculation or a short statement)
   {"type":"code","content":"code lines","lang":"python"}
   {"type":"diagram","content":"","explanation":"...","diagram":{...}}
-Last line: {"type":"final","answer":"...","confidence":"high|medium|low"}
+Last line: {"type":"final","answer":"...","say":"one spoken sentence stating the result","confidence":"high|medium|low"}
 If the question cannot be solved reliably: {"type":"declined","reason":"..."} and nothing else.
 
 CONTENT RULES
 - The board is a whiteboard, not a chat. Never write greetings, introductions, "let's solve this", encouragement, apologies, summaries or advice.
 - "content" is only what a teacher would write on the board: the formula, the equation, the substitution, the result. Use LaTeX for maths: \frac{a}{b}, x^{2}, x_{1}, \sqrt{x}, \times, \cdot, \pm, \leq, \geq, \neq, \approx, \rightarrow, \pi, \theta, \Delta, \alpha, \ce{H2O}. No dollar signs, no \[ \]. Plain words are allowed only for definitions, English answers and short statements.
 - One idea per step. A calculation step shows the equation after the move, e.g. "2x = 15 - 5" then "2x = 10" then "x = \frac{10}{2} = 5". Every number you write must come from the work above it: never skip a calculation and never state a result you did not compute.
+- "say" is what the teacher says out loud while writing that step: one or two short, natural spoken sentences in the lesson language, like a patient teacher sitting next to one student. Explain the idea and why the move is made ("Now we remove the 5 from the left side, so we subtract 5 from both sides"). Read maths as words in that language, never as symbols or LaTeX ("x squared", never "x^2"). Never greet, praise, apologise or address the student by name, never say "let's begin" or "great question", and never repeat the "say" of an earlier step. The board stays clean: "say" is spoken only, never written.
 - "explanation" is one short sentence saying what is done and why, e.g. "Subtract 5 from both sides." Omit it when the content is obvious. Do not repeat the content in the explanation.
 - Physics numericals: given, required, formula, substitution with units, calculation, result with unit. Chemistry: balanced equations (check atom counts), reaction type, calculations with units. Biology: key terms and processes, with a labelled diagram when the question asks to draw or label. Computer science: the code, then the trace or output. English: the rule, corrected sentence, one example.
 - The final object's "answer" is the answer only (value with unit, balanced equation, corrected sentence, or one-line conclusion). Do not write the final answer in an earlier object unless it is the last calculation step, and never repeat it twice.
@@ -86,7 +93,8 @@ Use "graph" for a function plot (y in terms of x; ^ for powers) and "items" for 
         "You are the engine of a classroom whiteboard that teaches one question at a time.\n" +
             profile.levelHint() + "\n" + profile.languageRule() + "\n" + profile.depthRule() + "\n" + OUTPUT_RULES
 
-    fun lessonUser(question: String): String = "Question:\n" + question.trim()
+    fun lessonUser(question: String, memory: String = ""): String =
+        (if (memory.isNotBlank()) memory.trim() + "\n\n" else "") + "Question:\n" + question.trim()
 
     fun doubtSystem(profile: StudyProfile): String =
         "You are the engine of a classroom whiteboard answering a student's doubt about a solution already on the board.\n" +
@@ -111,8 +119,8 @@ Use "graph" for a function plot (y in terms of x; ^ for powers) and "items" for 
         return sb.toString().take(12_000)
     }
 
-    fun doubtUser(lesson: StudyLesson, doubt: String, selectedStep: Int?): String =
-        "Solution on the board:\n" + lessonDigest(lesson) + "\n" +
+    fun doubtUser(lesson: StudyLesson, doubt: String, selectedStep: Int?, memory: String = ""): String =
+        (if (memory.isNotBlank()) memory.trim() + "\n\n" else "") + "Solution on the board:\n" + lessonDigest(lesson) + "\n" +
             (if (selectedStep != null) "The student tapped step $selectedStep.\n" else "") +
             "Student's doubt:\n" + doubt.trim()
 

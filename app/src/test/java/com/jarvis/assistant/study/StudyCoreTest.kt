@@ -330,3 +330,130 @@ class StudyPlaybackRestoreTest {
         assertTrue(b.ops.filterIsInstance<DrawOp.Glyphs>().any { it.text == "?" })
     }
 }
+
+class StudyTeacherVoiceTest {
+    @Test fun sayFieldIsParsedAndCleanedForSpeech() {
+        val p = StudyStreamParser()
+        val ev = p.feed("{\"type\":\"step\",\"content\":\"2x = 10\",\"say\":\"Now we divide **both** sides by 2, so x \\\\frac{1}{2}.\"}\n")
+        val st = ev.filterIsInstance<StudyEvent.Step>().single()
+        val a = StudyAssembler("q", "Class 8"); a.accept(StudyEvent.Meta("Mathematics", "t", "")); a.accept(st)
+        val spoken = a.lesson.steps.single().spoken
+        assertTrue(spoken.startsWith("Now we divide both sides by 2")); assertFalse(spoken.contains("\\")); assertFalse(spoken.contains("*"))
+    }
+    @Test fun chatbotFillerNeverReachesTheSpeaker() {
+        assertEquals("", StudyAssembler.cleanSpoken("Hope this helps, feel free to ask more!"))
+        assertEquals("", StudyAssembler.cleanSpoken("As an AI I cannot say."))
+        assertEquals("Ab hum dono taraf 5 ghataenge.", StudyAssembler.cleanSpoken("Ab hum dono taraf 5 ghataenge."))
+    }
+    @Test fun finalSayIsKept() {
+        val a = StudyAssembler("q", ""); a.accept(StudyEvent.Meta("Mathematics", "t", ""))
+        a.accept(StudyEvent.Step(StepKind.STEP, "x = 5", "", null, "", false))
+        a.accept(StudyEvent.Final("y = 7", "", "high", "So y is seven."))
+        assertEquals("So y is seven.", a.lesson.finalSpoken)
+    }
+    @Test fun spokenSurvivesSaveAndOpen() {
+        val l = StudyLesson(StudySubject.MATHEMATICS, "t", "q", "", listOf(StudyStep(1, StepKind.STEP, "x = 1", "", spoken = "Bas yahi hai.")), "x = 1", "", Verification.NOT_VERIFIED, true, finalSpoken = "Done.")
+        val back = StudyLessonCodec.fromJson(StudyLessonCodec.toJson(l, emptyList(), emptySet()))!!
+        assertEquals("Bas yahi hai.", back.lesson.steps[0].spoken); assertEquals("Done.", back.lesson.finalSpoken)
+    }
+    @Test fun gateHoldsThePenUntilTheVoiceIsReady() {
+        val p = StudyPlayback(); p.setGenerationOpen(true)
+        p.listener = object : StudyPlayback.Listener { override fun onBlockStarted(index: Int, replay: Boolean) { p.startGate = true } }
+        p.addBlock(1000)
+        repeat(40) { p.advance(50) }
+        assertEquals(0f, p.progress, 0f)
+        p.startGate = false
+        repeat(10) { p.advance(50) }
+        assertTrue(p.progress > 0.3f)
+    }
+    @Test fun promptAsksForSpokenLineAndAnyLanguage() {
+        val s = StudyPrompt.lessonSystem(StudyProfile(language = "Bengali"))
+        assertTrue(s.contains("\"say\"")); assertTrue(s.contains("Bengali"))
+        assertTrue(StudyLevels.LANGUAGES.size > 10)
+    }
+}
+
+class StudyMemoryTest {
+    private fun t(q: String, a: String = "a", k: StudyMemory.Kind = StudyMemory.Kind.LESSON) = StudyMemory.Turn(k, "Mathematics", "Algebra", q, a, "", 1L)
+    @Test fun emptyMemoryAddsNothingToThePrompt() {
+        assertEquals("", StudyMemory().block()); assertEquals("Question:\n2+2", StudyPrompt.lessonUser("2+2", StudyMemory().block()))
+    }
+    @Test fun remembersInOrderAndReachesThePrompt() {
+        val m = StudyMemory(); m.add(t("solve 2x+5=15", "x = 5")); m.add(t("why subtract 5?", "to isolate 2x", StudyMemory.Kind.DOUBT))
+        val b = m.block()
+        assertTrue(b.indexOf("solve 2x+5=15") < b.indexOf("why subtract 5?")); assertTrue(b.contains("x = 5"))
+        assertTrue(StudyPrompt.lessonUser("now with 7", b).endsWith("Question:\nnow with 7"))
+    }
+    @Test fun oldestTurnsAreForgottenAndRepeatsReplaceOlderOnes() {
+        val m = StudyMemory(maxTurns = 3)
+        for (i in 1..5) m.add(t("q$i"))
+        assertEquals(listOf("q3", "q4", "q5"), m.all().map { it.question })
+        m.add(t("Q4  ")); assertEquals(3, m.size); assertEquals("Q4", m.last()!!.question)
+    }
+    @Test fun blockStaysWithinItsBudget() {
+        val m = StudyMemory(maxTurns = 8, maxChars = 600)
+        for (i in 1..8) m.add(t("question number $i " + "x".repeat(300), "answer ".repeat(30)))
+        assertTrue(m.block().length < 600 + 700)
+        assertTrue(m.block().contains("question number 8"))
+    }
+    @Test fun saveAndLoadRoundTripAndBadDataIsIgnored() {
+        val m = StudyMemory(); m.add(t("q1", "a1"))
+        val n = StudyMemory(); n.load(m.toJson()); assertEquals("q1", n.last()!!.question)
+        n.load("garbage"); assertTrue(n.isEmpty); n.load("{\"v\":7,\"turns\":[]}"); assertTrue(n.isEmpty)
+    }
+    @Test fun turnsFromLessonKeepFormulasAndAnswer() {
+        val l = StudyLesson(StudySubject.PHYSICS, "Ohm", "find I", "", listOf(StudyStep(1, StepKind.FORMULA, "V = IR", "")), "I = 2 A", "", Verification.NOT_VERIFIED, true)
+        val turn = StudyMemory.turnFrom(l, 5L)
+        assertTrue(turn.keyPoints.contains("V = IR")); assertEquals("I = 2 A", turn.answer)
+    }
+}
+
+class StudyVoiceCodecTest {
+    @Test fun rawPcmGetsAValidWavHeader() {
+        val pcm = ByteArray(480) { it.toByte() }
+        val wav = com.jarvis.assistant.study.voice.StudyVoiceCodec.pcm16ToWav(pcm, 24000)
+        assertEquals(44 + 480, wav.size)
+        assertEquals("RIFF", String(wav, 0, 4)); assertEquals("WAVE", String(wav, 8, 4)); assertEquals("data", String(wav, 36, 4))
+        fun le(o: Int) = (wav[o].toInt() and 0xFF) or ((wav[o + 1].toInt() and 0xFF) shl 8) or ((wav[o + 2].toInt() and 0xFF) shl 16) or ((wav[o + 3].toInt() and 0xFF) shl 24)
+        assertEquals(24000, le(24)); assertEquals(48000, le(28)); assertEquals(480, le(40)); assertEquals(36 + 480, le(4))
+    }
+    @Test fun mimeTypesAreRecognised() {
+        val c = com.jarvis.assistant.study.voice.StudyVoiceCodec
+        assertTrue(c.isRawPcm("audio/L16;codec=pcm;rate=24000")); assertFalse(c.isRawPcm("audio/mpeg")); assertFalse(c.isRawPcm("audio/wav"))
+        assertEquals(24000, c.sampleRate("audio/L16;codec=pcm;rate=24000")); assertEquals(16000, c.sampleRate("audio/pcm;rate=16000")); assertEquals(24000, c.sampleRate("audio/L16"))
+    }
+    @Test fun speechModelIsChosenFromTheListNeverGuessed() {
+        val c = com.jarvis.assistant.study.voice.StudyVoiceCodec
+        val m = listOf(
+            com.jarvis.assistant.study.voice.StudyVoiceCodec.ModelEntry("models/gemini-2.5-flash", listOf("generateContent")),
+            com.jarvis.assistant.study.voice.StudyVoiceCodec.ModelEntry("models/gemini-2.5-flash-preview-tts", listOf("generateContent")),
+            com.jarvis.assistant.study.voice.StudyVoiceCodec.ModelEntry("models/gemini-3.8-flash-tts", listOf("generateContent")),
+            com.jarvis.assistant.study.voice.StudyVoiceCodec.ModelEntry("models/gemini-3.8-flash-live-tts", listOf("generateContent")),
+            com.jarvis.assistant.study.voice.StudyVoiceCodec.ModelEntry("models/gemini-3.9-pro-tts", listOf("embedContent"))
+        )
+        assertEquals("gemini-3.8-flash-tts", c.pickTtsModel(m))
+        assertNull(c.pickTtsModel(listOf(com.jarvis.assistant.study.voice.StudyVoiceCodec.ModelEntry("models/gemini-2.5-flash", listOf("generateContent")))))
+        assertNull(c.pickTtsModel(emptyList()))
+    }
+}
+
+class StudyVoiceLanguageTest {
+    private val c = com.jarvis.assistant.study.voice.StudyVoiceCodec
+    @Test fun namedLanguagesMapToTheirVoices() {
+        assertEquals("bn-IN", c.languageTag("Bengali", "x")); assertEquals("hi-IN", c.languageTag("Hindi", "x")); assertEquals("en-IN", c.languageTag("Hinglish", "kaise ho"))
+    }
+    @Test fun autoReadsTheScriptOfTheText() {
+        assertEquals("bn-IN", c.languageTag("Auto", "আমরা দুই পাশ থেকে ৫ বিয়োগ করব")); assertEquals("hi-IN", c.languageTag("auto", "दोनों तरफ से 5 घटाएँ"))
+        assertEquals("ta-IN", c.languageTag("Auto", "இரு பக்கமும்")); assertEquals("en-IN", c.languageTag("Auto", "Subtract 5 from both sides"))
+    }
+}
+class StudyMemoryExclusionTest {
+    @Test fun thePresentLessonIsNotListedTwice() {
+        val m = StudyMemory()
+        m.add(StudyMemory.Turn(StudyMemory.Kind.LESSON, "Mathematics", "", "solve x+1=2", "x = 1", "", 1L))
+        m.add(StudyMemory.Turn(StudyMemory.Kind.LESSON, "Mathematics", "", "solve y+2=5", "y = 3", "", 2L))
+        val b = m.block("solve y+2=5")
+        assertTrue(b.contains("solve x+1=2")); assertFalse(b.contains("y+2=5"))
+        assertEquals("", StudyMemory().also { it.add(StudyMemory.Turn(StudyMemory.Kind.LESSON, "", "", "q", "", "", 1L)) }.block("q"))
+    }
+}

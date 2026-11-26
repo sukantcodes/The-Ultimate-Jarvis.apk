@@ -35,6 +35,12 @@ class StudyPlayback {
     /** True while narration for the current block is still being spoken; the next block waits for it. */
     var narrationBusy: Boolean = false
 
+    /**
+     * True while the voice for the block that just started is still being prepared. The pen waits (the clock does not run), so
+     * the first word and the first stroke begin together instead of the voice arriving late.
+     */
+    var startGate: Boolean = false
+
     /** Furthest block that has been written so far. Blocks up to here count as already on the board. */
     var highWater: Int = -1
         private set
@@ -143,6 +149,7 @@ class StudyPlayback {
     fun advance(dtMs: Long): Boolean {
         if (state != State.PLAYING || current !in durations.indices) return false
         if (!writingDone) {
+            if (startGate) return false
             val total = durations[current].toFloat() / speed
             progress = (progress + dtMs / total).coerceAtMost(1f)
             if (progress >= 1f) { writingDone = true; listener?.onBlockFinished(current) }
@@ -175,6 +182,7 @@ class StudyPlayback {
         progress = 0f
         writingDone = false
         narrationBusy = false
+        startGate = false
         listener?.onBlockStarted(index, replay)
         setState(if (paused) State.PAUSED else State.PLAYING)
     }

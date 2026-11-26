@@ -25,7 +25,9 @@ import com.jarvis.assistant.study.Verification
 import com.jarvis.assistant.study.ai.StudyAiEngine
 import com.jarvis.assistant.study.ai.StudyAiException
 import com.jarvis.assistant.study.data.StudyHistoryManager
-import com.jarvis.assistant.study.voice.StudyTts
+import com.jarvis.assistant.study.voice.StudyVoice
+import com.jarvis.assistant.study.voice.StudyVoiceCodec
+import com.jarvis.assistant.study.StudyMemory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -87,7 +89,8 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     private var metrics: AndroidMetrics? = null
     private val style = BoardStyle(width = StudyBoardView.BOARD_WIDTH, baseSize = 34f, margin = StudyBoardView.MARGIN)
 
-    private var tts: StudyTts? = null
+    private var voice: StudyVoice? = null
+    val memory = StudyMemory()
     private var narrationToken = 0L
     private var lastState = StudyPlayback.State.IDLE
     private var voiceFailureShown = false
@@ -119,6 +122,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         playback.speed = prefs.speed
+        memory.load(prefs.memoryJson)
         playback.listener = object : StudyPlayback.Listener {
             override fun onBlockStarted(index: Int, replay: Boolean) { narrate(index); bump() }
             override fun onBlockFinished(index: Int) { bump() }
@@ -133,6 +137,26 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch { interrupted.value = runCatching { history.latestInterrupted() }.getOrNull() }
     }
+
+    // ----- the teacher's memory of this study session -----
+
+    private fun memoryBlock(exceptQuestion: String? = null): String = if (prefs.memoryOn) memory.block(exceptQuestion) else ""
+
+    private fun remember(turn: StudyMemory.Turn) {
+        if (!prefs.memoryOn) return
+        memory.add(turn)
+        prefs.memoryJson = memory.toJson()
+    }
+
+    /** Forgets everything the teacher remembers about earlier questions. The saved lessons in history are not touched. */
+    fun clearMemory() {
+        memory.clear()
+        prefs.memoryJson = ""
+        toast("The teacher's memory of earlier questions was cleared.")
+        bump()
+    }
+
+    fun setMemory(on: Boolean) { prefs.memoryOn = on; bump() }
 
     private fun bump() { version.value = version.value + 1 }
     private fun toast(t: String) { events.tryEmit(Event.Toast(t)) }
@@ -170,7 +194,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             addBlock(layoutOn { st, m -> StudyBoardLayout.layoutQuestion(question, 0f, st, m) }, "", "")
             persist(StudyHistoryManager.Status.INTERRUPTED, force = true)
             val ok = consume(
-                StudyAiEngine.Request(StudyPrompt.lessonSystem(profile), StudyPrompt.lessonUser(question), attachments),
+                StudyAiEngine.Request(StudyPrompt.lessonSystem(profile), StudyPrompt.lessonUser(question, memoryBlock()), attachments),
                 asm, doubt = false
             )
             finishLesson(asm, ok)
@@ -191,16 +215,18 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             val prefix = if (ref != null) "Step $ref" else "Doubt"
             addBlock(layoutOn { st, m -> StudyBoardLayout.layoutQuestion(text, blocks.value.lastOrNull()?.bottom ?: 0f, st, m, prefix = "?") }, "", "")
             withContext(Dispatchers.Main) { if (ref != null) blockOfStep(ref)?.let { events.tryEmit(Event.Reveal(it)) } }
-            val ok = consume(StudyAiEngine.Request(StudyPrompt.doubtSystem(profile), StudyPrompt.doubtUser(l, text, ref)), asm, doubt = true)
+            val ok = consume(StudyAiEngine.Request(StudyPrompt.doubtSystem(profile), StudyPrompt.doubtUser(l, text, ref, memoryBlock(l.question))), asm, doubt = true)
             val result = asm.lesson
             withContext(Dispatchers.Main) {
                 playback.setGenerationOpen(false)
                 if (ok && result.steps.isNotEmpty() || ok && result.finalAnswer.isNotEmpty()) {
                     val steps = result.steps.toMutableList()
                     if (result.finalAnswer.isNotEmpty() && steps.lastOrNull()?.isFinalHighlight != true) {
-                        steps.add(StudyStep(Int.MAX_VALUE, StepKind.RESULT, result.finalAnswer, result.finalExplanation))
+                        steps.add(StudyStep(Int.MAX_VALUE, StepKind.RESULT, result.finalAnswer, result.finalExplanation, spoken = result.finalSpoken))
                     }
-                    doubts.add(StudyDoubt(text, ref, steps, System.currentTimeMillis()))
+                    val doubt = StudyDoubt(text, ref, steps, System.currentTimeMillis())
+                    doubts.add(doubt)
+                    remember(StudyMemory.turnFromDoubt(lesson, doubt, doubt.createdAt))
                     ui.value = ui.value.copy(phase = Phase.READY, message = "", retryable = false)
                 }
             }
@@ -228,7 +254,9 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                     restyled = false
                     val step = if (doubt) u.step.copy(index = --negative) else u.step
                     val block = layoutOn { st, m -> StudyBoardLayout.layoutStep(step, blocks.value.lastOrNull()?.bottom ?: 0f, st, m) }
-                    addBlock(block, speechFor(step, asm), step.explanation)
+                    val say = speechFor(step, asm)
+                    addBlock(block, say, step.explanation)
+                    warmVoice(say)
                     persistThrottled()
                 }
                 is StudyAssembler.Update.StepRestyled -> {
@@ -243,7 +271,9 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 is StudyAssembler.Update.FinalAnswer -> {
                     if (!restyled) {
                         val block = layoutOn { st, m -> StudyBoardLayout.layoutFinal(u.answer, u.explanation, blocks.value.lastOrNull()?.bottom ?: 0f, st, m) }
-                        addBlock(block, finalSpeech(u.answer, u.explanation, asm), u.explanation)
+                        val say = finalSpeech(u.answer, u.explanation, asm, u.spoken)
+                        addBlock(block, say, u.explanation)
+                        warmVoice(say)
                     }
                 }
                 is StudyAssembler.Update.StepRejected -> withContext(Dispatchers.Main) {
@@ -289,6 +319,9 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             } else ui.value = current.copy(verification = l.verification.label)
         }
         val l = asm.lesson
+        if (streamOk && l.complete && l.declinedReason.isEmpty() && l.verification != Verification.FAILED) {
+            withContext(Dispatchers.Main) { remember(StudyMemory.turnFrom(l, System.currentTimeMillis())) }
+        }
         persist(if (streamOk && l.complete && l.declinedReason.isEmpty()) StudyHistoryManager.Status.COMPLETE else StudyHistoryManager.Status.INTERRUPTED, force = true)
     }
 
@@ -430,7 +463,20 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     fun replayStep() = playback.replayCurrent()
     fun replayAll() { eraseLimit.value = Int.MAX_VALUE; playback.replayAll() }
 
-    fun setSpeed(s: Float) { playback.speed = s; prefs.speed = playback.speed; tts?.setRate(playback.speed); bump() }
+    fun setSpeed(s: Float) { playback.speed = s; prefs.speed = playback.speed; voice?.setRate(playback.speed); bump() }
+
+    val canUndo: Boolean get() = minOf(eraseLimit.value, blocks.value.size) > 1
+    val canRedo: Boolean get() = minOf(eraseLimit.value, blocks.value.size) < blocks.value.size
+
+    /** "Step 2 of 5" for the block being written, counting only real steps (not the question or doubts). Empty when not applicable. */
+    fun stepCounter(): String {
+        val list = blocks.value
+        val total = list.count { !it.isQuestion && it.stepIndex > 0 || it.stepIndex == Int.MAX_VALUE && !it.isQuestion }
+        val i = playback.current
+        if (total == 0 || i !in list.indices || list[i].isQuestion) return ""
+        val n = list.subList(0, i + 1).count { !it.isQuestion && (it.stepIndex > 0 || it.stepIndex == Int.MAX_VALUE) }
+        return if (n <= 0) "" else "Step $n of $total" + if (isBusy) "+" else ""
+    }
 
     fun undo() {
         if (playback.state == StudyPlayback.State.PLAYING) playback.pause()
@@ -485,12 +531,14 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     private fun isDevanagari(s: String) = s.any { it in 'ऀ'..'ॿ' }
 
     private fun speechFor(step: StudyStep, asm: StudyAssembler): String {
+        if (step.spoken.isNotBlank()) return step.spoken
         if (step.explanation.isNotBlank()) return cleanForSpeech(step.explanation)
         if (step.kind == StepKind.CODE || step.kind == StepKind.DIAGRAM || step.content.isBlank()) return ""
         return if (step.proseMode) cleanForSpeech(step.content) else StudySpeechText.verbalize(step.content, languageKey())
     }
 
-    private fun finalSpeech(answer: String, explanation: String, asm: StudyAssembler): String {
+    private fun finalSpeech(answer: String, explanation: String, asm: StudyAssembler, spoken: String = ""): String {
+        if (spoken.isNotBlank()) return spoken
         val lang = languageKey()
         val spoken = if (StudyMathLike.isMath(answer)) StudySpeechText.verbalize(answer, lang) else cleanForSpeech(answer)
         return StudySpeechText.answerPrefix(lang) + ": " + spoken
@@ -499,46 +547,60 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     private fun cleanForSpeech(s: String) = s.replace(Regex("[*_`$\\\\{}^]"), " ").replace(Regex("\\s+"), " ").trim()
 
     private fun localeFor(text: String): Locale {
-        val v = prefs.voiceLanguage.lowercase()
-        return when {
-            v == "hindi" -> Locale("hi", "IN")
-            v == "english" -> Locale("en", "IN")
-            isDevanagari(text) -> Locale("hi", "IN")
-            else -> Locale("en", "IN")
-        }
+        val named = prefs.voiceLanguage.takeUnless { it.equals("auto", true) } ?: prefs.language
+        return Locale.forLanguageTag(StudyVoiceCodec.languageTag(named, text))
+    }
+
+    private fun voiceEngine(): StudyVoice = voice ?: StudyVoice(getApplication()).also { v ->
+        v.setRate(playback.speed)
+        v.setCallback(object : StudyVoice.Callback {
+            override fun onStarted(token: Long, cloud: Boolean) {
+                if (token != narrationToken) return
+                // the first word is being spoken: the pen may start now
+                playback.startGate = false
+                bump()
+            }
+            override fun onFinished(token: Long, ok: Boolean, reason: String) {
+                if (token != narrationToken) return
+                playback.startGate = false
+                playback.narrationBusy = false
+                if (!ok) {
+                    if (!voiceFailureShown) { voiceFailureShown = true; toast(reason.ifEmpty { "Narration failed. Continuing in text-only mode." }) }
+                    if (reason.contains("voice is installed") || reason.contains("not available")) { prefs.voiceOn = false }
+                }
+                bump()
+            }
+            override fun onNote(text: String) { toast(text) }
+        })
+        voice = v
+    }
+
+    /** Prepares the audio for a step that has just arrived, so it is ready before the pen gets there. */
+    private fun warmVoice(text: String) {
+        if (prefs.voiceOn && text.isNotBlank()) voiceEngine().prefetch(text)
     }
 
     private fun narrate(index: Int) {
         if (!prefs.voiceOn || playback.state == StudyPlayback.State.PAUSED) return
         val text = speeches.getOrNull(index).orEmpty()
-        if (text.isBlank()) { playback.narrationBusy = false; return }
-        val engine = tts ?: StudyTts(getApplication()).also { t ->
-            t.setRate(playback.speed)
-            t.setCallback(object : StudyTts.Callback {
-                override fun onFinished(token: Long, ok: Boolean, reason: String) {
-                    if (token != narrationToken) return
-                    playback.narrationBusy = false
-                    if (!ok) {
-                        if (!voiceFailureShown) { voiceFailureShown = true; toast(reason.ifEmpty { "Narration failed. Continuing in text-only mode." }) }
-                        if (reason.contains("voice is installed") || reason.contains("not available")) { prefs.voiceOn = false }
-                    }
-                    bump()
-                }
-            })
-            tts = t
-        }
+        if (text.isBlank()) { playback.narrationBusy = false; playback.startGate = false; return }
+        val engine = voiceEngine()
         playback.narrationBusy = true
+        // the pen waits for the first word so voice and writing begin together; a slow voice never holds it for long
+        playback.startGate = engine.cloudAvailable()
         val token = engine.speak(text, localeFor(text))
         narrationToken = token
+        main.postDelayed({ if (narrationToken == token) { playback.startGate = false } }, 4_200L)
         // a speech engine that never answers must not freeze the board
-        main.postDelayed({ if (narrationToken == token && playback.narrationBusy) playback.narrationBusy = false }, 25_000L)
+        main.postDelayed({ if (narrationToken == token && playback.narrationBusy) playback.narrationBusy = false }, 40_000L)
     }
 
     /** Stops narration without touching the lesson or the board. Safe to call at any time. */
     fun stopSpeech() {
         narrationToken++
-        tts?.stop()
+        voice?.stop()
         playback.narrationBusy = false
+        playback.startGate = false
     }
 
     /** Called when the student starts talking: the narration yields to the microphone and the board waits. */
@@ -595,14 +657,14 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 val list = ArrayList<BoardBlock>(); val sp = ArrayList<String>(); val ex = ArrayList<String>()
                 fun push(b: BoardBlock, s: String, e: String) { list.add(b); sp.add(s); ex.add(e) }
                 push(StudyBoardLayout.layoutQuestion(l.question, 0f, style, m), "", "")
-                for (s in l.steps) push(StudyBoardLayout.layoutStep(s, list.last().bottom, style, m), "", s.explanation)
-                if (l.finalAnswer.isNotEmpty() && l.steps.lastOrNull()?.isFinalHighlight != true) push(StudyBoardLayout.layoutFinal(l.finalAnswer, l.finalExplanation, list.last().bottom, style, m), "", l.finalExplanation)
+                for (s in l.steps) push(StudyBoardLayout.layoutStep(s, list.last().bottom, style, m), if (s.spoken.isNotBlank()) s.spoken else "", s.explanation)
+                if (l.finalAnswer.isNotEmpty() && l.steps.lastOrNull()?.isFinalHighlight != true) push(StudyBoardLayout.layoutFinal(l.finalAnswer, l.finalExplanation, list.last().bottom, style, m), l.finalSpoken, l.finalExplanation)
                 for (d in loaded.restored.doubts) {
                     push(StudyBoardLayout.layoutQuestion(d.question, list.last().bottom, style, m, prefix = "?"), "", "")
                     var k = 0
                     for (s in d.steps) {
                         val step = s.copy(index = if (s.index == Int.MAX_VALUE) Int.MAX_VALUE else --k)
-                        push(if (s.index == Int.MAX_VALUE) StudyBoardLayout.layoutFinal(s.content, s.explanation, list.last().bottom, style, m) else StudyBoardLayout.layoutStep(step, list.last().bottom, style, m), "", s.explanation)
+                        push(if (s.index == Int.MAX_VALUE) StudyBoardLayout.layoutFinal(s.content, s.explanation, list.last().bottom, style, m) else StudyBoardLayout.layoutStep(step, list.last().bottom, style, m), s.spoken, s.explanation)
                     }
                 }
                 Triple(list, sp, ex)
@@ -641,7 +703,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
 
     override fun onCleared() {
         job?.cancel()
-        tts?.shutdown()
+        voice?.shutdown()
         layoutExec.shutdown()
         playback.listener = null
         super.onCleared()

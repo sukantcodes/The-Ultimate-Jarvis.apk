@@ -21,6 +21,7 @@ object StudyLessonCodec {
         o.addProperty("level", lesson.level)
         o.addProperty("final", lesson.finalAnswer)
         o.addProperty("finalExplanation", lesson.finalExplanation)
+        if (lesson.finalSpoken.isNotEmpty()) o.addProperty("finalSpoken", lesson.finalSpoken)
         o.addProperty("verification", lesson.verification.name)
         o.addProperty("complete", lesson.complete)
         o.addProperty("declined", lesson.declinedReason)
@@ -47,7 +48,7 @@ object StudyLessonCodec {
             val lesson = StudyLesson(
                 subject = runCatching { StudySubject.valueOf(o.str("subject")) }.getOrDefault(StudySubject.GENERAL),
                 topic = o.str("topic"), question = o.str("question"), level = o.str("level"),
-                steps = steps, finalAnswer = o.str("final"), finalExplanation = o.str("finalExplanation"),
+                steps = steps, finalAnswer = o.str("final"), finalExplanation = o.str("finalExplanation"), finalSpoken = o.str("finalSpoken"),
                 verification = runCatching { Verification.valueOf(o.str("verification")) }.getOrDefault(Verification.NOT_VERIFIED),
                 complete = o.get("complete")?.asBoolean ?: false, declinedReason = o.str("declined")
             )
@@ -71,6 +72,7 @@ object StudyLessonCodec {
         val a = JsonArray()
         for (s in steps) a.add(JsonObject().apply {
             addProperty("i", s.index); addProperty("k", s.kind.name); addProperty("c", s.content); addProperty("e", s.explanation)
+            if (s.spoken.isNotEmpty()) addProperty("s", s.spoken)
             if (s.diagramJson.isNotEmpty()) addProperty("d", s.diagramJson)
             if (s.language.isNotEmpty()) addProperty("l", s.language)
             addProperty("p", s.proseMode); addProperty("chk", s.check.name); addProperty("f", s.isFinalHighlight)
@@ -90,7 +92,8 @@ object StudyLessonCodec {
                 content = o.str("c"), explanation = o.str("e"), diagram = diagram, diagramJson = if (diagram != null) dj else "",
                 language = o.str("l"), proseMode = o.get("p")?.asBoolean ?: false,
                 check = runCatching { StepCheck.valueOf(o.str("chk")) }.getOrDefault(StepCheck.NOT_CHECKED),
-                isFinalHighlight = o.get("f")?.asBoolean ?: false
+                isFinalHighlight = o.get("f")?.asBoolean ?: false,
+                spoken = o.str("s")
             ))
         }
         return out

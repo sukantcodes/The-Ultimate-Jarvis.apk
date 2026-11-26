@@ -70,6 +70,16 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
     private lateinit var micButton: ImageButton
     private lateinit var chipNew: TextView
     private lateinit var chipDoubt: TextView
+    private lateinit var header: LinearLayout
+    private lateinit var side: LinearLayout
+    private lateinit var stepText: TextView
+    private lateinit var symbols: HorizontalScrollView
+    private lateinit var undoButton: ImageButton
+    private lateinit var redoButton: ImageButton
+    private lateinit var fullscreenButton: ImageButton
+    private var fullscreen = false
+    private lateinit var fsOverlay: LinearLayout
+    private lateinit var fsPlay: ImageButton
 
     private var accent = 0xFF19E3FF.toInt()
     private var listening = false
@@ -170,7 +180,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(BG) }
 
         // header
-        val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(6), dp(4), dp(6), dp(4)) }
+        header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(6), dp(4), dp(6), dp(4)) }
         header.addView(icon(R.drawable.ic_arrow_back, "Back") { finish() })
         val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f); setPadding(dp(6), 0, dp(6), 0) }
         titles.addView(label("STUDY BOARD", 13f, accent, true).apply { letterSpacing = 0.14f })
@@ -179,8 +189,10 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
         header.addView(titles)
         statusPill = label("", 11f, 0xFF0B1220.toInt(), true).apply { setPadding(dp(10), dp(4), dp(10), dp(4)); background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(accent) }; visibility = View.GONE }
         header.addView(statusPill, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(6) })
+        fullscreenButton = icon(R.drawable.ic_study_fullscreen, "Full screen") { setFullscreen(!fullscreen) }
+        header.addView(fullscreenButton)
         header.addView(icon(R.drawable.ic_study_history, "Saved lessons") { historyLauncher.launch(Intent(this, StudyHistoryActivity::class.java)) })
-        header.addView(icon(R.drawable.ic_study_tune, "Teaching settings") { StudyDialogs.settings(this, vm.prefs) { vm.setVoice(vm.prefs.voiceOn) } })
+        header.addView(icon(R.drawable.ic_study_tune, "Teaching settings") { StudyDialogs.settings(this, vm.prefs, { vm.clearMemory() }) { vm.setVoice(vm.prefs.voiceOn) } })
         root.addView(header)
 
         // board area with overlays
@@ -191,6 +203,11 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
         zoom.addView(icon(R.drawable.ic_study_zoom_in, "Zoom in", 38) { board.zoomBy(1.4f) })
         zoom.addView(icon(R.drawable.ic_study_zoom_out, "Zoom out", 38) { board.zoomBy(1f / 1.4f) })
         boardFrame.addView(zoom, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply { setMargins(0, 0, dp(12), dp(12)) })
+        fsOverlay = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; background = glass(18, 0xCC10141B.toInt()); visibility = View.GONE }
+        fsPlay = icon(R.drawable.ic_study_pause, "Play or pause", 38) { vm.playback.togglePause() }
+        fsOverlay.addView(fsPlay)
+        fsOverlay.addView(icon(R.drawable.ic_study_fullscreen_exit, "Leave full screen", 38) { setFullscreen(false) })
+        boardFrame.addView(fsOverlay, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(10), dp(12), 0) })
         emptyHint = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(28), 0, dp(28), 0) }
         emptyHint.addView(label("Ask a question by voice, text, photo or PDF.", 15f, 0xFF3A4352.toInt()).apply { gravity = Gravity.CENTER })
         resumeButton = chip("") { vm.interrupted.value?.let { vm.openSession(it.first); vm.dismissInterrupted() } }.apply { visibility = View.GONE; setTextColor(0xFFE8EDF5.toInt()) }
@@ -208,12 +225,13 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
         explainCard = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = glass(16); setPadding(dp(14), dp(10), dp(14), dp(10)) }
         explainText = label("", 14f, 0xFFE8EDF5.toInt()).apply { maxLines = if (landscape) 6 else 4; ellipsize = android.text.TextUtils.TruncateAt.END }
         verifyText = label("", 11f, 0xFF7E8BA0.toInt())
-        explainCard.addView(explainText); explainCard.addView(verifyText)
+        stepText = label("", 11f, accent, true).apply { letterSpacing = 0.06f }
+        explainCard.addView(stepText); explainCard.addView(explainText); explainCard.addView(verifyText)
 
         val controls = buildControls()
         val inputBar = buildInput()
 
-        val side = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        side = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         side.addView(banner, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(10), dp(4), dp(10), dp(2)) })
         side.addView(explainCard, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(10), dp(4), dp(10), dp(2)) })
         side.addView(controls, LinearLayout.LayoutParams(-1, -2))
@@ -256,8 +274,10 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
         row.addView(voiceButton)
         notesButton = icon(R.drawable.ic_study_notes, "Show or hide explanations") { vm.setNotes(!vm.prefs.notesOn) }
         row.addView(notesButton)
-        row.addView(icon(R.drawable.ic_study_undo, "Undo") { vm.undo() })
-        row.addView(icon(R.drawable.ic_study_redo, "Redo") { vm.redo() })
+        undoButton = icon(R.drawable.ic_study_undo, "Undo") { vm.undo() }
+        redoButton = icon(R.drawable.ic_study_redo, "Redo") { vm.redo() }
+        row.addView(undoButton)
+        row.addView(redoButton)
         row.addView(icon(R.drawable.ic_study_clear, "Clear board") { confirmClear() })
         row.addView(sep())
         bookmarkButton = icon(R.drawable.ic_study_bookmark, "Bookmark the selected step") { vm.toggleBookmark() }
@@ -278,6 +298,14 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
         chips.addView(chipNew); chips.addView(chipDoubt, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(8) })
         col.addView(chips, LinearLayout.LayoutParams(-2, -2).apply { bottomMargin = dp(6) })
 
+        symbols = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; visibility = View.GONE }
+        val symRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        for (sym in listOf("x²", "√", "π", "θ", "Δ", "→", "⇌", "≤", "≥", "≠", "±", "×", "÷", "°", "∫", "∑", "½", "(", ")", "=")) {
+            symRow.addView(chip(sym) { insertSymbol(sym) }.apply { minWidth = dp(40); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(6) })
+        }
+        symbols.addView(symRow)
+        col.addView(symbols, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
+
         val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; background = glass(26); setPadding(dp(4), dp(2), dp(4), dp(2)) }
         bar.addView(icon(R.drawable.ic_study_camera, "Photograph a question", 40) { requestCamera() })
         bar.addView(icon(R.drawable.ic_study_image, "Choose an image", 40) { pickImage.launch("image/*") })
@@ -288,6 +316,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
             imeOptions = EditorInfo.IME_FLAG_NO_ENTER_ACTION
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
+        input.setOnFocusChangeListener { _, focused -> symbols.visibility = if (focused) View.VISIBLE else View.GONE }
         bar.addView(input)
         micButton = icon(R.drawable.ic_mic_jarvis, "Ask by voice", 40) { toggleMic() }
         bar.addView(micButton)
@@ -341,10 +370,16 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
 
         playButton.setImageResource(if (pb.state == StudyPlayback.State.PLAYING) R.drawable.ic_study_pause else R.drawable.ic_study_play)
         speedChip.text = speedLabel(pb.speed)
+        fsPlay.setImageResource(if (pb.state == StudyPlayback.State.PLAYING) R.drawable.ic_study_pause else R.drawable.ic_study_play)
         voiceButton.setImageResource(if (vm.prefs.voiceOn) R.drawable.ic_study_volume_on else R.drawable.ic_study_volume_off)
         voiceButton.alpha = if (vm.prefs.voiceOn) 1f else 0.6f
         notesButton.alpha = if (vm.prefs.notesOn) 1f else 0.5f
         bookmarkButton.alpha = if (vm.selectedStepNumber() != null) 1f else 0.5f
+        undoButton.alpha = if (vm.canUndo) 1f else 0.35f
+        redoButton.alpha = if (vm.canRedo) 1f else 0.35f
+        val counter = vm.stepCounter()
+        stepText.text = counter
+        stepText.visibility = if (counter.isEmpty()) View.GONE else View.VISIBLE
 
         val showBanner = ui.message.isNotEmpty() && ui.phase != StudyViewModel.Phase.EXTRACTING
         banner.visibility = if (showBanner) View.VISIBLE else View.GONE
@@ -352,7 +387,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
         bannerRetry.visibility = if (ui.phase == StudyViewModel.Phase.ERROR && ui.retryable) View.VISIBLE else View.GONE
 
         val ex = vm.currentExplanation
-        explainCard.visibility = if (vm.prefs.notesOn && (ex.isNotEmpty() || ui.verification.isNotEmpty()) && vm.hasContent) View.VISIBLE else View.GONE
+        explainCard.visibility = if (vm.prefs.notesOn && (ex.isNotEmpty() || ui.verification.isNotEmpty() || counter.isNotEmpty()) && vm.hasContent) View.VISIBLE else View.GONE
         explainText.text = ex
         explainText.visibility = if (ex.isEmpty()) View.GONE else View.VISIBLE
         verifyText.text = if (pb.state == StudyPlayback.State.FINISHED || ui.phase == StudyViewModel.Phase.READY) ui.verification else ""
@@ -371,6 +406,27 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host {
         sendButton.setImageResource(if (busy) R.drawable.ic_study_stop else R.drawable.ic_send_up)
         sendButton.contentDescription = if (busy) "Stop" else "Send"
         micButton.setColorFilter(if (listening) accent else 0xFFE8EDF5.toInt())
+    }
+
+    private fun insertSymbol(sym: String) {
+        val text = if (sym == "x²") "²" else sym
+        val start = input.selectionStart.coerceAtLeast(0)
+        val end = input.selectionEnd.coerceAtLeast(start)
+        input.text.replace(minOf(start, end), maxOf(start, end), text)
+    }
+
+    /** Hides the header and the controls so the board fills the screen, and hides the system bars. */
+    private fun setFullscreen(on: Boolean) {
+        fullscreen = on
+        val landscapeSide = side
+        header.visibility = if (on) View.GONE else View.VISIBLE
+        landscapeSide.visibility = if (on) View.GONE else View.VISIBLE
+        val c = androidx.core.view.WindowInsetsControllerCompat(window, window.decorView)
+        if (on) { c.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE; c.hide(WindowInsetsCompat.Type.systemBars()) }
+        else c.show(WindowInsetsCompat.Type.systemBars())
+        fullscreenButton.setImageResource(if (on) R.drawable.ic_study_fullscreen_exit else R.drawable.ic_study_fullscreen)
+        fsOverlay.visibility = if (on) View.VISIBLE else View.GONE
+        refresh()
     }
 
     private fun speedLabel(s: Float) = (if (s == s.toInt().toFloat()) s.toInt().toString() else s.toString()) + "x"
