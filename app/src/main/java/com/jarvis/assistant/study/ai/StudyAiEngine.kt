@@ -46,8 +46,10 @@ object StudyAiEngine {
     private const val GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
     private const val GEMINI_DEFAULT_MODEL = "gemini-3.8-flash"
     /** Tried in order when Google reports a model as retired or unavailable, so one retired id never blocks the board. */
-    private val GEMINI_FALLBACK_MODELS = listOf("gemini-3.8-flash", "gemini-3.1-flash", "gemini-flash-latest")
+    private val GEMINI_FALLBACK_MODELS = listOf("gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-flash")
     private const val MAX_LEASE_ATTEMPTS = 3
+    /** Models that cannot write a text answer (voice, speech, image, video, agents, embeddings): never used for the board. */
+    private val NON_TEXT_MARKERS = listOf("live", "audio", "agent", "tts", "image", "imagen", "veo", "omni", "transcribe", "embedding", "robotics", "translate", "banana", "lyria", "deep-research")
 
     class Request(
         val system: String,
@@ -79,6 +81,7 @@ object StudyAiEngine {
         val tried = HashSet<String>()
         var emitted = false
         var attempt = 0
+        var thinking = request.thinking
         while (true) {
             attempt++
             val lease = rotation?.let {
@@ -94,7 +97,7 @@ object StudyAiEngine {
                     provider = active,
                     system = request.system,
                     messages = listOf(ChatMessage(ChatRole.USER, request.user, request.attachments)),
-                    thinking = request.thinking
+                    thinking = thinking
                 )
                 client.stream(chat).collect { event ->
                     if (event is ChatEvent.Delta) { emitted = true; emit(event.text) }
@@ -113,6 +116,12 @@ object StudyAiEngine {
                 }
                 // A model that is missing, or one that answers with a server error (overloaded, 503...), should not block the
                 // board: try the next model before giving up. (A plain network failure has no HTTP code and is not retried here.)
+                // Some models reject the thinking setting: send the same question again without it, once.
+                if (err.kind == ProviderErrorKind.BAD_REQUEST && !emitted && thinking != Thinking.DEFAULT &&
+                    err.message.contains("thinking", ignoreCase = true)) {
+                    thinking = Thinking.DEFAULT
+                    continue
+                }
                 val modelProblem = err.kind == ProviderErrorKind.MODEL_NOT_FOUND ||
                     (err.kind == ProviderErrorKind.UNAVAILABLE && err.httpCode != null)
                 if (modelProblem && !emitted && base.profileId == "builtin-gemini") {
@@ -181,8 +190,9 @@ object StudyAiEngine {
     private fun geminiProvider(key: String, routedModel: String): ResolvedProvider {
         if (key.isBlank()) throw StudyAiException("Add your Gemini API key in Settings to use the Study Board.", retryable = false)
         // The model saved for the voice assistant is a realtime model and cannot write text; use a text model instead.
-        val model = routedModel.removePrefix("models/").takeIf { it.isNotBlank() && !it.contains("live", true) && !it.contains("audio", true) && !it.contains("agent", true) }
-            ?: GEMINI_DEFAULT_MODEL
+        val model = routedModel.removePrefix("models/").takeIf { id ->
+            id.isNotBlank() && NON_TEXT_MARKERS.none { id.contains(it, true) }
+        } ?: GEMINI_DEFAULT_MODEL
         return ResolvedProvider(
             profileId = "builtin-gemini",
             name = "Gemini",
