@@ -41,6 +41,13 @@ object StudyDialogs {
     /** Level, explanation language, depth and narration language. Saved as soon as the student confirms. */
     fun settings(a: Activity, prefs: StudyPrefs, onSaved: () -> Unit) {
         val col = column(a)
+        col.addView(caption(a, "AI provider"))
+        val providerNames = listOf("Gemini API key (default)", "Custom provider")
+        val provider = spinner(a, providerNames, if (prefs.provider == StudyPrefs.PROVIDER_CUSTOM) providerNames[1] else providerNames[0]); col.addView(provider)
+        col.addView(TextView(a).apply {
+            text = "Gemini uses the key saved in Settings and switches model by itself if one is busy. Custom uses the provider you activated in Settings."
+            textSize = 11f; alpha = 0.6f; setPadding(0, dp(a, 4), 0, 0)
+        })
         col.addView(caption(a, "Your level"))
         val level = spinner(a, StudyLevels.CHOICES, prefs.level); col.addView(level)
         col.addView(caption(a, "Explanation language"))
@@ -56,6 +63,7 @@ object StudyDialogs {
         })
         AlertDialog.Builder(a).setTitle("Teaching settings").setView(col)
             .setPositiveButton("Save") { _, _ ->
+                prefs.provider = if (provider.selectedItemPosition == 1) StudyPrefs.PROVIDER_CUSTOM else StudyPrefs.PROVIDER_GEMINI
                 prefs.level = level.selectedItem.toString()
                 prefs.language = lang.selectedItem.toString()
                 prefs.depth = StudyProfile.Depth.values()[depth.selectedItemPosition]

@@ -31,6 +31,16 @@ class StudyPrefs(context: Context) {
         get() = p.getBoolean("notes_on", true)
         set(v) { p.edit().putBoolean("notes_on", v).apply() }
 
+    /** Which AI answers the board: your Gemini API key (default) or the active custom provider. */
+    var provider: String
+        get() = p.getString("ai_provider", PROVIDER_GEMINI) ?: PROVIDER_GEMINI
+        set(v) { p.edit().putString("ai_provider", v).apply() }
+
+    companion object {
+        const val PROVIDER_GEMINI = "gemini"
+        const val PROVIDER_CUSTOM = "custom"
+    }
+
     fun profile(): StudyProfile = StudyProfile(
         level = level, language = language, depth = depth,
         userAge = runCatching { JarvisApp.instance.preferences.userAge }.getOrDefault("")

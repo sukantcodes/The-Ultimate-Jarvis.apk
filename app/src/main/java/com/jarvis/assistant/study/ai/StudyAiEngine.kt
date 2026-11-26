@@ -29,6 +29,8 @@ import com.jarvis.assistant.study.ExtractedQuestion
 import com.jarvis.assistant.study.StudyExtraction
 import com.jarvis.assistant.study.StudyPrompt
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -43,13 +45,9 @@ class StudyAiException(message: String, val retryable: Boolean = true, val offli
  */
 object StudyAiEngine {
 
-    private const val GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
+    private const val GEMINI_BASE = GeminiModels.BASE
     private const val GEMINI_DEFAULT_MODEL = "gemini-3.8-flash"
-    /** Tried in order when Google reports a model as retired or unavailable, so one retired id never blocks the board. */
-    private val GEMINI_FALLBACK_MODELS = listOf("gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-flash")
     private const val MAX_LEASE_ATTEMPTS = 3
-    /** Models that cannot write a text answer (voice, speech, image, video, agents, embeddings): never used for the board. */
-    private val NON_TEXT_MARKERS = listOf("live", "audio", "agent", "tts", "image", "imagen", "veo", "omni", "transcribe", "embedding", "robotics", "translate", "banana", "lyria", "deep-research")
 
     class Request(
         val system: String,
@@ -69,8 +67,11 @@ object StudyAiEngine {
                 retryable = true, offline = true
             )
         }
+        if (com.jarvis.assistant.ui.studyboard.StudyPrefs(app).provider == com.jarvis.assistant.ui.studyboard.StudyPrefs.PROVIDER_GEMINI) {
+            emitAll(streamGemini(request))
+            return@flow
+        }
         var base = resolve(app, request)
-        val triedModels = HashSet<String>().apply { add(base.modelId) }
         val transport = ProviderRuntime.transport()
         val client = ChatClientFactory.create(base.protocol, transport)
         val pooled = base.auth.secret?.isBlank != false
@@ -114,24 +115,11 @@ object StudyAiEngine {
                     // Another key can only help before any text was shown; after that, retrying would repeat steps.
                     if (!emitted && failure.rotates && attempt < MAX_LEASE_ATTEMPTS) continue
                 }
-                // A model that is missing, or one that answers with a server error (overloaded, 503...), should not block the
-                // board: try the next model before giving up. (A plain network failure has no HTTP code and is not retried here.)
                 // Some models reject the thinking setting: send the same question again without it, once.
                 if (err.kind == ProviderErrorKind.BAD_REQUEST && !emitted && thinking != Thinking.DEFAULT &&
                     err.message.contains("thinking", ignoreCase = true)) {
                     thinking = Thinking.DEFAULT
                     continue
-                }
-                val modelProblem = err.kind == ProviderErrorKind.MODEL_NOT_FOUND ||
-                    (err.kind == ProviderErrorKind.UNAVAILABLE && err.httpCode != null)
-                if (modelProblem && !emitted && base.profileId == "builtin-gemini") {
-                    val next = GEMINI_FALLBACK_MODELS.firstOrNull { it !in triedModels }
-                    if (next != null) {
-                        triedModels.add(next)
-                        base = base.copy(modelId = next, model = ModelInfo(id = next, manual = true))
-                        tried.clear()
-                        continue
-                    }
                 }
                 throw mapError(err)
             } finally {
@@ -150,6 +138,68 @@ object StudyAiEngine {
             throw StudyAiException("I could not read a question from this image. Try a clearer photo, or type the question.", retryable = false)
         }
         return questions
+    }
+
+    /**
+     * The Gemini-key path: tries the models this key can use, best first, and moves on at once when one is overloaded,
+     * rate-limited or gone, so a busy or retired model never stops the board. After a full round of busy answers it waits
+     * a moment and goes round once more. A rejected key stops immediately with Google's own message.
+     */
+    private fun streamGemini(request: Request): Flow<String> = flow {
+        val key = JarvisApp.instance.preferences.apiKey.trim()
+        if (key.isBlank()) throw StudyAiException("Add your Gemini API key in Settings to use the Study Board.", retryable = false)
+        val transport = ProviderRuntime.transport()
+        val client = ChatClientFactory.create(ProviderProtocol.GEMINI, transport)
+        var thinking = request.thinking
+        var emitted = false
+        var lastError: ProviderError? = null
+        var sawBusy = false
+        val startedAt = System.currentTimeMillis()
+
+        for (round in 1..2) {
+            var busyThisRound = false
+            for (model in GeminiModels.candidates(transport, key)) {
+                if (lastError != null && System.currentTimeMillis() - startedAt > 75_000L) break
+                var again = true
+                while (again) {
+                    again = false
+                    try {
+                        val chat = ChatRequest(
+                            provider = geminiProvider(key, model),
+                            system = request.system,
+                            messages = listOf(ChatMessage(ChatRole.USER, request.user, request.attachments)),
+                            thinking = thinking
+                        )
+                        client.stream(chat).collect { event -> if (event is ChatEvent.Delta) { emitted = true; emit(event.text) } }
+                        GeminiModels.markGood(model)
+                        return@flow
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: ProviderException) {
+                        val err = e.error
+                        lastError = err
+                        when {
+                            err.isAuth || emitted -> throw mapError(err)
+                            err.kind == ProviderErrorKind.BAD_REQUEST && thinking != Thinking.DEFAULT &&
+                                err.message.contains("thinking", ignoreCase = true) -> { thinking = Thinking.DEFAULT; again = true }
+                            err.kind == ProviderErrorKind.MODEL_NOT_FOUND -> GeminiModels.markDead(model)
+                            err.isTransient -> { busyThisRound = true; sawBusy = true }
+                            else -> throw mapError(err)
+                        }
+                    }
+                }
+            }
+            if (!busyThisRound) break
+            if (round == 1) delay(2_500L)
+        }
+        val err = lastError ?: throw StudyAiException("Gemini did not answer. Try again.")
+        if (sawBusy) {
+            throw StudyAiException(
+                "Google's Gemini servers are busy right now: every model this key can use answered with a temporary error (last: ${err.httpCode?.let { "HTTP $it" } ?: err.kind.name.lowercase()}). Tap Retry in a minute.",
+                retryable = true
+            )
+        }
+        throw mapError(err)
     }
 
     private fun mapError(err: ProviderError): StudyAiException {
@@ -181,7 +231,10 @@ object StudyAiEngine {
                 }
                 p
             }
-            is TaskRouteResolution.Gemini -> geminiProvider(JarvisApp.instance.preferences.apiKey.trim(), route.modelId)
+            is TaskRouteResolution.Gemini -> throw StudyAiException(
+                "Study Board is set to use a custom provider, but none is active. Activate one in Settings, or switch Study Board back to your Gemini key (Study settings → AI provider).",
+                retryable = false
+            )
             is TaskRouteResolution.Blocked -> throw StudyAiException(route.message, retryable = false)
         }
     }
@@ -190,9 +243,7 @@ object StudyAiEngine {
     private fun geminiProvider(key: String, routedModel: String): ResolvedProvider {
         if (key.isBlank()) throw StudyAiException("Add your Gemini API key in Settings to use the Study Board.", retryable = false)
         // The model saved for the voice assistant is a realtime model and cannot write text; use a text model instead.
-        val model = routedModel.removePrefix("models/").takeIf { id ->
-            id.isNotBlank() && NON_TEXT_MARKERS.none { id.contains(it, true) }
-        } ?: GEMINI_DEFAULT_MODEL
+        val model = routedModel.removePrefix("models/").takeIf { GeminiModels.isTextModel(it) } ?: GEMINI_DEFAULT_MODEL
         return ResolvedProvider(
             profileId = "builtin-gemini",
             name = "Gemini",
