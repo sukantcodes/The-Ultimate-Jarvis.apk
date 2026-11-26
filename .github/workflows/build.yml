@@ -152,7 +152,20 @@ jobs:
     - name: Build minified release APK
       env:
         SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-      run: ./gradlew assembleRelease --stacktrace
+      run: |
+        set +e
+        ./gradlew assembleRelease --stacktrace > build.log 2>&1
+        code=$?
+        if [ $code -ne 0 ]; then
+          # Put the real error in the run's annotations so it can be read without opening the raw log.
+          {
+            grep -n -E "What went wrong|^e: |error:|Error:|ERROR|Missing class|R8|lint|Execution failed|Caused by" build.log | head -25
+            echo "----- tail -----"
+            tail -n 25 build.log
+          } | cut -c1-300 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' | while IFS= read -r msg; do echo "::error title=Release build failed::$msg"; done
+        fi
+        cat build.log | tail -n 60
+        exit $code
     - name: Report APK size and contents
       shell: bash
       run: |
