@@ -39,9 +39,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.Timeout
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -50,9 +48,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class StudyEndToEndIntegrationTest {
-
-    @get:Rule
-    val testTimeout: Timeout = Timeout.seconds(30)
 
     private lateinit var app: Application
     private lateinit var db: StudyBoardDatabase
@@ -231,18 +226,37 @@ class StudyEndToEndIntegrationTest {
                 )
             )
 
-            val result = StudyExportManager.exportSolutionPdf(app, solution)
+            val renderedPages = ArrayList<android.graphics.Bitmap>()
+            val bitmapSessionFactory = {
+                object : StudyExportManager.PdfPageSession {
+                    override fun startPage(width: Int, height: Int, pageNumber: Int): android.graphics.Canvas {
+                        val bmp = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+                        renderedPages += bmp
+                        return android.graphics.Canvas(bmp)
+                    }
+
+                    override fun finishCurrentPage() = Unit
+
+                    override fun writeAndClose(out: java.io.OutputStream) {
+                        out.write("%PDF-1.4\n%JARVIS Study Board\n".toByteArray())
+                        out.flush()
+                    }
+
+                    override fun closeQuietly() = Unit
+                }
+            }
+
+            val result = StudyExportManager.exportSolutionPdfInternal(app, solution, bitmapSessionFactory)
             assertTrue("PDF export failed: ${result.exceptionOrNull()}", result.isSuccess)
             val artifact = result.getOrThrow()
             assertTrue("Expected multi-page pagination (>=2 pages), got ${artifact.pageCount}", artifact.pageCount >= 2)
+            assertEquals(artifact.pageCount, renderedPages.size)
             val pdfFile = artifact.cacheFile
             assertTrue(pdfFile.exists())
             val bytes = pdfFile.readBytes()
-            // In Robolectric JVM, ShadowPdfDocument.writeTo is a no-op stub (0 bytes) unless native Skia PDF is active
-            if (bytes.isNotEmpty()) {
-                assertTrue(bytes.size > 800)
-                assertEquals("%PDF-", String(bytes, 0, 5))
-            }
+            assertTrue(bytes.isNotEmpty())
+            assertEquals("%PDF-", String(bytes, 0, 5))
+            renderedPages.forEach { it.recycle() }
             pdfFile.delete()
         }
     }

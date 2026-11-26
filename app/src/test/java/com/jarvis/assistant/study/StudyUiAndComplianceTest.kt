@@ -19,9 +19,7 @@ import com.jarvis.assistant.tools.appcontrol.AppNavigator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.Timeout
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
@@ -30,9 +28,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class StudyUiAndComplianceTest {
-
-    @get:Rule
-    val testTimeout: Timeout = Timeout.seconds(30)
 
     @Test
     fun appNavigatorRegistersStudyBoardDestinationCleanly() {

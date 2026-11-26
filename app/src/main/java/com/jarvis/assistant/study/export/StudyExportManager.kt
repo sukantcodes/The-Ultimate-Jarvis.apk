@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -46,6 +47,40 @@ object StudyExportManager {
         val pageCount: Int = 1
     )
 
+    internal interface PdfPageSession {
+        fun startPage(width: Int, height: Int, pageNumber: Int): Canvas
+        fun finishCurrentPage()
+        fun writeAndClose(out: OutputStream)
+        fun closeQuietly()
+    }
+
+    private class SystemPdfPageSession : PdfPageSession {
+        private val doc = PdfDocument()
+        private var currentPage: PdfDocument.Page? = null
+
+        override fun startPage(width: Int, height: Int, pageNumber: Int): Canvas {
+            val page = doc.startPage(PdfDocument.PageInfo.Builder(width, height, pageNumber).create())
+            currentPage = page
+            return page.canvas
+        }
+
+        override fun finishCurrentPage() {
+            currentPage?.let { doc.finishPage(it) }
+            currentPage = null
+        }
+
+        override fun writeAndClose(out: OutputStream) {
+            doc.writeTo(out)
+            doc.close()
+        }
+
+        override fun closeQuietly() {
+            runCatching { currentPage?.let { doc.finishPage(it) } }
+            currentPage = null
+            runCatching { doc.close() }
+        }
+    }
+
     private const val A4_WIDTH = 595
     private const val A4_HEIGHT = 842
     private const val MARGIN_X = 36f
@@ -55,10 +90,16 @@ object StudyExportManager {
     suspend fun exportSolutionPdf(
         context: Context,
         solution: StudySolution
+    ): Result<ExportedArtifact> = exportSolutionPdfInternal(context, solution) { SystemPdfPageSession() }
+
+    internal suspend fun exportSolutionPdfInternal(
+        context: Context,
+        solution: StudySolution,
+        sessionFactory: () -> PdfPageSession
     ): Result<ExportedArtifact> = withContext(Dispatchers.IO) {
         runCatching {
             val appCtx = context.applicationContext
-            val doc = PdfDocument()
+            val session = sessionFactory()
 
             val accent = ensureReadablePrintAccent(ThemeManager.getThemeAccentColor())
             val secondary = ensureReadablePrintAccent(ThemeManager.getThemeSecondaryColor())
@@ -109,8 +150,7 @@ object StudyExportManager {
             }
 
             var pageNumber = 1
-            var currentPage = doc.startPage(PdfDocument.PageInfo.Builder(A4_WIDTH, A4_HEIGHT, pageNumber).create())
-            var canvas = currentPage.canvas
+            var canvas = session.startPage(A4_WIDTH, A4_HEIGHT, pageNumber)
             var y = MARGIN_TOP
 
             fun drawPageBgAndHeader(c: Canvas, pNum: Int) {
@@ -126,10 +166,9 @@ object StudyExportManager {
             }
 
             fun startNextPage() {
-                doc.finishPage(currentPage)
+                session.finishCurrentPage()
                 pageNumber++
-                currentPage = doc.startPage(PdfDocument.PageInfo.Builder(A4_WIDTH, A4_HEIGHT, pageNumber).create())
-                canvas = currentPage.canvas
+                canvas = session.startPage(A4_WIDTH, A4_HEIGHT, pageNumber)
                 y = MARGIN_TOP
                 drawPageBgAndHeader(canvas, pageNumber)
             }
@@ -140,7 +179,8 @@ object StudyExportManager {
                 }
             }
 
-            drawPageBgAndHeader(canvas, pageNumber)
+            try {
+                drawPageBgAndHeader(canvas, pageNumber)
 
             // Header Meta
             val metaLine = buildString {
@@ -338,29 +378,29 @@ object StudyExportManager {
                 }
             }
 
-            doc.finishPage(currentPage)
+                session.finishCurrentPage()
 
-            val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            val safeTopic = solution.topic.replace(Regex("[^A-Za-z0-9_-]"), "_").take(24).ifBlank { "Lesson" }
-            val fileName = "JARVIS_Study_${safeTopic}_$stamp.pdf"
-            val exportDir = File(appCtx.cacheDir, "study_exports").apply { mkdirs() }
-            val cacheFile = File(exportDir, fileName)
-            FileOutputStream(cacheFile).use { fos -> doc.writeTo(fos) }
-            doc.close()
+                val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                val safeTopic = solution.topic.replace(Regex("[^A-Za-z0-9_-]"), "_").take(24).ifBlank { "Lesson" }
+                val fileName = "JARVIS_Study_${safeTopic}_$stamp.pdf"
+                val exportDir = File(appCtx.cacheDir, "study_exports").apply { mkdirs() }
+                val cacheFile = File(exportDir, fileName)
+                FileOutputStream(cacheFile).use { fos -> session.writeAndClose(fos) }
 
-            val publicPath = savePdfToDownloads(appCtx, cacheFile, fileName)
-            val shareUri = runCatching {
-                FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", cacheFile)
-            }.getOrElse { Uri.fromFile(cacheFile) }
+                val publicPath = savePdfToDownloads(appCtx, cacheFile, fileName)
+                val shareUri = resolveShareUri(appCtx, cacheFile)
 
-            ExportedArtifact(
-                fileName = fileName,
-                mimeType = "application/pdf",
-                cacheFile = cacheFile,
-                shareUri = shareUri,
-                savedDisplayPath = publicPath,
-                pageCount = pageNumber
-            )
+                ExportedArtifact(
+                    fileName = fileName,
+                    mimeType = "application/pdf",
+                    cacheFile = cacheFile,
+                    shareUri = shareUri,
+                    savedDisplayPath = publicPath,
+                    pageCount = pageNumber
+                )
+            } finally {
+                session.closeQuietly()
+            }
         }
     }
 
@@ -386,7 +426,7 @@ object StudyExportManager {
                         bitmap.compress(Bitmap.CompressFormat.PNG, 96, fos)
                     }
                     val savedPath = saveImageToPictures(appCtx, cacheFile, fileName)
-                    val shareUri = FileProvider.getUriForFile(appCtx, "${appCtx.packageName}.fileprovider", cacheFile)
+                    val shareUri = resolveShareUri(appCtx, cacheFile)
                     ExportedArtifact(
                         fileName = fileName,
                         mimeType = "image/png",
@@ -400,6 +440,11 @@ object StudyExportManager {
             }
         }
     }
+
+    private fun resolveShareUri(context: Context, file: File): Uri =
+        runCatching {
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        }.getOrElse { Uri.fromFile(file) }
 
     private fun savePdfToDownloads(context: Context, source: File, fileName: String): String {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
