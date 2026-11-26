@@ -654,7 +654,7 @@ object StudyDialogs {
             LinearLayout(a).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                minHeight = dp(a, 64)
+                minimumHeight = dp(a, 64)
                 setPadding(dp(a, 14), dp(a, 12), dp(a, 14), dp(a, 12))
                 background = GradientDrawable().apply {
                     cornerRadius = dpf(a, 18f)

@@ -512,7 +512,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         fun paperActionChip(iconRes: Int, label: String, onClick: () -> Unit): LinearLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            minHeight = dp(44)
+            minimumHeight = dp(44)
             setPadding(dp(12), dp(8), dp(14), dp(8))
             background = StudyTheme.pillDrawable(this@StudyBoardActivity, 16f, StudyTheme.alpha(paperAccent, 0.08f), StudyTheme.alpha(paperStroke, 0.7f))
             isClickable = true
@@ -666,7 +666,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         segmented.addView(chipNew)
         segmented.addView(chipDoubt, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(4) })
         stripRow.addView(segmented)
-        stripRow.addView(Space(this), LinearLayout.LayoutParams(0, 1, 1f).apply { minWidth = dp(8) })
+        stripRow.addView(Space(this).apply { minimumWidth = dp(8) }, LinearLayout.LayoutParams(0, 1, 1f))
 
         val attachRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
