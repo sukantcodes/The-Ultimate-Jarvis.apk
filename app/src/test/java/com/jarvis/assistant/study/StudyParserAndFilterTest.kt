@@ -16,9 +16,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.Timeout
 
 class StudyParserAndFilterTest {
+
+    @get:Rule
+    val testTimeout: Timeout = Timeout.seconds(30)
 
     @Test
     fun strictFilterStripsChatbotFillerAndKeepsEducationalContent() {

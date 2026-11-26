@@ -14,9 +14,14 @@ import com.jarvis.assistant.study.model.VerificationStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.Timeout
 
 class StudyOfflineAndPromptTest {
+
+    @get:Rule
+    val testTimeout: Timeout = Timeout.seconds(30)
 
     private val defaultProfile = TeacherProfile(
         educationLevel = EducationLevel.CLASS_11_12,

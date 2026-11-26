@@ -19,7 +19,9 @@ import com.jarvis.assistant.tools.appcontrol.AppNavigator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.Timeout
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
@@ -28,6 +30,9 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class StudyUiAndComplianceTest {
+
+    @get:Rule
+    val testTimeout: Timeout = Timeout.seconds(30)
 
     @Test
     fun appNavigatorRegistersStudyBoardDestinationCleanly() {
@@ -39,8 +44,9 @@ class StudyUiAndComplianceTest {
 
     @Test
     fun portraitActivityAndLandscapeThemedLayoutRenderCleanlyWithoutOverflow() {
+        // Use create().start().resume() instead of .visible() so headless Robolectric doesn't loop Choreographer VSync on AuroraClock.
         val controller = Robolectric.buildActivity(StudyBoardActivity::class.java)
-        val portraitActivity = controller.setup().get()
+        val portraitActivity = controller.create().start().resume().get()
         assertNotNull(portraitActivity.findViewById<StudyWhiteboardView>(R.id.studyWhiteboard))
 
         // Wrap landscape config context with explicit JARVIS theme so ?attr/theme* attributes resolve natively
@@ -100,7 +106,7 @@ class StudyUiAndComplianceTest {
     @Config(sdk = [34], qualifiers = "land")
     fun nativeLandscapeOrientationLaunchesStudyBoardActivity() {
         val controller = Robolectric.buildActivity(StudyBoardActivity::class.java)
-        val activity = controller.setup().get()
+        val activity = controller.create().start().resume().get()
         assertNotNull(activity.findViewById<StudyWhiteboardView>(R.id.studyWhiteboard))
         controller.pause().stop().destroy()
     }
