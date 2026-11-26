@@ -22,7 +22,8 @@ object GlassScreens {
 
     /** Screens with their own full-screen visuals or overlays; they keep their design. */
     private val SKIP = setOf(
-        "MainActivity", "AlarmRingActivity", "CameraScanActivity", "JarvisTerminalActivity", "OnboardingActivity"
+        "MainActivity", "AlarmRingActivity", "CameraScanActivity", "JarvisTerminalActivity", "OnboardingActivity",
+        "StudyBoardActivity" // draws its own full-screen board
     )
 
     fun install(app: Application) {
