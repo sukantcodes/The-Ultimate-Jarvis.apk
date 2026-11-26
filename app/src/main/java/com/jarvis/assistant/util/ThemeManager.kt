@@ -111,6 +111,8 @@ object ThemeManager {
         }
 
         activity.setTheme(themeRes)
+        // The picked app font as a theme overlay: text without its own font, dialogs and sheets all start in it.
+        try { activity.theme.applyStyle(AppFont.current.overlay, true); com.jarvis.assistant.ui.glass.AppFonts.stamp(activity) } catch (_: Throwable) {}
         if (themeKey == "crystal") {
             // Transparent theme: ONE drawable on the window paints the chosen 4K Daydream scene (or lets the phone wallpaper show
             // through), with the dim and blur the person picked. It also owns the window's wallpaper flag and system blur.

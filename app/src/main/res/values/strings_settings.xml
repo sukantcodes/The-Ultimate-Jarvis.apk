@@ -69,6 +69,8 @@
     <string name="set_crystalbg_subtitle">Daydream 4K scenes • Blur</string>
     <string name="set_overlayavatars_title">Overlay Avatars</string>
     <string name="set_overlayavatars_subtitle">Choose a floating avatar or turn the overlay off</string>
+    <string name="set_appfont_title">App font</string>
+    <string name="set_appfont_desc">One font for the whole app: menus, titles, buttons, dialogs and chat. Terminal and code keep their monospace font.</string>
     <string name="set_refreshrate_title">Motion &amp; Refresh Rate</string>
     <string name="set_refreshrate_subtitle">Maximum available • system may adapt</string>
     <string name="set_liquidglass_title">Liquid Glass</string>

@@ -22,6 +22,20 @@ class DrawerSnapshotView @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
+    // The picture is painted as a plain rectangle, so without this it showed square corners under the rounded glass.
+    // Same radius as the glass pane (lgCornerRadius 28dp); the left corners sit in the off-screen bleed, so the visible
+    // edge of the drawer is rounded top and bottom.
+    private val cornerPx = 28f * resources.displayMetrics.density
+
+    init {
+        outlineProvider = object : android.view.ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: android.graphics.Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, cornerPx)
+            }
+        }
+        clipToOutline = true
+    }
+
     private var bmp: Bitmap? = null
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val dst = RectF()

@@ -386,6 +386,11 @@ class AppPreferences(context: Context) {
         get() = prefs.getBoolean("liquid_glass_enabled", true)
         set(value) { prefs.edit().putBoolean("liquid_glass_enabled", value).commit() }
 
+    /** The font used across the whole app: "inter" (default), "space", "sora", "newsreader" or "jetbrains". */
+    var appFont: String
+        get() = prefs.getString("app_font", "inter") ?: "inter"
+        set(value) { prefs.edit().putString("app_font", value).apply() }
+
     /** Headings, labels, values and captions each get their own colour everywhere in the app (default on). */
     var coloredText: Boolean
         get() = prefs.getBoolean("colored_text", true)

@@ -34,13 +34,18 @@ import com.jarvis.assistant.R
 object PredictiveBack {
 
     fun install(app: Application) {
-        if (Build.VERSION.SDK_INT >= 35) return
+        // Every Android version: on 15+ the system's own back animation was the only one drawn, and it only ran for
+        // screens that happened to be opted in, so the shrink-while-holding effect showed up on some pages and not
+        // others. Registering our callback on every screen makes the same animation play everywhere.
         app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+                if (activity.isTaskRoot) return // the task's root screen is left to the system (back to the launcher)
                 // Registered first = lowest priority, so any screen that handles back itself keeps priority and
-                // only falls through to this when it lets go of back. The task's root screen is left to the system.
-                if (activity is ComponentActivity && !activity.isTaskRoot) {
+                // only falls through to this when it lets go of back.
+                if (activity is ComponentActivity) {
                     activity.onBackPressedDispatcher.addCallback(activity, LeaveScreen(activity))
+                } else if (Build.VERSION.SDK_INT >= 34 && activity.javaClass.name in PLAIN_ACTIVITY_PAGES) {
+                    registerPlain(activity)
                 }
             }
 
@@ -51,6 +56,24 @@ object PredictiveBack {
             override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
             override fun onActivityDestroyed(activity: Activity) {}
         })
+    }
+
+    /** Screens built on the plain framework Activity (no AndroidX back dispatcher) that are real pages. */
+    private val PLAIN_ACTIVITY_PAGES = setOf("com.jarvis.assistant.ui.settings.MoreThemeColoursActivity")
+
+    @androidx.annotation.RequiresApi(34)
+    private fun registerPlain(activity: Activity) {
+        val motion = Motion(activity) { activity.findViewById(android.R.id.content) }
+        activity.onBackInvokedDispatcher.registerOnBackInvokedCallback(
+            android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+            object : android.window.OnBackAnimationCallback {
+                private fun compat(e: android.window.BackEvent) = BackEventCompat(e.touchX, e.touchY, e.progress, e.swipeEdge)
+                override fun onBackStarted(backEvent: android.window.BackEvent) = motion.start(compat(backEvent))
+                override fun onBackProgressed(backEvent: android.window.BackEvent) = motion.progress(compat(backEvent))
+                override fun onBackCancelled() = motion.cancel()
+                override fun onBackInvoked() = finishWithTransition(activity)
+            }
+        )
     }
 
     /** Finishes [activity] with the shared "leave toward the previous screen" transition. */
@@ -134,12 +157,15 @@ object PredictiveBack {
 
         /** 0 = untouched, 1 = fully pulled (smaller, rounded, leaning toward the swipe, slightly faded). */
         private fun pose(v: View, p: Float) {
-            val s = 1f - 0.10f * p
+            val s = 1f - 0.12f * p
             v.scaleX = s
             v.scaleY = s
-            v.translationX = edgeSign * 16f * density * p
-            v.alpha = 1f - 0.10f * p
-            corner = 28f * density * p
+            // Leans toward the finger and sits a little lower, so the shrinking page keeps a visible edge to drag.
+            v.translationX = edgeSign * 18f * density * p
+            v.translationY = 6f * density * p
+            // The fade only begins in the second half of the swipe, so the page stays solid while it is being held.
+            v.alpha = 1f - 0.16f * (p * p)
+            corner = 32f * density * p
             v.invalidateOutline()
         }
     }

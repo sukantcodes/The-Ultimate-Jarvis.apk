@@ -46,7 +46,7 @@ internal object TextRoles {
     fun styleTree(view: View) {
         if (view is LiquidRippleOverlay) return
         if (view.id == R.id.bottomDock) return // the dock is locked
-        if (view is TextView) apply(view)
+        if (view is TextView) { AppFonts.apply(view); apply(view) }
         if (view is ViewGroup) for (i in 0 until view.childCount) styleTree(view.getChildAt(i))
     }
 

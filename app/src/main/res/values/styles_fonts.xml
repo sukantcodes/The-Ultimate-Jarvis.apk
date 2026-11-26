@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The five app fonts (see AppFont.kt). Each overlay is laid over the screen's theme so text with no font of its own, and
+     dialogs and sheets opened from the screen, start in the picked font. -->
+<resources>
+    <style name="Widget.Jarvis.TextView.Space"><item name="android:fontFamily">@font/jarvis_display</item></style>
+    <style name="Widget.Jarvis.TextView.Sora"><item name="android:fontFamily">@font/jarvis_round</item></style>
+    <style name="Widget.Jarvis.TextView.Newsreader"><item name="android:fontFamily">@font/jarvis_serif</item></style>
+    <style name="Widget.Jarvis.TextView.Mono"><item name="android:fontFamily">@font/jarvis_mono</item></style>
+
+    <style name="ThemeOverlay.JarvisFont.Inter" parent="">
+        <item name="android:fontFamily">@font/jarvis_sans</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView</item>
+    </style>
+    <style name="ThemeOverlay.JarvisFont.Space" parent="">
+        <item name="android:fontFamily">@font/jarvis_display</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView.Space</item>
+    </style>
+    <style name="ThemeOverlay.JarvisFont.Sora" parent="">
+        <item name="android:fontFamily">@font/jarvis_round</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView.Sora</item>
+    </style>
+    <style name="ThemeOverlay.JarvisFont.Newsreader" parent="">
+        <item name="android:fontFamily">@font/jarvis_serif</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView.Newsreader</item>
+    </style>
+    <style name="ThemeOverlay.JarvisFont.Mono" parent="">
+        <item name="android:fontFamily">@font/jarvis_mono</item>
+        <item name="android:textViewStyle">@style/Widget.Jarvis.TextView.Mono</item>
+    </style>
+</resources>

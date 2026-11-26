@@ -570,6 +570,8 @@ class AppearanceSettingsActivity : SettingsScreenActivity() {
         binding.rowOverlayAvatars.setOnClickListener { open(OverlayAvatarActivity::class.java) }
         binding.rowCrystalBackground.setOnClickListener { open(CrystalBackgroundActivity::class.java) }
         binding.rowRefreshRate.setOnClickListener { showRefreshRateDialog() }
+        binding.rowAppFont.setOnClickListener { showAppFontDialog() }
+        binding.tvAppFontSubtitle.text = com.jarvis.assistant.util.AppFont.current.displayName
         binding.switchColoredText.isChecked = preferences.coloredText
         binding.switchColoredText.setOnCheckedChangeListener { _, on ->
             preferences.coloredText = on
@@ -617,6 +619,22 @@ class AppearanceSettingsActivity : SettingsScreenActivity() {
     /** Called by the theme sheet after the icon shape changes. */
     fun applyIconShape() {
         repaintIcons(binding.root)
+    }
+
+    private fun showAppFontDialog() {
+        val fonts = com.jarvis.assistant.util.AppFont.values().toList()
+        val selected = fonts.indexOf(com.jarvis.assistant.util.AppFont.current).coerceAtLeast(0)
+        PremiumDialog.choice(
+            this, "DISPLAY", getString(R.string.set_appfont_title), getString(R.string.set_appfont_desc),
+            fonts.map { it.displayName }, selected, instant = true
+        ) { which ->
+            val font = fonts[which]
+            if (font == com.jarvis.assistant.util.AppFont.current) return@choice
+            com.jarvis.assistant.util.AppFont.select(font)
+            binding.tvAppFontSubtitle.text = font.displayName
+            // Rebuild this screen in the new font now; screens behind it rebuild themselves when they come back.
+            recreate()
+        }
     }
 
     private fun showRefreshRateDialog() {

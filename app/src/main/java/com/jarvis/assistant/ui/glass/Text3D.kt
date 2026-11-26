@@ -29,7 +29,7 @@ internal object Text3D {
         if (view is LiquidRippleOverlay) return
         if (view.id == R.id.bottomDock) return // the dock is locked: it never changes
         when (view) {
-            is TextView -> style(view)
+            is TextView -> { AppFonts.apply(view); style(view) }
             is androidx.core.widget.NestedScrollView, is android.widget.ScrollView, is androidx.recyclerview.widget.RecyclerView ->
                 SmoothScroll.install(view)
         }
