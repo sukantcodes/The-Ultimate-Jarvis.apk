@@ -62,7 +62,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
 
     sealed class Event {
         data class Toast(val text: String) : Event()
-        data class ConfirmQuestions(val questions: List<ExtractedQuestion>, val source: String) : Event()
+        data class ConfirmQuestions(val questions: List<ExtractedQuestion>, val source: String, val previewPath: String? = null) : Event()
         data class PdfReady(val path: String, val pages: Int) : Event()
         data class Reveal(val block: Int) : Event()
     }
@@ -372,20 +372,27 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     // Photos and PDFs
     // ======================================================================================================
 
-    /** Reads a photo, extracts its questions and asks the student to confirm them. Nothing is solved before that. */
+    /** Reads a photo/picked image, saves a safe local preview, extracts its questions, and always lets the student check or ask about the image. */
     fun onImage(uri: Uri, source: String) {
         if (isBusy) { toast("Still working. Stop the current question first."); return }
-        ui.value = Ui(Phase.EXTRACTING, message = "Reading the question from the image…")
+        ui.value = Ui(Phase.EXTRACTING, message = "Loading and reading the selected image…")
         job = viewModelScope.launch {
             try {
-                val image = StudyMedia.imageAttachment(getApplication(), uri)
-                pendingImages = listOf(image)
-                val qs = StudyAiEngine.extractQuestions(getApplication(), listOf(image))
+                val loaded = StudyMedia.loadImage(getApplication(), uri)
+                pendingImages = listOf(loaded.attachment)
+                val preview = loaded.previewFile.absolutePath
+                val qs = try {
+                    StudyAiEngine.extractQuestions(getApplication(), pendingImages)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: StudyAiException) {
+                    // Image decoded fine: let user preview the picture and edit/confirm their question even if OCR found none
+                    listOf(ExtractedQuestion("Solve or explain what is shown in this image", "low", hasDiagram = true, note = e.message.orEmpty()))
+                }
                 ui.value = ui.value.copy(phase = if (hasContent) Phase.READY else Phase.IDLE, message = "")
-                events.tryEmit(Event.ConfirmQuestions(qs, source))
+                events.tryEmit(Event.ConfirmQuestions(qs, source, preview))
             } catch (e: CancellationException) { throw e }
             catch (e: StudyMedia.MediaException) { fail(e.message ?: "Could not read the image.") }
-            catch (e: StudyAiException) { fail(e.message ?: "Could not read the image.") }
             catch (e: Throwable) { fail("Could not read the image: ${e.message ?: e.javaClass.simpleName}") }
         }
     }
@@ -411,14 +418,20 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         ui.value = Ui(Phase.EXTRACTING, message = "Reading page ${page + 1}…")
         job = viewModelScope.launch {
             try {
-                val image = StudyMedia.pageAttachment(File(path), page)
-                pendingImages = listOf(image)
-                val qs = StudyAiEngine.extractQuestions(getApplication(), listOf(image))
+                val loaded = StudyMedia.pageWithPreview(getApplication(), File(path), page)
+                pendingImages = listOf(loaded.attachment)
+                val preview = loaded.previewFile.absolutePath
+                val qs = try {
+                    StudyAiEngine.extractQuestions(getApplication(), pendingImages)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: StudyAiException) {
+                    listOf(ExtractedQuestion("Solve or explain page ${page + 1}", "low", hasDiagram = true, note = e.message.orEmpty()))
+                }
                 ui.value = ui.value.copy(phase = if (hasContent) Phase.READY else Phase.IDLE, message = "")
-                events.tryEmit(Event.ConfirmQuestions(qs, "page ${page + 1}"))
+                events.tryEmit(Event.ConfirmQuestions(qs, "page ${page + 1}", preview))
             } catch (e: CancellationException) { throw e }
             catch (e: StudyMedia.MediaException) { fail(e.message ?: "Could not read that page.") }
-            catch (e: StudyAiException) { fail(e.message ?: "Could not read that page.") }
             catch (e: Throwable) { fail("Could not read that page: ${e.message ?: e.javaClass.simpleName}") }
         }
     }

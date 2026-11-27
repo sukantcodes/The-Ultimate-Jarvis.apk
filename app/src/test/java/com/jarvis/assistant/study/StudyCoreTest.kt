@@ -540,4 +540,59 @@ class StudyBoardRichDrawingAndLayoutTest {
         val bounds = DrawBounds.measure(block.allOps(true), m)!!
         assertTrue("Block width must stay inside board margins", bounds.minX >= 0f && bounds.maxX <= st.width + 0.5f)
     }
+
+    @Test fun humanBrainAtlasRendersDetailedLobesWithZeroOverlappingLabels() {
+        val brain = StudyDiagramAtlas.match("Draw a labelled diagram of the human brain")!!
+        assertTrue(brain.items.count { it is DiagramSpec.Item.Label } >= 10)
+        assertTrue(brain.items.any { it is DiagramSpec.Item.Poly && it.smooth && it.fill })
+        val labelNames = brain.items.filterIsInstance<DiagramSpec.Item.Label>().map { it.text }
+        assertTrue("Frontal Lobe" in labelNames && "Cerebellum" in labelNames && "Medulla Oblongata" in labelNames)
+
+        val laid = StudyDiagramLayout.layout(brain, 940f, 760f, m, 2.4f)
+        val labelBoxes = laid.ops.filterIsInstance<DrawOp.Rect>().filter { kotlin.math.abs(it.rx - 10f) < 0.2f }
+        assertEquals(labelNames.size, labelBoxes.size)
+
+        // Verify zero collisions across every pair of callout pills
+        for (i in labelBoxes.indices) {
+            for (j in i + 1 until labelBoxes.size) {
+                val a = labelBoxes[i]
+                val b = labelBoxes[j]
+                val horizOverlap = a.x < b.x + b.w && a.x + a.w > b.x
+                val vertOverlap = a.y < b.y + b.h + 1f && a.y + a.h + 1f > b.y
+                assertFalse("Labels $i and $j overlapped: (${a.x},${a.y},${a.w},${a.h}) vs (${b.x},${b.y},${b.w},${b.h})", horizOverlap && vertOverlap)
+            }
+        }
+        val bounds = DrawBounds.measure(laid.ops, m)!!
+        assertTrue("minX=${bounds.minX} >= 0 && maxX=${bounds.maxX} <= 940", bounds.minX >= 0f && bounds.maxX <= 940.5f)
+        assertTrue("maxY=${bounds.maxY} <= 760", bounds.maxY <= 760.5f)
+    }
+
+    @Test fun canonicalAtlasCoversCoreStemSubjectsAndEnhancesAssembler() {
+        for (q in listOf(
+            "Draw human heart diagram",
+            "Explain human eye structure",
+            "Structure of neuron",
+            "Plant cell diagram",
+            "Animal cell diagram",
+            "Human kidney section",
+            "Nephron structure",
+            "Human respiratory system",
+            "DNA double helix",
+            "Longitudinal section of flower",
+            "Dispersion of light through glass prism",
+            "Ray diagram of convex lens",
+            "Bohr model of atom",
+            "Layers of the earth",
+            "Water cycle diagram"
+        )) {
+            assertNotNull("Missing canonical blueprint for: $q", StudyDiagramAtlas.match(q))
+        }
+
+        val asm = StudyAssembler("Draw a neat labelled diagram of brain", "Class 10")
+        asm.accept(StudyEvent.Meta("Biology", "Control and Coordination", "Class 10"))
+        asm.accept(StudyEvent.Step(StepKind.STEP, "The brain coordinates voluntary and involuntary actions.", "", null, "", true))
+        val updates = asm.accept(StudyEvent.Final("Human brain consists of forebrain, midbrain, and hindbrain.", "", "high"))
+        assertTrue(updates.any { it is StudyAssembler.Update.StepAdded })
+        assertTrue(asm.lesson.steps.any { it.diagram?.title?.contains("Brain", ignoreCase = true) == true })
+    }
 }

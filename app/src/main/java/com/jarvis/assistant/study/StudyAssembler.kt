@@ -86,7 +86,8 @@ class StudyAssembler(private val question: String, private val level: String) {
         if (finalAnswer.isNotEmpty()) return emptyList() // nothing is written after the final answer
         if (steps.size >= MAX_STEPS) return emptyList()
         val index = steps.size + 1
-        val diagram = e.diagram?.let { DiagramSpec.parse(it) }
+        val rawDiagram = e.diagram?.let { DiagramSpec.parse(it) }
+        val diagram = rawDiagram?.let { StudyDiagramAtlas.enhance(question, it) }
         val preliminaryKind = if (diagram != null && e.kind == StepKind.STEP) StepKind.DIAGRAM else e.kind
         var content = if (preliminaryKind == StepKind.CODE) cleanCodeContent(e.content) else cleanContent(e.content)
         var explanation = cleanExplanation(e.explanation)
@@ -151,9 +152,23 @@ class StudyAssembler(private val question: String, private val level: String) {
             return listOf(Update.StepRejected("The final answer was empty.", steps.size + 1))
         }
         if (e.confidence == "low" || e.confidence == "uncertain" || e.confidence == "unsure") uncertain = true
+        val out = ArrayList<Update>()
+        val wantsDrawing = Regex("\\b(draw|diagram|sketch|label|labelled|labeled|structure|figure|illustrate|parts of)\\b", RegexOption.IGNORE_CASE).containsMatchIn(question)
+        if (wantsDrawing && steps.none { it.diagram != null } && steps.size < MAX_STEPS) {
+            StudyDiagramAtlas.match(question)?.let { atlas ->
+                val diagStep = StudyStep(
+                    index = steps.size + 1,
+                    kind = StepKind.DIAGRAM,
+                    content = "",
+                    explanation = "Labelled structural diagram of ${atlas.title}.",
+                    diagram = atlas
+                )
+                steps.add(diagStep)
+                out.add(Update.StepAdded(diagStep))
+            }
+        }
         // A final answer that only restates the last step highlights that step instead of being written twice.
         val last = steps.lastOrNull()
-        val out = ArrayList<Update>()
         if (last != null && same(last.content, answer)) {
             val hi = last.copy(isFinalHighlight = true)
             steps[steps.size - 1] = hi

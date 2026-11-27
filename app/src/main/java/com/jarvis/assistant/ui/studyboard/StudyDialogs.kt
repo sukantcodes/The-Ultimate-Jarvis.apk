@@ -386,16 +386,46 @@ object StudyDialogs {
     }
 
     /**
-     * Shows what was read from the image and lets the student fix it. Nothing is solved until "Solve" is pressed, so a
-     * misread question can never be solved silently.
+     * Shows the selected image preview and extracted question(s) so the student can check or edit before solving.
      */
-    fun confirmQuestions(a: Activity, questions: List<ExtractedQuestion>, source: String, onSolve: (String, Boolean) -> Unit) {
+    fun confirmQuestions(
+        a: Activity,
+        questions: List<ExtractedQuestion>,
+        source: String,
+        previewPath: String? = null,
+        onSolve: (String, Boolean) -> Unit
+    ) {
         val d = PremiumDialog.create(a)
             .eyebrow("QUESTION CHECK")
             .title("Is this your question?")
             .message("Read from $source. Check it before solving.")
 
         val p = d.palette
+        val previewBmp = StudyMedia.decodePreviewBitmap(previewPath, 720)
+        val previewHolder = previewBmp?.let { bmp ->
+            val frame = FrameLayout(a).apply {
+                clipToOutline = true
+                outlineProvider = object : ViewOutlineProvider() {
+                    override fun getOutline(v: View, outline: Outline) {
+                        outline.setRoundRect(0, 0, v.width, v.height, dpf(a, 14f))
+                    }
+                }
+                background = GradientDrawable().apply {
+                    cornerRadius = dpf(a, 14f)
+                    setColor(StudyPalette.PAPER)
+                    setStroke(dp(a, 1), StudyTheme.alpha(p.accent1, 0.35f))
+                }
+            }
+            val iv = ImageView(a).apply {
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setImageBitmap(bmp)
+                contentDescription = "Selected image preview"
+            }
+            frame.addView(iv, FrameLayout.LayoutParams(-1, -1))
+            frame.layoutParams = LinearLayout.LayoutParams(-1, dp(a, 148))
+            frame to iv
+        }
+
         val edit = EditText(a).apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             minLines = 3
@@ -463,7 +493,8 @@ object StudyDialogs {
             edit.setSelection(edit.text.length)
             val msg = when {
                 q.text.contains("[unclear]") -> "Part of this was hard to read. Please check it and fix the marked part."
-                q.confidence != "high" -> "I am not fully sure I read this correctly. Please check it."
+                q.note.isNotEmpty() && q.confidence != "high" -> q.note
+                q.confidence != "high" -> "Check or refine the question below before solving."
                 else -> ""
             }
             warn.text = msg
@@ -496,6 +527,10 @@ object StudyDialogs {
         }
 
         show(0)
+        if (previewHolder != null) {
+            d.add(previewHolder.first)
+                .add(PremiumDialog.spacer(a, 10f))
+        }
         d.add(edit)
             .add(warn)
             .add(PremiumDialog.spacer(a, 10f))
@@ -511,6 +546,12 @@ object StudyDialogs {
                 } else {
                     onSolve(t, includeFigure && figureVisible)
                     true
+                }
+            }
+            .onDismissed {
+                if (previewHolder != null && previewBmp != null && !previewBmp.isRecycled) {
+                    previewHolder.second.setImageDrawable(null)
+                    previewBmp.recycle()
                 }
             }
             .show()

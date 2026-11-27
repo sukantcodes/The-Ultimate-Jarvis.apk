@@ -403,20 +403,31 @@ object StudyDiagramLayout {
 
     private data class LabelRect(val x: Float, val y: Float, val w: Float, val h: Float)
 
+    private data class PreparedLabel(
+        val spec: DiagramSpec.Item.Label,
+        val lines: List<String>,
+        val boxW: Float,
+        val boxH: Float,
+        val lineH: Float,
+        val textSize: Float,
+        val targetSpecX: Float,
+        val targetSpecY: Float
+    )
+
     /**
      * Lays out a rich layered diagram inside [w] × [maxH], ordering construction chronologically from outer structure ->
-     * live shaded colour washes -> interior realistic details -> external callouts/labels, and strictly clamping all
-     * geometry and text inside [0..w] so nothing can ever overflow the whiteboard.
+     * live shaded colour washes -> interior realistic details -> non-colliding aligned external callouts & labels, and
+     * strictly clamping all geometry and text inside [0..w] so nothing can ever overflow or overlap.
      */
     fun layout(spec: DiagramSpec, w: Float, maxH: Float, metrics: TextMetrics, stroke: Float): Result {
         val rawOps = ArrayList<DrawOp>()
         val size = min(w, maxH)
-        val labelSize = (size * 0.056f).coerceIn(13f, 25f)
+        val labelSize = (size * 0.052f).coerceIn(13f, 23f)
         val g = spec.graph
         var h = 0f
 
         if (spec.title.isNotBlank()) {
-            val titleSize = (labelSize * 1.12f).coerceAtMost(28f)
+            val titleSize = (labelSize * 1.18f).coerceAtMost(28f)
             val titleTw = metrics.width(spec.title, titleSize, Face.BODY_BOLD)
             val titleScale = if (titleTw > w - 28f) ((w - 28f) / titleTw).coerceAtLeast(0.5f) else 1f
             val ts = titleSize * titleScale
@@ -429,24 +440,75 @@ object StudyDiagramLayout {
 
         val itemsStartY = h
         if (spec.items.isNotEmpty()) {
-            val boxH = if (g != null) maxH * 0.54f else (maxH - h).coerceAtLeast(w * 0.45f)
-            // Compute coordinate range in spec space so even slightly out-of-0..100 coordinates normalize cleanly
-            val (spMinX, spMinY, spSpan) = specSpan(spec.items)
-            val sc = min((w - 16f) / spSpan, (boxH - 12f) / spSpan)
-            val offX = (w - spSpan * sc) / 2f - spMinX * sc
-            val offY = itemsStartY - spMinY * sc + 6f
-
+            val availBoxH = if (g != null) maxH * 0.54f else (maxH - h).coerceAtLeast(w * 0.45f)
             val shapes = spec.items.filter { it !is DiagramSpec.Item.Label && it !is DiagramSpec.Item.Dot }
             val dots = spec.items.filterIsInstance<DiagramSpec.Item.Dot>()
             val labels = spec.items.filterIsInstance<DiagramSpec.Item.Label>()
 
-            // Subtle studio diagram stage backdrop
-            val stageW = min(w - 4f, spSpan * sc + 12f)
-            val stageH = (spSpan * sc + 12f).coerceAtMost(boxH)
-            val stageX = (w - stageW) / 2f
+            val (geomMinX, geomMinY, geomMaxX, geomMaxY) = geomBounds(spec.items)
+            val geomW = (geomMaxX - geomMinX).coerceAtLeast(24f)
+            val geomH = (geomMaxY - geomMinY).coerceAtLeast(24f)
+            val geomMidX = (geomMinX + geomMaxX) * 0.5f
+
+            val useRailLabels = labels.any { it.anchorX != null && it.anchorY != null } ||
+                (labels.size >= 3 && labels.any { it.text.length >= 4 })
+
+            val leftPrepared = ArrayList<PreparedLabel>()
+            val rightPrepared = ArrayList<PreparedLabel>()
+            val inlineLabels = ArrayList<DiagramSpec.Item.Label>()
+
+            val maxRailTextW = (w * 0.22f).coerceAtLeast(70f)
+            if (useRailLabels) {
+                for (lbl in labels) {
+                    val tx = lbl.anchorX ?: lbl.x
+                    val ty = lbl.anchorY ?: lbl.y
+                    val prep = prepareRailLabel(lbl, labelSize * 0.88f, maxRailTextW, metrics, tx, ty)
+                    val goLeft = if (lbl.anchorX != null && lbl.x != tx) lbl.x < geomMidX else tx < geomMidX
+                    if (goLeft) leftPrepared.add(prep) else rightPrepared.add(prep)
+                }
+                // If all labels clustered onto one side with >4 items, balance items near midline only when helpful
+                if (leftPrepared.isEmpty() && rightPrepared.size >= 6) {
+                    val byX = rightPrepared.sortedBy { it.targetSpecX }
+                    val moveCount = rightPrepared.size / 2
+                    leftPrepared.addAll(byX.take(moveCount))
+                    rightPrepared.clear()
+                    rightPrepared.addAll(byX.drop(moveCount))
+                } else if (rightPrepared.isEmpty() && leftPrepared.size >= 6) {
+                    val byX = leftPrepared.sortedByDescending { it.targetSpecX }
+                    val moveCount = leftPrepared.size / 2
+                    rightPrepared.addAll(byX.take(moveCount))
+                    leftPrepared.clear()
+                    leftPrepared.addAll(byX.drop(moveCount))
+                }
+                leftPrepared.sortBy { it.targetSpecY }
+                rightPrepared.sortBy { it.targetSpecY }
+            } else {
+                inlineLabels.addAll(labels)
+            }
+
+            val leftColMaxW = leftPrepared.maxOfOrNull { it.boxW } ?: 0f
+            val rightColMaxW = rightPrepared.maxOfOrNull { it.boxW } ?: 0f
+            val gutterGap = 20f
+            val artLeft = if (leftPrepared.isEmpty()) 14f else (leftColMaxW + 8f + gutterGap).coerceAtMost(w * 0.31f)
+            val artRight = if (rightPrepared.isEmpty()) w - 14f else (w - rightColMaxW - 8f - gutterGap).coerceAtLeast(w * 0.69f)
+            val artW = (artRight - artLeft).coerceAtLeast(w * 0.38f)
+
+            val minGap = max(8f, labelSize * 0.42f)
+            val neededLeftH = if (leftPrepared.isEmpty()) 0f else leftPrepared.sumOf { it.boxH.toDouble() }.toFloat() + (leftPrepared.size - 1) * minGap + 20f
+            val neededRightH = if (rightPrepared.isEmpty()) 0f else rightPrepared.sumOf { it.boxH.toDouble() }.toFloat() + (rightPrepared.size - 1) * minGap + 20f
+            val stageH = max(availBoxH, max(neededLeftH, neededRightH)).coerceAtMost(maxH - itemsStartY)
+            val artAvailH = (stageH - 20f).coerceAtLeast(80f)
+
+            val sc = min((artW - 16f) / geomW, artAvailH / geomH)
+            val drawnW = geomW * sc
+            val drawnH = geomH * sc
+            val offX = artLeft + (artW - drawnW) * 0.5f - geomMinX * sc
+            val offY = itemsStartY + (stageH - drawnH) * 0.5f - geomMinY * sc
+
+            // Subtle studio diagram stage backdrop spanning artwork + rails
             rawOps.add(
                 DrawOp.Rect(
-                    stageX, itemsStartY, stageW, stageH,
+                    2f, itemsStartY, w - 4f, stageH,
                     stroke = max(1f, stroke * 0.6f),
                     ink = Ink.FAINT,
                     fill = true,
@@ -454,7 +516,7 @@ object StudyDiagramLayout {
                     fillInk = Ink.FAINT,
                     shade = FillShade.LINEAR,
                     paintMode = PaintMode.FILL_AND_STROKE,
-                    fillAlpha = 0.07f
+                    fillAlpha = 0.06f
                 )
             )
 
@@ -475,7 +537,6 @@ object StudyDiagramLayout {
             for (item in detailShapes) {
                 rawOps.addAll(shapePass(item, sc, offX, offY, stroke, Pass.OUTLINE))
             }
-            // Add delicate highlight rims on larger radial-shaded circles/ovals for realistic 3D depth
             for (item in filledShapes) {
                 specularHighlight(item, sc, offX, offY, stroke)?.let { rawOps.add(it) }
             }
@@ -485,27 +546,41 @@ object StudyDiagramLayout {
                 val r = max(3.2f, dot.r * sc)
                 rawOps.add(DrawOp.Oval(dx, dy, r, r, stroke * 0.9f, dot.ink, fill = true, fillInk = dot.fillInk, shade = FillShade.RADIAL, fillAlpha = 0.85f))
                 if (dot.label.isNotBlank()) {
+                    inlineLabels.add(DiagramSpec.Item.Label(dot.x + 4f, dot.y - 4f, dot.label, dot.ink, dot.x, dot.y, badge = true))
+                }
+            }
+
+            // Stage 4: Aligned Two-Rail Non-Overlapping Callouts + Inline Labels
+            val topBound = itemsStartY + 8f
+            val bottomBound = itemsStartY + stageH - 8f
+            if (leftPrepared.isNotEmpty()) {
+                val flushRightEdge = (artLeft - gutterGap).coerceAtLeast(leftColMaxW + 6f)
+                layoutRailColumn(
+                    items = leftPrepared, isLeft = true, edgeX = flushRightEdge, minEdge = 4f, maxEdge = w - 4f,
+                    sc = sc, ox = offX, oy = offY, topBound = topBound, bottomBound = bottomBound,
+                    minGap = minGap, stroke = stroke, metrics = metrics, out = rawOps
+                )
+            }
+            if (rightPrepared.isNotEmpty()) {
+                val flushLeftEdge = (artRight + gutterGap).coerceAtMost(w - rightColMaxW - 6f)
+                layoutRailColumn(
+                    items = rightPrepared, isLeft = false, edgeX = flushLeftEdge, minEdge = 4f, maxEdge = w - 4f,
+                    sc = sc, ox = offX, oy = offY, topBound = topBound, bottomBound = bottomBound,
+                    minGap = minGap, stroke = stroke, metrics = metrics, out = rawOps
+                )
+            }
+            if (inlineLabels.isNotEmpty()) {
+                val placed = ArrayList<LabelRect>()
+                for (lbl in inlineLabels) {
                     rawOps.addAll(
-                        layoutSingleLabel(
-                            DiagramSpec.Item.Label(dot.x + 4f, dot.y - 4f, dot.label, dot.ink, dot.x, dot.y, badge = true),
-                            sc, offX, offY, w, itemsStartY, itemsStartY + stageH, labelSize * 0.88f, stroke, metrics,
-                            ArrayList()
+                        layoutInlineLabel(
+                            lbl, sc, offX, offY, w, topBound, bottomBound, labelSize * 0.92f, stroke, metrics, placed
                         )
                     )
                 }
             }
 
-            // Stage 4: Anchor pins, leader callout lines, and de-overlapped external labels
-            val placed = ArrayList<LabelRect>()
-            for (lbl in labels) {
-                rawOps.addAll(
-                    layoutSingleLabel(
-                        lbl, sc, offX, offY, w, itemsStartY + 4f, itemsStartY + stageH - 4f, labelSize * 0.92f, stroke, metrics, placed
-                    )
-                )
-            }
-
-            h = itemsStartY + stageH + labelSize * 0.5f
+            h = itemsStartY + stageH + labelSize * 0.45f
         }
 
         if (g != null) {
@@ -514,7 +589,6 @@ object StudyDiagramLayout {
             h += gh + labelSize * 0.6f
         }
 
-        // Strict normalization pass: guarantee EVERY mark & label sits inside [2f .. w - 2f] and total height <= maxH
         val finalOps = normalizeIntoBox(rawOps, w, maxH, metrics)
         val measuredH = (DrawBounds.measure(finalOps, metrics)?.maxY ?: h).coerceAtLeast(h).coerceAtMost(maxH)
         return Result(finalOps, w, measuredH)
@@ -531,14 +605,23 @@ object StudyDiagramLayout {
         is DiagramSpec.Item.Line, is DiagramSpec.Item.Dot, is DiagramSpec.Item.Label -> false
     }
 
-    private fun specSpan(items: List<DiagramSpec.Item>): Triple<Float, Float, Float> {
-        var minX = 0f; var minY = 0f; var maxX = 100f; var maxY = 100f
-        var sawGeom = false
+    private data class SpecBox(val minX: Float, val minY: Float, val maxX: Float, val maxY: Float)
+
+    private fun geomBounds(items: List<DiagramSpec.Item>): SpecBox {
+        var minX = Float.POSITIVE_INFINITY
+        var minY = Float.POSITIVE_INFINITY
+        var maxX = Float.NEGATIVE_INFINITY
+        var maxY = Float.NEGATIVE_INFINITY
+        fun inc(x: Float, y: Float) {
+            if (x < minX) minX = x
+            if (y < minY) minY = y
+            if (x > maxX) maxX = x
+            if (y > maxY) maxY = y
+        }
         for (it in items) {
-            if (it is DiagramSpec.Item.Label) continue
-            fun inc(x: Float, y: Float) {
-                if (!sawGeom) { minX = min(0f, x); minY = min(0f, y); maxX = max(100f, x); maxY = max(100f, y); sawGeom = true }
-                else { minX = min(minX, x); minY = min(minY, y); maxX = max(maxX, x); maxY = max(maxY, y) }
+            if (it is DiagramSpec.Item.Label) {
+                it.anchorX?.let { ax -> it.anchorY?.let { ay -> inc(ax, ay) } }
+                continue
             }
             when (it) {
                 is DiagramSpec.Item.Line -> { inc(it.x1, it.y1); inc(it.x2, it.y2) }
@@ -554,8 +637,209 @@ object StudyDiagramLayout {
                 is DiagramSpec.Item.Label -> Unit
             }
         }
-        val span = max(maxX - minX, maxY - minY).coerceAtLeast(100f)
-        return Triple(minX, minY, span)
+        if (!minX.isFinite()) return SpecBox(0f, 0f, 100f, 100f)
+        // Expand slight margin if tiny
+        if (maxX - minX < 20f) { minX -= 10f; maxX += 10f }
+        if (maxY - minY < 20f) { minY -= 10f; maxY += 10f }
+        return SpecBox(minX, minY, maxX, maxY)
+    }
+
+    private fun wrapLabelText(text: String, size: Float, maxW: Float, metrics: TextMetrics): List<String> {
+        if (metrics.width(text, size, Face.BODY_BOLD) <= maxW) return listOf(text)
+        val words = text.trim().split(Regex("\\s+"))
+        if (words.size <= 1) return listOf(text)
+        val mid = (words.size + 1) / 2
+        val l1 = words.take(mid).joinToString(" ")
+        val l2 = words.drop(mid).joinToString(" ")
+        return listOf(l1, l2).filter { it.isNotEmpty() }
+    }
+
+    private fun prepareRailLabel(
+        lbl: DiagramSpec.Item.Label,
+        baseSize: Float,
+        maxTextW: Float,
+        metrics: TextMetrics,
+        tx: Float,
+        ty: Float
+    ): PreparedLabel {
+        var textSize = baseSize
+        var lines = wrapLabelText(lbl.text, textSize, maxTextW, metrics)
+        val widest = lines.maxOf { metrics.width(it, textSize, Face.BODY_BOLD) }
+        if (widest > maxTextW && maxTextW > 30f) {
+            textSize = (textSize * (maxTextW / widest)).coerceAtLeast(baseSize * 0.72f)
+            lines = wrapLabelText(lbl.text, textSize, maxTextW, metrics)
+        }
+        val lineH = textSize * 1.24f
+        val padX = 9f
+        val padY = 5f
+        val boxW = lines.maxOf { metrics.width(it, textSize, Face.BODY_BOLD) } + padX * 2f
+        val boxH = lines.size * lineH + padY * 2f
+        return PreparedLabel(lbl, lines, boxW, boxH, lineH, textSize, tx, ty)
+    }
+
+    /**
+     * Distributes sorted vertical slots cleanly within [topBound..bottomBound] with guaranteed [minGap] spacing so
+     * NO two labels can overlap or collapse on one another.
+     */
+    private fun solveVerticalSlots(items: List<PreparedLabel>, sc: Float, oy: Float, topBound: Float, bottomBound: Float, minGap: Float): FloatArray {
+        val n = items.size
+        val ys = FloatArray(n)
+        if (n == 0) return ys
+        val avail = (bottomBound - topBound).coerceAtLeast(1f)
+        val totalNeeded = items.sumOf { it.boxH.toDouble() }.toFloat() + (n - 1) * minGap
+        val effectiveGap = if (totalNeeded <= avail) minGap else ((avail - items.sumOf { it.boxH.toDouble() }.toFloat()) / max(1, n - 1)).coerceAtLeast(2f)
+
+        // Start near each anatomical anchor Y, centered vertically
+        for (i in 0 until n) {
+            val anchorY = oy + items[i].targetSpecY * sc
+            ys[i] = (anchorY - items[i].boxH * 0.5f).coerceIn(topBound, max(topBound, bottomBound - items[i].boxH))
+        }
+        // Forward sweep: strictly preserve non-overlapping order
+        for (i in 1 until n) {
+            val minY = ys[i - 1] + items[i - 1].boxH + effectiveGap
+            if (ys[i] < minY) ys[i] = minY
+        }
+        // Backward sweep: pull cleanly inside bottomBound without squashing gaps
+        val lastLimit = bottomBound - items[n - 1].boxH
+        if (ys[n - 1] > lastLimit) ys[n - 1] = lastLimit
+        for (i in n - 2 downTo 0) {
+            val maxY = ys[i + 1] - items[i].boxH - effectiveGap
+            if (ys[i] > maxY) ys[i] = maxY
+        }
+        // Clamp top guard
+        if (ys[0] < topBound) {
+            ys[0] = topBound
+            for (i in 1 until n) {
+                val minY = ys[i - 1] + items[i - 1].boxH + effectiveGap
+                if (ys[i] < minY) ys[i] = minY
+            }
+        }
+        return ys
+    }
+
+    private fun layoutRailColumn(
+        items: List<PreparedLabel>,
+        isLeft: Boolean,
+        edgeX: Float,
+        minEdge: Float,
+        maxEdge: Float,
+        sc: Float,
+        ox: Float,
+        oy: Float,
+        topBound: Float,
+        bottomBound: Float,
+        minGap: Float,
+        stroke: Float,
+        metrics: TextMetrics,
+        out: MutableList<DrawOp>
+    ) {
+        val ys = solveVerticalSlots(items, sc, oy, topBound, bottomBound, minGap)
+        items.forEachIndexed { idx, p ->
+            val by = ys[idx]
+            val bx = if (isLeft) {
+                (edgeX - p.boxW).coerceIn(minEdge, max(minEdge, maxEdge - p.boxW))
+            } else {
+                edgeX.coerceIn(minEdge, max(minEdge, maxEdge - p.boxW))
+            }
+            val labelInk = if (p.spec.ink == Ink.INK) Ink.NOTE else p.spec.ink
+            val ax = ox + p.targetSpecX * sc
+            val ay = oy + p.targetSpecY * sc
+            val connectX = if (isLeft) bx + p.boxW else bx
+            val connectY = by + p.boxH * 0.5f
+
+            // Precision target pin dot with clean outline + angled leader + flush horizontal rail tick
+            val dotR = max(3.0f, stroke * 1.35f)
+            out.add(DrawOp.Oval(ax, ay, dotR, dotR, max(1f, stroke * 0.7f), labelInk, fill = true, fillInk = labelInk, shade = FillShade.FLAT, paintMode = PaintMode.FILL_AND_STROKE, fillAlpha = 0.90f))
+            val tickLen = 10f
+            val kneeX = if (isLeft) max(connectX + tickLen, ax + (connectX - ax) * 0.45f) else min(connectX - tickLen, ax + (connectX - ax) * 0.45f)
+            if (isLeft && kneeX < ax && kneeX > connectX + 4f || !isLeft && kneeX > ax && kneeX < connectX - 4f) {
+                out.add(DrawOp.Line(ax, ay, kneeX, connectY, max(1.1f, stroke * 0.62f), Ink.NOTE))
+                out.add(DrawOp.Line(kneeX, connectY, connectX, connectY, max(1.1f, stroke * 0.62f), Ink.NOTE))
+            } else {
+                out.add(DrawOp.Line(ax, ay, connectX, connectY, max(1.1f, stroke * 0.62f), Ink.NOTE))
+            }
+
+            // Rounded callout badge + sharp label lines
+            out.add(
+                DrawOp.Rect(
+                    bx, by, p.boxW, p.boxH,
+                    stroke = max(1f, stroke * 0.55f),
+                    ink = labelInk,
+                    fill = true,
+                    rx = 10f, ry = 10f,
+                    fillInk = labelInk,
+                    shade = FillShade.FLAT,
+                    paintMode = PaintMode.FILL_AND_STROKE,
+                    fillAlpha = 0.12f
+                )
+            )
+            var ly = by + 5f + metrics.ascent(p.textSize, Face.BODY_BOLD)
+            for (line in p.lines) {
+                val tw = metrics.width(line, p.textSize, Face.BODY_BOLD)
+                val lx = if (isLeft) (bx + p.boxW - 9f - tw) else (bx + 9f)
+                out.add(DrawOp.Glyphs(line, lx, ly, p.textSize, Face.BODY_BOLD, labelInk))
+                ly += p.lineH
+            }
+        }
+    }
+
+    private fun layoutInlineLabel(
+        lbl: DiagramSpec.Item.Label,
+        sc: Float,
+        ox: Float,
+        oy: Float,
+        w: Float,
+        topBound: Float,
+        bottomBound: Float,
+        labelSize: Float,
+        stroke: Float,
+        metrics: TextMetrics,
+        placed: MutableList<LabelRect>
+    ): List<DrawOp> {
+        val out = ArrayList<DrawOp>()
+        val tw = metrics.width(lbl.text, labelSize, Face.BODY_BOLD)
+        val padX = 8f
+        val padY = 4f
+        val boxW = tw + padX * 2f
+        val boxH = labelSize * 1.38f + padY * 2f
+        val rawCx = ox + lbl.x * sc
+        val rawCy = oy + lbl.y * sc
+        var bx = (rawCx - boxW / 2f).coerceIn(6f, max(6f, w - boxW - 6f))
+        var by = (rawCy - boxH / 2f).coerceIn(topBound, max(topBound, bottomBound - boxH))
+
+        for (attempt in 0 until 12) {
+            val hit = placed.firstOrNull { r ->
+                bx < r.x + r.w + 6f && bx + boxW + 6f > r.x && by < r.y + r.h + 6f && by + boxH + 6f > r.y
+            } ?: break
+            val down = hit.y + hit.h + 6f
+            val up = hit.y - boxH - 6f
+            by = when {
+                down + boxH <= bottomBound -> down
+                up >= topBound -> up
+                else -> (by + boxH + 4f).coerceIn(topBound, max(topBound, bottomBound - boxH))
+            }
+        }
+        placed.add(LabelRect(bx, by, boxW, boxH))
+
+        val labelInk = if (lbl.ink == Ink.INK) Ink.NOTE else lbl.ink
+        val baseline = by + padY + metrics.ascent(labelSize, Face.BODY_BOLD)
+        if (lbl.badge) {
+            out.add(
+                DrawOp.Rect(
+                    bx, by, boxW, boxH,
+                    stroke = max(1f, stroke * 0.55f),
+                    ink = labelInk,
+                    fill = true,
+                    rx = boxH * 0.42f, ry = boxH * 0.42f,
+                    fillInk = labelInk,
+                    shade = FillShade.FLAT,
+                    paintMode = PaintMode.FILL_AND_STROKE,
+                    fillAlpha = 0.13f
+                )
+            )
+        }
+        out.add(DrawOp.Glyphs(lbl.text, bx + padX, baseline, labelSize, Face.BODY_BOLD, labelInk))
+        return out
     }
 
     private fun shapePass(item: DiagramSpec.Item, sc: Float, ox: Float, oy: Float, stroke: Float, pass: Pass): List<DrawOp> {
@@ -666,88 +950,6 @@ object StudyDiagramLayout {
         for (d in listOf(2.65, -2.65)) {
             out.add(DrawOp.Line(x2, y2, x2 + (len * cos(a + d)).toFloat(), y2 + (len * sin(a + d)).toFloat(), stroke, ink))
         }
-    }
-
-    private fun layoutSingleLabel(
-        lbl: DiagramSpec.Item.Label,
-        sc: Float,
-        ox: Float,
-        oy: Float,
-        w: Float,
-        topBound: Float,
-        bottomBound: Float,
-        labelSize: Float,
-        stroke: Float,
-        metrics: TextMetrics,
-        placed: MutableList<LabelRect>
-    ): List<DrawOp> {
-        val out = ArrayList<DrawOp>()
-        val tw = metrics.width(lbl.text, labelSize, Face.BODY_BOLD)
-        val padX = 8f
-        val padY = 4f
-        val boxW = tw + padX * 2f
-        val boxH = labelSize * 1.38f + padY * 2f
-        val rawCx = ox + lbl.x * sc
-        val rawCy = oy + lbl.y * sc
-        var bx = (rawCx - boxW / 2f).coerceIn(6f, max(6f, w - boxW - 6f))
-        var by = (rawCy - boxH / 2f).coerceIn(topBound, max(topBound, bottomBound - boxH))
-
-        // De-overlap against previously placed labels
-        for (attempt in 0 until 8) {
-            val hit = placed.firstOrNull { r ->
-                bx < r.x + r.w + 4f && bx + boxW + 4f > r.x && by < r.y + r.h + 3f && by + boxH + 3f > r.y
-            } ?: break
-            val down = hit.y + hit.h + 4f
-            val up = hit.y - boxH - 4f
-            by = when {
-                down + boxH <= bottomBound -> down
-                up >= topBound -> up
-                else -> (by + labelSize * 0.8f).coerceIn(topBound, max(topBound, bottomBound - boxH))
-            }
-        }
-        placed.add(LabelRect(bx, by, boxW, boxH))
-
-        val labelInk = if (lbl.ink == Ink.INK) Ink.NOTE else lbl.ink
-        val baseline = by + padY + metrics.ascent(labelSize, Face.BODY_BOLD)
-
-        // Leader pin from anchor point to the nearest side of the label box
-        if (lbl.anchorX != null && lbl.anchorY != null) {
-            val ax = ox + lbl.anchorX * sc
-            val ay = oy + lbl.anchorY * sc
-            val edgeX = when {
-                ax < bx -> bx
-                ax > bx + boxW -> bx + boxW
-                else -> ax
-            }
-            val edgeY = by + boxH / 2f
-            val dotR = max(3.2f, stroke * 1.45f)
-            out.add(DrawOp.Oval(ax, ay, dotR, dotR, max(1f, stroke * 0.7f), labelInk, fill = true, fillInk = labelInk, shade = FillShade.FLAT, paintMode = PaintMode.FILL_AND_STROKE, fillAlpha = 0.85f))
-            val elbowX = if (abs(ax - edgeX) > 18f) ax + (edgeX - ax) * 0.35f else ax
-            if (hypot(elbowX - ax, edgeY - ay) > 4f && abs(elbowX - edgeX) > 6f) {
-                out.add(DrawOp.Line(ax, ay, elbowX, edgeY, max(1.2f, stroke * 0.65f), Ink.NOTE, dashed = false))
-                out.add(DrawOp.Line(elbowX, edgeY, edgeX, edgeY, max(1.2f, stroke * 0.65f), Ink.NOTE, dashed = false))
-            } else {
-                out.add(DrawOp.Line(ax, ay, edgeX, edgeY, max(1.2f, stroke * 0.65f), Ink.NOTE, dashed = false))
-            }
-        }
-
-        if (lbl.badge) {
-            out.add(
-                DrawOp.Rect(
-                    bx, by, boxW, boxH,
-                    stroke = max(1f, stroke * 0.55f),
-                    ink = labelInk,
-                    fill = true,
-                    rx = boxH * 0.42f, ry = boxH * 0.42f,
-                    fillInk = labelInk,
-                    shade = FillShade.FLAT,
-                    paintMode = PaintMode.FILL_AND_STROKE,
-                    fillAlpha = 0.13f
-                )
-            )
-        }
-        out.add(DrawOp.Glyphs(lbl.text, bx + padX, baseline, labelSize, Face.BODY_BOLD, labelInk))
-        return out
     }
 
     /** Guarantees 100% of every mark & label lies strictly inside [2..w-2] horizontally and <= maxH vertically. */

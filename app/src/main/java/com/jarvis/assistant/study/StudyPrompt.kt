@@ -141,12 +141,12 @@ Use "graph" for math plots (supports multiple functions in an array + optional "
     const val EXTRACT_SYSTEM = """You read a photograph or a page of study material and copy out the questions on it exactly.
 Reply with one JSON object only: {"questions":[{"text":"...","confidence":"high|medium|low","has_diagram":true|false,"note":""}],"unreadable":false}
 - Copy each question word for word, including numbers, units, options (A, B, C, D) and symbols. Write maths in LaTeX (\frac{a}{b}, x^{2}, \sqrt{x}).
-- If a question refers to a figure, set has_diagram and describe the labelled parts in "note"; never guess values you cannot see.
+- If a question refers to a figure or the image mainly shows a diagram/formula/graph without printed question text, set has_diagram:true, describe the figure in "text" (e.g. "Explain or solve the shown diagram: ...") with "confidence":"medium", and list labelled parts in "note".
 - Include handwritten questions. If part of a question is smudged or cut off, copy what is readable, put "[unclear]" where text is missing, and set confidence to "low".
-- Do not solve anything. Do not add questions that are not on the page. If nothing readable is present, return {"questions":[],"unreadable":true}.
+- Do not solve anything. If the image is completely blank or blurry noise, return {"questions":[],"unreadable":true}.
 - Output nothing but the JSON object."""
 
-    const val EXTRACT_USER = "Copy out the question(s) on this page."
+    const val EXTRACT_USER = "Copy out the question(s) or study figure on this page."
 }
 
 data class ExtractedQuestion(val text: String, val confidence: String, val hasDiagram: Boolean, val note: String) {
@@ -166,10 +166,14 @@ object StudyExtraction {
         val out = ArrayList<ExtractedQuestion>()
         for (e in arr) {
             val o = e.takeIf { it.isJsonObject }?.asJsonObject ?: continue
-            val text = o.get("text")?.takeIf { it.isJsonPrimitive }?.asString?.trim().orEmpty()
+            val text = (o.get("text") ?: o.get("question") ?: o.get("content"))
+                ?.takeIf { it.isJsonPrimitive }?.asString?.trim().orEmpty()
             if (text.isEmpty()) continue
             val conf = o.get("confidence")?.takeIf { it.isJsonPrimitive }?.asString?.trim()?.lowercase() ?: "low"
-            val diagram = o.get("has_diagram")?.takeIf { it.isJsonPrimitive }?.let { it.asString.equals("true", true) } ?: false
+            val diagram = o.get("has_diagram")?.takeIf { it.isJsonPrimitive }?.let {
+                val p = it.asJsonPrimitive
+                if (p.isBoolean) p.asBoolean else p.asString.equals("true", true)
+            } ?: false
             out.add(ExtractedQuestion(text, if (conf in setOf("high", "medium", "low")) conf else "low", diagram, o.get("note")?.takeIf { it.isJsonPrimitive }?.asString?.trim().orEmpty()))
             if (out.size >= 40) break
         }

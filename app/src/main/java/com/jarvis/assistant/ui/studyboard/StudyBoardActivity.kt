@@ -28,6 +28,7 @@ import android.widget.ScrollView
 import android.widget.Space
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -71,6 +72,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     private lateinit var emptyHint: ViewGroup
     private lateinit var resumeButton: TextView
     private lateinit var banner: LinearLayout
+    private lateinit var bannerIcon: ImageView
     private lateinit var bannerText: TextView
     private lateinit var bannerRetry: TextView
     private lateinit var explainCard: LinearLayout
@@ -126,7 +128,8 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         val f = cameraFile
         if (saved && f != null && f.exists()) vm.onImage(Uri.fromFile(f), "photo") else if (!saved) toast("No photo was taken.")
     }
-    private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) vm.onImage(uri, "image") }
+    private val pickImage = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) vm.onImage(uri, "image") }
+    private fun launchImagePicker() = pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     private val pickPdf = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.onPdf(uri) }
     private val historyLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         r.data?.getStringExtra(StudyHistoryActivity.EXTRA_ID)?.let { vm.openSession(it) }
@@ -414,12 +417,13 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             setPadding(dp(12), dp(8), dp(8), dp(8))
             visibility = View.GONE
         }
+        bannerIcon = ImageView(this).apply {
+            setImageResource(R.drawable.ic_warning)
+            setColorFilter(pal.error)
+            contentDescription = null
+        }
         banner.addView(
-            ImageView(this).apply {
-                setImageResource(R.drawable.ic_warning)
-                setColorFilter(pal.error)
-                contentDescription = null
-            },
+            bannerIcon,
             LinearLayout.LayoutParams(dp(18), dp(18)).apply { marginEnd = dp(8) }
         )
         bannerText = StudyTheme.label(this, "", 12.5f, pal.textPrimary).apply {
@@ -433,7 +437,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         banner.addView(bannerText)
         banner.addView(bannerRetry, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(6) })
         banner.addView(StudyTheme.iconButton(this, R.drawable.ic_close, "Dismiss", pal, sizeDp = 44, padDp = 12, tint = pal.textPrimary) {
-            vm.dismissMessage()
+            if (vm.ui.value.phase == StudyViewModel.Phase.EXTRACTING) vm.cancel() else vm.dismissMessage()
         })
 
         explainCard = LinearLayout(this).apply {
@@ -579,7 +583,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             gravity = Gravity.CENTER
         }
         quickRow.addView(paperActionChip(R.drawable.ic_study_camera, "Photo") { requestCamera() }, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) })
-        quickRow.addView(paperActionChip(R.drawable.ic_study_image, "Image") { pickImage.launch("image/*") }, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) })
+        quickRow.addView(paperActionChip(R.drawable.ic_study_image, "Image") { launchImagePicker() }, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) })
         quickRow.addView(paperActionChip(R.drawable.ic_study_pdf, "PDF") { pickPdf.launch(arrayOf("application/pdf")) }, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) })
         quickRow.addView(paperActionChip(R.drawable.ic_mic_jarvis, "Voice") { toggleMic() }, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) })
         quickRow.addView(paperActionChip(R.drawable.ic_study_history, "Saved") { historyLauncher.launch(Intent(this, StudyHistoryActivity::class.java)) })
@@ -607,11 +611,12 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             }
         )
         val starters = listOf(
+            Triple("Human brain diagram", "Draw a detailed labelled diagram of the human brain", StudyPalette.color(Ink.VIOLET)),
             Triple("Human heart diagram", "Draw a detailed labelled diagram of the human heart", StudyPalette.color(Ink.WARN)),
+            Triple("Human eye cross-section", "Draw a detailed labelled diagram of the human eye", StudyPalette.color(Ink.TEAL)),
             Triple("Convex lens rays", "Draw a labelled ray diagram of image formation by a convex lens", paperAccent),
             Triple("Plant cell structure", "Draw a neatly labelled diagram of a plant cell", StudyPalette.color(Ink.RESULT)),
-            Triple("Plot y = x^2 - 4", "Plot y = x^2 - 4 and y = 2x and find their intersection", StudyPalette.color(Ink.VIOLET)),
-            Triple("Solve 2x^2 - 5x - 3 = 0", "Solve 2x^2 - 5x - 3 = 0 step by step", StudyPalette.color(Ink.TEAL))
+            Triple("Plot y = x^2 - 4", "Plot y = x^2 - 4 and y = 2x and find their intersection", StudyPalette.color(Ink.ORANGE))
         )
         val demoScroller = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
@@ -763,7 +768,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         }
         attachRow.addView(glassIconButton(R.drawable.ic_study_camera, "Photograph a question", 44) { requestCamera() })
         attachRow.addView(
-            glassIconButton(R.drawable.ic_study_image, "Choose an image", 44) { pickImage.launch("image/*") },
+            glassIconButton(R.drawable.ic_study_image, "Choose an image", 44) { launchImagePicker() },
             LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginStart = dp(6) }
         )
         attachRow.addView(
@@ -1059,9 +1064,17 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         stepText.background = StudyTheme.pillDrawable(this, 10f, StudyTheme.alpha(stepTint, 0.16f), StudyTheme.alpha(stepTint, 0.35f))
         stepText.visibility = if (counter.isEmpty()) View.GONE else View.VISIBLE
 
-        val showBanner = ui.message.isNotEmpty() && ui.phase != StudyViewModel.Phase.EXTRACTING
+        val showBanner = ui.message.isNotEmpty()
+        val isExtracting = ui.phase == StudyViewModel.Phase.EXTRACTING
         banner.visibility = if (showBanner) View.VISIBLE else View.GONE
         bannerText.text = ui.message
+        bannerIcon.setImageResource(if (isExtracting) R.drawable.ic_study_image else R.drawable.ic_warning)
+        bannerIcon.setColorFilter(if (isExtracting) pal.accent else pal.error)
+        banner.background = if (isExtracting) {
+            StudyTheme.pillDrawable(this, 18f, StudyTheme.alpha(pal.accent, 0.16f), StudyTheme.alpha(pal.accent, 0.45f))
+        } else {
+            StudyTheme.pillDrawable(this, 18f, pal.errorContainer, StudyTheme.alpha(pal.error, 0.55f))
+        }
         bannerRetry.visibility = if (ui.phase == StudyViewModel.Phase.ERROR && ui.retryable) View.VISIBLE else View.GONE
 
         val ex = vm.currentExplanation
@@ -1152,7 +1165,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     private fun handle(e: StudyViewModel.Event) {
         when (e) {
             is StudyViewModel.Event.Toast -> toast(e.text)
-            is StudyViewModel.Event.ConfirmQuestions -> StudyDialogs.confirmQuestions(this, e.questions, e.source) { text, keep -> vm.solveConfirmed(text, keep) }
+            is StudyViewModel.Event.ConfirmQuestions -> StudyDialogs.confirmQuestions(this, e.questions, e.source, e.previewPath) { text, keep -> vm.solveConfirmed(text, keep) }
             is StudyViewModel.Event.PdfReady -> StudyDialogs.pdfPicker(this, lifecycleScope, e.path, e.pages,
                 onPage = { page -> vm.extractFromPdfPage(e.path, page) }, onWhole = { q -> vm.askAboutPdf(e.path, q) })
             is StudyViewModel.Event.Reveal -> board.reveal(e.block)
