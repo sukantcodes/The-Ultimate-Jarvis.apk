@@ -1325,13 +1325,15 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         statusPill.visibility = if (status.isEmpty() || !vm.prefs.statusOn) View.GONE else View.VISIBLE
         statusPill.text = status
 
-        val showDrafting = ui.phase == StudyViewModel.Phase.EXTRACTING || (vm.isBusy && vm.blocks.value.size <= 1)
+        val showDrafting = ui.phase == StudyViewModel.Phase.EXTRACTING ||
+            ui.phase == StudyViewModel.Phase.GENERATING ||
+            (vm.isBusy && ui.loadingDetail.isNotEmpty())
         draftingPill.visibility = if (showDrafting) View.VISIBLE else View.GONE
         if (showDrafting) {
-            draftingText.text = if (ui.phase == StudyViewModel.Phase.EXTRACTING) {
-                "Reading image & extracting question…"
-            } else {
-                "Preparing answer & visuals…"
+            draftingText.text = when {
+                ui.loadingDetail.isNotEmpty() -> ui.loadingDetail
+                ui.phase == StudyViewModel.Phase.EXTRACTING -> "Reading image & extracting question…"
+                else -> "Preparing complete lesson & voice…"
             }
         }
 

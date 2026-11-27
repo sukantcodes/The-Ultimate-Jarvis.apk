@@ -44,6 +44,7 @@ import okhttp3.WebSocketListener
 import okio.ByteString
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.ArrayDeque
 import java.util.Locale
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -51,18 +52,18 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * The teacher's voice for the Study Board using the exact JARVIS voice selected in Settings.
+ * The teacher's voice for the Study Board using the exact JARVIS voice configured in Settings.
  *
- * Primary path for Gemini voice: real-time streaming BidiGenerateContent WebSocket audio into a low-latency
- * 24 kHz mono 16-bit PCM AudioTrack (sub-second start latency, human prosody, fluent across all world and Indian languages,
- * with live RMS amplitude emission for synchronized UI animation and dynamic speed control via PlaybackParams).
- *
- * Resilience fallback: if the live WebSocket rejects or stalls before first audio, seamlessly falls back to REST
- * Gemini cloud TTS (dynamically discovered `-tts` model with the same selected JARVIS voice) or ElevenLabs
- * Multilingual v2 when ElevenLabs is chosen.
- *
- * Wake-word safety: while narration is active (plus a short echo guard afterward), both [StudyBoardController] and
- * [JarvisWakeWordService] / [JarvisConversationService] suppress standby wake listening so JARVIS never wakes on its own voice.
+ * Designed for uninterrupted, natural multi-step lectures:
+ * - [speakContinuous] narrates the entire pre-loaded lesson smoothly inside ONE unbroken 24 kHz PCM
+ *   Gemini Live (`BidiGenerateContent`) stream, preventing per-step stop/start glitches, rate limits,
+ *   and mid-lesson voice switching while reporting real-time playback fraction + live output transcription
+ *   so whiteboard drawing advances in smooth lockstep with the voice.
+ * - Hardware drain awareness tracks [AudioTrack.getPlaybackHeadPosition] so speech never gets cut off
+ *   mid-sentence when finishing a turn or transitioning to the next block.
+ * - Automatic fallback to REST Gemini TTS or ElevenLabs uses raw text ONLY (never reading prompt instructions aloud).
+ * - Suppresses standby wake detection ([StudyBoardController], [JarvisConversationService], [JarvisWakeWordService])
+ *   for the entire narration duration so JARVIS never wakes up on its own speaker output.
  */
 class StudyVoice(context: Context) {
 
@@ -70,7 +71,9 @@ class StudyVoice(context: Context) {
         fun onStarted(token: Long, cloud: Boolean) {}
         fun onFinished(token: Long, ok: Boolean, reason: String)
         fun onAmplitude(amplitude: Float) {}
-        /** One short, human-readable note when cloud voice could not be reached. */
+        /** Called during playback with normalized audio progress [0f..1f] and cumulative transcript text. */
+        fun onProgress(token: Long, progressFrac: Float, spokenTranscript: String) {}
+        /** One concise note when cloud voice genuinely cannot be reached (offline / invalid key / quota). */
         fun onNote(text: String) {}
     }
 
@@ -78,11 +81,20 @@ class StudyVoice(context: Context) {
     private val main = Handler(Looper.getMainLooper())
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val gate = Semaphore(2)
-    private val http = OkHttpClient.Builder()
-        .connectTimeout(8, TimeUnit.SECONDS)
-        .readTimeout(25, TimeUnit.SECONDS)
-        .pingInterval(20, TimeUnit.SECONDS)
+
+    private val restHttp = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
         .build()
+
+    // Dedicated WebSocket client matching GeminiLiveWebSocket (readTimeout=0 keeps live streaming alive)
+    private val liveHttp = OkHttpClient.Builder()
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(0, TimeUnit.MILLISECONDS)
+        .pingInterval(60, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        .build()
+
     private val prefs = app.getSharedPreferences("jarvis_study_prefs", Context.MODE_PRIVATE)
 
     private var callback: Callback? = null
@@ -92,11 +104,10 @@ class StudyVoice(context: Context) {
     private var failures = 0
     private val resumeWake = Runnable { resumeWakeWord() }
 
-    // Buffered fallback player (REST TTS / ElevenLabs)
     private var player: MediaPlayer? = null
+    @Volatile private var playerPaused = false
     private val cache = LinkedHashMap<String, Deferred<ByteArray?>>()
 
-    // Real-time WebSocket + AudioTrack streaming player
     private val livePlayer = LiveStreamEngine()
 
     private var cloudBlockedUntil = 0L
@@ -115,7 +126,6 @@ class StudyVoice(context: Context) {
         } catch (_: Exception) {}
     }
 
-    /** Returns the user's selected JARVIS cloud voice name (e.g., Charon, Aoede, Puck, or ElevenLabs speaker). */
     fun activeVoiceName(): String = when (engine()) {
         VoiceEngineType.CLOUD_ELEVENLABS -> {
             runCatching { JarvisVoiceDispatcher.getInstance(app).getActiveSpeaker().displayName }
@@ -125,7 +135,6 @@ class StudyVoice(context: Context) {
         else -> "Offline"
     }
 
-    /** True when JARVIS cloud voice can be attempted right now. */
     fun cloudAvailable(): Boolean {
         if (System.currentTimeMillis() < cloudBlockedUntil) return false
         if (!NetworkStateMonitor.isInternetAvailable(app)) return false
@@ -136,7 +145,6 @@ class StudyVoice(context: Context) {
         }
     }
 
-    /** Pre-warms the real-time voice WebSocket so the first step starts speaking with minimal latency. */
     fun warmUp(languageHint: String = "Auto") {
         if (!cloudAvailable()) return
         if (engine() == VoiceEngineType.CLOUD_GEMINI) {
@@ -144,14 +152,12 @@ class StudyVoice(context: Context) {
         }
     }
 
-    /** Prepares REST TTS audio ahead of time when using ElevenLabs or buffered fallback mode. */
     fun prefetch(text: String) = prefetch(text, "Auto")
 
     fun prefetch(text: String, languageHint: String) {
         val clean = text.trim()
         if (clean.isEmpty() || !cloudAvailable()) return
         if (engine() == VoiceEngineType.CLOUD_GEMINI && livePlayer.isHealthy()) {
-            // Live WebSocket streams on demand with sub-second latency; keep it warm instead of paying double REST calls.
             livePlayer.warmUp(selectedGeminiVoice(), languageHint)
             return
         }
@@ -166,21 +172,54 @@ class StudyVoice(context: Context) {
         }
     }
 
-    /** Speaks [text] with the selected JARVIS voice and returns its token. Replaces any active utterance immediately. */
+    /** Speaks a single step cleanly with the selected JARVIS voice and returns its token. */
     fun speak(text: String, locale: Locale): Long = speak(text, locale, "Auto")
 
     fun speak(text: String, @Suppress("UNUSED_PARAMETER") locale: Locale, languageHint: String): Long {
-        stopAudioOnly(keepLiveSession = true)
-        val my = ++token
         val clean = text.trim()
         if (clean.isEmpty()) {
+            stopAudioOnly(keepLiveSession = true)
+            val my = ++token
+            main.post { if (my == token) callback?.onFinished(my, true, "") }
+            return my
+        }
+        return speakChunks(listOf(clean), estimatedDurationMs = (clean.length * 68L).coerceAtLeast(1_500L), languageHint = languageHint)
+    }
+
+    /**
+     * Speaks an entire pre-loaded lesson continuously as one seamless JARVIS lecture, never stopping
+     * or switching voices between steps while reporting playback progress for visual synchronization.
+     */
+    fun speakContinuous(
+        plan: StudyVoiceCodec.ContinuousPlan,
+        languageHint: String
+    ): Long {
+        if (plan.script.isBlank()) {
+            stopAudioOnly(keepLiveSession = true)
+            val my = ++token
+            main.post { if (my == token) callback?.onFinished(my, true, "") }
+            return my
+        }
+        val chunks = splitIntoNaturalChunks(plan.segments.map { it.text }, maxChunkChars = 1_500)
+        return speakChunks(chunks, plan.estimatedDurationMs, languageHint)
+    }
+
+    private fun speakChunks(
+        chunks: List<String>,
+        estimatedDurationMs: Long,
+        languageHint: String
+    ): Long {
+        stopAudioOnly(keepLiveSession = true)
+        val my = ++token
+        val joined = chunks.joinToString("\n").trim()
+        if (joined.isEmpty()) {
             main.post { if (my == token) callback?.onFinished(my, true, "") }
             return my
         }
         if (!cloudAvailable()) {
             main.post {
                 if (my == token) {
-                    markCloudDown(quiet = true)
+                    markCloudDown(quiet = false)
                     callback?.onFinished(my, false, NO_VOICE)
                 }
             }
@@ -190,11 +229,13 @@ class StudyVoice(context: Context) {
         pauseWakeWord()
         val activeEngine = engine()
         if (activeEngine == VoiceEngineType.CLOUD_GEMINI && livePlayer.isHealthy()) {
-            val started = livePlayer.speak(
+            val langName = StudyVoiceCodec.resolveLanguageName(languageHint, joined)
+            val started = livePlayer.speakQueue(
                 token = my,
-                text = clean,
+                chunks = chunks,
+                estimatedDurationMs = estimatedDurationMs,
                 voiceName = selectedGeminiVoice(),
-                languageName = StudyVoiceCodec.resolveLanguageName(languageHint, clean),
+                languageName = langName,
                 onFirstAudio = { t ->
                     main.post {
                         if (t == token) {
@@ -204,9 +245,10 @@ class StudyVoice(context: Context) {
                     }
                 },
                 onAmplitude = { amp ->
-                    main.post {
-                        if (my == token) callback?.onAmplitude(amp)
-                    }
+                    main.post { if (my == token) callback?.onAmplitude(amp) }
+                },
+                onProgress = { t, frac, transcript ->
+                    main.post { if (t == token) callback?.onProgress(t, frac, transcript) }
                 },
                 onComplete = { t, ok, shouldFallback ->
                     main.post {
@@ -214,11 +256,11 @@ class StudyVoice(context: Context) {
                         callback?.onAmplitude(0f)
                         if (ok) {
                             failures = 0
+                            callback?.onProgress(t, 1f, "")
                             callback?.onFinished(t, true, "")
                             scheduleWakeResume(WAKE_RESUME_MS)
                         } else if (shouldFallback) {
-                            // Live socket unavailable or timed out before producing sound: seamless REST TTS fallback
-                            speakBuffered(clean, languageHint, t)
+                            speakBuffered(joined, estimatedDurationMs, languageHint, t)
                         } else {
                             noteFailure()
                             callback?.onFinished(t, false, NO_VOICE)
@@ -230,13 +272,45 @@ class StudyVoice(context: Context) {
             if (started) return my
         }
 
-        speakBuffered(clean, languageHint, my)
+        speakBuffered(joined, estimatedDurationMs, languageHint, my)
         return my
     }
 
-    private fun speakBuffered(clean: String, languageHint: String, my: Long) {
-        val key = keyFor(clean, languageHint)
-        val pending = cache.remove(key) ?: scope.async { gate.withPermit { synthesizeWithRetry(clean, languageHint) } }
+    /** Pauses the currently playing narration without discarding buffered audio position. */
+    fun pause() {
+        livePlayer.pause()
+        try {
+            player?.let { p ->
+                if (p.isPlaying) {
+                    p.pause()
+                    playerPaused = true
+                }
+            }
+        } catch (_: Exception) {}
+        callback?.onAmplitude(0f)
+        scheduleWakeResume(WAKE_RESUME_SHORT_MS)
+    }
+
+    /** Resumes narration paused via [pause], keeping audio and wake suppression synchronized. */
+    fun resume(): Boolean {
+        pauseWakeWord()
+        if (livePlayer.resume()) return true
+        return try {
+            val p = player
+            if (p != null && playerPaused) {
+                playerPaused = false
+                p.start()
+                true
+            } else false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun speakBuffered(clean: String, estimatedDurationMs: Long, languageHint: String, my: Long) {
+        val singlePart = if (clean.length <= 2_400) clean else clean.take(2_400)
+        val key = keyFor(singlePart, languageHint)
+        val pending = cache.remove(key) ?: scope.async { gate.withPermit { synthesizeWithRetry(singlePart, languageHint) } }
         scope.launch {
             val bytes = withTimeoutOrNull(WAIT_MS) { runCatching { pending.await() }.getOrNull() }
             main.post {
@@ -248,7 +322,7 @@ class StudyVoice(context: Context) {
                 } else {
                     failures = 0
                     cache[key] = pending
-                    playMediaBytes(bytes, my)
+                    playMediaBytes(bytes, estimatedDurationMs, my)
                 }
             }
         }
@@ -256,7 +330,7 @@ class StudyVoice(context: Context) {
 
     fun stop() {
         token++
-        stopAudioOnly(keepLiveSession = false)
+        stopAudioOnly(keepLiveSession = true)
         callback?.onAmplitude(0f)
         scheduleWakeResume(WAKE_RESUME_SHORT_MS)
     }
@@ -273,11 +347,12 @@ class StudyVoice(context: Context) {
         callback = null
     }
 
-    // ----- buffered playback (fallback & ElevenLabs) -----
+    // ----- buffered fallback player (REST TTS / ElevenLabs) -----
 
-    private fun playMediaBytes(bytes: ByteArray, my: Long) {
+    private fun playMediaBytes(bytes: ByteArray, estimatedDurationMs: Long, my: Long) {
         try {
             val p = MediaPlayer()
+            playerPaused = false
             p.setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -285,16 +360,21 @@ class StudyVoice(context: Context) {
                     .build()
             )
             p.setDataSource(MemorySource(bytes))
-            val waveRunnable = object : Runnable {
+            val tickerRunnable = object : Runnable {
                 var phase = 0f
                 override fun run() {
                     val active = player
                     if (my != token || active == null) return
                     val playing = runCatching { active.isPlaying }.getOrDefault(false)
-                    if (!playing) return
-                    phase += 0.35f
-                    val amp = ((kotlin.math.sin(phase) + 1f) * 0.42f).coerceIn(0.18f, 0.90f)
-                    callback?.onAmplitude(amp)
+                    if (playing) {
+                        phase += 0.35f
+                        val amp = ((kotlin.math.sin(phase) + 1f) * 0.42f).coerceIn(0.18f, 0.90f)
+                        callback?.onAmplitude(amp)
+                        val dur = runCatching { active.duration }.getOrDefault(0).coerceAtLeast(estimatedDurationMs.toInt())
+                        val pos = runCatching { active.currentPosition }.getOrDefault(0).coerceAtLeast(0)
+                        val frac = if (dur > 0) (pos.toFloat() / dur.toFloat()).coerceIn(0f, 0.99f) else 0f
+                        callback?.onProgress(my, frac, "")
+                    }
                     main.postDelayed(this, 60L)
                 }
             }
@@ -306,21 +386,24 @@ class StudyVoice(context: Context) {
                 try { mp.playbackParams = mp.playbackParams.setSpeed(rate) } catch (_: Exception) {}
                 mp.start()
                 callback?.onStarted(my, true)
-                main.post(waveRunnable)
+                main.post(tickerRunnable)
             }
             p.setOnCompletionListener { mp ->
-                main.removeCallbacks(waveRunnable)
+                main.removeCallbacks(tickerRunnable)
                 callback?.onAmplitude(0f)
+                playerPaused = false
                 try { mp.release() } catch (_: Exception) {}
                 if (player === mp) player = null
                 if (my == token) {
+                    callback?.onProgress(my, 1f, "")
                     callback?.onFinished(my, true, "")
                     scheduleWakeResume(WAKE_RESUME_MS)
                 }
             }
             p.setOnErrorListener { mp, _, _ ->
-                main.removeCallbacks(waveRunnable)
+                main.removeCallbacks(tickerRunnable)
                 callback?.onAmplitude(0f)
+                playerPaused = false
                 try { mp.release() } catch (_: Exception) {}
                 if (player === mp) player = null
                 if (my == token) {
@@ -341,6 +424,7 @@ class StudyVoice(context: Context) {
 
     private fun stopAudioOnly(keepLiveSession: Boolean) {
         livePlayer.cancelTurn(keepWarm = keepLiveSession)
+        playerPaused = false
         val p = player ?: return
         player = null
         try {
@@ -353,7 +437,7 @@ class StudyVoice(context: Context) {
     }
 
     private fun noteFailure() {
-        if (++failures >= 3) markCloudDown(quiet = false)
+        if (++failures >= 2) markCloudDown(quiet = false)
     }
 
     private fun markCloudDown(quiet: Boolean) {
@@ -371,12 +455,8 @@ class StudyVoice(context: Context) {
         StudyBoardController.setNarrating(true)
         if (wakePaused) return
         wakePaused = true
-        try {
-            JarvisConversationService.onStudyBoardNarrationChanged(app, true)
-        } catch (_: Throwable) {}
-        try {
-            if (JarvisWakeWordService.isRunning()) JarvisWakeWordService.stopService(app)
-        } catch (_: Throwable) {}
+        try { JarvisConversationService.onStudyBoardNarrationChanged(app, true) } catch (_: Throwable) {}
+        try { if (JarvisWakeWordService.isRunning()) JarvisWakeWordService.stopService(app) } catch (_: Throwable) {}
     }
 
     private fun scheduleWakeResume(delayMs: Long) {
@@ -392,12 +472,10 @@ class StudyVoice(context: Context) {
     private fun resumeWakeWordImmediate() {
         wakePaused = false
         StudyBoardController.setNarrating(false)
-        try {
-            JarvisConversationService.onStudyBoardNarrationChanged(app, false)
-        } catch (_: Throwable) {}
+        try { JarvisConversationService.onStudyBoardNarrationChanged(app, false) } catch (_: Throwable) {}
     }
 
-    // ----- engine & REST synthesis -----
+    // ----- engine & pure-text REST synthesis -----
 
     private fun engine(): VoiceEngineType {
         val chosen = runCatching { JarvisVoiceDispatcher.getInstance(app).getActiveEngineType() }
@@ -417,6 +495,9 @@ class StudyVoice(context: Context) {
         return VoiceGenderStore(app).voiceFor(chosen).ifBlank { GeminiConstants.DEFAULT_VOICE }
     }
 
+    private fun configuredLiveModel(): String =
+        StudyVoiceCodec.normalizeLiveModelId(JarvisApp.instance.preferences.aiModel)
+
     private fun keyFor(text: String, languageHint: String): String {
         val voiceId = if (engine() == VoiceEngineType.CLOUD_GEMINI) selectedGeminiVoice() else activeVoiceName()
         return "${engine().name}|$voiceId|${StudyVoiceCodec.languageTag(languageHint, text)}|$text"
@@ -431,7 +512,7 @@ class StudyVoice(context: Context) {
     private fun synthesize(text: String, languageHint: String): ByteArray? = try {
         when (engine()) {
             VoiceEngineType.CLOUD_ELEVENLABS -> synthesizeElevenLabs(text, languageHint)
-            VoiceEngineType.CLOUD_GEMINI -> synthesizeGeminiRest(text, languageHint)
+            VoiceEngineType.CLOUD_GEMINI -> synthesizeGeminiRest(text)
             else -> null
         }
     } catch (_: Exception) {
@@ -461,22 +542,24 @@ class StudyVoice(context: Context) {
             .addHeader("Accept", "audio/mpeg")
             .post(payload.toString().toRequestBody(JSON))
             .build()
-        http.newCall(req).execute().use { res ->
+        restHttp.newCall(req).execute().use { res ->
             if (!res.isSuccessful) return null
             return res.body?.bytes()
         }
     }
 
-    private fun synthesizeGeminiRest(text: String, languageHint: String): ByteArray? {
+    /**
+     * Fallback REST Gemini TTS: ALWAYS passes raw [text] verbatim with zero instruction wrappers
+     * (TTS models read every word inside `contents.parts.text` aloud).
+     */
+    private fun synthesizeGeminiRest(text: String): ByteArray? {
         val key = geminiKey()
         val name = model.ifBlank { discoverModel(key) } ?: return null
         val voice = selectedGeminiVoice()
-        val langName = StudyVoiceCodec.resolveLanguageName(languageHint, text)
-        val promptText = "Speak naturally as a calm, fluent human teacher in $langName. Read ONLY this text verbatim with proper pronunciation:\n$text"
         val body = JsonObject().apply {
             add("contents", JsonArray().apply {
                 add(JsonObject().apply {
-                    add("parts", JsonArray().apply { add(JsonObject().apply { addProperty("text", promptText) }) })
+                    add("parts", JsonArray().apply { add(JsonObject().apply { addProperty("text", text) }) })
                 })
             })
             add("generationConfig", JsonObject().apply {
@@ -493,7 +576,7 @@ class StudyVoice(context: Context) {
             .header("x-goog-api-key", key)
             .post(body.toString().toRequestBody(JSON))
             .build()
-        http.newCall(req).execute().use { res ->
+        restHttp.newCall(req).execute().use { res ->
             if (res.code == 404) {
                 forgetModel()
                 return null
@@ -524,7 +607,7 @@ class StudyVoice(context: Context) {
         }
         val req = Request.Builder().url("$BASE/models?pageSize=200").header("x-goog-api-key", key).build()
         val entries = ArrayList<StudyVoiceCodec.ModelEntry>()
-        http.newCall(req).execute().use { res ->
+        restHttp.newCall(req).execute().use { res ->
             if (!res.isSuccessful) return null
             val arr = JsonParser.parseString(res.body?.string() ?: return null).asJsonObject
                 .getAsJsonArray("models") ?: return null
@@ -545,23 +628,51 @@ class StudyVoice(context: Context) {
         prefs.edit().remove(KEY_MODEL).remove(KEY_MODEL_AT).apply()
     }
 
-    // ----- Real-Time BidiGenerateContent Streaming Speaker -----
+    private fun splitIntoNaturalChunks(segments: List<String>, maxChunkChars: Int): List<String> {
+        val out = ArrayList<String>()
+        val cur = StringBuilder()
+        for (seg in segments) {
+            val s = StudyVoiceCodec.ensureSentenceEnding(seg)
+            if (s.isEmpty()) continue
+            if (cur.isNotEmpty() && cur.length + s.length + 1 > maxChunkChars) {
+                out.add(cur.toString().trim())
+                cur.clear()
+            }
+            if (cur.isNotEmpty()) cur.append('\n')
+            cur.append(s)
+        }
+        if (cur.isNotEmpty()) out.add(cur.toString().trim())
+        return out
+    }
+
+    // ----- Real-Time Unbroken BidiGenerateContent Streaming Engine -----
 
     private inner class LiveStreamEngine {
         private val wsLock = Any()
         private var ws: WebSocket? = null
         @Volatile private var setupComplete = false
         @Volatile private var connectedVoice = ""
-        @Volatile private var connectedModel = GeminiConstants.DEFAULT_MODEL
+        @Volatile private var connectedLang = ""
+        @Volatile private var connectedModel = configuredLiveModel()
         @Volatile private var openedAt = 0L
+        @Volatile private var sessionUsed = false
         private val liveDisabledUntil = AtomicLong(0L)
 
-        // Active utterance turn state (synchronized via turnToken)
+        // Active lecture/utterance state
         @Volatile private var activeTurnToken = -1L
         @Volatile private var turnFirstAudioSent = false
-        @Volatile private var turnServerDone = false
+        @Volatile private var turnAllServerDone = false
+        @Volatile private var turnModelFallbackAttempted = false
+        private var activeTurnChunks: List<String> = emptyList()
+        private var activeTurnVoice: String = ""
+        private var activeTurnLang: String = ""
+        private val pendingTextChunks = ArrayDeque<String>()
+        private val accumulatedTranscript = StringBuilder()
+        @Volatile private var expectedTotalMs = 4_000L
+
         private var turnOnFirstAudio: ((Long) -> Unit)? = null
         private var turnOnAmplitude: ((Float) -> Unit)? = null
+        private var turnOnProgress: ((Long, Float, String) -> Unit)? = null
         private var turnOnComplete: ((Long, Boolean, Boolean) -> Unit)? = null
         private var turnTimeoutRunnable: Runnable? = null
 
@@ -570,21 +681,26 @@ class StudyVoice(context: Context) {
         private val trackLock = Any()
         private val running = AtomicBoolean(false)
         private val playing = AtomicBoolean(false)
+        private val userPaused = AtomicBoolean(false)
         private val workerStop = AtomicBoolean(false)
         private var worker: Thread? = null
         @Volatile private var activeFlushGen = 0
+        @Volatile private var writtenFramesInTurn = 0L
+        @Volatile private var baselineHeadFrames = 0L
 
-        fun isHealthy(): Boolean =
-            System.currentTimeMillis() >= liveDisabledUntil.get()
+        fun isHealthy(): Boolean = System.currentTimeMillis() >= liveDisabledUntil.get()
 
-        fun warmUp(voiceName: String, @Suppress("UNUSED_PARAMETER") languageHint: String) {
+        fun warmUp(voiceName: String, languageHint: String) {
             if (!isHealthy()) return
             val key = geminiKey()
             if (key.isBlank()) return
+            val langName = StudyVoiceCodec.resolveLanguageName(languageHint, "")
             synchronized(wsLock) {
                 val agedOut = System.currentTimeMillis() - openedAt > LIVE_MAX_AGE_MS
-                if (ws != null && setupComplete && connectedVoice == voiceName && !agedOut) return
-                ensureConnectedLocked(key, voiceName)
+                val sameConfig = ws != null && !sessionUsed && connectedVoice == voiceName && connectedLang == langName && !agedOut
+                if (sameConfig) return
+                if (activeTurnToken >= 0L) return
+                ensureConnectedLocked(key, voiceName, langName)
             }
         }
 
@@ -594,32 +710,71 @@ class StudyVoice(context: Context) {
             }
         }
 
-        fun speak(
+        fun pause() {
+            if (activeTurnToken < 0L) return
+            userPaused.set(true)
+            synchronized(trackLock) {
+                runCatching {
+                    track?.let { if (it.state == AudioTrack.STATE_INITIALIZED && it.playState == AudioTrack.PLAYSTATE_PLAYING) it.pause() }
+                }
+            }
+        }
+
+        fun resume(): Boolean {
+            if (activeTurnToken < 0L || !userPaused.getAndSet(false)) return false
+            synchronized(trackLock) {
+                runCatching {
+                    track?.let {
+                        applyPlaybackSpeed(it, rate)
+                        if (it.state == AudioTrack.STATE_INITIALIZED && it.playState != AudioTrack.PLAYSTATE_PLAYING) it.play()
+                    }
+                }
+            }
+            return true
+        }
+
+        fun speakQueue(
             token: Long,
-            text: String,
+            chunks: List<String>,
+            estimatedDurationMs: Long,
             voiceName: String,
             languageName: String,
             onFirstAudio: (Long) -> Unit,
             onAmplitude: (Float) -> Unit,
+            onProgress: (Long, Float, String) -> Unit,
             onComplete: (Long, Boolean, Boolean) -> Unit
         ): Boolean {
             val key = geminiKey()
-            if (key.isBlank() || !isHealthy()) return false
+            if (key.isBlank() || chunks.isEmpty() || !isHealthy()) return false
 
             ensureWorkerRunning()
             resetTrackAndQueue()
+            userPaused.set(false)
+            turnModelFallbackAttempted = false
+
+            synchronized(wsLock) {
+                activeTurnChunks = chunks.toList()
+                activeTurnVoice = voiceName
+                activeTurnLang = languageName
+                pendingTextChunks.clear()
+                chunks.forEach { pendingTextChunks.addLast(it) }
+                accumulatedTranscript.clear()
+            }
 
             activeTurnToken = token
             turnFirstAudioSent = false
-            turnServerDone = false
+            turnAllServerDone = false
+            expectedTotalMs = estimatedDurationMs.coerceAtLeast(1_500L)
             turnOnFirstAudio = onFirstAudio
             turnOnAmplitude = onAmplitude
+            turnOnProgress = onProgress
             turnOnComplete = onComplete
 
             scheduleFirstChunkWatchdog(token)
 
             scope.launch {
-                val sent = sendSpeakTurn(key, voiceName, languageName, text, token)
+                val firstText = synchronized(wsLock) { pendingTextChunks.pollFirst() } ?: return@launch
+                val sent = connectAndSendTurn(key, voiceName, languageName, firstText, token)
                 if (!sent && activeTurnToken == token) {
                     finishTurn(token, ok = false, fallback = true)
                 }
@@ -628,20 +783,19 @@ class StudyVoice(context: Context) {
         }
 
         fun cancelTurn(keepWarm: Boolean) {
-            val prev = activeTurnToken
             activeTurnToken = -1L
+            userPaused.set(false)
             cancelWatchdog()
+            synchronized(wsLock) { pendingTextChunks.clear() }
             turnOnFirstAudio = null
             turnOnAmplitude = null
+            turnOnProgress = null
             turnOnComplete = null
-            val wasStreamingMidTurn = prev >= 0L && !turnServerDone
             resetTrackAndQueue()
-            if (wasStreamingMidTurn || !keepWarm) {
-                // Close mid-generation WebSocket so leftover PCM from an interrupted turn never bleeds into the next step.
-                closeSocketOnly()
-                if (keepWarm && geminiKey().isNotBlank() && isHealthy()) {
-                    synchronized(wsLock) { ensureConnectedLocked(geminiKey(), selectedGeminiVoice()) }
-                }
+            closeSocketOnly()
+            if (keepWarm && geminiKey().isNotBlank() && isHealthy()) {
+                val lang = StudyVoiceCodec.resolveLanguageName("Auto", "")
+                synchronized(wsLock) { ensureConnectedLocked(geminiKey(), selectedGeminiVoice(), lang) }
             }
         }
 
@@ -662,7 +816,7 @@ class StudyVoice(context: Context) {
             }
         }
 
-        private suspend fun sendSpeakTurn(
+        private suspend fun connectAndSendTurn(
             key: String,
             voiceName: String,
             languageName: String,
@@ -671,26 +825,31 @@ class StudyVoice(context: Context) {
         ): Boolean {
             synchronized(wsLock) {
                 val agedOut = System.currentTimeMillis() - openedAt > LIVE_MAX_AGE_MS
-                if (ws == null || connectedVoice != voiceName || agedOut) {
+                // Always start a clean Live session when the previous warm socket was already used for a turn
+                if (ws == null || sessionUsed || connectedVoice != voiceName || connectedLang != languageName || agedOut) {
                     closeSocketOnly()
-                    ensureConnectedLocked(key, voiceName)
+                    ensureConnectedLocked(key, voiceName, languageName)
                 }
             }
 
-            // Wait briefly for WebSocket handshake & setupComplete
-            val deadline = System.currentTimeMillis() + 3_500L
+            val deadline = System.currentTimeMillis() + 5_000L
             while (!setupComplete && System.currentTimeMillis() < deadline) {
                 if (activeTurnToken != myToken) return false
                 try { Thread.sleep(25) } catch (_: InterruptedException) { return false }
             }
             if (!setupComplete || activeTurnToken != myToken) return false
 
+            return sendClientTurnText(text)
+        }
+
+        private fun sendClientTurnText(cleanText: String): Boolean {
+            sessionUsed = true
             val payload = JSONObject().apply {
                 put("clientContent", JSONObject().apply {
                     put("turns", JSONArray().put(JSONObject().apply {
                         put("role", "user")
                         put("parts", JSONArray().put(JSONObject().apply {
-                            put("text", "[Speak in $languageName] Read this board explanation aloud verbatim:\n$text")
+                            put("text", cleanText)
                         }))
                     }))
                     put("turnComplete", true)
@@ -700,18 +859,20 @@ class StudyVoice(context: Context) {
             return socket.send(payload.toString())
         }
 
-        private fun ensureConnectedLocked(key: String, voiceName: String) {
+        private fun ensureConnectedLocked(key: String, voiceName: String, languageName: String) {
             if (key.isBlank()) return
             closeSocketOnly()
             connectedVoice = voiceName
+            connectedLang = languageName
             setupComplete = false
+            sessionUsed = false
             openedAt = System.currentTimeMillis()
             val req = Request.Builder()
                 .url("${GeminiConstants.WS_BASE_URL}?key=$key")
                 .build()
-            ws = http.newWebSocket(req, object : WebSocketListener() {
+            ws = liveHttp.newWebSocket(req, object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
-                    val setupJson = buildSpeakerSetupJson(connectedModel, voiceName)
+                    val setupJson = buildSpeakerSetupJson(connectedModel, voiceName, languageName)
                     webSocket.send(setupJson.toString())
                 }
 
@@ -743,13 +904,36 @@ class StudyVoice(context: Context) {
                 ws = null
                 setupComplete = false
             }
-            if (code == 1008 && connectedModel != GeminiConstants.MODEL_3_8_LIVE) {
-                connectedModel = GeminiConstants.MODEL_3_8_LIVE
+            val modelRejected = code == 1008 || reason.contains("not found", true) || reason.contains("not supported", true)
+            if (modelRejected && !turnModelFallbackAttempted && !turnFirstAudioSent) {
+                val alt = if (connectedModel == GeminiConstants.MODEL_3_8_LIVE) {
+                    GeminiConstants.MODEL_3_1_FLASH
+                } else {
+                    GeminiConstants.MODEL_3_8_LIVE
+                }
+                val currentTurn = activeTurnToken
+                val retryChunks = synchronized(wsLock) { activeTurnChunks }
+                if (currentTurn >= 0L && retryChunks.isNotEmpty()) {
+                    turnModelFallbackAttempted = true
+                    connectedModel = alt
+                    synchronized(wsLock) {
+                        pendingTextChunks.clear()
+                        retryChunks.forEach { pendingTextChunks.addLast(it) }
+                    }
+                    scope.launch {
+                        val firstText = synchronized(wsLock) { pendingTextChunks.pollFirst() } ?: return@launch
+                        val sent = connectAndSendTurn(geminiKey(), activeTurnVoice, activeTurnLang, firstText, currentTurn)
+                        if (!sent && activeTurnToken == currentTurn) {
+                            finishTurn(currentTurn, ok = false, fallback = true)
+                        }
+                    }
+                    return
+                }
             } else if (code == 401 || code == 403 || reason.contains("API_KEY_INVALID", true)) {
                 liveDisabledUntil.set(System.currentTimeMillis() + 60_000L)
             }
             val currentTurn = activeTurnToken
-            if (currentTurn >= 0L && !turnServerDone) {
+            if (currentTurn >= 0L && !turnAllServerDone) {
                 finishTurn(currentTurn, ok = false, fallback = !turnFirstAudioSent)
             }
         }
@@ -757,18 +941,25 @@ class StudyVoice(context: Context) {
         private fun closeSocketOnly() {
             synchronized(wsLock) {
                 setupComplete = false
+                sessionUsed = false
                 val old = ws
                 ws = null
                 runCatching { old?.close(1000, "Reset") }
             }
         }
 
-        private fun buildSpeakerSetupJson(modelName: String, voiceName: String): JSONObject =
-            JSONObject().apply {
+        private fun buildSpeakerSetupJson(modelName: String, voiceName: String, languageName: String): JSONObject {
+            val sysPrompt =
+                "You are JARVIS speaking aloud on the Study Board in fluent, natural human $languageName.\n" +
+                    "STRICT READ-ALOUD MODE:\n" +
+                    "- Speak ONLY the exact text written in the user turn verbatim from start to finish.\n" +
+                    "- Use warm human tutor cadence and natural pronunciation in $languageName.\n" +
+                    "- NEVER add greetings ('Sure', 'Okay', 'Hello'), commentary, extra answers, or repeat these rules."
+            return JSONObject().apply {
                 put("setup", JSONObject().apply {
                     put("model", modelName)
                     put("systemInstruction", JSONObject().apply {
-                        put("parts", JSONArray().put(JSONObject().put("text", SPEAKER_SYSTEM_PROMPT)))
+                        put("parts", JSONArray().put(JSONObject().put("text", sysPrompt)))
                     })
                     put("generationConfig", JSONObject().apply {
                         put("responseModalities", JSONArray().put("AUDIO"))
@@ -784,8 +975,10 @@ class StudyVoice(context: Context) {
                             put("thinkingConfig", JSONObject().apply { put("thinkingBudget", 0) })
                         }
                     })
+                    put("outputAudioTranscription", JSONObject())
                 })
             }
+        }
 
         private fun handleLiveMessage(socket: WebSocket, raw: String) {
             if (socket !== ws) return
@@ -799,6 +992,22 @@ class StudyVoice(context: Context) {
                 val server = root.optJSONObject("serverContent") ?: return
                 val currentTurn = activeTurnToken
                 if (currentTurn < 0L) return
+
+                val outTrans = server.optJSONObject("outputTranscription")
+                if (outTrans != null) {
+                    var transChunk = outTrans.optString("text", "")
+                    if (transChunk.isEmpty()) {
+                        val parts = outTrans.optJSONArray("parts")
+                        if (parts != null) {
+                            val sb = StringBuilder()
+                            for (i in 0 until parts.length()) sb.append(parts.optJSONObject(i)?.optString("text", "") ?: "")
+                            transChunk = sb.toString()
+                        }
+                    }
+                    if (transChunk.isNotEmpty()) {
+                        accumulatedTranscript.append(transChunk)
+                    }
+                }
 
                 val modelTurn = server.optJSONObject("modelTurn")
                 if (modelTurn != null) {
@@ -829,14 +1038,23 @@ class StudyVoice(context: Context) {
                     server.optBoolean("generationComplete", false) ||
                     server.optBoolean("endOfTurn", false)
                 ) {
-                    turnServerDone = true
-                    if (!turnFirstAudioSent) {
-                        // Server ended turn without sending audio -> fall back cleanly
-                        finishTurn(currentTurn, ok = false, fallback = true)
+                    val nextChunk = synchronized(wsLock) { pendingTextChunks.pollFirst() }
+                    if (nextChunk != null) {
+                        // Seamlessly continue long lectures inside the same open AudioTrack & session
+                        val ok = sendClientTurnText(nextChunk)
+                        if (!ok) {
+                            turnAllServerDone = true
+                            if (!turnFirstAudioSent) finishTurn(currentTurn, ok = false, fallback = true)
+                        }
+                    } else {
+                        turnAllServerDone = true
+                        if (!turnFirstAudioSent) {
+                            finishTurn(currentTurn, ok = false, fallback = true)
+                        }
                     }
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Study Live parse skipped: ${e.message}")
+                Log.w(TAG, "Study Live parse error: ${e.message}")
             }
         }
 
@@ -844,7 +1062,6 @@ class StudyVoice(context: Context) {
             cancelWatchdog()
             val r = Runnable {
                 if (activeTurnToken == turnToken && !turnFirstAudioSent) {
-                    liveDisabledUntil.set(System.currentTimeMillis() + 12_000L)
                     closeSocketOnly()
                     finishTurn(turnToken, ok = false, fallback = true)
                 }
@@ -861,10 +1078,13 @@ class StudyVoice(context: Context) {
         private fun finishTurn(turnToken: Long, ok: Boolean, fallback: Boolean) {
             if (activeTurnToken != turnToken) return
             cancelWatchdog()
+            synchronized(wsLock) { pendingTextChunks.clear() }
             val cb = turnOnComplete
             activeTurnToken = -1L
+            userPaused.set(false)
             turnOnFirstAudio = null
             turnOnAmplitude = null
+            turnOnProgress = null
             turnOnComplete = null
             cb?.invoke(turnToken, ok, fallback)
         }
@@ -878,10 +1098,14 @@ class StudyVoice(context: Context) {
             running.set(true)
             worker = Thread({
                 try { android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO) } catch (_: Exception) {}
-                var emptyCycles = 0
+                var lastProgressAt = 0L
                 while (!workerStop.get()) {
                     try {
                         val genAtStart = activeFlushGen
+                        if (userPaused.get()) {
+                            Thread.sleep(40)
+                            continue
+                        }
                         if (!playing.get()) {
                             val first = audioQueue.poll(30, TimeUnit.MILLISECONDS) ?: continue
                             if (first.isEmpty() || genAtStart != activeFlushGen) continue
@@ -889,40 +1113,57 @@ class StudyVoice(context: Context) {
                             batch.add(first)
                             var buffered = first.size
                             val prefillUntil = System.nanoTime() + 140_000_000L
-                            while (buffered < 8_000 && System.nanoTime() < prefillUntil && !turnServerDone) {
+                            while (buffered < 8_000 && System.nanoTime() < prefillUntil && !turnAllServerDone) {
                                 val next = audioQueue.poll(12, TimeUnit.MILLISECONDS) ?: continue
                                 if (next.isNotEmpty()) { batch.add(next); buffered += next.size }
                             }
                             if (genAtStart != activeFlushGen) continue
                             playing.set(true)
-                            emptyCycles = 0
+                            writtenFramesInTurn = 0L
                             synchronized(trackLock) {
                                 val t = track ?: initTrackLocked()
                                 applyPlaybackSpeed(t, rate)
-                                if (t.state == AudioTrack.STATE_INITIALIZED && t.playState != AudioTrack.PLAYSTATE_PLAYING) {
-                                    runCatching { t.play() }
+                                if (t.state == AudioTrack.STATE_INITIALIZED) {
+                                    baselineHeadFrames = t.playbackHeadPosition.toLong() and 0xFFFFFFFFL
+                                    if (t.playState != AudioTrack.PLAYSTATE_PLAYING) runCatching { t.play() }
+                                } else {
+                                    baselineHeadFrames = 0L
                                 }
                             }
                             for (piece in batch) {
                                 if (genAtStart != activeFlushGen) break
                                 writeChunk(piece)
+                                writtenFramesInTurn += piece.size / 2
                             }
                             turnOnAmplitude?.invoke(AudioUtils.calculateRmsNormalized(first, first.size))
                         } else {
                             val chunk = audioQueue.poll(20, TimeUnit.MILLISECONDS)
                             if (chunk != null && chunk.isNotEmpty()) {
                                 if (genAtStart != activeFlushGen) continue
-                                emptyCycles = 0
                                 turnOnAmplitude?.invoke(AudioUtils.calculateRmsNormalized(chunk, chunk.size))
                                 writeChunk(chunk)
-                            } else {
-                                emptyCycles++
-                                val done = (turnServerDone && emptyCycles >= 6) || (emptyCycles >= 60 && turnServerDone)
-                                if (done && playing.getAndSet(false)) {
+                                writtenFramesInTurn += chunk.size / 2
+                                val now = System.currentTimeMillis()
+                                if (now - lastProgressAt >= 90L) {
+                                    lastProgressAt = now
+                                    emitPlaybackProgress()
+                                }
+                            } else if (turnAllServerDone && audioQueue.isEmpty()) {
+                                // CRITICAL: wait until Android's AudioTrack hardware DMA buffer actually finishes playing
+                                // the last frame out of the speaker so speech is never chopped mid-sentence!
+                                emitPlaybackProgress()
+                                val drained = waitForHardwareAudioDrain(genAtStart)
+                                if (drained && genAtStart == activeFlushGen && playing.getAndSet(false)) {
                                     val finishedToken = activeTurnToken
                                     if (finishedToken >= 0L) {
                                         finishTurn(finishedToken, ok = true, fallback = false)
                                     }
+                                }
+                            } else {
+                                val now = System.currentTimeMillis()
+                                if (now - lastProgressAt >= 90L) {
+                                    lastProgressAt = now
+                                    emitPlaybackProgress()
                                 }
                             }
                         }
@@ -936,6 +1177,51 @@ class StudyVoice(context: Context) {
                 priority = Thread.MAX_PRIORITY
                 start()
             }
+        }
+
+        private fun emitPlaybackProgress() {
+            val currentTurn = activeTurnToken
+            if (currentTurn < 0L) return
+            val playedFrames = synchronized(trackLock) {
+                val t = track ?: return@synchronized 0L
+                if (t.state != AudioTrack.STATE_INITIALIZED) 0L
+                else ((t.playbackHeadPosition.toLong() and 0xFFFFFFFFL) - baselineHeadFrames).coerceAtLeast(0L)
+            }
+            val playedMs = (playedFrames * 1000L) / PCM_SAMPLE_RATE
+            val totalWrittenMs = (writtenFramesInTurn * 1000L) / PCM_SAMPLE_RATE
+            val denomMs = if (turnAllServerDone) maxOf(totalWrittenMs, 500L) else maxOf(expectedTotalMs, playedMs + 1_200L)
+            val frac = (playedMs.toFloat() / denomMs.toFloat()).coerceIn(0f, 0.99f)
+            turnOnProgress?.invoke(currentTurn, frac, accumulatedTranscript.toString())
+        }
+
+        private fun waitForHardwareAudioDrain(genAtStart: Int): Boolean {
+            val remainingStart = synchronized(trackLock) {
+                val t = track ?: return true
+                if (t.state != AudioTrack.STATE_INITIALIZED) return true
+                val head = (t.playbackHeadPosition.toLong() and 0xFFFFFFFFL) - baselineHeadFrames
+                (writtenFramesInTurn - head.coerceAtLeast(0L)).coerceAtLeast(0L)
+            }
+            if (remainingStart <= 480L) return true
+            val maxWaitMs = ((remainingStart * 1000L) / (PCM_SAMPLE_RATE * rate.coerceAtLeast(0.5f)).toLong() + 320L).coerceAtMost(2_800L)
+            val startWall = System.currentTimeMillis()
+            while (!workerStop.get() && genAtStart == activeFlushGen && audioQueue.isEmpty()) {
+                if (userPaused.get()) {
+                    Thread.sleep(45)
+                    continue
+                }
+                emitPlaybackProgress()
+                val rem = synchronized(trackLock) {
+                    val t = track ?: return true
+                    if (t.state != AudioTrack.STATE_INITIALIZED) return true
+                    val head = (t.playbackHeadPosition.toLong() and 0xFFFFFFFFL) - baselineHeadFrames
+                    (writtenFramesInTurn - head.coerceAtLeast(0L)).coerceAtLeast(0L)
+                }
+                if (rem <= 360L || System.currentTimeMillis() - startWall >= maxWaitMs) {
+                    return true
+                }
+                Thread.sleep(35)
+            }
+            return genAtStart == activeFlushGen
         }
 
         private fun initTrackLocked(): AudioTrack {
@@ -981,6 +1267,10 @@ class StudyVoice(context: Context) {
                 if (t.state != AudioTrack.STATE_INITIALIZED) return
                 var offset = 0
                 while (offset < pcm.size && !workerStop.get()) {
+                    if (userPaused.get()) {
+                        try { Thread.sleep(30) } catch (_: InterruptedException) { break }
+                        continue
+                    }
                     val wrote = t.write(pcm, offset, pcm.size - offset, AudioTrack.WRITE_BLOCKING)
                     if (wrote <= 0) break
                     offset += wrote
@@ -992,6 +1282,8 @@ class StudyVoice(context: Context) {
             activeFlushGen++
             audioQueue.clear()
             playing.set(false)
+            writtenFramesInTurn = 0L
+            baselineHeadFrames = 0L
             synchronized(trackLock) {
                 runCatching {
                     track?.let { t ->
@@ -1021,21 +1313,17 @@ class StudyVoice(context: Context) {
         private const val TAG = "StudyVoice"
         private const val BASE = "https://generativelanguage.googleapis.com/v1beta"
         private val JSON = "application/json; charset=utf-8".toMediaType()
-        private const val NO_VOICE = "JARVIS voice could not be reached right now, so the board continues silently. Check your internet and Gemini key."
+        private const val NO_VOICE = "JARVIS voice could not be reached, so the lesson continues silently. Check your internet and Gemini key."
         private const val KEY_MODEL = "voice_model"
         private const val KEY_MODEL_AT = "voice_model_at"
         private const val PCM_SAMPLE_RATE = 24_000
         private const val MAX_CACHE = 14
-        private const val WAIT_MS = 22_000L
-        private const val BLOCK_MS = 15_000L
+        private const val WAIT_MS = 28_000L
+        private const val BLOCK_MS = 12_000L
         private const val WAKE_RESUME_MS = 1_400L
         private const val WAKE_RESUME_SHORT_MS = 600L
-        private const val LIVE_FIRST_AUDIO_TIMEOUT_MS = 4_800L
+        private const val LIVE_FIRST_AUDIO_TIMEOUT_MS = 11_000L
         private const val LIVE_MAX_AGE_MS = 8L * 60_000L
         private const val DAY_MS = 24L * 3600_000L
-        private const val SPEAKER_SYSTEM_PROMPT =
-            "You are JARVIS speaking aloud on the Study Board. " +
-            "CRITICAL: Read ONLY the provided teaching script word-for-word as a calm, warm, ultra-realistic human tutor in the requested language. " +
-            "Use natural human pacing, emphasize key concepts cleanly, pronounce math and technical terms smoothly, and NEVER add extra greetings, commentary, or follow-up questions."
     }
 }

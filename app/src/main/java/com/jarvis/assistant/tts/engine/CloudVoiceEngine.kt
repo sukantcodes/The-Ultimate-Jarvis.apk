@@ -115,7 +115,7 @@ class CloudVoiceEngine(private val context: Context) {
                 val turnObj = JsonObject().apply {
                     val partsArray = com.google.gson.JsonArray().apply {
                         val part = JsonObject().apply {
-                            addProperty("text", "Read this aloud naturally: $text")
+                            addProperty("text", text)
                         }
                         add(part)
                     }

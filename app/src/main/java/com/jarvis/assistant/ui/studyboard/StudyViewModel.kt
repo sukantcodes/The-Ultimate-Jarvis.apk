@@ -65,7 +65,8 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         val retryable: Boolean = false,
         val subjectLine: String = "",
         val verification: String = "",
-        val warnings: Int = 0
+        val warnings: Int = 0,
+        val loadingDetail: String = ""
     )
 
     sealed class Event {
@@ -105,6 +106,11 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     private var narrationToken = 0L
     private var lastState = StudyPlayback.State.IDLE
     private var voiceFailureShown = false
+    private var continuousActive = false
+    private var continuousPlan: StudyVoiceCodec.ContinuousPlan? = null
+    private var continuousEndBlock = -1
+
+    private class StagedBlock(val block: BoardBlock, val speech: String, val explanation: String)
 
     // ----- session state (read and written on the main thread unless noted) -----
     private var sessionId = UUID.randomUUID().toString()
@@ -135,14 +141,44 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         playback.speed = prefs.speed
         memory.load(prefs.memoryJson)
         playback.listener = object : StudyPlayback.Listener {
-            override fun onBlockStarted(index: Int, replay: Boolean) { narrate(index); bump() }
+            override fun onBlockStarted(index: Int, replay: Boolean) {
+                if (!continuousActive || replay) {
+                    continuousActive = false
+                    continuousPlan = null
+                    narrate(index)
+                }
+                bump()
+            }
             override fun onBlockFinished(index: Int) { bump() }
             override fun onAllFinished() { bump() }
             override fun onStateChanged(state: StudyPlayback.State) {
                 val prev = lastState
                 lastState = state
-                if (state == StudyPlayback.State.PAUSED) { stopSpeech() }
-                else if (state == StudyPlayback.State.PLAYING && prev == StudyPlayback.State.PAUSED) narrate(playback.current)
+                if (state == StudyPlayback.State.PAUSED) {
+                    if (continuousActive) {
+                        voice?.pause()
+                        isNarrating.value = false
+                        narrationAmplitude.value = 0f
+                    } else {
+                        stopSpeech()
+                    }
+                } else if (state == StudyPlayback.State.PLAYING && prev == StudyPlayback.State.PAUSED) {
+                    if (continuousActive) {
+                        val resumed = prefs.voiceOn && voice?.resume() == true
+                        if (resumed) {
+                            isNarrating.value = true
+                            playback.narrationBusy = true
+                        } else {
+                            continuousActive = false
+                            continuousPlan = null
+                            val endIdx = continuousEndBlock.takeIf { it in playback.current until blocks.value.size }
+                                ?: blocks.value.lastIndex
+                            startContinuousRange(playback.current.coerceAtLeast(0), endIdx)
+                        }
+                    } else {
+                        narrate(playback.current)
+                    }
+                }
                 bump()
             }
         }
@@ -264,14 +300,17 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         assembler = asm
         playback.setGenerationOpen(true)
         askMode.value = AskMode.NEW
-        ui.value = Ui(Phase.GENERATING, subjectLine = "")
+        ui.value = Ui(Phase.GENERATING, subjectLine = "", loadingDetail = "Generating complete solution…")
         warmUpVoice()
         job = viewModelScope.launch(Dispatchers.Default) {
-            addBlock(layoutOn { st, m -> StudyBoardLayout.layoutQuestion(question, 0f, st, m) }, "", "")
+            val qBlock = layoutOn { st, m -> StudyBoardLayout.layoutQuestion(question, 0f, st, m) }
+            addBlock(qBlock, "", "")
+            withContext(Dispatchers.Main) { playback.jumpToEnd() }
             persist(StudyHistoryManager.Status.INTERRUPTED, force = true)
             val fastThinking = if (profile.depth == StudyProfile.Depth.ADVANCED) Thinking.LOW else Thinking.MINIMAL
             val wantsDiagram = Regex("\\b(draw|diagram|sketch|label|labelled|labeled|structure|figure|illustrate|parts of)\\b", RegexOption.IGNORE_CASE).containsMatchIn(question)
             val hasCanonicalDiagram = wantsDiagram && StudyDiagramAtlas.match(question) != null
+            val staged = ArrayList<StagedBlock>()
             val ok = consume(
                 StudyAiEngine.Request(
                     StudyPrompt.lessonSystem(profile),
@@ -279,9 +318,11 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                     attachments,
                     thinking = fastThinking
                 ),
-                asm, doubt = false
+                asm, doubt = false, baseBottom = qBlock.bottom, staged = staged
             )
-            finishLesson(asm, ok)
+            val startBlockIdx = blocks.value.size
+            if (staged.isNotEmpty()) commitStagedBlocks(staged)
+            finishLesson(asm, ok, startPlaybackFrom = if (staged.isNotEmpty()) startBlockIdx else -1)
         }
     }
 
@@ -292,16 +333,25 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         val ref = StudyDoubts.resolveStep(text, selectedBlock.value.takeIf { it >= 0 }?.let { blocks.value.getOrNull(it)?.stepIndex }, l.steps.size)
         lastWasDoubt = true; lastDoubtText = text; lastDoubtRef = ref
         val asm = StudyAssembler(text, l.level)
-        ui.value = ui.value.copy(phase = Phase.GENERATING, message = "", retryable = false)
+        ui.value = ui.value.copy(phase = Phase.GENERATING, message = "", retryable = false, loadingDetail = "Preparing doubt explanation…")
         playback.setGenerationOpen(true)
         doubtBlockStart = blocks.value.size
         warmUpVoice()
         job = viewModelScope.launch(Dispatchers.Default) {
-            val prefix = if (ref != null) "Step $ref" else "Doubt"
-            addBlock(layoutOn { st, m -> StudyBoardLayout.layoutQuestion(text, blocks.value.lastOrNull()?.bottom ?: 0f, st, m, prefix = "?") }, "", "")
-            withContext(Dispatchers.Main) { if (ref != null) blockOfStep(ref)?.let { events.tryEmit(Event.Reveal(it)) } }
+            val dBlock = layoutOn { st, m -> StudyBoardLayout.layoutQuestion(text, blocks.value.lastOrNull()?.bottom ?: 0f, st, m, prefix = "?") }
+            addBlock(dBlock, "", "")
+            withContext(Dispatchers.Main) {
+                playback.jumpToEnd()
+                if (ref != null) blockOfStep(ref)?.let { events.tryEmit(Event.Reveal(it)) }
+            }
             val fastThinking = if (profile.depth == StudyProfile.Depth.ADVANCED) Thinking.LOW else Thinking.MINIMAL
-            val ok = consume(StudyAiEngine.Request(StudyPrompt.doubtSystem(profile), StudyPrompt.doubtUser(l, text, ref, memoryBlock(l.question)), thinking = fastThinking), asm, doubt = true)
+            val staged = ArrayList<StagedBlock>()
+            val ok = consume(
+                StudyAiEngine.Request(StudyPrompt.doubtSystem(profile), StudyPrompt.doubtUser(l, text, ref, memoryBlock(l.question)), thinking = fastThinking),
+                asm, doubt = true, baseBottom = dBlock.bottom, staged = staged
+            )
+            val startIdx = blocks.value.size
+            if (staged.isNotEmpty()) commitStagedBlocks(staged)
             val result = asm.lesson
             withContext(Dispatchers.Main) {
                 playback.setGenerationOpen(false)
@@ -313,8 +363,11 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                     val doubt = StudyDoubt(text, ref, steps, System.currentTimeMillis())
                     doubts.add(doubt)
                     remember(StudyMemory.turnFromDoubt(lesson, doubt, doubt.createdAt))
-                    ui.value = ui.value.copy(phase = Phase.READY, message = "", retryable = false)
+                    ui.value = ui.value.copy(phase = Phase.READY, message = "", retryable = false, loadingDetail = "")
+                } else {
+                    ui.value = ui.value.copy(loadingDetail = "")
                 }
+                if (staged.isNotEmpty()) startContinuousRange(startIdx, blocks.value.lastIndex)
             }
             persist(StudyHistoryManager.Status.COMPLETE, force = true)
         }
@@ -326,7 +379,13 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
      * Streams [request] through the parser and assembler, writing each validated step to the board as soon as it passes.
      * Returns true when the stream ended normally.
      */
-    private suspend fun consume(request: StudyAiEngine.Request, asm: StudyAssembler, doubt: Boolean): Boolean {
+    private suspend fun consume(
+        request: StudyAiEngine.Request,
+        asm: StudyAssembler,
+        doubt: Boolean,
+        baseBottom: Float,
+        staged: MutableList<StagedBlock>
+    ): Boolean {
         val parser = StudyStreamParser()
         var restyled = false
         var negative = 0
@@ -339,34 +398,40 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 is StudyAssembler.Update.StepAdded -> {
                     restyled = false
                     val step = if (doubt) u.step.copy(index = --negative) else u.step
-                    val block = layoutOn { st, m -> StudyBoardLayout.layoutStep(step, blocks.value.lastOrNull()?.bottom ?: 0f, st, m) }
+                    val prevBottom = staged.lastOrNull()?.block?.bottom ?: baseBottom
+                    val block = layoutOn { st, m -> StudyBoardLayout.layoutStep(step, prevBottom, st, m) }
                     val say = speechFor(step, asm)
-                    addBlock(block, say, step.explanation)
-                    warmVoice(say)
-                    persistThrottled()
+                    staged.add(StagedBlock(block, say, step.explanation))
+                    withContext(Dispatchers.Main) {
+                        val tag = if (step.kind == StepKind.DIAGRAM) "diagram" else "step ${staged.size}"
+                        ui.value = ui.value.copy(loadingDetail = "Preparing $tag…")
+                    }
                 }
                 is StudyAssembler.Update.StepRestyled -> {
                     restyled = true
-                    val i = blocks.value.size - 1
-                    if (i > 0) {
-                        val prevBottom = blocks.value[i - 1].bottom
+                    if (staged.isNotEmpty()) {
+                        val i = staged.lastIndex
+                        val prevBottom = if (i > 0) staged[i - 1].block.bottom else baseBottom
                         val block = layoutOn { st, m -> StudyBoardLayout.layoutStep(u.step, prevBottom, st, m, isFinalBlock = true) }
-                        withContext(Dispatchers.Main) { blocks.value = blocks.value.toMutableList().also { it[i] = block }; bump() }
+                        staged[i] = StagedBlock(block, staged[i].speech, staged[i].explanation)
                     }
                 }
                 is StudyAssembler.Update.FinalAnswer -> {
                     if (!restyled) {
-                        val block = layoutOn { st, m -> StudyBoardLayout.layoutFinal(u.answer, u.explanation, blocks.value.lastOrNull()?.bottom ?: 0f, st, m) }
+                        val prevBottom = staged.lastOrNull()?.block?.bottom ?: baseBottom
+                        val block = layoutOn { st, m -> StudyBoardLayout.layoutFinal(u.answer, u.explanation, prevBottom, st, m) }
                         val say = finalSpeech(u.answer, u.explanation, asm, u.spoken)
-                        addBlock(block, say, u.explanation)
-                        warmVoice(say)
+                        staged.add(StagedBlock(block, say, u.explanation))
+                        withContext(Dispatchers.Main) {
+                            ui.value = ui.value.copy(loadingDetail = "Finalizing board & JARVIS voice…")
+                        }
                     }
                 }
                 is StudyAssembler.Update.StepRejected -> withContext(Dispatchers.Main) {
                     ui.value = ui.value.copy(warnings = ui.value.warnings + 1, message = u.reason)
                 }
                 is StudyAssembler.Update.Declined -> withContext(Dispatchers.Main) {
-                    ui.value = ui.value.copy(phase = Phase.ERROR, message = "This could not be solved reliably: ${u.reason}", retryable = true)
+                    ui.value = ui.value.copy(phase = Phase.ERROR, message = "This could not be solved reliably: ${u.reason}", retryable = true, loadingDetail = "")
                 }
                 is StudyAssembler.Update.DoubtTarget -> withContext(Dispatchers.Main) { blockOfStep(u.step)?.let { selectedBlock.value = it; events.tryEmit(Event.Reveal(it)) } }
             }
@@ -382,27 +447,43 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             throw e
         } catch (e: StudyAiException) {
             for (ev in parser.finish()) asm.accept(ev)
-            withContext(Dispatchers.Main) { ui.value = ui.value.copy(phase = Phase.ERROR, message = e.message ?: "The AI request failed.", retryable = e.retryable) }
+            withContext(Dispatchers.Main) { ui.value = ui.value.copy(phase = Phase.ERROR, message = e.message ?: "The AI request failed.", retryable = e.retryable, loadingDetail = "") }
             return false
         } catch (e: Throwable) {
-            withContext(Dispatchers.Main) { ui.value = ui.value.copy(phase = Phase.ERROR, message = "Something went wrong: ${e.message ?: e.javaClass.simpleName}", retryable = true) }
+            withContext(Dispatchers.Main) { ui.value = ui.value.copy(phase = Phase.ERROR, message = "Something went wrong: ${e.message ?: e.javaClass.simpleName}", retryable = true, loadingDetail = "") }
             return false
         }
     }
 
-    private suspend fun finishLesson(asm: StudyAssembler, streamOk: Boolean) {
+    private suspend fun commitStagedBlocks(staged: List<StagedBlock>) = withContext(Dispatchers.Main) {
+        for (item in staged) {
+            speeches.add(item.speech)
+            explanations.add(item.explanation)
+        }
+        blocks.value = blocks.value + staged.map { it.block }
+        eraseLimit.value = Int.MAX_VALUE
+        for (item in staged) {
+            playback.addBlock(StudyPlayback.durationFor(item.block))
+        }
+        bump()
+    }
+
+    private suspend fun finishLesson(asm: StudyAssembler, streamOk: Boolean, startPlaybackFrom: Int) {
         withContext(Dispatchers.Main) {
             playback.setGenerationOpen(false)
             val l = asm.lesson
             val current = ui.value
             if (streamOk && l.complete && l.declinedReason.isEmpty()) {
                 ui.value = current.copy(phase = Phase.READY, verification = l.verification.label,
-                    message = if (l.verification == Verification.FAILED) current.message else "")
+                    message = if (l.verification == Verification.FAILED) current.message else "", loadingDetail = "")
                 if (askMode.value == AskMode.NEW) askMode.value = AskMode.DOUBT
             } else if (current.phase != Phase.ERROR) {
                 ui.value = current.copy(phase = Phase.ERROR, retryable = true,
-                    message = current.message.ifEmpty { "The solution did not finish." }, verification = l.verification.label)
-            } else ui.value = current.copy(verification = l.verification.label)
+                    message = current.message.ifEmpty { "The solution did not finish." }, verification = l.verification.label, loadingDetail = "")
+            } else ui.value = current.copy(verification = l.verification.label, loadingDetail = "")
+            if (startPlaybackFrom in blocks.value.indices) {
+                startContinuousRange(startPlaybackFrom, blocks.value.lastIndex)
+            }
         }
         val l = asm.lesson
         if (streamOk && l.complete && l.declinedReason.isEmpty() && l.verification != Verification.FAILED) {
@@ -436,7 +517,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         j.cancel()
         stopSpeech()
         playback.setGenerationOpen(false)
-        ui.value = ui.value.copy(phase = if (hasContent) Phase.READY else Phase.IDLE, message = "Stopped.", retryable = hasContent && !lastWasDoubt)
+        ui.value = ui.value.copy(phase = if (hasContent) Phase.READY else Phase.IDLE, message = "Stopped.", retryable = hasContent && !lastWasDoubt, loadingDetail = "")
         viewModelScope.launch { persist(StudyHistoryManager.Status.INTERRUPTED, force = true) }
     }
 
@@ -560,7 +641,13 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     fun next() = playback.next()
     fun previous() = playback.previous()
     fun replayStep() = playback.replayCurrent()
-    fun replayAll() { eraseLimit.value = Int.MAX_VALUE; playback.replayAll() }
+    fun replayAll() {
+        eraseLimit.value = Int.MAX_VALUE
+        val list = blocks.value
+        if (list.isEmpty()) return
+        val startIdx = if (list.size > 1 && list[0].isQuestion) 1 else 0
+        startContinuousRange(startIdx, list.lastIndex)
+    }
 
     fun setSpeed(s: Float) { playback.speed = s; prefs.speed = playback.speed; voice?.setRate(playback.speed); bump() }
 
@@ -638,8 +725,8 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             voiceFailureShown = false
             toast("Voice narration on.")
             val curIdx = playback.current.coerceAtLeast(0)
-            if (playback.state == StudyPlayback.State.PLAYING) {
-                narrate(curIdx)
+            if (playback.state == StudyPlayback.State.PLAYING && hasContent) {
+                startContinuousRange(curIdx, blocks.value.lastIndex)
             } else if (hasContent && curIdx in speeches.indices && speeches[curIdx].isNotBlank()) {
                 narrate(curIdx)
             }
@@ -723,7 +810,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         v.setCallback(object : StudyVoice.Callback {
             override fun onStarted(token: Long, cloud: Boolean) {
                 if (token != narrationToken) return
-                // the first word is being spoken: the pen may start now
+                // the first word is being spoken: the pen starts writing smoothly now
                 isNarrating.value = true
                 activeVoiceName.value = v.activeVoiceName()
                 playback.startGate = false
@@ -732,21 +819,113 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             override fun onAmplitude(amplitude: Float) {
                 narrationAmplitude.value = if (isNarrating.value) amplitude else 0f
             }
+            override fun onProgress(token: Long, progressFrac: Float, spokenTranscript: String) {
+                if (token != narrationToken || !continuousActive) return
+                val plan = continuousPlan ?: return
+                val targetBlock = resolveContinuousTargetBlock(plan, progressFrac, spokenTranscript, playback.current)
+                if (targetBlock > playback.current && targetBlock <= continuousEndBlock) {
+                    playback.advanceContinuous(targetBlock)
+                    bump()
+                }
+            }
             override fun onFinished(token: Long, ok: Boolean, reason: String) {
                 if (token != narrationToken) return
+                val wasContinuous = continuousActive
+                val endIdx = continuousEndBlock
+                continuousActive = false
+                continuousPlan = null
+                if (wasContinuous && endIdx in (playback.current + 1) until blocks.value.size) {
+                    playback.advanceContinuous(endIdx)
+                }
                 playback.startGate = false
                 playback.narrationBusy = false
                 isNarrating.value = false
                 narrationAmplitude.value = 0f
-                if (!ok) {
-                    if (!voiceFailureShown) { voiceFailureShown = true; toast(reason.ifEmpty { "Voice narration could not play on this step." }) }
+                if (!ok && !voiceFailureShown) {
+                    voiceFailureShown = true
+                    toast(reason.ifEmpty { "Voice narration could not play on this step." })
                 }
                 bump()
             }
-            override fun onNote(text: String) { toast(text) }
+            override fun onNote(text: String) {
+                if (!voiceFailureShown) {
+                    voiceFailureShown = true
+                    toast(text)
+                }
+            }
         })
         activeVoiceName.value = v.activeVoiceName()
         voice = v
+    }
+
+    private fun resolveContinuousTargetBlock(
+        plan: StudyVoiceCodec.ContinuousPlan,
+        progressFrac: Float,
+        transcript: String,
+        currentBlock: Int
+    ): Int {
+        var target = StudyVoiceCodec.segmentBlockForProgress(plan.segments, progressFrac) ?: currentBlock
+        if (transcript.length >= 16) {
+            val tail = transcript.takeLast(120).lowercase()
+            val curSegIdx = plan.segments.indexOfLast { it.blockIndex <= currentBlock }
+            val nextSeg = plan.segments.getOrNull(curSegIdx + 1)
+            if (nextSeg != null && progressFrac >= (nextSeg.startFrac - 0.16f).coerceAtLeast(0.05f)) {
+                val hits = nextSeg.anchorWords.count { tail.contains(it) }
+                if (hits >= minOf(2, nextSeg.anchorWords.size) && nextSeg.blockIndex > target) {
+                    target = nextSeg.blockIndex
+                }
+            }
+        }
+        return target
+    }
+
+    private fun startContinuousRange(startBlockIdx: Int, endBlockIdx: Int) {
+        val list = blocks.value
+        if (startBlockIdx !in list.indices || endBlockIdx < startBlockIdx) return
+        val speakPairs = (startBlockIdx..endBlockIdx).mapNotNull { idx ->
+            val s = speeches.getOrNull(idx).orEmpty().trim()
+            if (s.isEmpty()) null else idx to s
+        }
+        val plan = StudyVoiceCodec.buildContinuousPlan(speakPairs)
+        if (!prefs.voiceOn || plan.script.isBlank()) {
+            continuousActive = false
+            continuousPlan = null
+            continuousEndBlock = endBlockIdx
+            playback.startContinuousFrom(startBlockIdx)
+            playback.startGate = false
+            playback.narrationBusy = false
+            bump()
+            return
+        }
+
+        val engine = voiceEngine()
+        activeVoiceName.value = engine.activeVoiceName()
+        continuousActive = true
+        continuousPlan = plan
+        continuousEndBlock = endBlockIdx
+
+        playback.startContinuousFrom(startBlockIdx)
+        val cloudOk = engine.cloudAvailable()
+        playback.narrationBusy = true
+        playback.startGate = cloudOk
+        if (cloudOk) isNarrating.value = true
+
+        val myToken = engine.speakContinuous(plan, effectiveVoiceLanguage())
+        narrationToken = myToken
+        main.postDelayed({ if (narrationToken == myToken) playback.startGate = false }, 2_400L)
+        val maxGuardMs = (plan.estimatedDurationMs + 35_000L).coerceIn(45_000L, 210_000L)
+        main.postDelayed({
+            if (narrationToken == myToken && playback.narrationBusy) {
+                continuousActive = false
+                continuousPlan = null
+                playback.startGate = false
+                playback.narrationBusy = false
+                isNarrating.value = false
+                narrationAmplitude.value = 0f
+                bump()
+            }
+        }, maxGuardMs)
+        bump()
     }
 
     /** Prepares the audio for a step that has just arrived, so it is ready before the pen gets there. */
@@ -763,12 +942,10 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         playback.narrationBusy = true
         val available = engine.cloudAvailable()
         if (available) isNarrating.value = true
-        // the pen waits for the first word so voice and writing begin together; a slow voice never holds it for long
         playback.startGate = available
         val token = engine.speak(text, localeFor(text), effectiveVoiceLanguage())
         narrationToken = token
-        main.postDelayed({ if (narrationToken == token) { playback.startGate = false } }, 1_800L)
-        // a speech engine that never answers must not freeze the board
+        main.postDelayed({ if (narrationToken == token) { playback.startGate = false } }, 2_200L)
         main.postDelayed({
             if (narrationToken == token && playback.narrationBusy) {
                 playback.narrationBusy = false
@@ -783,6 +960,8 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     /** Stops narration without touching the lesson or the board. Safe to call at any time. */
     fun stopSpeech() {
         narrationToken++
+        continuousActive = false
+        continuousPlan = null
         voice?.stop()
         playback.narrationBusy = false
         playback.startGate = false

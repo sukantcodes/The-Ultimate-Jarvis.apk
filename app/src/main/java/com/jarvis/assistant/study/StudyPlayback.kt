@@ -138,11 +138,35 @@ class StudyPlayback {
         startBlock(0, replay = true)
     }
 
+    /** Begins continuous full-lesson playback at [index] without single-step pause or replay flag. */
+    fun startContinuousFrom(index: Int) {
+        if (index !in durations.indices) return
+        stopAfterCurrent = false
+        startBlock(index, replay = false, single = false)
+    }
+
     /** Jumps so that blocks before [index] count as written and [index] is the one being written. */
     fun seek(index: Int) {
         if (index !in durations.indices) return
         stopAfterCurrent = true
         startBlock(index, replay = true, single = true)
+    }
+
+    /**
+     * Advances cleanly to [targetIndex] during continuous lesson playback without resetting the active narration session.
+     */
+    fun advanceContinuous(targetIndex: Int) {
+        if (targetIndex !in durations.indices || targetIndex <= current) return
+        stopAfterCurrent = false
+        if (current >= 0 && !writingDone) completeCurrentBlock(finishListener = true)
+        current = targetIndex
+        othersStayVisible = false
+        if (targetIndex > highWater) highWater = targetIndex
+        progress = 0f
+        writingDone = false
+        startGate = false
+        listener?.onBlockStarted(targetIndex, false)
+        if (state != State.PAUSED) setState(State.PLAYING)
     }
 
     /** Advances the pen by [dtMs] of wall-clock time. Returns true when something changed that needs a redraw. */

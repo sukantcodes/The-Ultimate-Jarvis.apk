@@ -110,4 +110,77 @@ object StudyVoiceCodec {
         val m = Regex("(\\d+)(?:\\.(\\d+))?").find(id) ?: return 0.0
         return (m.groupValues[1].toIntOrNull() ?: 0) + (m.groupValues[2].toIntOrNull() ?: 0) / 100.0
     }
+
+    /** Matches GeminiLiveWebSocket model normalization so Study Board uses the exact same live voice backend as Jarvis. */
+    fun normalizeLiveModelId(configuredModel: String): String = when (configuredModel.trim()) {
+        "models/gemini-3.8-live" -> "models/gemini-3.8-live"
+        "models/gemini-3.1-flash-agent" -> "models/gemini-3.1-flash-live-preview"
+        else -> {
+            val trimmed = configuredModel.trim()
+            if (trimmed.isNotEmpty() && !trimmed.contains("2.5")) trimmed
+            else "models/gemini-3.1-flash-live-preview"
+        }
+    }
+
+    /** Ensures clean terminal punctuation so consecutive spoken steps flow smoothly without run-on cadence. */
+    fun ensureSentenceEnding(text: String): String {
+        val t = text.trim()
+        if (t.isEmpty()) return ""
+        return when (t.last()) {
+            '.', '!', '?', '।', '۔', '。' -> t
+            else -> "$t."
+        }
+    }
+
+    data class LessonSegment(
+        val blockIndex: Int,
+        val text: String,
+        val startFrac: Float,
+        val endFrac: Float,
+        val anchorWords: List<String>
+    )
+
+    data class ContinuousPlan(
+        val script: String,
+        val segments: List<LessonSegment>,
+        val estimatedDurationMs: Long
+    )
+
+    /**
+     * Combines loaded block speeches into one continuous script with proportional timing fractions and anchor words,
+     * allowing unbroken voice narration while advancing whiteboard blocks in smooth lockstep.
+     */
+    fun buildContinuousPlan(entries: List<Pair<Int, String>>): ContinuousPlan {
+        val valid = entries.mapNotNull { (idx, raw) ->
+            val clean = ensureSentenceEnding(raw)
+            if (clean.isEmpty()) null else idx to clean
+        }
+        if (valid.isEmpty()) return ContinuousPlan("", emptyList(), 0L)
+
+        val weights = valid.map { (_, t) -> t.length.coerceAtLeast(18).toFloat() }
+        val totalWeight = weights.sum().coerceAtLeast(1f)
+        val segments = ArrayList<LessonSegment>(valid.size)
+        var acc = 0f
+        valid.forEachIndexed { pos, (idx, text) ->
+            val startFrac = acc / totalWeight
+            acc += weights[pos]
+            val endFrac = if (pos == valid.lastIndex) 1f else acc / totalWeight
+            val words = text.lowercase()
+                .replace(Regex("[^\\p{L}\\p{N}\\s]"), " ")
+                .split(Regex("\\s+"))
+                .filter { it.length >= 3 }
+                .take(4)
+            segments.add(LessonSegment(idx, text, startFrac, endFrac, words))
+        }
+        val script = valid.joinToString("\n") { it.second }
+        val estMs = (script.length * 65L).coerceIn(2_000L, 180_000L)
+        return ContinuousPlan(script, segments, estMs)
+    }
+
+    /** Computes which target blockIndex corresponds to normalized spoken progress [0f..1f]. */
+    fun segmentBlockForProgress(segments: List<LessonSegment>, progressFrac: Float): Int? {
+        if (segments.isEmpty()) return null
+        val p = progressFrac.coerceIn(0f, 1f)
+        return segments.firstOrNull { p < it.endFrac }?.blockIndex ?: segments.last().blockIndex
+    }
 }

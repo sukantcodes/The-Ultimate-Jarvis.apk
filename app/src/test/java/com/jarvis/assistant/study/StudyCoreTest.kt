@@ -790,4 +790,55 @@ class StudyControllerAndVoiceUpgradeTest {
         assertTrue(StudyTools.EXPLAIN in StudyTools.NAMES)
         assertTrue(StudyTools.CONTROL in StudyTools.NAMES)
     }
+
+    @Test fun continuousNarrationPlanAndPlaybackAdvanceSmoothlyWithoutStops() {
+        val c = com.jarvis.assistant.study.voice.StudyVoiceCodec
+        assertEquals("models/gemini-3.8-live", c.normalizeLiveModelId("models/gemini-3.8-live"))
+        assertEquals("models/gemini-3.1-flash-live-preview", c.normalizeLiveModelId("models/gemini-2.5-flash"))
+        assertEquals("First step.", c.ensureSentenceEnding("First step"))
+
+        val plan = c.buildContinuousPlan(
+            listOf(
+                1 to "First write down what is given in the triangle",
+                2 to "Apply Pythagoras theorem to relate all sides cleanly",
+                3 to "The final answer is five centimetres"
+            )
+        )
+        assertEquals(3, plan.segments.size)
+        assertEquals(1, c.segmentBlockForProgress(plan.segments, 0.05f))
+        assertEquals(2, c.segmentBlockForProgress(plan.segments, plan.segments[1].startFrac + 0.02f))
+        assertEquals(3, c.segmentBlockForProgress(plan.segments, 0.99f))
+        assertTrue(plan.script.contains("triangle.\nApply Pythagoras"))
+
+        val pb = StudyPlayback()
+        val started = ArrayList<Pair<Int, Boolean>>()
+        var allDone = 0
+        pb.listener = object : StudyPlayback.Listener {
+            override fun onBlockStarted(index: Int, replay: Boolean) { started.add(index to replay) }
+            override fun onAllFinished() { allDone++ }
+        }
+        pb.setGenerationOpen(false)
+        repeat(4) { pb.addBlock(800) }
+        pb.jumpToEnd()
+        pb.startContinuousFrom(1)
+        pb.narrationBusy = true
+        assertEquals(StudyPlayback.State.PLAYING, pb.state)
+        assertEquals(1, pb.current)
+
+        // Advance smoothly during continuous lecture without replay flag
+        var t = 0
+        while (t < 1500) { pb.advance(100); t += 100 }
+        assertEquals(1, pb.current) // held by continuous narrationBusy until next cue
+        pb.advanceContinuous(2)
+        assertEquals(2, pb.current)
+        pb.advanceContinuous(3)
+        assertEquals(3, pb.current)
+        while (t < 3000) { pb.advance(100); t += 100 }
+        pb.narrationBusy = false
+        pb.advance(50)
+        assertEquals(StudyPlayback.State.FINISHED, pb.state)
+        assertTrue(allDone >= 1)
+        assertTrue(started.contains(2 to false))
+        assertTrue(started.contains(3 to false))
+    }
 }
