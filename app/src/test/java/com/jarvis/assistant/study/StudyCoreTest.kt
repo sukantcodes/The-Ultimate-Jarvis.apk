@@ -574,16 +574,24 @@ class StudyBoardRichDrawingAndLayoutTest {
             "Structure of neuron",
             "Plant cell diagram",
             "Animal cell diagram",
+            "Mitochondria organelle diagram",
+            "Chloroplast structure diagram",
+            "Human digestive system diagram",
+            "Human ear anatomy diagram",
+            "Reflex arc spinal cord diagram",
             "Human kidney section",
             "Nephron structure",
             "Human respiratory system",
             "Leaf stomata cross section",
             "DNA double helix",
             "Longitudinal section of flower",
+            "Refraction through glass slab",
             "Dispersion of light through glass prism",
             "Ray diagram of concave lens",
             "Ray diagram of convex lens",
             "Ray diagram of concave mirror",
+            "AC generator diagram",
+            "Solenoid magnetic field diagram",
             "Electric circuit diagram",
             "Magnetic field lines of bar magnet",
             "Transverse wave diagram",
@@ -609,6 +617,8 @@ class StudyBoardRichDrawingAndLayoutTest {
             "Von Neumann CPU architecture",
             "Neural network perceptron",
             "Logic gates AND OR NOT",
+            "Solar system orbits diagram",
+            "Carbon cycle diagram",
             "Layers of the earth",
             "Water cycle diagram"
         )) {
@@ -670,5 +680,26 @@ class StudyBoardRichDrawingAndLayoutTest {
         }
         val pins = laid.ops.filterIsInstance<DrawOp.Oval>().filter { kotlin.math.abs(it.rx - it.ry) < 0.1f && it.rx in 2.5f..8f }
         assertTrue("Expected snapped anchor dots on shapes", pins.isNotEmpty())
+    }
+
+    @Test fun canonicalShortcutAndShapeAliasesParseFastAndCleanly() {
+        val parser = StudyStreamParser()
+        val asm = StudyAssembler("Draw a mitochondria diagram", "Class 10")
+        val line1 = """{"type":"meta","subject":"Biology","topic":"Cell Organelles","level":"Class 10"}"""
+        val line2 = """{"type":"diagram","explanation":"Powerhouse of the cell.","diagram":{"title":"Mitochondria","canonical":true}}"""
+        for (ev in parser.feed("$line1\n$line2\n")) asm.accept(ev)
+        assertEquals(1, asm.lesson.steps.size)
+        val diag = asm.lesson.steps.first().diagram
+        assertNotNull(diag)
+        assertTrue(diag!!.title.contains("Mitochondrion", ignoreCase = true))
+        assertTrue(diag.items.size >= 15)
+
+        val aliasSpec = DiagramSpec.parse(
+            com.google.gson.JsonParser.parseString(
+                """{"title":"Alias Check","items":[{"t":"oval","cx":50,"cy":50,"w":30,"h":18,"fill":true},{"t":"circle","x":50,"y":50,"d":12},{"t":"rect","cx":50,"cy":50,"w":20,"h":10},{"t":"poly","coords":[[20,20],[80,20],[50,80]],"closed":true,"fill":true}]}"""
+            ).asJsonObject
+        )
+        assertNotNull(aliasSpec)
+        assertEquals(4, aliasSpec!!.items.size)
     }
 }

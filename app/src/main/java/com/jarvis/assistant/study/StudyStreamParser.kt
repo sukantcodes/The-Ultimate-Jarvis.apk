@@ -109,9 +109,10 @@ class StudyStreamParser {
             }
             val type = text(o, "type", "t").lowercase()
             val hasContent = o.has("content") || o.has("text") || o.has("expression") || o.has("math")
+            val hasDiagram = o.get("diagram")?.isJsonObject == true
             val kindFromType = StepKind.parse(type)
             return when {
-                type == "meta" || (type.isEmpty() && !hasContent && (o.has("subject") || o.has("topic")) && !o.has("answer") && !o.has("final_answer")) ->
+                type == "meta" || (type.isEmpty() && !hasContent && !hasDiagram && (o.has("subject") || o.has("topic")) && !o.has("answer") && !o.has("final_answer")) ->
                     listOf(metaOf(o))
                 type == "ref" || (type.isEmpty() && o.has("step") && !hasContent && !o.has("answer")) -> {
                     val n = o.get("step")?.takeIf { it.isJsonPrimitive }?.asJsonPrimitive?.let {
@@ -119,14 +120,14 @@ class StudyStreamParser {
                     }
                     if (n != null) listOf(StudyEvent.Ref(n)) else listOf(StudyEvent.Rejected("A reference had no step number.", raw.take(80)))
                 }
-                type == "final" || type == "answer" || (type.isEmpty() && !hasContent && (o.has("answer") || o.has("final_answer"))) -> {
+                type == "final" || type == "answer" || (type.isEmpty() && !hasContent && !hasDiagram && (o.has("answer") || o.has("final_answer"))) -> {
                     val answer = text(o, "answer", "final_answer", "finalAnswer", "content")
                     if (answer.isEmpty()) listOf(StudyEvent.Rejected("The final answer was empty.", raw.take(80)))
                     else listOf(finalOf(o, answer))
                 }
                 type == "declined" || type == "error" || type == "cannot_solve" || type == "unsolvable" ->
                     listOf(StudyEvent.Declined(text(o, "reason", "message", "content").ifEmpty { "The AI could not solve this reliably." }))
-                hasContent || kindFromType != null -> {
+                hasContent || hasDiagram || kindFromType != null -> {
                     val kind = StepKind.parse(text(o, "kind", "role")) ?: kindFromType ?: StepKind.STEP
                     val content = text(o, "content", "text", "expression", "math")
                     val diagram = o.get("diagram")?.takeIf { it.isJsonObject }?.asJsonObject

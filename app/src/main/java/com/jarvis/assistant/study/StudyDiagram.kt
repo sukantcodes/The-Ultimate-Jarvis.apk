@@ -142,7 +142,9 @@ data class DiagramSpec(
             }
             val graph = (o.get("graph")?.takeIf { it.isJsonObject }?.asJsonObject
                 ?: o.takeIf { it.has("fn") || it.has("function") || it.has("points") })?.let { parseGraph(it) }
-            if (items.isEmpty() && graph == null) return null
+            if (items.isEmpty() && graph == null) {
+                return if (o.flag("canonical") && title.isNotBlank()) DiagramSpec(title, emptyList(), null) else null
+            }
             return DiagramSpec(title, items, graph)
         }
 
@@ -229,10 +231,11 @@ data class DiagramSpec(
                 }
                 "circle" -> {
                     val fill = o.flag("fill") || o.str("fillColor") != null || o.str("fill_color") != null
+                    val r = o.num("r", "radius") ?: o.num("d", "diameter")?.div(2f) ?: return null
                     Item.Circle(
                         cx = o.num("cx", "x") ?: return null,
                         cy = o.num("cy", "y") ?: return null,
-                        r = (o.num("r") ?: return null).coerceAtLeast(0.5f),
+                        r = r.coerceAtLeast(0.5f),
                         fill = fill,
                         ink = ink,
                         fillInk = fillInk,
@@ -245,11 +248,13 @@ data class DiagramSpec(
                 }
                 "oval", "ellipse" -> {
                     val fill = o.flag("fill") || o.str("fillColor") != null || o.str("fill_color") != null
+                    val rx = o.num("rx") ?: o.num("w", "width")?.div(2f) ?: return null
+                    val ry = o.num("ry") ?: o.num("h", "height")?.div(2f) ?: rx
                     Item.Oval(
                         cx = o.num("cx", "x") ?: return null,
                         cy = o.num("cy", "y") ?: return null,
-                        rx = (o.num("rx") ?: return null).coerceAtLeast(0.5f),
-                        ry = (o.num("ry") ?: return null).coerceAtLeast(0.5f),
+                        rx = rx.coerceAtLeast(0.5f),
+                        ry = ry.coerceAtLeast(0.5f),
                         fill = fill,
                         ink = ink,
                         rotation = o.num("rotate", "rotation", "angle") ?: 0f,
@@ -288,13 +293,15 @@ data class DiagramSpec(
                 "rect", "box", "block", "roundrect", "pill", "node", "card" -> {
                     val w = o.num("w", "width") ?: return null
                     val h = o.num("h", "height") ?: return null
+                    val x = o.num("x") ?: o.num("cx")?.minus(w * 0.5f) ?: return null
+                    val y = o.num("y") ?: o.num("cy")?.minus(h * 0.5f) ?: return null
                     val defaultR = if (kind == "roundrect" || kind == "pill" || kind == "node" || kind == "card") min(w, h) * 0.22f else 0f
                     val rx = (o.num("rx", "radius", "r") ?: defaultR).coerceAtLeast(0f)
                     val ry = (o.num("ry", "radius", "r") ?: rx).coerceAtLeast(0f)
                     val fill = o.flag("fill") || o.str("fillColor") != null || o.str("fill_color") != null || kind == "pill" || kind == "card"
                     Item.Rect(
-                        x = o.num("x") ?: return null,
-                        y = o.num("y") ?: return null,
+                        x = x,
+                        y = y,
                         w = w,
                         h = h,
                         fill = fill,
@@ -310,8 +317,8 @@ data class DiagramSpec(
                     )
                 }
                 "poly", "polygon", "polyline", "triangle", "path", "curve", "spline", "bezier", "wave" -> {
-                    val pa = o.get("pts")?.takeIf { it.isJsonArray }?.asJsonArray
-                        ?: o.get("points")?.takeIf { it.isJsonArray }?.asJsonArray ?: return null
+                    val pa = (o.get("pts") ?: o.get("points") ?: o.get("coords") ?: o.get("vertices"))
+                        ?.takeIf { it.isJsonArray }?.asJsonArray ?: return null
                     val flat = ArrayList<Float>()
                     for (p in pa) {
                         if (p.isJsonArray && p.asJsonArray.size() >= 2) {
@@ -504,7 +511,8 @@ object StudyDiagramLayout {
             val minGap = max(8f, labelSize * 0.42f)
             val neededLeftH = if (leftPrepared.isEmpty()) 0f else leftPrepared.sumOf { it.boxH.toDouble() }.toFloat() + (leftPrepared.size - 1) * minGap + 20f
             val neededRightH = if (rightPrepared.isEmpty()) 0f else rightPrepared.sumOf { it.boxH.toDouble() }.toFloat() + (rightPrepared.size - 1) * minGap + 20f
-            val stageH = max(availBoxH, max(neededLeftH, neededRightH)).coerceAtMost(maxH - itemsStartY)
+            val idealDiagH = (geomH * ((artW - 16f) / geomW)).coerceIn(w * 0.34f, availBoxH)
+            val stageH = max(idealDiagH + 20f, max(neededLeftH, neededRightH)).coerceAtMost(maxH - itemsStartY)
             val artAvailH = (stageH - 20f).coerceAtLeast(80f)
 
             val sc = min((artW - 16f) / geomW, artAvailH / geomH)
@@ -794,10 +802,11 @@ object StudyDiagramLayout {
             val connectX = if (isLeft) bx + p.boxW else bx
             val connectY = by + p.boxH * 0.5f
 
-            // Precision target pin dot + angled leader + flush horizontal rail tick (when anchored to structure)
+            // Precision double-ring target pin dot + angled leader + flush horizontal rail tick (when anchored to structure)
             if (p.hasPin) {
-                val dotR = max(3.0f, stroke * 1.35f)
-                out.add(DrawOp.Oval(ax, ay, dotR, dotR, max(1f, stroke * 0.7f), labelInk, fill = true, fillInk = labelInk, shade = FillShade.FLAT, paintMode = PaintMode.FILL_AND_STROKE, fillAlpha = 0.90f))
+                val dotR = max(2.8f, stroke * 1.25f)
+                out.add(DrawOp.Oval(ax, ay, dotR * 1.9f, dotR * 1.9f, max(0.8f, stroke * 0.45f), labelInk, fill = true, fillInk = labelInk, shade = FillShade.FLAT, paintMode = PaintMode.FILL_AND_STROKE, fillAlpha = 0.22f))
+                out.add(DrawOp.Oval(ax, ay, dotR, dotR, max(1f, stroke * 0.7f), labelInk, fill = true, fillInk = labelInk, shade = FillShade.FLAT, paintMode = PaintMode.FILL_AND_STROKE, fillAlpha = 0.94f))
                 val tickLen = 10f
                 val kneeX = if (isLeft) max(connectX + tickLen, ax + (connectX - ax) * 0.45f) else min(connectX - tickLen, ax + (connectX - ax) * 0.45f)
                 if ((isLeft && kneeX < ax && kneeX > connectX + 4f) || (!isLeft && kneeX > ax && kneeX < connectX - 4f)) {

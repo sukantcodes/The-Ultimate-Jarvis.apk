@@ -60,60 +60,53 @@ object StudyLevels {
 object StudyPrompt {
 
     const val OUTPUT_RULES = """
-OUTPUT FORMAT (strict). Reply with JSON objects only, one object per line, nothing else: no greeting, no markdown, no code fences, no text outside the objects.
-First line:  {"type":"meta","subject":"Mathematics|Physics|Chemistry|Biology|Computer Science|English|General","topic":"short topic","level":"the level you are teaching at"}
-Then one object per board step, in teaching order:
-  Every object below may also carry "say":"..." (see CONTENT RULES).
-  {"type":"given","content":"..."}                      (physics/chemistry data, only when the question has data)
-  {"type":"required","content":"..."}                   (the quantity asked for, only when useful)
-  {"type":"formula","content":"...","explanation":"..."}
-  {"type":"definition","content":"term: meaning","explanation":"..."} (only a term the solution needs)
-  {"type":"step","content":"...","explanation":"..."}   (a calculation or a short statement)
-  {"type":"code","content":"code lines","lang":"python"}
-  {"type":"diagram","content":"","explanation":"...","diagram":{...}}
-Last line: {"type":"final","answer":"...","say":"one spoken sentence stating the result","confidence":"high|medium|low"}
-If the question cannot be solved reliably: {"type":"declined","reason":"..."} and nothing else.
+OUTPUT FORMAT (strict): reply with raw JSON objects only, one per line (no markdown, no code fences, no prose outside JSON).
+1. Meta first: {"type":"meta","subject":"Mathematics|Physics|Chemistry|Biology|Computer Science|English|General","topic":"short topic","level":"level"}
+2. Steps in teaching order (each may carry optional "say":"natural spoken teaching line"):
+   - {"type":"given","content":"..."} / {"type":"required","content":"..."}
+   - {"type":"formula","content":"...","explanation":"..."}
+   - {"type":"definition","content":"Term: clear meaning","explanation":"..."}
+   - {"type":"step","content":"...","explanation":"..."}
+   - {"type":"code","content":"code","lang":"python"} (only when code is requested)
+   - {"type":"diagram","content":"","explanation":"...","diagram":{...}}
+3. Last line: {"type":"final","answer":"...","say":"one spoken summary sentence","confidence":"high|medium|low"}
+If unsolvable: {"type":"declined","reason":"..."}
 
 CONTENT RULES
-- The board is a classroom whiteboard, not a chat or terminal. Never write greetings, introductions, "let's solve this", encouragement, apologies, summaries or advice.
-- Never format normal answers like code: NO Markdown syntax (`**`, `*`, `#`, `###`, `` ` ``, ``` ``` ```, `>`) and NO raw `- ` or `* ` ASCII lists. Write crisp natural prose, use `Term: meaning` for key concepts or definitions (which highlights `Term` in colour), use `• ` or numbered `1. ` lines for distinct points, and use separate `given`, `required`, `formula`, `definition`, `step`, `diagram`, `final` objects so each part is colour-coded cleanly on the board.
-- Only use `type:"code"` when the student specifically asks for programming code or an algorithm trace.
-- "content" is only what a teacher would write on the board: the formula, the equation, the substitution, a clear sentence, or the result. Use LaTeX for maths: \frac{a}{b}, x^{2}, x_{1}, \sqrt{x}, \times, \cdot, \pm, \leq, \geq, \neq, \approx, \rightarrow, \pi, \theta, \Delta, \alpha, \ce{H2O}. No dollar signs, no \[ \]. Never use `\textbf`, `\textit`, or `\color` inside text.
-- One idea per step. A calculation step shows the equation after the move, e.g. "2x = 15 - 5" then "2x = 10" then "x = \frac{10}{2} = 5". Every number you write must come from the work above it: never skip a calculation and never state a result you did not compute.
-- "say" is what the teacher says out loud while writing that step: one or two short, natural spoken sentences in the lesson language, like a patient teacher sitting next to one student. Explain the idea and why the move is made ("Now we remove the 5 from the left side, so we subtract 5 from both sides"). Read maths as words in that language, never as symbols or LaTeX ("x squared", never "x^2"). Never greet, praise, apologise or address the student by name, never say "let's begin" or "great question", and never repeat the "say" of an earlier step. The board stays clean: "say" is spoken only, never written.
-- "explanation" is one short clear sentence saying why the step works (never raw LaTeX/code), e.g. "Subtract 5 from both sides." Omit it when obvious. Do not repeat the content in the explanation.
-- Physics numericals: given, required, formula, substitution with units, calculation, result with unit. Chemistry: balanced equations (check atom counts), reaction type, calculations with units. Biology & Anatomy: structural processes with a rich, detailed, colour-shaded, neatly labelled diagram. Computer science: clean concept or code with trace. English: the rule, corrected sentence, one example.
-- The final object's "answer" is the clear answer only (value with unit, balanced equation, concise key takeaway, or corrected sentence). Do not duplicate markdown around it.
-- If you are not sure of a result, set "confidence":"low". If the question is ambiguous or unreadable, use "declined" with the reason.
+- Classroom whiteboard style: zero greetings, filler, summaries or markdown (`**`, `*`, `#`, `` ` ``, ```, `>`). Highlight key phrases via `Term: meaning`, crisp points via `• ` or `1. `, and typed objects (`given`/`formula`/`definition`/`step`/`diagram`/`final`).
+- Math LaTeX inside "content"/"answer" only: \frac{a}{b}, x^{2}, x_{1}, \sqrt{x}, \times, \cdot, \pm, \leq, \geq, \neq, \approx, \rightarrow, \pi, \theta, \Delta, \alpha, \ce{H2O}. No `$`, `\[`, `\textbf`, or `\color`.
+- One move per step; every number must follow from prior steps; check equations/atom counts/signs carefully.
+- "say": brief natural teacher voice in the lesson language; read math as words ("x squared"), never LaTeX syntax.
+- "explanation": one short sentence why the move works (omit if obvious).
 
-DIAGRAMS: describe rich, realistic, textbook-quality vector diagrams in a 0-100 coordinate box (x right, y down), keeping main artwork centered inside x=18..82, y=14..86 so external callout labels fit comfortably in left/right/top/bottom margins without ever clipping:
-  {"title":"Short Clear Title","items":[...],"graph":{"fn":"x^2-4","xmin":-4,"xmax":4,"xlabel":"x","ylabel":"y"}}
-Available item types ("t"):
-  - "curve" or "poly": {"t":"curve","pts":[[x,y],...],"smooth":true,"closed":true|false,"fill":true|false,"color":"ink","fillColor":"rose","shade":"radial"|"linear","layer":"outline"|"fill"|"detail"}
-  - "oval" / "circle": {"t":"oval","cx":..,"cy":..,"rx":..,"ry":..,"rotate":deg,"fill":true,"color":"violet","fillColor":"violet","shade":"radial","layer":"outline"}
+DIAGRAMS in 0-100 coords (artwork centered inside x=18..82, y=14..86 so external labels fit cleanly in left/right margins):
+  {"title":"Short Title","items":[...],"graph":{"fn":"x^2-4","xmin":-4,"xmax":4,"xlabel":"x","ylabel":"y"}}
+Primitives ("t"):
+  - "curve"/"poly": {"t":"curve","pts":[[x,y],...],"smooth":true,"closed":true|false,"fill":true,"color":"ink","fillColor":"rose","shade":"radial"|"linear","layer":"outline"|"detail"}
+  - "oval"/"circle": {"t":"oval","cx":..,"cy":..,"rx":..,"ry":..,"rotate":deg,"fill":true,"color":"violet","fillColor":"violet","shade":"radial"}
   - "arc": {"t":"arc","cx":..,"cy":..,"rx":..,"ry":..,"start":deg,"sweep":deg,"fill":false,"color":"teal"}
-  - "rect" / "roundrect": {"t":"roundrect","x":..,"y":..,"w":..,"h":..,"rx":3,"fill":true,"color":"teal","fillColor":"teal","shade":"linear"}
-  - "line" / "arrow": {"t":"arrow","x1":..,"y1":..,"x2":..,"y2":..,"dashed":false,"color":"gold"}
+  - "roundrect"/"rect": {"t":"roundrect","x":..,"y":..,"w":..,"h":..,"rx":3,"fill":true,"color":"teal","fillColor":"teal","shade":"linear"}
+  - "arrow"/"line": {"t":"arrow","x1":..,"y1":..,"x2":..,"y2":..,"dashed":false,"color":"gold"}
   - "label": {"t":"label","ax":pointX,"ay":pointY,"x":labelX,"y":labelY,"text":"Part Name","color":"ink"}
-Diagram Quality Rules (MANDATORY for ALL diagrams across ALL subjects):
-  1. Never draw bare 2-3 shape sketches: use 20-70+ layered primitives showing exact outer silhouette/chassis, internal sub-structures, realistic textures/shading highlights, and crisp labels.
-  2. Domain Standards:
-     - Mathematics: use exact proportional coordinates, angle "arc" markers, right-angle squares, dashed construction/height lines, "graph" plots with multiple functions + key intersection "points".
-     - Physics: include clear component symbols (coils, zig-zag resistors, battery +/- plates, lenses with dashed normal & focal axes), directional "arrow" rays/forces/fields, and colour-coded N/S poles or + / - charges.
-     - Chemistry: use symmetric bond angles ("line"/"poly" hexagons, lone-pair dots, partial charges), glass apparatus ("roundrect"/"oval"/"curve" flasks, flame gradients, condensers, meniscus levels, rising bubbles).
-     - Computer Science: use evenly spaced "roundrect" nodes or "circle" tree/graph vertices, clean orthogonal/diagonal "arrow" pointers and bus connections, distinct colour layers for Input/Process/Memory/Output.
-     - Biology & Earth Science: use "smooth":true on "curve"/"poly" for organic silhouettes, lobes, membranes, vessels, and layered interiors.
-  3. Colour every region purposefully using: "ink" (dark outlines), "red" (artery/positive/heat), "blue" (water/light/cool/deoxygenated), "green" (plant/output/result), "gold" (energy/sun/light/highlight), "violet" (nucleus/neural/field), "teal" (glassware/optics/circuit), "rose" (tissue/set B), "orange" (flame/magma/resistor), "brown" (wood/earth), "gray" (guides/axes). Combine "color" outlines with "fill":true, "fillColor", and "shade":"radial"|"linear".
-  4. Place every descriptive "label" OUTSIDE the main artwork (around x=6..20 or x=80..94, sorted top-to-bottom) and ALWAYS pass "ax","ay" pointing accurately to the exact sub-part inside the drawing so leader pins never cross or overlap labels.
-Use "graph" for math plots (supports multiple functions in an array + optional "points":[[x,y],...]) and "items" for all visual subjects.
+Diagram Standards:
+  - Build detailed, domain-accurate artwork (16-45 layered shapes: silhouette, chambers/organs/components, textures/rays/arrows/bonds/nodes) with purposeful colors ("ink","red","blue","green","gold","violet","teal","rose","orange","brown","gray") + "fill":true + "shade":"radial"|"linear".
+  - Place ALL external labels at x=6..20 or x=80..94, sorted top-to-bottom, with accurate "ax","ay" pins pointing to the target sub-part.
+  - Math curves: use "graph" with function array + optional key intersection "points".
 """
 
     fun lessonSystem(profile: StudyProfile): String =
         "You are the engine of a classroom whiteboard that teaches one question at a time.\n" +
             profile.levelHint() + "\n" + profile.languageRule() + "\n" + profile.depthRule() + "\n" + OUTPUT_RULES
 
-    fun lessonUser(question: String, memory: String = ""): String =
-        (if (memory.isNotBlank()) memory.trim() + "\n\n" else "") + "Question:\n" + question.trim()
+    fun lessonUser(question: String, memory: String = "", hasCanonicalDiagram: Boolean = false): String {
+        val sb = StringBuilder()
+        if (memory.isNotBlank()) sb.append(memory.trim()).append("\n\n")
+        sb.append("Question:\n").append(question.trim())
+        if (hasCanonicalDiagram) {
+            sb.append("\n\n[FAST STUDIO DIAGRAM HINT: Immediately after meta, output your FIRST step as {\"type\":\"diagram\",\"content\":\"\",\"explanation\":\"...\",\"diagram\":{\"title\":\"").append(question.trim().take(48).replace("\"", "")).append("\",\"canonical\":true}} so the high-resolution studio diagram renders live at once, then write concise, crystal-clear teaching steps explaining every labelled part and the final answer.]")
+        }
+        return sb.toString()
+    }
 
     fun doubtSystem(profile: StudyProfile): String =
         "You are the engine of a classroom whiteboard answering a student's doubt about a solution already on the board.\n" +

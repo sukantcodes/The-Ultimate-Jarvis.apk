@@ -199,14 +199,14 @@ class StudyPlayback {
     }
 
     companion object {
-        const val MIN_BLOCK_MS = 450L
-        const val MAX_BLOCK_MS = 9_000L
+        const val MIN_BLOCK_MS = 320L
+        const val MAX_BLOCK_MS = 4_200L
 
-        /** How long a block takes to write at speed 1.0: pen travel plus a short thinking pause, within sane limits. */
+        /** How long a block takes to write at speed 1.0: smooth calligraphic pen travel without dragging out lessons. */
         fun durationFor(block: BoardBlock): Long {
             var weight = 0f
             for (op in block.ops) weight += op.weight
-            val ms = 350f + weight * 2.1f
+            val ms = 240f + weight * 1.15f
             return ms.toLong().coerceIn(MIN_BLOCK_MS, MAX_BLOCK_MS)
         }
     }

@@ -87,7 +87,8 @@ class StudyAssembler(private val question: String, private val level: String) {
         if (steps.size >= MAX_STEPS) return emptyList()
         val index = steps.size + 1
         val rawDiagram = e.diagram?.let { DiagramSpec.parse(it) }
-        val diagram = rawDiagram?.let { StudyDiagramAtlas.enhance(question, it) }
+        val resolvedDiagram = rawDiagram?.let { StudyDiagramAtlas.enhance(question, it) }
+        val diagram = resolvedDiagram?.takeIf { it.items.isNotEmpty() || it.graph != null }
         val preliminaryKind = if (diagram != null && e.kind == StepKind.STEP) StepKind.DIAGRAM else e.kind
         var content = if (preliminaryKind == StepKind.CODE) cleanCodeContent(e.content) else cleanContent(e.content)
         var explanation = cleanExplanation(e.explanation)

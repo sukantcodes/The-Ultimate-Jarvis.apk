@@ -122,14 +122,22 @@ object StudyDiagramAtlas {
             hasAny(t, "nephron", "bowman", "glomerulus") -> nephron()
             hasAny(t, "kidney", "renal", "excretory", "गुर्दा", "वृक्क") -> humanKidney()
             hasAny(t, "lung", "respiratory", "trachea", "bronch", "alveoli", "फेफड़", "श्वसन") -> humanLungs()
+            hasAny(t, "mitochondri") -> mitochondria()
+            hasAny(t, "chloroplast", "thylakoid", "grana") -> chloroplast()
+            hasAny(t, "digestive", "alimentary", "stomach", "small intestine", "पाचन") -> digestiveSystem()
+            hasAny(t, "human ear", "ear diagram", "parts of ear", "cochlea", "tympanic", "eardrum", "कान") -> humanEar()
+            hasAny(t, "reflex arc", "spinal reflex", "knee jerk", "प्रतीप चाप") -> reflexArc()
             hasAny(t, "stomata", "guard cell", "leaf cross section") -> leafStomata()
             hasAny(t, "dna", "double helix", "nucleotide") -> dnaHelix()
             hasAny(t, "flower", "stamen", "pistil", "carpel", "ovary", "पुष्प", "फूल") -> flowerStructure()
             // Physics
+            hasAny(t, "glass slab", "lateral displacement", "refraction through slab") -> glassSlabRefraction()
             hasAny(t, "prism", "dispersion", "vibgyor", "spectrum") -> glassPrism()
             hasAny(t, "concave lens", "diverging lens") -> concaveLensRays()
             hasAny(t, "convex lens", "converging lens") -> convexLensRays()
             hasAny(t, "concave mirror") -> concaveMirrorRays()
+            hasAny(t, "ac generator", "alternating current generator", "dynamo") -> acGenerator()
+            hasAny(t, "solenoid", "electromagnet") -> solenoidField()
             hasAny(t, "electric circuit", "ohm's law circuit", "ohm law circuit", "series circuit", "simple circuit") -> electricCircuit()
             hasAny(t, "magnetic field", "bar magnet", "magnetic lines") -> barMagnetField()
             hasAny(t, "transverse wave", "wavelength", "amplitude", "wave diagram") -> transverseWave()
@@ -158,7 +166,9 @@ object StudyDiagramAtlas {
             hasAny(t, "cpu", "von neumann", "block diagram of computer", "computer architecture") -> cpuArchitecture()
             hasAny(t, "neural network", "perceptron", "deep learning architecture") -> neuralNetwork()
             hasAny(t, "logic gate", "and or not gate") -> logicGates()
-            // Geography / Earth Science
+            // Geography / Earth & Space Science
+            hasAny(t, "solar system", "planets", "heliocentric", "सौर मंडल") -> solarSystem()
+            hasAny(t, "carbon cycle", "कार्बन चक्र") -> carbonCycle()
             hasAny(t, "layers of earth", "layers of the earth", "interior of earth", "earth crust", "mantle and core") -> earthLayers()
             hasAny(t, "water cycle", "hydrologic cycle", "evaporation and condensation", "जल चक्र") -> waterCycle()
             else -> null
@@ -1401,5 +1411,304 @@ object StudyDiagramAtlas {
         items += lbl(48f, 50f, "OR Gate (A + B)", Ink.VIOLET, leftSide = false)
         items += lbl(46f, 74f, "NOT Gate (Ā)", Ink.WARN, leftSide = false)
         return DiagramSpec("Basic Digital Logic Gates", items)
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Additional High-Demand Textbook STEM Blueprints (Biology, Physics, Earth & Space)
+    // ---------------------------------------------------------------------------------------------------------
+
+    fun mitochondria(): DiagramSpec {
+        val items = ArrayList<DiagramSpec.Item>()
+        // Outer smooth phospholipid envelope
+        items += oval(50f, 50f, 30f, 17f, Ink.ORANGE, fillInk = Ink.ORANGE, shade = FillShade.RADIAL, alpha = 0.22f, stroke = 1.3f, layer = 0)
+        // Intermembrane channel + folded serpentine Inner Membrane (Cristae finger projections)
+        items += poly(
+            listOf(
+                23f, 50f, 25f, 40f, 32f, 37f, 34f, 47f, 38f, 47f, 40f, 37f,
+                46f, 37f, 48f, 46f, 52f, 46f, 54f, 37f, 60f, 37f, 62f, 46f,
+                66f, 46f, 68f, 38f, 75f, 43f, 76f, 50f, 75f, 57f, 68f, 62f,
+                65f, 54f, 61f, 54f, 59f, 63f, 53f, 63f, 51f, 54f, 47f, 54f,
+                45f, 63f, 39f, 63f, 37f, 54f, 33f, 54f, 31f, 62f, 25f, 59f
+            ),
+            ink = Ink.WARN, fillInk = Ink.ROSE, shade = FillShade.LINEAR, alpha = 0.28f, stroke = 1.1f, layer = 0
+        )
+        // Circular Mitochondrial DNA loops, Ribosomes & F0-F1 Oxysome particles
+        items += circle(65f, 50f, 3.2f, Ink.VIOLET, fill = false, stroke = 1.0f, layer = 2)
+        items += circle(44f, 50f, 1.3f, Ink.TEAL, fillInk = Ink.TEAL, alpha = 0.85f, layer = 2)
+        items += circle(56f, 51f, 1.3f, Ink.TEAL, fillInk = Ink.TEAL, alpha = 0.85f, layer = 2)
+        items += circle(36f, 48f, 1.2f, Ink.GOLD, fillInk = Ink.GOLD, alpha = 0.90f, layer = 2)
+        items += circle(50f, 46f, 1.2f, Ink.GOLD, fillInk = Ink.GOLD, alpha = 0.90f, layer = 2)
+        items += circle(46f, 56f, 1.4f, Ink.ACCENT, fillInk = Ink.ACCENT, alpha = 0.75f, layer = 2)
+
+        items += lbl(26f, 40f, "Outer Membrane", Ink.ORANGE, leftSide = true)
+        items += lbl(30f, 50f, "Intermembrane Space", Ink.WARN, leftSide = true)
+        items += lbl(38f, 42f, "Cristae (Inner Folds)", Ink.ROSE, leftSide = true)
+        items += lbl(46f, 56f, "70S Ribosomes", Ink.ACCENT, leftSide = true)
+        items += lbl(56f, 37f, "Inner Membrane", Ink.WARN, leftSide = false)
+        items += lbl(56f, 51f, "Matrix", Ink.TEAL, leftSide = false)
+        items += lbl(50f, 46f, "ATP Synthase (F1)", Ink.GOLD, leftSide = false)
+        items += lbl(65f, 50f, "Mitochondrial DNA", Ink.VIOLET, leftSide = false)
+        return DiagramSpec("Structure of Mitochondrion", items)
+    }
+
+    fun chloroplast(): DiagramSpec {
+        val items = ArrayList<DiagramSpec.Item>()
+        items += oval(50f, 50f, 30f, 18f, Ink.RESULT, fillInk = Ink.RESULT, shade = FillShade.RADIAL, alpha = 0.22f, stroke = 1.35f, layer = 0)
+        items += oval(50f, 50f, 27.6f, 15.8f, Ink.TEAL, fillInk = Ink.TEAL, alpha = 0.14f, stroke = 1.0f, layer = 0)
+        // Three Grana (coin-like Thylakoid stacks) + Stroma Lamellae channels
+        items += line(31f, 46f, 70f, 46f, Ink.RESULT, stroke = 1.15f, layer = 2)
+        items += line(31f, 54f, 69f, 54f, Ink.RESULT, stroke = 1.15f, layer = 2)
+        for (gx in listOf(34f, 50f, 65f)) {
+            for (gy in listOf(41f, 44.5f, 48f, 51.5f, 55f)) {
+                items += rect(gx - 4.5f, gy, 9f, 2.7f, Ink.RESULT, fillInk = Ink.RESULT, rx = 1.2f, alpha = 0.52f, stroke = 0.8f, layer = 0)
+            }
+        }
+        // Starch granule & plastid DNA loop
+        items += oval(42f, 58f, 4.4f, 2.6f, Ink.GOLD, fillInk = Ink.GOLD, alpha = 0.55f, stroke = 0.9f, layer = 0)
+        items += circle(58f, 41f, 2.5f, Ink.VIOLET, fill = false, stroke = 0.95f, layer = 2)
+
+        items += lbl(26f, 38f, "Outer Membrane", Ink.RESULT, leftSide = true)
+        items += lbl(29f, 46f, "Inner Membrane", Ink.TEAL, leftSide = true)
+        items += lbl(42f, 58f, "Starch Granule", Ink.GOLD, leftSide = true)
+        items += lbl(34f, 49f, "Granum (Stack)", Ink.RESULT, leftSide = false)
+        items += lbl(65f, 43f, "Thylakoid Disc", Ink.RESULT, leftSide = false)
+        items += lbl(58f, 46f, "Stroma Lamella", Ink.TEAL, leftSide = false)
+        items += lbl(58f, 41f, "Chloroplast DNA", Ink.VIOLET, leftSide = false)
+        items += lbl(50f, 61f, "Stroma Fluid", Ink.NOTE, leftSide = false)
+        return DiagramSpec("Structure of Chloroplast", items)
+    }
+
+    fun digestiveSystem(): DiagramSpec {
+        val items = ArrayList<DiagramSpec.Item>()
+        // Buccal Cavity + Esophagus tube
+        items += oval(46f, 14f, 6f, 3.5f, Ink.ROSE, fillInk = Ink.ROSE, alpha = 0.30f, stroke = 1.1f, layer = 0)
+        items += rect(46f, 17f, 4f, 18f, Ink.ROSE, fillInk = Ink.ROSE, rx = 1.5f, alpha = 0.28f, stroke = 1.0f, layer = 0)
+        // Liver wedge (left side of view) + Gall bladder
+        items += poly(listOf(30f, 35f, 48f, 34f, 44f, 44f, 31f, 46f), Ink.BROWN, fillInk = Ink.BROWN, alpha = 0.38f, stroke = 1.15f, layer = 0)
+        items += oval(41f, 45f, 2.5f, 3.5f, Ink.RESULT, fillInk = Ink.RESULT, alpha = 0.58f, stroke = 0.9f, layer = 0)
+        // J-shaped Stomach & Leaf-shaped Pancreas
+        items += poly(listOf(49f, 35f, 59f, 37f, 64f, 46f, 58f, 53f, 48f, 50f, 48f, 43f), Ink.WARN, fillInk = Ink.WARN, alpha = 0.28f, stroke = 1.15f, layer = 0)
+        items += oval(53f, 53f, 8.5f, 2.4f, Ink.GOLD, fillInk = Ink.GOLD, rot = -6f, alpha = 0.45f, stroke = 0.95f, layer = 0)
+        // Colon (Large intestine frame) enclosing convoluted Small intestine
+        items += poly(listOf(33f, 75f, 33f, 58f, 67f, 58f, 67f, 78f, 56f, 79f), Ink.ORANGE, closed = false, fill = false, stroke = 3.2f, layer = 0)
+        items += poly(
+            listOf(41f, 61f, 59f, 62f, 40f, 66f, 59f, 67f, 40f, 71f, 59f, 72f, 48f, 76f),
+            Ink.TEAL, closed = false, fill = false, stroke = 2.0f, layer = 2
+        )
+        items += rect(48f, 77f, 4f, 10f, Ink.BROWN, fillInk = Ink.BROWN, rx = 1.5f, alpha = 0.34f, stroke = 1.0f, layer = 0)
+
+        items += lbl(42f, 14f, "Buccal Cavity", Ink.ROSE, leftSide = true)
+        items += lbl(38f, 39f, "Liver", Ink.BROWN, leftSide = true)
+        items += lbl(41f, 45f, "Gall Bladder", Ink.RESULT, leftSide = true)
+        items += lbl(33f, 65f, "Large Intestine", Ink.ORANGE, leftSide = true)
+        items += lbl(48f, 26f, "Oesophagus", Ink.ROSE, leftSide = false)
+        items += lbl(60f, 44f, "Stomach", Ink.WARN, leftSide = false)
+        items += lbl(56f, 53f, "Pancreas", Ink.GOLD, leftSide = false)
+        items += lbl(52f, 68f, "Small Intestine", Ink.TEAL, leftSide = false)
+        items += lbl(50f, 84f, "Rectum & Anus", Ink.BROWN, leftSide = false)
+        return DiagramSpec("Human Digestive System", items)
+    }
+
+    fun humanEar(): DiagramSpec {
+        val items = ArrayList<DiagramSpec.Item>()
+        // Outer Pinna cartilage + Auditory Canal
+        items += poly(listOf(28f, 32f, 20f, 40f, 20f, 58f, 27f, 65f, 30f, 56f, 27f, 46f), Ink.ROSE, fillInk = Ink.ROSE, alpha = 0.26f, stroke = 1.25f, layer = 0)
+        items += rect(27f, 45f, 18f, 9f, Ink.ROSE, fillInk = Ink.ROSE, rx = 2f, alpha = 0.16f, stroke = 1.0f, layer = 0)
+        // Tympanic Membrane (Eardrum) + Ossicles chain
+        items += oval(46f, 49.5f, 2.2f, 6.2f, Ink.WARN, fillInk = Ink.WARN, rot = -12f, alpha = 0.45f, stroke = 1.15f, layer = 0)
+        items += line(46f, 47f, 51f, 41f, Ink.GOLD, stroke = 1.4f, layer = 2) // Malleus
+        items += line(51f, 41f, 56f, 44f, Ink.GOLD, stroke = 1.4f, layer = 2) // Incus
+        items += line(56f, 44f, 60f, 46f, Ink.GOLD, stroke = 1.4f, layer = 2) // Stapes
+        // Semicircular canals + Snail Cochlea + Auditory nerve + Eustachian tube
+        items += arc(63f, 38f, 4.5f, 5.5f, 160f, 220f, Ink.TEAL, stroke = 1.3f, layer = 2)
+        items += arc(66f, 40f, 5.5f, 4.5f, -80f, 200f, Ink.TEAL, stroke = 1.2f, layer = 2)
+        items += circle(67f, 52f, 6.5f, Ink.ACCENT, fillInk = Ink.ACCENT, alpha = 0.30f, stroke = 1.2f, layer = 0)
+        items += arc(67f, 52f, 4.2f, 4.2f, 0f, 270f, Ink.INK, stroke = 1.0f, layer = 2)
+        items += arc(67f, 52f, 2.1f, 2.1f, 40f, 250f, Ink.INK, stroke = 0.9f, layer = 2)
+        items += line(73f, 50f, 82f, 47f, Ink.VIOLET, stroke = 2.0f, arrow = true, layer = 2)
+        items += line(50f, 56f, 42f, 76f, Ink.ORANGE, stroke = 2.2f, layer = 2)
+
+        items += lbl(22f, 46f, "Pinna (Auricle)", Ink.ROSE, leftSide = true)
+        items += lbl(36f, 49.5f, "Auditory Canal", Ink.NOTE, leftSide = true)
+        items += lbl(46f, 49.5f, "Tympanic Membrane", Ink.WARN, leftSide = true)
+        items += lbl(44f, 69f, "Eustachian Tube", Ink.ORANGE, leftSide = true)
+        items += lbl(52f, 41f, "Ear Ossicles", Ink.GOLD, leftSide = false)
+        items += lbl(65f, 36f, "Semicircular Canals", Ink.TEAL, leftSide = false)
+        items += lbl(67f, 52f, "Cochlea", Ink.ACCENT, leftSide = false)
+        items += lbl(79f, 48f, "Auditory Nerve", Ink.VIOLET, leftSide = false)
+        return DiagramSpec("Human Ear Anatomy", items)
+    }
+
+    fun reflexArc(): DiagramSpec {
+        val items = ArrayList<DiagramSpec.Item>()
+        // Stimulus flame & Receptor block on left
+        items += poly(listOf(22f, 65f, 25f, 58f, 28f, 65f, 26f, 70f, 23f, 70f), Ink.ORANGE, fillInk = Ink.WARN, alpha = 0.65f, stroke = 1.0f, layer = 0)
+        items += rect(27f, 51f, 7f, 10f, Ink.TEAL, fillInk = Ink.TEAL, rx = 2f, alpha = 0.36f, stroke = 1.0f, layer = 0)
+        // Effector muscle below
+        items += oval(32f, 76f, 9f, 4.5f, Ink.ROSE, fillInk = Ink.ROSE, alpha = 0.38f, stroke = 1.1f, layer = 0)
+        // Spinal cord cross-section on right with H-shaped Gray Matter
+        items += oval(66f, 48f, 13f, 16f, Ink.NOTE, fillInk = Ink.FAINT, alpha = 0.24f, stroke = 1.25f, layer = 0)
+        items += poly(
+            listOf(60f, 38f, 63f, 44f, 69f, 44f, 72f, 38f, 74f, 41f, 71f, 48f, 74f, 55f, 71f, 58f, 68f, 52f, 64f, 52f, 61f, 58f, 58f, 55f, 61f, 48f, 58f, 41f),
+            Ink.ROSE, fillInk = Ink.ROSE, alpha = 0.45f, stroke = 1.0f, layer = 0
+        )
+        // Sensory pathway (Dorsal) + Ganglion + Relay neuron + Motor pathway (Ventral)
+        items += poly(listOf(31f, 51f, 38f, 36f, 50f, 36f, 61f, 41f), Ink.ACCENT, closed = false, fill = false, arrow = true, stroke = 1.5f, layer = 2)
+        items += oval(47f, 36f, 4.5f, 3.0f, Ink.ACCENT, fillInk = Ink.ACCENT, alpha = 0.45f, stroke = 1.0f, layer = 0)
+        items += line(62f, 42f, 62f, 53f, Ink.GOLD, arrow = true, stroke = 1.5f, layer = 2)
+        items += poly(listOf(61f, 54f, 48f, 66f, 40f, 74f), Ink.RESULT, closed = false, fill = false, arrow = true, stroke = 1.5f, layer = 2)
+
+        items += lbl(25f, 63f, "Heat Stimulus", Ink.ORANGE, leftSide = true)
+        items += lbl(30f, 54f, "Receptor (Skin)", Ink.TEAL, leftSide = true)
+        items += lbl(39f, 41f, "Sensory Neuron", Ink.ACCENT, leftSide = true)
+        items += lbl(32f, 76f, "Effector Muscle", Ink.ROSE, leftSide = true)
+        items += lbl(47f, 36f, "Dorsal Root Ganglion", Ink.ACCENT, leftSide = false)
+        items += lbl(69f, 48f, "Spinal Cord (Gray Matter)", Ink.ROSE, leftSide = false)
+        items += lbl(62f, 48f, "Relay Interneuron", Ink.GOLD, leftSide = false)
+        items += lbl(48f, 66f, "Motor Neuron", Ink.RESULT, leftSide = false)
+        return DiagramSpec("Human Reflex Arc Pathway", items)
+    }
+
+    fun solarSystem(): DiagramSpec {
+        val items = ArrayList<DiagramSpec.Item>()
+        items += circle(22f, 50f, 7.2f, Ink.ORANGE, fillInk = Ink.GOLD, shade = FillShade.RADIAL, alpha = 0.72f, stroke = 1.2f, layer = 0)
+        val radii = listOf(13f, 18f, 24f, 30f, 36f, 43f, 51f, 57f, 62f)
+        for ((idx, r) in radii.withIndex()) {
+            items += arc(22f, 50f, r, r * 0.62f, -48f, 96f, if (idx == 4) Ink.NOTE else Ink.FAINT, dashed = idx == 4, stroke = if (idx == 4) 1.4f else 0.75f, layer = 2)
+        }
+        val planets = listOf(
+            Triple(35f, 49f, 1.5f to Ink.NOTE),
+            Triple(39.5f, 44f, 2.1f to Ink.ORANGE),
+            Triple(45.5f, 53f, 2.4f to Ink.ACCENT),
+            Triple(51.5f, 43f, 1.9f to Ink.WARN),
+            Triple(63.5f, 54f, 4.4f to Ink.BROWN),
+            Triple(71f, 41f, 3.6f to Ink.GOLD),
+            Triple(77f, 56f, 2.7f to Ink.TEAL),
+            Triple(81f, 45f, 2.6f to Ink.VIOLET)
+        )
+        for ((px, py, meta) in planets) {
+            items += circle(px, py, meta.second, meta.second, fillInk = meta.second, alpha = 0.65f, stroke = 0.9f, layer = 0)
+        }
+        // Saturn ring
+        items += oval(71f, 41f, 6.2f, 1.9f, Ink.ORANGE, rot = -22f, fill = false, stroke = 1.15f, layer = 2)
+
+        items += lbl(22f, 50f, "Sun (Star)", Ink.GOLD, leftSide = true)
+        items += lbl(35f, 49f, "Mercury & Venus", Ink.ORANGE, leftSide = true)
+        items += lbl(45.5f, 53f, "Earth & Mars", Ink.ACCENT, leftSide = true)
+        items += lbl(57.5f, 48f, "Asteroid Belt", Ink.NOTE, leftSide = false)
+        items += lbl(63.5f, 54f, "Jupiter", Ink.BROWN, leftSide = false)
+        items += lbl(71f, 41f, "Saturn & Rings", Ink.GOLD, leftSide = false)
+        items += lbl(79f, 50f, "Uranus & Neptune", Ink.TEAL, leftSide = false)
+        return DiagramSpec("The Solar System (Orbits)", items)
+    }
+
+    fun carbonCycle(): DiagramSpec {
+        val items = ArrayList<DiagramSpec.Item>()
+        items += rect(34f, 14f, 32f, 12f, Ink.TEAL, fillInk = Ink.TEAL, rx = 4f, alpha = 0.28f, stroke = 1.15f, layer = 0)
+        items += rect(20f, 44f, 20f, 13f, Ink.RESULT, fillInk = Ink.RESULT, rx = 3f, alpha = 0.30f, stroke = 1.1f, layer = 0)
+        items += rect(43f, 44f, 16f, 13f, Ink.VIOLET, fillInk = Ink.VIOLET, rx = 3f, alpha = 0.28f, stroke = 1.1f, layer = 0)
+        items += rect(63f, 44f, 19f, 13f, Ink.ORANGE, fillInk = Ink.ORANGE, rx = 3f, alpha = 0.30f, stroke = 1.1f, layer = 0)
+        items += rect(32f, 71f, 36f, 13f, Ink.BROWN, fillInk = Ink.BROWN, rx = 4f, alpha = 0.30f, stroke = 1.15f, layer = 0)
+
+        items += line(36f, 26f, 28f, 44f, Ink.RESULT, arrow = true, stroke = 1.4f, layer = 2) // Photosynthesis
+        items += line(40f, 50f, 43f, 50f, Ink.ACCENT, arrow = true, stroke = 1.2f, layer = 2) // Food chain
+        items += line(51f, 44f, 50f, 26f, Ink.WARN, arrow = true, stroke = 1.3f, layer = 2) // Respiration
+        items += line(72f, 44f, 62f, 26f, Ink.ORANGE, arrow = true, stroke = 1.4f, layer = 2) // Combustion
+        items += line(49f, 57f, 49f, 71f, Ink.BROWN, arrow = true, stroke = 1.2f, layer = 2) // Decay
+        items += line(62f, 71f, 71f, 57f, Ink.BROWN, arrow = true, stroke = 1.2f, layer = 2) // Fossil fuel extraction
+
+        items += lbl(32f, 35f, "Photosynthesis (CO2 In)", Ink.RESULT, leftSide = true)
+        items += lbl(30f, 50f, "Green Plants", Ink.RESULT, leftSide = true)
+        items += lbl(49f, 64f, "Decomposers & Soil", Ink.BROWN, leftSide = true)
+        items += lbl(50f, 20f, "Atmospheric CO2", Ink.TEAL, leftSide = false)
+        items += lbl(50f, 35f, "Respiration (CO2 Out)", Ink.WARN, leftSide = false)
+        items += lbl(72f, 50f, "Combustion / Industry", Ink.ORANGE, leftSide = false)
+        return DiagramSpec("The Carbon Cycle", items)
+    }
+
+    fun glassSlabRefraction(): DiagramSpec {
+        val items = ArrayList<DiagramSpec.Item>()
+        // Rectangular Glass Slab
+        items += rect(26f, 38f, 48f, 24f, Ink.TEAL, fillInk = Ink.TEAL, rx = 1.5f, alpha = 0.24f, stroke = 1.35f, layer = 0)
+        // Dotted Normals at entry (42, 38) and exit (54, 62)
+        items += line(42f, 22f, 42f, 56f, Ink.NOTE, dashed = true, stroke = 0.9f, layer = 2)
+        items += line(54f, 44f, 54f, 80f, Ink.NOTE, dashed = true, stroke = 0.9f, layer = 2)
+        // Incident, Refracted, and Emergent Rays
+        items += line(24f, 20f, 42f, 38f, Ink.GOLD, arrow = true, stroke = 1.5f, layer = 2)
+        items += line(42f, 38f, 54f, 62f, Ink.WARN, arrow = true, stroke = 1.5f, layer = 2)
+        items += line(54f, 62f, 74f, 82f, Ink.ACCENT, arrow = true, stroke = 1.5f, layer = 2)
+        // Dashed undeviated original path + lateral displacement span
+        items += line(42f, 38f, 78f, 74f, Ink.NOTE, dashed = true, stroke = 1.0f, layer = 2)
+        items += line(68f, 64f, 63f, 71f, Ink.VIOLET, doubleArrow = true, stroke = 1.1f, layer = 2)
+        items += arc(42f, 38f, 8f, 8f, -135f, 45f, Ink.GOLD, stroke = 1.0f, layer = 2)
+        items += arc(42f, 38f, 7f, 7f, 63f, 27f, Ink.WARN, stroke = 1.0f, layer = 2)
+
+        items += lbl(33f, 29f, "Incident Ray (∠i)", Ink.GOLD, leftSide = true)
+        items += lbl(42f, 26f, "Normal N1", Ink.NOTE, leftSide = true)
+        items += lbl(48f, 50f, "Refracted Ray (∠r)", Ink.WARN, leftSide = true)
+        items += lbl(68f, 50f, "Glass Slab (n > 1)", Ink.TEAL, leftSide = false)
+        items += lbl(65f, 67f, "Lateral Displacement d", Ink.VIOLET, leftSide = false)
+        items += lbl(66f, 75f, "Emergent Ray (∠e = ∠i)", Ink.ACCENT, leftSide = false)
+        return DiagramSpec("Refraction Through Glass Slab", items)
+    }
+
+    fun acGenerator(): DiagramSpec {
+        val items = ArrayList<DiagramSpec.Item>()
+        // North and South Magnet Poles
+        items += rect(20f, 26f, 13f, 24f, Ink.WARN, fillInk = Ink.WARN, rx = 2f, alpha = 0.34f, stroke = 1.2f, layer = 0)
+        items += rect(67f, 26f, 13f, 24f, Ink.ACCENT, fillInk = Ink.ACCENT, rx = 2f, alpha = 0.34f, stroke = 1.2f, layer = 0)
+        items += line(33f, 33f, 67f, 33f, Ink.NOTE, arrow = true, dashed = true, stroke = 0.85f, layer = 2)
+        items += line(33f, 43f, 67f, 43f, Ink.NOTE, arrow = true, dashed = true, stroke = 0.85f, layer = 2)
+        // Rotating Armature ABCD + axle + Slip Rings + Brushes + Galvanometer load
+        items += poly(listOf(40f, 28f, 60f, 24f, 60f, 48f, 40f, 52f), Ink.ORANGE, smooth = false, fill = true, fillInk = Ink.GOLD, alpha = 0.22f, stroke = 1.5f, layer = 0)
+        items += arc(50f, 22f, 8f, 4f, 190f, 160f, Ink.RESULT, arrow = false, stroke = 1.2f, layer = 2)
+        items += line(46f, 51f, 46f, 62f, Ink.ORANGE, stroke = 1.2f, layer = 2)
+        items += line(54f, 49f, 54f, 70f, Ink.ORANGE, stroke = 1.2f, layer = 2)
+        items += oval(50f, 62f, 8f, 2.5f, Ink.GOLD, fillInk = Ink.GOLD, alpha = 0.45f, stroke = 1.15f, layer = 0)
+        items += oval(50f, 70f, 8f, 2.5f, Ink.GOLD, fillInk = Ink.GOLD, alpha = 0.45f, stroke = 1.15f, layer = 0)
+        // Carbon Brushes B1 & B2 + external Galvanometer
+        items += rect(38f, 60.5f, 4f, 3.5f, Ink.BROWN, fillInk = Ink.BROWN, alpha = 0.85f, layer = 0)
+        items += rect(58f, 68.5f, 4f, 3.5f, Ink.BROWN, fillInk = Ink.BROWN, alpha = 0.85f, layer = 0)
+        items += poly(listOf(38f, 62f, 28f, 62f, 28f, 82f, 72f, 82f, 72f, 70f, 62f, 70f), Ink.TEAL, smooth = false, fill = false, stroke = 1.15f, layer = 2)
+        items += circle(50f, 82f, 4.5f, Ink.TEAL, fillInk = Ink.TEAL, alpha = 0.35f, stroke = 1.15f, layer = 0)
+
+        items += lbl(26f, 38f, "North Pole (N)", Ink.WARN, leftSide = true)
+        items += lbl(40f, 62f, "Brush B1 & Ring S1", Ink.BROWN, leftSide = true)
+        items += lbl(50f, 82f, "External Load / G", Ink.TEAL, leftSide = true)
+        items += lbl(73f, 38f, "South Pole (S)", Ink.ACCENT, leftSide = false)
+        items += lbl(54f, 30f, "Armature Coil ABCD", Ink.ORANGE, leftSide = false)
+        items += lbl(58f, 70f, "Slip Ring S2 & B2", Ink.GOLD, leftSide = false)
+        return DiagramSpec("AC Electric Generator", items)
+    }
+
+    fun solenoidField(): DiagramSpec {
+        val items = ArrayList<DiagramSpec.Item>()
+        // Insulating core cylinder
+        items += rect(32f, 38f, 36f, 16f, Ink.TEAL, fillInk = Ink.TEAL, rx = 2f, alpha = 0.16f, stroke = 1.0f, layer = 0)
+        // Helical Copper Windings
+        for (i in 0..6) {
+            val cx = 35f + i * 5f
+            items += oval(cx, 46f, 1.8f, 9.2f, Ink.ORANGE, fill = false, stroke = 1.35f, layer = 2)
+        }
+        // Uniform parallel magnetic field inside solenoid (S -> N)
+        items += line(20f, 46f, 80f, 46f, Ink.ACCENT, arrow = true, stroke = 1.4f, layer = 2)
+        items += line(24f, 42f, 76f, 42f, Ink.ACCENT, arrow = true, stroke = 1.05f, layer = 2)
+        items += line(24f, 50f, 76f, 50f, Ink.ACCENT, arrow = true, stroke = 1.05f, layer = 2)
+        // External closed field loops
+        items += arc(50f, 34f, 24f, 16f, 185f, 170f, Ink.VIOLET, dashed = true, stroke = 1.05f, layer = 2)
+        items += arc(50f, 58f, 24f, 16f, 5f, 170f, Ink.VIOLET, dashed = true, stroke = 1.05f, layer = 2)
+        // Battery & circuit loop at bottom
+        items += poly(listOf(35f, 55f, 35f, 78f, 46f, 78f), Ink.NOTE, smooth = false, fill = false, stroke = 1.1f, layer = 2)
+        items += poly(listOf(65f, 55f, 65f, 78f, 54f, 78f), Ink.NOTE, smooth = false, fill = false, stroke = 1.1f, layer = 2)
+        items += line(48f, 73f, 48f, 83f, Ink.WARN, stroke = 1.6f, layer = 2)
+        items += line(52f, 75f, 52f, 81f, Ink.ACCENT, stroke = 1.6f, layer = 2)
+
+        items += lbl(26f, 46f, "South Pole (S)", Ink.ACCENT, leftSide = true)
+        items += lbl(45f, 38f, "Copper Solenoid Coil", Ink.ORANGE, leftSide = true)
+        items += lbl(50f, 78f, "DC Battery Supply", Ink.WARN, leftSide = true)
+        items += lbl(76f, 46f, "North Pole (N)", Ink.WARN, leftSide = false)
+        items += lbl(55f, 46f, "Uniform Interior Field", Ink.ACCENT, leftSide = false)
+        items += lbl(50f, 20f, "External Flux Loops", Ink.VIOLET, leftSide = false)
+        return DiagramSpec("Magnetic Field of a Solenoid", items)
     }
 }

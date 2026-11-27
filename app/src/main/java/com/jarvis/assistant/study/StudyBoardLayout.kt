@@ -263,7 +263,7 @@ object StudyBoardLayout {
         step.diagram?.let { rawDiag ->
             val d = StudyDiagramAtlas.enhance(rawDiag.title, rawDiag)
             val maxDiagW = maxW.coerceAtMost(st.width - st.margin * 2f)
-            val maxDiagH = st.width * 0.78f
+            val maxDiagH = min(st.width * 0.68f, 640f)
             val laid = StudyDiagramLayout.layout(d, maxDiagW, maxDiagH, m, max(2.2f, size * 0.068f))
             for (op in laid.ops) ops.add(op.moved(x0, y + 6f))
             y += laid.height + 12f

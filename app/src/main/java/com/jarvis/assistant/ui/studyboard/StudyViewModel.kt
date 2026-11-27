@@ -6,22 +6,28 @@ import android.os.Handler
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.provider.ChatAttachment
+import com.jarvis.assistant.provider.ProviderRuntime
+import com.jarvis.assistant.provider.Thinking
 import com.jarvis.assistant.study.BoardBlock
 import com.jarvis.assistant.study.BoardStyle
 import com.jarvis.assistant.study.ExtractedQuestion
 import com.jarvis.assistant.study.StepKind
 import com.jarvis.assistant.study.StudyAssembler
 import com.jarvis.assistant.study.StudyBoardLayout
+import com.jarvis.assistant.study.StudyDiagramAtlas
 import com.jarvis.assistant.study.StudyDoubt
 import com.jarvis.assistant.study.StudyDoubts
 import com.jarvis.assistant.study.StudyLesson
 import com.jarvis.assistant.study.StudyPlayback
+import com.jarvis.assistant.study.StudyProfile
 import com.jarvis.assistant.study.StudyPrompt
 import com.jarvis.assistant.study.StudySpeechText
 import com.jarvis.assistant.study.StudyStep
 import com.jarvis.assistant.study.StudyStreamParser
 import com.jarvis.assistant.study.Verification
+import com.jarvis.assistant.study.ai.GeminiModels
 import com.jarvis.assistant.study.ai.StudyAiEngine
 import com.jarvis.assistant.study.ai.StudyAiException
 import com.jarvis.assistant.study.data.StudyHistoryManager
@@ -136,6 +142,12 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch { interrupted.value = runCatching { history.latestInterrupted() }.getOrNull() }
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val key = JarvisApp.instance.preferences.apiKey.trim()
+                if (key.isNotEmpty()) GeminiModels.warmUp(ProviderRuntime.transport(), key)
+            }
+        }
     }
 
     // ----- the teacher's memory of this study session -----
@@ -193,8 +205,16 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         job = viewModelScope.launch(Dispatchers.Default) {
             addBlock(layoutOn { st, m -> StudyBoardLayout.layoutQuestion(question, 0f, st, m) }, "", "")
             persist(StudyHistoryManager.Status.INTERRUPTED, force = true)
+            val fastThinking = if (profile.depth == StudyProfile.Depth.ADVANCED) Thinking.LOW else Thinking.MINIMAL
+            val wantsDiagram = Regex("\\b(draw|diagram|sketch|label|labelled|labeled|structure|figure|illustrate|parts of)\\b", RegexOption.IGNORE_CASE).containsMatchIn(question)
+            val hasCanonicalDiagram = wantsDiagram && StudyDiagramAtlas.match(question) != null
             val ok = consume(
-                StudyAiEngine.Request(StudyPrompt.lessonSystem(profile), StudyPrompt.lessonUser(question, memoryBlock()), attachments),
+                StudyAiEngine.Request(
+                    StudyPrompt.lessonSystem(profile),
+                    StudyPrompt.lessonUser(question, memoryBlock(), hasCanonicalDiagram = hasCanonicalDiagram),
+                    attachments,
+                    thinking = fastThinking
+                ),
                 asm, doubt = false
             )
             finishLesson(asm, ok)
@@ -215,7 +235,8 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             val prefix = if (ref != null) "Step $ref" else "Doubt"
             addBlock(layoutOn { st, m -> StudyBoardLayout.layoutQuestion(text, blocks.value.lastOrNull()?.bottom ?: 0f, st, m, prefix = "?") }, "", "")
             withContext(Dispatchers.Main) { if (ref != null) blockOfStep(ref)?.let { events.tryEmit(Event.Reveal(it)) } }
-            val ok = consume(StudyAiEngine.Request(StudyPrompt.doubtSystem(profile), StudyPrompt.doubtUser(l, text, ref, memoryBlock(l.question))), asm, doubt = true)
+            val fastThinking = if (profile.depth == StudyProfile.Depth.ADVANCED) Thinking.LOW else Thinking.MINIMAL
+            val ok = consume(StudyAiEngine.Request(StudyPrompt.doubtSystem(profile), StudyPrompt.doubtUser(l, text, ref, memoryBlock(l.question)), thinking = fastThinking), asm, doubt = true)
             val result = asm.lesson
             withContext(Dispatchers.Main) {
                 playback.setGenerationOpen(false)
@@ -615,7 +636,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         playback.startGate = engine.cloudAvailable()
         val token = engine.speak(text, localeFor(text))
         narrationToken = token
-        main.postDelayed({ if (narrationToken == token) { playback.startGate = false } }, 4_200L)
+        main.postDelayed({ if (narrationToken == token) { playback.startGate = false } }, 1_400L)
         // a speech engine that never answers must not freeze the board
         main.postDelayed({ if (narrationToken == token && playback.narrationBusy) playback.narrationBusy = false }, 40_000L)
     }

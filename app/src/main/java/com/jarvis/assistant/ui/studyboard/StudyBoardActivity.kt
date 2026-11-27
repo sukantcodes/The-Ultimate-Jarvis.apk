@@ -1,9 +1,11 @@
 package com.jarvis.assistant.ui.studyboard
 
 import android.Manifest
+import android.animation.LayoutTransition
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -25,6 +27,7 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.Space
 import android.widget.TextView
@@ -78,7 +81,10 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     private lateinit var bannerRetry: TextView
     private lateinit var explainCard: LinearLayout
     private lateinit var explainText: TextView
+    private lateinit var explainToggle: TextView
     private lateinit var verifyText: TextView
+    private lateinit var draftingPill: LinearLayout
+    private lateinit var draftingText: TextView
     private lateinit var playButton: ImageButton
     private lateinit var speedChip: TextView
     private lateinit var voiceButton: ImageButton
@@ -425,6 +431,36 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         emptyHint = buildEmptyHint()
         boardFrame.addView(emptyHint, FrameLayout.LayoutParams(-1, -1))
 
+        // Live Studio Drafting Indicator (shown cleanly between submitting a question and first step arrival)
+        draftingPill = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(10), dp(18), dp(10))
+            elevation = dpf(5f)
+            background = StudyTheme.pillDrawable(
+                this@StudyBoardActivity,
+                24f,
+                pal.floatPanelBg,
+                StudyTheme.alpha(pal.accent, 0.50f)
+            )
+            visibility = View.GONE
+        }
+        draftingPill.addView(
+            ProgressBar(this, null, android.R.attr.progressBarStyleSmall).apply {
+                isIndeterminate = true
+                indeterminateTintList = ColorStateList.valueOf(pal.accent)
+            },
+            LinearLayout.LayoutParams(dp(18), dp(18)).apply { marginEnd = dp(10) }
+        )
+        draftingText = StudyTheme.label(this, "Drafting solution & visuals…", 13f, pal.floatPanelInk, bold = true)
+        draftingPill.addView(draftingText)
+        boardFrame.addView(
+            draftingPill,
+            FrameLayout.LayoutParams(-2, -2, Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL).apply {
+                setMargins(dp(16), 0, dp(16), dp(24))
+            }
+        )
+
         val boardHolder = FrameLayout(this).apply {
             setPadding(dp(10), dp(4), if (landscape) dp(4) else dp(10), dp(6))
             addView(boardFrame, FrameLayout.LayoutParams(-1, -1))
@@ -463,12 +499,14 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
 
         explainCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(14), dp(11), dp(14), dp(11))
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            layoutTransition = LayoutTransition()
             isClickable = true
             isFocusable = true
             setOnClickListener {
                 explainExpanded = !explainExpanded
                 explainText.maxLines = if (explainExpanded) 12 else if (landscape) 6 else 4
+                explainToggle.text = if (explainExpanded) "Less ▴" else "More ▾"
             }
         }
         StudyTheme.applyGlass(explainCard, 20f, pal)
@@ -489,6 +527,11 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             ellipsize = TextUtils.TruncateAt.END
         }
         explainMeta.addView(verifyText)
+        explainToggle = StudyTheme.label(this, "More ▾", 11f, pal.accent, bold = true).apply {
+            visibility = View.GONE
+            setPadding(dp(8), dp(2), dp(2), dp(2))
+        }
+        explainMeta.addView(explainToggle)
         explainCard.addView(explainMeta)
 
         explainText = StudyTheme.label(this, "", 14f, pal.textPrimary).apply {
@@ -631,51 +674,77 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
                 setPadding(0, dp(18), 0, dp(8))
             }
         )
-        val starters = listOf(
-            Triple("Human brain diagram", "Draw a detailed labelled diagram of the human brain", StudyPalette.color(Ink.VIOLET)),
-            Triple("Human heart diagram", "Draw a detailed labelled diagram of the human heart", StudyPalette.color(Ink.WARN)),
-            Triple("Human eye cross-section", "Draw a detailed labelled diagram of the human eye", StudyPalette.color(Ink.TEAL)),
-            Triple("Convex lens rays", "Draw a labelled ray diagram of image formation by a convex lens", paperAccent),
-            Triple("Electric circuit diagram", "Draw a labelled circuit diagram with battery, ammeter, resistor and switch", StudyPalette.color(Ink.ORANGE)),
-            Triple("Benzene ring C6H6", "Draw the ring structure of Benzene C6H6 with pi cloud", StudyPalette.color(Ink.VIOLET)),
-            Triple("Binary tree data structure", "Draw a labelled diagram of a Binary Search Tree data structure", StudyPalette.color(Ink.TEAL)),
-            Triple("Plant cell structure", "Draw a neatly labelled diagram of a plant cell", StudyPalette.color(Ink.RESULT)),
-            Triple("Plot y = x^2 - 4", "Plot y = x^2 - 4 and y = 2x and find their intersection", StudyPalette.color(Ink.ORANGE))
+        val bioChemStarters = listOf(
+            Triple("Human Brain", "Draw a detailed labelled diagram of the human brain", StudyPalette.color(Ink.VIOLET)),
+            Triple("Human Heart", "Draw a detailed labelled diagram of the human heart", StudyPalette.color(Ink.WARN)),
+            Triple("Human Eye", "Draw a detailed labelled diagram of the human eye", StudyPalette.color(Ink.TEAL)),
+            Triple("Mitochondria", "Draw a neat labelled diagram of mitochondria", StudyPalette.color(Ink.ORANGE)),
+            Triple("Human Ear", "Draw a labelled anatomy diagram of the human ear", StudyPalette.color(Ink.ROSE)),
+            Triple("Reflex Arc", "Draw a labelled reflex arc diagram showing pathway", StudyPalette.color(Ink.ACCENT)),
+            Triple("Plant Cell", "Draw a neatly labelled diagram of a plant cell", StudyPalette.color(Ink.RESULT)),
+            Triple("Benzene C6H6", "Draw the ring structure of Benzene C6H6 with pi cloud", StudyPalette.color(Ink.VIOLET))
         )
-        val demoScroller = HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
-            overScrollMode = View.OVER_SCROLL_NEVER
+        val physMathCsStarters = listOf(
+            Triple("Convex Lens", "Draw a labelled ray diagram of image formation by a convex lens", paperAccent),
+            Triple("Glass Slab", "Draw a labelled diagram of refraction through a rectangular glass slab", StudyPalette.color(Ink.TEAL)),
+            Triple("Electric Circuit", "Draw a labelled circuit diagram with battery, ammeter, resistor and switch", StudyPalette.color(Ink.ORANGE)),
+            Triple("AC Generator", "Draw a neat labelled diagram of an AC generator", StudyPalette.color(Ink.WARN)),
+            Triple("Solar System", "Draw a neat labelled diagram of the solar system orbits", StudyPalette.color(Ink.GOLD)),
+            Triple("Binary Tree", "Draw a labelled diagram of a Binary Search Tree data structure", StudyPalette.color(Ink.TEAL)),
+            Triple("Plot y = x² - 4", "Plot y = x^2 - 4 and y = 2x and find their intersection", StudyPalette.color(Ink.ORANGE))
+        )
+
+        fun buildStarterScroller(list: List<Triple<String, String, Int>>, topGapDp: Int): HorizontalScrollView {
+            val scroller = HorizontalScrollView(this).apply {
+                isHorizontalScrollBarEnabled = false
+                overScrollMode = View.OVER_SCROLL_NEVER
+            }
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            for ((title, prompt, tone) in list) {
+                row.addView(
+                    LinearLayout(this).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        minimumHeight = dp(44)
+                        setPadding(dp(12), dp(8), dp(14), dp(8))
+                        background = StudyTheme.pillDrawable(
+                            this@StudyBoardActivity, 16f,
+                            StudyTheme.alpha(tone, 0.09f),
+                            StudyTheme.alpha(tone, 0.34f)
+                        )
+                        isClickable = true
+                        isFocusable = true
+                        StudyTheme.applyPressSpring(this, 0.95f)
+                        addView(
+                            View(this@StudyBoardActivity).apply {
+                                background = GradientDrawable().apply {
+                                    shape = GradientDrawable.OVAL
+                                    setColor(tone)
+                                }
+                            },
+                            LinearLayout.LayoutParams(dp(7), dp(7)).apply { marginEnd = dp(7) }
+                        )
+                        addView(StudyTheme.label(this@StudyBoardActivity, title, 12f, tone, bold = true))
+                        setOnClickListener {
+                            hideKeyboard()
+                            board.followPen = true
+                            vm.newQuestionMode()
+                            vm.submit(prompt)
+                        }
+                    },
+                    LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) }
+                )
+            }
+            scroller.addView(row)
+            return scroller.apply {
+                if (topGapDp > 0) setPadding(0, dp(topGapDp), 0, 0)
+            }
         }
-        val demoRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        for ((title, prompt, tone) in starters) {
-            demoRow.addView(
-                StudyTheme.label(this, title, 12f, tone, bold = true).apply {
-                    minHeight = dp(44)
-                    gravity = Gravity.CENTER
-                    setPadding(dp(13), dp(8), dp(13), dp(8))
-                    background = StudyTheme.pillDrawable(
-                        this@StudyBoardActivity, 16f,
-                        StudyTheme.alpha(tone, 0.10f),
-                        StudyTheme.alpha(tone, 0.36f)
-                    )
-                    isClickable = true
-                    isFocusable = true
-                    StudyTheme.applyPressSpring(this, 0.95f)
-                    setOnClickListener {
-                        hideKeyboard()
-                        board.followPen = true
-                        vm.newQuestionMode()
-                        vm.submit(prompt)
-                    }
-                },
-                LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) }
-            )
-        }
-        demoScroller.addView(demoRow)
-        box.addView(demoScroller, LinearLayout.LayoutParams(-2, -2))
+        box.addView(buildStarterScroller(bioChemStarters, 0), LinearLayout.LayoutParams(-2, -2))
+        box.addView(buildStarterScroller(physMathCsStarters, 8), LinearLayout.LayoutParams(-2, -2))
 
         scroll.addView(box, FrameLayout.LayoutParams(-1, -1))
         return scroll
@@ -708,15 +777,27 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             layoutParams = LinearLayout.LayoutParams(dp(1), dp(22)).apply { setMargins(dp(5), 0, dp(5), 0) }
         }
 
-        row.addView(StudyTheme.iconButton(this, R.drawable.ic_study_prev, "Previous step", pal, 44, 10) { vm.previous(); board.followPen = true })
-        playButton = StudyTheme.iconButton(this, R.drawable.ic_study_pause, "Pause or resume writing", pal, 48, 12, tint = pal.onAccent) {
+        val transportGroup = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(3), dp(2), dp(3), dp(2))
+            background = StudyTheme.pillDrawable(
+                this@StudyBoardActivity,
+                24f,
+                StudyTheme.alpha(pal.chipBg, 0.72f),
+                StudyTheme.alpha(pal.cardBorder, 0.65f)
+            )
+        }
+        transportGroup.addView(StudyTheme.iconButton(this, R.drawable.ic_study_prev, "Previous step", pal, 44, 10) { vm.previous(); board.followPen = true })
+        playButton = StudyTheme.iconButton(this, R.drawable.ic_study_pause, "Pause or resume writing", pal, 46, 11, tint = pal.onAccent) {
             vm.togglePlay(); board.followPen = true
         }.apply {
             elevation = dpf(3f)
-            background = StudyTheme.gradientPillDrawable(this@StudyBoardActivity, 24f, pal.accent, pal.secondary)
+            background = StudyTheme.gradientPillDrawable(this@StudyBoardActivity, 23f, pal.accent, pal.secondary)
         }
-        row.addView(playButton, LinearLayout.LayoutParams(dp(48), dp(48)).apply { setMargins(dp(2), 0, dp(2), 0) })
-        row.addView(StudyTheme.iconButton(this, R.drawable.ic_study_next, "Next step", pal, 44, 10) { vm.next(); board.followPen = true })
+        transportGroup.addView(playButton, LinearLayout.LayoutParams(dp(46), dp(46)).apply { setMargins(dp(2), 0, dp(2), 0) })
+        transportGroup.addView(StudyTheme.iconButton(this, R.drawable.ic_study_next, "Next step", pal, 44, 10) { vm.next(); board.followPen = true })
+        row.addView(transportGroup)
         row.addView(StudyTheme.iconButton(this, R.drawable.ic_study_replay, "Replay this step", pal, 44, 10) { vm.replayStep(); board.followPen = true })
         row.addView(StudyTheme.iconButton(this, R.drawable.ic_study_replay_all, "Replay the whole solution", pal, 44, 10) { vm.replayAll(); board.followPen = true })
         speedChip = StudyTheme.chip(this, "1×", pal, minHeightDp = 44) { cycleSpeed() }.apply {
@@ -1074,6 +1155,16 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         statusPill.visibility = if (status.isEmpty() || !vm.prefs.statusOn) View.GONE else View.VISIBLE
         statusPill.text = status
 
+        val showDrafting = ui.phase == StudyViewModel.Phase.EXTRACTING || (vm.isBusy && vm.blocks.value.size <= 1)
+        draftingPill.visibility = if (showDrafting) View.VISIBLE else View.GONE
+        if (showDrafting) {
+            draftingText.text = if (ui.phase == StudyViewModel.Phase.EXTRACTING) {
+                "Reading image & extracting question…"
+            } else {
+                "Preparing answer & visuals…"
+            }
+        }
+
         val dotColor = when {
             ui.phase == StudyViewModel.Phase.ERROR -> pal.error
             pb.state == StudyPlayback.State.PLAYING || vm.isBusy -> pal.accent
@@ -1154,6 +1245,8 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         explainCard.visibility = if (vm.prefs.notesOn && (ex.isNotEmpty() || ui.verification.isNotEmpty() || counter.isNotEmpty()) && vm.hasContent) View.VISIBLE else View.GONE
         explainText.text = ex
         explainText.visibility = if (ex.isEmpty()) View.GONE else View.VISIBLE
+        explainToggle.visibility = if (ex.length > 90) View.VISIBLE else View.GONE
+        explainToggle.text = if (explainExpanded) "Less ▴" else "More ▾"
         val verText = if (pb.state == StudyPlayback.State.FINISHED || ui.phase == StudyViewModel.Phase.READY) ui.verification else ""
         verifyText.text = verText
         verifyText.setTextColor(

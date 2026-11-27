@@ -46,7 +46,7 @@ class StudyAiException(message: String, val retryable: Boolean = true, val offli
 object StudyAiEngine {
 
     private const val GEMINI_BASE = GeminiModels.BASE
-    private const val GEMINI_DEFAULT_MODEL = "gemini-3.8-flash"
+    private const val GEMINI_DEFAULT_MODEL = "gemini-2.5-flash"
     private const val MAX_LEASE_ATTEMPTS = 3
 
     class Request(
@@ -55,7 +55,7 @@ object StudyAiEngine {
         val attachments: List<ChatAttachment> = emptyList(),
         /** Routes to the model chosen for image understanding when true, otherwise the chat model. */
         val vision: Boolean = false,
-        val thinking: Thinking = Thinking.LOW
+        val thinking: Thinking = Thinking.MINIMAL
     )
 
     /** Streams the model's text as it arrives. Cancelling the collector closes the connection. */
@@ -131,7 +131,7 @@ object StudyAiEngine {
     /** Reads photographs or page images and returns the questions on them, for the student to check before solving. */
     suspend fun extractQuestions(context: Context, images: List<ChatAttachment.Image>): List<ExtractedQuestion> {
         val sb = StringBuilder()
-        stream(context, Request(StudyPrompt.EXTRACT_SYSTEM, StudyPrompt.EXTRACT_USER, images, vision = true, thinking = Thinking.LOW))
+        stream(context, Request(StudyPrompt.EXTRACT_SYSTEM, StudyPrompt.EXTRACT_USER, images, vision = true, thinking = Thinking.MINIMAL))
             .collect { sb.append(it) }
         val questions = StudyExtraction.parse(sb.toString())
         if (questions.isEmpty()) {
@@ -190,7 +190,7 @@ object StudyAiEngine {
                 }
             }
             if (!busyThisRound) break
-            if (round == 1) delay(2_500L)
+            if (round == 1) delay(800L)
         }
         val err = lastError ?: throw StudyAiException("Gemini did not answer. Try again.")
         if (sawBusy) {
