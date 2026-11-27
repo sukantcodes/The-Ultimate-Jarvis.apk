@@ -1329,7 +1329,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         val status = when {
             ui.phase == StudyViewModel.Phase.EXTRACTING -> "Reading…"
             pb.state == StudyPlayback.State.PLAYING ->
-                if (pb.continuousKeepPrinted || (pb.writingDone && vm.isNarrating.value)) "Explaining" else "Writing"
+                if (pb.continuousKeepPrinted || (pb.progress >= 1f && vm.isNarrating.value)) "Explaining" else "Writing"
             pb.state == StudyPlayback.State.PAUSED -> "Paused"
             pb.state == StudyPlayback.State.WAITING_FOR_CONTENT && ui.phase == StudyViewModel.Phase.GENERATING -> "Thinking…"
             else -> ""
