@@ -699,11 +699,22 @@ object StudyDiagramLayout {
         hasPin: Boolean
     ): PreparedLabel {
         var textSize = baseSize
-        var lines = wrapLabelText(lbl.text, textSize, maxTextW, metrics)
+        val fullW = metrics.width(lbl.text, textSize, Face.BODY_BOLD)
+        var lines = if (fullW <= maxTextW * 1.18f && maxTextW > 30f) {
+            // Fit concise 1-2 word anatomical labels onto one clean horizontal line before wrapping.
+            if (fullW > maxTextW) {
+                textSize = (textSize * (maxTextW / fullW)).coerceAtLeast(baseSize * 0.78f)
+            }
+            listOf(lbl.text)
+        } else {
+            wrapLabelText(lbl.text, textSize, maxTextW, metrics)
+        }
         val widest = lines.maxOf { metrics.width(it, textSize, Face.BODY_BOLD) }
-        if (widest > maxTextW && maxTextW > 30f) {
+        if (widest > maxTextW + 0.5f && maxTextW > 30f) {
             textSize = (textSize * (maxTextW / widest)).coerceAtLeast(baseSize * 0.72f)
-            lines = wrapLabelText(lbl.text, textSize, maxTextW, metrics)
+            if (lines.maxOf { metrics.width(it, textSize, Face.BODY_BOLD) } > maxTextW + 0.5f) {
+                lines = wrapLabelText(lbl.text, textSize, maxTextW, metrics)
+            }
         }
         val lineH = textSize * 1.24f
         val padX = 9f

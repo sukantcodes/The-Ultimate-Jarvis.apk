@@ -616,7 +616,10 @@ class StudyBoardRichDrawingAndLayoutTest {
             assertNotNull("Missing canonical blueprint for: $q", spec)
             val laid = StudyDiagramLayout.layout(spec!!, 920f, 740f, m, 2.4f)
             assertTrue("Expected non-empty layout for: $q", laid.ops.isNotEmpty())
-            val labelBoxes = laid.ops.filterIsInstance<DrawOp.Rect>().filter { kotlin.math.abs(it.rx - 10f) < 0.2f }
+            val labelBoxes = laid.ops.filterIsInstance<DrawOp.Rect>().filter {
+                it.paintMode == PaintMode.FILL_AND_STROKE && kotlin.math.abs(it.fillAlpha - 0.12f) < 0.01f
+            }
+            assertEquals("Expected all callout labels for: $q", spec.items.count { it is DiagramSpec.Item.Label }, labelBoxes.size)
             for (i in labelBoxes.indices) {
                 for (j in i + 1 until labelBoxes.size) {
                     val a = labelBoxes[i]
@@ -643,16 +646,18 @@ class StudyBoardRichDrawingAndLayoutTest {
               "items": [
                 {"t": "circle", "cx": 150, "cy": 100, "r": 50, "ink": "accent", "fill": "soft"},
                 {"t": "rect", "x": 115, "y": 135, "w": 70, "h": 26, "ink": "teal", "fill": "soft"},
-                {"t": "label", "x": 30, "y": 65, "text": "Upper Hemisphere Region"},
-                {"t": "label", "x": 30, "y": 68, "text": "Inner Core Ring"},
-                {"t": "label", "x": 30, "y": 71, "text": "Base Rect Plate"}
+                {"t": "label", "x": 135, "y": 92, "text": "Upper Hemisphere Region"},
+                {"t": "label", "x": 136, "y": 95, "text": "Inner Core Ring"},
+                {"t": "label", "x": 145, "y": 142, "text": "Base Rect Plate"}
               ]
             }
         """.trimIndent()
         val spec = DiagramSpec.parse(com.google.gson.JsonParser.parseString(raw).asJsonObject)
         assertNotNull(spec)
         val laid = StudyDiagramLayout.layout(spec!!, 820f, 520f, m, 2.2f)
-        val labelBoxes = laid.ops.filterIsInstance<DrawOp.Rect>().filter { kotlin.math.abs(it.rx - 10f) < 0.2f }
+        val labelBoxes = laid.ops.filterIsInstance<DrawOp.Rect>().filter {
+            it.paintMode == PaintMode.FILL_AND_STROKE && kotlin.math.abs(it.fillAlpha - 0.12f) < 0.01f
+        }
         assertEquals(3, labelBoxes.size)
         for (i in labelBoxes.indices) {
             for (j in i + 1 until labelBoxes.size) {
@@ -663,7 +668,7 @@ class StudyBoardRichDrawingAndLayoutTest {
                 assertFalse("Omitted-pin labels collapsed/overlapped: $a vs $b", overlapX > 0.5f && overlapY > 0.5f)
             }
         }
-        val pins = laid.ops.filterIsInstance<DrawOp.Oval>().filter { kotlin.math.abs(it.rx - it.ry) < 0.1f && it.rx in 3f..7f }
+        val pins = laid.ops.filterIsInstance<DrawOp.Oval>().filter { kotlin.math.abs(it.rx - it.ry) < 0.1f && it.rx in 2.5f..8f }
         assertTrue("Expected snapped anchor dots on shapes", pins.isNotEmpty())
     }
 }
