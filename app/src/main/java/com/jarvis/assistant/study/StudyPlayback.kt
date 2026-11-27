@@ -72,9 +72,9 @@ class StudyPlayback {
         if (state != State.PLAYING || current != blockIndex || blockIndex !in durations.indices) return
         val clamped = spokenFraction.coerceIn(0f, 1f)
         syncedTargetProgress = clamped
-        syncedMaxProgress = if (clamped >= 0.98f) 1f else clamped.coerceAtMost(0.992f)
-        if (!writingDone && clamped > progress + 0.10f) {
-            progress = (clamped - 0.04f).coerceIn(0f, 1f)
+        syncedMaxProgress = if (clamped >= 0.96f) 1f else (clamped + 0.065f).coerceAtMost(0.992f)
+        if (!writingDone && clamped > progress + 0.14f) {
+            progress = (clamped - 0.05f).coerceIn(0f, 1f)
             if (progress >= 1f) {
                 writingDone = true
                 listener?.onBlockFinished(current)
@@ -219,37 +219,35 @@ class StudyPlayback {
         if (state != State.PLAYING || current !in durations.indices) return false
         if (!writingDone) {
             if (startGate) return false
+            val total = durations[current].toFloat() / speed
             val tgt = syncedTargetProgress
             if (tgt != null) {
                 if (continuousKeepPrinted) {
-                    if (progress == tgt && progress < 1f) return false
-                    progress = tgt
-                    if (progress >= 0.998f) {
+                    val diff = tgt - progress
+                    if (diff <= 0.0005f) return false
+                    val ease = (dtMs / 90f).coerceIn(0.18f, 0.75f)
+                    progress = (progress + diff * ease).coerceAtMost(1f)
+                    if (progress >= 0.996f) {
                         progress = 1f
                         writingDone = true
                         listener?.onBlockFinished(current)
                     }
                     return true
                 }
-                val cap = syncedMaxProgress ?: tgt
-                val nextProg = if (tgt >= 0.98f) {
-                    (progress + dtMs / 110f).coerceAtMost(1f)
-                } else {
-                    val diff = tgt - progress
-                    if (diff <= 0.0005f) {
-                        progress
-                    } else {
-                        val gain = (dtMs / 85f).coerceIn(0.18f, 0.72f)
-                        val step = (diff * gain + dtMs * 0.0002f).coerceAtMost(diff)
-                        (progress + step).coerceAtMost(cap)
-                    }
+                val cap = syncedMaxProgress ?: 1f
+                if (progress >= cap && cap < 1f) return false
+                val err = tgt - progress
+                val tempo = when {
+                    tgt >= 0.96f -> (1.45f + err.coerceAtLeast(0f) * 6f).coerceIn(1.35f, 3.2f)
+                    err >= 0f -> (1.0f + err * 9.5f).coerceIn(1.0f, 2.5f)
+                    else -> (1.0f + err * 7.5f).coerceIn(0.32f, 1.0f)
                 }
+                val nextProg = (progress + (dtMs / total) * tempo).coerceAtMost(cap).coerceAtMost(1f)
                 if (nextProg == progress && nextProg < 1f) return false
                 progress = nextProg
                 if (progress >= 1f) { writingDone = true; listener?.onBlockFinished(current) }
                 return true
             }
-            val total = durations[current].toFloat() / speed
             val nextProg = (progress + dtMs / total).coerceAtMost(1f)
             if (nextProg == progress && nextProg < 1f) return false
             progress = nextProg

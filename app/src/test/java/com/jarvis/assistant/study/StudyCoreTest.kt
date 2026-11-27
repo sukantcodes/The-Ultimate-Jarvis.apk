@@ -943,7 +943,7 @@ class StudyControllerAndVoiceUpgradeTest {
         assertEquals(2, s1.first)
         assertEquals(0.5f, s1.second, 0.05f)
 
-        // Verify StudyPlayback glides smoothly behind spoken fraction without outrunning audio
+        // Verify StudyPlayback glides smoothly via velocity servo without stalling or running far ahead of audio
         val pb = StudyPlayback()
         pb.setGenerationOpen(false)
         pb.addBlock(2_000L)
@@ -952,11 +952,14 @@ class StudyControllerAndVoiceUpgradeTest {
         pb.startContinuousFrom(1, keepPrinted = false)
         pb.narrationBusy = true
         pb.syncContinuousProgress(1, 0.10f)
-        repeat(60) { pb.advance(16) } // 1 second of silent fast frame advance shouldn't outrun 0.10f
-        assertTrue(pb.progress <= 0.105f)
-        pb.syncContinuousProgress(1, 0.18f)
+        val prev0 = pb.progress
+        pb.advance(16)
+        assertTrue(pb.progress > prev0)
+        repeat(60) { pb.advance(16) } // keeps within soft audio buffer headroom (+0.065f)
+        assertTrue(pb.progress <= 0.17f)
+        pb.syncContinuousProgress(1, 0.25f)
         repeat(15) { pb.advance(16) }
-        assertTrue(pb.progress > 0.11f && pb.progress <= 0.185f)
+        assertTrue(pb.progress > 0.17f && pb.progress <= 0.32f)
         pb.releaseNarrationSync()
         pb.narrationBusy = false
         repeat(80) { pb.advance(50) }

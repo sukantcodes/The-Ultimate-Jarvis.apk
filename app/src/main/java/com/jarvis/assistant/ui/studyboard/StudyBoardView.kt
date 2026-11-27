@@ -244,7 +244,7 @@ class StudyBoardView(context: Context) : View(context) {
             val pb = playback
             var changed = false
             if (pb != null && pb.advance(dt)) changed = true
-            if (followPen) changed = follow() || changed
+            if (followPen) changed = follow(dt) || changed
             if (narratingActive || pb?.state == StudyPlayback.State.PLAYING) {
                 autoFittedFinishForCount = -1
                 pulsePhase += dt * 0.006f
@@ -449,8 +449,10 @@ class StudyBoardView(context: Context) : View(context) {
         }
     }
 
+    private var followSettling = false
+
     /** Keeps the active diagram, step, stylus tip, or highlighted paragraph safely centered in the visible board area. */
-    private fun follow(): Boolean {
+    private fun follow(dtMs: Long = 16L): Boolean {
         val pb = playback ?: return false
         val targetBlockIdx = when {
             narratingActive && narratingBlockIndex in blocks.indices -> narratingBlockIndex
@@ -463,14 +465,15 @@ class StudyBoardView(context: Context) : View(context) {
         val avail = availHeight()
 
         val beforeZoom = zoom
+        val ease = (dtMs / 105f).coerceIn(0.08f, 0.24f)
         // Keep active teaching text crisp at 1x zoom; fit tall diagrams comfortably in viewport
         if (b.kind == StepKind.DIAGRAM && b.height * bs > avail * 0.92f) {
             val desiredZoom = ((avail * 0.92f) / (b.height * bs)).coerceIn(minAllowedZoom(), 1f)
             if (zoom > desiredZoom + 0.015f) {
-                zoom += (desiredZoom - zoom) * 0.14f
+                zoom += (desiredZoom - zoom) * ease
             }
         } else if (zoom < 0.96f) {
-            zoom += (1f - zoom) * 0.14f
+            zoom += (1f - zoom) * ease
         }
 
         val s = scale()
@@ -478,26 +481,35 @@ class StudyBoardView(context: Context) : View(context) {
         val hiBot = lastLiveFocusBottom?.takeIf { it in b.top..(b.bottom + 16f) } ?: b.bottom
         val hiMid = lastLiveFocusY?.takeIf { it in (b.top - 16f)..(b.bottom + 16f) } ?: ((hiTop + hiBot) * 0.5f)
         val hiSpanPx = (hiBot - hiTop).coerceAtLeast(24f) * s
-        val topPad = avail * 0.10f
-        val botPad = avail * 0.78f
+        val topPad = avail * 0.12f
+        val botPad = avail * 0.74f
         val hiTopPx = hiTop * s + ty
         val hiBotPx = hiBot * s + ty
         val beforeTy = ty
 
         if (hiSpanPx <= botPad - topPad) {
-            val idealCenterY = avail * 0.40f
-            val targetTy = when {
-                hiTopPx < topPad || hiBotPx > botPad -> -(hiMid * s - idealCenterY)
-                else -> ty
-            }
-            if (abs(targetTy - ty) > 0.5f) {
-                ty += (targetTy - ty) * 0.18f
+            val idealCenterY = avail * 0.42f
+            val desiredTy = -(hiMid * s - idealCenterY)
+            if (hiTopPx < topPad || hiBotPx > botPad) followSettling = true
+            if (followSettling) {
+                val delta = desiredTy - ty
+                if (abs(delta) <= avail * 0.025f) {
+                    followSettling = false
+                } else {
+                    ty += delta * ease
+                }
             }
         } else {
             val focusMidPx = hiMid * s + ty
-            if (focusMidPx < avail * 0.16f || focusMidPx > avail * 0.70f) {
-                val targetTy = -(hiMid * s - avail * 0.42f)
-                ty += (targetTy - ty) * 0.18f
+            val desiredTy = -(hiMid * s - avail * 0.42f)
+            if (focusMidPx < avail * 0.16f || focusMidPx > avail * 0.68f) followSettling = true
+            if (followSettling) {
+                val delta = desiredTy - ty
+                if (abs(delta) <= avail * 0.025f) {
+                    followSettling = false
+                } else {
+                    ty += delta * ease
+                }
             }
         }
         clampPan()

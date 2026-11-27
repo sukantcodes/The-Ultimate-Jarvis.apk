@@ -29,6 +29,7 @@ import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
+import java.util.WeakHashMap
 
 /**
  * Dynamic studio-whiteboard colour palette with paper-contrast safety and zero static hex literals.
@@ -447,6 +448,54 @@ class StudyPainter(private val fonts: StudyFonts) {
         val centerY: Float get() = (topY + bottomY) * 0.5f
     }
 
+    private data class CachedParagraphData(
+        val paragraphs: List<VisualParagraph>,
+        val fracStops: List<Pair<Float, VisualParagraph>>
+    )
+
+    private val paragraphCacheMain = WeakHashMap<BoardBlock, CachedParagraphData>()
+    private val paragraphCacheNotes = WeakHashMap<BoardBlock, CachedParagraphData>()
+
+    private fun cachedParagraphs(block: BoardBlock, showNotes: Boolean): CachedParagraphData {
+        val cache = if (showNotes) paragraphCacheNotes else paragraphCacheMain
+        cache[block]?.let { return it }
+        val paras = extractVisualParagraphs(block, showNotes)
+        val ops = block.allOps(showNotes)
+        val stops = ArrayList<Pair<Float, VisualParagraph>>(paras.size)
+        if (paras.isNotEmpty() && ops.isNotEmpty()) {
+            var total = 0f
+            for (op in ops) total += op.weight.coerceAtLeast(1f)
+            total = total.coerceAtLeast(1f)
+            var acc = 0f
+            val bestFracPerPara = FloatArray(paras.size) { -1f }
+            for (op in ops) {
+                val w = op.weight.coerceAtLeast(1f)
+                acc += w
+                if (op is DrawOp.Glyphs && op.text.isNotBlank()) {
+                    var bestIdx = 0
+                    var bestDist = Float.MAX_VALUE
+                    for (pIdx in paras.indices) {
+                        val p = paras[pIdx]
+                        val clamped = op.y.coerceIn(p.topY, p.bottomY)
+                        val d = abs(op.y - clamped)
+                        if (d < bestDist) {
+                            bestDist = d
+                            bestIdx = pIdx
+                        }
+                    }
+                    bestFracPerPara[bestIdx] = acc / total
+                }
+            }
+            var prevEnd = 0f
+            for (pIdx in paras.indices) {
+                val endF = if (pIdx == paras.lastIndex) 1f else max(prevEnd + 0.01f, bestFracPerPara[pIdx].takeIf { it > 0f } ?: ((pIdx + 1f) / paras.size))
+                prevEnd = endF.coerceIn(0f, 1f)
+                stops.add(prevEnd to paras[pIdx])
+            }
+        }
+        return CachedParagraphData(paras, stops).also { cache[block] = it }
+    }
+
     /** Precision colour-matched stylus tip + pulsing laser aura halo when writing or drawing live. */
     fun drawPen(canvas: Canvas, x: Float, y: Float, color: Int, pulsePhase: Float = 0f) {
         val pulse = 1f + 0.18f * sin(pulsePhase.toDouble()).toFloat()
@@ -552,9 +601,8 @@ class StudyPainter(private val fonts: StudyFonts) {
         accentColor: Int,
         pulsePhase: Float
     ): HighlightFocus? {
-        val ops = block.allOps(showNotes)
-        if (ops.isEmpty()) return null
-        val paragraphs = extractVisualParagraphs(block, showNotes, boardWidth, margin)
+        val cached = cachedParagraphs(block, showNotes)
+        val paragraphs = cached.paragraphs
         if (paragraphs.isEmpty()) {
             val f = fraction.coerceIn(0f, 1f)
             val fallbackTop = (block.top + 4f).coerceAtLeast(0f)
@@ -563,27 +611,8 @@ class StudyPainter(private val fonts: StudyFonts) {
             return HighlightFocus(fallbackTop, fallbackBot, fallbackTop + (fallbackBot - fallbackTop) * f)
         }
 
-        // Find the last glyph reached by the current fraction budget
-        var total = 0f
-        for (op in ops) total += op.weight.coerceAtLeast(1f)
-        var budget = total * fraction.coerceIn(0f, 1f)
-        var targetGlyph: DrawOp.Glyphs? = null
-        for (op in ops) {
-            val w = op.weight.coerceAtLeast(1f)
-            if (op is DrawOp.Glyphs && op.text.isNotBlank() && (budget > 0f || targetGlyph == null)) {
-                targetGlyph = op
-            }
-            budget -= w
-            if (budget <= 0f) break
-        }
-        val activePara = if (targetGlyph != null) {
-            paragraphs.minByOrNull { p ->
-                val clampedY = targetGlyph.y.coerceIn(p.topY, p.bottomY)
-                abs(targetGlyph.y - clampedY)
-            } ?: paragraphs.last()
-        } else {
-            paragraphs[(fraction.coerceIn(0f, 1f) * paragraphs.size).toInt().coerceIn(0, paragraphs.lastIndex)]
-        }
+        val f = fraction.coerceIn(0f, 1f)
+        val activePara = cached.fracStops.firstOrNull { f <= it.first }?.second ?: paragraphs.last()
 
         val left = if (activePara.isDiagramLabel) (activePara.minX - 10f) else (margin - 14f)
         val right = if (activePara.isDiagramLabel) (activePara.maxX + 10f) else (boardWidth - margin + 14f)
@@ -606,9 +635,7 @@ class StudyPainter(private val fonts: StudyFonts) {
         accentColor: Int,
         pulsePhase: Float
     ): HighlightFocus? {
-        val ops = block.allOps(showNotes)
-        if (ops.isEmpty()) return null
-        val paragraphs = extractVisualParagraphs(block, showNotes, boardWidth, margin)
+        val paragraphs = cachedParagraphs(block, showNotes).paragraphs
         if (paragraphs.isNotEmpty()) {
             val f = explainFrac.coerceIn(0f, 1f)
             val fallbackIdx = (f * paragraphs.size).toInt().coerceIn(0, paragraphs.lastIndex)
@@ -620,6 +647,8 @@ class StudyPainter(private val fonts: StudyFonts) {
             return HighlightFocus(para.topY, para.bottomY, para.centerY)
         }
 
+        val ops = block.allOps(showNotes)
+        if (ops.isEmpty()) return null
         val shapePoint = findShapeFocusPoint(ops, explainFrac.coerceIn(0f, 1f)) ?: return null
         val hTop = (shapePoint.second - 28f).coerceAtLeast(block.top)
         val hBot = (shapePoint.second + 28f).coerceAtMost(block.bottom)
@@ -638,7 +667,7 @@ class StudyPainter(private val fonts: StudyFonts) {
         pulsePhase: Float
     ) {
         if (block.kind != StepKind.DIAGRAM) return
-        val paragraphs = extractVisualParagraphs(block, showNotes, 0f, 0f)
+        val paragraphs = cachedParagraphs(block, showNotes).paragraphs
         if (paragraphs.isNotEmpty()) {
             val f = explainFrac.coerceIn(0f, 1f)
             val fallbackIdx = (f * paragraphs.size).toInt().coerceIn(0, paragraphs.lastIndex)
@@ -653,9 +682,7 @@ class StudyPainter(private val fonts: StudyFonts) {
 
     private fun extractVisualParagraphs(
         block: BoardBlock,
-        showNotes: Boolean,
-        @Suppress("UNUSED_PARAMETER") boardWidth: Float,
-        @Suppress("UNUSED_PARAMETER") margin: Float
+        showNotes: Boolean
     ): List<VisualParagraph> {
         val out = ArrayList<VisualParagraph>()
         if (block.kind == StepKind.DIAGRAM) {
@@ -685,7 +712,6 @@ class StudyPainter(private val fonts: StudyFonts) {
 
     private fun linesToParagraphs(lines: List<VisualLine>): List<VisualParagraph> {
         if (lines.isEmpty()) return emptyList()
-        val bulletStart = Regex("^(\\d+[.)]|[•\\-*]|Key Point)\\b.*", RegexOption.IGNORE_CASE)
         val out = ArrayList<VisualParagraph>()
         var minX = lines[0].minX
         var maxX = lines[0].maxX
@@ -700,7 +726,7 @@ class StudyPainter(private val fonts: StudyFonts) {
             val gap = l.baselineY - prevBaseline
             val maxSz = max(prevSize, l.fontSize)
             val splitForGap = gap > maxSz * 1.75f
-            val splitForBullet = gap > maxSz * 1.15f && bulletStart.containsMatchIn(l.text.trim())
+            val splitForBullet = gap > maxSz * 1.15f && BULLET_START_REGEX.containsMatchIn(l.text.trim())
             if (splitForGap || splitForBullet) {
                 out.add(VisualParagraph(minX, maxX, topY, botY, sb.toString().trim()))
                 minX = l.minX
@@ -778,8 +804,8 @@ class StudyPainter(private val fonts: StudyFonts) {
         val tailStr = spokenTranscript.takeLast(52).lowercase()
         val veryTailStr = spokenTranscript.takeLast(24).lowercase()
         val tailWords = tailStr
-            .replace(Regex("[^\\p{L}\\p{N}\\s]"), " ")
-            .split(Regex("\\s+"))
+            .replace(PUNCT_REGEX, " ")
+            .split(WS_REGEX)
             .filter { w -> w.length >= 3 || (w.length >= 2 && w.any { it.isDigit() }) }
         if (tailWords.isEmpty()) return null
 
@@ -820,5 +846,11 @@ class StudyPainter(private val fonts: StudyFonts) {
             }
             is DrawOp.Glyphs -> target.x to target.y
         }
+    }
+
+    companion object {
+        private val BULLET_START_REGEX = Regex("^(\\d+[.)]|[•\\-*]|Key Point)\\b.*", RegexOption.IGNORE_CASE)
+        private val PUNCT_REGEX = Regex("[^\\p{L}\\p{N}\\s]")
+        private val WS_REGEX = Regex("\\s+")
     }
 }

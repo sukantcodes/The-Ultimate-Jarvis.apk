@@ -802,6 +802,9 @@ class StudyVoice(context: Context) {
         @Volatile private var serverFramesReceived = 0L
         @Volatile private var activePlayWallStartMs = 0L
         @Volatile private var accumulatedActivePlayMs = 0L
+        @Volatile private var lastHalPosFrames = 0L
+        @Volatile private var lastHalChangedMs = 0L
+        @Volatile private var lastEmittedPlayedFrames = 0L
         private var activePlanSegments: List<StudyVoiceCodec.LessonSegment> = emptyList()
         private var segmentStartFrames: LongArray = LongArray(0)
         private var segmentCompleted: BooleanArray = BooleanArray(0)
@@ -1396,15 +1399,27 @@ class StudyVoice(context: Context) {
                 if (t.state != AudioTrack.STATE_INITIALIZED) 0L
                 else (t.playbackHeadPosition.toLong() and 0xFFFFFFFFL)
             }
+            val nowMs = SystemClock.elapsedRealtime()
             val wallElapsedMs = accumulatedActivePlayMs + if (!userPaused.get() && activePlayWallStartMs > 0L) {
-                (SystemClock.elapsedRealtime() - activePlayWallStartMs).coerceAtLeast(0L)
+                (nowMs - activePlayWallStartMs).coerceAtLeast(0L)
             } else 0L
-            val wallFrames = ((wallElapsedMs * PCM_SAMPLE_RATE * rate.coerceIn(0.5f, 2.0f)) / 1000f).toLong()
-            val playedFrames = if (halPos in 1L..(writtenFramesInTurn + 4_800L)) {
-                halPos
+            val spd = rate.coerceIn(0.5f, 2.0f)
+            val wallFrames = ((wallElapsedMs * PCM_SAMPLE_RATE * spd) / 1000f).toLong()
+            val rawPlayedFrames = if (halPos in 1L..(writtenFramesInTurn + 4_800L)) {
+                if (halPos > lastHalPosFrames) {
+                    lastHalPosFrames = halPos
+                    lastHalChangedMs = nowMs
+                }
+                val interp = if (!userPaused.get() && lastHalChangedMs > 0L) {
+                    val sinceHal = (nowMs - lastHalChangedMs).coerceIn(0L, 180L)
+                    halPos + ((sinceHal * PCM_SAMPLE_RATE * spd) / 1000f).toLong()
+                } else halPos
+                interp.coerceIn(lastEmittedPlayedFrames, writtenFramesInTurn.coerceAtLeast(1L))
             } else {
-                wallFrames.coerceIn(0L, writtenFramesInTurn.coerceAtLeast(1L))
+                wallFrames.coerceIn(lastEmittedPlayedFrames, writtenFramesInTurn.coerceAtLeast(1L))
             }
+            lastEmittedPlayedFrames = rawPlayedFrames
+            val playedFrames = rawPlayedFrames
             val segments = activePlanSegments
             val frac: Float
             val spokenWindow: String
@@ -1554,6 +1569,9 @@ class StudyVoice(context: Context) {
             serverFramesReceived = 0L
             accumulatedActivePlayMs = 0L
             activePlayWallStartMs = 0L
+            lastHalPosFrames = 0L
+            lastHalChangedMs = 0L
+            lastEmittedPlayedFrames = 0L
             synchronized(trackLock) {
                 runCatching {
                     track?.let { t ->
