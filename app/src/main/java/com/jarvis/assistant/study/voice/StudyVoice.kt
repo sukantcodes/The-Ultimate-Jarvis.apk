@@ -10,6 +10,8 @@ import android.util.Base64
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.jarvis.assistant.JarvisApp
+import com.jarvis.assistant.background.JarvisConversationService
+import com.jarvis.assistant.background.JarvisWakeWordService
 import com.jarvis.assistant.offline.NetworkStateMonitor
 import com.jarvis.assistant.tts.engine.JarvisVoiceDispatcher
 import com.jarvis.assistant.tts.model.SpeakerProfile
@@ -33,11 +35,12 @@ import java.util.concurrent.TimeUnit
 
 /**
  * The teacher's voice for the Study Board: the same JARVIS voice used everywhere else in the app (Gemini cloud voice, or
- * ElevenLabs when that is the chosen engine), with the phone's own voice as a fallback.
+ * ElevenLabs when that is the chosen engine). The phone's own text-to-speech voice is never used: if JARVIS's voice cannot be
+ * reached, the board stays silent and says so, instead of switching to a different voice halfway through a lesson.
  *
  * Latency is handled by preparing audio before it is needed. The board calls [prefetch] as soon as a step's spoken line
  * arrives from the AI, so by the time the pen reaches that step the audio is usually already in memory and starts at once.
- * If the cloud voice cannot be reached in time, the phone's voice speaks instead, so the lesson never stalls waiting for it.
+ * The background wake-word listener is paused while the teacher talks, so JARVIS does not wake up on its own voice.
  *
  * Unlike the general voice dispatcher, completion is reported when the audio has finished playing, not when it started,
  * because the board uses it to decide when the next step may begin.
@@ -56,32 +59,24 @@ class StudyVoice(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val gate = Semaphore(2)
     private val http = OkHttpClient.Builder().connectTimeout(8, TimeUnit.SECONDS).readTimeout(25, TimeUnit.SECONDS).build()
-    private val local = StudyTts(app)
     private val prefs = app.getSharedPreferences("jarvis_study_prefs", Context.MODE_PRIVATE)
 
     private var callback: Callback? = null
     private var rate = 1f
     private var token = 0L
-    private var localToken = 0L
-    private var localFor = 0L
+    private var wakePaused = false
+    private var failures = 0
+    private val resumeWake = Runnable { resumeWakeWord() }
     private var player: MediaPlayer? = null
     private val cache = LinkedHashMap<String, Deferred<ByteArray?>>()
     private var cloudBlockedUntil = 0L
     private var noteShown = false
     @Volatile private var model: String = prefs.getString(KEY_MODEL, "") ?: ""
 
-    init {
-        local.setCallback(object : StudyTts.Callback {
-            override fun onStarted(token: Long) { if (token == localToken && localFor == this@StudyVoice.token) callback?.onStarted(localFor, false) }
-            override fun onFinished(token: Long, ok: Boolean, reason: String) { if (token == localToken && localFor == this@StudyVoice.token) callback?.onFinished(localFor, ok, reason) }
-        })
-    }
-
     fun setCallback(cb: Callback?) { callback = cb }
 
     fun setRate(r: Float) {
         rate = r.coerceIn(0.7f, 1.6f)
-        local.setRate(rate)
         try { player?.let { p -> if (p.isPlaying) p.playbackParams = p.playbackParams.setSpeed(rate) } } catch (_: Exception) {}
     }
 
@@ -108,27 +103,31 @@ class StudyVoice(context: Context) {
         }
     }
 
-    /** Speaks [text] and returns its token. A new call replaces whatever is being spoken. */
-    fun speak(text: String, locale: Locale): Long {
+    /** Speaks [text] with the JARVIS voice and returns its token. A new call replaces whatever is being spoken. */
+    fun speak(text: String, @Suppress("UNUSED_PARAMETER") locale: Locale): Long {
         stopPlayerOnly()
-        local.stop()
         val my = ++token
         val clean = text.trim()
         if (clean.isEmpty()) { main.post { if (my == token) callback?.onFinished(my, true, "") }; return my }
-        if (!cloudAvailable()) { speakLocal(clean, locale, my); return my }
+        if (!cloudAvailable()) {
+            main.post { if (my == token) { markCloudDown(quiet = true); callback?.onFinished(my, false, NO_VOICE) } }
+            return my
+        }
+        pauseWakeWord()
         val key = keyFor(clean)
-        val pending = cache.remove(key) ?: scope.async { gate.withPermit { synthesize(clean) } }
+        val pending = cache.remove(key) ?: scope.async { gate.withPermit { synthesizeWithRetry(clean) } }
         scope.launch {
             val bytes = withTimeoutOrNull(WAIT_MS) { runCatching { pending.await() }.getOrNull() }
             main.post {
-                if (my != token) { return@post }
+                if (my != token) return@post
                 if (bytes == null || bytes.isEmpty()) {
-                    // the request is left running so its audio is ready if the student replays this step
-                    if (!pending.isCompleted) cache[key] = pending else markCloudDown()
-                    speakLocal(clean, locale, my)
+                    // keep a still-running request so the audio is ready if the student replays this step
+                    if (!pending.isCompleted) cache[key] = pending else noteFailure()
+                    callback?.onFinished(my, false, NO_VOICE)
                 } else {
+                    failures = 0
                     cache[key] = pending
-                    play(bytes, my, clean, locale)
+                    play(bytes, my)
                 }
             }
         }
@@ -138,13 +137,14 @@ class StudyVoice(context: Context) {
     fun stop() {
         token++
         stopPlayerOnly()
-        local.stop()
+        scheduleWakeResume()
     }
 
     fun shutdown() {
         token++
         stopPlayerOnly()
-        local.shutdown()
+        main.removeCallbacks(resumeWake)
+        resumeWakeWord()
         cache.values.forEach { it.cancel() }
         cache.clear()
         scope.cancel()
@@ -153,14 +153,7 @@ class StudyVoice(context: Context) {
 
     // ----- playback -----
 
-    private fun speakLocal(text: String, locale: Locale, my: Long) {
-        // the phone voice numbers its own utterances; remember which of ours it is speaking for
-        localFor = my
-        localToken = local.nextToken()
-        local.speak(text, locale)
-    }
-
-    private fun play(bytes: ByteArray, my: Long, text: String, locale: Locale) {
+    private fun play(bytes: ByteArray, my: Long) {
         try {
             val p = MediaPlayer()
             p.setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
@@ -174,19 +167,19 @@ class StudyVoice(context: Context) {
             p.setOnCompletionListener { mp ->
                 try { mp.release() } catch (_: Exception) {}
                 if (player === mp) player = null
-                if (my == token) callback?.onFinished(my, true, "")
+                if (my == token) { callback?.onFinished(my, true, ""); scheduleWakeResume() }
             }
             p.setOnErrorListener { mp, _, _ ->
                 try { mp.release() } catch (_: Exception) {}
                 if (player === mp) player = null
-                if (my == token) { markCloudDown(); speakLocal(text, locale, my) }
+                if (my == token) { noteFailure(); callback?.onFinished(my, false, NO_VOICE) }
                 true
             }
             player = p
             p.prepareAsync()
         } catch (_: Exception) {
-            markCloudDown()
-            speakLocal(text, locale, my)
+            noteFailure()
+            callback?.onFinished(my, false, NO_VOICE)
         }
     }
 
@@ -197,9 +190,37 @@ class StudyVoice(context: Context) {
         try { p.release() } catch (_: Exception) {}
     }
 
-    private fun markCloudDown() {
+    /** Two failures in a row mean the voice is down: stop asking for a short while instead of delaying every step. */
+    private fun noteFailure() {
+        if (++failures >= 2) markCloudDown(quiet = false)
+    }
+
+    private fun markCloudDown(quiet: Boolean) {
         cloudBlockedUntil = System.currentTimeMillis() + BLOCK_MS
-        if (!noteShown) { noteShown = true; callback?.onNote("JARVIS voice could not be reached, so your phone's voice is reading the lesson.") }
+        if (!quiet && !noteShown) { noteShown = true; callback?.onNote(NO_VOICE) }
+    }
+
+    // ----- the wake-word listener rests while the teacher talks -----
+
+    private fun pauseWakeWord() {
+        main.removeCallbacks(resumeWake)
+        if (wakePaused) return
+        try {
+            if (JarvisWakeWordService.isRunning()) { wakePaused = true; JarvisWakeWordService.stopService(app) }
+        } catch (_: Throwable) {}
+    }
+
+    /** Waits a moment, because the next step usually starts within a second and the service should not be restarted each time. */
+    private fun scheduleWakeResume() {
+        if (!wakePaused) return
+        main.removeCallbacks(resumeWake)
+        main.postDelayed(resumeWake, WAKE_RESUME_MS)
+    }
+
+    private fun resumeWakeWord() {
+        if (!wakePaused) return
+        wakePaused = false
+        try { JarvisConversationService.startWakeWordMonitoring(app) } catch (_: Throwable) {}
     }
 
     // ----- synthesis -----
@@ -219,6 +240,13 @@ class StudyVoice(context: Context) {
 
     private fun keyFor(text: String) = engine().name + "|" + text
 
+    /** One more try after a short pause when the first request is refused as busy or the connection drops. */
+    private fun synthesizeWithRetry(text: String): ByteArray? {
+        synthesize(text)?.let { return it }
+        try { Thread.sleep(700) } catch (_: InterruptedException) { return null }
+        return synthesize(text)
+    }
+
     private fun synthesize(text: String): ByteArray? = try {
         when (engine()) {
             VoiceEngineType.CLOUD_ELEVENLABS ->
@@ -234,7 +262,7 @@ class StudyVoice(context: Context) {
         val voice = SpeakerProfile.defaultFor(VoiceEngineType.CLOUD_GEMINI).cloudVoiceIdentifier.ifBlank { "Charon" }
         val body = JsonObject().apply {
             add("contents", com.google.gson.JsonArray().apply {
-                add(JsonObject().apply { add("parts", com.google.gson.JsonArray().apply { add(JsonObject().apply { addProperty("text", STYLE + text) }) }) })
+                add(JsonObject().apply { add("parts", com.google.gson.JsonArray().apply { add(JsonObject().apply { addProperty("text", text) }) }) })
             })
             add("generationConfig", JsonObject().apply {
                 add("responseModalities", com.google.gson.JsonArray().apply { add("AUDIO") })
@@ -302,12 +330,13 @@ class StudyVoice(context: Context) {
     companion object {
         private const val BASE = "https://generativelanguage.googleapis.com/v1beta"
         private val JSON = "application/json; charset=utf-8".toMediaType()
-        private const val STYLE = "Say this in a warm, clear, unhurried voice, like a patient teacher explaining to one student: "
+        private const val NO_VOICE = "JARVIS voice could not be reached, so the lesson continues without sound. Check your internet and Gemini key."
         private const val KEY_MODEL = "voice_model"
         private const val KEY_MODEL_AT = "voice_model_at"
         private const val MAX_CACHE = 14
-        private const val WAIT_MS = 6500L
-        private const val BLOCK_MS = 60_000L
+        private const val WAIT_MS = 25_000L
+        private const val BLOCK_MS = 20_000L
+        private const val WAKE_RESUME_MS = 2_500L
         private const val DAY_MS = 24L * 3600_000L
     }
 }

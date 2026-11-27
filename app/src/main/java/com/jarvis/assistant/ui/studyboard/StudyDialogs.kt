@@ -323,7 +323,7 @@ object StudyDialogs {
         body.addView(
             StudyTheme.label(
                 a,
-                "Auto level uses the class named in your question, then your age from your profile. Any language works: Auto follows the language you ask in. Narration uses the JARVIS voice when it is available, and your phone's voice otherwise.",
+                "Auto level uses the class named in your question, then your age from your profile. Any language works: Auto follows the language you ask in. Narration always uses the JARVIS voice; if it cannot be reached, the lesson stays silent instead of switching voices.",
                 11.5f,
                 pal.textMuted
             ).apply {
