@@ -306,7 +306,7 @@ class StudyVoice(context: Context) {
         private const val KEY_MODEL = "voice_model"
         private const val KEY_MODEL_AT = "voice_model_at"
         private const val MAX_CACHE = 14
-        private const val WAIT_MS = 3500L
+        private const val WAIT_MS = 6500L
         private const val BLOCK_MS = 60_000L
         private const val DAY_MS = 24L * 3600_000L
     }

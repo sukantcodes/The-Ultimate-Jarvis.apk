@@ -528,7 +528,20 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setVoice(on: Boolean) {
         prefs.voiceOn = on
-        if (!on) { stopSpeech(); playback.narrationBusy = false } else { voiceFailureShown = false; if (playback.state == StudyPlayback.State.PLAYING) narrate(playback.current) }
+        if (!on) {
+            stopSpeech()
+            playback.narrationBusy = false
+            toast("Voice narration muted.")
+        } else {
+            voiceFailureShown = false
+            toast("Voice narration on.")
+            val curIdx = playback.current.coerceAtLeast(0)
+            if (playback.state == StudyPlayback.State.PLAYING) {
+                narrate(curIdx)
+            } else if (hasContent && curIdx in speeches.indices && speeches[curIdx].isNotBlank()) {
+                narrate(curIdx)
+            }
+        }
         bump()
     }
 
@@ -578,8 +591,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 playback.startGate = false
                 playback.narrationBusy = false
                 if (!ok) {
-                    if (!voiceFailureShown) { voiceFailureShown = true; toast(reason.ifEmpty { "Narration failed. Continuing in text-only mode." }) }
-                    if (reason.contains("voice is installed") || reason.contains("not available")) { prefs.voiceOn = false }
+                    if (!voiceFailureShown) { voiceFailureShown = true; toast(reason.ifEmpty { "Voice narration could not play on this step." }) }
                 }
                 bump()
             }

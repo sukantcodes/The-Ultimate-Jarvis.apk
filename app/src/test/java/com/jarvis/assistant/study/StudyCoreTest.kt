@@ -577,15 +577,55 @@ class StudyBoardRichDrawingAndLayoutTest {
             "Human kidney section",
             "Nephron structure",
             "Human respiratory system",
+            "Leaf stomata cross section",
             "DNA double helix",
             "Longitudinal section of flower",
             "Dispersion of light through glass prism",
+            "Ray diagram of concave lens",
             "Ray diagram of convex lens",
+            "Ray diagram of concave mirror",
+            "Electric circuit diagram",
+            "Magnetic field lines of bar magnet",
+            "Transverse wave diagram",
+            "Inclined plane free body diagram",
+            "Simple pendulum diagram",
+            "DC motor diagram",
+            "Benzene ring C6H6",
+            "Water molecule H2O structure",
+            "Simple distillation apparatus",
+            "Electrolysis cell diagram",
+            "pH scale chart",
             "Bohr model of atom",
+            "Pythagoras theorem squares",
+            "Right triangle trigonometry",
+            "Parts of a circle",
+            "Cone slant height geometry",
+            "Cylinder geometry",
+            "Venn diagram sets",
+            "Binary tree data structure",
+            "Linked list data structure",
+            "Stack and queue LIFO FIFO",
+            "OSI model 7 layers",
+            "Von Neumann CPU architecture",
+            "Neural network perceptron",
+            "Logic gates AND OR NOT",
             "Layers of the earth",
             "Water cycle diagram"
         )) {
-            assertNotNull("Missing canonical blueprint for: $q", StudyDiagramAtlas.match(q))
+            val spec = StudyDiagramAtlas.match(q)
+            assertNotNull("Missing canonical blueprint for: $q", spec)
+            val laid = StudyDiagramLayout.layout(spec!!, 920f, 740f, m, 2.4f)
+            assertTrue("Expected non-empty layout for: $q", laid.ops.isNotEmpty())
+            val labelBoxes = laid.ops.filterIsInstance<DrawOp.Rect>().filter { kotlin.math.abs(it.rx - 10f) < 0.2f }
+            for (i in labelBoxes.indices) {
+                for (j in i + 1 until labelBoxes.size) {
+                    val a = labelBoxes[i]
+                    val b = labelBoxes[j]
+                    val overlapX = minOf(a.x + a.w, b.x + b.w) - maxOf(a.x, b.x)
+                    val overlapY = minOf(a.y + a.h, b.y + b.h) - maxOf(a.y, b.y)
+                    assertFalse("Labels overlap for '$q': $a vs $b", overlapX > 0.5f && overlapY > 0.5f)
+                }
+            }
         }
 
         val asm = StudyAssembler("Draw a neat labelled diagram of brain", "Class 10")
@@ -594,5 +634,36 @@ class StudyBoardRichDrawingAndLayoutTest {
         val updates = asm.accept(StudyEvent.Final("Human brain consists of forebrain, midbrain, and hindbrain.", "", "high"))
         assertTrue(updates.any { it is StudyAssembler.Update.StepAdded })
         assertTrue(asm.lesson.steps.any { it.diagram?.title?.contains("Brain", ignoreCase = true) == true })
+    }
+
+    @Test fun omittedAnchorLabelsSnapOntoShapesWithoutOverlap() {
+        val raw = """
+            {
+              "title": "Pinless Labels Test",
+              "items": [
+                {"t": "circle", "cx": 150, "cy": 100, "r": 50, "ink": "accent", "fill": "soft"},
+                {"t": "rect", "x": 115, "y": 135, "w": 70, "h": 26, "ink": "teal", "fill": "soft"},
+                {"t": "label", "x": 30, "y": 65, "text": "Upper Hemisphere Region"},
+                {"t": "label", "x": 30, "y": 68, "text": "Inner Core Ring"},
+                {"t": "label", "x": 30, "y": 71, "text": "Base Rect Plate"}
+              ]
+            }
+        """.trimIndent()
+        val spec = DiagramSpec.parse(com.google.gson.JsonParser.parseString(raw).asJsonObject)
+        assertNotNull(spec)
+        val laid = StudyDiagramLayout.layout(spec!!, 820f, 520f, m, 2.2f)
+        val labelBoxes = laid.ops.filterIsInstance<DrawOp.Rect>().filter { kotlin.math.abs(it.rx - 10f) < 0.2f }
+        assertEquals(3, labelBoxes.size)
+        for (i in labelBoxes.indices) {
+            for (j in i + 1 until labelBoxes.size) {
+                val a = labelBoxes[i]
+                val b = labelBoxes[j]
+                val overlapX = minOf(a.x + a.w, b.x + b.w) - maxOf(a.x, b.x)
+                val overlapY = minOf(a.y + a.h, b.y + b.h) - maxOf(a.y, b.y)
+                assertFalse("Omitted-pin labels collapsed/overlapped: $a vs $b", overlapX > 0.5f && overlapY > 0.5f)
+            }
+        }
+        val pins = laid.ops.filterIsInstance<DrawOp.Oval>().filter { kotlin.math.abs(it.rx - it.ry) < 0.1f && it.rx in 3f..7f }
+        assertTrue("Expected snapped anchor dots on shapes", pins.isNotEmpty())
     }
 }

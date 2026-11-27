@@ -95,12 +95,17 @@ Available item types ("t"):
   - "rect" / "roundrect": {"t":"roundrect","x":..,"y":..,"w":..,"h":..,"rx":3,"fill":true,"color":"teal","fillColor":"teal","shade":"linear"}
   - "line" / "arrow": {"t":"arrow","x1":..,"y1":..,"x2":..,"y2":..,"dashed":false,"color":"gold"}
   - "label": {"t":"label","ax":pointX,"ay":pointY,"x":labelX,"y":labelY,"text":"Part Name","color":"ink"}
-Diagram Quality Rules (MANDATORY when drawing any diagram):
-  1. Never draw bare 2-3 shape sketches: use 20-70+ layered primitives to show accurate outer silhouette, internal chambers/layers/organelles/lenses/apparatus, fine realistic structural details (valves, membranes, shading highlights, waves, flow arrows, angle arcs, tick marks), and crisp anatomical/technical labels.
-  2. Colour every region purposefully using: "ink" (crisp dark outlines), "red" (oxygenated/artery/positive/heat), "blue" (deoxygenated/water/light ray/cool), "green" (chloroplast/plant/result), "gold" (sun/energy/light/cytoplasm/nucleus highlight), "violet" (nucleus/nerve/magnetic), "teal" (glassware/membrane/circuit), "rose" (muscle/tissue), "orange" (flame/magma/copper/electron), "brown" (wood/bark/soil/bone), "gray" (guides/axes). Combine dark "color" outlines with harmonious "fill":true, "fillColor", and "shade":"radial"|"linear" so drawings shade vividly.
-  3. Use "smooth":true on "curve"/"poly" for realistic organic shapes (heart, eye, cell, leaf, kidney, glassware, waves, lenses) instead of jagged straight corners.
-  4. Always place every "label" OUTSIDE the main artwork (around x=6..20 or x=80..94, well spaced vertically) and pass "ax","ay" pointing accurately to the exact sub-part inside the drawing so crisp leader pins connect without obscuring the artwork or overlapping other labels.
-Use "graph" for math plots (supports multiple functions in an array + optional "points":[[x,y],...]) and "items" for anatomy, biology, physics, chemistry, geography and geometry.
+Diagram Quality Rules (MANDATORY for ALL diagrams across ALL subjects):
+  1. Never draw bare 2-3 shape sketches: use 20-70+ layered primitives showing exact outer silhouette/chassis, internal sub-structures, realistic textures/shading highlights, and crisp labels.
+  2. Domain Standards:
+     - Mathematics: use exact proportional coordinates, angle "arc" markers, right-angle squares, dashed construction/height lines, "graph" plots with multiple functions + key intersection "points".
+     - Physics: include clear component symbols (coils, zig-zag resistors, battery +/- plates, lenses with dashed normal & focal axes), directional "arrow" rays/forces/fields, and colour-coded N/S poles or + / - charges.
+     - Chemistry: use symmetric bond angles ("line"/"poly" hexagons, lone-pair dots, partial charges), glass apparatus ("roundrect"/"oval"/"curve" flasks, flame gradients, condensers, meniscus levels, rising bubbles).
+     - Computer Science: use evenly spaced "roundrect" nodes or "circle" tree/graph vertices, clean orthogonal/diagonal "arrow" pointers and bus connections, distinct colour layers for Input/Process/Memory/Output.
+     - Biology & Earth Science: use "smooth":true on "curve"/"poly" for organic silhouettes, lobes, membranes, vessels, and layered interiors.
+  3. Colour every region purposefully using: "ink" (dark outlines), "red" (artery/positive/heat), "blue" (water/light/cool/deoxygenated), "green" (plant/output/result), "gold" (energy/sun/light/highlight), "violet" (nucleus/neural/field), "teal" (glassware/optics/circuit), "rose" (tissue/set B), "orange" (flame/magma/resistor), "brown" (wood/earth), "gray" (guides/axes). Combine "color" outlines with "fill":true, "fillColor", and "shade":"radial"|"linear".
+  4. Place every descriptive "label" OUTSIDE the main artwork (around x=6..20 or x=80..94, sorted top-to-bottom) and ALWAYS pass "ax","ay" pointing accurately to the exact sub-part inside the drawing so leader pins never cross or overlap labels.
+Use "graph" for math plots (supports multiple functions in an array + optional "points":[[x,y],...]) and "items" for all visual subjects.
 """
 
     fun lessonSystem(profile: StudyProfile): String =

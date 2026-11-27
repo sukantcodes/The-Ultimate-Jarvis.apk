@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.speech.RecognizerIntent
 import android.text.InputType
 import android.text.TextUtils
 import android.util.TypedValue
@@ -87,6 +88,9 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     private lateinit var inputBar: LinearLayout
     private lateinit var sendButton: ImageButton
     private lateinit var micButton: ImageButton
+    private lateinit var voiceBar: LinearLayout
+    private lateinit var voiceStatusText: TextView
+    private lateinit var voiceRmsDot: View
     private lateinit var chipNew: TextView
     private lateinit var chipDoubt: TextView
     private lateinit var header: LinearLayout
@@ -120,6 +124,23 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     // ----- result launchers -----
     private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) startListening() else toast("Microphone permission is needed for voice questions.")
+    }
+    private val systemVoicePrompt = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        listening = false
+        val spoken = if (res.resultCode == RESULT_OK) {
+            res.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.trim().orEmpty()
+        } else {
+            ""
+        }
+        if (spoken.isNotEmpty()) {
+            input.setText("")
+            board.followPen = true
+            refresh()
+            vm.submit(spoken)
+        } else {
+            refresh()
+            if (res.resultCode == RESULT_OK) toast("Could not hear a question — please try again.")
+        }
     }
     private val cameraPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) launchCamera() else toast("Camera permission is needed to photograph a question.")
@@ -615,6 +636,9 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             Triple("Human heart diagram", "Draw a detailed labelled diagram of the human heart", StudyPalette.color(Ink.WARN)),
             Triple("Human eye cross-section", "Draw a detailed labelled diagram of the human eye", StudyPalette.color(Ink.TEAL)),
             Triple("Convex lens rays", "Draw a labelled ray diagram of image formation by a convex lens", paperAccent),
+            Triple("Electric circuit diagram", "Draw a labelled circuit diagram with battery, ammeter, resistor and switch", StudyPalette.color(Ink.ORANGE)),
+            Triple("Benzene ring C6H6", "Draw the ring structure of Benzene C6H6 with pi cloud", StudyPalette.color(Ink.VIOLET)),
+            Triple("Binary tree data structure", "Draw a labelled diagram of a Binary Search Tree data structure", StudyPalette.color(Ink.TEAL)),
             Triple("Plant cell structure", "Draw a neatly labelled diagram of a plant cell", StudyPalette.color(Ink.RESULT)),
             Triple("Plot y = x^2 - 4", "Plot y = x^2 - 4 and y = 2x and find their intersection", StudyPalette.color(Ink.ORANGE))
         )
@@ -798,6 +822,55 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         }
         symbols.addView(symRow)
         col.addView(symbols, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
+
+        // Live Voice Capture Bar (visible while listening; satisfies >=44dp touch targets)
+        voiceBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(52)
+            setPadding(dp(14), dp(4), dp(6), dp(4))
+            background = StudyTheme.pillDrawable(
+                this@StudyBoardActivity,
+                22f,
+                StudyTheme.alpha(pal.cardBg, 0.92f),
+                StudyTheme.alpha(pal.accent, 0.55f)
+            )
+            elevation = dpf(4f)
+            visibility = View.GONE
+        }
+        voiceRmsDot = View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(pal.accent)
+            }
+        }
+        voiceBar.addView(voiceRmsDot, LinearLayout.LayoutParams(dp(12), dp(12)))
+
+        voiceStatusText = StudyTheme.label(this, "Preparing mic…", 13f, pal.textPrimary, bold = true).apply {
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            setPadding(dp(10), 0, dp(8), 0)
+        }
+        voiceBar.addView(voiceStatusText, LinearLayout.LayoutParams(0, -2, 1f))
+
+        voiceBar.addView(
+            StudyTheme.chip(this, "Done", pal, minHeightDp = 44) { voice.stopAndUse() }.apply {
+                minimumWidth = dp(64)
+                setPadding(dp(14), dp(8), dp(14), dp(8))
+                setTextColor(pal.onAccent)
+                background = StudyTheme.pillDrawable(this@StudyBoardActivity, 18f, pal.accent, pal.accent)
+            },
+            LinearLayout.LayoutParams(-2, dp(44)).apply { marginEnd = dp(4) }
+        )
+        voiceBar.addView(
+            StudyTheme.iconButton(this, R.drawable.ic_close, "Cancel voice input", pal, 44, 10) {
+                voice.cancel()
+                listening = false
+                refresh()
+            },
+            LinearLayout.LayoutParams(dp(44), dp(44))
+        )
+        col.addView(voiceBar, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
 
         // Row 3: Floating Composer Glass Bar
         inputBar = LinearLayout(this).apply {
@@ -1124,6 +1197,11 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         } else {
             GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.TRANSPARENT) }
         }
+        voiceBar.visibility = if (listening) View.VISIBLE else View.GONE
+        if (!listening) {
+            voiceRmsDot.scaleX = 1f
+            voiceRmsDot.scaleY = 1f
+        }
         updateInputFocusRing()
     }
 
@@ -1206,10 +1284,26 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             else -> if (vm.prefs.language.equals("Hindi", true)) "hi-IN" else "en-IN"
         }
         listening = true
+        voiceStatusText.text = "Preparing mic…"
+        voiceRmsDot.scaleX = 1f
+        voiceRmsDot.scaleY = 1f
         refresh()
         voice.start(tag, object : StudyVoiceInput.Listener {
-            override fun onListening() {}
-            override fun onPartial(text: String) { input.setText(text); input.setSelection(input.text.length) }
+            override fun onListening() {
+                voiceStatusText.text = "Listening… speak now"
+            }
+            override fun onRms(rmsdB: Float) {
+                val scale = (1f + ((rmsdB + 2f).coerceIn(0f, 12f) / 16f)).coerceIn(0.95f, 1.75f)
+                voiceRmsDot.scaleX = scale
+                voiceRmsDot.scaleY = scale
+            }
+            override fun onPartial(text: String) {
+                if (text.isNotBlank()) {
+                    voiceStatusText.text = text
+                    input.setText(text)
+                    input.setSelection(input.text.length)
+                }
+            }
             override fun onFinal(text: String) {
                 listening = false
                 input.setText("")
@@ -1217,7 +1311,20 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
                 board.followPen = true
                 vm.submit(text)
             }
-            override fun onError(message: String) { listening = false; refresh(); toast(message) }
+            override fun onError(message: String) {
+                listening = false
+                refresh()
+                toast(message)
+            }
+            override fun onFallbackPrompt(intent: Intent) {
+                listening = false
+                refresh()
+                try {
+                    systemVoicePrompt.launch(intent)
+                } catch (_: Exception) {
+                    toast("Speech recognition is not available on this device.")
+                }
+            }
         })
     }
 

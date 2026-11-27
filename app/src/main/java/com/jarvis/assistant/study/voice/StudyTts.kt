@@ -85,15 +85,29 @@ class StudyTts(context: Context) {
             if (token != activeToken) return@ensure
             val engine = tts
             if (!ready || engine == null) { callback?.onFinished(token, false, "Text-to-speech is not available on this phone."); return@ensure }
-            val result = engine.setLanguage(locale)
-            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                callback?.onFinished(token, false, "No ${locale.displayLanguage} voice is installed. Install one in your phone's text-to-speech settings, or use text-only mode.")
+            if (!bindLanguage(engine, locale)) {
+                callback?.onFinished(token, false, "No ${locale.displayLanguage} voice is installed. Install one in your phone's text-to-speech settings.")
                 return@ensure
             }
             val code = engine.speak(clean.take(3500), TextToSpeech.QUEUE_FLUSH, null, "study_$token")
             if (code != TextToSpeech.SUCCESS) callback?.onFinished(token, false, "Speech could not start.")
         }
         return token
+    }
+
+    private fun bindLanguage(engine: TextToSpeech, preferred: Locale): Boolean {
+        val candidates = linkedSetOf(
+            preferred,
+            Locale(preferred.language),
+            if (preferred.language.equals("en", true)) Locale.US else preferred,
+            if (preferred.language.equals("en", true)) Locale.ENGLISH else preferred,
+            Locale.getDefault()
+        )
+        for (loc in candidates) {
+            val res = engine.setLanguage(loc)
+            if (res != TextToSpeech.LANG_MISSING_DATA && res != TextToSpeech.LANG_NOT_SUPPORTED) return true
+        }
+        return false
     }
 
     /** Stops speaking. The stopped utterance never reports back. */
