@@ -326,7 +326,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 StudyAiEngine.Request(
                     system = StudyDiagramArchitect.systemPrompt(profile),
                     user = StudyDiagramArchitect.userPrompt(title, question, context, draftJson),
-                    thinking = Thinking.MEDIUM
+                    thinking = Thinking.DEFAULT
                 )
             ).collect { sb.append(it) }
             StudyDiagramArchitect.parseReply(sb.toString())
@@ -361,7 +361,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             val wantsDiagram = wantsDiagramRequest(question)
             val hasCanonicalDiagram = wantsDiagram && StudyDiagramAtlas.match(question) != null
             val thinking = when {
-                wantsDiagram && !hasCanonicalDiagram -> Thinking.MEDIUM
+                wantsDiagram && !hasCanonicalDiagram -> Thinking.DEFAULT
                 profile.depth == StudyProfile.Depth.ADVANCED -> Thinking.LOW
                 else -> Thinking.MINIMAL
             }
@@ -406,7 +406,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             }
             val wantsDiagram = wantsDiagramRequest(text)
             val hasCanonicalDiagram = wantsDiagram && StudyDiagramAtlas.match(text) != null
-            val thinking = if (wantsDiagram && !hasCanonicalDiagram) Thinking.MEDIUM else Thinking.LOW
+            val thinking = if (wantsDiagram && !hasCanonicalDiagram) Thinking.DEFAULT else Thinking.LOW
             val priorDoubts = doubts.toList()
             val memCtx = memoryBlock(l.question)
             val digest = StudyPrompt.lessonDigest(l, priorDoubts)
