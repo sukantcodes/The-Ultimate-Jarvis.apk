@@ -436,4 +436,203 @@ class StudyPainter(private val fonts: StudyFonts) {
         panelPaint.alpha = 240
         canvas.drawCircle(x, y, 5f, panelPaint)
     }
+
+    /** Soft luminous spotlight card + left ribbon showing which board step JARVIS is actively teaching. */
+    fun drawActiveStepSpotlight(canvas: Canvas, block: BoardBlock, width: Float, margin: Float, color: Int, pulsePhase: Float) {
+        if (block.isQuestion) return
+        val glow = 0.72f + 0.28f * sin(pulsePhase.toDouble()).toFloat()
+        panelPaint.pathEffect = null
+        panelPaint.style = Paint.Style.FILL
+        panelPaint.color = color
+        panelPaint.alpha = (18 * glow).toInt().coerceIn(8, 28)
+        rect.set(margin - 16f, block.top - 6f, width - margin + 16f, block.bottom - 14f)
+        canvas.drawRoundRect(rect, 16f, 16f, panelPaint)
+
+        // Left active teacher indicator rail
+        panelPaint.alpha = (210 * glow).toInt().coerceIn(140, 240)
+        rect.set(margin - 16f, block.top - 2f, margin - 10f, (block.bottom - 18f).coerceAtLeast(block.top + 12f))
+        canvas.drawRoundRect(rect, 3f, 3f, panelPaint)
+    }
+
+    /** Pulsing teacher spotlight pin + laser reticle pointing directly to the explained term or diagram part. */
+    fun drawTeacherPin(canvas: Canvas, x: Float, y: Float, color: Int, pulsePhase: Float) {
+        val pulse = 1f + 0.25f * sin(pulsePhase.toDouble()).toFloat()
+        panelPaint.pathEffect = null
+        panelPaint.style = Paint.Style.FILL
+        panelPaint.color = color
+        panelPaint.alpha = 42
+        canvas.drawCircle(x, y, 17f * pulse, panelPaint)
+        panelPaint.alpha = 95
+        canvas.drawCircle(x, y, 10f * (0.94f + 0.12f * pulse), panelPaint)
+        panelPaint.alpha = 245
+        canvas.drawCircle(x, y, 4.6f, panelPaint)
+        panelPaint.color = StudyPalette.PAPER
+        panelPaint.alpha = 255
+        canvas.drawCircle(x, y, 2f, panelPaint)
+    }
+
+    private data class VisualLine(
+        val minX: Float,
+        val maxX: Float,
+        val baselineY: Float,
+        val fontSize: Float,
+        val text: String
+    )
+
+    /**
+     * When content is already printed on the board (replays, restored lessons, or completed strokes while
+     * speech finishes), highlights, underlines, and pins the exact active line or diagram label synced with voice.
+     * Returns the Y board coordinate of the focus marker so Follow-Pen keeps it centered.
+     */
+    fun drawLiveExplainFocus(
+        canvas: Canvas,
+        block: BoardBlock,
+        ops: List<DrawOp>,
+        explainFrac: Float,
+        spokenTranscript: String,
+        accentColor: Int,
+        pulsePhase: Float
+    ): Float? {
+        if (ops.isEmpty()) return null
+        val lines = extractVisualLines(ops)
+        if (lines.isNotEmpty()) {
+            val f = explainFrac.coerceIn(0f, 1f)
+            val fallbackIdx = (f * lines.size).toInt().coerceIn(0, lines.lastIndex)
+            val matchedIdx = matchLineFromTranscript(lines, spokenTranscript, fallbackIdx, block.kind == StepKind.DIAGRAM)
+            val activeIdx = matchedIdx ?: fallbackIdx
+            val line = lines[activeIdx]
+
+            val spanFrac = if (matchedIdx != null) {
+                // Smoothly sweep underline across a matched line
+                ((f * lines.size - activeIdx).takeIf { it in 0f..1f } ?: 0.92f).coerceIn(0.35f, 1f)
+            } else {
+                (f * lines.size - activeIdx).coerceIn(0.18f, 1f)
+            }
+            val sweepRight = line.minX + (line.maxX - line.minX).coerceAtLeast(18f) * spanFrac
+
+            // 1. Soft translucent highlighter wash across the explained line segment
+            panelPaint.pathEffect = null
+            panelPaint.style = Paint.Style.FILL
+            panelPaint.color = accentColor
+            panelPaint.alpha = 26
+            rect.set(
+                line.minX - 5f,
+                line.baselineY - line.fontSize * 0.88f,
+                sweepRight + 5f,
+                line.baselineY + line.fontSize * 0.24f
+            )
+            canvas.drawRoundRect(rect, 7f, 7f, panelPaint)
+
+            // 2. Smooth progressive highlighter underline + soft glow
+            val underlineY = line.baselineY + line.fontSize * 0.22f
+            strokePaint.pathEffect = null
+            strokePaint.color = accentColor
+            strokePaint.alpha = 52
+            strokePaint.strokeWidth = 7.5f
+            canvas.drawLine(line.minX - 3f, underlineY, sweepRight, underlineY, strokePaint)
+
+            strokePaint.alpha = 225
+            strokePaint.strokeWidth = 3.2f
+            canvas.drawLine(line.minX - 2f, underlineY, sweepRight, underlineY, strokePaint)
+
+            // 3. Pulsing Teacher Pin at leading point of explanation
+            drawTeacherPin(canvas, sweepRight, underlineY, accentColor, pulsePhase)
+            return line.baselineY
+        }
+
+        // Pure geometric/vector fallback when a block contains shapes with no glyphs
+        val shapePoint = findShapeFocusPoint(ops, explainFrac.coerceIn(0f, 1f)) ?: return null
+        drawTeacherPin(canvas, shapePoint.first, shapePoint.second, accentColor, pulsePhase)
+        return shapePoint.second
+    }
+
+    private fun extractVisualLines(ops: List<DrawOp>): List<VisualLine> {
+        val glyphs = ops.filterIsInstance<DrawOp.Glyphs>().filter { it.text.isNotBlank() }
+        if (glyphs.isEmpty()) return emptyList()
+        val sorted = glyphs.sortedWith(compareBy({ it.y }, { it.x }))
+        val lines = ArrayList<VisualLine>()
+        var curMinX = Float.MAX_VALUE
+        var curMaxX = Float.MIN_VALUE
+        var curY = sorted[0].y
+        var curSize = sorted[0].size
+        val curText = StringBuilder()
+
+        fun measureWidth(g: DrawOp.Glyphs): Float {
+            text.typeface = fonts.of(g.face)
+            text.textSize = g.size
+            return text.measureText(g.text)
+        }
+
+        for (g in sorted) {
+            val w = measureWidth(g)
+            val sameRow = abs(g.y - curY) <= max(curSize, g.size) * 0.45f
+            if (!sameRow && curText.isNotEmpty()) {
+                lines.add(VisualLine(curMinX, curMaxX, curY, curSize, curText.toString().trim()))
+                curText.clear()
+                curMinX = Float.MAX_VALUE
+                curMaxX = Float.MIN_VALUE
+                curY = g.y
+                curSize = g.size
+            }
+            curMinX = min(curMinX, g.x)
+            curMaxX = max(curMaxX, g.x + w)
+            if (g.size > curSize) curSize = g.size
+            if (curText.isNotEmpty()) curText.append(' ')
+            curText.append(g.text.trim())
+        }
+        if (curText.isNotEmpty()) {
+            lines.add(VisualLine(curMinX, curMaxX, curY, curSize, curText.toString().trim()))
+        }
+        // Keep primary readable lines if block has both a caption badge (<= 17f) and larger body lines
+        val bodyLines = lines.filter { it.fontSize > 17.5f }
+        return if (bodyLines.isNotEmpty()) bodyLines else lines
+    }
+
+    private fun matchLineFromTranscript(
+        lines: List<VisualLine>,
+        spokenTranscript: String,
+        fallbackIdx: Int,
+        isDiagram: Boolean
+    ): Int? {
+        if (spokenTranscript.length < 10 || lines.size <= 1) return null
+        val tailWords = spokenTranscript.takeLast(90).lowercase()
+            .replace(Regex("[^\\p{L}\\p{N}\\s]"), " ")
+            .split(Regex("\\s+"))
+            .filter { it.length >= 4 }
+        if (tailWords.isEmpty()) return null
+
+        var bestIdx = -1
+        var bestScore = 0
+        for (i in lines.indices) {
+            // Diagrams allow free label snapping anywhere; regular text steps prefer local window around fallbackIdx
+            if (!isDiagram && abs(i - fallbackIdx) > max(2, lines.size / 2)) continue
+            val lineLow = lines[i].text.lowercase()
+            var hits = 0
+            for (w in tailWords) {
+                if (lineLow.contains(w)) hits++
+            }
+            if (hits > bestScore) {
+                bestScore = hits
+                bestIdx = i
+            }
+        }
+        return if (bestIdx >= 0 && bestScore >= 1) bestIdx else null
+    }
+
+    private fun findShapeFocusPoint(ops: List<DrawOp>, frac: Float): Pair<Float, Float>? {
+        val shapes = ops.filter { it !is DrawOp.Glyphs }
+        if (shapes.isEmpty()) return null
+        val target = shapes[(frac * shapes.size).toInt().coerceIn(0, shapes.lastIndex)]
+        return when (target) {
+            is DrawOp.Oval -> target.cx to target.cy
+            is DrawOp.Arc -> target.cx to target.cy
+            is DrawOp.Rect -> (target.x + target.w * 0.5f) to (target.y + target.h * 0.5f)
+            is DrawOp.Line -> ((target.x1 + target.x2) * 0.5f) to ((target.y1 + target.y2) * 0.5f)
+            is DrawOp.Poly -> {
+                val n = target.pts.size / 2
+                if (n <= 0) null else target.pts[(n / 2) * 2] to target.pts[(n / 2) * 2 + 1]
+            }
+            is DrawOp.Glyphs -> target.x to target.y
+        }
+    }
 }

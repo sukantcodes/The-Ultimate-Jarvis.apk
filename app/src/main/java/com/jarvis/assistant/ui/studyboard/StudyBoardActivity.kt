@@ -340,17 +340,22 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         statusDot = View(this).apply {
             background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(pal.accent) }
         }
-        eyebrowRow.addView(statusDot, LinearLayout.LayoutParams(dp(7), dp(7)).apply { marginEnd = dp(6) })
+        eyebrowRow.addView(statusDot, LinearLayout.LayoutParams(dp(7), dp(7)).apply { marginEnd = dp(5) })
         eyebrowRow.addView(
-            StudyTheme.label(this, "STUDY BOARD", 11.5f, pal.accent, hud = true).apply { letterSpacing = 0.14f }
+            StudyTheme.label(this, "STUDY BOARD", if (compactHeader) 10.5f else 11.5f, pal.accent, hud = true).apply {
+                letterSpacing = if (compactHeader) 0.06f else 0.11f
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+            }
         )
         statusPill = StudyTheme.label(this, "", 10.5f, pal.onAccent, bold = true).apply {
-            setPadding(dp(8), dp(2), dp(8), dp(2))
+            setPadding(dp(7), dp(2), dp(7), dp(2))
             background = GradientDrawable().apply { cornerRadius = dpf(10f); setColor(pal.accent) }
             visibility = View.GONE
             maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
         }
-        eyebrowRow.addView(statusPill, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(8) })
+        eyebrowRow.addView(statusPill, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(6) })
         titles.addView(eyebrowRow)
 
         subjectLine = StudyTheme.label(this, "AI Whiteboard Teacher", 13.5f, pal.textPrimary, bold = true).apply {
@@ -502,7 +507,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             visibility = View.GONE
         }
         fsPlay = StudyTheme.iconButton(this, R.drawable.ic_study_pause, "Play or pause", pal, sizeDp = 44, padDp = 11, tint = pal.floatPanelInk) {
-            vm.playback.togglePause()
+            vm.togglePlay(); board.followPen = true
         }
         fsOverlay.addView(fsPlay)
         fsOverlay.addView(
@@ -547,8 +552,8 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         draftingPill.addView(draftingText)
         boardFrame.addView(
             draftingPill,
-            FrameLayout.LayoutParams(-2, -2, Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL).apply {
-                setMargins(dp(16), 0, dp(16), dp(24))
+            FrameLayout.LayoutParams(-2, -2, Gravity.CENTER_HORIZONTAL or Gravity.TOP).apply {
+                setMargins(dp(16), dp(12), dp(16), 0)
             }
         )
 
@@ -590,18 +595,23 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
 
         explainCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(14), dp(10), dp(14), dp(10))
+            setPadding(dp(12), dp(8), dp(12), dp(8))
             layoutTransition = LayoutTransition()
             isClickable = true
             isFocusable = true
             setOnClickListener {
                 explainExpanded = !explainExpanded
-                explainText.maxLines = if (explainExpanded) 12 else if (landscape) 6 else 4
+                explainText.maxLines = if (explainExpanded) 10 else if (landscape) 5 else 3
                 explainToggle.text = if (explainExpanded) "Less ▴" else "More ▾"
             }
         }
         StudyTheme.applyGlass(explainCard, 20f, pal)
 
+        val explainMetaScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            isFillViewport = true
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
         val explainMeta = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -661,20 +671,21 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             setPadding(dp(8), dp(2), dp(2), dp(2))
         }
         explainMeta.addView(explainToggle)
-        explainCard.addView(explainMeta)
+        explainMetaScroll.addView(explainMeta)
+        explainCard.addView(explainMetaScroll)
 
-        explainText = StudyTheme.label(this, "", 14f, pal.textPrimary).apply {
-            maxLines = if (landscape) 6 else 4
+        explainText = StudyTheme.label(this, "", 13.5f, pal.textPrimary).apply {
+            maxLines = if (landscape) 5 else 3
             ellipsize = TextUtils.TruncateAt.END
-            setLineSpacing(dpf(2.5f), 1.08f)
-            setPadding(0, dp(6), 0, 0)
+            setLineSpacing(dpf(2f), 1.06f)
+            setPadding(0, dp(5), 0, 0)
         }
         explainCard.addView(explainText)
 
         explainActions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(8), 0, 0)
+            setPadding(0, dp(5), 0, 0)
             visibility = View.GONE
         }
         explainReplayChip = StudyTheme.chip(this, "Replay step", pal, minHeightDp = 44) {
@@ -812,7 +823,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         quickScroller.addView(quickRow)
         box.addView(quickScroller, LinearLayout.LayoutParams(-2, -2))
 
-        resumeButton = StudyTheme.label(this, "", 13f, StudyTheme.onColor(paperAccent, Color.WHITE, Color.BLACK), bold = true).apply {
+        resumeButton = StudyTheme.label(this, "", 13f, StudyTheme.onColor(paperAccent, StudyPalette.PAPER, paperInk), bold = true).apply {
             minHeight = dp(46)
             gravity = Gravity.CENTER
             setPadding(dp(18), dp(10), dp(18), dp(10))
@@ -1297,6 +1308,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
                 launch { vm.isNarrating.collect { refresh() } }
                 launch { vm.activeVoiceName.collect { refresh() } }
                 launch { vm.narrationAmplitude.collect { updateVoiceWave(it) } }
+                launch { vm.spotlight.collect { s -> board.setNarrationSpotlight(s.active, s.blockIndex, s.blockProgress, s.transcript) } }
                 launch { vm.events.collect { handle(it) } }
                 launch { StudyBoardController.commands.collect { executeBoardCommand(it) } }
             }

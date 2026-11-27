@@ -841,4 +841,30 @@ class StudyControllerAndVoiceUpgradeTest {
         assertTrue(started.contains(2 to false))
         assertTrue(started.contains(3 to false))
     }
+
+    @Test fun playbackSyncsBlockWriteProgressWithSpokenVoicePacing() {
+        val pb = StudyPlayback()
+        pb.setGenerationOpen(false)
+        pb.addBlock(2_000L)
+        pb.addBlock(6_000L)
+        pb.setBlockDuration(1, 9_000L)
+        pb.jumpToEnd()
+        pb.startContinuousFrom(1)
+        pb.narrationBusy = true
+
+        // Voice is only 25% into block 1: pen advances smoothly but does not finish far ahead
+        pb.syncContinuousProgress(1, 0.25f)
+        repeat(40) { pb.advance(100) }
+        assertTrue(pb.progress <= 0.35f)
+        assertEquals(1, pb.current)
+
+        // Voice jumps to 80% of block 1: pen catches up cleanly right alongside the voice
+        pb.syncContinuousProgress(1, 0.80f)
+        assertTrue(pb.progress >= 0.72f)
+
+        // Voice reaches end of block 1: pen completes smoothly
+        pb.syncContinuousProgress(1, 1.0f)
+        repeat(30) { pb.advance(100) }
+        assertEquals(1f, pb.progress, 0.01f)
+    }
 }

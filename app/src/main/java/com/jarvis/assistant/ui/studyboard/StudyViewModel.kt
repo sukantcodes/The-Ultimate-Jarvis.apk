@@ -76,6 +76,13 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         data class Reveal(val block: Int) : Event()
     }
 
+    data class Spotlight(
+        val active: Boolean = false,
+        val blockIndex: Int = -1,
+        val blockProgress: Float = 0f,
+        val transcript: String = ""
+    )
+
     val ui = MutableStateFlow(Ui())
     val blocks = MutableStateFlow<List<BoardBlock>>(emptyList())
     /** Bumped whenever playback or the session changes, so the screen refreshes its controls. */
@@ -87,6 +94,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     val narrationAmplitude = MutableStateFlow(0f)
     val isNarrating = MutableStateFlow(false)
     val activeVoiceName = MutableStateFlow("")
+    val spotlight = MutableStateFlow(Spotlight())
     val events = MutableSharedFlow<Event>(extraBufferCapacity = 16)
     val interrupted = MutableStateFlow<Pair<String, String>?>(null)
 
@@ -109,6 +117,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     private var continuousActive = false
     private var continuousPlan: StudyVoiceCodec.ContinuousPlan? = null
     private var continuousEndBlock = -1
+    private var singleNarratingBlock = -1
 
     private class StagedBlock(val block: BoardBlock, val speech: String, val explanation: String)
 
@@ -159,6 +168,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                         voice?.pause()
                         isNarrating.value = false
                         narrationAmplitude.value = 0f
+                        spotlight.value = Spotlight()
                     } else {
                         stopSpeech()
                     }
@@ -637,7 +647,9 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     // Playback, board and selection controls
     // ======================================================================================================
 
-    fun togglePlay() = playback.togglePause()
+    fun togglePlay() {
+        if (playback.state == StudyPlayback.State.FINISHED) replayAll() else playback.togglePause()
+    }
     fun next() = playback.next()
     fun previous() = playback.previous()
     fun replayStep() = playback.replayCurrent()
@@ -820,13 +832,42 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 narrationAmplitude.value = if (isNarrating.value) amplitude else 0f
             }
             override fun onProgress(token: Long, progressFrac: Float, spokenTranscript: String) {
-                if (token != narrationToken || !continuousActive) return
+                if (token != narrationToken) return
+                if (!continuousActive) {
+                    val idx = singleNarratingBlock
+                    if (idx in blocks.value.indices) {
+                        playback.syncContinuousProgress(idx, progressFrac)
+                        spotlight.value = Spotlight(
+                            active = true,
+                            blockIndex = idx,
+                            blockProgress = progressFrac.coerceIn(0f, 1f),
+                            transcript = spokenTranscript
+                        )
+                    }
+                    return
+                }
                 val plan = continuousPlan ?: return
                 val targetBlock = resolveContinuousTargetBlock(plan, progressFrac, spokenTranscript, playback.current)
                 if (targetBlock > playback.current && targetBlock <= continuousEndBlock) {
                     playback.advanceContinuous(targetBlock)
                     bump()
                 }
+                val curBlock = playback.current
+                val curSeg = plan.segments.firstOrNull { it.blockIndex == curBlock }
+                    ?: plan.segments.lastOrNull { it.blockIndex <= curBlock }
+                val localFrac = if (curSeg != null) {
+                    val span = (curSeg.endFrac - curSeg.startFrac).coerceAtLeast(0.01f)
+                    ((progressFrac - curSeg.startFrac) / span).coerceIn(0f, 1f)
+                } else {
+                    progressFrac.coerceIn(0f, 1f)
+                }
+                playback.syncContinuousProgress(curBlock, localFrac)
+                spotlight.value = Spotlight(
+                    active = true,
+                    blockIndex = curBlock,
+                    blockProgress = localFrac,
+                    transcript = spokenTranscript
+                )
             }
             override fun onFinished(token: Long, ok: Boolean, reason: String) {
                 if (token != narrationToken) return
@@ -834,6 +875,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 val endIdx = continuousEndBlock
                 continuousActive = false
                 continuousPlan = null
+                singleNarratingBlock = -1
                 if (wasContinuous && endIdx in (playback.current + 1) until blocks.value.size) {
                     playback.advanceContinuous(endIdx)
                 }
@@ -841,6 +883,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 playback.narrationBusy = false
                 isNarrating.value = false
                 narrationAmplitude.value = 0f
+                spotlight.value = Spotlight()
                 if (!ok && !voiceFailureShown) {
                     voiceFailureShown = true
                     toast(reason.ifEmpty { "Voice narration could not play on this step." })
@@ -903,12 +946,22 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         continuousActive = true
         continuousPlan = plan
         continuousEndBlock = endBlockIdx
+        singleNarratingBlock = -1
+
+        // Align block write-on durations dynamically to each step's share of spoken explanation
+        for (seg in plan.segments) {
+            val segMs = (plan.estimatedDurationMs * (seg.endFrac - seg.startFrac)).toLong().coerceAtLeast(1_100L)
+            playback.setBlockDuration(seg.blockIndex, segMs)
+        }
 
         playback.startContinuousFrom(startBlockIdx)
         val cloudOk = engine.cloudAvailable()
         playback.narrationBusy = true
         playback.startGate = cloudOk
-        if (cloudOk) isNarrating.value = true
+        if (cloudOk) {
+            isNarrating.value = true
+            spotlight.value = Spotlight(active = true, blockIndex = startBlockIdx, blockProgress = 0.05f, transcript = "")
+        }
 
         val myToken = engine.speakContinuous(plan, effectiveVoiceLanguage())
         narrationToken = myToken
@@ -922,6 +975,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 playback.narrationBusy = false
                 isNarrating.value = false
                 narrationAmplitude.value = 0f
+                spotlight.value = Spotlight()
                 bump()
             }
         }, maxGuardMs)
@@ -936,12 +990,22 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     private fun narrate(index: Int) {
         if (!prefs.voiceOn || playback.state == StudyPlayback.State.PAUSED) return
         val text = speeches.getOrNull(index).orEmpty()
-        if (text.isBlank()) { playback.narrationBusy = false; playback.startGate = false; isNarrating.value = false; return }
+        if (text.isBlank()) {
+            playback.narrationBusy = false
+            playback.startGate = false
+            isNarrating.value = false
+            spotlight.value = Spotlight()
+            return
+        }
         val engine = voiceEngine()
         activeVoiceName.value = engine.activeVoiceName()
+        singleNarratingBlock = index
         playback.narrationBusy = true
         val available = engine.cloudAvailable()
-        if (available) isNarrating.value = true
+        if (available) {
+            isNarrating.value = true
+            spotlight.value = Spotlight(active = true, blockIndex = index, blockProgress = 0.08f, transcript = "")
+        }
         playback.startGate = available
         val token = engine.speak(text, localeFor(text), effectiveVoiceLanguage())
         narrationToken = token
@@ -951,6 +1015,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 playback.narrationBusy = false
                 isNarrating.value = false
                 narrationAmplitude.value = 0f
+                spotlight.value = Spotlight()
                 bump()
             }
         }, 45_000L)
@@ -962,11 +1027,13 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         narrationToken++
         continuousActive = false
         continuousPlan = null
+        singleNarratingBlock = -1
         voice?.stop()
         playback.narrationBusy = false
         playback.startGate = false
         isNarrating.value = false
         narrationAmplitude.value = 0f
+        spotlight.value = Spotlight()
         bump()
     }
 
