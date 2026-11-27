@@ -37,7 +37,9 @@ object JarvisVoiceController {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     fun isSpeaking(): Boolean =
-        isSpeakingState || JarvisConversationService.conversationState.value == ConversationState.SPEAKING
+        isSpeakingState ||
+            JarvisConversationService.conversationState.value == ConversationState.SPEAKING ||
+            com.jarvis.assistant.study.StudyBoardController.isNarrating.value
 
     fun addSpeakingStateListener(listener: (Boolean) -> Unit) {
         synchronized(listeners) {

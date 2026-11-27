@@ -264,11 +264,17 @@ class StudyAssembler(private val question: String, private val level: String) {
          * strict board filter, but markup, symbols and chatbot filler never reach the speaker.
          */
         fun cleanSpoken(raw: String): String {
-            var s = raw.trim().replace("**", "").replace("__", "").replace("$$", "").replace("$", "").replace("`", "")
+            var s = raw.trim()
+                .replace("**", "")
+                .replace("__", "")
+                .replace("$$", "")
+                .replace("$", "")
+                .replace("`", "")
+                .replace("\u200B", "")
             s = s.replace(Regex("\\\\[a-zA-Z]+"), " ").replace(Regex("[{}^_\\\\]"), " ")
             s = cleanLine(s)
             if (s.isEmpty() || SPOKEN_REJECT.containsMatchIn(s)) return ""
-            return s.take(420)
+            return s.take(2000)
         }
 
         fun cleanExplanation(raw: String): String {

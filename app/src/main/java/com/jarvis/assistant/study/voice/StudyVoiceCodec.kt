@@ -30,11 +30,21 @@ object StudyVoiceCodec {
     }
 
     private val LANGUAGE_TAGS = mapOf(
-        "english" to "en-IN", "hindi" to "hi-IN", "hinglish" to "en-IN", "bengali" to "bn-IN", "bangla" to "bn-IN", "marathi" to "mr-IN",
-        "gujarati" to "gu-IN", "tamil" to "ta-IN", "telugu" to "te-IN", "kannada" to "kn-IN", "malayalam" to "ml-IN", "punjabi" to "pa-IN",
-        "urdu" to "ur-IN", "odia" to "or-IN", "assamese" to "as-IN", "nepali" to "ne-NP", "spanish" to "es-ES", "french" to "fr-FR",
-        "german" to "de-DE", "portuguese" to "pt-BR", "arabic" to "ar-SA", "indonesian" to "id-ID", "japanese" to "ja-JP", "korean" to "ko-KR",
-        "chinese" to "zh-CN"
+        "english" to "en-IN", "hindi" to "hi-IN", "hinglish" to "en-IN", "bhojpuri" to "hi-IN", "maithili" to "hi-IN", "sanskrit" to "hi-IN",
+        "bengali" to "bn-IN", "bangla" to "bn-IN", "marathi" to "mr-IN", "gujarati" to "gu-IN", "tamil" to "ta-IN", "telugu" to "te-IN",
+        "kannada" to "kn-IN", "malayalam" to "ml-IN", "punjabi" to "pa-IN", "urdu" to "ur-IN", "odia" to "or-IN", "assamese" to "as-IN",
+        "nepali" to "ne-NP", "spanish" to "es-ES", "french" to "fr-FR", "german" to "de-DE", "portuguese" to "pt-BR", "arabic" to "ar-SA",
+        "indonesian" to "id-ID", "japanese" to "ja-JP", "korean" to "ko-KR", "chinese" to "zh-CN", "russian" to "ru-RU", "italian" to "it-IT",
+        "turkish" to "tr-TR", "vietnamese" to "vi-VN", "thai" to "th-TH"
+    )
+
+    private val TAG_TO_DISPLAY = mapOf(
+        "en-IN" to "English", "hi-IN" to "Hindi", "bn-IN" to "Bengali", "mr-IN" to "Marathi", "gu-IN" to "Gujarati",
+        "ta-IN" to "Tamil", "te-IN" to "Telugu", "kn-IN" to "Kannada", "ml-IN" to "Malayalam", "pa-IN" to "Punjabi",
+        "ur-IN" to "Urdu", "or-IN" to "Odia", "as-IN" to "Assamese", "ne-NP" to "Nepali", "es-ES" to "Spanish",
+        "fr-FR" to "French", "de-DE" to "German", "pt-BR" to "Portuguese", "ar-SA" to "Arabic", "id-ID" to "Indonesian",
+        "ja-JP" to "Japanese", "ko-KR" to "Korean", "zh-CN" to "Chinese", "ru-RU" to "Russian", "it-IT" to "Italian",
+        "tr-TR" to "Turkish", "vi-VN" to "Vietnamese", "th-TH" to "Thai"
     )
 
     /**
@@ -42,7 +52,8 @@ object StudyVoiceCodec {
      * Bengali explanation is spoken as Bengali without the student choosing anything.
      */
     fun languageTag(language: String, text: String): String {
-        LANGUAGE_TAGS[language.trim().lowercase()]?.let { return it }
+        val norm = language.trim().lowercase()
+        LANGUAGE_TAGS[norm]?.let { return it }
         for (ch in text) {
             when (ch) {
                 in '\u0900'..'\u097F' -> return "hi-IN"
@@ -55,12 +66,21 @@ object StudyVoiceCodec {
                 in '\u0C80'..'\u0CFF' -> return "kn-IN"
                 in '\u0D00'..'\u0D7F' -> return "ml-IN"
                 in '\u0600'..'\u06FF' -> return "ar-SA"
+                in '\u0400'..'\u04FF' -> return "ru-RU"
+                in '\u0E00'..'\u0E7F' -> return "th-TH"
                 in '\u3040'..'\u30FF' -> return "ja-JP"
                 in '\uAC00'..'\uD7AF' -> return "ko-KR"
                 in '\u4E00'..'\u9FFF' -> return "zh-CN"
             }
         }
         return "en-IN"
+    }
+
+    /** Human-readable spoken language name for prompting multilingual Live/TTS neural voices accurately. */
+    fun resolveLanguageName(language: String, text: String): String {
+        val trimmed = language.trim()
+        if (trimmed.isNotEmpty() && !trimmed.equals("auto", true)) return trimmed
+        return TAG_TO_DISPLAY[languageTag("auto", text)] ?: "English"
     }
 
     /** One entry of Google's model list. */

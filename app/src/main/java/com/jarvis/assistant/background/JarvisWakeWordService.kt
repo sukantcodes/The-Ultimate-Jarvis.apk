@@ -128,7 +128,9 @@ class JarvisWakeWordService : Service() {
 
     private val resumeListeningRunnable: Runnable = Runnable {
         if (!running) return@Runnable
-        if (com.jarvis.assistant.voice.JarvisVoiceController.isSpeaking()) {
+        if (com.jarvis.assistant.voice.JarvisVoiceController.isSpeaking() ||
+            com.jarvis.assistant.study.StudyBoardController.isAudioSuppressionActive()
+        ) {
             Log.d(TAG, "Speech output still active; postponing listening resumption.")
             mainHandler.postDelayed(resumeListeningRunnable, ECHO_GUARD_DELAY_MS)
             return@Runnable
@@ -261,8 +263,10 @@ class JarvisWakeWordService : Service() {
     private fun startListeningForMode(mode: ListenMode) {
         if (!running) return
 
-        if (com.jarvis.assistant.voice.JarvisVoiceController.isSpeaking()) {
-            Log.d(TAG, "[$mode] Speech playback is currently active; withholding mic acquisition.")
+        if (com.jarvis.assistant.voice.JarvisVoiceController.isSpeaking() ||
+            com.jarvis.assistant.study.StudyBoardController.isAudioSuppressionActive()
+        ) {
+            Log.d(TAG, "[$mode] Speech playback or Study Board audio is active; withholding mic acquisition.")
             transitionTo(WakeState.SPEAKING)
             mainHandler.removeCallbacks(resumeListeningRunnable)
             mainHandler.postDelayed(resumeListeningRunnable, ECHO_GUARD_DELAY_MS)

@@ -34,6 +34,13 @@ sealed class JarvisCommand {
     object RecallFavoriteSong : JarvisCommand()
     object RecallRoutine : JarvisCommand()
     object GoToBackground : JarvisCommand()
+    data class StudyBoardAction(
+        val toolName: String,
+        val action: String = "",
+        val query: String = "",
+        val value: String = "",
+        val stepNumber: Int? = null
+    ) : JarvisCommand()
     /** Universal typing: optionally opens [intent].app first, then types/replaces/clears as ONE task. */
     data class TypeText(val intent: com.jarvis.assistant.automation.typing.TypeIntent) : JarvisCommand()
 }

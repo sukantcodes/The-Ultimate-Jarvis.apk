@@ -300,11 +300,22 @@ class JarvisConversationService : Service() {
         }
 
         fun startWakeWordMonitoring(context: Context) {
+            if (com.jarvis.assistant.study.StudyBoardController.isAudioSuppressionActive()) return
             JarvisWakeWordService.startService(context)
         }
 
         fun stopWakeWordMonitoring(context: Context) {
             JarvisWakeWordService.stopService(context)
+        }
+
+        /**
+         * Called by [StudyVoice] / [StudyVoiceInput] when Study Board begins or stops speaking aloud or using the mic.
+         * Suspends Vosk standby wake listening and active mic upload so Jarvis cannot accidentally wake on speaker audio,
+         * and restores wake monitoring seamlessly once narration completes or pauses.
+         */
+        fun onStudyBoardNarrationChanged(context: Context, active: Boolean) {
+            val instance = activeInstance ?: return
+            instance.handleStudyBoardAudioChanged(active)
         }
     }
 
@@ -1663,14 +1674,16 @@ class JarvisConversationService : Service() {
                     return@AudioRecorder
                 }
 
-                // Assistant is speaking / AudioTrack or voice engine is actively rendering sound:
+                // Assistant is speaking / AudioTrack or voice engine or Study Board is actively rendering sound:
                 val isSpeakerActive = (audioPlayer?.isPlaying() == true) || (tts?.isSpeaking == true) ||
                         (_conversationState.value == ConversationState.SPEAKING) ||
-                        com.jarvis.assistant.voice.JarvisVoiceController.isSpeaking()
+                        com.jarvis.assistant.voice.JarvisVoiceController.isSpeaking() ||
+                        com.jarvis.assistant.study.StudyBoardController.isAudioSuppressionActive()
 
                 if (isSpeakerActive) {
                     consecutiveVoicedFrames = 0
-                    // Suppress mic audio from streaming to Gemini while assistant is actively speaking.
+                    preConnectAudioQueue.clear()
+                    // Suppress mic audio from streaming to Gemini while assistant or Study Board is actively speaking.
                     // Jarvis completes speaking its entire answer first before listening to the next question.
                     return@AudioRecorder
                 }
@@ -3159,12 +3172,15 @@ class JarvisConversationService : Service() {
                     }
 
                     in com.jarvis.assistant.study.StudyTools.NAMES -> {
-                        // Study Board: opens the whiteboard teacher with the spoken question and runs it.
+                        // Study Board: opens whiteboard / types question / controls playback or board settings.
                         val study = com.jarvis.assistant.study.StudyTools.execute(applicationContext, name, args)
                         val studyKeys = study.keys()
                         while (studyKeys.hasNext()) {
                             val key = studyKeys.next()
                             result.put(key, study.get(key))
+                        }
+                        if (study.optBoolean("success", false) && study.optBoolean("yield_to_study_voice", false)) {
+                            scheduleStandbyAfterStudyBoardHandoff()
                         }
                     }
 
@@ -3717,12 +3733,12 @@ class JarvisConversationService : Service() {
             }
         }
 
-        // --- 9. App Launch: "Opening [App Name]" (fallback if not a website) ---
+        // --- 9. App Launch: "Opening [App Name]" (fallback if not a website or Study Board) ---
         else if (clean.startsWith("opening ")) {
             val appMatch = Regex("^opening\\s+([a-zA-Z0-9\\s]+?)(?:\\s+app)?$").find(clean)
             if (appMatch != null) {
                 val app = appMatch.groupValues[1].trim()
-                if (app.isNotBlank() && !listOf("website", "tab", "browser", "chrome").contains(app)) {
+                if (app.isNotBlank() && !listOf("website", "tab", "browser", "chrome", "study board", "the study board").contains(app)) {
                     command = com.jarvis.assistant.automation.command.JarvisCommand.OpenApp(app)
                     matchSource = "ASSISTANT_OPEN_APP"
                 }
@@ -3765,6 +3781,14 @@ class JarvisConversationService : Service() {
                     // The local engine owns this turn, so its real outcome (verified, blocked or failed) is what the user hears.
                     announce(result)
                     speakAnnouncement(result)
+                } else if (command is com.jarvis.assistant.automation.command.JarvisCommand.StudyBoardAction) {
+                    // Silence Gemini's parallel spoken answer so only Study Board's live teacher voice speaks cleanly.
+                    audioPlayer?.flush()
+                    if (command.toolName == com.jarvis.assistant.study.StudyTools.EXPLAIN ||
+                        command.action in setOf("play", "replay_step", "replay_all", "next", "previous", "select_step")
+                    ) {
+                        scheduleStandbyAfterStudyBoardHandoff()
+                    }
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -3897,15 +3921,19 @@ class JarvisConversationService : Service() {
     // ---------------------------------------------------------------------
 
     private fun enterStandby(announce: Boolean = false) {
+        val studySuppress = com.jarvis.assistant.study.StudyBoardController.isAudioSuppressionActive()
         if (_isStandby.value) {
-            // Already in standby: just make sure the wake listener is really alive.
-            if (voskSpeechService == null) startWakeListening()
+            // Already in standby: ensure wake listener stays paused if Study Board is narrating, otherwise alive.
+            if (studySuppress) releaseWakeEngine()
+            else if (voskSpeechService == null) startWakeListening()
             return
         }
         WakeKeepAlive.setEnabled(this, true)
         WakeKeepAlive.clearResumeNotification(this)
         abandonAudioDuckFocus()
-        com.jarvis.assistant.audio.JarvisSoundEffects.playStandbySound()
+        if (!com.jarvis.assistant.study.StudyBoardController.isBoardVisible.value) {
+            com.jarvis.assistant.audio.JarvisSoundEffects.playStandbySound()
+        }
         isPendingBackgroundTransition = false
         stopActiveConversation()
         currentTurnAssistantText.clear()
@@ -3918,8 +3946,42 @@ class JarvisConversationService : Service() {
 
         serviceScope.launch(Dispatchers.Main) {
             delay(500)
-            if (_isStandby.value && voskSpeechService == null) {
+            if (_isStandby.value && voskSpeechService == null &&
+                !com.jarvis.assistant.study.StudyBoardController.isAudioSuppressionActive()
+            ) {
                 startWakeListening()
+            }
+        }
+    }
+
+    private fun handleStudyBoardAudioChanged(active: Boolean) {
+        serviceScope.launch(Dispatchers.Main) {
+            if (active) {
+                releaseWakeEngine()
+                consecutiveVoicedFrames = 0
+                preConnectAudioQueue.clear()
+            } else if (_isStandby.value && voskSpeechService == null && !isPhoneCallActive() &&
+                !com.jarvis.assistant.study.StudyBoardController.isAudioSuppressionActive()
+            ) {
+                startWakeListening()
+            }
+        }
+    }
+
+    private fun scheduleStandbyAfterStudyBoardHandoff() {
+        serviceScope.launch(Dispatchers.Main) {
+            delay(450L)
+            val deadline = System.currentTimeMillis() + 8_000L
+            while (isActive && _isSessionOn.value &&
+                (audioPlayer?.isPlaying() == true || tts?.isSpeaking == true) &&
+                System.currentTimeMillis() < deadline
+            ) {
+                delay(120L)
+            }
+            if (_isSessionOn.value && !isAutonomousTaskRunning && !autonomousWaitingForUser) {
+                returnToStandbyAfterAuthorizedTurn = false
+                suppressMicUploadUntilVoiceCommandComplete = false
+                enterStandby(announce = false)
             }
         }
     }
@@ -3947,7 +4009,9 @@ class JarvisConversationService : Service() {
         lastWakeRecycleAt = System.currentTimeMillis()
         serviceScope.launch(Dispatchers.Main) {
             delay(delayMs)
-            if (_isStandby.value && voskSpeechService == null) startWakeListening()
+            if (_isStandby.value && voskSpeechService == null &&
+                !com.jarvis.assistant.study.StudyBoardController.isAudioSuppressionActive()
+            ) startWakeListening()
         }
     }
 
@@ -3971,6 +4035,10 @@ class JarvisConversationService : Service() {
             return
         }
         if (_isStandby.value) {
+            if (com.jarvis.assistant.study.StudyBoardController.isAudioSuppressionActive()) {
+                if (voskSpeechService != null) releaseWakeEngine()
+                return
+            }
             if (voskSpeechService == null) {
                 Log.w("JarvisService", "Heartbeat: the wake listener was not running; starting it")
                 startWakeListening()
@@ -3982,6 +4050,7 @@ class JarvisConversationService : Service() {
 
     private fun startWakeListening() {
         if (!_isStandby.value) return
+        if (com.jarvis.assistant.study.StudyBoardController.isAudioSuppressionActive()) return
         if (voskSpeechService != null) return
 
         val model = VoskModelManager.model
@@ -4058,6 +4127,7 @@ class JarvisConversationService : Service() {
 
     private fun checkVoskHypothesis(hypothesisJson: String?) {
         if (hypothesisJson.isNullOrBlank() || !_isStandby.value || isPhoneCallActive()) return
+        if (com.jarvis.assistant.study.StudyBoardController.isAudioSuppressionActive()) return
         if (System.currentTimeMillis() - standbyActivatedTime < 800L) return
         try {
             val json = JSONObject(hypothesisJson)
@@ -4169,6 +4239,7 @@ class JarvisConversationService : Service() {
 
     private fun onWakeWordDetected(commandText: String? = null) {
         if (!_isStandby.value) return
+        if (com.jarvis.assistant.study.StudyBoardController.isAudioSuppressionActive()) return
         wakeAuthorizationArmed = true
         requestAudioDuckFocus()
         vibrateBriefly()
@@ -4209,7 +4280,9 @@ class JarvisConversationService : Service() {
         }
         if (_isStandby.value) {
             releaseWakeEngine()
-            startWakeListening()
+            if (!com.jarvis.assistant.study.StudyBoardController.isAudioSuppressionActive()) {
+                startWakeListening()
+            }
         }
         updateNotification()
     }

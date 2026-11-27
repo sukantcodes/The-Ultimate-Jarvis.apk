@@ -105,8 +105,9 @@ class CloudVoiceEngine(private val context: Context) {
             return null
         }
 
-        // Endpoint for Gemini audio generation
-        val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey"
+        // Use live/current Gemini TTS model (never retired gemini-2.0-flash) and honor user voice selection
+        val modelId = "gemini-2.5-flash-preview-tts"
+        val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/$modelId:generateContent?key=$apiKey"
         val voiceName = if (profile.cloudVoiceIdentifier.isNotBlank()) profile.cloudVoiceIdentifier else "Charon"
 
         val requestJson = JsonObject().apply {
@@ -166,8 +167,15 @@ class CloudVoiceEngine(private val context: Context) {
                     val inlineData = p.asJsonObject.getAsJsonObject("inlineData")
                     if (inlineData != null) {
                         val base64Data = inlineData.get("data")?.asString
+                        val mimeType = inlineData.get("mimeType")?.asString.orEmpty()
                         if (!base64Data.isNullOrBlank()) {
-                            return Base64.decode(base64Data, Base64.DEFAULT)
+                            val raw = Base64.decode(base64Data, Base64.DEFAULT)
+                            return if (com.jarvis.assistant.study.voice.StudyVoiceCodec.isRawPcm(mimeType)) {
+                                com.jarvis.assistant.study.voice.StudyVoiceCodec.pcm16ToWav(
+                                    raw,
+                                    com.jarvis.assistant.study.voice.StudyVoiceCodec.sampleRate(mimeType)
+                                )
+                            } else raw
                         }
                     }
                 }
@@ -192,9 +200,10 @@ class CloudVoiceEngine(private val context: Context) {
 
         val url = "https://api.elevenlabs.io/v1/text-to-speech/$voiceId"
 
+        val modelId = if (text.any { it.code > 127 }) "eleven_multilingual_v2" else "eleven_turbo_v2_5"
         val payload = JsonObject().apply {
             addProperty("text", text)
-            addProperty("model_id", "eleven_turbo_v2_5")
+            addProperty("model_id", modelId)
             val voiceSettings = JsonObject().apply {
                 addProperty("stability", 0.5f)
                 addProperty("similarity_boost", 0.75f)

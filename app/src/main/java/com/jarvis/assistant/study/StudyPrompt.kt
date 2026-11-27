@@ -22,11 +22,11 @@ data class StudyProfile(
     }
 
     fun languageRule(): String = when (language.trim().lowercase()) {
-        "english" -> "Write every explanation in simple English."
-        "hindi" -> "Write every explanation in Hindi (Devanagari script). Keep formulas, symbols and numbers as they are."
-        "hinglish" -> "Write every explanation in Hinglish: Hindi spoken naturally in Roman letters, with common English technical terms."
-        "auto", "" -> "Write explanations in the language the student used in the question; if the question is only maths or symbols, use simple English."
-        else -> "Write every explanation in ${language.trim()}. Keep formulas, symbols and numbers as they are."
+        "english" -> "Write every board line, explanation, and spoken \"say\" field in clear, natural English."
+        "hindi" -> "Write every board line, explanation, and spoken \"say\" field in natural Hindi (Devanagari script). Keep math formulas, symbols, and numbers intact in \"content\" and spell them phonetically as natural Hindi words inside \"say\"."
+        "hinglish" -> "Write every board line, explanation, and spoken \"say\" field in natural Hinglish: conversational Hindi spoken in Roman script with clear English technical terms."
+        "auto", "" -> "Detect the student's language from the question and write EVERY explanation and spoken \"say\" field in that exact language smoothly (use simple English if the question is purely math symbols)."
+        else -> "Write every board line, explanation, and spoken \"say\" field fluently in ${language.trim()}. Keep formulas, symbols, and numbers intact in \"content\", and write \"say\" as warm, natural human speech in ${language.trim()}."
     }
 
     fun depthRule(): String = when (depth) {
@@ -62,22 +62,22 @@ object StudyPrompt {
     const val OUTPUT_RULES = """
 OUTPUT FORMAT (strict): reply with raw JSON objects only, one per line (no markdown, no code fences, no prose outside JSON).
 1. Meta first: {"type":"meta","subject":"Mathematics|Physics|Chemistry|Biology|Computer Science|English|General","topic":"short topic","level":"level"}
-2. Steps in teaching order (each may carry optional "say":"natural spoken teaching line"):
-   - {"type":"given","content":"..."} / {"type":"required","content":"..."}
-   - {"type":"formula","content":"...","explanation":"..."}
-   - {"type":"definition","content":"Term: clear meaning","explanation":"..."}
-   - {"type":"step","content":"...","explanation":"..."}
-   - {"type":"code","content":"code","lang":"python"} (only when code is requested)
-   - {"type":"diagram","content":"","explanation":"...","diagram":{...}}
-3. Last line: {"type":"final","answer":"...","say":"one spoken summary sentence","confidence":"high|medium|low"}
+2. Steps in teaching order (EVERY step MUST include "say":"complete, natural spoken teacher explanation"):
+   - {"type":"given","content":"...","say":"..."} / {"type":"required","content":"...","say":"..."}
+   - {"type":"formula","content":"...","explanation":"...","say":"..."}
+   - {"type":"definition","content":"Term: clear meaning","explanation":"...","say":"..."}
+   - {"type":"step","content":"...","explanation":"...","say":"..."}
+   - {"type":"code","content":"code","lang":"python","explanation":"...","say":"..."} (only when code is requested)
+   - {"type":"diagram","content":"","explanation":"...","diagram":{...},"say":"..."}
+3. Last line: {"type":"final","answer":"...","say":"complete spoken wrap-up stating the exact final result clearly","confidence":"high|medium|low"}
 If unsolvable: {"type":"declined","reason":"..."}
 
 CONTENT RULES
 - Classroom whiteboard style: Never write greetings, filler, summaries or markdown (`**`, `*`, `#`, `` ` ``, ```, `>`). Highlight key phrases via `Term: meaning`, crisp points via `• ` or `1. `, and typed objects (`given`/`formula`/`definition`/`step`/`diagram`/`final`).
 - Math LaTeX inside "content"/"answer" only: \frac{a}{b}, x^{2}, x_{1}, \sqrt{x}, \times, \cdot, \pm, \leq, \geq, \neq, \approx, \rightarrow, \pi, \theta, \Delta, \alpha, \ce{H2O}. No dollar signs, no \[, \textbf, or \color.
 - One move per step; every number must follow from prior steps; check equations/atom counts/signs carefully.
-- "say": brief natural teacher voice in the lesson language; read math as words ("x squared"), never LaTeX syntax.
-- "explanation": one short sentence why the move works (omit if obvious).
+- "say" (REQUIRED on EVERY step, diagram, code, formula, and final): warm, human teacher voice in the exact lesson language explaining EVERY detail written or drawn in that block (read equations as natural words like "x squared", walk through diagram parts/labels clearly, explain code logic simply—never output LaTeX/markdown syntax or chatbot filler).
+- "explanation": concise reasoning shown under the block (why the move works or what the diagram illustrates).
 
 DIAGRAMS in 0-100 coords (artwork centered inside x=18..82, y=14..86 so external labels fit cleanly in left/right margins):
   {"title":"Short Title","items":[...],"graph":{"fn":"x^2-4","xmin":-4,"xmax":4,"xlabel":"x","ylabel":"y"}}
@@ -114,7 +114,7 @@ Diagram Standards:
             "The solution on the board is fixed and is never rewritten. Answer only the doubt, using as few steps as needed (usually 1-4), " +
             "and do not restart the solution.\n" +
             "First line: {\"type\":\"ref\",\"step\":N} where N is the board step number the doubt is about (omit it when the doubt is about the whole solution).\n" +
-            "Then the board steps that answer the doubt, then {\"type\":\"final\",\"answer\":\"...\",\"confidence\":\"high|medium|low\"} where the answer is the one-line resolution.\n" +
+            "Then the board steps that answer the doubt (every step with complete spoken \"say\"), then {\"type\":\"final\",\"answer\":\"...\",\"say\":\"...\",\"confidence\":\"high|medium|low\"} where the answer is the one-line resolution.\n" +
             "If the doubt shows that a step on the board is actually wrong, say so plainly in the first step and give the corrected step.\n" +
             OUTPUT_RULES.substringAfter("CONTENT RULES").let { "CONTENT RULES$it" }
 

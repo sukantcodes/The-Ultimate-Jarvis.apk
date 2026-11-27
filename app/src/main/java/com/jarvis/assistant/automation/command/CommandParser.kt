@@ -44,7 +44,12 @@ object CommandParser {
         return false
     }
 
-    fun parse(input: String, isAwaitingConfirmation: Boolean = false, isAwaitingDisambiguation: Boolean = false): ParsedCommandResult {
+    fun parse(
+        input: String,
+        isAwaitingConfirmation: Boolean = false,
+        isAwaitingDisambiguation: Boolean = false,
+        studyBoardActive: Boolean = com.jarvis.assistant.study.StudyBoardController.isBoardVisible.value
+    ): ParsedCommandResult {
         val clean = input
             .replace(Regex("(?i)^(hey jarvis|hi jarvis|hello jarvis|ok jarvis|jarvis|service)[,\\s]*"), "")
             .replace(Regex("[.,!?:;\"'\\s]+$"), "")
@@ -109,6 +114,9 @@ object CommandParser {
         }
 
         val prefix = "^(?:please\\s+|can you\\s+|could you\\s+|just\\s+)?"
+
+        // 2b. Study Board voice open / explain / full control
+        parseStudyBoardCommand(input, clean, prefix, studyBoardActive)?.let { return it }
 
         // 3. Flashlight / Torch Commands (Strict Anchoring & Natural Variations across Indian languages)
         val flashWords = "(?:flash\\s*light|flash\\s*lite|flashlight|flash|torch|light|batti)"
@@ -673,6 +681,163 @@ object CommandParser {
         }
 
         return ParsedCommandResult(null, 0.0f)
+    }
+
+    private fun parseStudyBoardCommand(
+        rawInput: String,
+        clean: String,
+        prefix: String,
+        studyBoardActive: Boolean
+    ): ParsedCommandResult? {
+        val rawBody = rawInput
+            .replace(Regex("(?i)^(hey jarvis|hi jarvis|hello jarvis|ok jarvis|jarvis|service)[,\\s]*"), "")
+            .trim()
+        val ctl = com.jarvis.assistant.study.StudyTools.CONTROL
+        val exp = com.jarvis.assistant.study.StudyTools.EXPLAIN
+
+        // Open / Close Study Board explicitly
+        if (clean.matches(Regex("$prefix(?:open|launch|start|show)\\s+(?:my\\s+|the\\s+)?study\\s+board(?:\\s+now|\\s+please)?$"))) {
+            return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "open"), 0.99f, "STUDY_BOARD_OPEN")
+        }
+        if (clean.matches(Regex("$prefix(?:close|exit|quit|leave|stop)\\s+(?:my\\s+|the\\s+)?study\\s+board$"))) {
+            return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "close"), 0.99f, "STUDY_BOARD_CLOSE")
+        }
+
+        // Open Study Board AND explain/solve/type question
+        val openAndExplain = Regex("^(?:please\\s+)?(?:open|launch|start)\\s+(?:my\\s+|the\\s+)?study\\s+board\\s+(?:and\\s+|to\\s+)?(?:explain|solve|teach|write|type|draw|show|answer)(?:\\s+me|\\s+this|\\s+about)?\\s+(.+)$", RegexOption.IGNORE_CASE).find(rawBody)
+        if (openAndExplain != null) {
+            val q = openAndExplain.groupValues[1].trim()
+            if (q.length >= 2) {
+                return ParsedCommandResult(JarvisCommand.StudyBoardAction(exp, query = q), 0.98f, "STUDY_BOARD_EXPLAIN_OPEN")
+            }
+        }
+
+        val onBoardExplain = Regex("^(?:please\\s+)?(?:explain|solve|teach|draw|show|write)(?:\\s+me)?\\s+(.+?)\\s+(?:on|in)\\s+(?:the\\s+|my\\s+)?study\\s+board$", RegexOption.IGNORE_CASE).find(rawBody)
+        if (onBoardExplain != null) {
+            val q = onBoardExplain.groupValues[1].trim()
+            if (q.length >= 2) {
+                return ParsedCommandResult(JarvisCommand.StudyBoardAction(exp, query = q), 0.98f, "STUDY_BOARD_EXPLAIN_TARGET")
+            }
+        }
+
+        val boardHinglishExplain = Regex("^(?:please\\s+)?(?:study\\s+board|whiteboard)\\s*(?:pe|par|me|mein)\\s+(.+?)\\s+(?:samjhao|samjha\\s+do|batao|bata\\s+do|solve\\s+karo|solve\\s+kardo|likho|likh\\s+do)$", RegexOption.IGNORE_CASE).find(rawBody)
+        if (boardHinglishExplain != null) {
+            val q = boardHinglishExplain.groupValues[1].trim()
+            if (q.length >= 2) {
+                return ParsedCommandResult(JarvisCommand.StudyBoardAction(exp, query = q), 0.97f, "STUDY_BOARD_EXPLAIN_HINGLISH")
+            }
+        }
+
+        // Natural wake request: "explain me <question>", "explain the question <question>"
+        val explainMeMatch = Regex("^(?:please\\s+|can you\\s+|could you\\s+)?explain\\s+(?:to\\s+)?me\\s+(?:this\\s+question\\s+|the\\s+question\\s+|about\\s+)?(.+)$", RegexOption.IGNORE_CASE).find(rawBody)
+        if (explainMeMatch != null) {
+            val q = explainMeMatch.groupValues[1].trim().trimEnd('.', '?', '!')
+            val vagueTokens = setOf("this", "that", "it", "something", "this question", "that question", "this problem", "again")
+            if (q.length >= 4 && q.lowercase(Locale.ROOT) !in vagueTokens && !q.lowercase(Locale.ROOT).startsWith("why you")) {
+                return ParsedCommandResult(JarvisCommand.StudyBoardAction(exp, query = q), 0.95f, "STUDY_BOARD_EXPLAIN_WAKE")
+            }
+        }
+
+        // Explicit "study board <control>" commands (works from any screen)
+        val boardControlMatch = Regex("^(?:please\\s+)?(?:in\\s+|on\\s+)?(?:the\\s+|my\\s+)?study\\s+board\\s+(.+)$").find(clean)
+            ?: Regex("^(?:please\\s+)?(.+?)\\s+(?:in|on)\\s+(?:the\\s+|my\\s+)?study\\s+board$").find(clean)
+        val boardPhrase = boardControlMatch?.groupValues?.get(1)?.trim()
+
+        val phraseToMatch = boardPhrase ?: if (studyBoardActive) clean else null
+        if (phraseToMatch != null) {
+            val p = phraseToMatch.replace(Regex("^(?:please\\s+|just\\s+)"), "").trim()
+            val explicitPrefix = boardPhrase != null
+            when {
+                p in setOf("play", "resume", "continue", "start reading", "unpause") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "play"), 0.98f, "STUDY_BOARD_PLAY")
+                p in setOf("pause", "pause reading", "pause explanation", "pause lesson", "hold") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "pause"), 0.98f, "STUDY_BOARD_PAUSE")
+                p in setOf("next", "next step", "forward", "agla step") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "next"), 0.98f, "STUDY_BOARD_NEXT")
+                p in setOf("previous", "prev", "previous step", "prev step", "last step", "pichla step") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "previous"), 0.98f, "STUDY_BOARD_PREV")
+                p in setOf("replay", "replay step", "repeat", "repeat step", "say that again") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "replay_step"), 0.98f, "STUDY_BOARD_REPLAY_STEP")
+                p in setOf("replay all", "replay lesson", "restart", "start over", "replay everything") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "replay_all"), 0.98f, "STUDY_BOARD_REPLAY_ALL")
+                p in setOf("stop generation", "stop writing", "cancel lesson") || (explicitPrefix && p == "stop") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "stop_generation"), 0.97f, "STUDY_BOARD_STOP")
+                p in setOf("retry", "try again") && explicitPrefix ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "retry"), 0.97f, "STUDY_BOARD_RETRY")
+                p in setOf("speed up", "faster", "speak faster", "write faster") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "speed_up"), 0.97f, "STUDY_BOARD_FASTER")
+                p in setOf("slow down", "slower", "speak slower", "write slower") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "slow_down"), 0.97f, "STUDY_BOARD_SLOWER")
+                p in setOf("mute", "mute voice", "voice off", "silent board") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "voice_off"), 0.97f, "STUDY_BOARD_MUTE")
+                p in setOf("unmute", "unmute voice", "voice on", "turn on voice", "speak") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "voice_on"), 0.97f, "STUDY_BOARD_UNMUTE")
+                p in setOf("hide notes", "notes off") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "notes_off"), 0.97f, "STUDY_BOARD_NOTES_OFF")
+                p in setOf("show notes", "notes on") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "notes_on"), 0.97f, "STUDY_BOARD_NOTES_ON")
+                p in setOf("undo", "undo step") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "undo"), 0.97f, "STUDY_BOARD_UNDO")
+                p in setOf("redo", "redo step") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "redo"), 0.97f, "STUDY_BOARD_REDO")
+                p in setOf("clear", "clear board", "erase board", "wipe board") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "clear_board"), 0.97f, "STUDY_BOARD_CLEAR")
+                p in setOf("save", "save lesson", "save this lesson", "star lesson") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "save_lesson"), 0.97f, "STUDY_BOARD_SAVE")
+                p in setOf("bookmark", "bookmark step", "bookmark this step") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "bookmark_step"), 0.97f, "STUDY_BOARD_BOOKMARK")
+                p in setOf("zoom in", "bigger") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "zoom_in"), 0.97f, "STUDY_BOARD_ZOOM_IN")
+                p in setOf("zoom out", "smaller") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "zoom_out"), 0.97f, "STUDY_BOARD_ZOOM_OUT")
+                p in setOf("reset zoom", "zoom reset", "normal size") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "zoom_reset"), 0.97f, "STUDY_BOARD_ZOOM_RESET")
+                p in setOf("fit", "fit board", "fit to screen", "show full board") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "fit_board"), 0.97f, "STUDY_BOARD_FIT")
+                p in setOf("follow pen") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "follow_pen"), 0.97f, "STUDY_BOARD_FOLLOW")
+                p in setOf("fullscreen", "full screen", "go fullscreen", "enter fullscreen") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "fullscreen_on"), 0.97f, "STUDY_BOARD_FS_ON")
+                p in setOf("exit fullscreen", "exit full screen", "leave fullscreen") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "fullscreen_off"), 0.97f, "STUDY_BOARD_FS_OFF")
+                p in setOf("history", "open history", "saved lessons", "open saved lessons") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "open_history"), 0.97f, "STUDY_BOARD_HISTORY")
+                p in setOf("camera", "open camera", "take photo") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "open_camera"), 0.97f, "STUDY_BOARD_CAMERA")
+                p in setOf("open image", "pick image", "choose image", "open gallery") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "open_image_picker"), 0.97f, "STUDY_BOARD_IMAGE")
+                p in setOf("open pdf", "import pdf", "pick pdf") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "open_pdf_picker"), 0.97f, "STUDY_BOARD_PDF")
+                p in setOf("settings", "open settings", "teaching settings") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "open_settings"), 0.97f, "STUDY_BOARD_SETTINGS")
+                p in setOf("export", "export notes") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "export_menu"), 0.97f, "STUDY_BOARD_EXPORT")
+                p in setOf("export pdf", "save pdf") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "export_pdf"), 0.97f, "STUDY_BOARD_EXPORT_PDF")
+                p in setOf("export png", "export image", "save image") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "export_png"), 0.97f, "STUDY_BOARD_EXPORT_PNG")
+            }
+
+            val speedSet = Regex("^(?:set\\s+)?speed\\s+(?:to\\s+)?(\\d(?:\\.\\d{1,2})?)x?$").find(p)
+            if (speedSet != null) {
+                return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "set_speed", value = speedSet.groupValues[1]), 0.97f, "STUDY_BOARD_SPEED_SET")
+            }
+            val stepGo = Regex("^(?:go\\s+to\\s+|select\\s+|open\\s+|show\\s+|explain\\s+)?step\\s+(\\d{1,2})$").find(p)
+            if (stepGo != null) {
+                val n = stepGo.groupValues[1].toIntOrNull()
+                if (n != null && n > 0) {
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "select_step", stepNumber = n), 0.97f, "STUDY_BOARD_SELECT_STEP")
+                }
+            }
+            val langSet = Regex("^(?:set\\s+|change\\s+|switch\\s+)?(?:language|voice\\s+language)?\\s*(?:to|in)\\s+([a-zA-Z]+)$").find(p)
+            if (langSet != null) {
+                val lang = langSet.groupValues[1].trim()
+                if (lang.length >= 3) {
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "set_language", value = lang), 0.95f, "STUDY_BOARD_LANG")
+                }
+            }
+        }
+        return null
     }
 
     private fun parseNumericLevel(token: String): Int? {

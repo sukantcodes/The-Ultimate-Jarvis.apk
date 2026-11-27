@@ -609,9 +609,11 @@ class GroqLiveSession(
         } catch (_: Exception) { "" }
         return base.take(3_500) + com.jarvis.assistant.util.ConfirmationPolicy.promptSection() + genderStore.promptSection() + skills + "\n\n" + log + "\n\n" +
             "ENGINE NOTES: You are running on the $engineName engine. Reply in one to three short, natural spoken sentences in the " +
-            "user's language (English, Hindi or Hinglish). Never use markdown, lists, emojis or asterisks. When the user asks " +
-            "you to do something on the phone, call the matching tool instead of describing it. Say a task is done only after " +
-            "the tool result says success. If a tool result starts with REFUSED, follow its instructions exactly."
+            "user's language. Never use markdown, lists, emojis or asterisks. When the user asks " +
+            "you to do something on the phone, call the matching tool instead of describing it. " +
+            "When the user asks to explain a study question, solve homework, draw a diagram, or control the Study Board, " +
+            "call study_board_explain or study_board_control immediately and reply with only a brief 2-5 word confirmation. " +
+            "Say a task is done only after the tool result says success. If a tool result starts with REFUSED, follow its instructions exactly."
     }
 
     private fun buildTools(): JSONArray {

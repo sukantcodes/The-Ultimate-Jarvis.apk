@@ -10,6 +10,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import com.jarvis.assistant.background.JarvisConversationService
 import com.jarvis.assistant.background.JarvisWakeWordService
+import com.jarvis.assistant.study.StudyBoardController
 import com.jarvis.assistant.util.SpeechRecognizerFactory
 import java.util.Locale
 
@@ -75,10 +76,15 @@ class StudyVoiceInput(context: Context) {
             return
         }
 
+        StudyBoardController.setMicInputActive(true)
+        try { JarvisConversationService.onStudyBoardNarrationChanged(app, true) } catch (_: Throwable) {}
         if (JarvisWakeWordService.isRunning()) {
             wakePaused = true
             JarvisWakeWordService.stopService(app)
             main.postDelayed(beginRunnable, 550L)
+        } else if (JarvisConversationService.isStandby.value) {
+            wakePaused = true
+            main.postDelayed(beginRunnable, 280L)
         } else {
             begin()
         }
@@ -222,6 +228,13 @@ class StudyVoiceInput(context: Context) {
         main.removeCallbacks(earlyStopTimeout)
         try { recognizer?.cancel(); recognizer?.destroy() } catch (_: Exception) {}
         recognizer = null
+        StudyBoardController.setMicInputActive(false)
+        try {
+            JarvisConversationService.onStudyBoardNarrationChanged(
+                app,
+                StudyBoardController.isAudioSuppressionActive()
+            )
+        } catch (_: Throwable) {}
         if (wakePaused) {
             wakePaused = false
             main.postDelayed({ try { JarvisConversationService.startWakeWordMonitoring(app) } catch (_: Throwable) {} }, 900L)

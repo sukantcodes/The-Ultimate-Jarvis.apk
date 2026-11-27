@@ -44,7 +44,11 @@ import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.R
 import com.jarvis.assistant.study.Ink
 import com.jarvis.assistant.study.StepKind
+import com.jarvis.assistant.study.StudyBoardController
+import com.jarvis.assistant.study.StudyLevels
 import com.jarvis.assistant.study.StudyPlayback
+import com.jarvis.assistant.study.StudyProfile
+import com.jarvis.assistant.study.voice.StudyVoiceCodec
 import com.jarvis.assistant.study.voice.StudyVoiceInput
 import com.jarvis.assistant.ui.glass.GlassBackdropView
 import com.jarvis.assistant.ui.premium.PremiumDialog
@@ -54,6 +58,9 @@ import com.jarvis.assistant.util.JarvisHandlesInsets
 import com.jarvis.assistant.util.PermissionHelper
 import com.jarvis.assistant.util.ThemeManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -87,9 +94,16 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     private lateinit var draftingText: TextView
     private lateinit var playButton: ImageButton
     private lateinit var speedChip: TextView
+    private lateinit var langChip: TextView
     private lateinit var voiceButton: ImageButton
     private lateinit var notesButton: ImageButton
     private lateinit var bookmarkButton: ImageButton
+    private lateinit var voiceLiveBadge: LinearLayout
+    private lateinit var voiceWaveLabel: TextView
+    private val voiceWaveBars = ArrayList<View>(4)
+    private lateinit var explainActions: LinearLayout
+    private lateinit var explainReplayChip: TextView
+    private lateinit var explainDoubtChip: TextView
     private lateinit var input: EditText
     private lateinit var inputBar: LinearLayout
     private lateinit var sendButton: ImageButton
@@ -126,6 +140,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     private var appliedCustomHex = ""
     private var statusDotPulse: ObjectAnimator? = null
     private var micPulse: ObjectAnimator? = null
+    private var typingJob: Job? = null
 
     // ----- result launchers -----
     private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
@@ -196,17 +211,91 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         runQuestionFrom(intent)
     }
 
-    /** "Explain this in Study Board" by voice: the question arrives in the intent and runs as soon as the board is open. */
+    /** "Explain this in Study Board" by voice: the question arrives in the intent, types into the prompt bar, and runs. */
     private fun runQuestionFrom(intent: Intent?) {
         val q = intent?.getStringExtra(EXTRA_QUESTION)?.trim().orEmpty()
         if (q.isEmpty()) return
+        val mode = intent?.getStringExtra(EXTRA_MODE)?.trim().orEmpty().ifEmpty { "new" }
+        val language = intent?.getStringExtra(EXTRA_LANGUAGE)?.trim()?.takeIf { it.isNotEmpty() }
+        val level = intent?.getStringExtra(EXTRA_LEVEL)?.trim()?.takeIf { it.isNotEmpty() }
+        val depth = intent?.getStringExtra(EXTRA_DEPTH)?.trim()?.takeIf { it.isNotEmpty() }
+        val step = intent?.getIntExtra(EXTRA_STEP, -1)?.takeIf { it > 0 }
         intent?.removeExtra(EXTRA_QUESTION) // so a rotation or a theme rebuild never asks it twice
-        val start = { vm.newQuestionMode(); vm.startLesson(q, emptyList()) }
-        if (vm.isBusy) {
-            // A new spoken question replaces the one being written: stop it, then start the new one.
-            vm.cancel()
-            window.decorView.postDelayed({ if (!isFinishing) start() }, 500L)
-        } else start()
+        intent?.removeExtra(EXTRA_MODE)
+        intent?.removeExtra(EXTRA_LANGUAGE)
+        intent?.removeExtra(EXTRA_LEVEL)
+        intent?.removeExtra(EXTRA_DEPTH)
+        intent?.removeExtra(EXTRA_STEP)
+        typeAndSubmitQuestion(q, mode = mode, language = language, level = level, depth = depth, stepNumber = step, animateTyping = true)
+    }
+
+    /** Visibly types [question] into the composer field (with readback verification) and submits it to the board. */
+    private fun typeAndSubmitQuestion(
+        question: String,
+        mode: String = "new",
+        language: String? = null,
+        level: String? = null,
+        depth: String? = null,
+        stepNumber: Int? = null,
+        animateTyping: Boolean = true
+    ) {
+        val clean = question.trim()
+        if (clean.isEmpty()) return
+        typingJob?.cancel()
+        if (listening) {
+            voice.cancel()
+            listening = false
+        }
+        language?.let { applyLanguageChoice(it, silent = true) }
+        level?.let { applyLevelChoice(it) }
+        depth?.let { applyDepthChoice(it) }
+
+        val targetDoubt = mode.equals("doubt", true) && (vm.lesson?.steps?.isNotEmpty() == true)
+        if (targetDoubt) {
+            vm.askMode.value = StudyViewModel.AskMode.DOUBT
+            if (stepNumber != null) vm.selectStepNumber(stepNumber)
+        } else {
+            vm.newQuestionMode()
+        }
+
+        typingJob = lifecycleScope.launch {
+            if (vm.isBusy) {
+                vm.cancel()
+                delay(320L)
+            }
+            if (!isActive || isFinishing) return@launch
+            hideKeyboard()
+            input.requestFocus()
+            refresh()
+
+            if (animateTyping) {
+                val totalChars = clean.length
+                val stepSize = when {
+                    totalChars <= 24 -> 1
+                    totalChars <= 70 -> 2
+                    totalChars <= 160 -> 4
+                    else -> 8
+                }
+                val tickDelayMs = (420L / maxOf(1, (totalChars + stepSize - 1) / stepSize)).coerceIn(8L, 26L)
+                var pos = 0
+                while (pos < totalChars && isActive) {
+                    pos = (pos + stepSize).coerceAtMost(totalChars)
+                    input.setText(clean.substring(0, pos))
+                    input.setSelection(input.text?.length ?: 0)
+                    delay(tickDelayMs)
+                }
+            }
+            if (input.text.toString().trim() != clean) {
+                input.setText(clean)
+                input.setSelection(input.text?.length ?: 0)
+            }
+            if (animateTyping) delay(120L)
+            if (!isActive || isFinishing) return@launch
+            input.setText("")
+            board.followPen = true
+            refresh()
+            vm.submit(clean)
+        }
     }
 
     // ======================================================================================================
@@ -225,22 +314,24 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val contentColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
+        val compactHeader = resources.configuration.screenWidthDp in 1..360
         // ---- Header ----
         header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(10), dp(6), dp(10), dp(6))
+            setPadding(dp(if (compactHeader) 6 else 10), dp(6), dp(if (compactHeader) 6 else 10), dp(6))
         }
         header.addView(
-            StudyTheme.iconButton(this, R.drawable.ic_back, "Back", pal, sizeDp = 46, padDp = 11) { finish() }.apply {
+            StudyTheme.iconButton(this, R.drawable.ic_back, "Back", pal, sizeDp = 44, padDp = 10) { finish() }.apply {
                 StudyTheme.applyGlass(this, 16f, pal, soft = true)
             }
         )
 
         val titles = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            minimumWidth = 0
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            setPadding(dp(10), 0, dp(8), 0)
+            setPadding(dp(if (compactHeader) 6 else 10), 0, dp(4), 0)
         }
         val eyebrowRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -521,6 +612,44 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             background = StudyTheme.pillDrawable(this@StudyBoardActivity, 10f, StudyTheme.alpha(pal.accent, 0.16f), StudyTheme.alpha(pal.accent, 0.35f))
         }
         explainMeta.addView(stepText)
+
+        voiceLiveBadge = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(24)
+            setPadding(dp(8), dp(2), dp(8), dp(2))
+            background = StudyTheme.pillDrawable(
+                this@StudyBoardActivity,
+                10f,
+                StudyTheme.alpha(pal.secondary, 0.14f),
+                StudyTheme.alpha(pal.secondary, 0.38f)
+            )
+            isClickable = true
+            isFocusable = true
+            visibility = View.GONE
+            setOnClickListener { vm.setVoice(!vm.prefs.voiceOn) }
+        }
+        voiceWaveBars.clear()
+        val barHeightsDp = intArrayOf(6, 11, 8, 12)
+        for (i in 0 until 4) {
+            val bar = View(this).apply {
+                background = StudyTheme.pillDrawable(this@StudyBoardActivity, 2f, pal.secondary, pal.secondary)
+            }
+            voiceWaveBars.add(bar)
+            voiceLiveBadge.addView(
+                bar,
+                LinearLayout.LayoutParams(dp(3), dp(barHeightsDp[i])).apply {
+                    marginEnd = dp(if (i == 3) 5 else 2)
+                }
+            )
+        }
+        voiceWaveLabel = StudyTheme.label(this, "JARVIS", 10.5f, pal.secondary, hud = true).apply {
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+        }
+        voiceLiveBadge.addView(voiceWaveLabel)
+        explainMeta.addView(voiceLiveBadge, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(6) })
+
         explainMeta.addView(Space(this), LinearLayout.LayoutParams(0, 1, 1f))
         verifyText = StudyTheme.label(this, "", 11f, pal.textSecondary, bold = true).apply {
             maxLines = 1
@@ -541,6 +670,35 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             setPadding(0, dp(6), 0, 0)
         }
         explainCard.addView(explainText)
+
+        explainActions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(8), 0, 0)
+            visibility = View.GONE
+        }
+        explainReplayChip = StudyTheme.chip(this, "Replay step", pal, minHeightDp = 44) {
+            vm.replayStep()
+            board.followPen = true
+        }.apply {
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+        }
+        explainDoubtChip = StudyTheme.chip(this, "Ask doubt", pal, minHeightDp = 44) {
+            val activeStep = vm.blocks.value.getOrNull(vm.playback.current)?.stepIndex
+            if (activeStep != null && activeStep in 1..(vm.lesson?.steps?.size ?: 0)) {
+                vm.selectStepNumber(activeStep)
+            } else if (vm.lesson?.steps?.isNotEmpty() == true) {
+                vm.askMode.value = StudyViewModel.AskMode.DOUBT
+            }
+            input.requestFocus()
+            (getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager)
+                ?.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+        }.apply {
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+        }
+        explainActions.addView(explainReplayChip, LinearLayout.LayoutParams(-2, dp(44)).apply { marginEnd = dp(8) })
+        explainActions.addView(explainDoubtChip, LinearLayout.LayoutParams(-2, dp(44)))
+        explainCard.addView(explainActions)
 
         val controls = buildControls()
         val inputArea = buildInput()
@@ -806,6 +964,14 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             setPadding(dp(10), dp(8), dp(10), dp(8))
         }
         row.addView(speedChip, LinearLayout.LayoutParams(-2, dp(44)).apply { marginStart = dp(2) })
+        langChip = StudyTheme.chip(this, languageShortLabel(vm.prefs.language), pal, minHeightDp = 44) {
+            showQuickLanguageDialog()
+        }.apply {
+            minWidth = dp(48)
+            typeface = JarvisFonts.hudBold
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+        }
+        row.addView(langChip, LinearLayout.LayoutParams(-2, dp(44)).apply { marginStart = dp(4) })
         row.addView(sep())
 
         voiceButton = StudyTheme.iconButton(this, R.drawable.ic_study_volume_off, "Narration on or off", pal, 44, 10) { vm.setVoice(!vm.prefs.voiceOn) }
@@ -1128,7 +1294,11 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
                 launch { vm.bookmarks.collect { board.bookmarkedBlocks = it; refresh() } }
                 launch { vm.askMode.collect { refresh() } }
                 launch { vm.interrupted.collect { refresh() } }
+                launch { vm.isNarrating.collect { refresh() } }
+                launch { vm.activeVoiceName.collect { refresh() } }
+                launch { vm.narrationAmplitude.collect { updateVoiceWave(it) } }
                 launch { vm.events.collect { handle(it) } }
+                launch { StudyBoardController.commands.collect { executeBoardCommand(it) } }
             }
         }
     }
@@ -1192,6 +1362,9 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
 
         playButton.setImageResource(if (pb.state == StudyPlayback.State.PLAYING) R.drawable.ic_study_pause else R.drawable.ic_study_play)
         speedChip.text = speedLabel(pb.speed)
+        langChip.text = languageShortLabel(
+            vm.prefs.voiceLanguage.takeUnless { it.equals("auto", true) } ?: vm.prefs.language
+        )
         fsPlay.setImageResource(if (pb.state == StudyPlayback.State.PLAYING) R.drawable.ic_study_pause else R.drawable.ic_study_play)
         voiceButton.setImageResource(if (vm.prefs.voiceOn) R.drawable.ic_study_volume_on else R.drawable.ic_study_volume_off)
 
@@ -1242,11 +1415,25 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         bannerRetry.visibility = if (ui.phase == StudyViewModel.Phase.ERROR && ui.retryable) View.VISIBLE else View.GONE
 
         val ex = vm.currentExplanation
-        explainCard.visibility = if (vm.prefs.notesOn && (ex.isNotEmpty() || ui.verification.isNotEmpty() || counter.isNotEmpty()) && vm.hasContent) View.VISIBLE else View.GONE
+        val speakingNow = vm.isNarrating.value && vm.prefs.voiceOn
+        val hasStepDetails = ex.isNotEmpty() || ui.verification.isNotEmpty() || counter.isNotEmpty() || speakingNow
+        explainCard.visibility = if (vm.prefs.notesOn && hasStepDetails && vm.hasContent) View.VISIBLE else View.GONE
         explainText.text = ex
         explainText.visibility = if (ex.isEmpty()) View.GONE else View.VISIBLE
         explainToggle.visibility = if (ex.length > 90) View.VISIBLE else View.GONE
         explainToggle.text = if (explainExpanded) "Less ▴" else "More ▾"
+
+        voiceLiveBadge.visibility = if (speakingNow) View.VISIBLE else View.GONE
+        if (speakingNow) {
+            val vName = vm.activeVoiceName.value.ifBlank { "JARVIS" }
+            val vLang = vm.prefs.voiceLanguage.takeUnless { it.equals("auto", true) } ?: vm.prefs.language
+            voiceWaveLabel.text = if (vLang.equals("auto", true)) vName else "$vName · ${languageShortLabel(vLang)}"
+        }
+        val activeStepNum = activeBlock?.stepIndex?.takeIf { it in 1..(vm.lesson?.steps?.size ?: 0) }
+        explainActions.visibility = if (vm.hasContent && activeBlock != null && !activeBlock.isQuestion) View.VISIBLE else View.GONE
+        explainReplayChip.text = if (activeStepNum != null) "Replay step $activeStepNum" else "Replay step"
+        explainDoubtChip.visibility = if (vm.lesson?.steps?.isNotEmpty() == true && !vm.isBusy) View.VISIBLE else View.GONE
+        explainDoubtChip.text = if (activeStepNum != null) "Ask about step $activeStepNum" else "Ask doubt"
         val verText = if (pb.state == StudyPlayback.State.FINISHED || ui.phase == StudyViewModel.Phase.READY) ui.verification else ""
         verifyText.text = verText
         verifyText.setTextColor(
@@ -1371,11 +1558,11 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
 
     private fun startListening() {
         vm.interruptForMic() // narration stops so the microphone does not hear it
-        val tag = when (vm.prefs.voiceLanguage.lowercase()) {
-            "hindi" -> "hi-IN"
-            "english" -> "en-IN"
-            else -> if (vm.prefs.language.equals("Hindi", true)) "hi-IN" else "en-IN"
-        }
+        val namedLang = vm.prefs.voiceLanguage.takeUnless { it.equals("auto", true) }
+            ?.takeIf { it.isNotBlank() }
+            ?: vm.prefs.language.takeIf { it.isNotBlank() }
+            ?: "English"
+        val tag = StudyVoiceCodec.languageTag(namedLang, input.text?.toString().orEmpty())
         listening = true
         voiceStatusText.text = "Preparing mic…"
         voiceRmsDot.scaleX = 1f
@@ -1483,14 +1670,233 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     override fun onBlockTapped(index: Int) { vm.selectBlock(index) }
     override fun onUserPanned() { updateViewportPills() }
 
+    // ----- voice wave & quick language & command control -----
+
+    private fun updateVoiceWave(amplitude: Float) {
+        if (voiceWaveBars.size < 4 || voiceLiveBadge.visibility != View.VISIBLE) return
+        val level = amplitude.coerceIn(0.08f, 1f)
+        val ratios = floatArrayOf(0.55f, 1.0f, 0.72f, 0.90f)
+        val minH = dp(4)
+        val maxExtra = dp(10)
+        for (i in 0 until 4) {
+            val bar = voiceWaveBars[i]
+            val targetH = minH + (maxExtra * level * ratios[i]).toInt()
+            if (bar.layoutParams.height != targetH) {
+                bar.layoutParams = (bar.layoutParams as LinearLayout.LayoutParams).apply { height = targetH }
+                bar.requestLayout()
+            }
+        }
+    }
+
+    private fun languageShortLabel(language: String): String = when (language.trim().lowercase()) {
+        "", "auto" -> "AUTO"
+        "english" -> "EN"
+        "hindi" -> "HI"
+        "hinglish" -> "HING"
+        "bengali", "bangla" -> "BN"
+        "marathi" -> "MR"
+        "gujarati" -> "GU"
+        "tamil" -> "TA"
+        "telugu" -> "TE"
+        "kannada" -> "KN"
+        "malayalam" -> "ML"
+        "punjabi" -> "PA"
+        "urdu" -> "UR"
+        "odia" -> "OR"
+        "assamese" -> "AS"
+        "nepali" -> "NE"
+        "spanish" -> "ES"
+        "french" -> "FR"
+        "german" -> "DE"
+        "portuguese" -> "PT"
+        "arabic" -> "AR"
+        "indonesian" -> "ID"
+        "japanese" -> "JA"
+        "korean" -> "KO"
+        "chinese" -> "ZH"
+        else -> language.trim().take(4).uppercase()
+    }
+
+    private fun showQuickLanguageDialog() {
+        val current = vm.prefs.language
+        val idx = StudyLevels.LANGUAGES.indexOfFirst { it.equals(current, true) }.coerceAtLeast(0)
+        PremiumDialog.choice(
+            this,
+            "STUDY LANGUAGE",
+            "Board & Voice Language",
+            "Sets both board explanations and live JARVIS voice language.",
+            StudyLevels.LANGUAGES,
+            idx,
+            instant = true
+        ) { pick ->
+            applyLanguageChoice(StudyLevels.LANGUAGES[pick], silent = false)
+        }
+    }
+
+    private fun applyLanguageChoice(language: String, silent: Boolean) {
+        val matched = StudyLevels.LANGUAGES.firstOrNull { it.equals(language.trim(), true) } ?: language.trim()
+        if (matched.isEmpty()) return
+        vm.prefs.language = matched
+        vm.prefs.voiceLanguage = matched
+        vm.warmUpVoice()
+        vm.publishControllerSnapshot()
+        refresh()
+        if (!silent) toast("Study Board language: $matched")
+    }
+
+    private fun applyLevelChoice(level: String) {
+        val matched = StudyLevels.CHOICES.firstOrNull { it.equals(level.trim(), true) } ?: level.trim()
+        if (matched.isNotEmpty()) {
+            vm.prefs.level = matched
+            vm.publishControllerSnapshot()
+        }
+    }
+
+    private fun applyDepthChoice(depth: String) {
+        val matched = StudyProfile.Depth.values().firstOrNull { it.label.equals(depth.trim(), true) || it.name.equals(depth.trim(), true) } ?: return
+        vm.prefs.depth = matched
+        vm.publishControllerSnapshot()
+    }
+
+    private fun executeBoardCommand(cmd: StudyBoardController.StudyBoardCommand) {
+        when (cmd) {
+            is StudyBoardController.StudyBoardCommand.OpenAndExplain -> {
+                typeAndSubmitQuestion(
+                    question = cmd.question,
+                    mode = cmd.mode,
+                    language = cmd.language,
+                    level = cmd.level,
+                    depth = cmd.depth,
+                    stepNumber = cmd.stepNumber,
+                    animateTyping = cmd.animateTyping
+                )
+            }
+            is StudyBoardController.StudyBoardCommand.Playback -> when (cmd.action) {
+                StudyBoardController.PlaybackAction.PLAY -> {
+                    when (vm.playback.state) {
+                        StudyPlayback.State.PAUSED -> { vm.playback.resume(); board.followPen = true }
+                        StudyPlayback.State.FINISHED -> { vm.replayAll(); board.followPen = true }
+                        StudyPlayback.State.IDLE -> if (vm.hasContent) { vm.replayAll(); board.followPen = true }
+                        else -> board.followPen = true
+                    }
+                }
+                StudyBoardController.PlaybackAction.PAUSE -> vm.playback.pause()
+                StudyBoardController.PlaybackAction.TOGGLE -> { vm.togglePlay(); board.followPen = true }
+                StudyBoardController.PlaybackAction.NEXT -> { vm.next(); board.followPen = true }
+                StudyBoardController.PlaybackAction.PREVIOUS -> { vm.previous(); board.followPen = true }
+                StudyBoardController.PlaybackAction.REPLAY_STEP -> { vm.replayStep(); board.followPen = true }
+                StudyBoardController.PlaybackAction.REPLAY_ALL -> { vm.replayAll(); board.followPen = true }
+                StudyBoardController.PlaybackAction.STOP -> { typingJob?.cancel(); vm.cancel(); vm.stopSpeech() }
+                StudyBoardController.PlaybackAction.RETRY -> vm.retry()
+            }
+            is StudyBoardController.StudyBoardCommand.SetSpeed -> {
+                val target = cmd.speed ?: cmd.delta?.let { vm.playback.speed + it } ?: 1f
+                vm.setSpeed(target.coerceIn(0.5f, 2.0f))
+            }
+            is StudyBoardController.StudyBoardCommand.ToggleSetting -> when (cmd.key) {
+                StudyBoardController.SettingToggleKey.VOICE -> vm.setVoice(cmd.value ?: !vm.prefs.voiceOn)
+                StudyBoardController.SettingToggleKey.NOTES -> vm.setNotes(cmd.value ?: !vm.prefs.notesOn)
+                StudyBoardController.SettingToggleKey.PEN -> {
+                    vm.prefs.penOn = cmd.value ?: !vm.prefs.penOn
+                    board.showPen = vm.prefs.penOn
+                    vm.publishControllerSnapshot()
+                    refresh()
+                }
+                StudyBoardController.SettingToggleKey.STATUS -> {
+                    vm.prefs.statusOn = cmd.value ?: !vm.prefs.statusOn
+                    vm.publishControllerSnapshot()
+                    refresh()
+                }
+                StudyBoardController.SettingToggleKey.MEMORY -> vm.setMemory(cmd.value ?: !vm.prefs.memoryOn)
+                StudyBoardController.SettingToggleKey.FULLSCREEN -> setFullscreen(cmd.value ?: !fullscreen)
+                StudyBoardController.SettingToggleKey.FOLLOW_PEN -> {
+                    val on = cmd.value ?: !board.followPen
+                    board.followPen = on
+                    if (on) board.scrollToEnd()
+                    updateViewportPills()
+                    StudyBoardController.updateState { it.copy(followPen = on) }
+                }
+                StudyBoardController.SettingToggleKey.BOOKMARK_CURRENT -> vm.toggleBookmark()
+            }
+            is StudyBoardController.StudyBoardCommand.SetOption -> when (cmd.key) {
+                StudyBoardController.SettingOptionKey.LANGUAGE -> applyLanguageChoice(cmd.value, silent = false)
+                StudyBoardController.SettingOptionKey.VOICE_LANGUAGE -> {
+                    val matched = StudyLevels.LANGUAGES.firstOrNull { it.equals(cmd.value.trim(), true) } ?: cmd.value.trim()
+                    if (matched.isNotEmpty()) {
+                        vm.prefs.voiceLanguage = matched
+                        vm.warmUpVoice()
+                        vm.publishControllerSnapshot()
+                        refresh()
+                    }
+                }
+                StudyBoardController.SettingOptionKey.LEVEL -> applyLevelChoice(cmd.value)
+                StudyBoardController.SettingOptionKey.DEPTH -> applyDepthChoice(cmd.value)
+                StudyBoardController.SettingOptionKey.PROVIDER -> {
+                    vm.prefs.provider = if (cmd.value.equals("custom", true)) StudyPrefs.PROVIDER_CUSTOM else StudyPrefs.PROVIDER_GEMINI
+                    vm.publishControllerSnapshot()
+                }
+                StudyBoardController.SettingOptionKey.ASK_MODE -> {
+                    if (cmd.value.equals("doubt", true) && vm.lesson?.steps?.isNotEmpty() == true) {
+                        vm.askMode.value = StudyViewModel.AskMode.DOUBT
+                    } else {
+                        vm.newQuestionMode()
+                    }
+                    refresh()
+                }
+            }
+            is StudyBoardController.StudyBoardCommand.CanvasAction -> when (cmd.action) {
+                StudyBoardController.BoardCanvasAction.ZOOM_IN -> board.zoomBy(1.4f)
+                StudyBoardController.BoardCanvasAction.ZOOM_OUT -> board.zoomBy(1f / 1.4f)
+                StudyBoardController.BoardCanvasAction.ZOOM_RESET -> board.resetZoom()
+                StudyBoardController.BoardCanvasAction.FIT_BOARD -> { board.followPen = false; board.fitToBoard() }
+                StudyBoardController.BoardCanvasAction.UNDO -> vm.undo()
+                StudyBoardController.BoardCanvasAction.REDO -> vm.redo()
+                StudyBoardController.BoardCanvasAction.CLEAR_BOARD -> vm.clearBoard()
+                StudyBoardController.BoardCanvasAction.CLEAR_MEMORY -> vm.clearMemory()
+                StudyBoardController.BoardCanvasAction.SAVE_LESSON -> vm.saveSession()
+            }
+            is StudyBoardController.StudyBoardCommand.SelectStep -> {
+                if (vm.seekToStepNumber(cmd.stepNumber)) board.followPen = true
+                else toast("Step ${cmd.stepNumber} is not on the board yet.")
+            }
+            is StudyBoardController.StudyBoardCommand.OpenUi -> when (cmd.target) {
+                StudyBoardController.UiTarget.HISTORY -> historyLauncher.launch(Intent(this, StudyHistoryActivity::class.java))
+                StudyBoardController.UiTarget.CAMERA -> requestCamera()
+                StudyBoardController.UiTarget.IMAGE_PICKER -> launchImagePicker()
+                StudyBoardController.UiTarget.PDF_PICKER -> pickPdf.launch(arrayOf("application/pdf"))
+                StudyBoardController.UiTarget.TEACHING_SETTINGS -> StudyDialogs.settings(this, vm.prefs, { vm.clearMemory() }) { vm.setVoice(vm.prefs.voiceOn) }
+                StudyBoardController.UiTarget.EXPORT_SHEET -> showExportMenu(header)
+                StudyBoardController.UiTarget.EXPORT_PDF -> if (vm.hasContent) {
+                    val base = (vm.lesson?.topic?.takeIf { it.isNotBlank() } ?: "study-notes")
+                        .replace(Regex("[^A-Za-z0-9_-]+"), "-").trim('-').ifEmpty { "study-notes" }.take(40)
+                    createPdf.launch("$base.pdf")
+                } else toast("Nothing to export yet.")
+                StudyBoardController.UiTarget.EXPORT_PNG -> if (vm.hasContent) {
+                    val base = (vm.lesson?.topic?.takeIf { it.isNotBlank() } ?: "study-notes")
+                        .replace(Regex("[^A-Za-z0-9_-]+"), "-").trim('-').ifEmpty { "study-notes" }.take(40)
+                    createPng.launch("$base.png")
+                } else toast("Nothing to export yet.")
+            }
+            StudyBoardController.StudyBoardCommand.CloseBoard -> finish()
+        }
+        StudyBoardController.updateState { it.copy(fullscreen = fullscreen, followPen = board.followPen) }
+    }
+
     // ----- lifecycle -----
     override fun onStart() {
         super.onStart()
+        StudyBoardController.setBoardVisible(true)
+        vm.warmUpVoice()
+        val queued = StudyBoardController.attachReceiver()
+        for (cmd in queued) executeBoardCommand(cmd)
         if (vm.resumeAfterBackground) { vm.resumeAfterBackground = false; vm.playback.resume() }
+        vm.publishControllerSnapshot()
         board.kick()
     }
 
     override fun onStop() {
+        StudyBoardController.detachReceiver()
+        StudyBoardController.setBoardVisible(false)
         if (listening) { voice.cancel(); listening = false }
         if (vm.playback.state == StudyPlayback.State.PLAYING) { vm.resumeAfterBackground = true; vm.playback.pause() }
         vm.stopSpeech()
@@ -1498,6 +1904,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     }
 
     override fun onDestroy() {
+        typingJob?.cancel()
         statusDotPulse?.cancel()
         micPulse?.cancel()
         voice.cancel()
@@ -1507,5 +1914,10 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     companion object {
         /** Intent extra: a question to solve as soon as the board opens (used by the voice assistant). */
         const val EXTRA_QUESTION = "study_question"
+        const val EXTRA_MODE = "study_mode"
+        const val EXTRA_LANGUAGE = "study_language"
+        const val EXTRA_LEVEL = "study_level"
+        const val EXTRA_DEPTH = "study_depth"
+        const val EXTRA_STEP = "study_step"
     }
 }

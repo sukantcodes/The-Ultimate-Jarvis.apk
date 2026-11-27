@@ -115,6 +115,16 @@ class CommandExecutor(
         is JarvisCommand.RecallFavoriteSong -> memoryManager.getFavoriteSongResponse()
         is JarvisCommand.RecallRoutine -> memoryManager.getRoutineResponse()
         is JarvisCommand.GoToBackground -> "Going to background."
+        is JarvisCommand.StudyBoardAction -> {
+            val args = org.json.JSONObject().apply {
+                if (command.action.isNotBlank()) put("action", command.action)
+                if (command.query.isNotBlank()) put("question", command.query)
+                if (command.value.isNotBlank()) put("value", command.value)
+                command.stepNumber?.let { put("step_number", it) }
+            }
+            val res = com.jarvis.assistant.study.StudyTools.execute(JarvisApp.instance, command.toolName, args)
+            res.optString("message", if (res.optBoolean("success")) "Done." else "Could not update Study Board.")
+        }
         is JarvisCommand.TypeText -> unifiedTasks.execute(command.intent)
     }
 }

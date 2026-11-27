@@ -703,3 +703,91 @@ class StudyBoardRichDrawingAndLayoutTest {
         assertEquals(4, aliasSpec!!.items.size)
     }
 }
+
+class StudyControllerAndVoiceUpgradeTest {
+    @Test fun controllerTracksAudioSuppressionAndBuffersCommandsUntilAttached() {
+        StudyBoardController.resetForTest()
+        assertFalse(StudyBoardController.isAudioSuppressionActive())
+
+        StudyBoardController.setNarrating(true)
+        assertTrue(StudyBoardController.isAudioSuppressionActive())
+        StudyBoardController.setNarrating(false)
+        StudyBoardController.setMicInputActive(true)
+        assertTrue(StudyBoardController.isAudioSuppressionActive())
+        StudyBoardController.setMicInputActive(false)
+        assertFalse(StudyBoardController.isAudioSuppressionActive())
+
+        val cmd1 = StudyBoardController.StudyBoardCommand.OpenAndExplain("Solve 2x + 5 = 15", mode = "new")
+        val cmd2 = StudyBoardController.StudyBoardCommand.SetSpeed(speed = 1.5f)
+        StudyBoardController.dispatchCommand(cmd1)
+        StudyBoardController.dispatchCommand(cmd2)
+
+        val drained = StudyBoardController.attachReceiver()
+        assertEquals(listOf(cmd1, cmd2), drained)
+        assertTrue(StudyBoardController.attachReceiver().isEmpty())
+        StudyBoardController.resetForTest()
+    }
+
+    @Test fun cleanSpokenPreservesDetailedExplanationsWithoutTruncatingAt420Chars() {
+        val longText = "Step one explains conservation of momentum where total initial momentum equals total final momentum across the system. ".repeat(6).trim()
+        assertTrue(longText.length > 600)
+        val cleaned = StudyAssembler.cleanSpoken(longText)
+        assertEquals(longText, cleaned)
+        assertTrue(StudyPrompt.OUTPUT_RULES.contains("EVERY step MUST include \"say\""))
+    }
+
+    @Test fun multilingualVoiceCodecAndSpeechTextCoverIndianAndWorldLanguages() {
+        val c = com.jarvis.assistant.study.voice.StudyVoiceCodec
+        assertEquals("hi-IN", c.languageTag("Bhojpuri", "test"))
+        assertEquals("te-IN", c.languageTag("Telugu", "test"))
+        assertEquals("ta-IN", c.languageTag("Tamil", "test"))
+        assertEquals("te-IN", c.languageTag("Auto", "న్యూటన్ మూడవ నియమం"))
+        assertEquals("Telugu", c.resolveLanguageName("Auto", "న్యూటన్ మూడవ నియమం"))
+        assertEquals("Bengali", c.resolveLanguageName("Auto", "আমরা দুই পাশ থেকে যোগ করব"))
+        assertEquals("Japanese", c.resolveLanguageName("Auto", "これはテストです"))
+        assertTrue(StudySpeechText.verbalize("2 + 3 = 5", "bengali").contains("যোগ"))
+        assertTrue(StudySpeechText.verbalize("2 + 3 = 5", "telugu").contains("సమానం"))
+        assertTrue(StudySpeechText.verbalize("2 + 3 = 5", "tamil").contains("கூட்டல்"))
+    }
+
+    @Test fun commandParserRoutesStudyBoardOpenExplainAndControls() {
+        val cp = com.jarvis.assistant.automation.command.CommandParser
+
+        val openOnly = cp.parse("open study board", studyBoardActive = false).command
+            as com.jarvis.assistant.automation.command.JarvisCommand.StudyBoardAction
+        assertEquals(StudyTools.CONTROL, openOnly.toolName)
+        assertEquals("open", openOnly.action)
+
+        val openExplain = cp.parse("Hey Jarvis, open study board and explain Newton's Third Law", studyBoardActive = false).command
+            as com.jarvis.assistant.automation.command.JarvisCommand.StudyBoardAction
+        assertEquals(StudyTools.EXPLAIN, openExplain.toolName)
+        assertEquals("Newton's Third Law", openExplain.query)
+
+        val explainMe = cp.parse("Jarvis explain me Pythagoras theorem with diagram", studyBoardActive = false).command
+            as com.jarvis.assistant.automation.command.JarvisCommand.StudyBoardAction
+        assertEquals(StudyTools.EXPLAIN, explainMe.toolName)
+        assertEquals("Pythagoras theorem with diagram", explainMe.query)
+
+        // Ambiguous "explain me this" should NOT bypass live AI vision/context
+        assertNull(cp.parse("explain me this", studyBoardActive = false).command)
+
+        // Contextual commands only hijack generic verbs when Study Board is visible
+        assertNull(cp.parse("next step", studyBoardActive = false).command)
+        val nextActive = cp.parse("next step", studyBoardActive = true).command
+            as com.jarvis.assistant.automation.command.JarvisCommand.StudyBoardAction
+        assertEquals("next", nextActive.action)
+
+        val stepSelect = cp.parse("study board go to step 3", studyBoardActive = false).command
+            as com.jarvis.assistant.automation.command.JarvisCommand.StudyBoardAction
+        assertEquals("select_step", stepSelect.action)
+        assertEquals(3, stepSelect.stepNumber)
+
+        val speedSet = cp.parse("study board set speed to 1.5x", studyBoardActive = false).command
+            as com.jarvis.assistant.automation.command.JarvisCommand.StudyBoardAction
+        assertEquals("set_speed", speedSet.action)
+        assertEquals("1.5", speedSet.value)
+
+        assertTrue(StudyTools.EXPLAIN in StudyTools.NAMES)
+        assertTrue(StudyTools.CONTROL in StudyTools.NAMES)
+    }
+}
