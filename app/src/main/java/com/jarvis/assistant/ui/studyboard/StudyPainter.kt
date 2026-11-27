@@ -21,6 +21,7 @@ import com.jarvis.assistant.study.Face
 import com.jarvis.assistant.study.FillShade
 import com.jarvis.assistant.study.Ink
 import com.jarvis.assistant.study.PaintMode
+import com.jarvis.assistant.study.StepKind
 import com.jarvis.assistant.study.TextMetrics
 import com.jarvis.assistant.util.ThemeManager
 import kotlin.math.abs
