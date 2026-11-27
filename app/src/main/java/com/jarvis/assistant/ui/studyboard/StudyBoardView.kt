@@ -48,10 +48,11 @@ class StudyBoardView(context: Context) : View(context) {
 
     private val fonts = StudyFonts(context)
     private val painter = StudyPainter(fonts)
+    private val washPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
         color = StudyPalette.PAPER_GRID
-        alpha = 48
+        alpha = 46
     }
 
     private var blocks: List<BoardBlock> = emptyList()
@@ -304,6 +305,18 @@ class StudyBoardView(context: Context) : View(context) {
         val s = scale()
         if (s <= 0f || width == 0 || height == 0) return
         val accent = refreshPaperAccent()
+        val secondary = runCatching { ThemeManager.getThemeSecondaryColor() }.getOrDefault(accent)
+
+        // Subtle theme-synced ambient top wash across the studio whiteboard surface
+        val washH = min(height * 0.22f, resources.displayMetrics.density * 140f)
+        washPaint.shader = android.graphics.LinearGradient(
+            0f, 0f, width.toFloat(), washH,
+            intArrayOf(ColorUtils.setAlphaComponent(accent, 14), ColorUtils.setAlphaComponent(secondary, 10), Color.TRANSPARENT),
+            floatArrayOf(0f, 0.45f, 1f),
+            android.graphics.Shader.TileMode.CLAMP
+        )
+        canvas.drawRect(0f, 0f, width.toFloat(), washH, washPaint)
+        washPaint.shader = null
 
         canvas.save()
         canvas.translate(tx, ty)
@@ -311,7 +324,7 @@ class StudyBoardView(context: Context) : View(context) {
 
         val viewTop = (-ty / s).coerceAtLeast(0f)
         val viewBottom = ((height - ty) / s).coerceAtLeast(viewTop)
-        drawDraftingDotGrid(canvas, viewTop, viewBottom, s)
+        drawDraftingDotGrid(canvas, viewTop, viewBottom, s, accent)
 
         val pb = playback
         if (pb != null) {
@@ -341,7 +354,11 @@ class StudyBoardView(context: Context) : View(context) {
                 if (fraction <= 0f) continue
                 var alpha = 255
                 if (animating && i >= animFrom && i < animTo) alpha = (255 * animAlpha).toInt()
-                if (!b.isQuestion) {
+                if (b.isQuestion) {
+                    val isDoubtHeader = i > 0
+                    val qColor = if (isDoubtHeader) StudyPalette.color(Ink.VIOLET) else accent
+                    painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, qColor, 14 * alpha / 255)
+                } else {
                     when {
                         b.isFinal -> painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, StudyPalette.color(Ink.RESULT), 26 * alpha / 255)
                         b.kind == StepKind.FORMULA -> painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, accent, 20 * alpha / 255)
@@ -349,6 +366,8 @@ class StudyBoardView(context: Context) : View(context) {
                             painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, StudyPalette.color(Ink.VIOLET), 14 * alpha / 255)
                         b.kind == StepKind.GIVEN ->
                             painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, StudyPalette.color(Ink.TEAL), 14 * alpha / 255)
+                        b.kind == StepKind.DIAGRAM ->
+                            painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, accent, 8 * alpha / 255)
                     }
                 }
                 val explainFrac = when {
@@ -406,20 +425,34 @@ class StudyBoardView(context: Context) : View(context) {
         canvas.restore()
     }
 
-    private fun drawDraftingDotGrid(canvas: Canvas, viewTop: Float, viewBottom: Float, scale: Float) {
+    private fun drawDraftingDotGrid(canvas: Canvas, viewTop: Float, viewBottom: Float, scale: Float, accent: Int) {
         if (scale < 0.25f) return
         val spacing = 44f
-        val startY = max(spacing, floor(viewTop / spacing) * spacing)
+        val startRow = max(1, kotlin.math.floor((viewTop / spacing).toDouble()).toInt())
         val endY = min(max(contentHeight(), viewBottom), viewBottom + spacing)
-        val dotR = (1.45f / sqrtScale(scale)).coerceIn(1.1f, 2.2f)
-        var y = startY
+        val dotR = (1.40f / sqrtScale(scale)).coerceIn(1.05f, 2.1f)
+        var row = startRow
+        var y = row * spacing
         while (y <= endY) {
+            var col = 0
             var x = MARGIN
+            val majorRow = row % 5 == 0
             while (x <= BOARD_WIDTH - MARGIN) {
-                canvas.drawCircle(x, y, dotR, gridPaint)
+                val major = majorRow && (col % 5 == 0)
+                if (major) {
+                    gridPaint.color = accent
+                    gridPaint.alpha = 52
+                    canvas.drawCircle(x, y, dotR * 1.45f, gridPaint)
+                } else {
+                    gridPaint.color = StudyPalette.PAPER_GRID
+                    gridPaint.alpha = 44
+                    canvas.drawCircle(x, y, dotR, gridPaint)
+                }
                 x += spacing
+                col++
             }
-            y += spacing
+            row++
+            y = row * spacing
         }
     }
 

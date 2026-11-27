@@ -3,6 +3,7 @@ package com.jarvis.assistant.ui.studyboard
 import android.Manifest
 import android.animation.LayoutTransition
 import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
 import android.animation.ValueAnimator
 import android.content.Intent
 import android.content.res.ColorStateList
@@ -79,6 +80,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     private lateinit var boardFrame: FrameLayout
     private lateinit var subjectLine: TextView
     private lateinit var statusDot: View
+    private lateinit var statusHalo: View
     private lateinit var statusPill: TextView
     private lateinit var emptyHint: ViewGroup
     private lateinit var resumeButton: TextView
@@ -87,6 +89,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     private lateinit var bannerText: TextView
     private lateinit var bannerRetry: TextView
     private lateinit var explainCard: LinearLayout
+    private lateinit var explainAccentBar: View
     private lateinit var explainText: TextView
     private lateinit var explainToggle: TextView
     private lateinit var verifyText: TextView
@@ -100,10 +103,11 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     private lateinit var bookmarkButton: ImageButton
     private lateinit var voiceLiveBadge: LinearLayout
     private lateinit var voiceWaveLabel: TextView
-    private val voiceWaveBars = ArrayList<View>(4)
+    private val voiceWaveBars = ArrayList<View>(5)
     private lateinit var explainActions: LinearLayout
     private lateinit var explainReplayChip: TextView
     private lateinit var explainDoubtChip: TextView
+    private lateinit var quickDoubtStrip: HorizontalScrollView
     private lateinit var input: EditText
     private lateinit var inputBar: LinearLayout
     private lateinit var sendButton: ImageButton
@@ -139,6 +143,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     private var appliedThemeKey = ""
     private var appliedCustomHex = ""
     private var statusDotPulse: ObjectAnimator? = null
+    private var statusHaloPulse: ObjectAnimator? = null
     private var micPulse: ObjectAnimator? = null
     private var typingJob: Job? = null
 
@@ -319,11 +324,12 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(if (compactHeader) 6 else 10), dp(6), dp(if (compactHeader) 6 else 10), dp(6))
+            setPadding(dp(if (compactHeader) 8 else 12), dp(7), dp(if (compactHeader) 8 else 12), dp(7))
         }
+        StudyTheme.applyGlass(header, 20f, pal, soft = true)
         header.addView(
             StudyTheme.iconButton(this, R.drawable.ic_back, "Back", pal, sizeDp = 44, padDp = 10) { finish() }.apply {
-                StudyTheme.applyGlass(this, 16f, pal, soft = true)
+                background = StudyTheme.pillDrawable(this@StudyBoardActivity, 14f, StudyTheme.alpha(pal.cardBg, 0.65f), pal.cardBorder)
             }
         )
 
@@ -331,26 +337,32 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             orientation = LinearLayout.VERTICAL
             minimumWidth = 0
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            setPadding(dp(if (compactHeader) 6 else 10), 0, dp(4), 0)
+            setPadding(dp(if (compactHeader) 8 else 10), 0, dp(4), 0)
         }
         val eyebrowRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
+        val dotBox = FrameLayout(this)
+        statusHalo = View(this).apply {
+            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(StudyTheme.alpha(pal.accent, 0.25f)) }
+        }
         statusDot = View(this).apply {
             background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(pal.accent) }
         }
-        eyebrowRow.addView(statusDot, LinearLayout.LayoutParams(dp(7), dp(7)).apply { marginEnd = dp(5) })
+        dotBox.addView(statusHalo, FrameLayout.LayoutParams(dp(13), dp(13), Gravity.CENTER))
+        dotBox.addView(statusDot, FrameLayout.LayoutParams(dp(7), dp(7), Gravity.CENTER))
+        eyebrowRow.addView(dotBox, LinearLayout.LayoutParams(dp(13), dp(13)).apply { marginEnd = dp(5) })
         eyebrowRow.addView(
             StudyTheme.label(this, "STUDY BOARD", if (compactHeader) 10.5f else 11.5f, pal.accent, hud = true).apply {
-                letterSpacing = if (compactHeader) 0.06f else 0.11f
+                letterSpacing = if (compactHeader) 0.06f else 0.12f
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
             }
         )
         statusPill = StudyTheme.label(this, "", 10.5f, pal.onAccent, bold = true).apply {
-            setPadding(dp(7), dp(2), dp(7), dp(2))
-            background = GradientDrawable().apply { cornerRadius = dpf(10f); setColor(pal.accent) }
+            setPadding(dp(8), dp(2), dp(8), dp(2))
+            background = StudyTheme.gradientPillDrawable(this@StudyBoardActivity, 10f, pal.accent, pal.secondary)
             visibility = View.GONE
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
@@ -358,7 +370,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         eyebrowRow.addView(statusPill, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(6) })
         titles.addView(eyebrowRow)
 
-        subjectLine = StudyTheme.label(this, "AI Whiteboard Teacher", 13.5f, pal.textPrimary, bold = true).apply {
+        subjectLine = StudyTheme.label(this, "AI Whiteboard Teacher", 14f, pal.textPrimary, bold = true).apply {
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
             setPadding(0, dp(2), 0, 0)
@@ -385,7 +397,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginStart = dp(5) }
         )
         header.addView(actions)
-        contentColumn.addView(header)
+        contentColumn.addView(header, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(10), dp(4), dp(10), dp(4)) })
 
         // ---- Board Area & Overlays ----
         boardFrame = FrameLayout(this).apply {
@@ -593,8 +605,8 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         })
 
         explainCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(8), dp(12), dp(8))
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(10), dp(9), dp(12), dp(9))
             layoutTransition = LayoutTransition()
             isClickable = true
             isFocusable = true
@@ -605,6 +617,18 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             }
         }
         StudyTheme.applyGlass(explainCard, 20f, pal)
+
+        explainAccentBar = View(this).apply {
+            background = StudyTheme.gradientPillDrawable(this@StudyBoardActivity, 3f, pal.accent, pal.secondary)
+        }
+        explainCard.addView(explainAccentBar, LinearLayout.LayoutParams(dp(4), -1).apply {
+            setMargins(0, dp(2), dp(10), dp(2))
+        })
+
+        val explainContent = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        }
 
         val explainMetaScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
@@ -639,16 +663,17 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             setOnClickListener { vm.setVoice(!vm.prefs.voiceOn) }
         }
         voiceWaveBars.clear()
-        val barHeightsDp = intArrayOf(6, 11, 8, 12)
-        for (i in 0 until 4) {
+        val barHeightsDp = intArrayOf(6, 11, 13, 9, 12)
+        for (i in 0 until 5) {
+            val barColor = if (i % 2 == 0) pal.accent else pal.secondary
             val bar = View(this).apply {
-                background = StudyTheme.pillDrawable(this@StudyBoardActivity, 2f, pal.secondary, pal.secondary)
+                background = StudyTheme.pillDrawable(this@StudyBoardActivity, 2f, barColor, barColor)
             }
             voiceWaveBars.add(bar)
             voiceLiveBadge.addView(
                 bar,
-                LinearLayout.LayoutParams(dp(3), dp(barHeightsDp[i])).apply {
-                    marginEnd = dp(if (i == 3) 5 else 2)
+                LinearLayout.LayoutParams(dp(2) + 1, dp(barHeightsDp[i])).apply {
+                    marginEnd = dp(if (i == 4) 5 else 2)
                 }
             )
         }
@@ -671,7 +696,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         }
         explainMeta.addView(explainToggle)
         explainMetaScroll.addView(explainMeta)
-        explainCard.addView(explainMetaScroll)
+        explainContent.addView(explainMetaScroll)
 
         explainText = StudyTheme.label(this, "", 13.5f, pal.textPrimary).apply {
             maxLines = if (landscape) 5 else 3
@@ -679,12 +704,12 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             setLineSpacing(dpf(2f), 1.06f)
             setPadding(0, dp(5), 0, 0)
         }
-        explainCard.addView(explainText)
+        explainContent.addView(explainText)
 
         explainActions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(5), 0, 0)
+            setPadding(0, dp(6), 0, 0)
             visibility = View.GONE
         }
         explainReplayChip = StudyTheme.chip(this, "Replay step", pal, minHeightDp = 44) {
@@ -708,7 +733,8 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         }
         explainActions.addView(explainReplayChip, LinearLayout.LayoutParams(-2, dp(44)).apply { marginEnd = dp(8) })
         explainActions.addView(explainDoubtChip, LinearLayout.LayoutParams(-2, dp(44)))
-        explainCard.addView(explainActions)
+        explainContent.addView(explainActions)
+        explainCard.addView(explainContent)
 
         val controls = buildControls()
         val inputArea = buildInput()
@@ -754,12 +780,25 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             setPadding(dp(22), dp(20), dp(22), dp(20))
         }
 
+        val secondaryTone = pal.secondary
+        val haloWrap = FrameLayout(this)
+        haloWrap.addView(
+            View(this).apply {
+                background = StudyTheme.pillDrawable(
+                    this@StudyBoardActivity, 24f,
+                    StudyTheme.alpha(secondaryTone, 0.07f),
+                    StudyTheme.alpha(secondaryTone, 0.24f)
+                )
+            },
+            FrameLayout.LayoutParams(dp(74), dp(74), Gravity.CENTER)
+        )
         val iconBadge = FrameLayout(this).apply {
             background = StudyTheme.pillDrawable(
-                this@StudyBoardActivity, 18f,
-                StudyTheme.alpha(paperAccent, 0.12f),
-                StudyTheme.alpha(paperAccent, 0.30f)
+                this@StudyBoardActivity, 19f,
+                StudyTheme.alpha(paperAccent, 0.14f),
+                StudyTheme.alpha(paperAccent, 0.42f)
             )
+            elevation = dpf(2f)
         }
         iconBadge.addView(
             ImageView(this).apply {
@@ -767,12 +806,13 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
                 setColorFilter(paperAccent)
                 contentDescription = null
             },
-            FrameLayout.LayoutParams(dp(28), dp(28), Gravity.CENTER)
+            FrameLayout.LayoutParams(dp(29), dp(29), Gravity.CENTER)
         )
-        box.addView(iconBadge, LinearLayout.LayoutParams(dp(58), dp(58)).apply { bottomMargin = dp(14) })
+        haloWrap.addView(iconBadge, FrameLayout.LayoutParams(dp(58), dp(58), Gravity.CENTER))
+        box.addView(haloWrap, LinearLayout.LayoutParams(dp(76), dp(76)).apply { bottomMargin = dp(14) })
 
         box.addView(
-            StudyTheme.label(this, "AI Whiteboard Teacher", 18f, paperInk, bold = true).apply {
+            StudyTheme.label(this, "AI Whiteboard Teacher", 18.5f, paperInk, bold = true).apply {
                 typeface = JarvisFonts.displayBold
                 gravity = Gravity.CENTER
             }
@@ -790,7 +830,11 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             gravity = Gravity.CENTER
             minimumHeight = dp(44)
             setPadding(dp(12), dp(8), dp(14), dp(8))
-            background = StudyTheme.pillDrawable(this@StudyBoardActivity, 16f, StudyTheme.alpha(paperAccent, 0.08f), StudyTheme.alpha(paperStroke, 0.7f))
+            background = StudyTheme.pillDrawable(
+                this@StudyBoardActivity, 16f,
+                StudyTheme.alpha(paperAccent, 0.10f),
+                StudyTheme.alpha(paperAccent, 0.34f)
+            )
             isClickable = true
             isFocusable = true
             StudyTheme.applyPressSpring(this, 0.94f)
@@ -826,7 +870,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             minHeight = dp(46)
             gravity = Gravity.CENTER
             setPadding(dp(18), dp(10), dp(18), dp(10))
-            background = StudyTheme.pillDrawable(this@StudyBoardActivity, 20f, paperAccent, paperAccent)
+            background = StudyTheme.gradientPillDrawable(this@StudyBoardActivity, 20f, paperAccent, pal.secondary)
             isClickable = true
             isFocusable = true
             visibility = View.GONE
@@ -850,13 +894,17 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             Triple("Human Ear", "Draw a labelled anatomy diagram of the human ear", StudyPalette.color(Ink.ROSE)),
             Triple("Reflex Arc", "Draw a labelled reflex arc diagram showing pathway", StudyPalette.color(Ink.ACCENT)),
             Triple("Plant Cell", "Draw a neatly labelled diagram of a plant cell", StudyPalette.color(Ink.RESULT)),
+            Triple("Simple Distillation", "Draw a labelled diagram of simple distillation apparatus", StudyPalette.color(Ink.TEAL)),
+            Triple("Nitrogen Cycle", "Draw a neat labelled diagram of the nitrogen cycle", StudyPalette.color(Ink.RESULT)),
             Triple("Benzene C6H6", "Draw the ring structure of Benzene C6H6 with pi cloud", StudyPalette.color(Ink.VIOLET))
         )
         val physMathCsStarters = listOf(
             Triple("Convex Lens", "Draw a labelled ray diagram of image formation by a convex lens", paperAccent),
             Triple("Glass Slab", "Draw a labelled diagram of refraction through a rectangular glass slab", StudyPalette.color(Ink.TEAL)),
             Triple("Electric Circuit", "Draw a labelled circuit diagram with battery, ammeter, resistor and switch", StudyPalette.color(Ink.ORANGE)),
+            Triple("Transformer", "Draw a labelled diagram of a step-up transformer", StudyPalette.color(Ink.VIOLET)),
             Triple("AC Generator", "Draw a neat labelled diagram of an AC generator", StudyPalette.color(Ink.WARN)),
+            Triple("Volcano", "Draw a labelled cross-section diagram of a volcano", StudyPalette.color(Ink.ORANGE)),
             Triple("Solar System", "Draw a neat labelled diagram of the solar system orbits", StudyPalette.color(Ink.GOLD)),
             Triple("Binary Tree", "Draw a labelled diagram of a Binary Search Tree data structure", StudyPalette.color(Ink.TEAL)),
             Triple("Plot y = x² - 4", "Plot y = x^2 - 4 and y = 2x and find their intersection", StudyPalette.color(Ink.ORANGE))
@@ -1037,8 +1085,15 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             setPadding(dp(12), dp(8), dp(12), dp(8))
         }
         chipDoubt = StudyTheme.chip(this, "Doubt", pal, minHeightDp = 44) {
-            if (vm.lesson?.steps?.isNotEmpty() == true) vm.askMode.value = StudyViewModel.AskMode.DOUBT
-            else toast("Solve a question first, then ask doubts about it.")
+            if (vm.lesson?.steps?.isNotEmpty() == true) {
+                if (vm.askMode.value == StudyViewModel.AskMode.DOUBT && vm.selectedStepNumber() != null) {
+                    vm.selectedBlock.value = -1
+                } else {
+                    vm.askMode.value = StudyViewModel.AskMode.DOUBT
+                }
+            } else {
+                toast("Solve a question first, then ask doubts about it.")
+            }
         }.apply {
             setPadding(dp(12), dp(8), dp(12), dp(8))
         }
@@ -1063,6 +1118,69 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         stripRow.addView(attachRow)
         topStrip.addView(stripRow)
         col.addView(topStrip, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
+
+        // Quick Doubt Prompt Strip (contextual step-by-step follow-up helpers with >= 44dp touch targets)
+        quickDoubtStrip = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            visibility = View.GONE
+        }
+        val doubtQuickRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val quickDoubtOptions = listOf(
+            "Explain with diagram" to "diagram",
+            "Why this step?" to "why",
+            "Explain simpler" to "simpler",
+            "Key memory trick" to "trick"
+        )
+        for ((idx, entry) in quickDoubtOptions.withIndex()) {
+            val (label, key) = entry
+            val chipTint = if (idx % 2 == 0) pal.accent else pal.secondary
+            doubtQuickRow.addView(
+                StudyTheme.chip(this, label, pal, minHeightDp = 44) {
+                    val stepNum = vm.selectedStepNumber()
+                    val prompt = when (key) {
+                        "diagram" -> if (stepNum != null) {
+                            "Explain step $stepNum clearly step-by-step and draw a clean labelled diagram showing how it works"
+                        } else {
+                            "Explain this solution step-by-step and draw a clear labelled diagram to visualize every part"
+                        }
+                        "why" -> if (stepNum != null) {
+                            "Explain step-by-step why step $stepNum works and the intuition behind every detail"
+                        } else {
+                            "Explain step-by-step why this method works instead of jumping straight to the answer"
+                        }
+                        "simpler" -> if (stepNum != null) {
+                            "Break down step $stepNum much more simply step-by-step with easy intuition and an example"
+                        } else {
+                            "Explain this much more simply step-by-step with easy everyday intuition"
+                        }
+                        else -> if (stepNum != null) {
+                            "Explain step $stepNum step-by-step and give the key insight and memory trick"
+                        } else {
+                            "Break down the key insight and memory trick step-by-step"
+                        }
+                    }
+                    hideKeyboard()
+                    board.followPen = true
+                    vm.askMode.value = StudyViewModel.AskMode.DOUBT
+                    vm.submit(prompt)
+                }.apply {
+                    setPadding(dp(12), dp(8), dp(12), dp(8))
+                    setTextColor(chipTint)
+                    background = StudyTheme.pillDrawable(
+                        this@StudyBoardActivity, 16f,
+                        StudyTheme.alpha(chipTint, 0.12f),
+                        StudyTheme.alpha(chipTint, 0.36f)
+                    )
+                },
+                LinearLayout.LayoutParams(-2, dp(44)).apply { marginEnd = dp(6) }
+            )
+        }
+        quickDoubtStrip.addView(doubtQuickRow)
+        col.addView(quickDoubtStrip, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
 
         // Row 2: Math Symbol Strip (appears smoothly when keyboard input gains focus)
         symbols = HorizontalScrollView(this).apply {
@@ -1257,10 +1375,29 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
                     start()
                 }
             }
+            if (statusHaloPulse == null) {
+                statusHaloPulse = ObjectAnimator.ofPropertyValuesHolder(
+                    statusHalo,
+                    PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.55f),
+                    PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.55f),
+                    PropertyValuesHolder.ofFloat(View.ALPHA, 0.72f, 0.12f)
+                ).apply {
+                    duration = 1100L
+                    repeatCount = ValueAnimator.INFINITE
+                    repeatMode = ValueAnimator.REVERSE
+                    interpolator = AccelerateDecelerateInterpolator()
+                    start()
+                }
+            }
         } else {
             statusDotPulse?.cancel()
             statusDotPulse = null
             statusDot.alpha = 1f
+            statusHaloPulse?.cancel()
+            statusHaloPulse = null
+            statusHalo.scaleX = 1f
+            statusHalo.scaleY = 1f
+            statusHalo.alpha = 0.55f
         }
 
         if (listening) {
@@ -1340,6 +1477,18 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         board.showPen = vm.prefs.penOn
         statusPill.visibility = if (status.isEmpty() || !vm.prefs.statusOn) View.GONE else View.VISIBLE
         statusPill.text = status
+        if (status.isNotEmpty() && vm.prefs.statusOn) {
+            when (pb.state) {
+                StudyPlayback.State.PAUSED -> {
+                    statusPill.background = StudyTheme.pillDrawable(this, 10f, pal.warning, pal.warning)
+                    statusPill.setTextColor(StudyTheme.onColor(pal.warning, pal.textPrimary, pal.baseBg))
+                }
+                else -> {
+                    statusPill.background = StudyTheme.gradientPillDrawable(this, 10f, pal.accent, pal.secondary)
+                    statusPill.setTextColor(pal.onAccent)
+                }
+            }
+        }
 
         val showDrafting = ui.phase == StudyViewModel.Phase.EXTRACTING ||
             ui.phase == StudyViewModel.Phase.GENERATING ||
@@ -1361,6 +1510,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             else -> pal.textMuted
         }
         (statusDot.background as? GradientDrawable)?.setColor(dotColor)
+        (statusHalo.background as? GradientDrawable)?.setColor(StudyTheme.alpha(dotColor, 0.30f))
         updateStatusAnimations(pb.state == StudyPlayback.State.PLAYING || vm.isBusy)
         updateViewportPills()
         updateProgressBar()
@@ -1414,6 +1564,12 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             activeBlock?.kind == StepKind.DEFINITION || activeBlock?.kind == StepKind.REQUIRED -> pal.secondary
             else -> pal.accent
         }
+        val stepAccentSecondary = when {
+            activeBlock?.isFinal == true -> pal.accent
+            activeBlock?.kind == StepKind.DEFINITION || activeBlock?.kind == StepKind.REQUIRED -> pal.accent
+            else -> pal.secondary
+        }
+        explainAccentBar.background = StudyTheme.gradientPillDrawable(this, 3f, stepTint, stepAccentSecondary)
         stepText.text = if (counter.isNotEmpty()) counter + kindTag else ""
         stepText.setTextColor(stepTint)
         stepText.background = StudyTheme.pillDrawable(this, 10f, StudyTheme.alpha(stepTint, 0.16f), StudyTheme.alpha(stepTint, 0.35f))
@@ -1479,6 +1635,14 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         }
         chipDoubt.setTextColor(if (doubtMode) pal.onAccent else pal.textPrimary)
         chipDoubt.alpha = if (vm.lesson?.steps?.isNotEmpty() == true) 1f else 0.5f
+
+        quickDoubtStrip.visibility = if (
+            vm.hasContent &&
+            vm.lesson?.steps?.isNotEmpty() == true &&
+            !vm.isBusy &&
+            !listening &&
+            !fullscreen
+        ) View.VISIBLE else View.GONE
 
         input.hint = if (listening) "Listening…" else if (doubtMode) (if (step != null) "Ask about step $step" else "Ask about the solution") else "Type a question or equation"
 
@@ -1691,12 +1855,13 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     // ----- voice wave & quick language & command control -----
 
     private fun updateVoiceWave(amplitude: Float) {
-        if (voiceWaveBars.size < 4 || voiceLiveBadge.visibility != View.VISIBLE) return
+        if (voiceWaveBars.isEmpty() || voiceLiveBadge.visibility != View.VISIBLE) return
         val level = amplitude.coerceIn(0.08f, 1f)
-        val ratios = floatArrayOf(0.55f, 1.0f, 0.72f, 0.90f)
+        val ratios = floatArrayOf(0.55f, 1.0f, 0.78f, 0.92f, 0.64f)
         val minH = dp(4)
         val maxExtra = dp(10)
-        for (i in 0 until 4) {
+        val count = minOf(voiceWaveBars.size, ratios.size)
+        for (i in 0 until count) {
             val bar = voiceWaveBars[i]
             val targetH = minH + (maxExtra * level * ratios[i]).toInt()
             if (bar.layoutParams.height != targetH) {
@@ -1923,6 +2088,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     override fun onDestroy() {
         typingJob?.cancel()
         statusDotPulse?.cancel()
+        statusHaloPulse?.cancel()
         micPulse?.cancel()
         voice.cancel()
         super.onDestroy()

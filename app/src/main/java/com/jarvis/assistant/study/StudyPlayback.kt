@@ -93,11 +93,22 @@ class StudyPlayback {
         if (!open && state == State.WAITING_FOR_CONTENT && current + 1 >= durations.size) finish()
     }
 
-    /** Adds a block that has just been laid out. If the pen was waiting for it, writing starts immediately. */
-    fun addBlock(durationMs: Long) {
+    /** Adds a block that has just been laid out. If [autoStart] is true and the pen was waiting for it, writing starts immediately. */
+    fun addBlock(durationMs: Long, autoStart: Boolean = true) {
         durations.add(durationMs.coerceIn(MIN_BLOCK_MS, MAX_BLOCK_MS))
-        if (state == State.WAITING_FOR_CONTENT) startBlock(current + 1, replay = false)
-        else if (state == State.IDLE) { startBlock(0, replay = false) }
+        if (autoStart) {
+            if (state == State.WAITING_FOR_CONTENT) startBlock(current + 1, replay = false)
+            else if (state == State.IDLE) startBlock(0, replay = false)
+        }
+    }
+
+    /** Appends multiple staged block durations cleanly before invoking [startContinuousFrom]. */
+    fun addBlocks(durationsMs: List<Long>, autoStart: Boolean = false) {
+        for (d in durationsMs) durations.add(d.coerceIn(MIN_BLOCK_MS, MAX_BLOCK_MS))
+        if (autoStart && durationsMs.isNotEmpty()) {
+            if (state == State.WAITING_FOR_CONTENT) startBlock(current + 1, replay = false)
+            else if (state == State.IDLE) startBlock(0, replay = false)
+        }
     }
 
     /** Drops every block from [count] on (used when a failed doubt is retried). Writing state is kept consistent. */

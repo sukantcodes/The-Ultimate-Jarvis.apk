@@ -130,7 +130,14 @@ object StudyBoardLayout {
         )
     }
 
-    fun layoutStep(step: StudyStep, startY: Float, st: BoardStyle, m: TextMetrics, isFinalBlock: Boolean = false): BoardBlock {
+    fun layoutStep(
+        step: StudyStep,
+        startY: Float,
+        st: BoardStyle,
+        m: TextMetrics,
+        isFinalBlock: Boolean = false,
+        finalCaption: String = "Final Answer"
+    ): BoardBlock {
         val ops = ArrayList<DrawOp>()
         val notes = ArrayList<DrawOp>()
         var y = startY
@@ -153,9 +160,10 @@ object StudyBoardLayout {
         }
 
         val caption = when {
-            isFinalBlock -> "Final Answer"
+            isFinalBlock -> finalCaption.ifBlank { "Final Answer" }
             step.kind.caption.isNotEmpty() -> step.kind.caption
-            step.kind == StepKind.STEP && step.index > 0 && step.proseMode -> "Step ${step.index}"
+            step.kind == StepKind.STEP && step.index != 0 && step.index != Int.MAX_VALUE && step.proseMode ->
+                "Step ${if (step.index < 0) -step.index else step.index}"
             else -> ""
         }
         val hasSideRail = step.kind == StepKind.GIVEN || step.kind == StepKind.REQUIRED || step.kind == StepKind.DEFINITION
@@ -263,7 +271,7 @@ object StudyBoardLayout {
         step.diagram?.let { rawDiag ->
             val d = StudyDiagramAtlas.enhance(rawDiag.title, rawDiag)
             val maxDiagW = maxW.coerceAtMost(st.width - st.margin * 2f)
-            val maxDiagH = min(st.width * 0.68f, 640f)
+            val maxDiagH = min(st.width * 0.88f, 880f)
             val laid = StudyDiagramLayout.layout(d, maxDiagW, maxDiagH, m, max(2.2f, size * 0.068f))
             for (op in laid.ops) ops.add(op.moved(x0, y + 6f))
             y += laid.height + 12f
@@ -295,7 +303,7 @@ object StudyBoardLayout {
         )
     }
 
-    fun layoutFinal(answer: String, explanation: String, startY: Float, st: BoardStyle, m: TextMetrics): BoardBlock {
+    fun layoutFinal(answer: String, explanation: String, startY: Float, st: BoardStyle, m: TextMetrics, caption: String = "Final Answer"): BoardBlock {
         val step = StudyStep(
             index = Int.MAX_VALUE,
             kind = StepKind.RESULT,
@@ -303,7 +311,7 @@ object StudyBoardLayout {
             explanation = explanation,
             proseMode = !StudyMath.looksLikeMath(answer)
         )
-        return layoutStep(step, startY, st, m, isFinalBlock = true)
+        return layoutStep(step, startY, st, m, isFinalBlock = true, finalCaption = caption)
     }
 
     // ---------------------------------------------------------------------------------------------------------

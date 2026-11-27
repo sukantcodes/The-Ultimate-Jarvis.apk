@@ -87,18 +87,20 @@ CONTENT RULES
   * Before introducing EVERY new step or topic transition, briefly explain how it connects to the previous step and what comes next ("Now remember what we got in the last step? Let's carry that forward to...").
 - "explanation": concise reasoning shown under the block (include the key exam point or short memory trick cleanly here as well).
 
-DIAGRAMS in 0-100 coords (artwork centered inside x=18..82, y=14..86 so external labels fit cleanly in left/right margins):
+DIAGRAMS in 0-100 coords (keep external callouts in x=6..16 or x=84..94 and artwork in x=18..82; for box/node/circuit/geometry diagrams with embedded text or inline labels use x=8..92):
   {"title":"Short Title","items":[...],"graph":{"fn":"x^2-4","xmin":-4,"xmax":4,"xlabel":"x","ylabel":"y"}}
 Primitives ("t"):
-  - "curve"/"poly": {"t":"curve","pts":[[x,y],...],"smooth":true,"closed":true|false,"fill":true,"color":"ink","fillColor":"rose","shade":"radial"|"linear","layer":"outline"|"detail"}
-  - "oval"/"circle": {"t":"oval","cx":..,"cy":..,"rx":..,"ry":..,"rotate":deg,"fill":true,"color":"violet","fillColor":"violet","shade":"radial"}
+  - "path": {"t":"path","d":"M 25 40 C 25 20, 75 20, 75 40 ... Z","fill":true,"color":"ink","fillColor":"rose","shade":"radial","layer":"outline"} (supports M/L/H/V/C/S/Q/T/A/Z SVG paths!)
+  - "curve"/"poly": {"t":"curve","pts":[[x,y],...],"smooth":true,"closed":true|false,"fill":true,"color":"ink","fillColor":"rose","shade":"radial"|"linear","layer":"outline"|"detail","text":"optional inside label"}
+  - "oval"/"circle": {"t":"oval","cx":..,"cy":..,"rx":..,"ry":..,"rotate":deg,"fill":true,"color":"violet","fillColor":"violet","shade":"radial","text":"optional inside label"}
   - "arc": {"t":"arc","cx":..,"cy":..,"rx":..,"ry":..,"start":deg,"sweep":deg,"fill":false,"color":"teal"}
-  - "roundrect"/"rect": {"t":"roundrect","x":..,"y":..,"w":..,"h":..,"rx":3,"fill":true,"color":"teal","fillColor":"teal","shade":"linear"}
-  - "arrow"/"line": {"t":"arrow","x1":..,"y1":..,"x2":..,"y2":..,"dashed":false,"color":"gold"}
-  - "label": {"t":"label","ax":pointX,"ay":pointY,"x":labelX,"y":labelY,"text":"Part Name","color":"ink"}
+  - "roundrect"/"rect": {"t":"roundrect","x":..,"y":..,"w":..,"h":..,"rx":3,"fill":true,"color":"teal","fillColor":"teal","shade":"linear","text":"Box Title"}
+  - "arrow"/"line"/"curved_arrow": {"t":"arrow","x1":..,"y1":..,"x2":..,"y2":..,"dashed":false,"color":"gold","text":"optional"} (use "curved_arrow" with cx,cy for curved flow)
+  - STEM components: "resistor", "capacitor", "inductor", "battery", "switch", "diode", "bulb", "meter" ("symbol":"A"|"V"|"G"), "ground", "spring", "gear", "pulley", "diamond", "cylinder", "flask", "burner", "thermometer", "condenser", "dimension", "angle"
+  - "label": {"t":"label","x":..,"y":..,"text":"Part Name","color":"ink","place":"inside"|"inline"|"callout","ax":pointX,"ay":pointY}
 Diagram Standards:
-  - Build detailed, domain-accurate artwork (16-45 layered shapes: silhouette, chambers/organs/components, textures/rays/arrows/bonds/nodes) with purposeful colors ("ink","red","blue","green","gold","violet","teal","rose","orange","brown","gray") + "fill":true + "shade":"radial"|"linear".
-  - Place ALL external labels at x=6..20 or x=80..94, sorted top-to-bottom, with accurate "ax","ay" pins pointing to the target sub-part.
+  - Build crisp, richly detailed, geometrically aligned artwork (20-55 layered shapes: smooth Bezier paths, precision STEM components, textures/rays/arrows/nodes) with purposeful colors ("ink","red","blue","green","gold","violet","teal","rose","orange","brown","gray") + "fill":true + "shade":"radial"|"linear".
+  - Put node/layer/box names INSIDE shapes via "text" (or "place":"inside"); put vertex/angle/equation tags via "place":"inline"; put external anatomical/apparatus callouts at x=8..14 or x=86..92 with exact "ax","ay" anchors sorted top-to-bottom.
   - Math curves: use "graph" with function array + optional key intersection "points".
 """
 
@@ -117,32 +119,61 @@ Diagram Standards:
     }
 
     fun doubtSystem(profile: StudyProfile): String =
-        "You are the engine of a classroom whiteboard answering a student's doubt about a solution already on the board.\n" +
+        "You are the engine of a classroom whiteboard answering a student's follow-up doubt about a lesson already on the board.\n" +
             profile.levelHint() + "\n" + profile.languageRule() + "\n" + profile.depthRule() + "\n" +
-            "The solution on the board is fixed and is never rewritten. Answer only the doubt, using as few steps as needed (usually 1-4), " +
-            "and do not restart the solution.\n" +
-            "First line: {\"type\":\"ref\",\"step\":N} where N is the board step number the doubt is about (omit it when the doubt is about the whole solution).\n" +
-            "Then the board steps that answer the doubt (every step with complete spoken \"say\"), then {\"type\":\"final\",\"answer\":\"...\",\"say\":\"...\",\"confidence\":\"high|medium|low\"} where the answer is the one-line resolution.\n" +
-            "If the doubt shows that a step on the board is actually wrong, say so plainly in the first step and give the corrected step.\n" +
+            "OUTPUT FORMAT (strict): reply with raw JSON objects only, one per line (no markdown, no code fences, no prose outside JSON), starting optionally with {\"type\":\"ref\",\"step\":N}, followed by teaching blocks (\"definition\", \"formula\", \"given\", \"step\", \"code\", \"diagram\"), and ending with {\"type\":\"final\",...}.\n" +
+            "CRITICAL DOUBT TEACHING RULES:\n" +
+            "- The solution already on the board stays intact. Do NOT restart the whole earlier problem unless the student explicitly asks to re-solve from scratch, AND NEVER jump directly to a bare final answer!\n" +
+            "- Explain the doubt thoroughly step-by-step in clear teaching blocks (`definition`, `formula`, `step`, `diagram`, `code`) tailored specifically to what the student is confused about or asking (usually 2-6 steps so every 'why' and 'how' is crystal clear, ending with a takeaway).\n" +
+            "- DIAGRAMS IN DOUBTS: Whenever the student asks to draw/show a diagram OR whenever a visual diagram, sketch, ray path, geometry figure, circuit, flowchart, or graph makes the doubt clearer, INCLUDE a dedicated `{\"type\":\"diagram\",\"content\":\"\",\"explanation\":\"...\",\"diagram\":{...},\"say\":\"...\"}` step before the takeaway!\n" +
+            "- First line: {\"type\":\"ref\",\"step\":N} where N is the board step number the doubt is about (omit when the doubt is about the whole solution or a new angle).\n" +
+            "- Every teaching step MUST include rich, warm classroom teacher speech in \"say\" (explaining every written line, formula, and diagram label aloud with check-ins and memory tricks).\n" +
+            "- Last line: {\"type\":\"final\",\"answer\":\"concise takeaway answering the doubt\",\"explanation\":\"key point to remember\",\"say\":\"warm encouraging closing recap\",\"confidence\":\"high|medium|low\"}.\n" +
+            "- If the doubt reveals an error in an earlier board step, state it clearly in the first step and show the corrected step.\n" +
             OUTPUT_RULES.substringAfter("CONTENT RULES").let { "CONTENT RULES$it" }
 
-    /** The lesson so far, in a compact form the doubt prompt can quote. */
-    fun lessonDigest(lesson: StudyLesson): String {
+    /** The lesson (and any prior doubts) in a compact form the doubt prompt can quote. */
+    fun lessonDigest(lesson: StudyLesson, doubts: List<StudyDoubt> = emptyList()): String {
         val sb = StringBuilder()
         sb.append("Question: ").append(lesson.question).append('\n')
         for (s in lesson.steps) {
             sb.append("Step ").append(s.index).append(" [").append(s.kind.name.lowercase()).append("]: ").append(s.content.replace('\n', ' '))
+            if (s.diagram != null && s.diagram.title.isNotBlank()) sb.append(" [Diagram: ").append(s.diagram.title).append(']')
             if (s.explanation.isNotEmpty()) sb.append("  (").append(s.explanation).append(')')
             sb.append('\n')
         }
         if (lesson.finalAnswer.isNotEmpty()) sb.append("Final answer: ").append(lesson.finalAnswer).append('\n')
+        if (doubts.isNotEmpty()) {
+            sb.append("\nEarlier doubts already answered on the board:\n")
+            for ((idx, d) in doubts.takeLast(3).withIndex()) {
+                sb.append("Doubt ${idx + 1}: ").append(d.question.replace('\n', ' ')).append('\n')
+                for (ds in d.steps.takeLast(4)) {
+                    val txt = ds.content.ifBlank { ds.diagram?.title ?: ds.explanation }.replace('\n', ' ')
+                    if (txt.isNotBlank()) sb.append("  - ").append(txt.take(220)).append('\n')
+                }
+            }
+        }
         return sb.toString().take(12_000)
     }
 
-    fun doubtUser(lesson: StudyLesson, doubt: String, selectedStep: Int?, memory: String = ""): String =
-        (if (memory.isNotBlank()) memory.trim() + "\n\n" else "") + "Solution on the board:\n" + lessonDigest(lesson) + "\n" +
-            (if (selectedStep != null) "The student tapped step $selectedStep.\n" else "") +
-            "Student's doubt:\n" + doubt.trim()
+    fun doubtUser(
+        lesson: StudyLesson,
+        doubt: String,
+        selectedStep: Int?,
+        memory: String = "",
+        doubts: List<StudyDoubt> = emptyList(),
+        hasCanonicalDiagram: Boolean = false
+    ): String {
+        val sb = StringBuilder()
+        if (memory.isNotBlank()) sb.append(memory.trim()).append("\n\n")
+        sb.append("Solution on the board:\n").append(lessonDigest(lesson, doubts)).append('\n')
+        if (selectedStep != null) sb.append("The student tapped step $selectedStep.\n")
+        sb.append("Student's doubt:\n").append(doubt.trim())
+        if (hasCanonicalDiagram) {
+            sb.append("\n\n[FAST STUDIO DIAGRAM HINT: Include a {\"type\":\"diagram\",\"content\":\"\",\"explanation\":\"...\",\"diagram\":{\"title\":\"").append(doubt.trim().take(48).replace("\"", "")).append("\",\"canonical\":true},\"say\":\"...\"} step in your doubt explanation along with clear step-by-step teaching blocks.]")
+        }
+        return sb.toString()
+    }
 
     const val EXTRACT_SYSTEM = """You read a photograph or a page of study material and copy out the questions on it exactly.
 Reply with one JSON object only: {"questions":[{"text":"...","confidence":"high|medium|low","has_diagram":true|false,"note":""}],"unreadable":false}

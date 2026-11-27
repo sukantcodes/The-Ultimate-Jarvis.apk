@@ -18,6 +18,7 @@ import com.jarvis.assistant.study.StepKind
 import com.jarvis.assistant.study.StudyAssembler
 import com.jarvis.assistant.study.StudyBoardController
 import com.jarvis.assistant.study.StudyBoardLayout
+import com.jarvis.assistant.study.StudyDiagramArchitect
 import com.jarvis.assistant.study.StudyDiagramAtlas
 import com.jarvis.assistant.study.StudyDoubt
 import com.jarvis.assistant.study.StudyDoubts
@@ -37,13 +38,16 @@ import com.jarvis.assistant.study.voice.StudyVoice
 import com.jarvis.assistant.study.voice.StudyVoiceCodec
 import com.jarvis.assistant.study.StudyMemory
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.util.Locale
 import java.util.UUID
@@ -120,7 +124,12 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     private var singleNarratingBlock = -1
     private var fromSavedSession = false
 
-    private class StagedBlock(val block: BoardBlock, val speech: String, val explanation: String)
+    private class StagedBlock(
+        val block: BoardBlock,
+        val speech: String,
+        val explanation: String,
+        val stepIndex: Int = block.stepIndex
+    )
 
     // ----- session state (read and written on the main thread unless noted) -----
     private var sessionId = UUID.randomUUID().toString()
@@ -297,6 +306,37 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
 
     fun newQuestionMode() { askMode.value = AskMode.NEW; selectedBlock.value = -1 }
 
+    private fun wantsDiagramRequest(text: String): Boolean =
+        Regex(
+            "\\b(draw|diagram|sketch|label|labelled|labeled|structure|figure|illustrate|parts of|circuit|flowchart|architecture|cycle|anatomy|cross[- ]section|ray diagram|graph|plot|free body|venn|binary tree|linked list|osi model|चित्र|बनाओ|डायग्राम)\\b",
+            RegexOption.IGNORE_CASE
+        ).containsMatchIn(text)
+
+    private suspend fun runDiagramArchitect(
+        title: String,
+        question: String,
+        context: String,
+        draftJson: String,
+        profile: StudyProfile
+    ): Pair<DiagramSpec, String>? = withTimeoutOrNull(20_000L) {
+        try {
+            val sb = StringBuilder()
+            StudyAiEngine.stream(
+                getApplication(),
+                StudyAiEngine.Request(
+                    system = StudyDiagramArchitect.systemPrompt(profile),
+                    user = StudyDiagramArchitect.userPrompt(title, question, context, draftJson),
+                    thinking = Thinking.MEDIUM
+                )
+            ).collect { sb.append(it) }
+            StudyDiagramArchitect.parseReply(sb.toString())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
     /** Starts a fresh lesson for [question]. Anything already on the board is replaced (it stays in history). */
     fun startLesson(question: String, attachments: List<ChatAttachment>) {
         if (isBusy) return
@@ -318,18 +358,27 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             addBlock(qBlock, "", "")
             withContext(Dispatchers.Main) { playback.jumpToEnd() }
             persist(StudyHistoryManager.Status.INTERRUPTED, force = true)
-            val fastThinking = if (profile.depth == StudyProfile.Depth.ADVANCED) Thinking.LOW else Thinking.MINIMAL
-            val wantsDiagram = Regex("\\b(draw|diagram|sketch|label|labelled|labeled|structure|figure|illustrate|parts of)\\b", RegexOption.IGNORE_CASE).containsMatchIn(question)
+            val wantsDiagram = wantsDiagramRequest(question)
             val hasCanonicalDiagram = wantsDiagram && StudyDiagramAtlas.match(question) != null
+            val thinking = when {
+                wantsDiagram && !hasCanonicalDiagram -> Thinking.MEDIUM
+                profile.depth == StudyProfile.Depth.ADVANCED -> Thinking.LOW
+                else -> Thinking.MINIMAL
+            }
+            val memCtx = memoryBlock()
+            val parallelArchitect = if (wantsDiagram && !hasCanonicalDiagram && attachments.isEmpty()) {
+                async(Dispatchers.IO) { runDiagramArchitect("", question, memCtx, "", profile) }
+            } else null
             val staged = ArrayList<StagedBlock>()
             val ok = consume(
                 StudyAiEngine.Request(
                     StudyPrompt.lessonSystem(profile),
-                    StudyPrompt.lessonUser(question, memoryBlock(), hasCanonicalDiagram = hasCanonicalDiagram),
+                    StudyPrompt.lessonUser(question, memCtx, hasCanonicalDiagram = hasCanonicalDiagram),
                     attachments,
-                    thinking = fastThinking
+                    thinking = thinking
                 ),
-                asm, doubt = false, baseBottom = qBlock.bottom, staged = staged
+                asm, doubt = false, baseBottom = qBlock.bottom, staged = staged,
+                profile = profile, activeQuestion = question, diagramContext = memCtx, parallelArchitect = parallelArchitect
             )
             val startBlockIdx = blocks.value.size
             if (staged.isNotEmpty()) commitStagedBlocks(staged)
@@ -343,8 +392,8 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         val profile = prefs.profile()
         val ref = StudyDoubts.resolveStep(text, selectedBlock.value.takeIf { it >= 0 }?.let { blocks.value.getOrNull(it)?.stepIndex }, l.steps.size)
         lastWasDoubt = true; lastDoubtText = text; lastDoubtRef = ref
-        val asm = StudyAssembler(text, l.level)
-        ui.value = ui.value.copy(phase = Phase.GENERATING, message = "", retryable = false, loadingDetail = "Preparing doubt explanation…")
+        val asm = StudyAssembler(text, l.level, isDoubt = true)
+        ui.value = ui.value.copy(phase = Phase.GENERATING, message = "", retryable = false, loadingDetail = "Preparing step-by-step doubt explanation…")
         playback.setGenerationOpen(true)
         doubtBlockStart = blocks.value.size
         warmUpVoice()
@@ -355,18 +404,31 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 playback.jumpToEnd()
                 if (ref != null) blockOfStep(ref)?.let { events.tryEmit(Event.Reveal(it)) }
             }
-            val fastThinking = if (profile.depth == StudyProfile.Depth.ADVANCED) Thinking.LOW else Thinking.MINIMAL
+            val wantsDiagram = wantsDiagramRequest(text)
+            val hasCanonicalDiagram = wantsDiagram && StudyDiagramAtlas.match(text) != null
+            val thinking = if (wantsDiagram && !hasCanonicalDiagram) Thinking.MEDIUM else Thinking.LOW
+            val priorDoubts = doubts.toList()
+            val memCtx = memoryBlock(l.question)
+            val digest = StudyPrompt.lessonDigest(l, priorDoubts)
+            val parallelArchitect = if (wantsDiagram && !hasCanonicalDiagram) {
+                async(Dispatchers.IO) { runDiagramArchitect("", text, digest, "", profile) }
+            } else null
             val staged = ArrayList<StagedBlock>()
             val ok = consume(
-                StudyAiEngine.Request(StudyPrompt.doubtSystem(profile), StudyPrompt.doubtUser(l, text, ref, memoryBlock(l.question)), thinking = fastThinking),
-                asm, doubt = true, baseBottom = dBlock.bottom, staged = staged
+                StudyAiEngine.Request(
+                    StudyPrompt.doubtSystem(profile),
+                    StudyPrompt.doubtUser(l, text, ref, memCtx, priorDoubts, hasCanonicalDiagram),
+                    thinking = thinking
+                ),
+                asm, doubt = true, baseBottom = dBlock.bottom, staged = staged,
+                profile = profile, activeQuestion = text, diagramContext = digest, parallelArchitect = parallelArchitect
             )
             val startIdx = blocks.value.size
             if (staged.isNotEmpty()) commitStagedBlocks(staged)
             val result = asm.lesson
             withContext(Dispatchers.Main) {
                 playback.setGenerationOpen(false)
-                if (ok && result.steps.isNotEmpty() || ok && result.finalAnswer.isNotEmpty()) {
+                if ((ok && result.steps.isNotEmpty()) || (ok && result.finalAnswer.isNotEmpty())) {
                     val steps = result.steps.toMutableList()
                     if (result.finalAnswer.isNotEmpty() && steps.lastOrNull()?.isFinalHighlight != true) {
                         steps.add(StudyStep(Int.MAX_VALUE, StepKind.RESULT, result.finalAnswer, result.finalExplanation, spoken = result.finalSpoken))
@@ -378,7 +440,10 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 } else {
                     ui.value = ui.value.copy(loadingDetail = "")
                 }
-                if (staged.isNotEmpty()) startContinuousRange(startIdx, blocks.value.lastIndex)
+                if (staged.isNotEmpty()) {
+                    events.tryEmit(Event.Reveal(startIdx))
+                    startContinuousRange(startIdx, blocks.value.lastIndex)
+                }
             }
             persist(StudyHistoryManager.Status.COMPLETE, force = true)
         }
@@ -395,11 +460,40 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         asm: StudyAssembler,
         doubt: Boolean,
         baseBottom: Float,
-        staged: MutableList<StagedBlock>
+        staged: MutableList<StagedBlock>,
+        profile: StudyProfile,
+        activeQuestion: String,
+        diagramContext: String,
+        parallelArchitect: Deferred<Pair<DiagramSpec, String>?>? = null
     ): Boolean {
         val parser = StudyStreamParser()
         var restyled = false
         var negative = 0
+        var architectUsed = false
+        val finalCaption = if (doubt) "Doubt Takeaway" else "Final Answer"
+
+        suspend fun maybeUpgradeDiagram(rawStep: StudyStep): StudyStep {
+            val diag = rawStep.diagram ?: return rawStep
+            if (diag.graph != null) return rawStep
+            if (StudyDiagramAtlas.match(diag.title) != null || StudyDiagramAtlas.match(activeQuestion) != null) return rawStep
+
+            var upgraded: Pair<DiagramSpec, String>? = null
+            if (parallelArchitect != null && !architectUsed) {
+                architectUsed = true
+                withContext(Dispatchers.Main) { ui.value = ui.value.copy(loadingDetail = "Crafting studio diagram…") }
+                upgraded = parallelArchitect.await()
+            } else if (StudyDiagramArchitect.needsPrecisionUpgrade(diag)) {
+                withContext(Dispatchers.Main) { ui.value = ui.value.copy(loadingDetail = "Refining studio diagram…") }
+                upgraded = runDiagramArchitect(diag.title, activeQuestion, diagramContext, rawStep.diagramJson, profile)
+            }
+            val (archSpec, archJson) = upgraded ?: return rawStep
+            if (archSpec.items.size >= diag.items.size || archSpec.items.any { it is DiagramSpec.Item.VectorPath }) {
+                asm.replaceStepDiagram(rawStep.index, archSpec, archJson)
+                return rawStep.copy(diagram = archSpec, diagramJson = archJson)
+            }
+            return rawStep
+        }
+
         suspend fun handle(u: StudyAssembler.Update) {
             when (u) {
                 is StudyAssembler.Update.LessonChanged -> if (!doubt) withContext(Dispatchers.Main) {
@@ -408,11 +502,12 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 is StudyAssembler.Update.StepAdded -> {
                     restyled = false
-                    val step = if (doubt) u.step.copy(index = --negative) else u.step
+                    val upgradedRaw = maybeUpgradeDiagram(u.step)
+                    val step = if (doubt) upgradedRaw.copy(index = --negative) else upgradedRaw
                     val prevBottom = staged.lastOrNull()?.block?.bottom ?: baseBottom
                     val block = layoutOn { st, m -> StudyBoardLayout.layoutStep(step, prevBottom, st, m) }
                     val say = speechFor(step, asm)
-                    staged.add(StagedBlock(block, say, step.explanation))
+                    staged.add(StagedBlock(block, say, step.explanation, step.index))
                     withContext(Dispatchers.Main) {
                         val tag = if (step.kind == StepKind.DIAGRAM) "diagram" else "step ${staged.size}"
                         ui.value = ui.value.copy(loadingDetail = "Preparing $tag…")
@@ -423,14 +518,31 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                     if (staged.isNotEmpty()) {
                         val i = staged.lastIndex
                         val prevBottom = if (i > 0) staged[i - 1].block.bottom else baseBottom
-                        val block = layoutOn { st, m -> StudyBoardLayout.layoutStep(u.step, prevBottom, st, m, isFinalBlock = true) }
-                        staged[i] = StagedBlock(block, staged[i].speech, staged[i].explanation)
+                        val preservedStep = if (doubt) u.step.copy(index = staged[i].stepIndex) else u.step
+                        val block = layoutOn { st, m ->
+                            StudyBoardLayout.layoutStep(preservedStep, prevBottom, st, m, isFinalBlock = true, finalCaption = finalCaption)
+                        }
+                        val nextSpeech = preservedStep.spoken.takeIf { it.isNotBlank() } ?: staged[i].speech
+                        staged[i] = StagedBlock(block, nextSpeech, staged[i].explanation, preservedStep.index)
                     }
                 }
                 is StudyAssembler.Update.FinalAnswer -> {
+                    // If parallelArchitect built a custom diagram and the model omitted a diagram step, insert it cleanly before final
+                    if (parallelArchitect != null && !architectUsed && asm.lesson.steps.none { it.diagram != null }) {
+                        architectUsed = true
+                        parallelArchitect.await()?.let { (archSpec, archJson) ->
+                            val added = asm.appendArchitectDiagram(archSpec, archJson, "Labelled diagram: ${archSpec.title}")
+                            if (added != null) {
+                                val diagStep = if (doubt) added.copy(index = --negative) else added
+                                val prevBottom = staged.lastOrNull()?.block?.bottom ?: baseBottom
+                                val diagBlock = layoutOn { st, m -> StudyBoardLayout.layoutStep(diagStep, prevBottom, st, m) }
+                                staged.add(StagedBlock(diagBlock, speechFor(diagStep, asm), diagStep.explanation, diagStep.index))
+                            }
+                        }
+                    }
                     if (!restyled) {
                         val prevBottom = staged.lastOrNull()?.block?.bottom ?: baseBottom
-                        val block = layoutOn { st, m -> StudyBoardLayout.layoutFinal(u.answer, u.explanation, prevBottom, st, m) }
+                        val block = layoutOn { st, m -> StudyBoardLayout.layoutFinal(u.answer, u.explanation, prevBottom, st, m, caption = finalCaption) }
                         val say = finalSpeech(u.answer, u.explanation, asm, u.spoken)
                         staged.add(StagedBlock(block, say, u.explanation))
                         withContext(Dispatchers.Main) {
@@ -455,12 +567,15 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             for (u in asm.finish(true)) handle(u)
             return true
         } catch (e: CancellationException) {
+            parallelArchitect?.cancel()
             throw e
         } catch (e: StudyAiException) {
+            parallelArchitect?.cancel()
             for (ev in parser.finish()) asm.accept(ev)
             withContext(Dispatchers.Main) { ui.value = ui.value.copy(phase = Phase.ERROR, message = e.message ?: "The AI request failed.", retryable = e.retryable, loadingDetail = "") }
             return false
         } catch (e: Throwable) {
+            parallelArchitect?.cancel()
             withContext(Dispatchers.Main) { ui.value = ui.value.copy(phase = Phase.ERROR, message = "Something went wrong: ${e.message ?: e.javaClass.simpleName}", retryable = true, loadingDetail = "") }
             return false
         }
@@ -473,9 +588,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         }
         blocks.value = blocks.value + staged.map { it.block }
         eraseLimit.value = Int.MAX_VALUE
-        for (item in staged) {
-            playback.addBlock(StudyPlayback.durationFor(item.block))
-        }
+        playback.addBlocks(staged.map { StudyPlayback.durationFor(it.block) }, autoStart = false)
         bump()
     }
 
@@ -1120,7 +1233,11 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                     for (s in d.steps) {
                         val step = s.copy(index = if (s.index == Int.MAX_VALUE) Int.MAX_VALUE else --k)
                         val spText = if (s.index == Int.MAX_VALUE) finalSpeech(s.content, s.explanation, asm, s.spoken) else speechFor(step, asm)
-                        push(if (s.index == Int.MAX_VALUE) StudyBoardLayout.layoutFinal(s.content, s.explanation, list.last().bottom, style, m) else StudyBoardLayout.layoutStep(step, list.last().bottom, style, m), spText, s.explanation)
+                        push(
+                            if (s.index == Int.MAX_VALUE) StudyBoardLayout.layoutFinal(s.content, s.explanation, list.last().bottom, style, m, caption = "Doubt Takeaway")
+                            else StudyBoardLayout.layoutStep(step, list.last().bottom, style, m),
+                            spText, s.explanation
+                        )
                     }
                 }
                 Triple(list, sp, ex)

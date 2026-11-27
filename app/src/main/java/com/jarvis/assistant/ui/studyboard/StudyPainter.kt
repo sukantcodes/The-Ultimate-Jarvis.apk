@@ -21,6 +21,7 @@ import com.jarvis.assistant.study.Face
 import com.jarvis.assistant.study.FillShade
 import com.jarvis.assistant.study.Ink
 import com.jarvis.assistant.study.PaintMode
+import com.jarvis.assistant.study.PathCmd
 import com.jarvis.assistant.study.StepKind
 import com.jarvis.assistant.study.TextMetrics
 import com.jarvis.assistant.util.ThemeManager
@@ -82,6 +83,7 @@ object StudyPalette {
         Ink.ROSE -> roseColor
         Ink.ORANGE -> orangeColor
         Ink.BROWN -> brownColor
+        Ink.PAPER -> PAPER
     }
 }
 
@@ -174,27 +176,33 @@ class StudyPainter(private val fonts: StudyFonts) {
 
     private fun applyFillShader(fillInk: Ink, shade: FillShade, fillAlpha: Float, globalAlpha: Int, box: RectF) {
         val base = StudyPalette.color(fillInk)
-        val targetAlpha = ((globalAlpha * fillAlpha).toInt()).coerceIn(6, 240)
-        val highlight = ColorUtils.blendARGB(base, StudyPalette.PAPER, 0.56f)
+        val targetAlpha = ((globalAlpha * fillAlpha).toInt()).coerceIn(6, 245)
+        if (fillInk == Ink.PAPER) {
+            fillPaint.shader = null
+            fillPaint.color = ColorUtils.setAlphaComponent(base, targetAlpha)
+            return
+        }
+        val highlight = ColorUtils.blendARGB(base, StudyPalette.PAPER, 0.44f)
+        val shadowBase = ColorUtils.blendARGB(base, StudyPalette.color(Ink.INK), 0.14f)
         val midColor = ColorUtils.setAlphaComponent(base, targetAlpha)
-        val hiColor = ColorUtils.setAlphaComponent(highlight, (targetAlpha * 0.72f).toInt().coerceIn(4, 230))
-        val deepColor = ColorUtils.setAlphaComponent(base, (targetAlpha * 1.15f).toInt().coerceAtMost(245))
+        val hiColor = ColorUtils.setAlphaComponent(highlight, (targetAlpha * 0.78f).toInt().coerceIn(4, 235))
+        val deepColor = ColorUtils.setAlphaComponent(shadowBase, (targetAlpha * 1.18f).toInt().coerceAtMost(248))
 
         fillPaint.alpha = 255
         fillPaint.shader = when {
             box.width() < 2f || box.height() < 2f -> null
             shade == FillShade.RADIAL -> RadialGradient(
-                box.centerX() - box.width() * 0.16f,
-                box.centerY() - box.height() * 0.16f,
-                max(box.width(), box.height()) * 0.68f,
+                box.centerX() - box.width() * 0.18f,
+                box.centerY() - box.height() * 0.18f,
+                max(box.width(), box.height()) * 0.72f,
                 intArrayOf(hiColor, midColor, deepColor),
-                floatArrayOf(0f, 0.62f, 1f),
+                floatArrayOf(0f, 0.58f, 1f),
                 Shader.TileMode.CLAMP
             )
             shade == FillShade.LINEAR -> LinearGradient(
                 box.left, box.top, box.right, box.bottom,
                 intArrayOf(hiColor, midColor, deepColor),
-                floatArrayOf(0f, 0.55f, 1f),
+                floatArrayOf(0f, 0.52f, 1f),
                 Shader.TileMode.CLAMP
             )
             else -> null
@@ -253,6 +261,7 @@ class StudyPainter(private val fonts: StudyFonts) {
             is DrawOp.Oval -> drawOval(canvas, op, frac, alpha)
             is DrawOp.Arc -> drawArc(canvas, op, frac, alpha)
             is DrawOp.Rect -> drawRect(canvas, op, frac, alpha)
+            is DrawOp.VectorPath -> drawVectorPath(canvas, op, frac, alpha)
         }
     }
 
@@ -339,6 +348,26 @@ class StudyPainter(private val fonts: StudyFonts) {
         }
     }
 
+    private fun drawVectorPath(canvas: Canvas, op: DrawOp.VectorPath, frac: Float, alpha: Int) {
+        if (op.cmds.isEmpty()) return
+        path.reset()
+        for (c in op.cmds) {
+            when (c) {
+                is PathCmd.MoveTo -> path.moveTo(c.x, c.y)
+                is PathCmd.LineTo -> path.lineTo(c.x, c.y)
+                is PathCmd.QuadTo -> path.quadTo(c.cx, c.cy, c.x, c.y)
+                is PathCmd.CubicTo -> path.cubicTo(c.c1x, c.c1y, c.c2x, c.c2y, c.x, c.y)
+                is PathCmd.Close -> path.close()
+            }
+        }
+        if (op.fill && op.paintMode != PaintMode.STROKE_ONLY && (op.paintMode == PaintMode.FILL_ONLY || frac >= 1f)) {
+            drawProgressiveFillPath(canvas, path, op.fillInk, op.shade, op.fillAlpha, if (op.paintMode == PaintMode.FILL_ONLY) frac else 1f, alpha)
+        }
+        if (op.paintMode != PaintMode.FILL_ONLY) {
+            drawBuiltPathStroke(canvas, path, op.ink, op.stroke, op.dashed, frac, alpha)
+        }
+    }
+
     private fun drawBuiltPathStroke(canvas: Canvas, fullPath: Path, ink: Ink, stroke: Float, dashed: Boolean, frac: Float, alpha: Int) {
         applyStroke(ink, stroke, alpha, dashed)
         if (frac >= 1f) {
@@ -368,7 +397,7 @@ class StudyPainter(private val fonts: StudyFonts) {
             if (closed) target.close()
             return
         }
-        // Centripetal-style Catmull-Rom to cubic Bezier spline for organic smooth anatomy & curves
+        // Distance-clamped Catmull-Rom to cubic Bezier spline prevents loops/overshoots on varied spacing
         val segs = if (closed) count else count - 1
         for (i in 0 until segs) {
             val i0 = if (closed) (i - 1 + count) % count else max(0, i - 1)
@@ -381,23 +410,54 @@ class StudyPainter(private val fonts: StudyFonts) {
             val x2 = p[i2 * 2]; val y2 = p[i2 * 2 + 1]
             val x3 = p[i3 * 2]; val y3 = p[i3 * 2 + 1]
 
-            val c1x = x1 + (x2 - x0) / 6f
-            val c1y = y1 + (y2 - y0) / 6f
-            val c2x = x2 - (x3 - x1) / 6f
-            val c2y = y2 - (y3 - y1) / 6f
-            target.cubicTo(c1x, c1y, c2x, c2y, x2, y2)
+            val segLen = kotlin.math.hypot(x2 - x1, y2 - y1).coerceAtLeast(1e-3f)
+            val maxHandle = segLen * 0.42f
+
+            var h1x = (x2 - x0) / 6f
+            var h1y = (y2 - y0) / 6f
+            val h1Len = kotlin.math.hypot(h1x, h1y)
+            if (h1Len > maxHandle) {
+                val s = maxHandle / h1Len
+                h1x *= s; h1y *= s
+            }
+
+            var h2x = (x3 - x1) / 6f
+            var h2y = (y3 - y1) / 6f
+            val h2Len = kotlin.math.hypot(h2x, h2y)
+            if (h2Len > maxHandle) {
+                val s = maxHandle / h2Len
+                h2x *= s; h2y *= s
+            }
+
+            target.cubicTo(x1 + h1x, y1 + h1y, x2 - h2x, y2 - h2y, x2, y2)
         }
         if (closed) target.close()
     }
 
-    /** Soft tinted panel behind formulas, definitions, given data, or the final answer. */
+    /** Crisp layered studio card behind formulas, definitions, given data, or the final answer. */
     fun drawBlockBackground(canvas: Canvas, block: BoardBlock, width: Float, margin: Float, color: Int, alpha: Int) {
+        val left = margin - 16f
+        val top = block.top - 6f
+        val right = width - margin + 16f
+        val bottom = (block.bottom - 14f).coerceAtLeast(top + 24f)
+        rect.set(left, top, right, bottom)
+        val clampedAlpha = alpha.coerceIn(0, 255)
+        val topTint = ColorUtils.setAlphaComponent(color, (clampedAlpha * 1.15f).toInt().coerceIn(4, 240))
+        val botTint = ColorUtils.setAlphaComponent(color, (clampedAlpha * 0.45f).toInt().coerceIn(2, 160))
+
         panelPaint.pathEffect = null
         panelPaint.style = Paint.Style.FILL
+        panelPaint.alpha = 255
+        panelPaint.shader = LinearGradient(left, top, left, bottom, topTint, botTint, Shader.TileMode.CLAMP)
+        canvas.drawRoundRect(rect, 18f, 18f, panelPaint)
+        panelPaint.shader = null
+
+        // Subtle crisp perimeter rim
+        panelPaint.style = Paint.Style.STROKE
+        panelPaint.strokeWidth = 1.4f
         panelPaint.color = color
-        panelPaint.alpha = alpha.coerceIn(0, 255)
-        rect.set(margin - 16f, block.top - 6f, width - margin + 16f, block.bottom - 14f)
-        canvas.drawRoundRect(rect, 16f, 16f, panelPaint)
+        panelPaint.alpha = (clampedAlpha * 2.2f).toInt().coerceIn(12, 92)
+        canvas.drawRoundRect(rect, 18f, 18f, panelPaint)
     }
 
     fun drawSelection(canvas: Canvas, block: BoardBlock, width: Float, margin: Float, color: Int) {
@@ -843,6 +903,10 @@ class StudyPainter(private val fonts: StudyFonts) {
             is DrawOp.Poly -> {
                 val n = target.pts.size / 2
                 if (n <= 0) null else target.pts[(n / 2) * 2] to target.pts[(n / 2) * 2 + 1]
+            }
+            is DrawOp.VectorPath -> {
+                val pts = com.jarvis.assistant.study.SvgPathParser.samplePoints(target.cmds)
+                if (pts.isEmpty()) null else pts[pts.size / 2]
             }
             is DrawOp.Glyphs -> target.x to target.y
         }

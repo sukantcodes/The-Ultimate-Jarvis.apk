@@ -24,8 +24,24 @@ object StudyDiagramAtlas {
         stroke: Float = 1f,
         dashed: Boolean = false,
         arrow: Boolean = false,
-        layer: Int = 0
-    ) = DiagramSpec.Item.Poly(pts, closed, ink, smooth, fill, fillInk, dashed, arrow, shade, alpha, stroke, layer)
+        layer: Int = 0,
+        text: String = "",
+        textInk: Ink = ink
+    ) = DiagramSpec.Item.Poly(pts, closed, ink, smooth, fill, fillInk, dashed, arrow, shade, alpha, stroke, layer, text, textInk)
+
+    private fun vpath(
+        d: String,
+        ink: Ink,
+        fill: Boolean = true,
+        fillInk: Ink = ink,
+        shade: FillShade = FillShade.RADIAL,
+        alpha: Float = 0.28f,
+        stroke: Float = 1.15f,
+        dashed: Boolean = false,
+        layer: Int = 0,
+        text: String = "",
+        textInk: Ink = ink
+    ) = DiagramSpec.Item.VectorPath(SvgPathParser.parse(d), fill, ink, fillInk, dashed, shade, alpha, stroke, layer, text, textInk)
 
     private fun line(
         x1: Float, y1: Float, x2: Float, y2: Float,
@@ -47,8 +63,10 @@ object StudyDiagramAtlas {
         alpha: Float = 0.30f,
         stroke: Float = 1f,
         dashed: Boolean = false,
-        layer: Int = 0
-    ) = DiagramSpec.Item.Oval(cx, cy, rx, ry, fill, ink, rot, fillInk, dashed, shade, alpha, stroke, layer)
+        layer: Int = 0,
+        text: String = "",
+        textInk: Ink = ink
+    ) = DiagramSpec.Item.Oval(cx, cy, rx, ry, fill, ink, rot, fillInk, dashed, shade, alpha, stroke, layer, text, textInk)
 
     private fun circle(
         cx: Float, cy: Float, r: Float,
@@ -59,8 +77,10 @@ object StudyDiagramAtlas {
         alpha: Float = 0.32f,
         stroke: Float = 1f,
         dashed: Boolean = false,
-        layer: Int = 0
-    ) = DiagramSpec.Item.Circle(cx, cy, r, fill, ink, fillInk, dashed, shade, alpha, stroke, layer)
+        layer: Int = 0,
+        text: String = "",
+        textInk: Ink = ink
+    ) = DiagramSpec.Item.Circle(cx, cy, r, fill, ink, fillInk, dashed, shade, alpha, stroke, layer, text, textInk)
 
     private fun arc(
         cx: Float, cy: Float, rx: Float, ry: Float,
@@ -86,15 +106,17 @@ object StudyDiagramAtlas {
         alpha: Float = 0.24f,
         stroke: Float = 1f,
         dashed: Boolean = false,
-        layer: Int = 0
-    ) = DiagramSpec.Item.Rect(x, y, w, h, fill, ink, rx, rx, fillInk, dashed, shade, alpha, stroke, layer)
+        layer: Int = 0,
+        text: String = "",
+        textInk: Ink = ink
+    ) = DiagramSpec.Item.Rect(x, y, w, h, fill, ink, rx, rx, fillInk, dashed, shade, alpha, stroke, layer, text, textInk)
 
     private fun lbl(ax: Float, ay: Float, text: String, ink: Ink, leftSide: Boolean): DiagramSpec.Item.Label =
-        DiagramSpec.Item.Label(if (leftSide) 10f else 90f, ay, text, ink, anchorX = ax, anchorY = ay, badge = true)
+        DiagramSpec.Item.Label(if (leftSide) 10f else 90f, ay, text, ink, anchorX = ax, anchorY = ay, badge = true, place = LabelPlace.CALLOUT)
 
     /**
      * Upgrades generic canonical diagrams with anatomically/scientifically faithful artwork while preserving all
-     * mathematical function graphs and numerical physics/geometry specs.
+     * mathematical function graphs, custom Architect vector diagrams, and numerical physics/geometry specs.
      */
     fun enhance(question: String, spec: DiagramSpec): DiagramSpec {
         if (spec.graph != null) return spec
@@ -105,7 +127,8 @@ object StudyDiagramAtlas {
             Regex("\\d+\\.?\\d*\\s*(cm|mm|m|km|v|a|w|n|j|kg|s|hz|°|ohm|ω|Ω)", RegexOption.IGNORE_CASE).containsMatchIn(l.text) ||
                 l.text.length <= 2
         }
-        if (hasNumericLabels && spec.title.isBlank()) return spec
+        if (hasNumericLabels) return spec
+        if (spec.items.size >= 16 && spec.items.any { it is DiagramSpec.Item.VectorPath }) return spec
 
         return match(t) ?: match(q) ?: spec
     }
@@ -130,6 +153,7 @@ object StudyDiagramAtlas {
             hasAny(t, "stomata", "guard cell", "leaf cross section") -> leafStomata()
             hasAny(t, "dna", "double helix", "nucleotide") -> dnaHelix()
             hasAny(t, "flower", "stamen", "pistil", "carpel", "ovary", "पुष्प", "फूल") -> flowerStructure()
+            hasAny(t, "nitrogen cycle", "nitrogen fixation", "nitrification", "नाइट्रोजन चक्र") -> nitrogenCycle()
             // Physics
             hasAny(t, "glass slab", "lateral displacement", "refraction through slab") -> glassSlabRefraction()
             hasAny(t, "prism", "dispersion", "vibgyor", "spectrum") -> glassPrism()
@@ -137,6 +161,7 @@ object StudyDiagramAtlas {
             hasAny(t, "convex lens", "converging lens") -> convexLensRays()
             hasAny(t, "concave mirror") -> concaveMirrorRays()
             hasAny(t, "ac generator", "alternating current generator", "dynamo") -> acGenerator()
+            hasAny(t, "transformer", "step-up", "step-down", "primary coil", "secondary coil") -> transformerDiagram()
             hasAny(t, "solenoid", "electromagnet") -> solenoidField()
             hasAny(t, "electric circuit", "ohm's law circuit", "ohm law circuit", "series circuit", "simple circuit") -> electricCircuit()
             hasAny(t, "magnetic field", "bar magnet", "magnetic lines") -> barMagnetField()
@@ -171,6 +196,7 @@ object StudyDiagramAtlas {
             hasAny(t, "carbon cycle", "कार्बन चक्र") -> carbonCycle()
             hasAny(t, "layers of earth", "layers of the earth", "interior of earth", "earth crust", "mantle and core") -> earthLayers()
             hasAny(t, "water cycle", "hydrologic cycle", "evaporation and condensation", "जल चक्र") -> waterCycle()
+            hasAny(t, "volcano", "magma chamber", "crater", "ज्वालामुखी") -> volcanoCrossSection()
             else -> null
         }
     }
@@ -292,69 +318,57 @@ object StudyDiagramAtlas {
 
     fun humanHeart(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        // Great vessels entering top
-        items += rect(34f, 12f, 7f, 20f, Ink.ACCENT, fillInk = Ink.ACCENT, rx = 2.5f, alpha = 0.35f, stroke = 1.0f) // Sup Vena Cava
-        items += rect(35f, 64f, 6.5f, 18f, Ink.ACCENT, fillInk = Ink.ACCENT, rx = 2.5f, alpha = 0.35f, stroke = 1.0f) // Inf Vena Cava
-        // Aorta arch with 3 branches
-        items += poly(
-            listOf(49f, 34f, 47f, 18f, 55f, 12f, 65f, 16f, 66f, 27f, 59f, 24f, 54f, 26f, 54f, 38f),
-            Ink.WARN, fillInk = Ink.WARN, alpha = 0.38f, stroke = 1.15f
-        )
-        items += line(52f, 13f, 51f, 6f, Ink.WARN, stroke = 1.4f, layer = 2)
-        items += line(56f, 12f, 56f, 5f, Ink.WARN, stroke = 1.4f, layer = 2)
-        items += line(60f, 13f, 62f, 7f, Ink.WARN, stroke = 1.4f, layer = 2)
+        // Superior & Inferior Vena Cava (Deoxygenated Blue)
+        items += vpath("M 32 10 L 32 34 L 40 36 L 40 10 Z", Ink.ACCENT, fill = true, fillInk = Ink.ACCENT, shade = FillShade.LINEAR, alpha = 0.34f, stroke = 1.15f, layer = 0)
+        items += vpath("M 34 66 L 34 86 L 41 86 L 41 66 Z", Ink.ACCENT, fill = true, fillInk = Ink.ACCENT, shade = FillShade.LINEAR, alpha = 0.34f, stroke = 1.15f, layer = 0)
+        // Smooth Bezier Aortic Arch + 3 arterial trunks
+        items += vpath("M 47 38 C 44 18, 49 11, 58 11 C 66 11, 70 18, 68 29 L 61 28 C 62 21, 59 18, 56 18 C 52 18, 51 24, 53 39 Z", Ink.WARN, fill = true, fillInk = Ink.WARN, shade = FillShade.LINEAR, alpha = 0.38f, stroke = 1.2f, layer = 0)
+        items += vpath("M 51 13 L 50 5 M 56 11 L 56 4 M 61 12 L 63 6", Ink.WARN, fill = false, stroke = 1.55f, layer = 2)
 
-        // Pulmonary Artery T-branch
-        items += poly(
-            listOf(47f, 44f, 46f, 29f, 34f, 26f, 34f, 31f, 44f, 33f, 54f, 29f, 67f, 27f, 67f, 32f, 54f, 34f),
-            Ink.TEAL, fillInk = Ink.ACCENT, alpha = 0.30f, stroke = 1.05f
-        )
+        // Smooth Pulmonary Artery Trunk T-bifurcation
+        items += vpath("M 45 45 C 45 31, 45 27, 33 25 L 33 30 L 47 33 L 68 31 L 68 26 C 56 27, 52 29, 51 45 Z", Ink.TEAL, fill = true, fillInk = Ink.ACCENT, shade = FillShade.LINEAR, alpha = 0.32f, stroke = 1.1f, layer = 0)
 
-        // Outer Myocardium Heart Contour
-        items += poly(
-            listOf(33f, 33f, 48f, 28f, 64f, 31f, 74f, 45f, 71f, 66f, 56f, 83f, 39f, 76f, 30f, 57f),
-            Ink.INK, fillInk = Ink.ROSE, shade = FillShade.RADIAL, alpha = 0.24f, stroke = 1.3f
+        // Smooth Anatomical Outer Myocardium Contour
+        items += vpath(
+            "M 34 32 C 42 26, 58 26, 66 32 C 76 40, 77 56, 70 70 C 65 79, 58 84, 54 85 C 45 81, 35 73, 30 58 C 27 47, 29 37, 34 32 Z",
+            Ink.INK, fill = true, fillInk = Ink.ROSE, shade = FillShade.RADIAL, alpha = 0.24f, stroke = 1.35f, layer = 0
         )
 
         // Right Atrium + Right Ventricle (Deoxygenated Blue)
-        items += oval(38f, 41f, 6.5f, 7.2f, Ink.ACCENT, fillInk = Ink.ACCENT, alpha = 0.38f, stroke = 0.95f)
-        items += poly(
-            listOf(35f, 51f, 47f, 50f, 49f, 76f, 40f, 71f, 34f, 58f),
-            Ink.ACCENT, fillInk = Ink.ACCENT, alpha = 0.38f, stroke = 0.95f
-        )
-        // Left Atrium + Left Ventricle (Oxygenated Red)
-        items += oval(62f, 42f, 6.5f, 7.2f, Ink.WARN, fillInk = Ink.WARN, alpha = 0.38f, stroke = 0.95f)
-        items += poly(
-            listOf(52f, 50f, 66f, 51f, 67f, 65f, 56f, 79f, 52f, 76f),
-            Ink.WARN, fillInk = Ink.WARN, alpha = 0.40f, stroke = 1.0f
-        )
+        items += vpath("M 33 37 C 33 32, 43 32, 45 39 C 46 45, 43 49, 36 48 C 32 47, 32 41, 33 37 Z", Ink.ACCENT, fill = true, fillInk = Ink.ACCENT, alpha = 0.38f, stroke = 0.95f, layer = 0)
+        items += vpath("M 35 51 L 47 50 L 49 76 C 41 73, 35 64, 35 51 Z", Ink.ACCENT, fill = true, fillInk = Ink.ACCENT, alpha = 0.38f, stroke = 1.0f, layer = 0)
 
-        // Interventricular Septum & Valves
-        items += rect(49f, 50f, 3f, 27f, Ink.ROSE, fillInk = Ink.ROSE, rx = 1.2f, alpha = 0.45f, stroke = 0.9f, layer = 2)
-        items += poly(listOf(35f, 49f, 41f, 52f, 46f, 49f), Ink.GOLD, closed = false, fill = false, stroke = 1.15f, layer = 2)
-        items += poly(listOf(53f, 49f, 59f, 52f, 65f, 49f), Ink.GOLD, closed = false, fill = false, stroke = 1.15f, layer = 2)
+        // Left Atrium + Thick-Walled Left Ventricle (Oxygenated Red)
+        items += vpath("M 56 38 C 58 32, 67 33, 68 41 C 69 47, 63 49, 57 47 C 54 45, 55 41, 56 38 Z", Ink.WARN, fill = true, fillInk = Ink.WARN, alpha = 0.38f, stroke = 0.95f, layer = 0)
+        items += vpath("M 52 50 L 66 51 C 68 63, 62 75, 55 80 L 52 76 Z", Ink.WARN, fill = true, fillInk = Ink.WARN, alpha = 0.42f, stroke = 1.05f, layer = 0)
 
-        // Pulmonary Veins & Blood flow arrows
-        items += line(76f, 40f, 67f, 41f, Ink.WARN, arrow = true, stroke = 1.1f, layer = 2)
-        items += line(76f, 45f, 67f, 45f, Ink.WARN, arrow = true, stroke = 1.1f, layer = 2)
-        items += line(37.5f, 16f, 37.5f, 36f, Ink.ACCENT, arrow = true, stroke = 0.95f, layer = 2)
+        // Muscular Interventricular Septum + Tricuspid/Mitral Valves & Chordae Tendineae
+        items += vpath("M 48 49 C 48 56, 49 70, 51 79 L 54 79 C 53 69, 52 56, 52 49 Z", Ink.ROSE, fill = true, fillInk = Ink.ROSE, alpha = 0.50f, stroke = 0.95f, layer = 2)
+        items += vpath("M 36 49 L 41 53 L 46 49 M 53 49 L 59 53 L 65 49", Ink.GOLD, fill = false, stroke = 1.25f, layer = 2)
+        items += line(41f, 53f, 40f, 62f, Ink.GOLD, dashed = true, stroke = 0.7f, layer = 2)
+        items += line(59f, 53f, 60f, 63f, Ink.GOLD, dashed = true, stroke = 0.7f, layer = 2)
+
+        // Pulmonary Veins & Blood Flow Arrows
+        items += line(77f, 39f, 67f, 40f, Ink.WARN, arrow = true, stroke = 1.15f, layer = 2)
+        items += line(77f, 44f, 67f, 44f, Ink.WARN, arrow = true, stroke = 1.15f, layer = 2)
+        items += line(36f, 16f, 36f, 35f, Ink.ACCENT, arrow = true, stroke = 0.95f, layer = 2)
         items += line(39f, 45f, 41f, 56f, Ink.ACCENT, arrow = true, stroke = 0.95f, layer = 2)
-        items += line(44f, 65f, 46f, 35f, Ink.ACCENT, arrow = true, stroke = 0.95f, layer = 2)
+        items += line(44f, 65f, 46f, 36f, Ink.ACCENT, arrow = true, stroke = 0.95f, layer = 2)
         items += line(61f, 45f, 60f, 56f, Ink.WARN, arrow = true, stroke = 0.95f, layer = 2)
         items += line(56f, 68f, 52f, 36f, Ink.WARN, arrow = true, stroke = 0.95f, layer = 2)
 
-        items += lbl(37.5f, 20f, "Superior Vena Cava", Ink.ACCENT, leftSide = true)
+        items += lbl(36f, 20f, "Superior Vena Cava", Ink.ACCENT, leftSide = true)
         items += lbl(38f, 40f, "Right Atrium", Ink.ACCENT, leftSide = true)
-        items += lbl(41f, 51f, "Tricuspid Valve", Ink.GOLD, leftSide = true)
+        items += lbl(41f, 52f, "Tricuspid Valve", Ink.GOLD, leftSide = true)
         items += lbl(40f, 64f, "Right Ventricle", Ink.ACCENT, leftSide = true)
-        items += lbl(38f, 75f, "Inferior Vena Cava", Ink.ACCENT, leftSide = true)
+        items += lbl(37.5f, 76f, "Inferior Vena Cava", Ink.ACCENT, leftSide = true)
 
-        items += lbl(56f, 13f, "Aorta", Ink.WARN, leftSide = false)
-        items += lbl(62f, 29f, "Pulmonary Artery", Ink.TEAL, leftSide = false)
-        items += lbl(67f, 43f, "Left Atrium", Ink.WARN, leftSide = false)
-        items += lbl(59f, 51f, "Mitral (Bicuspid) Valve", Ink.GOLD, leftSide = false)
+        items += lbl(56f, 14f, "Aorta", Ink.WARN, leftSide = false)
+        items += lbl(62f, 28f, "Pulmonary Artery", Ink.TEAL, leftSide = false)
+        items += lbl(66f, 42f, "Left Atrium", Ink.WARN, leftSide = false)
+        items += lbl(59f, 52f, "Mitral (Bicuspid) Valve", Ink.GOLD, leftSide = false)
         items += lbl(50.5f, 63f, "Septum", Ink.ROSE, leftSide = false)
-        items += lbl(61f, 70f, "Left Ventricle", Ink.WARN, leftSide = false)
+        items += lbl(60f, 70f, "Left Ventricle", Ink.WARN, leftSide = false)
 
         return DiagramSpec("Human Heart (Longitudinal Section)", items)
     }
@@ -893,31 +907,32 @@ object StudyDiagramAtlas {
 
     fun electricCircuit(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        // Main rectangular circuit loop (top resistance R + A, bottom battery + switch)
-        items += rect(24f, 28f, 52f, 44f, Ink.INK, fill = false, rx = 3f, stroke = 1.15f, layer = 0)
-        // Zigzag Resistor along top branch
-        items += poly(listOf(42f, 28f, 44f, 23f, 47f, 33f, 50f, 23f, 53f, 33f, 56f, 23f, 58f, 28f), Ink.ORANGE, closed = false, smooth = false, fill = false, stroke = 1.4f, layer = 2)
-        // Voltmeter parallel loop above Resistor
-        items += poly(listOf(38f, 28f, 38f, 14f, 62f, 14f, 62f, 28f), Ink.VIOLET, closed = false, smooth = false, fill = false, stroke = 0.95f, layer = 2)
-        items += circle(50f, 14f, 4.8f, Ink.VIOLET, fillInk = Ink.VIOLET, alpha = 0.30f, stroke = 1.1f, layer = 0)
-        // Ammeter inline left branch
-        items += circle(24f, 50f, 5.0f, Ink.TEAL, fillInk = Ink.TEAL, alpha = 0.32f, stroke = 1.1f, layer = 0)
-        // Battery cells bottom left
-        items += line(36f, 66f, 36f, 78f, Ink.WARN, stroke = 1.6f, layer = 2)
-        items += line(40f, 69f, 40f, 75f, Ink.ACCENT, stroke = 2.1f, layer = 2)
-        // Plug key Switch bottom right
-        items += circle(60f, 72f, 2.2f, Ink.RESULT, fillInk = Ink.RESULT, alpha = 0.7f, layer = 2)
-        items += circle(66f, 72f, 2.2f, Ink.RESULT, fillInk = Ink.RESULT, alpha = 0.7f, layer = 2)
-        // Conventional current arrows
-        items += line(68f, 28f, 74f, 28f, Ink.WARN, arrow = true, stroke = 1.1f, layer = 2)
-        items += line(76f, 42f, 76f, 56f, Ink.WARN, arrow = true, stroke = 1.1f, layer = 2)
+        // Clean orthogonal copper loop segments connecting exact component terminals
+        items += line(24f, 44f, 24f, 28f, Ink.INK, stroke = 1.25f, layer = 2)
+        items += line(24f, 28f, 38f, 28f, Ink.INK, stroke = 1.25f, layer = 2)
+        items += StudyDiagramComponents.resistor(38f, 28f, 62f, 28f, Ink.ORANGE, strokeScale = 1.25f, label = "Resistor R")
+        items += line(62f, 28f, 76f, 28f, Ink.INK, stroke = 1.25f, layer = 2)
+        items += line(76f, 28f, 76f, 72f, Ink.INK, stroke = 1.25f, layer = 2)
+        items += line(24f, 56f, 24f, 72f, Ink.INK, stroke = 1.25f, layer = 2)
+        items += line(24f, 72f, 32f, 72f, Ink.INK, stroke = 1.25f, layer = 2)
+        items += StudyDiagramComponents.battery(32f, 72f, 46f, 72f, cells = 2, ink = Ink.WARN, label = "DC Battery")
+        items += line(46f, 72f, 56f, 72f, Ink.INK, stroke = 1.25f, layer = 2)
+        items += StudyDiagramComponents.switch(56f, 72f, 70f, 72f, open = false, ink = Ink.RESULT, label = "Switch K")
+        items += line(70f, 72f, 76f, 72f, Ink.INK, stroke = 1.25f, layer = 2)
 
-        items += lbl(24f, 50f, "Ammeter (A)", Ink.TEAL, leftSide = true)
-        items += lbl(38f, 72f, "DC Battery (+/-)", Ink.WARN, leftSide = true)
-        items += lbl(50f, 14f, "Voltmeter (V)", Ink.VIOLET, leftSide = false)
-        items += lbl(50f, 28f, "Resistor (R)", Ink.ORANGE, leftSide = false)
-        items += lbl(76f, 48f, "Current (I)", Ink.WARN, leftSide = false)
-        items += lbl(63f, 72f, "Switch Key (K)", Ink.RESULT, leftSide = false)
+        // Voltmeter parallel branch above Resistor
+        items += poly(listOf(36f, 28f, 36f, 14f, 45f, 14f), Ink.VIOLET, closed = false, smooth = false, fill = false, stroke = 1.05f, layer = 2)
+        items += poly(listOf(55f, 14f, 64f, 14f, 64f, 28f), Ink.VIOLET, closed = false, smooth = false, fill = false, stroke = 1.05f, layer = 2)
+        items += StudyDiagramComponents.meter(50f, 14f, 5.2f, "V", Ink.VIOLET)
+        // Ammeter inline left branch
+        items += StudyDiagramComponents.meter(24f, 50f, 5.4f, "A", Ink.TEAL)
+        // Conventional current arrows
+        items += line(67f, 28f, 74f, 28f, Ink.WARN, arrow = true, stroke = 1.2f, layer = 2)
+        items += line(76f, 44f, 76f, 58f, Ink.WARN, arrow = true, stroke = 1.2f, layer = 2)
+
+        items += lbl(24f, 50f, "Ammeter (Series)", Ink.TEAL, leftSide = true)
+        items += lbl(50f, 14f, "Voltmeter (Parallel)", Ink.VIOLET, leftSide = false)
+        items += lbl(76f, 50f, "Current (I)", Ink.WARN, leftSide = false)
         return DiagramSpec("Electric Circuit (Ohm's Law Setup)", items)
     }
 
@@ -1011,22 +1026,29 @@ object StudyDiagramAtlas {
 
     fun dcMotor(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        items += rect(16f, 36f, 13f, 26f, Ink.WARN, fillInk = Ink.WARN, rx = 2f, alpha = 0.42f, stroke = 1.2f, layer = 0)
-        items += rect(71f, 36f, 13f, 26f, Ink.ACCENT, fillInk = Ink.ACCENT, rx = 2f, alpha = 0.42f, stroke = 1.2f, layer = 0)
+        items += rect(16f, 35f, 13f, 26f, Ink.WARN, fillInk = Ink.WARN, rx = 2.5f, alpha = 0.36f, stroke = 1.25f, layer = 0, text = "N")
+        items += rect(71f, 35f, 13f, 26f, Ink.ACCENT, fillInk = Ink.ACCENT, rx = 2.5f, alpha = 0.36f, stroke = 1.25f, layer = 0, text = "S")
+        // Magnetic flux lines
+        items += line(29f, 42f, 71f, 42f, Ink.NOTE, arrow = true, dashed = true, stroke = 0.8f, layer = 2)
+        items += line(29f, 54f, 71f, 54f, Ink.NOTE, arrow = true, dashed = true, stroke = 0.8f, layer = 2)
         // Rotating Rectangular Armature ABCD
-        items += poly(listOf(36f, 62f, 40f, 32f, 64f, 32f, 60f, 62f), Ink.ORANGE, smooth = false, fill = true, fillInk = Ink.GOLD, alpha = 0.16f, stroke = 1.4f, layer = 0)
-        items += arc(48f, 68f, 4.5f, 3f, 100f, 160f, Ink.TEAL, stroke = 1.5f, layer = 2)
-        items += arc(52f, 68f, 4.5f, 3f, -80f, 160f, Ink.TEAL, stroke = 1.5f, layer = 2)
-        items += rect(41f, 67f, 3f, 3f, Ink.INK, fillInk = Ink.INK, alpha = 0.8f, layer = 2)
-        items += rect(56f, 67f, 3f, 3f, Ink.INK, fillInk = Ink.INK, alpha = 0.8f, layer = 2)
-        items += poly(listOf(41f, 69f, 32f, 69f, 32f, 84f, 68f, 84f, 68f, 69f, 59f, 69f), Ink.INK, closed = false, smooth = false, fill = false, stroke = 1.0f, layer = 2)
-        items += line(38f, 47f, 38f, 36f, Ink.RESULT, arrow = true, stroke = 1.15f, layer = 2)
-        items += line(62f, 47f, 62f, 58f, Ink.RESULT, arrow = true, stroke = 1.15f, layer = 2)
+        items += poly(listOf(36f, 62f, 40f, 32f, 64f, 32f, 60f, 62f), Ink.ORANGE, smooth = false, fill = true, fillInk = Ink.GOLD, alpha = 0.18f, stroke = 1.45f, layer = 0, text = "ABCD")
+        items += line(46f, 62f, 46f, 66f, Ink.ORANGE, stroke = 1.2f, layer = 2)
+        items += line(54f, 62f, 54f, 66f, Ink.ORANGE, stroke = 1.2f, layer = 2)
+        items += arc(48f, 68f, 4.5f, 3f, 100f, 160f, Ink.TEAL, stroke = 1.55f, layer = 2)
+        items += arc(52f, 68f, 4.5f, 3f, -80f, 160f, Ink.TEAL, stroke = 1.55f, layer = 2)
+        items += rect(40f, 66.5f, 4f, 3.5f, Ink.INK, fillInk = Ink.INK, alpha = 0.85f, layer = 0)
+        items += rect(56f, 66.5f, 4f, 3.5f, Ink.INK, fillInk = Ink.INK, alpha = 0.85f, layer = 0)
+        items += poly(listOf(40f, 68.5f, 30f, 68.5f, 30f, 84f, 44f, 84f), Ink.INK, closed = false, smooth = false, fill = false, stroke = 1.15f, layer = 2)
+        items += poly(listOf(60f, 68.5f, 70f, 68.5f, 70f, 84f, 56f, 84f), Ink.INK, closed = false, smooth = false, fill = false, stroke = 1.15f, layer = 2)
+        items += StudyDiagramComponents.battery(44f, 84f, 56f, 84f, cells = 2, ink = Ink.RESULT)
+        items += line(38f, 47f, 38f, 36f, Ink.RESULT, arrow = true, stroke = 1.2f, layer = 2)
+        items += line(62f, 47f, 62f, 58f, Ink.RESULT, arrow = true, stroke = 1.2f, layer = 2)
 
-        items += lbl(22.5f, 49f, "North Pole (N)", Ink.WARN, leftSide = true)
+        items += lbl(22.5f, 48f, "North Pole Magnet", Ink.WARN, leftSide = true)
         items += lbl(40f, 36f, "Armature Coil (ABCD)", Ink.ORANGE, leftSide = true)
-        items += lbl(41f, 68f, "Carbon Brush", Ink.INK, leftSide = true)
-        items += lbl(77.5f, 49f, "South Pole (S)", Ink.ACCENT, leftSide = false)
+        items += lbl(42f, 68f, "Carbon Brush", Ink.INK, leftSide = true)
+        items += lbl(77.5f, 48f, "South Pole Magnet", Ink.ACCENT, leftSide = false)
         items += lbl(50f, 68f, "Split-Ring Commutator", Ink.TEAL, leftSide = false)
         items += lbl(50f, 84f, "DC Battery Supply", Ink.RESULT, leftSide = false)
         return DiagramSpec("Electric DC Motor Principle", items)
@@ -1093,25 +1115,33 @@ object StudyDiagramAtlas {
 
     fun simpleDistillation(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        // Boiling Round-Bottom Flask
-        items += circle(30f, 56f, 11f, Ink.TEAL, fillInk = Ink.ACCENT, shade = FillShade.RADIAL, alpha = 0.24f, stroke = 1.25f, layer = 0)
-        items += rect(27.5f, 30f, 5f, 16f, Ink.TEAL, fill = false, stroke = 1.15f, layer = 0)
-        // Bunsen burner flame
-        items += poly(listOf(27f, 78f, 30f, 68f, 33f, 78f), Ink.ORANGE, smooth = true, fill = true, fillInk = Ink.GOLD, alpha = 0.68f, stroke = 1.0f, layer = 0)
-        items += rect(28f, 78f, 4f, 8f, Ink.NOTE, fillInk = Ink.NOTE, alpha = 0.5f, stroke = 1.0f, layer = 0)
-        // Thermometer stem
-        items += line(30f, 20f, 30f, 42f, Ink.WARN, stroke = 1.25f, layer = 2)
-        // Liebig Condenser tube + water jacket
-        items += line(32.5f, 36f, 68f, 60f, Ink.TEAL, stroke = 1.1f, layer = 2)
-        items += poly(listOf(38f, 36f, 64f, 53f, 61f, 59f, 35f, 42f), Ink.ACCENT, smooth = false, fill = true, fillInk = Ink.ACCENT, alpha = 0.22f, stroke = 1.0f, layer = 0)
-        // Receiving Flask
-        items += poly(listOf(71f, 58f, 75f, 58f, 81f, 76f, 65f, 76f), Ink.TEAL, smooth = false, fill = true, fillInk = Ink.RESULT, alpha = 0.28f, stroke = 1.2f, layer = 0)
+        // Retort Stand & Clamp on left + Tripod & Wire Gauze under boiling flask
+        items += rect(14f, 84f, 22f, 2.5f, Ink.NOTE, fillInk = Ink.NOTE, rx = 1f, alpha = 0.55f, stroke = 1.0f, layer = 0)
+        items += line(17f, 22f, 17f, 84f, Ink.NOTE, stroke = 1.5f, layer = 2)
+        items += line(17f, 38f, 27f, 38f, Ink.NOTE, stroke = 1.35f, layer = 2)
+        items += line(23f, 66f, 37f, 66f, Ink.NOTE, dashed = true, stroke = 1.2f, layer = 2)
+        items += line(24f, 66f, 21f, 84f, Ink.NOTE, stroke = 1.05f, layer = 2)
+        items += line(36f, 66f, 39f, 84f, Ink.NOTE, stroke = 1.05f, layer = 2)
 
-        items += lbl(30f, 24f, "Thermometer", Ink.WARN, leftSide = true)
-        items += lbl(30f, 56f, "Distillation Flask", Ink.ACCENT, leftSide = true)
+        // Precision Round-Bottom Boiling Flask + Thermometer + Bunsen Burner
+        items += StudyDiagramComponents.flask(30f, 50f, 21f, 34f, "round", liquidFrac = 0.45f, ink = Ink.TEAL, liquidInk = Ink.ACCENT)
+        items += StudyDiagramComponents.burner(30f, 84f, h = 16.5f, ink = Ink.NOTE)
+        items += StudyDiagramComponents.thermometer(30f, 16f, 40f, ink = Ink.INK, mercuryInk = Ink.WARN)
+        items += circle(28f, 56f, 1.0f, Ink.ACCENT, fillInk = Ink.PAPER, alpha = 0.85f, layer = 2)
+        items += circle(32f, 54f, 1.2f, Ink.ACCENT, fillInk = Ink.PAPER, alpha = 0.85f, layer = 2)
+
+        // Delivery side-arm + exact perpendicular Liebig Condenser + Erlenmeyer Receiver Flask
+        items += line(33.2f, 38f, 39f, 40.5f, Ink.TEAL, stroke = 1.15f, layer = 2)
+        items += StudyDiagramComponents.condenser(39f, 40.5f, 69f, 57.5f, jacketWidth = 7.5f, ink = Ink.TEAL, jacketInk = Ink.ACCENT)
+        items += StudyDiagramComponents.flask(73f, 68f, 16f, 22f, "conical", liquidFrac = 0.36f, ink = Ink.TEAL, liquidInk = Ink.RESULT)
+        items += rect(63f, 79f, 20f, 2.5f, Ink.NOTE, fillInk = Ink.NOTE, rx = 1f, alpha = 0.45f, stroke = 0.9f, layer = 0)
+
+        items += lbl(30f, 22f, "Thermometer", Ink.WARN, leftSide = true)
+        items += lbl(30f, 54f, "Distillation Flask", Ink.ACCENT, leftSide = true)
         items += lbl(30f, 74f, "Bunsen Burner", Ink.ORANGE, leftSide = true)
-        items += lbl(50f, 46f, "Liebig Condenser", Ink.ACCENT, leftSide = false)
-        items += lbl(73f, 70f, "Distillate Receiver", Ink.RESULT, leftSide = false)
+        items += lbl(54f, 48f, "Liebig Condenser", Ink.ACCENT, leftSide = false)
+        items += lbl(46f, 48f, "Cold Water Out / In", Ink.TEAL, leftSide = false)
+        items += lbl(73f, 70f, "Distillate (Pure Liquid)", Ink.RESULT, leftSide = false)
         return DiagramSpec("Simple Distillation Apparatus", items)
     }
 
@@ -1138,17 +1168,15 @@ object StudyDiagramAtlas {
 
     fun phScale(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        val inks = listOf(Ink.WARN, Ink.WARN, Ink.ORANGE, Ink.ORANGE, Ink.GOLD, Ink.GOLD, Ink.RESULT, Ink.TEAL, Ink.TEAL, Ink.ACCENT, Ink.ACCENT, Ink.VIOLET, Ink.VIOLET)
-        val segW = 70f / inks.size
+        val inks = listOf(Ink.WARN, Ink.WARN, Ink.ORANGE, Ink.ORANGE, Ink.GOLD, Ink.GOLD, Ink.GOLD, Ink.RESULT, Ink.TEAL, Ink.TEAL, Ink.ACCENT, Ink.ACCENT, Ink.VIOLET, Ink.VIOLET, Ink.VIOLET)
+        val segW = 84f / inks.size
         inks.forEachIndexed { i, ink ->
-            items += rect(15f + i * segW, 44f, segW, 12f, ink, fillInk = ink, rx = 1.5f, alpha = 0.65f, stroke = 0.9f, layer = 0)
+            items += rect(8f + i * segW, 38f, segW - 0.6f, 18f, ink, fillInk = ink, rx = 1.5f, alpha = 0.56f, stroke = 0.9f, layer = 0, text = "$i", textInk = Ink.INK)
         }
-        items += line(50f, 36f, 50f, 64f, Ink.INK, stroke = 1.3f, layer = 2)
-        items += lbl(20f, 50f, "Strong Acid (pH 0–3)", Ink.WARN, leftSide = true)
-        items += lbl(36f, 50f, "Weak Acid (pH 4–6)", Ink.ORANGE, leftSide = true)
-        items += lbl(50f, 40f, "Neutral (pH 7)", Ink.RESULT, leftSide = false)
-        items += lbl(65f, 50f, "Weak Alkali (pH 8–10)", Ink.TEAL, leftSide = false)
-        items += lbl(80f, 50f, "Strong Alkali (pH 11–14)", Ink.VIOLET, leftSide = false)
+        items += line(50f, 28f, 50f, 65f, Ink.INK, stroke = 1.4f, layer = 2)
+        items += rect(8f, 61f, 39f, 11f, Ink.WARN, fillInk = Ink.WARN, rx = 3f, alpha = 0.16f, stroke = 1.0f, layer = 0, text = "Acidic (H⁺ > OH⁻)")
+        items += rect(53f, 61f, 39f, 11f, Ink.VIOLET, fillInk = Ink.VIOLET, rx = 3f, alpha = 0.16f, stroke = 1.0f, layer = 0, text = "Alkaline / Basic (OH⁻ > H⁺)")
+        items += lbl(50f, 30f, "Neutral (pH = 7)", Ink.RESULT, leftSide = false)
         return DiagramSpec("pH Scale (0 to 14)", items)
     }
 
@@ -1158,32 +1186,28 @@ object StudyDiagramAtlas {
 
     fun rightTriangleTrig(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        items += poly(listOf(28f, 70f, 72f, 70f, 72f, 26f), Ink.INK, smooth = false, fill = true, fillInk = Ink.ACCENT, alpha = 0.14f, stroke = 1.35f, layer = 0)
-        // Coloured sides & 90 deg square
-        items += line(28f, 70f, 72f, 70f, Ink.TEAL, stroke = 2.0f, layer = 2)
-        items += line(72f, 70f, 72f, 26f, Ink.WARN, stroke = 2.0f, layer = 2)
-        items += line(28f, 70f, 72f, 26f, Ink.VIOLET, stroke = 2.0f, layer = 2)
-        items += rect(66f, 64f, 6f, 6f, Ink.INK, fill = false, stroke = 1.0f, layer = 2)
-        items += arc(28f, 70f, 11f, 11f, -45f, 45f, Ink.GOLD, stroke = 1.2f, layer = 2)
+        items += poly(listOf(24f, 70f, 74f, 70f, 74f, 24f), Ink.INK, smooth = false, fill = true, fillInk = Ink.ACCENT, alpha = 0.14f, stroke = 1.35f, layer = 0)
+        // Coloured sides & 90 deg square & Angle theta arc
+        items += line(24f, 70f, 74f, 70f, Ink.TEAL, stroke = 2.0f, layer = 2)
+        items += line(74f, 70f, 74f, 24f, Ink.WARN, stroke = 2.0f, layer = 2)
+        items += line(24f, 70f, 74f, 24f, Ink.VIOLET, stroke = 2.0f, layer = 2)
+        items += rect(68f, 64f, 6f, 6f, Ink.INK, fill = false, stroke = 1.05f, layer = 2)
+        items += StudyDiagramComponents.angle(24f, 70f, 12f, -43f, 43f, "θ", Ink.GOLD)
 
-        items += lbl(49f, 48f, "Hypotenuse (H)", Ink.VIOLET, leftSide = true)
-        items += lbl(36f, 66f, "Angle θ", Ink.GOLD, leftSide = true)
-        items += lbl(72f, 48f, "Opposite / Height (P)", Ink.WARN, leftSide = false)
-        items += lbl(50f, 70f, "Adjacent / Base (B)", Ink.TEAL, leftSide = false)
+        items += lbl(49f, 47f, "Hypotenuse (H)", Ink.VIOLET, leftSide = true)
+        items += lbl(74f, 47f, "Opposite / Height (P)", Ink.WARN, leftSide = false)
+        items += lbl(49f, 70f, "Adjacent / Base (B)", Ink.TEAL, leftSide = false)
         return DiagramSpec("Right-Angled Triangle Trigonometry", items)
     }
 
     fun pythagorasSquares(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        // 3-4-5 triangle centered with squares on adjacent sides
-        items += poly(listOf(42f, 60f, 62f, 60f, 62f, 34f), Ink.INK, smooth = false, fill = true, fillInk = Ink.GOLD, alpha = 0.35f, stroke = 1.3f, layer = 0)
-        items += rect(42f, 60f, 20f, 20f, Ink.TEAL, fillInk = Ink.TEAL, alpha = 0.25f, stroke = 1.1f, layer = 0) // Base b^2
-        items += rect(62f, 34f, 26f, 26f, Ink.WARN, fillInk = Ink.WARN, alpha = 0.25f, stroke = 1.1f, layer = 0) // Height a^2
-        items += poly(listOf(42f, 60f, 62f, 34f, 36f, 14f, 16f, 40f), Ink.VIOLET, smooth = false, fill = true, fillInk = Ink.VIOLET, alpha = 0.22f, stroke = 1.1f, layer = 0) // Hypotenuse c^2
-        items += lbl(29f, 37f, "Area = c²", Ink.VIOLET, leftSide = true)
-        items += lbl(52f, 70f, "Area = b²", Ink.TEAL, leftSide = true)
-        items += lbl(75f, 47f, "Area = a²", Ink.WARN, leftSide = false)
-        items += lbl(56f, 52f, "a² + b² = c²", Ink.INK, leftSide = false)
+        // 3-4-5 triangle centered with squares whose area equations sit directly inside each square
+        items += poly(listOf(42f, 60f, 62f, 60f, 62f, 34f), Ink.INK, smooth = false, fill = true, fillInk = Ink.GOLD, alpha = 0.34f, stroke = 1.35f, layer = 0, text = "a² + b² = c²")
+        items += rect(68f, 54f, 6f, 6f, Ink.INK, fill = false, stroke = 0.9f, layer = 2)
+        items += rect(42f, 60f, 20f, 20f, Ink.TEAL, fillInk = Ink.TEAL, alpha = 0.25f, stroke = 1.15f, layer = 0, text = "Area = b²")
+        items += rect(62f, 34f, 26f, 26f, Ink.WARN, fillInk = Ink.WARN, alpha = 0.25f, stroke = 1.15f, layer = 0, text = "Area = a²")
+        items += poly(listOf(42f, 60f, 62f, 34f, 36f, 14f, 16f, 40f), Ink.VIOLET, smooth = false, fill = true, fillInk = Ink.VIOLET, alpha = 0.22f, stroke = 1.15f, layer = 0, text = "Area = c²")
         return DiagramSpec("Pythagorean Theorem (a² + b² = c²)", items)
     }
 
@@ -1234,13 +1258,11 @@ object StudyDiagramAtlas {
 
     fun vennDiagram(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        items += rect(16f, 22f, 68f, 56f, Ink.INK, fillInk = Ink.FAINT, rx = 8f, alpha = 0.10f, stroke = 1.2f, layer = 0)
-        items += circle(41f, 50f, 18f, Ink.ACCENT, fillInk = Ink.ACCENT, alpha = 0.28f, stroke = 1.3f, layer = 0)
-        items += circle(59f, 50f, 18f, Ink.ROSE, fillInk = Ink.ROSE, alpha = 0.28f, stroke = 1.3f, layer = 0)
-        items += lbl(20f, 26f, "Universal Set (U)", Ink.INK, leftSide = true)
-        items += lbl(33f, 50f, "Set A", Ink.ACCENT, leftSide = true)
-        items += lbl(50f, 50f, "Intersection (A ∩ B)", Ink.VIOLET, leftSide = false)
-        items += lbl(67f, 50f, "Set B", Ink.ROSE, leftSide = false)
+        items += rect(10f, 16f, 80f, 68f, Ink.INK, fillInk = Ink.FAINT, rx = 8f, alpha = 0.08f, stroke = 1.3f, layer = 0)
+        items += circle(38f, 52f, 21f, Ink.ACCENT, fillInk = Ink.ACCENT, alpha = 0.25f, stroke = 1.4f, layer = 0, text = "Set A")
+        items += circle(62f, 52f, 21f, Ink.ROSE, fillInk = Ink.ROSE, alpha = 0.25f, stroke = 1.4f, layer = 0, text = "Set B")
+        items += rect(39f, 46f, 22f, 12f, Ink.VIOLET, fillInk = Ink.VIOLET, rx = 6f, alpha = 0.24f, stroke = 1.0f, layer = 2, text = "A ∩ B")
+        items += rect(14f, 20f, 24f, 9f, Ink.INK, fillInk = Ink.PAPER, rx = 3f, alpha = 0.78f, stroke = 0.9f, layer = 2, text = "Universal (U)")
         return DiagramSpec("Venn Diagram (Sets A & B)", items)
     }
 
@@ -1250,124 +1272,117 @@ object StudyDiagramAtlas {
 
     fun binaryTree(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        // Branch edges first behind/structure
-        items += line(50f, 24f, 32f, 44f, Ink.NOTE, stroke = 1.2f, layer = 2)
-        items += line(50f, 24f, 68f, 44f, Ink.NOTE, stroke = 1.2f, layer = 2)
-        items += line(32f, 44f, 22f, 68f, Ink.NOTE, stroke = 1.2f, layer = 2)
-        items += line(32f, 44f, 42f, 68f, Ink.NOTE, stroke = 1.2f, layer = 2)
-        items += line(68f, 44f, 58f, 68f, Ink.NOTE, stroke = 1.2f, layer = 2)
-        items += line(68f, 44f, 78f, 68f, Ink.NOTE, stroke = 1.2f, layer = 2)
+        items += line(50f, 24f, 32f, 46f, Ink.NOTE, stroke = 1.3f, layer = 2)
+        items += line(50f, 24f, 68f, 46f, Ink.NOTE, stroke = 1.3f, layer = 2)
+        items += line(32f, 46f, 22f, 70f, Ink.NOTE, stroke = 1.3f, layer = 2)
+        items += line(32f, 46f, 42f, 70f, Ink.NOTE, stroke = 1.3f, layer = 2)
+        items += line(68f, 46f, 58f, 70f, Ink.NOTE, stroke = 1.3f, layer = 2)
+        items += line(68f, 46f, 78f, 70f, Ink.NOTE, stroke = 1.3f, layer = 2)
 
-        items += circle(50f, 24f, 6.2f, Ink.VIOLET, fillInk = Ink.VIOLET, alpha = 0.42f, stroke = 1.25f, layer = 0)
-        for ((nx, ny) in listOf(32f to 44f, 68f to 44f)) {
-            items += circle(nx, ny, 5.5f, Ink.ACCENT, fillInk = Ink.ACCENT, alpha = 0.36f, stroke = 1.15f, layer = 0)
-        }
-        for ((lx, ly) in listOf(22f to 68f, 42f to 68f, 58f to 68f, 78f to 68f)) {
-            items += circle(lx, ly, 5.0f, Ink.RESULT, fillInk = Ink.RESULT, alpha = 0.36f, stroke = 1.1f, layer = 0)
+        items += circle(50f, 24f, 6.6f, Ink.VIOLET, fillInk = Ink.VIOLET, alpha = 0.36f, stroke = 1.3f, layer = 0, text = "50")
+        items += circle(32f, 46f, 5.8f, Ink.ACCENT, fillInk = Ink.ACCENT, alpha = 0.34f, stroke = 1.2f, layer = 0, text = "30")
+        items += circle(68f, 46f, 5.8f, Ink.ACCENT, fillInk = Ink.ACCENT, alpha = 0.34f, stroke = 1.2f, layer = 0, text = "70")
+        for ((pt, v) in listOf((22f to 70f) to "20", (42f to 70f) to "40", (58f to 70f) to "60", (78f to 70f) to "80")) {
+            items += circle(pt.first, pt.second, 5.2f, Ink.RESULT, fillInk = Ink.RESULT, alpha = 0.34f, stroke = 1.15f, layer = 0, text = v)
         }
 
         items += lbl(50f, 24f, "Root Node (Level 0)", Ink.VIOLET, leftSide = true)
-        items += lbl(32f, 44f, "Left Subtree (Internal)", Ink.ACCENT, leftSide = true)
-        items += lbl(22f, 68f, "Leaf Nodes (Level 2)", Ink.RESULT, leftSide = true)
-        items += lbl(68f, 44f, "Right Subtree", Ink.ACCENT, leftSide = false)
-        items += lbl(42f, 34f, "Parent–Child Edge", Ink.NOTE, leftSide = false)
-        return DiagramSpec("Binary Tree Data Structure", items)
+        items += lbl(32f, 46f, "Left Subtree (< Root)", Ink.ACCENT, leftSide = true)
+        items += lbl(22f, 70f, "Leaf Nodes (Level 2)", Ink.RESULT, leftSide = true)
+        items += lbl(68f, 46f, "Right Subtree (> Root)", Ink.ACCENT, leftSide = false)
+        items += lbl(59f, 35f, "Parent–Child Edge", Ink.NOTE, leftSide = false)
+        return DiagramSpec("Binary Search Tree (BST)", items)
     }
 
     fun linkedList(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
+        val vals = listOf("10", "25", "42")
         for (i in 0 until 3) {
-            val bx = 16f + i * 26f
-            items += rect(bx, 42f, 18f, 14f, Ink.ACCENT, fillInk = Ink.ACCENT, rx = 3f, alpha = 0.24f, stroke = 1.2f, layer = 0)
-            items += line(bx + 11f, 42f, bx + 11f, 56f, Ink.INK, stroke = 1.0f, layer = 2)
-            items += circle(bx + 14.5f, 49f, 1.5f, Ink.INK, fillInk = Ink.INK, alpha = 0.9f, layer = 2)
-            items += line(bx + 16f, 49f, bx + 26f, 49f, Ink.TEAL, arrow = true, stroke = 1.25f, layer = 2)
+            val bx = 12f + i * 26f
+            items += rect(bx, 42f, 12f, 14f, Ink.ACCENT, fillInk = Ink.ACCENT, rx = 2.5f, alpha = 0.24f, stroke = 1.2f, layer = 0, text = vals[i])
+            items += rect(bx + 12f, 42f, 6f, 14f, Ink.TEAL, fillInk = Ink.TEAL, rx = 2.5f, alpha = 0.26f, stroke = 1.2f, layer = 0)
+            items += circle(bx + 15f, 49f, 1.5f, Ink.INK, fillInk = Ink.INK, alpha = 0.9f, layer = 2)
+            items += line(bx + 16.5f, 49f, bx + 26f, 49f, Ink.TEAL, arrow = true, stroke = 1.3f, layer = 2)
         }
-        items += rect(86f, 44f, 10f, 10f, Ink.WARN, fillInk = Ink.WARN, rx = 2.5f, alpha = 0.28f, stroke = 1.0f, layer = 0)
-        items += line(21f, 28f, 21f, 42f, Ink.VIOLET, arrow = true, stroke = 1.2f, layer = 2)
+        items += rect(88f, 42f, 10f, 14f, Ink.WARN, fillInk = Ink.WARN, rx = 2.5f, alpha = 0.26f, stroke = 1.1f, layer = 0, text = "NULL")
+        items += rect(12f, 20f, 14f, 8f, Ink.VIOLET, fillInk = Ink.VIOLET, rx = 2.5f, alpha = 0.24f, stroke = 1.0f, layer = 0, text = "HEAD")
+        items += line(19f, 28f, 19f, 42f, Ink.VIOLET, arrow = true, stroke = 1.25f, layer = 2)
 
-        items += lbl(21f, 28f, "Head Pointer", Ink.VIOLET, leftSide = true)
-        items += lbl(22f, 49f, "Data Field", Ink.ACCENT, leftSide = true)
-        items += lbl(42f, 49f, "Next Pointer Ref", Ink.TEAL, leftSide = false)
-        items += lbl(90f, 49f, "NULL Terminator", Ink.WARN, leftSide = false)
+        items += lbl(18f, 49f, "Data Field", Ink.ACCENT, leftSide = true)
+        items += lbl(42f, 49f, "Next Pointer", Ink.TEAL, leftSide = false)
         return DiagramSpec("Singly Linked List", items)
     }
 
     fun stackAndQueue(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        // Stack container left
-        items += poly(listOf(22f, 30f, 22f, 76f, 42f, 76f, 42f, 30f), Ink.ACCENT, closed = false, smooth = false, fill = false, stroke = 1.4f, layer = 0)
-        for ((idx, sy) in listOf(64f, 52f, 40f).withIndex()) {
-            val c = listOf(Ink.TEAL, Ink.ACCENT, Ink.VIOLET)[idx]
-            items += rect(24f, sy, 16f, 9f, c, fillInk = c, rx = 2f, alpha = 0.36f, stroke = 1.0f, layer = 0)
+        // Stack container left with embedded item boxes
+        items += poly(listOf(18f, 30f, 18f, 76f, 40f, 76f, 40f, 30f), Ink.ACCENT, closed = false, smooth = false, fill = false, stroke = 1.45f, layer = 0)
+        val stackItems = listOf("C (Top)" to Ink.VIOLET, "B" to Ink.ACCENT, "A" to Ink.TEAL)
+        for ((idx, sy) in listOf(38f, 50f, 62f).withIndex()) {
+            val (label, col) = stackItems[idx]
+            items += rect(20f, sy, 18f, 10f, col, fillInk = col, rx = 2f, alpha = 0.30f, stroke = 1.05f, layer = 0, text = label)
         }
-        items += line(32f, 20f, 32f, 37f, Ink.WARN, arrow = true, stroke = 1.2f, layer = 2)
+        items += rect(18f, 80f, 22f, 7f, Ink.ACCENT, fillInk = Ink.ACCENT, rx = 2.5f, alpha = 0.16f, stroke = 0.9f, layer = 0, text = "LIFO Stack")
+        items += line(29f, 18f, 29f, 35f, Ink.WARN, arrow = true, stroke = 1.3f, layer = 2)
 
-        // Queue horizontal pipe right
-        items += line(56f, 44f, 86f, 44f, Ink.RESULT, stroke = 1.3f, layer = 0)
-        items += line(56f, 60f, 86f, 60f, Ink.RESULT, stroke = 1.3f, layer = 0)
-        for ((idx, qx) in listOf(60f, 71f).withIndex()) {
-            val c = if (idx == 0) Ink.RESULT else Ink.GOLD
-            items += rect(qx, 46f, 9f, 12f, c, fillInk = c, rx = 2f, alpha = 0.38f, stroke = 1.0f, layer = 0)
-        }
-        items += line(88f, 52f, 80f, 52f, Ink.TEAL, arrow = true, stroke = 1.2f, layer = 2)
-        items += line(60f, 52f, 51f, 52f, Ink.WARN, arrow = true, stroke = 1.2f, layer = 2)
+        // Queue horizontal pipe right with embedded item boxes
+        items += line(52f, 42f, 88f, 42f, Ink.RESULT, stroke = 1.35f, layer = 0)
+        items += line(52f, 60f, 88f, 60f, Ink.RESULT, stroke = 1.35f, layer = 0)
+        items += rect(56f, 45f, 12f, 12f, Ink.RESULT, fillInk = Ink.RESULT, rx = 2f, alpha = 0.32f, stroke = 1.05f, layer = 0, text = "1st")
+        items += rect(70f, 45f, 12f, 12f, Ink.GOLD, fillInk = Ink.GOLD, rx = 2f, alpha = 0.32f, stroke = 1.05f, layer = 0, text = "2nd")
+        items += rect(58f, 80f, 24f, 7f, Ink.RESULT, fillInk = Ink.RESULT, rx = 2.5f, alpha = 0.16f, stroke = 0.9f, layer = 0, text = "FIFO Queue")
+        items += line(92f, 51f, 83f, 51f, Ink.TEAL, arrow = true, stroke = 1.25f, layer = 2)
+        items += line(55f, 51f, 45f, 51f, Ink.WARN, arrow = true, stroke = 1.25f, layer = 2)
 
-        items += lbl(32f, 24f, "Stack Push/Pop (Top)", Ink.WARN, leftSide = true)
-        items += lbl(32f, 56f, "LIFO Stack", Ink.ACCENT, leftSide = true)
-        items += lbl(55f, 52f, "Dequeue (Front)", Ink.WARN, leftSide = false)
-        items += lbl(75f, 52f, "FIFO Queue", Ink.RESULT, leftSide = false)
-        items += lbl(84f, 52f, "Enqueue (Rear)", Ink.TEAL, leftSide = false)
+        items += lbl(29f, 24f, "Push / Pop (Top)", Ink.WARN, leftSide = true)
+        items += lbl(49f, 51f, "Dequeue (Front)", Ink.WARN, leftSide = false)
+        items += lbl(88f, 51f, "Enqueue (Rear)", Ink.TEAL, leftSide = false)
         return DiagramSpec("Stack (LIFO) vs Queue (FIFO)", items)
     }
 
     fun osiModel(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
         val layers = listOf(
-            "7. Application Layer" to Ink.VIOLET,
-            "6. Presentation Layer" to Ink.ACCENT,
-            "5. Session Layer" to Ink.TEAL,
-            "4. Transport Layer (TCP/UDP)" to Ink.RESULT,
-            "3. Network Layer (IP)" to Ink.GOLD,
-            "2. Data Link Layer (MAC)" to Ink.ORANGE,
-            "1. Physical Layer (Bits)" to Ink.WARN
+            "7. Application Layer (HTTP, DNS)" to Ink.VIOLET,
+            "6. Presentation Layer (SSL, Encoding)" to Ink.ACCENT,
+            "5. Session Layer (Auth, Sync)" to Ink.TEAL,
+            "4. Transport Layer (TCP / UDP)" to Ink.RESULT,
+            "3. Network Layer (IP Routing)" to Ink.GOLD,
+            "2. Data Link Layer (MAC, Frames)" to Ink.ORANGE,
+            "1. Physical Layer (Cables, Bits)" to Ink.WARN
         )
         layers.forEachIndexed { idx, (name, ink) ->
-            val y = 14f + idx * 10.5f
-            items += rect(32f, y, 36f, 8.8f, ink, fillInk = ink, rx = 2.5f, alpha = 0.30f, stroke = 1.05f, layer = 0)
-            items += lbl(50f, y + 4.4f, name, ink, leftSide = idx % 2 == 0)
+            val y = 12f + idx * 11.2f
+            items += rect(16f, y, 68f, 9.2f, ink, fillInk = ink, rx = 3f, alpha = 0.24f, stroke = 1.15f, layer = 0, text = name)
+            if (idx < layers.lastIndex) {
+                items += line(50f, y + 9.2f, 50f, y + 11.2f, Ink.NOTE, arrow = true, doubleArrow = true, stroke = 0.9f, layer = 2)
+            }
         }
         return DiagramSpec("OSI 7-Layer Reference Model", items)
     }
 
     fun cpuArchitecture(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        items += rect(14f, 42f, 14f, 16f, Ink.TEAL, fillInk = Ink.TEAL, rx = 3f, alpha = 0.28f, stroke = 1.1f, layer = 0) // Input
-        items += rect(36f, 22f, 28f, 44f, Ink.ACCENT, fillInk = Ink.ACCENT, rx = 5f, alpha = 0.16f, stroke = 1.35f, layer = 0) // CPU container
-        items += rect(40f, 28f, 20f, 12f, Ink.VIOLET, fillInk = Ink.VIOLET, rx = 3f, alpha = 0.32f, stroke = 1.0f, layer = 0) // Control Unit
-        items += rect(40f, 46f, 20f, 14f, Ink.WARN, fillInk = Ink.WARN, rx = 3f, alpha = 0.32f, stroke = 1.0f, layer = 0) // ALU
-        items += rect(38f, 72f, 24f, 14f, Ink.GOLD, fillInk = Ink.GOLD, rx = 3f, alpha = 0.32f, stroke = 1.1f, layer = 0) // Memory
-        items += rect(72f, 42f, 14f, 16f, Ink.RESULT, fillInk = Ink.RESULT, rx = 3f, alpha = 0.28f, stroke = 1.1f, layer = 0) // Output
+        items += rect(8f, 38f, 18f, 18f, Ink.TEAL, fillInk = Ink.TEAL, rx = 3.5f, alpha = 0.24f, stroke = 1.2f, layer = 0, text = "Input Device")
+        items += rect(34f, 16f, 32f, 48f, Ink.ACCENT, fillInk = Ink.ACCENT, rx = 5f, alpha = 0.12f, stroke = 1.4f, layer = 0)
+        items += rect(38f, 18f, 24f, 7f, Ink.ACCENT, fill = false, stroke = 0.5f, layer = 2, text = "CPU")
+        items += rect(38f, 27f, 24f, 13f, Ink.VIOLET, fillInk = Ink.VIOLET, rx = 3f, alpha = 0.28f, stroke = 1.1f, layer = 0, text = "Control Unit (CU)")
+        items += rect(38f, 45f, 24f, 14f, Ink.WARN, fillInk = Ink.WARN, rx = 3f, alpha = 0.28f, stroke = 1.1f, layer = 0, text = "ALU (Logic)")
+        items += rect(35f, 72f, 30f, 14f, Ink.GOLD, fillInk = Ink.GOLD, rx = 3.5f, alpha = 0.28f, stroke = 1.2f, layer = 0, text = "Primary Memory (RAM)")
+        items += rect(74f, 38f, 18f, 18f, Ink.RESULT, fillInk = Ink.RESULT, rx = 3.5f, alpha = 0.24f, stroke = 1.2f, layer = 0, text = "Output Device")
 
-        items += line(28f, 50f, 36f, 50f, Ink.INK, arrow = true, stroke = 1.2f, layer = 2)
-        items += line(64f, 50f, 72f, 50f, Ink.INK, arrow = true, stroke = 1.2f, layer = 2)
-        items += line(50f, 66f, 50f, 72f, Ink.GOLD, arrow = true, doubleArrow = true, stroke = 1.2f, layer = 2)
-
-        items += lbl(21f, 50f, "Input Device", Ink.TEAL, leftSide = true)
-        items += lbl(50f, 34f, "Control Unit (CU)", Ink.VIOLET, leftSide = true)
-        items += lbl(50f, 53f, "ALU (Arithmetic Logic)", Ink.WARN, leftSide = true)
-        items += lbl(50f, 24f, "Central Processing Unit", Ink.ACCENT, leftSide = false)
-        items += lbl(79f, 50f, "Output Device", Ink.RESULT, leftSide = false)
-        items += lbl(50f, 79f, "Primary Memory (RAM)", Ink.GOLD, leftSide = false)
+        items += line(26f, 47f, 34f, 47f, Ink.INK, arrow = true, stroke = 1.3f, layer = 2)
+        items += line(66f, 47f, 74f, 47f, Ink.INK, arrow = true, stroke = 1.3f, layer = 2)
+        items += line(50f, 64f, 50f, 72f, Ink.GOLD, arrow = true, doubleArrow = true, stroke = 1.3f, layer = 2)
+        items += line(50f, 40f, 50f, 45f, Ink.NOTE, arrow = true, doubleArrow = true, stroke = 1.0f, layer = 2)
         return DiagramSpec("Von Neumann CPU Architecture", items)
     }
 
     fun neuralNetwork(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
         val xCols = listOf(28f, 50f, 72f)
-        val yLayers = listOf(listOf(34f, 50f, 66f), listOf(26f, 42f, 58f, 74f), listOf(40f, 60f))
+        val yLayers = listOf(listOf(32f, 50f, 68f), listOf(22f, 40f, 58f, 76f), listOf(38f, 62f))
         val colors = listOf(Ink.TEAL, Ink.VIOLET, Ink.RESULT)
-        // Dense synaptic connections first
         for (l in 0 until 2) {
             for (y1 in yLayers[l]) {
                 for (y2 in yLayers[l + 1]) {
@@ -1376,40 +1391,47 @@ object StudyDiagramAtlas {
             }
         }
         yLayers.forEachIndexed { l, ys ->
-            for (cy in ys) {
-                items += circle(xCols[l], cy, 4.4f, colors[l], fillInk = colors[l], alpha = 0.45f, stroke = 1.15f, layer = 0)
+            ys.forEachIndexed { idx, cy ->
+                val tag = when (l) {
+                    0 -> "x${idx + 1}"
+                    1 -> "h${idx + 1}"
+                    else -> "y${idx + 1}"
+                }
+                items += circle(xCols[l], cy, 4.6f, colors[l], fillInk = colors[l], alpha = 0.38f, stroke = 1.2f, layer = 0, text = tag)
             }
         }
-        items += lbl(28f, 34f, "Input Layer", Ink.TEAL, leftSide = true)
-        items += lbl(39f, 48f, "Weighted Synapses", Ink.NOTE, leftSide = true)
-        items += lbl(50f, 26f, "Hidden Layer", Ink.VIOLET, leftSide = false)
+        items += lbl(28f, 32f, "Input Layer", Ink.TEAL, leftSide = true)
+        items += lbl(39f, 48f, "Weighted Synapses (w)", Ink.NOTE, leftSide = true)
+        items += lbl(50f, 22f, "Hidden Layer (Activation)", Ink.VIOLET, leftSide = false)
         items += lbl(72f, 50f, "Output Layer", Ink.RESULT, leftSide = false)
         return DiagramSpec("Artificial Neural Network", items)
     }
 
     fun logicGates(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        // AND Gate top
-        items += line(24f, 24f, 36f, 24f, Ink.ACCENT, stroke = 1.1f, layer = 2)
-        items += line(24f, 32f, 36f, 32f, Ink.ACCENT, stroke = 1.1f, layer = 2)
-        items += poly(listOf(36f, 20f, 50f, 20f, 56f, 28f, 50f, 36f, 36f, 36f), Ink.INK, smooth = false, fill = true, fillInk = Ink.ACCENT, alpha = 0.28f, stroke = 1.2f, layer = 0)
-        items += line(56f, 28f, 72f, 28f, Ink.RESULT, arrow = true, stroke = 1.1f, layer = 2)
-        // OR Gate middle
-        items += line(24f, 46f, 38f, 46f, Ink.ACCENT, stroke = 1.1f, layer = 2)
-        items += line(24f, 54f, 38f, 54f, Ink.ACCENT, stroke = 1.1f, layer = 2)
-        items += poly(listOf(36f, 42f, 50f, 44f, 58f, 50f, 50f, 56f, 36f, 58f, 40f, 50f), Ink.INK, smooth = true, fill = true, fillInk = Ink.VIOLET, alpha = 0.28f, stroke = 1.2f, layer = 0)
-        items += line(58f, 50f, 72f, 50f, Ink.RESULT, arrow = true, stroke = 1.1f, layer = 2)
-        // NOT Gate bottom
-        items += line(24f, 74f, 38f, 74f, Ink.ACCENT, stroke = 1.1f, layer = 2)
-        items += poly(listOf(38f, 66f, 54f, 74f, 38f, 82f), Ink.INK, smooth = false, fill = true, fillInk = Ink.WARN, alpha = 0.28f, stroke = 1.2f, layer = 0)
-        items += circle(56.2f, 74f, 2.1f, Ink.INK, fillInk = Ink.WARN, alpha = 0.5f, stroke = 1.0f, layer = 0)
-        items += line(58.5f, 74f, 72f, 74f, Ink.RESULT, arrow = true, stroke = 1.1f, layer = 2)
+        // AND Gate top (D-shape via clean path + embedded formula)
+        items += line(18f, 23f, 36f, 23f, Ink.ACCENT, stroke = 1.25f, layer = 2)
+        items += line(18f, 31f, 36f, 31f, Ink.ACCENT, stroke = 1.25f, layer = 2)
+        items += vpath("M 36 18 L 48 18 A 9 9 0 0 1 48 36 L 36 36 Z", Ink.ACCENT, fill = true, fillInk = Ink.ACCENT, alpha = 0.26f, stroke = 1.3f, layer = 0, text = "AND\nA·B")
+        items += line(57f, 27f, 76f, 27f, Ink.RESULT, arrow = true, stroke = 1.25f, layer = 2)
 
-        items += lbl(26f, 28f, "Inputs (A, B)", Ink.ACCENT, leftSide = true)
-        items += lbl(26f, 74f, "Input (A)", Ink.ACCENT, leftSide = true)
-        items += lbl(46f, 28f, "AND Gate (A · B)", Ink.ACCENT, leftSide = false)
-        items += lbl(48f, 50f, "OR Gate (A + B)", Ink.VIOLET, leftSide = false)
-        items += lbl(46f, 74f, "NOT Gate (Ā)", Ink.WARN, leftSide = false)
+        // OR Gate middle (curved shield via SVG Bezier path + embedded formula)
+        items += line(18f, 46f, 38f, 46f, Ink.ACCENT, stroke = 1.25f, layer = 2)
+        items += line(18f, 54f, 38f, 54f, Ink.ACCENT, stroke = 1.25f, layer = 2)
+        items += vpath("M 35 41 Q 41 50 35 59 Q 51 59 59 50 Q 51 41 35 41 Z", Ink.VIOLET, fill = true, fillInk = Ink.VIOLET, alpha = 0.26f, stroke = 1.3f, layer = 0, text = "OR\nA+B")
+        items += line(59f, 50f, 76f, 50f, Ink.RESULT, arrow = true, stroke = 1.25f, layer = 2)
+
+        // NOT Gate bottom (triangle + bubble + embedded formula)
+        items += line(18f, 74f, 38f, 74f, Ink.ACCENT, stroke = 1.25f, layer = 2)
+        items += poly(listOf(38f, 65f, 55f, 74f, 38f, 83f), Ink.WARN, smooth = false, fill = true, fillInk = Ink.WARN, alpha = 0.26f, stroke = 1.3f, layer = 0, text = "NOT")
+        items += circle(57.4f, 74f, 2.2f, Ink.INK, fillInk = Ink.PAPER, alpha = 0.92f, stroke = 1.1f, layer = 2)
+        items += line(59.6f, 74f, 76f, 74f, Ink.RESULT, arrow = true, stroke = 1.25f, layer = 2)
+
+        items += lbl(22f, 27f, "Inputs (A, B)", Ink.ACCENT, leftSide = true)
+        items += lbl(22f, 74f, "Input (A)", Ink.ACCENT, leftSide = true)
+        items += lbl(70f, 27f, "Y = A · B", Ink.ACCENT, leftSide = false)
+        items += lbl(70f, 50f, "Y = A + B", Ink.VIOLET, leftSide = false)
+        items += lbl(70f, 74f, "Y = Ā", Ink.WARN, leftSide = false)
         return DiagramSpec("Basic Digital Logic Gates", items)
     }
 
@@ -1604,49 +1626,40 @@ object StudyDiagramAtlas {
 
     fun carbonCycle(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        items += rect(34f, 14f, 32f, 12f, Ink.TEAL, fillInk = Ink.TEAL, rx = 4f, alpha = 0.28f, stroke = 1.15f, layer = 0)
-        items += rect(20f, 44f, 20f, 13f, Ink.RESULT, fillInk = Ink.RESULT, rx = 3f, alpha = 0.30f, stroke = 1.1f, layer = 0)
-        items += rect(43f, 44f, 16f, 13f, Ink.VIOLET, fillInk = Ink.VIOLET, rx = 3f, alpha = 0.28f, stroke = 1.1f, layer = 0)
-        items += rect(63f, 44f, 19f, 13f, Ink.ORANGE, fillInk = Ink.ORANGE, rx = 3f, alpha = 0.30f, stroke = 1.1f, layer = 0)
-        items += rect(32f, 71f, 36f, 13f, Ink.BROWN, fillInk = Ink.BROWN, rx = 4f, alpha = 0.30f, stroke = 1.15f, layer = 0)
+        items += rect(30f, 12f, 40f, 13f, Ink.TEAL, fillInk = Ink.TEAL, rx = 4f, alpha = 0.24f, stroke = 1.25f, layer = 0, text = "Atmospheric CO₂")
+        items += rect(14f, 42f, 22f, 14f, Ink.RESULT, fillInk = Ink.RESULT, rx = 3.5f, alpha = 0.28f, stroke = 1.15f, layer = 0, text = "Green Plants")
+        items += rect(41f, 42f, 18f, 14f, Ink.VIOLET, fillInk = Ink.VIOLET, rx = 3.5f, alpha = 0.26f, stroke = 1.15f, layer = 0, text = "Animals")
+        items += rect(64f, 42f, 22f, 14f, Ink.ORANGE, fillInk = Ink.ORANGE, rx = 3.5f, alpha = 0.28f, stroke = 1.15f, layer = 0, text = "Combustion")
+        items += rect(28f, 72f, 44f, 14f, Ink.BROWN, fillInk = Ink.BROWN, rx = 4f, alpha = 0.26f, stroke = 1.2f, layer = 0, text = "Decomposers & Fossil Fuels")
 
-        items += line(36f, 26f, 28f, 44f, Ink.RESULT, arrow = true, stroke = 1.4f, layer = 2) // Photosynthesis
-        items += line(40f, 50f, 43f, 50f, Ink.ACCENT, arrow = true, stroke = 1.2f, layer = 2) // Food chain
-        items += line(51f, 44f, 50f, 26f, Ink.WARN, arrow = true, stroke = 1.3f, layer = 2) // Respiration
-        items += line(72f, 44f, 62f, 26f, Ink.ORANGE, arrow = true, stroke = 1.4f, layer = 2) // Combustion
-        items += line(49f, 57f, 49f, 71f, Ink.BROWN, arrow = true, stroke = 1.2f, layer = 2) // Decay
-        items += line(62f, 71f, 71f, 57f, Ink.BROWN, arrow = true, stroke = 1.2f, layer = 2) // Fossil fuel extraction
+        items += StudyDiagramComponents.curvedArrow(33f, 25f, 22f, 31f, 25f, 42f, Ink.RESULT, text = "Photosynthesis")
+        items += line(36f, 49f, 41f, 49f, Ink.ACCENT, arrow = true, stroke = 1.3f, layer = 2)
+        items += line(50f, 42f, 50f, 25f, Ink.WARN, arrow = true, stroke = 1.35f, layer = 2)
+        items += StudyDiagramComponents.curvedArrow(75f, 42f, 77f, 28f, 68f, 22f, Ink.ORANGE, text = "CO₂ Emission")
+        items += line(48f, 56f, 48f, 72f, Ink.BROWN, arrow = true, stroke = 1.25f, layer = 2)
+        items += line(66f, 72f, 75f, 56f, Ink.BROWN, arrow = true, stroke = 1.25f, layer = 2)
 
-        items += lbl(32f, 35f, "Photosynthesis (CO2 In)", Ink.RESULT, leftSide = true)
-        items += lbl(30f, 50f, "Green Plants", Ink.RESULT, leftSide = true)
-        items += lbl(49f, 64f, "Decomposers & Soil", Ink.BROWN, leftSide = true)
-        items += lbl(50f, 20f, "Atmospheric CO2", Ink.TEAL, leftSide = false)
-        items += lbl(50f, 35f, "Respiration (CO2 Out)", Ink.WARN, leftSide = false)
-        items += lbl(72f, 50f, "Combustion / Industry", Ink.ORANGE, leftSide = false)
+        items += lbl(50f, 34f, "Respiration (CO₂ Out)", Ink.WARN, leftSide = false)
+        items += lbl(48f, 64f, "Decay & Fossilization", Ink.BROWN, leftSide = true)
         return DiagramSpec("The Carbon Cycle", items)
     }
 
     fun glassSlabRefraction(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        // Rectangular Glass Slab
-        items += rect(26f, 38f, 48f, 24f, Ink.TEAL, fillInk = Ink.TEAL, rx = 1.5f, alpha = 0.24f, stroke = 1.35f, layer = 0)
-        // Dotted Normals at entry (42, 38) and exit (54, 62)
-        items += line(42f, 22f, 42f, 56f, Ink.NOTE, dashed = true, stroke = 0.9f, layer = 2)
-        items += line(54f, 44f, 54f, 80f, Ink.NOTE, dashed = true, stroke = 0.9f, layer = 2)
-        // Incident, Refracted, and Emergent Rays
+        items += rect(26f, 38f, 48f, 24f, Ink.TEAL, fillInk = Ink.TEAL, rx = 1.5f, alpha = 0.24f, stroke = 1.35f, layer = 0, text = "Glass Slab (n > 1)")
+        items += line(42f, 20f, 42f, 58f, Ink.NOTE, dashed = true, stroke = 0.95f, layer = 2)
+        items += line(54f, 42f, 54f, 80f, Ink.NOTE, dashed = true, stroke = 0.95f, layer = 2)
         items += line(24f, 20f, 42f, 38f, Ink.GOLD, arrow = true, stroke = 1.5f, layer = 2)
         items += line(42f, 38f, 54f, 62f, Ink.WARN, arrow = true, stroke = 1.5f, layer = 2)
         items += line(54f, 62f, 74f, 82f, Ink.ACCENT, arrow = true, stroke = 1.5f, layer = 2)
-        // Dashed undeviated original path + lateral displacement span
         items += line(42f, 38f, 78f, 74f, Ink.NOTE, dashed = true, stroke = 1.0f, layer = 2)
-        items += line(68f, 64f, 63f, 71f, Ink.VIOLET, doubleArrow = true, stroke = 1.1f, layer = 2)
-        items += arc(42f, 38f, 8f, 8f, -135f, 45f, Ink.GOLD, stroke = 1.0f, layer = 2)
-        items += arc(42f, 38f, 7f, 7f, 63f, 27f, Ink.WARN, stroke = 1.0f, layer = 2)
+        items += line(68f, 64f, 63f, 71f, Ink.VIOLET, doubleArrow = true, stroke = 1.15f, layer = 2)
+        items += StudyDiagramComponents.angle(42f, 38f, 8f, -135f, 45f, "i", Ink.GOLD)
+        items += StudyDiagramComponents.angle(42f, 38f, 7f, 63f, 27f, "r", Ink.WARN)
 
-        items += lbl(33f, 29f, "Incident Ray (∠i)", Ink.GOLD, leftSide = true)
-        items += lbl(42f, 26f, "Normal N1", Ink.NOTE, leftSide = true)
-        items += lbl(48f, 50f, "Refracted Ray (∠r)", Ink.WARN, leftSide = true)
-        items += lbl(68f, 50f, "Glass Slab (n > 1)", Ink.TEAL, leftSide = false)
+        items += lbl(33f, 29f, "Incident Ray", Ink.GOLD, leftSide = true)
+        items += lbl(42f, 24f, "Normal N₁", Ink.NOTE, leftSide = true)
+        items += lbl(48f, 50f, "Refracted Ray", Ink.WARN, leftSide = true)
         items += lbl(65f, 67f, "Lateral Displacement d", Ink.VIOLET, leftSide = false)
         items += lbl(66f, 75f, "Emergent Ray (∠e = ∠i)", Ink.ACCENT, leftSide = false)
         return DiagramSpec("Refraction Through Glass Slab", items)
@@ -1654,61 +1667,116 @@ object StudyDiagramAtlas {
 
     fun acGenerator(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        // North and South Magnet Poles
-        items += rect(20f, 26f, 13f, 24f, Ink.WARN, fillInk = Ink.WARN, rx = 2f, alpha = 0.34f, stroke = 1.2f, layer = 0)
-        items += rect(67f, 26f, 13f, 24f, Ink.ACCENT, fillInk = Ink.ACCENT, rx = 2f, alpha = 0.34f, stroke = 1.2f, layer = 0)
-        items += line(33f, 33f, 67f, 33f, Ink.NOTE, arrow = true, dashed = true, stroke = 0.85f, layer = 2)
-        items += line(33f, 43f, 67f, 43f, Ink.NOTE, arrow = true, dashed = true, stroke = 0.85f, layer = 2)
-        // Rotating Armature ABCD + axle + Slip Rings + Brushes + Galvanometer load
-        items += poly(listOf(40f, 28f, 60f, 24f, 60f, 48f, 40f, 52f), Ink.ORANGE, smooth = false, fill = true, fillInk = Ink.GOLD, alpha = 0.22f, stroke = 1.5f, layer = 0)
-        items += arc(50f, 22f, 8f, 4f, 190f, 160f, Ink.RESULT, stroke = 1.2f, layer = 2)
-        items += line(46f, 51f, 46f, 62f, Ink.ORANGE, stroke = 1.2f, layer = 2)
-        items += line(54f, 49f, 54f, 70f, Ink.ORANGE, stroke = 1.2f, layer = 2)
-        items += oval(50f, 62f, 8f, 2.5f, Ink.GOLD, fillInk = Ink.GOLD, alpha = 0.45f, stroke = 1.15f, layer = 0)
-        items += oval(50f, 70f, 8f, 2.5f, Ink.GOLD, fillInk = Ink.GOLD, alpha = 0.45f, stroke = 1.15f, layer = 0)
-        // Carbon Brushes B1 & B2 + external Galvanometer
+        items += rect(18f, 25f, 13f, 24f, Ink.WARN, fillInk = Ink.WARN, rx = 2.5f, alpha = 0.34f, stroke = 1.25f, layer = 0, text = "N")
+        items += rect(69f, 25f, 13f, 24f, Ink.ACCENT, fillInk = Ink.ACCENT, rx = 2.5f, alpha = 0.34f, stroke = 1.25f, layer = 0, text = "S")
+        items += line(31f, 32f, 69f, 32f, Ink.NOTE, arrow = true, dashed = true, stroke = 0.85f, layer = 2)
+        items += line(31f, 42f, 69f, 42f, Ink.NOTE, arrow = true, dashed = true, stroke = 0.85f, layer = 2)
+        items += poly(listOf(40f, 28f, 60f, 24f, 60f, 48f, 40f, 52f), Ink.ORANGE, smooth = false, fill = true, fillInk = Ink.GOLD, alpha = 0.22f, stroke = 1.5f, layer = 0, text = "ABCD")
+        items += arc(50f, 20f, 9f, 4f, 190f, 160f, Ink.RESULT, stroke = 1.25f, layer = 2)
+        items += line(46f, 51f, 46f, 62f, Ink.ORANGE, stroke = 1.25f, layer = 2)
+        items += line(54f, 49f, 54f, 70f, Ink.ORANGE, stroke = 1.25f, layer = 2)
+        items += oval(50f, 62f, 8f, 2.6f, Ink.GOLD, fillInk = Ink.GOLD, alpha = 0.45f, stroke = 1.15f, layer = 0)
+        items += oval(50f, 70f, 8f, 2.6f, Ink.GOLD, fillInk = Ink.GOLD, alpha = 0.45f, stroke = 1.15f, layer = 0)
         items += rect(38f, 60.5f, 4f, 3.5f, Ink.BROWN, fillInk = Ink.BROWN, alpha = 0.85f, layer = 0)
         items += rect(58f, 68.5f, 4f, 3.5f, Ink.BROWN, fillInk = Ink.BROWN, alpha = 0.85f, layer = 0)
-        items += poly(listOf(38f, 62f, 28f, 62f, 28f, 82f, 72f, 82f, 72f, 70f, 62f, 70f), Ink.TEAL, smooth = false, fill = false, stroke = 1.15f, layer = 2)
-        items += circle(50f, 82f, 4.5f, Ink.TEAL, fillInk = Ink.TEAL, alpha = 0.35f, stroke = 1.15f, layer = 0)
+        items += poly(listOf(38f, 62f, 27f, 62f, 27f, 83f, 45f, 83f), Ink.TEAL, closed = false, smooth = false, fill = false, stroke = 1.2f, layer = 2)
+        items += poly(listOf(55f, 83f, 73f, 83f, 73f, 70f, 62f, 70f), Ink.TEAL, closed = false, smooth = false, fill = false, stroke = 1.2f, layer = 2)
+        items += StudyDiagramComponents.meter(50f, 83f, 5.2f, "G", Ink.TEAL)
 
-        items += lbl(26f, 38f, "North Pole (N)", Ink.WARN, leftSide = true)
-        items += lbl(40f, 62f, "Brush B1 & Ring S1", Ink.BROWN, leftSide = true)
-        items += lbl(50f, 82f, "External Load / G", Ink.TEAL, leftSide = true)
-        items += lbl(73f, 38f, "South Pole (S)", Ink.ACCENT, leftSide = false)
-        items += lbl(54f, 30f, "Armature Coil ABCD", Ink.ORANGE, leftSide = false)
-        items += lbl(58f, 70f, "Slip Ring S2 & B2", Ink.GOLD, leftSide = false)
+        items += lbl(24.5f, 37f, "North Pole (N)", Ink.WARN, leftSide = true)
+        items += lbl(40f, 62f, "Carbon Brush B₁ & Ring S₁", Ink.BROWN, leftSide = true)
+        items += lbl(50f, 83f, "Galvanometer (AC Output)", Ink.TEAL, leftSide = true)
+        items += lbl(75.5f, 37f, "South Pole (S)", Ink.ACCENT, leftSide = false)
+        items += lbl(54f, 30f, "Rotating Armature", Ink.ORANGE, leftSide = false)
+        items += lbl(58f, 70f, "Slip Ring S₂ & Brush B₂", Ink.GOLD, leftSide = false)
         return DiagramSpec("AC Electric Generator", items)
     }
 
     fun solenoidField(): DiagramSpec {
         val items = ArrayList<DiagramSpec.Item>()
-        // Insulating core cylinder
-        items += rect(32f, 38f, 36f, 16f, Ink.TEAL, fillInk = Ink.TEAL, rx = 2f, alpha = 0.16f, stroke = 1.0f, layer = 0)
-        // Helical Copper Windings
-        for (i in 0..6) {
-            val cx = 35f + i * 5f
-            items += oval(cx, 46f, 1.8f, 9.2f, Ink.ORANGE, fill = false, stroke = 1.35f, layer = 2)
-        }
-        // Uniform parallel magnetic field inside solenoid (S -> N)
-        items += line(20f, 46f, 80f, 46f, Ink.ACCENT, arrow = true, stroke = 1.4f, layer = 2)
-        items += line(24f, 42f, 76f, 42f, Ink.ACCENT, arrow = true, stroke = 1.05f, layer = 2)
-        items += line(24f, 50f, 76f, 50f, Ink.ACCENT, arrow = true, stroke = 1.05f, layer = 2)
-        // External closed field loops
-        items += arc(50f, 34f, 24f, 16f, 185f, 170f, Ink.VIOLET, dashed = true, stroke = 1.05f, layer = 2)
-        items += arc(50f, 58f, 24f, 16f, 5f, 170f, Ink.VIOLET, dashed = true, stroke = 1.05f, layer = 2)
-        // Battery & circuit loop at bottom
-        items += poly(listOf(35f, 55f, 35f, 78f, 46f, 78f), Ink.NOTE, smooth = false, fill = false, stroke = 1.1f, layer = 2)
-        items += poly(listOf(65f, 55f, 65f, 78f, 54f, 78f), Ink.NOTE, smooth = false, fill = false, stroke = 1.1f, layer = 2)
-        items += line(48f, 73f, 48f, 83f, Ink.WARN, stroke = 1.6f, layer = 2)
-        items += line(52f, 75f, 52f, 81f, Ink.ACCENT, stroke = 1.6f, layer = 2)
+        items += rect(28f, 38f, 44f, 16f, Ink.TEAL, fillInk = Ink.TEAL, rx = 2.5f, alpha = 0.16f, stroke = 1.05f, layer = 0)
+        items += StudyDiagramComponents.inductor(26f, 46f, 74f, 46f, turns = 7, ink = Ink.ORANGE, strokeScale = 1.35f)
+        items += line(16f, 46f, 84f, 46f, Ink.ACCENT, arrow = true, stroke = 1.4f, layer = 2)
+        items += line(22f, 42f, 78f, 42f, Ink.ACCENT, arrow = true, stroke = 1.05f, layer = 2)
+        items += line(22f, 50f, 78f, 50f, Ink.ACCENT, arrow = true, stroke = 1.05f, layer = 2)
+        items += StudyDiagramComponents.curvedArrow(74f, 38f, 50f, 10f, 26f, 38f, Ink.VIOLET, dashed = true)
+        items += StudyDiagramComponents.curvedArrow(74f, 54f, 50f, 82f, 26f, 54f, Ink.VIOLET, dashed = true)
+        items += poly(listOf(26f, 46f, 22f, 46f, 22f, 78f, 42f, 78f), Ink.NOTE, closed = false, smooth = false, fill = false, stroke = 1.15f, layer = 2)
+        items += poly(listOf(74f, 46f, 78f, 46f, 78f, 78f, 58f, 78f), Ink.NOTE, closed = false, smooth = false, fill = false, stroke = 1.15f, layer = 2)
+        items += StudyDiagramComponents.battery(42f, 78f, 58f, 78f, cells = 2, ink = Ink.WARN, label = "DC Battery")
 
-        items += lbl(26f, 46f, "South Pole (S)", Ink.ACCENT, leftSide = true)
+        items += lbl(24f, 46f, "South Pole (S)", Ink.ACCENT, leftSide = true)
         items += lbl(45f, 38f, "Copper Solenoid Coil", Ink.ORANGE, leftSide = true)
-        items += lbl(50f, 78f, "DC Battery Supply", Ink.WARN, leftSide = true)
         items += lbl(76f, 46f, "North Pole (N)", Ink.WARN, leftSide = false)
         items += lbl(55f, 46f, "Uniform Interior Field", Ink.ACCENT, leftSide = false)
         items += lbl(50f, 20f, "External Flux Loops", Ink.VIOLET, leftSide = false)
         return DiagramSpec("Magnetic Field of a Solenoid", items)
+    }
+
+    fun nitrogenCycle(): DiagramSpec {
+        val items = ArrayList<DiagramSpec.Item>()
+        items += rect(28f, 12f, 44f, 12f, Ink.ACCENT, fillInk = Ink.ACCENT, rx = 4f, alpha = 0.24f, stroke = 1.25f, layer = 0, text = "Atmospheric N₂ (78%)")
+        items += rect(14f, 42f, 24f, 13f, Ink.RESULT, fillInk = Ink.RESULT, rx = 3.5f, alpha = 0.26f, stroke = 1.15f, layer = 0, text = "Plants & Proteins")
+        items += rect(62f, 42f, 24f, 13f, Ink.VIOLET, fillInk = Ink.VIOLET, rx = 3.5f, alpha = 0.26f, stroke = 1.15f, layer = 0, text = "Nitrates (NO₃⁻)")
+        items += rect(28f, 73f, 44f, 13f, Ink.BROWN, fillInk = Ink.BROWN, rx = 4f, alpha = 0.26f, stroke = 1.2f, layer = 0, text = "Ammonia (NH₃) & Bacteria")
+
+        items += StudyDiagramComponents.curvedArrow(32f, 24f, 14f, 52f, 28f, 74f, Ink.TEAL, text = "N₂ Fixation")
+        items += StudyDiagramComponents.curvedArrow(66f, 73f, 82f, 64f, 76f, 55f, Ink.GOLD, text = "Nitrification")
+        items += line(62f, 48.5f, 38f, 48.5f, Ink.RESULT, arrow = true, stroke = 1.35f, layer = 2)
+        items += line(26f, 55f, 36f, 73f, Ink.BROWN, arrow = true, stroke = 1.25f, layer = 2)
+        items += StudyDiagramComponents.curvedArrow(74f, 42f, 78f, 28f, 66f, 24f, Ink.WARN, text = "Denitrification")
+
+        items += lbl(50f, 48.5f, "Assimilation", Ink.RESULT, leftSide = true)
+        items += lbl(31f, 64f, "Ammonification", Ink.BROWN, leftSide = true)
+        return DiagramSpec("The Nitrogen Cycle", items)
+    }
+
+    fun transformerDiagram(): DiagramSpec {
+        val items = ArrayList<DiagramSpec.Item>()
+        // Laminated Soft Iron Core frame + hollow window
+        items += rect(26f, 22f, 48f, 56f, Ink.NOTE, fillInk = Ink.FAINT, rx = 3f, alpha = 0.28f, stroke = 1.4f, layer = 0)
+        items += rect(36f, 32f, 28f, 36f, Ink.NOTE, fillInk = Ink.PAPER, rx = 2f, alpha = 0.94f, stroke = 1.2f, layer = 1)
+        // Magnetic flux loop inside core
+        items += rect(31f, 27f, 38f, 46f, Ink.VIOLET, fill = false, rx = 2f, dashed = true, stroke = 1.0f, layer = 2)
+        // Primary & Secondary coils on vertical limbs
+        items += StudyDiagramComponents.inductor(26f, 32f, 26f, 68f, turns = 5, ink = Ink.WARN, strokeScale = 1.35f)
+        items += StudyDiagramComponents.inductor(74f, 32f, 74f, 68f, turns = 7, ink = Ink.ACCENT, strokeScale = 1.35f)
+        // Input & Output terminals
+        items += line(14f, 32f, 26f, 32f, Ink.WARN, stroke = 1.2f, layer = 2)
+        items += line(14f, 68f, 26f, 68f, Ink.WARN, stroke = 1.2f, layer = 2)
+        items += line(74f, 32f, 86f, 32f, Ink.ACCENT, stroke = 1.2f, layer = 2)
+        items += line(74f, 68f, 86f, 68f, Ink.ACCENT, stroke = 1.2f, layer = 2)
+
+        items += lbl(26f, 50f, "Primary Coil (Np)", Ink.WARN, leftSide = true)
+        items += lbl(16f, 36f, "AC Input (Vp)", Ink.WARN, leftSide = true)
+        items += lbl(50f, 24f, "Laminated Iron Core", Ink.NOTE, leftSide = false)
+        items += lbl(50f, 73f, "Magnetic Flux (Φ)", Ink.VIOLET, leftSide = false)
+        items += lbl(74f, 50f, "Secondary Coil (Ns)", Ink.ACCENT, leftSide = false)
+        items += lbl(84f, 36f, "AC Output (Vs)", Ink.ACCENT, leftSide = false)
+        return DiagramSpec("Step-Up Transformer (Mutual Induction)", items)
+    }
+
+    fun volcanoCrossSection(): DiagramSpec {
+        val items = ArrayList<DiagramSpec.Item>()
+        // Crust bedrock layers
+        items += rect(14f, 68f, 72f, 18f, Ink.BROWN, fillInk = Ink.BROWN, rx = 2f, alpha = 0.28f, stroke = 1.1f, layer = 0)
+        // Volcanic Cone Mountain Silhouette
+        items += vpath("M 16 68 L 43 32 L 57 32 L 84 68 Z", Ink.BROWN, fill = true, fillInk = Ink.BROWN, shade = FillShade.LINEAR, alpha = 0.36f, stroke = 1.35f, layer = 0)
+        // Magma Chamber + Main Conduit Pipe + Side Vent + Lava Flow
+        items += oval(50f, 78f, 18f, 8f, Ink.WARN, fillInk = Ink.ORANGE, shade = FillShade.RADIAL, alpha = 0.65f, stroke = 1.2f, layer = 0)
+        items += vpath("M 46 72 L 47 32 L 53 32 L 54 72 Z", Ink.WARN, fill = true, fillInk = Ink.ORANGE, alpha = 0.65f, stroke = 1.0f, layer = 2)
+        items += vpath("M 52 54 L 68 46 L 71 48 L 54 57 Z", Ink.WARN, fill = true, fillInk = Ink.ORANGE, alpha = 0.58f, stroke = 0.9f, layer = 2)
+        items += vpath("M 43 32 C 38 38, 34 48, 28 56", Ink.WARN, fill = false, stroke = 2.0f, layer = 2)
+        // Eruptive Ash Plume Cloud
+        items += vpath("M 44 29 C 34 22, 36 12, 50 12 C 64 12, 66 22, 56 29", Ink.NOTE, fill = true, fillInk = Ink.FAINT, shade = FillShade.RADIAL, alpha = 0.42f, stroke = 1.1f, layer = 0)
+
+        items += lbl(50f, 18f, "Ash & Gas Plume", Ink.NOTE, leftSide = true)
+        items += lbl(46f, 32f, "Crater", Ink.WARN, leftSide = true)
+        items += lbl(34f, 46f, "Lava Flow", Ink.WARN, leftSide = true)
+        items += lbl(50f, 78f, "Magma Chamber", Ink.ORANGE, leftSide = true)
+        items += lbl(50f, 52f, "Main Vent (Conduit)", Ink.ORANGE, leftSide = false)
+        items += lbl(68f, 47f, "Secondary Cone / Vent", Ink.WARN, leftSide = false)
+        items += lbl(74f, 76f, "Earth's Crust", Ink.BROWN, leftSide = false)
+        return DiagramSpec("Cross-Section of a Volcano", items)
     }
 }

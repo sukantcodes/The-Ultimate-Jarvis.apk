@@ -619,6 +619,9 @@ class StudyBoardRichDrawingAndLayoutTest {
             "Logic gates AND OR NOT",
             "Solar system orbits diagram",
             "Carbon cycle diagram",
+            "Nitrogen cycle diagram",
+            "Step-up transformer diagram",
+            "Volcano cross section diagram",
             "Layers of the earth",
             "Water cycle diagram"
         )) {
@@ -629,7 +632,16 @@ class StudyBoardRichDrawingAndLayoutTest {
             val labelBoxes = laid.ops.filterIsInstance<DrawOp.Rect>().filter {
                 it.paintMode == PaintMode.FILL_AND_STROKE && kotlin.math.abs(it.fillAlpha - 0.12f) < 0.01f
             }
-            assertEquals("Expected all callout labels for: $q", spec.items.count { it is DiagramSpec.Item.Label }, labelBoxes.size)
+            val expectedCalloutCount = spec.items.count {
+                it is DiagramSpec.Item.Label && it.place != LabelPlace.INLINE && it.place != LabelPlace.INSIDE
+            }
+            assertEquals("Expected all callout labels for: $q", expectedCalloutCount, labelBoxes.size)
+            val glyphs = laid.ops.filterIsInstance<DrawOp.Glyphs>().map { it.text }
+            for (lbl in spec.items.filterIsInstance<DiagramSpec.Item.Label>()) {
+                if (lbl.place == LabelPlace.INLINE || lbl.place == LabelPlace.INSIDE) {
+                    assertTrue("Missing inline/inside label '${lbl.text}' for: $q", glyphs.any { it.contains(lbl.text) })
+                }
+            }
             for (i in labelBoxes.indices) {
                 for (j in i + 1 until labelBoxes.size) {
                     val a = labelBoxes[i]
@@ -964,5 +976,141 @@ class StudyControllerAndVoiceUpgradeTest {
         pb.narrationBusy = false
         repeat(80) { pb.advance(50) }
         assertEquals(1f, pb.progress, 0.01f)
+    }
+
+    @Test fun svgPathParserParsesAllCommandsAndVectorPathLayoutsWithinBounds() {
+        val m = FakeMetrics()
+        val d = "M 20 50 C 20 20, 80 20, 80 50 S 80 80, 50 80 Q 25 80, 20 50 L 30 50 H 70 V 60 A 10 10 0 0 1 60 70 Z"
+        val cmds = SvgPathParser.parse(d)
+        assertTrue(cmds.first() is PathCmd.MoveTo)
+        assertTrue(cmds.any { it is PathCmd.CubicTo })
+        assertTrue(cmds.any { it is PathCmd.QuadTo })
+        assertTrue(cmds.any { it is PathCmd.LineTo })
+        assertTrue(cmds.last() is PathCmd.Close)
+        val sampled = SvgPathParser.samplePoints(cmds)
+        assertTrue("Expected dense arc/bezier samples", sampled.size >= 20)
+
+        val json = """
+            {
+              "title": "Custom Cell Membrane Curve",
+              "items": [
+                {"t": "path", "d": "$d", "fill": true, "color": "teal", "fillColor": "accent", "shade": "radial", "layer": "outline", "text": "Cytoplasm"},
+                {"t": "label", "x": 12, "y": 40, "ax": 28, "ay": 40, "text": "Outer Wall", "place": "callout", "color": "ink"}
+              ]
+            }
+        """.trimIndent()
+        val parsed = StudyDiagramArchitect.parseReply(json)
+        assertNotNull(parsed)
+        val (spec, _) = parsed!!
+        assertTrue(spec.items.any { it is DiagramSpec.Item.VectorPath })
+
+        val laid = StudyDiagramLayout.layout(spec, 900f, 700f, m, 2.4f)
+        val paths = laid.ops.filterIsInstance<DrawOp.VectorPath>()
+        assertTrue("Expected VectorPath draw ops for outline + fill", paths.size >= 2)
+        val glyphs = laid.ops.filterIsInstance<DrawOp.Glyphs>().map { it.text }
+        assertTrue(glyphs.any { it.contains("Cytoplasm") })
+        assertTrue(glyphs.any { it.contains("Outer Wall") })
+        val bounds = DrawBounds.measure(laid.ops, m)!!
+        assertTrue(bounds.minX >= 0f && bounds.maxX <= 900.5f && bounds.maxY <= 700.5f)
+    }
+
+    @Test fun parametricStemComponentsAndEmbeddedTextLayoutCleanly() {
+        val m = FakeMetrics()
+        val json = """
+            {
+              "title": "Precision Engineering & Lab Setup",
+              "items": [
+                {"t": "resistor", "x1": 20, "y1": 20, "x2": 50, "y2": 20, "text": "R1 = 10 Ohm"},
+                {"t": "capacitor", "x1": 50, "y1": 20, "x2": 80, "y2": 20, "text": "C1"},
+                {"t": "inductor", "x1": 20, "y1": 40, "x2": 50, "y2": 40, "turns": 5, "text": "L1"},
+                {"t": "battery", "x1": 50, "y1": 40, "x2": 80, "y2": 40, "cells": 2, "text": "12V"},
+                {"t": "switch", "x1": 20, "y1": 55, "x2": 42, "y2": 55, "open": true, "text": "S1"},
+                {"t": "diode", "x1": 48, "y1": 55, "x2": 72, "y2": 55, "led": true, "text": "LED"},
+                {"t": "meter", "cx": 82, "cy": 55, "r": 5, "symbol": "A"},
+                {"t": "flask", "cx": 25, "cy": 78, "w": 16, "h": 22, "style": "round", "liquid": 0.45},
+                {"t": "condenser", "x1": 34, "y1": 72, "x2": 62, "y2": 82, "w": 6.5},
+                {"t": "diamond", "cx": 76, "cy": 78, "w": 20, "h": 14, "text": "Valid?"},
+                {"t": "curved_arrow", "x1": 15, "y1": 65, "cx": 30, "cy": 60, "x2": 45, "y2": 65, "text": "Flow"},
+                {"t": "dimension", "x1": 20, "y1": 28, "x2": 50, "y2": 28, "offset": 4, "text": "3 cm"},
+                {"t": "angle", "cx": 60, "cy": 65, "r": 7, "start": -45, "sweep": 45, "text": "45 deg"}
+              ]
+            }
+        """.trimIndent()
+        val spec = DiagramSpec.parse(com.google.gson.JsonParser.parseString(json).asJsonObject)
+        assertNotNull(spec)
+        assertFalse(StudyDiagramArchitect.needsPrecisionUpgrade(spec))
+
+        val laid = StudyDiagramLayout.layout(spec!!, 920f, 760f, m, 2.4f)
+        assertTrue(laid.ops.size >= 40)
+        val glyphs = laid.ops.filterIsInstance<DrawOp.Glyphs>().map { it.text }
+        assertTrue(glyphs.any { it.contains("R1") })
+        assertTrue(glyphs.any { it.contains("Valid?") })
+        assertTrue(glyphs.any { it.contains("Flow") })
+        assertTrue(glyphs.any { it.contains("3 cm") })
+        val bounds = DrawBounds.measure(laid.ops, m)!!
+        assertTrue(bounds.minX >= 0f && bounds.maxX <= 920.5f && bounds.maxY <= 760.5f)
+    }
+
+    @Test fun doubtAssemblerAndPromptsEnforceStepByStepExplanationAndDiagrams() {
+        val doubtPrompt = StudyPrompt.doubtSystem(StudyProfile(language = "English"))
+        assertTrue(doubtPrompt.contains("NEVER jump directly to a bare final answer"))
+        assertTrue(doubtPrompt.contains("Explain the doubt thoroughly step-by-step"))
+        assertTrue(doubtPrompt.contains("DIAGRAMS IN DOUBTS"))
+        assertTrue(doubtPrompt.contains("OUTPUT FORMAT"))
+
+        val baseLesson = StudyLesson(
+            subject = StudySubject.PHYSICS,
+            topic = "Optics",
+            question = "Find image position for a convex lens",
+            level = "Class 10",
+            steps = listOf(StudyStep(1, StepKind.FORMULA, "1/f = 1/v - 1/u", "Lens formula")),
+            finalAnswer = "v = +30 cm"
+        )
+        val priorDoubts = listOf(
+            StudyDoubt("Why is u negative?", 1, listOf(StudyStep(-1, StepKind.STEP, "Sign convention along incident light", "Measured opposite to ray")), 1000L)
+        )
+        val userPrompt = StudyPrompt.doubtUser(
+            baseLesson,
+            "Draw ray diagram and explain why real image forms",
+            selectedStep = 1,
+            doubts = priorDoubts,
+            hasCanonicalDiagram = true
+        )
+        assertTrue(userPrompt.contains("Earlier doubts already answered"))
+        assertTrue(userPrompt.contains("Why is u negative?"))
+        assertTrue(userPrompt.contains("FAST STUDIO DIAGRAM HINT"))
+
+        // If the model attempts to emit only a Final without teaching steps in Doubt Mode, StudyAssembler promotes the explanation into a teaching step first
+        val asm = StudyAssembler("Why did the rays converge?", "Class 10", isDoubt = true)
+        asm.accept(StudyEvent.Meta("Physics", "Optics", "Class 10"))
+        val updates = asm.accept(
+            StudyEvent.Final(
+                answer = "Convex lens converges parallel rays to F",
+                explanation = "Thick center bends upper rays down and lower rays up symmetrically toward the principal focus.",
+                confidence = "high"
+            )
+        )
+        assertTrue(updates.any { it is StudyAssembler.Update.StepAdded })
+        assertEquals(1, asm.lesson.steps.size)
+        assertTrue(asm.lesson.steps.first().content.contains("Thick center bends"))
+
+        // Verify replaceStepDiagram & appendArchitectDiagram + StudyPlayback.addBlocks(autoStart = false)
+        val diagSpec = DiagramSpec("Lens Sketch", listOf(DiagramSpec.Item.Oval(50f, 50f, 8f, 26f, fill = true, ink = Ink.TEAL)))
+        asm.replaceStepDiagram(1, diagSpec, """{"title":"Lens Sketch"}""")
+        assertEquals("Lens Sketch", asm.lesson.steps.first().diagram?.title)
+        val appended = asm.appendArchitectDiagram(diagSpec, """{"title":"Lens Sketch 2"}""", "Visual breakdown")
+        assertNotNull(appended)
+        assertEquals(2, asm.lesson.steps.size)
+
+        val pb = StudyPlayback()
+        var startedCount = 0
+        pb.listener = object : StudyPlayback.Listener {
+            override fun onBlockStarted(index: Int, replay: Boolean) { startedCount++ }
+            override fun onBlockFinished(index: Int) {}
+            override fun onAllFinished() {}
+        }
+        pb.addBlocks(listOf(1200L, 1400L), autoStart = false)
+        assertEquals(StudyPlayback.State.IDLE, pb.state)
+        assertEquals(0, startedCount)
     }
 }

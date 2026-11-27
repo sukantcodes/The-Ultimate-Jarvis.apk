@@ -14,13 +14,17 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sin
 
+enum class LabelPlace { AUTO, INSIDE, INLINE, CALLOUT }
+enum class TextAlign { CENTER, LEFT, RIGHT }
+
 /**
- * A diagram described as structured vector data in a 0..100 box (y grows downward) plus optional mathematical function graphs.
+ * A diagram described as structured vector data (circles, ovals, rounded rects, polygons, Bezier splines,
+ * full SVG `d` paths, and precision STEM components) plus optional mathematical function graphs.
  * The layout engine orders primitives into natural live-drawing stages:
  *   1. Structural outlines
- *   2. Shaded colour fills
- *   3. Internal realistic details & directional arrows
- *   4. Anchor pins, leader callouts & collision-free external labels
+ *   2. Shaded colour fills + crisp outer rim definition
+ *   3. Internal realistic details, vectors & directional arrows
+ *   4. Shape-embedded labels, inline labels, and crossing-free external callout rails
  * Finally, a strict bounding-box pass guarantees every mark and label stays inside the whiteboard bounds.
  */
 data class DiagramSpec(
@@ -48,7 +52,9 @@ data class DiagramSpec(
             val shade: FillShade = FillShade.RADIAL,
             val fillAlpha: Float = 0.28f,
             val strokeScale: Float = 1f,
-            override val layer: Int = 0
+            override val layer: Int = 0,
+            val text: String = "",
+            val textInk: Ink = ink
         ) : Item()
 
         data class Oval(
@@ -60,7 +66,9 @@ data class DiagramSpec(
             val shade: FillShade = FillShade.RADIAL,
             val fillAlpha: Float = 0.28f,
             val strokeScale: Float = 1f,
-            override val layer: Int = 0
+            override val layer: Int = 0,
+            val text: String = "",
+            val textInk: Ink = ink
         ) : Item()
 
         data class Arc(
@@ -85,7 +93,9 @@ data class DiagramSpec(
             val shade: FillShade = FillShade.LINEAR,
             val fillAlpha: Float = 0.24f,
             val strokeScale: Float = 1f,
-            override val layer: Int = 0
+            override val layer: Int = 0,
+            val text: String = "",
+            val textInk: Ink = ink
         ) : Item()
 
         data class Poly(
@@ -98,7 +108,23 @@ data class DiagramSpec(
             val shade: FillShade = FillShade.LINEAR,
             val fillAlpha: Float = 0.28f,
             val strokeScale: Float = 1f,
-            override val layer: Int = 0
+            override val layer: Int = 0,
+            val text: String = "",
+            val textInk: Ink = ink
+        ) : Item()
+
+        data class VectorPath(
+            val cmds: List<PathCmd>,
+            val fill: Boolean,
+            override val ink: Ink,
+            val fillInk: Ink = ink,
+            val dashed: Boolean = false,
+            val shade: FillShade = FillShade.RADIAL,
+            val fillAlpha: Float = 0.28f,
+            val strokeScale: Float = 1f,
+            override val layer: Int = 0,
+            val text: String = "",
+            val textInk: Ink = ink
         ) : Item()
 
         data class Dot(
@@ -113,7 +139,10 @@ data class DiagramSpec(
             val x: Float, val y: Float, val text: String, override val ink: Ink,
             val anchorX: Float? = null, val anchorY: Float? = null,
             val badge: Boolean = true,
-            override val layer: Int = 3
+            override val layer: Int = 3,
+            val place: LabelPlace = LabelPlace.AUTO,
+            val align: TextAlign = TextAlign.CENTER,
+            val sizeScale: Float = 1f
         ) : Item()
     }
 
@@ -126,18 +155,22 @@ data class DiagramSpec(
     )
 
     companion object {
-        private const val MAX_ITEMS = 320
+        private const val MAX_ITEMS = 600
 
         /** Returns null for a spec with nothing drawable, so an empty or broken diagram is never shown as if it were real. */
         fun parse(o: JsonObject): DiagramSpec? {
             val title = o.str("title") ?: o.str("caption").orEmpty()
             val items = ArrayList<Item>()
-            val arr = (o.get("items") ?: o.get("shapes"))?.takeIf { it.isJsonArray }?.asJsonArray
+            val arr = (o.get("items") ?: o.get("shapes") ?: o.get("elements"))?.takeIf { it.isJsonArray }?.asJsonArray
             if (arr != null) {
                 for (e in arr) {
                     if (items.size >= MAX_ITEMS) break
                     val s = e.takeIf { it.isJsonObject }?.asJsonObject ?: continue
-                    parseItem(s)?.let { items.add(it) }
+                    val parsed = parseItems(s)
+                    for (it in parsed) {
+                        if (items.size >= MAX_ITEMS) break
+                        items.add(it)
+                    }
                 }
             }
             val graph = (o.get("graph")?.takeIf { it.isJsonObject }?.asJsonObject
@@ -155,7 +188,7 @@ data class DiagramSpec(
             for (k in ks) {
                 val v = get(k)?.takeIf { it.isJsonPrimitive } ?: continue
                 val d = if (v.asJsonPrimitive.isNumber) v.asDouble else v.asString.trim().toDoubleOrNull()
-                if (d != null && d.isFinite()) return d.toFloat().coerceIn(-1000f, 1000f)
+                if (d != null && d.isFinite()) return d.toFloat().coerceIn(-10_000f, 10_000f)
             }
             return null
         }
@@ -184,6 +217,7 @@ data class DiagramSpec(
             "brown", "wood", "earth", "sepia", "tan" -> Ink.BROWN
             "gray", "grey", "faint", "silver" -> Ink.FAINT
             "note", "slate", "muted" -> Ink.NOTE
+            "paper", "white", "bg" -> Ink.PAPER
             else -> Ink.INK
         }
 
@@ -205,36 +239,212 @@ data class DiagramSpec(
             }
         }
 
-        private fun parseItem(o: JsonObject): Item? {
+        private fun placeOf(o: JsonObject): LabelPlace = when (o.str("place")?.lowercase()) {
+            "inside", "center", "box", "node" -> LabelPlace.INSIDE
+            "inline", "edge", "on", "near" -> LabelPlace.INLINE
+            "callout", "rail", "margin", "external" -> LabelPlace.CALLOUT
+            else -> if (o.flag("inside")) LabelPlace.INSIDE else if (o.flag("inline")) LabelPlace.INLINE else LabelPlace.AUTO
+        }
+
+        private fun alignOf(o: JsonObject): TextAlign = when (o.str("align")?.lowercase()) {
+            "left", "start" -> TextAlign.LEFT
+            "right", "end" -> TextAlign.RIGHT
+            else -> TextAlign.CENTER
+        }
+
+        private fun parseItems(o: JsonObject): List<Item> {
             val ink = inkOf(o.str("color") ?: o.str("ink") ?: o.str("strokeColor"))
             val fillInk = inkOf(o.str("fillColor") ?: o.str("fill_color") ?: o.str("bg") ?: o.str("color") ?: o.str("ink"))
-            val fillAlpha = (o.num("fillAlpha", "alpha") ?: 0.28f).coerceIn(0.08f, 0.78f)
-            val strokeScale = (o.num("strokeWidth", "stroke", "weight") ?: 1f).coerceIn(0.45f, 3.0f)
-            val kind = o.str("t")?.lowercase() ?: o.str("type")?.lowercase() ?: o.str("shape")?.lowercase() ?: return null
+            val fillAlpha = (o.num("fillAlpha", "alpha") ?: 0.28f).coerceIn(0.06f, 0.85f)
+            val strokeScale = (o.num("strokeWidth", "stroke", "weight") ?: 1f).coerceIn(0.45f, 3.2f)
+            val kind = (o.str("t") ?: o.str("type") ?: o.str("shape") ?: o.str("component"))?.lowercase() ?: return emptyList()
+            val innerText = (o.str("text") ?: o.str("label"))?.take(72).orEmpty()
+            val textInk = o.str("textColor")?.let { inkOf(it) } ?: ink
 
-            return when (kind) {
-                "line", "arrow", "vector", "ray", "segment" -> {
-                    val x1 = o.num("x1") ?: return null
-                    val y1 = o.num("y1") ?: return null
-                    val x2 = o.num("x2") ?: return null
-                    val y2 = o.num("y2") ?: return null
-                    val isArrow = o.flag("arrow") || kind == "arrow" || kind == "vector" || kind == "ray"
-                    Item.Line(
-                        x1, y1, x2, y2,
-                        arrow = isArrow,
-                        dashed = o.flag("dashed"),
-                        ink = ink,
+            // Precision STEM / Engineering Components
+            when (kind) {
+                "resistor" -> {
+                    val x1 = o.num("x1") ?: return emptyList(); val y1 = o.num("y1") ?: return emptyList()
+                    val x2 = o.num("x2") ?: return emptyList(); val y2 = o.num("y2") ?: return emptyList()
+                    return StudyDiagramComponents.resistor(x1, y1, x2, y2, ink, strokeScale, innerText, layerOf(o, 2))
+                }
+                "capacitor" -> {
+                    val x1 = o.num("x1") ?: return emptyList(); val y1 = o.num("y1") ?: return emptyList()
+                    val x2 = o.num("x2") ?: return emptyList(); val y2 = o.num("y2") ?: return emptyList()
+                    return StudyDiagramComponents.capacitor(x1, y1, x2, y2, ink, strokeScale, innerText, layerOf(o, 2))
+                }
+                "inductor", "coil", "solenoid" -> {
+                    val x1 = o.num("x1") ?: return emptyList(); val y1 = o.num("y1") ?: return emptyList()
+                    val x2 = o.num("x2") ?: return emptyList(); val y2 = o.num("y2") ?: return emptyList()
+                    val turns = o.num("turns", "coils")?.toInt() ?: 5
+                    return StudyDiagramComponents.inductor(x1, y1, x2, y2, turns, ink, strokeScale, innerText, layerOf(o, 2))
+                }
+                "battery", "cell" -> {
+                    val x1 = o.num("x1") ?: return emptyList(); val y1 = o.num("y1") ?: return emptyList()
+                    val x2 = o.num("x2") ?: return emptyList(); val y2 = o.num("y2") ?: return emptyList()
+                    val cells = o.num("cells")?.toInt() ?: 2
+                    return StudyDiagramComponents.battery(x1, y1, x2, y2, cells, ink, strokeScale, innerText, layerOf(o, 2))
+                }
+                "switch" -> {
+                    val x1 = o.num("x1") ?: return emptyList(); val y1 = o.num("y1") ?: return emptyList()
+                    val x2 = o.num("x2") ?: return emptyList(); val y2 = o.num("y2") ?: return emptyList()
+                    return StudyDiagramComponents.switch(x1, y1, x2, y2, o.flag("open", true), ink, strokeScale, innerText, layerOf(o, 2))
+                }
+                "bulb", "lamp" -> {
+                    val cx = o.num("cx", "x") ?: return emptyList(); val cy = o.num("cy", "y") ?: return emptyList()
+                    val r = (o.num("r", "radius") ?: 5f).coerceAtLeast(1.5f)
+                    return StudyDiagramComponents.bulb(cx, cy, r, ink, strokeScale, innerText, layerOf(o, 0))
+                }
+                "meter", "ammeter", "voltmeter", "galvanometer" -> {
+                    val cx = o.num("cx", "x") ?: return emptyList(); val cy = o.num("cy", "y") ?: return emptyList()
+                    val r = (o.num("r", "radius") ?: 5f).coerceAtLeast(1.5f)
+                    val sym = o.str("symbol") ?: when (kind) {
+                        "ammeter" -> "A"
+                        "voltmeter" -> "V"
+                        "galvanometer" -> "G"
+                        else -> innerText.ifEmpty { "M" }
+                    }
+                    return StudyDiagramComponents.meter(cx, cy, r, sym, ink, fillInk, strokeScale)
+                }
+                "diode", "led" -> {
+                    val x1 = o.num("x1") ?: return emptyList(); val y1 = o.num("y1") ?: return emptyList()
+                    val x2 = o.num("x2") ?: return emptyList(); val y2 = o.num("y2") ?: return emptyList()
+                    return StudyDiagramComponents.diode(x1, y1, x2, y2, o.flag("led") || kind == "led", ink, strokeScale, innerText, layerOf(o, 2))
+                }
+                "ground", "earth" -> {
+                    val x = o.num("x", "cx") ?: return emptyList(); val y = o.num("y", "cy") ?: return emptyList()
+                    return StudyDiagramComponents.ground(x, y, (o.num("size", "r") ?: 5.5f).coerceAtLeast(1.5f), ink, strokeScale)
+                }
+                "spring" -> {
+                    val x1 = o.num("x1") ?: return emptyList(); val y1 = o.num("y1") ?: return emptyList()
+                    val x2 = o.num("x2") ?: return emptyList(); val y2 = o.num("y2") ?: return emptyList()
+                    return StudyDiagramComponents.spring(x1, y1, x2, y2, o.num("coils")?.toInt() ?: 7, ink, strokeScale, innerText)
+                }
+                "gear" -> {
+                    val cx = o.num("cx", "x") ?: return emptyList(); val cy = o.num("cy", "y") ?: return emptyList()
+                    val r = (o.num("r", "radius") ?: 10f).coerceAtLeast(2f)
+                    return StudyDiagramComponents.gear(cx, cy, r, o.num("teeth")?.toInt() ?: 12, ink, fillInk, strokeScale)
+                }
+                "pulley" -> {
+                    val cx = o.num("cx", "x") ?: return emptyList(); val cy = o.num("cy", "y") ?: return emptyList()
+                    val r = (o.num("r", "radius") ?: 7f).coerceAtLeast(1.5f)
+                    return StudyDiagramComponents.pulley(cx, cy, r, ink, fillInk, strokeScale, o.flag("mountUp", true))
+                }
+                "diamond", "decision" -> {
+                    val w = o.num("w", "width") ?: return emptyList(); val h = o.num("h", "height") ?: return emptyList()
+                    val cx = o.num("cx") ?: o.num("x")?.plus(w * 0.5f) ?: return emptyList()
+                    val cy = o.num("cy") ?: o.num("y")?.plus(h * 0.5f) ?: return emptyList()
+                    return listOf(StudyDiagramComponents.diamond(cx, cy, w, h, ink, fillInk, fillAlpha, strokeScale, innerText))
+                }
+                "cylinder", "db", "database" -> {
+                    val w = o.num("w", "width") ?: return emptyList(); val h = o.num("h", "height") ?: return emptyList()
+                    val x = o.num("x") ?: o.num("cx")?.minus(w * 0.5f) ?: return emptyList()
+                    val y = o.num("y") ?: o.num("cy")?.minus(h * 0.5f) ?: return emptyList()
+                    return StudyDiagramComponents.cylinder(x, y, w, h, ink, fillInk, fillAlpha, strokeScale, innerText)
+                }
+                "flask", "beaker", "test_tube" -> {
+                    val w = o.num("w", "width") ?: 16f; val h = o.num("h", "height") ?: 26f
+                    val cx = o.num("cx") ?: o.num("x")?.plus(w * 0.5f) ?: return emptyList()
+                    val cy = o.num("cy") ?: o.num("y")?.plus(h * 0.5f) ?: return emptyList()
+                    val style = o.str("style") ?: if (kind == "beaker" || kind == "test_tube") kind else "conical"
+                    val liq = o.num("liquid", "liquidFrac") ?: 0.42f
+                    val liqInk = o.str("liquidColor")?.let { inkOf(it) } ?: fillInk
+                    return StudyDiagramComponents.flask(cx, cy, w, h, style, liq, ink, liqInk, strokeScale)
+                }
+                "burner", "bunsen" -> {
+                    val cx = o.num("cx", "x") ?: return emptyList(); val botY = o.num("y", "cy") ?: return emptyList()
+                    return StudyDiagramComponents.burner(cx, botY, o.num("h", "height") ?: 20f, ink, strokeScale)
+                }
+                "thermometer" -> {
+                    val x = o.num("x", "cx") ?: return emptyList()
+                    val y1 = o.num("y1", "y") ?: return emptyList()
+                    val y2 = o.num("y2") ?: (y1 + (o.num("h", "height") ?: 24f))
+                    return StudyDiagramComponents.thermometer(x, y1, y2, ink, fillInk, strokeScale)
+                }
+                "condenser" -> {
+                    val x1 = o.num("x1") ?: return emptyList(); val y1 = o.num("y1") ?: return emptyList()
+                    val x2 = o.num("x2") ?: return emptyList(); val y2 = o.num("y2") ?: return emptyList()
+                    return StudyDiagramComponents.condenser(x1, y1, x2, y2, o.num("w", "width") ?: 7.5f, ink, fillInk, strokeScale)
+                }
+                "dimension", "measure" -> {
+                    val x1 = o.num("x1") ?: return emptyList(); val y1 = o.num("y1") ?: return emptyList()
+                    val x2 = o.num("x2") ?: return emptyList(); val y2 = o.num("y2") ?: return emptyList()
+                    return StudyDiagramComponents.dimension(x1, y1, x2, y2, innerText, o.num("offset") ?: 5f, ink, strokeScale)
+                }
+                "curved_arrow", "arc_arrow" -> {
+                    val x1 = o.num("x1") ?: return emptyList(); val y1 = o.num("y1") ?: return emptyList()
+                    val x2 = o.num("x2") ?: return emptyList(); val y2 = o.num("y2") ?: return emptyList()
+                    val cx = o.num("cx") ?: ((x1 + x2) * 0.5f)
+                    val cy = o.num("cy") ?: ((y1 + y2) * 0.5f - 10f)
+                    return StudyDiagramComponents.curvedArrow(
+                        x1, y1, cx, cy, x2, y2, ink,
+                        arrow = o.flag("arrow", true),
                         doubleArrow = o.flag("doubleArrow") || o.flag("both"),
+                        dashed = o.flag("dashed"),
                         strokeScale = strokeScale,
-                        layer = layerOf(o, if (isArrow || o.flag("dashed")) 2 else 1)
+                        text = innerText,
+                        layer = layerOf(o, 2)
                     )
+                }
+                "path", "svg" -> {
+                    val d = o.str("d") ?: o.str("path") ?: return emptyList()
+                    val cmds = SvgPathParser.parse(d)
+                    if (cmds.size < 2) return emptyList()
+                    val hasClose = cmds.any { it is PathCmd.Close }
+                    val fill = o.flag("fill", hasClose && (o.str("fillColor") != null || o.str("fill_color") != null))
+                    return listOf(
+                        Item.VectorPath(
+                            cmds = cmds,
+                            fill = fill,
+                            ink = ink,
+                            fillInk = fillInk,
+                            dashed = o.flag("dashed"),
+                            shade = shadeOf(o, FillShade.RADIAL),
+                            fillAlpha = fillAlpha,
+                            strokeScale = strokeScale,
+                            layer = layerOf(o, if (fill || hasClose) 0 else 2),
+                            text = innerText,
+                            textInk = textInk
+                        )
+                    )
+                }
+            }
+
+            val single = when (kind) {
+                "line", "arrow", "vector", "ray", "segment" -> {
+                    val x1 = o.num("x1") ?: return emptyList()
+                    val y1 = o.num("y1") ?: return emptyList()
+                    val x2 = o.num("x2") ?: return emptyList()
+                    val y2 = o.num("y2") ?: return emptyList()
+                    val isArrow = o.flag("arrow") || kind == "arrow" || kind == "vector" || kind == "ray"
+                    val list = ArrayList<Item>(2)
+                    list.add(
+                        Item.Line(
+                            x1, y1, x2, y2,
+                            arrow = isArrow,
+                            dashed = o.flag("dashed"),
+                            ink = ink,
+                            doubleArrow = o.flag("doubleArrow") || o.flag("both"),
+                            strokeScale = strokeScale,
+                            layer = layerOf(o, if (isArrow || o.flag("dashed")) 2 else 1)
+                        )
+                    )
+                    if (innerText.isNotBlank()) {
+                        list.add(
+                            Item.Label(
+                                (x1 + x2) * 0.5f, (y1 + y2) * 0.5f - 3.5f,
+                                innerText, textInk, badge = true, place = LabelPlace.INLINE, sizeScale = 0.86f
+                            )
+                        )
+                    }
+                    return list
                 }
                 "circle" -> {
                     val fill = o.flag("fill") || o.str("fillColor") != null || o.str("fill_color") != null
-                    val r = o.num("r", "radius") ?: o.num("d", "diameter")?.div(2f) ?: return null
+                    val r = o.num("r", "radius") ?: o.num("d", "diameter")?.div(2f) ?: return emptyList()
                     Item.Circle(
-                        cx = o.num("cx", "x") ?: return null,
-                        cy = o.num("cy", "y") ?: return null,
+                        cx = o.num("cx", "x") ?: return emptyList(),
+                        cy = o.num("cy", "y") ?: return emptyList(),
                         r = r.coerceAtLeast(0.5f),
                         fill = fill,
                         ink = ink,
@@ -243,16 +453,18 @@ data class DiagramSpec(
                         shade = shadeOf(o, FillShade.RADIAL),
                         fillAlpha = fillAlpha,
                         strokeScale = strokeScale,
-                        layer = layerOf(o, 0)
+                        layer = layerOf(o, 0),
+                        text = innerText,
+                        textInk = textInk
                     )
                 }
                 "oval", "ellipse" -> {
                     val fill = o.flag("fill") || o.str("fillColor") != null || o.str("fill_color") != null
-                    val rx = o.num("rx") ?: o.num("w", "width")?.div(2f) ?: return null
+                    val rx = o.num("rx") ?: o.num("w", "width")?.div(2f) ?: return emptyList()
                     val ry = o.num("ry") ?: o.num("h", "height")?.div(2f) ?: rx
                     Item.Oval(
-                        cx = o.num("cx", "x") ?: return null,
-                        cy = o.num("cy", "y") ?: return null,
+                        cx = o.num("cx", "x") ?: return emptyList(),
+                        cy = o.num("cy", "y") ?: return emptyList(),
                         rx = rx.coerceAtLeast(0.5f),
                         ry = ry.coerceAtLeast(0.5f),
                         fill = fill,
@@ -263,18 +475,25 @@ data class DiagramSpec(
                         shade = shadeOf(o, FillShade.RADIAL),
                         fillAlpha = fillAlpha,
                         strokeScale = strokeScale,
-                        layer = layerOf(o, 0)
+                        layer = layerOf(o, 0),
+                        text = innerText,
+                        textInk = textInk
                     )
                 }
                 "arc", "sector", "angle", "lens" -> {
-                    val rx = (o.num("rx", "r") ?: return null).coerceAtLeast(0.5f)
+                    val rx = (o.num("rx", "r") ?: return emptyList()).coerceAtLeast(0.5f)
                     val ry = (o.num("ry", "r") ?: rx).coerceAtLeast(0.5f)
                     val start = o.num("start", "startAngle") ?: 0f
                     val sweep = o.num("sweep", "sweepAngle") ?: 180f
+                    val cx = o.num("cx", "x") ?: return emptyList()
+                    val cy = o.num("cy", "y") ?: return emptyList()
+                    if (kind == "angle" && innerText.isNotBlank()) {
+                        return StudyDiagramComponents.angle(cx, cy, rx, start, sweep, innerText, ink, strokeScale)
+                    }
                     val fill = o.flag("fill") || o.str("fillColor") != null || o.str("fill_color") != null
                     Item.Arc(
-                        cx = o.num("cx", "x") ?: return null,
-                        cy = o.num("cy", "y") ?: return null,
+                        cx = cx,
+                        cy = cy,
                         rx = rx,
                         ry = ry,
                         startAngle = start,
@@ -291,14 +510,14 @@ data class DiagramSpec(
                     )
                 }
                 "rect", "box", "block", "roundrect", "pill", "node", "card" -> {
-                    val w = o.num("w", "width") ?: return null
-                    val h = o.num("h", "height") ?: return null
-                    val x = o.num("x") ?: o.num("cx")?.minus(w * 0.5f) ?: return null
-                    val y = o.num("y") ?: o.num("cy")?.minus(h * 0.5f) ?: return null
+                    val w = o.num("w", "width") ?: return emptyList()
+                    val h = o.num("h", "height") ?: return emptyList()
+                    val x = o.num("x") ?: o.num("cx")?.minus(w * 0.5f) ?: return emptyList()
+                    val y = o.num("y") ?: o.num("cy")?.minus(h * 0.5f) ?: return emptyList()
                     val defaultR = if (kind == "roundrect" || kind == "pill" || kind == "node" || kind == "card") min(w, h) * 0.22f else 0f
                     val rx = (o.num("rx", "radius", "r") ?: defaultR).coerceAtLeast(0f)
                     val ry = (o.num("ry", "radius", "r") ?: rx).coerceAtLeast(0f)
-                    val fill = o.flag("fill") || o.str("fillColor") != null || o.str("fill_color") != null || kind == "pill" || kind == "card"
+                    val fill = o.flag("fill") || o.str("fillColor") != null || o.str("fill_color") != null || kind == "pill" || kind == "card" || kind == "node"
                     Item.Rect(
                         x = x,
                         y = y,
@@ -313,12 +532,14 @@ data class DiagramSpec(
                         shade = shadeOf(o, FillShade.LINEAR),
                         fillAlpha = fillAlpha,
                         strokeScale = strokeScale,
-                        layer = layerOf(o, 0)
+                        layer = layerOf(o, 0),
+                        text = innerText,
+                        textInk = textInk
                     )
                 }
-                "poly", "polygon", "polyline", "triangle", "path", "curve", "spline", "bezier", "wave" -> {
+                "poly", "polygon", "polyline", "triangle", "curve", "spline", "bezier", "wave" -> {
                     val pa = (o.get("pts") ?: o.get("points") ?: o.get("coords") ?: o.get("vertices"))
-                        ?.takeIf { it.isJsonArray }?.asJsonArray ?: return null
+                        ?.takeIf { it.isJsonArray }?.asJsonArray ?: return emptyList()
                     val flat = ArrayList<Float>()
                     for (p in pa) {
                         if (p.isJsonArray && p.asJsonArray.size() >= 2) {
@@ -328,9 +549,9 @@ data class DiagramSpec(
                             flat.add(p.asFloat)
                         }
                     }
-                    if (flat.size < 4 || flat.size % 2 != 0) return null
+                    if (flat.size < 4 || flat.size % 2 != 0) return emptyList()
                     val isSmoothKind = kind == "curve" || kind == "spline" || kind == "bezier" || kind == "wave"
-                    val isClosed = o.flag("closed", default = kind != "polyline" && kind != "path" && !isSmoothKind)
+                    val isClosed = o.flag("closed", default = kind != "polyline" && !isSmoothKind)
                     val fill = (o.flag("fill") || o.str("fillColor") != null || o.str("fill_color") != null) && isClosed
                     Item.Poly(
                         pts = flat,
@@ -344,13 +565,15 @@ data class DiagramSpec(
                         shade = shadeOf(o, FillShade.LINEAR),
                         fillAlpha = fillAlpha,
                         strokeScale = strokeScale,
-                        layer = layerOf(o, if (isClosed) 0 else 2)
+                        layer = layerOf(o, if (isClosed) 0 else 2),
+                        text = innerText,
+                        textInk = textInk
                     )
                 }
                 "dot", "point", "pin" -> {
                     Item.Dot(
-                        x = o.num("x", "cx") ?: return null,
-                        y = o.num("y", "cy") ?: return null,
+                        x = o.num("x", "cx") ?: return emptyList(),
+                        y = o.num("y", "cy") ?: return emptyList(),
                         r = (o.num("r") ?: 1.4f).coerceIn(0.6f, 6f),
                         ink = ink,
                         fillInk = fillInk,
@@ -359,22 +582,27 @@ data class DiagramSpec(
                     )
                 }
                 "label", "callout", "text" -> {
-                    val text = o.str("text") ?: o.str("content") ?: o.str("label") ?: return null
+                    val text = o.str("text") ?: o.str("content") ?: o.str("label") ?: return emptyList()
                     val ax = o.num("ax", "tx", "pinX")
                     val ay = o.num("ay", "ty", "pinY")
+                    val place = if (kind == "callout") LabelPlace.CALLOUT else placeOf(o)
                     Item.Label(
-                        x = o.num("x") ?: return null,
-                        y = o.num("y") ?: return null,
-                        text = text.take(64),
+                        x = o.num("x", "cx") ?: ax ?: return emptyList(),
+                        y = o.num("y", "cy") ?: ay ?: return emptyList(),
+                        text = text.take(72),
                         ink = ink,
                         anchorX = ax,
                         anchorY = ay,
-                        badge = o.flag("badge", default = ax != null && ay != null),
-                        layer = 3
+                        badge = o.flag("badge", default = (ax != null && ay != null) || place == LabelPlace.CALLOUT),
+                        layer = 3,
+                        place = place,
+                        align = alignOf(o),
+                        sizeScale = (o.num("size", "scale") ?: 1f).coerceIn(0.65f, 1.55f)
                     )
                 }
-                else -> null
+                else -> return emptyList()
             }
+            return listOf(single)
         }
 
         private fun parseGraph(o: JsonObject): GraphSpec? {
@@ -448,7 +676,7 @@ object StudyDiagramLayout {
 
         val itemsStartY = h
         if (spec.items.isNotEmpty()) {
-            val availBoxH = if (g != null) maxH * 0.54f else (maxH - h).coerceAtLeast(w * 0.45f)
+            val availBoxH = if (g != null) maxH * 0.56f else (maxH - h).coerceAtLeast(w * 0.48f)
             val shapes = spec.items.filter { it !is DiagramSpec.Item.Label && it !is DiagramSpec.Item.Dot }
             val dots = spec.items.filterIsInstance<DiagramSpec.Item.Dot>()
             val labels = spec.items.filterIsInstance<DiagramSpec.Item.Label>()
@@ -458,16 +686,33 @@ object StudyDiagramLayout {
             val geomH = (geomMaxY - geomMinY).coerceAtLeast(24f)
             val geomMidX = (geomMinX + geomMaxX) * 0.5f
 
-            val useRailLabels = labels.any { it.anchorX != null && it.anchorY != null } ||
-                (labels.size >= 3 && labels.any { it.text.length >= 4 })
+            val railCandidates = labels.filter { lbl ->
+                when (lbl.place) {
+                    LabelPlace.CALLOUT -> true
+                    LabelPlace.INSIDE, LabelPlace.INLINE -> false
+                    LabelPlace.AUTO -> (lbl.anchorX != null && lbl.anchorY != null) || lbl.text.trim().length >= 3
+                }
+            }
+            val useRailAuto = railCandidates.any { it.anchorX != null && it.anchorY != null } ||
+                (railCandidates.size >= 3 && railCandidates.any { it.text.length >= 4 })
+
+            val railLabels = ArrayList<DiagramSpec.Item.Label>()
+            val inlineLabels = ArrayList<DiagramSpec.Item.Label>()
+            for (lbl in labels) {
+                val toRail = when (lbl.place) {
+                    LabelPlace.CALLOUT -> true
+                    LabelPlace.INSIDE, LabelPlace.INLINE -> false
+                    LabelPlace.AUTO -> (lbl.anchorX != null && lbl.anchorY != null) || (useRailAuto && lbl.text.trim().length >= 3)
+                }
+                if (toRail) railLabels.add(lbl) else inlineLabels.add(lbl)
+            }
 
             val leftPrepared = ArrayList<PreparedLabel>()
             val rightPrepared = ArrayList<PreparedLabel>()
-            val inlineLabels = ArrayList<DiagramSpec.Item.Label>()
 
-            val maxRailTextW = (w * 0.22f).coerceAtLeast(70f)
-            if (useRailLabels) {
-                for (lbl in labels) {
+            val maxRailTextW = (w * 0.21f).coerceAtLeast(70f)
+            if (railLabels.isNotEmpty()) {
+                for (lbl in railLabels) {
                     val hasExplicitPin = lbl.anchorX != null && lbl.anchorY != null
                     val (tx, ty, drawPin) = if (hasExplicitPin) {
                         Triple(lbl.anchorX!!, lbl.anchorY!!, true)
@@ -477,11 +722,10 @@ object StudyDiagramLayout {
                         else if (lbl.x in geomMinX..geomMaxX && lbl.y in geomMinY..geomMaxY) Triple(lbl.x, lbl.y, true)
                         else Triple(lbl.x, lbl.y, false)
                     }
-                    val prep = prepareRailLabel(lbl, labelSize * 0.88f, maxRailTextW, metrics, tx, ty, drawPin)
+                    val prep = prepareRailLabel(lbl, labelSize * 0.85f * lbl.sizeScale, maxRailTextW, metrics, tx, ty, drawPin)
                     val goLeft = if (hasExplicitPin && lbl.x != tx) lbl.x < geomMidX else tx < geomMidX
                     if (goLeft) leftPrepared.add(prep) else rightPrepared.add(prep)
                 }
-                // If all labels clustered onto one side with >4 items, balance items near midline only when helpful
                 if (leftPrepared.isEmpty() && rightPrepared.size >= 6) {
                     val byX = rightPrepared.sortedBy { it.targetSpecX }
                     val moveCount = rightPrepared.size / 2
@@ -495,25 +739,23 @@ object StudyDiagramLayout {
                     leftPrepared.clear()
                     leftPrepared.addAll(byX.drop(moveCount))
                 }
-                leftPrepared.sortBy { it.targetSpecY }
-                rightPrepared.sortBy { it.targetSpecY }
-            } else {
-                inlineLabels.addAll(labels)
+                leftPrepared.sortWith(compareBy({ it.targetSpecY }, { it.targetSpecX }))
+                rightPrepared.sortWith(compareBy({ it.targetSpecY }, { -it.targetSpecX }))
             }
 
             val leftColMaxW = leftPrepared.maxOfOrNull { it.boxW } ?: 0f
             val rightColMaxW = rightPrepared.maxOfOrNull { it.boxW } ?: 0f
-            val gutterGap = 20f
-            val artLeft = if (leftPrepared.isEmpty()) 14f else (leftColMaxW + 8f + gutterGap).coerceAtMost(w * 0.31f)
-            val artRight = if (rightPrepared.isEmpty()) w - 14f else (w - rightColMaxW - 8f - gutterGap).coerceAtLeast(w * 0.69f)
-            val artW = (artRight - artLeft).coerceAtLeast(w * 0.38f)
+            val gutterGap = 18f
+            val artLeft = if (leftPrepared.isEmpty()) 14f else (leftColMaxW + 8f + gutterGap).coerceAtMost(w * 0.27f)
+            val artRight = if (rightPrepared.isEmpty()) w - 14f else (w - rightColMaxW - 8f - gutterGap).coerceAtLeast(w * 0.73f)
+            val artW = (artRight - artLeft).coerceAtLeast(w * 0.46f)
 
-            val minGap = max(8f, labelSize * 0.42f)
-            val neededLeftH = if (leftPrepared.isEmpty()) 0f else leftPrepared.sumOf { it.boxH.toDouble() }.toFloat() + (leftPrepared.size - 1) * minGap + 20f
-            val neededRightH = if (rightPrepared.isEmpty()) 0f else rightPrepared.sumOf { it.boxH.toDouble() }.toFloat() + (rightPrepared.size - 1) * minGap + 20f
-            val idealDiagH = (geomH * ((artW - 16f) / geomW)).coerceIn(w * 0.34f, availBoxH)
-            val stageH = max(idealDiagH + 20f, max(neededLeftH, neededRightH)).coerceAtMost(maxH - itemsStartY)
-            val artAvailH = (stageH - 20f).coerceAtLeast(80f)
+            val minGap = max(8f, labelSize * 0.40f)
+            val neededLeftH = if (leftPrepared.isEmpty()) 0f else leftPrepared.sumOf { it.boxH.toDouble() }.toFloat() + (leftPrepared.size - 1) * minGap + 24f
+            val neededRightH = if (rightPrepared.isEmpty()) 0f else rightPrepared.sumOf { it.boxH.toDouble() }.toFloat() + (rightPrepared.size - 1) * minGap + 24f
+            val idealDiagH = (geomH * ((artW - 16f) / geomW)).coerceIn(w * 0.36f, availBoxH)
+            val stageH = max(idealDiagH + 22f, max(neededLeftH, neededRightH)).coerceAtMost(maxH - itemsStartY)
+            val artAvailH = (stageH - 22f).coerceAtLeast(80f)
 
             val sc = min((artW - 16f) / geomW, artAvailH / geomH)
             val drawnW = geomW * sc
@@ -521,18 +763,18 @@ object StudyDiagramLayout {
             val offX = artLeft + (artW - drawnW) * 0.5f - geomMinX * sc
             val offY = itemsStartY + (stageH - drawnH) * 0.5f - geomMinY * sc
 
-            // Subtle studio diagram stage backdrop spanning artwork + rails
+            // Studio diagram stage backdrop plate spanning artwork + rails
             rawOps.add(
                 DrawOp.Rect(
                     2f, itemsStartY, w - 4f, stageH,
-                    stroke = max(1f, stroke * 0.6f),
+                    stroke = max(1.1f, stroke * 0.65f),
                     ink = Ink.FAINT,
                     fill = true,
-                    rx = 16f, ry = 16f,
-                    fillInk = Ink.FAINT,
+                    rx = 18f, ry = 18f,
+                    fillInk = Ink.ACCENT,
                     shade = FillShade.LINEAR,
                     paintMode = PaintMode.FILL_AND_STROKE,
-                    fillAlpha = 0.06f
+                    fillAlpha = 0.045f
                 )
             )
 
@@ -546,6 +788,13 @@ object StudyDiagramLayout {
             val filledShapes = shapes.filter { isFilled(it) }
             for (item in filledShapes) {
                 rawOps.addAll(shapePass(item, sc, offX, offY, stroke, Pass.FILL))
+            }
+
+            // Stage 2b: Crisp outer rim re-stroke on primary silhouettes so fills never muddy line edges
+            for (item in primaryOutlines) {
+                if (item.layer == 0 && isFilled(item)) {
+                    rawOps.addAll(shapePass(item, sc, offX, offY, stroke * 0.88f, Pass.OUTLINE))
+                }
             }
 
             // Stage 3: Realistic interior details, secondary strokes, specular highlights, vectors & marker dots
@@ -562,13 +811,26 @@ object StudyDiagramLayout {
                 val r = max(3.2f, dot.r * sc)
                 rawOps.add(DrawOp.Oval(dx, dy, r, r, stroke * 0.9f, dot.ink, fill = true, fillInk = dot.fillInk, shade = FillShade.RADIAL, fillAlpha = 0.85f))
                 if (dot.label.isNotBlank()) {
-                    inlineLabels.add(DiagramSpec.Item.Label(dot.x + 4f, dot.y - 4f, dot.label, dot.ink, dot.x, dot.y, badge = true))
+                    inlineLabels.add(DiagramSpec.Item.Label(dot.x + 4f, dot.y - 4f, dot.label, dot.ink, dot.x, dot.y, badge = true, place = LabelPlace.INLINE))
                 }
             }
 
-            // Stage 4: Aligned Two-Rail Non-Overlapping Callouts + Inline Labels
+            // Stage 4: Shape-embedded text + aligned inline labels + crossing-free two-rail callouts
             val topBound = itemsStartY + 8f
             val bottomBound = itemsStartY + stageH - 8f
+            val placedInline = ArrayList<LabelRect>()
+            for (item in shapes) {
+                layoutShapeEmbeddedText(item, sc, offX, offY, labelSize * 0.86f, metrics, rawOps, placedInline)
+            }
+            if (inlineLabels.isNotEmpty()) {
+                for (lbl in inlineLabels) {
+                    rawOps.addAll(
+                        layoutInlineLabel(
+                            lbl, sc, offX, offY, w, topBound, bottomBound, labelSize * 0.88f * lbl.sizeScale, stroke, metrics, placedInline
+                        )
+                    )
+                }
+            }
             if (leftPrepared.isNotEmpty()) {
                 val flushRightEdge = (artLeft - gutterGap).coerceAtLeast(leftColMaxW + 6f)
                 layoutRailColumn(
@@ -584,16 +846,6 @@ object StudyDiagramLayout {
                     sc = sc, ox = offX, oy = offY, topBound = topBound, bottomBound = bottomBound,
                     minGap = minGap, stroke = stroke, metrics = metrics, out = rawOps
                 )
-            }
-            if (inlineLabels.isNotEmpty()) {
-                val placed = ArrayList<LabelRect>()
-                for (lbl in inlineLabels) {
-                    rawOps.addAll(
-                        layoutInlineLabel(
-                            lbl, sc, offX, offY, w, topBound, bottomBound, labelSize * 0.92f, stroke, metrics, placed
-                        )
-                    )
-                }
             }
 
             h = itemsStartY + stageH + labelSize * 0.45f
@@ -618,6 +870,7 @@ object StudyDiagramLayout {
         is DiagramSpec.Item.Arc -> item.fill
         is DiagramSpec.Item.Rect -> item.fill
         is DiagramSpec.Item.Poly -> item.fill && item.closed
+        is DiagramSpec.Item.VectorPath -> item.fill
         is DiagramSpec.Item.Line, is DiagramSpec.Item.Dot, is DiagramSpec.Item.Label -> false
     }
 
@@ -636,7 +889,11 @@ object StudyDiagramLayout {
         }
         for (it in items) {
             if (it is DiagramSpec.Item.Label) {
-                it.anchorX?.let { ax -> it.anchorY?.let { ay -> inc(ax, ay) } }
+                if (it.anchorX != null && it.anchorY != null) {
+                    inc(it.anchorX, it.anchorY)
+                } else if (it.place == LabelPlace.INSIDE || it.place == LabelPlace.INLINE) {
+                    inc(it.x, it.y)
+                }
                 continue
             }
             when (it) {
@@ -649,12 +906,14 @@ object StudyDiagramLayout {
                     var i = 0
                     while (i + 1 < it.pts.size) { inc(it.pts[i], it.pts[i + 1]); i += 2 }
                 }
+                is DiagramSpec.Item.VectorPath -> {
+                    for ((px, py) in SvgPathParser.samplePoints(it.cmds)) inc(px, py)
+                }
                 is DiagramSpec.Item.Dot -> inc(it.x, it.y)
                 is DiagramSpec.Item.Label -> Unit
             }
         }
         if (!minX.isFinite()) return SpecBox(0f, 0f, 100f, 100f)
-        // Expand slight margin if tiny
         if (maxX - minX < 20f) { minX -= 10f; maxX += 10f }
         if (maxY - minY < 20f) { minY -= 10f; maxY += 10f }
         return SpecBox(minX, minY, maxX, maxY)
@@ -664,10 +923,19 @@ object StudyDiagramLayout {
         if (metrics.width(text, size, Face.BODY_BOLD) <= maxW) return listOf(text)
         val words = text.trim().split(Regex("\\s+"))
         if (words.size <= 1) return listOf(text)
-        val mid = (words.size + 1) / 2
-        val l1 = words.take(mid).joinToString(" ")
-        val l2 = words.drop(mid).joinToString(" ")
-        return listOf(l1, l2).filter { it.isNotEmpty() }
+        val lines = ArrayList<String>()
+        var cur = StringBuilder()
+        for (w in words) {
+            val cand = if (cur.isEmpty()) w else "$cur $w"
+            if (cur.isNotEmpty() && metrics.width(cand, size, Face.BODY_BOLD) > maxW) {
+                lines.add(cur.toString())
+                cur = StringBuilder(w)
+            } else {
+                cur = StringBuilder(cand)
+            }
+        }
+        if (cur.isNotEmpty()) lines.add(cur.toString())
+        return lines
     }
 
     private fun nearestShapePoint(x: Float, y: Float, shapes: List<DiagramSpec.Item>, maxDist: Float): Pair<Float, Float>? {
@@ -690,11 +958,110 @@ object StudyDiagramLayout {
                     var i = 0
                     while (i + 1 < s.pts.size) { check(s.pts[i], s.pts[i + 1]); i += 2 }
                 }
+                is DiagramSpec.Item.VectorPath -> {
+                    for ((px, py) in SvgPathParser.samplePoints(s.cmds)) check(px, py)
+                }
                 is DiagramSpec.Item.Dot -> check(s.x, s.y)
                 is DiagramSpec.Item.Label -> Unit
             }
         }
         return best
+    }
+
+    private fun layoutShapeEmbeddedText(
+        item: DiagramSpec.Item,
+        sc: Float,
+        ox: Float,
+        oy: Float,
+        baseTextSize: Float,
+        metrics: TextMetrics,
+        out: MutableList<DrawOp>,
+        placed: MutableList<LabelRect>
+    ) {
+        val rawText: String
+        val textInk: Ink
+        val cx: Float
+        val cy: Float
+        val maxBoxW: Float
+        val maxBoxH: Float
+        when (item) {
+            is DiagramSpec.Item.Rect -> {
+                rawText = item.text; textInk = item.textInk
+                cx = ox + (item.x + item.w * 0.5f) * sc
+                cy = oy + (item.y + item.h * 0.5f) * sc
+                maxBoxW = (item.w * sc * 0.88f).coerceAtLeast(18f)
+                maxBoxH = (item.h * sc * 0.84f).coerceAtLeast(14f)
+            }
+            is DiagramSpec.Item.Circle -> {
+                rawText = item.text; textInk = item.textInk
+                cx = ox + item.cx * sc
+                cy = oy + item.cy * sc
+                maxBoxW = (item.r * sc * 1.48f).coerceAtLeast(18f)
+                maxBoxH = (item.r * sc * 1.44f).coerceAtLeast(14f)
+            }
+            is DiagramSpec.Item.Oval -> {
+                rawText = item.text; textInk = item.textInk
+                cx = ox + item.cx * sc
+                cy = oy + item.cy * sc
+                maxBoxW = (item.rx * sc * 1.44f).coerceAtLeast(18f)
+                maxBoxH = (item.ry * sc * 1.40f).coerceAtLeast(14f)
+            }
+            is DiagramSpec.Item.Poly -> {
+                rawText = item.text; textInk = item.textInk
+                if (rawText.isBlank() || item.pts.size < 4) return
+                var mnX = Float.POSITIVE_INFINITY; var mxX = Float.NEGATIVE_INFINITY
+                var mnY = Float.POSITIVE_INFINITY; var mxY = Float.NEGATIVE_INFINITY
+                for (i in item.pts.indices step 2) {
+                    val px = ox + item.pts[i] * sc
+                    val py = oy + item.pts[i + 1] * sc
+                    if (px < mnX) mnX = px; if (px > mxX) mxX = px
+                    if (py < mnY) mnY = py; if (py > mxY) mxY = py
+                }
+                cx = (mnX + mxX) * 0.5f
+                cy = (mnY + mxY) * 0.5f
+                maxBoxW = ((mxX - mnX) * 0.68f).coerceAtLeast(18f)
+                maxBoxH = ((mxY - mnY) * 0.62f).coerceAtLeast(14f)
+            }
+            is DiagramSpec.Item.VectorPath -> {
+                rawText = item.text; textInk = item.textInk
+                if (rawText.isBlank()) return
+                val pts = SvgPathParser.samplePoints(item.cmds)
+                if (pts.isEmpty()) return
+                val mnX = ox + pts.minOf { it.first } * sc
+                val mxX = ox + pts.maxOf { it.first } * sc
+                val mnY = oy + pts.minOf { it.second } * sc
+                val mxY = oy + pts.maxOf { it.second } * sc
+                cx = (mnX + mxX) * 0.5f
+                cy = (mnY + mxY) * 0.5f
+                maxBoxW = ((mxX - mnX) * 0.78f).coerceAtLeast(18f)
+                maxBoxH = ((mxY - mnY) * 0.68f).coerceAtLeast(14f)
+            }
+            else -> return
+        }
+        if (rawText.isBlank()) return
+
+        var ts = min(baseTextSize, maxBoxH * 0.62f).coerceIn(9.5f, 22f)
+        var lines = wrapLabelText(rawText, ts, maxBoxW, metrics)
+        for (pass in 0 until 4) {
+            val widest = lines.maxOfOrNull { metrics.width(it, ts, Face.BODY_BOLD) } ?: 0f
+            val totalH = lines.size * (ts * 1.18f)
+            if (widest <= maxBoxW + 0.5f && totalH <= maxBoxH + 0.5f) break
+            val shrinkW = if (widest > maxBoxW) maxBoxW / widest else 1f
+            val shrinkH = if (totalH > maxBoxH) maxBoxH / totalH else 1f
+            ts = (ts * min(shrinkW, shrinkH) * 0.94f).coerceAtLeast(8.5f)
+            lines = wrapLabelText(rawText, ts, maxBoxW, metrics)
+        }
+        val lineH = ts * 1.18f
+        val totalH = lines.size * lineH
+        val ink = if (textInk == Ink.FAINT) Ink.INK else textInk
+        var y = cy - totalH * 0.5f + metrics.ascent(ts, Face.BODY_BOLD) + (lineH - ts) * 0.25f
+        val maxWLine = lines.maxOfOrNull { metrics.width(it, ts, Face.BODY_BOLD) } ?: 0f
+        placed.add(LabelRect(cx - maxWLine * 0.5f, cy - totalH * 0.5f, maxWLine, totalH))
+        for (line in lines) {
+            val tw = metrics.width(line, ts, Face.BODY_BOLD)
+            out.add(DrawOp.Glyphs(line, cx - tw * 0.5f, y, ts, Face.BODY_BOLD, ink))
+            y += lineH
+        }
     }
 
     private fun prepareRailLabel(
@@ -802,19 +1169,24 @@ object StudyDiagramLayout {
             val connectX = if (isLeft) bx + p.boxW else bx
             val connectY = by + p.boxH * 0.5f
 
-            // Precision double-ring target pin dot + angled leader + flush horizontal rail tick (when anchored to structure)
+            // Precision double-ring target pin dot + paper-haloed elbow leader + flush horizontal rail tick
             if (p.hasPin) {
                 val dotR = max(2.8f, stroke * 1.25f)
-                out.add(DrawOp.Oval(ax, ay, dotR * 1.9f, dotR * 1.9f, max(0.8f, stroke * 0.45f), labelInk, fill = true, fillInk = labelInk, shade = FillShade.FLAT, paintMode = PaintMode.FILL_AND_STROKE, fillAlpha = 0.22f))
-                out.add(DrawOp.Oval(ax, ay, dotR, dotR, max(1f, stroke * 0.7f), labelInk, fill = true, fillInk = labelInk, shade = FillShade.FLAT, paintMode = PaintMode.FILL_AND_STROKE, fillAlpha = 0.94f))
+                val leaderStroke = max(1.1f, stroke * 0.62f)
+                val haloStroke = leaderStroke * 2.5f
                 val tickLen = 10f
                 val kneeX = if (isLeft) max(connectX + tickLen, ax + (connectX - ax) * 0.45f) else min(connectX - tickLen, ax + (connectX - ax) * 0.45f)
                 if ((isLeft && kneeX < ax && kneeX > connectX + 4f) || (!isLeft && kneeX > ax && kneeX < connectX - 4f)) {
-                    out.add(DrawOp.Line(ax, ay, kneeX, connectY, max(1.1f, stroke * 0.62f), Ink.NOTE))
-                    out.add(DrawOp.Line(kneeX, connectY, connectX, connectY, max(1.1f, stroke * 0.62f), Ink.NOTE))
+                    out.add(DrawOp.Line(ax, ay, kneeX, connectY, haloStroke, Ink.PAPER))
+                    out.add(DrawOp.Line(kneeX, connectY, connectX, connectY, haloStroke, Ink.PAPER))
+                    out.add(DrawOp.Line(ax, ay, kneeX, connectY, leaderStroke, Ink.NOTE))
+                    out.add(DrawOp.Line(kneeX, connectY, connectX, connectY, leaderStroke, Ink.NOTE))
                 } else {
-                    out.add(DrawOp.Line(ax, ay, connectX, connectY, max(1.1f, stroke * 0.62f), Ink.NOTE))
+                    out.add(DrawOp.Line(ax, ay, connectX, connectY, haloStroke, Ink.PAPER))
+                    out.add(DrawOp.Line(ax, ay, connectX, connectY, leaderStroke, Ink.NOTE))
                 }
+                out.add(DrawOp.Oval(ax, ay, dotR * 1.9f, dotR * 1.9f, max(0.8f, stroke * 0.45f), labelInk, fill = true, fillInk = labelInk, shade = FillShade.FLAT, paintMode = PaintMode.FILL_AND_STROKE, fillAlpha = 0.24f))
+                out.add(DrawOp.Oval(ax, ay, dotR, dotR, max(1f, stroke * 0.7f), Ink.PAPER, fill = true, fillInk = labelInk, shade = FillShade.FLAT, paintMode = PaintMode.FILL_AND_STROKE, fillAlpha = 0.96f))
             }
 
             // Rounded callout badge + sharp label lines
@@ -856,30 +1228,48 @@ object StudyDiagramLayout {
     ): List<DrawOp> {
         val out = ArrayList<DrawOp>()
         val tw = metrics.width(lbl.text, labelSize, Face.BODY_BOLD)
-        val padX = 8f
-        val padY = 4f
+        val padX = if (lbl.badge) 8f else 4f
+        val padY = if (lbl.badge) 4f else 2f
         val boxW = tw + padX * 2f
-        val boxH = labelSize * 1.38f + padY * 2f
+        val boxH = labelSize * 1.34f + padY * 2f
         val rawCx = ox + lbl.x * sc
         val rawCy = oy + lbl.y * sc
-        var bx = (rawCx - boxW / 2f).coerceIn(6f, max(6f, w - boxW - 6f))
-        var by = (rawCy - boxH / 2f).coerceIn(topBound, max(topBound, bottomBound - boxH))
+        val anchorBx = when (lbl.align) {
+            TextAlign.LEFT -> rawCx
+            TextAlign.RIGHT -> rawCx - boxW
+            TextAlign.CENTER -> rawCx - boxW * 0.5f
+        }
+        var bx = anchorBx.coerceIn(6f, max(6f, w - boxW - 6f))
+        var by = (rawCy - boxH * 0.5f).coerceIn(topBound, max(topBound, bottomBound - boxH))
 
-        for (attempt in 0 until 12) {
-            val hit = placed.firstOrNull { r ->
-                bx < r.x + r.w + 6f && bx + boxW + 6f > r.x && by < r.y + r.h + 6f && by + boxH + 6f > r.y
-            } ?: break
-            val down = hit.y + hit.h + 6f
-            val up = hit.y - boxH - 6f
-            by = when {
-                down + boxH <= bottomBound -> down
-                up >= topBound -> up
-                else -> (by + boxH + 4f).coerceIn(topBound, max(topBound, bottomBound - boxH))
+        if (lbl.place != LabelPlace.INSIDE) {
+            fun collides(cx: Float, cy: Float): Boolean = placed.any { r ->
+                cx < r.x + r.w + 4f && cx + boxW + 4f > r.x && cy < r.y + r.h + 4f && cy + boxH + 4f > r.y
+            }
+            if (collides(bx, by)) {
+                val stepY = boxH * 0.72f + 4f
+                val stepX = (boxW * 0.45f).coerceAtLeast(18f)
+                val offsets = listOf(
+                    0f to -stepY, 0f to stepY,
+                    stepX to 0f, -stepX to 0f,
+                    stepX to -stepY, -stepX to -stepY,
+                    stepX to stepY, -stepX to stepY,
+                    0f to -stepY * 2f, 0f to stepY * 2f,
+                    stepX * 1.8f to 0f, -stepX * 1.8f to 0f
+                )
+                for ((dx, dy) in offsets) {
+                    val tx = (bx + dx).coerceIn(6f, max(6f, w - boxW - 6f))
+                    val ty = (by + dy).coerceIn(topBound, max(topBound, bottomBound - boxH))
+                    if (!collides(tx, ty)) {
+                        bx = tx; by = ty
+                        break
+                    }
+                }
             }
         }
         placed.add(LabelRect(bx, by, boxW, boxH))
 
-        val labelInk = if (lbl.ink == Ink.INK) Ink.NOTE else lbl.ink
+        val labelInk = if (lbl.ink == Ink.INK && lbl.badge) Ink.NOTE else lbl.ink
         val baseline = by + padY + metrics.ascent(labelSize, Face.BODY_BOLD)
         if (lbl.badge) {
             out.add(
@@ -889,9 +1279,22 @@ object StudyDiagramLayout {
                     ink = labelInk,
                     fill = true,
                     rx = boxH * 0.42f, ry = boxH * 0.42f,
-                    fillInk = labelInk,
+                    fillInk = Ink.PAPER,
                     shade = FillShade.FLAT,
                     paintMode = PaintMode.FILL_AND_STROKE,
+                    fillAlpha = 0.88f
+                )
+            )
+            out.add(
+                DrawOp.Rect(
+                    bx, by, boxW, boxH,
+                    stroke = max(1f, stroke * 0.55f),
+                    ink = labelInk,
+                    fill = true,
+                    rx = boxH * 0.42f, ry = boxH * 0.42f,
+                    fillInk = labelInk,
+                    shade = FillShade.FLAT,
+                    paintMode = PaintMode.FILL_ONLY,
                     fillAlpha = 0.13f
                 )
             )
@@ -973,6 +1376,31 @@ object StudyDiagramLayout {
                     addArrowHead(out, p[n - 4], p[n - 3], p[n - 2], p[n - 1], sw, item.ink)
                 }
                 out
+            }
+            is DiagramSpec.Item.VectorPath -> {
+                val sw = stroke * item.strokeScale * if (item.layer == 0) 1.12f else 1f
+                val scaled = item.cmds.map { c ->
+                    when (c) {
+                        is PathCmd.MoveTo -> PathCmd.MoveTo(X(c.x), Y(c.y))
+                        is PathCmd.LineTo -> PathCmd.LineTo(X(c.x), Y(c.y))
+                        is PathCmd.QuadTo -> PathCmd.QuadTo(X(c.cx), Y(c.cy), X(c.x), Y(c.y))
+                        is PathCmd.CubicTo -> PathCmd.CubicTo(X(c.c1x), Y(c.c1y), X(c.c2x), Y(c.c2y), X(c.x), Y(c.y))
+                        is PathCmd.Close -> PathCmd.Close
+                    }
+                }
+                listOf(
+                    DrawOp.VectorPath(
+                        cmds = scaled,
+                        stroke = sw,
+                        ink = item.ink,
+                        fill = item.fill,
+                        dashed = item.dashed,
+                        fillInk = item.fillInk,
+                        shade = item.shade,
+                        paintMode = mode,
+                        fillAlpha = item.fillAlpha
+                    )
+                )
             }
             is DiagramSpec.Item.Dot, is DiagramSpec.Item.Label -> emptyList()
         }

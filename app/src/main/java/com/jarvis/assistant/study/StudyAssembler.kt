@@ -5,7 +5,11 @@ package com.jarvis.assistant.study
  * check here, so the board never shows malformed text, chatbot filler, a repeated step or arithmetic that does not add up.
  * Nothing is invented to fill a gap: a step that fails is reported and left out, and the lesson is marked accordingly.
  */
-class StudyAssembler(private val question: String, private val level: String) {
+class StudyAssembler(
+    private val question: String,
+    private val level: String,
+    private val isDoubt: Boolean = false
+) {
 
     sealed class Update {
         data class LessonChanged(val lesson: StudyLesson) : Update()
@@ -48,6 +52,29 @@ class StudyAssembler(private val question: String, private val level: String) {
 
     val rejected: Int get() = rejectedCount
     val hasFinal: Boolean get() = finalAnswer.isNotEmpty()
+
+    /** Replaces the diagram on 1-based [stepIndex] after a precision [StudyDiagramArchitect] upgrade. */
+    fun replaceStepDiagram(stepIndex: Int, diagram: DiagramSpec, diagramJson: String) {
+        val idx = steps.indexOfFirst { it.index == stepIndex }
+        if (idx >= 0) {
+            steps[idx] = steps[idx].copy(diagram = diagram, diagramJson = diagramJson)
+        }
+    }
+
+    /** Appends a precision diagram step synthesized by [StudyDiagramArchitect] before the closing summary. */
+    fun appendArchitectDiagram(diagram: DiagramSpec, diagramJson: String, explanation: String): StudyStep? {
+        if (steps.size >= MAX_STEPS) return null
+        val step = StudyStep(
+            index = steps.size + 1,
+            kind = StepKind.DIAGRAM,
+            content = "",
+            explanation = explanation,
+            diagram = diagram,
+            diagramJson = diagramJson
+        )
+        steps.add(step)
+        return step
+    }
 
     private fun currentVerification(): Verification = when {
         failed -> Verification.FAILED
@@ -154,7 +181,7 @@ class StudyAssembler(private val question: String, private val level: String) {
         }
         if (e.confidence == "low" || e.confidence == "uncertain" || e.confidence == "unsure") uncertain = true
         val out = ArrayList<Update>()
-        val wantsDrawing = Regex("\\b(draw|diagram|sketch|label|labelled|labeled|structure|figure|illustrate|parts of)\\b", RegexOption.IGNORE_CASE).containsMatchIn(question)
+        val wantsDrawing = Regex("\\b(draw|diagram|sketch|label|labelled|labeled|structure|figure|illustrate|parts of|graph|plot|circuit|flowchart|चित्र|बनाओ|डायग्राम)\\b", RegexOption.IGNORE_CASE).containsMatchIn(question)
         if (wantsDrawing && steps.none { it.diagram != null } && steps.size < MAX_STEPS) {
             StudyDiagramAtlas.match(question)?.let { atlas ->
                 val diagStep = StudyStep(
@@ -166,6 +193,28 @@ class StudyAssembler(private val question: String, private val level: String) {
                 )
                 steps.add(diagStep)
                 out.add(Update.StepAdded(diagStep))
+            }
+        }
+        // In Doubt Mode, never jump straight to a bare final answer without a clear teaching step explaining why/how first.
+        if (isDoubt && steps.isEmpty() && steps.size < MAX_STEPS) {
+            val explText = cleanExplanation(e.explanation)
+            val spkText = cleanSpoken(e.spoken)
+            val teachContent = when {
+                explText.isNotBlank() && !same(explText, answer) -> explText
+                spkText.isNotBlank() && !same(spkText, answer) -> spkText
+                else -> answer
+            }
+            if (teachContent.isNotBlank() && !same(teachContent, answer)) {
+                val teachStep = StudyStep(
+                    index = steps.size + 1,
+                    kind = StepKind.STEP,
+                    content = teachContent,
+                    explanation = "",
+                    proseMode = !StudyMath.looksLikeMath(teachContent),
+                    spoken = spkText
+                )
+                steps.add(teachStep)
+                out.add(Update.StepAdded(teachStep))
             }
         }
         // A final answer that only restates the last step highlights that step instead of being written twice.
