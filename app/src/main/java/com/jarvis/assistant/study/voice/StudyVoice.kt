@@ -201,7 +201,12 @@ class StudyVoice(context: Context) {
             main.post { if (my == token) callback?.onFinished(my, true, "") }
             return my
         }
-        val chunks = splitIntoNaturalChunks(plan.segments.map { it.text }, maxChunkChars = 1_500)
+        val perSegment = plan.segments.map { StudyVoiceCodec.ensureSentenceEnding(it.text) }.filter { it.isNotEmpty() }
+        val chunks = if (perSegment.size == plan.segments.size && perSegment.isNotEmpty()) {
+            perSegment
+        } else {
+            splitIntoNaturalChunks(plan.segments.map { it.text }, maxChunkChars = 1_500)
+        }
         return speakChunks(chunks, plan.estimatedDurationMs, languageHint, plan.segments)
     }
 
@@ -270,6 +275,20 @@ class StudyVoice(context: Context) {
                             scheduleWakeResume(WAKE_RESUME_SHORT_MS)
                         }
                     }
+                },
+                onPartialResume = { t, resumeSegIdx ->
+                    main.post {
+                        if (t != token) return@post
+                        val remaining = if (resumeSegIdx in planSegments.indices) planSegments.subList(resumeSegIdx, planSegments.size) else emptyList()
+                        if (remaining.isNotEmpty()) {
+                            speakBufferedSegments(remaining, languageHint, t, emitStart = false)
+                        } else {
+                            callback?.onAmplitude(0f)
+                            callback?.onProgress(t, 1f, "")
+                            callback?.onFinished(t, true, "")
+                            scheduleWakeResume(WAKE_RESUME_MS)
+                        }
+                    }
                 }
             )
             if (started) return my
@@ -317,6 +336,10 @@ class StudyVoice(context: Context) {
         my: Long,
         planSegments: List<StudyVoiceCodec.LessonSegment> = emptyList()
     ) {
+        if (planSegments.size > 1) {
+            speakBufferedSegments(planSegments, languageHint, my, emitStart = true)
+            return
+        }
         val singlePart = if (clean.length <= 2_400) clean else clean.take(2_400)
         val key = keyFor(singlePart, languageHint)
         val pending = cache.remove(key) ?: scope.async { gate.withPermit { synthesizeWithRetry(singlePart, languageHint) } }
@@ -331,10 +354,70 @@ class StudyVoice(context: Context) {
                 } else {
                     failures = 0
                     cache[key] = pending
-                    playMediaBytes(bytes, estimatedDurationMs, my, planSegments)
+                    val seg = planSegments.firstOrNull()
+                    playMediaBytes(
+                        bytes = bytes,
+                        estimatedDurationMs = estimatedDurationMs,
+                        my = my,
+                        segStartFrac = seg?.startFrac ?: 0f,
+                        segEndFrac = seg?.endFrac ?: 1f,
+                        segText = seg?.text.orEmpty(),
+                        emitStart = true,
+                        emitFinish = true
+                    )
                 }
             }
         }
+    }
+
+    private fun speakBufferedSegments(
+        segments: List<StudyVoiceCodec.LessonSegment>,
+        languageHint: String,
+        my: Long,
+        emitStart: Boolean
+    ) {
+        val jobs = segments.map { seg ->
+            val key = keyFor(seg.text, languageHint)
+            cache.remove(key) ?: scope.async { gate.withPermit { synthesizeWithRetry(seg.text, languageHint) } }
+        }
+        fun playSeg(idx: Int, firstSegment: Boolean) {
+            if (my != token) return
+            if (idx !in segments.indices) {
+                callback?.onAmplitude(0f)
+                callback?.onProgress(my, 1f, "")
+                callback?.onFinished(my, true, "")
+                scheduleWakeResume(WAKE_RESUME_MS)
+                return
+            }
+            val seg = segments[idx]
+            val segEstMs = (seg.text.length * 80L).coerceAtLeast(1_500L)
+            scope.launch {
+                val bytes = withTimeoutOrNull(WAIT_MS) { runCatching { jobs[idx].await() }.getOrNull() }
+                main.post {
+                    if (my != token) return@post
+                    if (bytes == null || bytes.isEmpty()) {
+                        noteFailure()
+                        callback?.onFinished(my, false, NO_VOICE)
+                        scheduleWakeResume(WAKE_RESUME_SHORT_MS)
+                        return@post
+                    }
+                    failures = 0
+                    cache[keyFor(seg.text, languageHint)] = jobs[idx]
+                    playMediaBytes(
+                        bytes = bytes,
+                        estimatedDurationMs = segEstMs,
+                        my = my,
+                        segStartFrac = seg.startFrac,
+                        segEndFrac = seg.endFrac,
+                        segText = seg.text,
+                        emitStart = emitStart && firstSegment,
+                        emitFinish = idx == segments.lastIndex,
+                        onSegmentDone = { playSeg(idx + 1, firstSegment = false) }
+                    )
+                }
+            }
+        }
+        playSeg(0, firstSegment = true)
     }
 
     fun stop() {
@@ -362,7 +445,12 @@ class StudyVoice(context: Context) {
         bytes: ByteArray,
         estimatedDurationMs: Long,
         my: Long,
-        planSegments: List<StudyVoiceCodec.LessonSegment> = emptyList()
+        segStartFrac: Float = 0f,
+        segEndFrac: Float = 1f,
+        segText: String = "",
+        emitStart: Boolean = true,
+        emitFinish: Boolean = true,
+        onSegmentDone: (() -> Unit)? = null
     ) {
         try {
             val p = MediaPlayer()
@@ -386,15 +474,15 @@ class StudyVoice(context: Context) {
                         callback?.onAmplitude(amp)
                         val dur = runCatching { active.duration }.getOrDefault(0).coerceAtLeast(estimatedDurationMs.toInt())
                         val pos = runCatching { active.currentPosition }.getOrDefault(0).coerceAtLeast(0)
-                        val frac = if (planSegments.isNotEmpty() && dur > 0) {
-                            val emptyBounds = LongArray(planSegments.size) { idx -> if (idx == 0) 0L else -1L }
-                            StudyVoiceCodec.progressFromSegmentFrames(planSegments, emptyBounds, pos.toLong(), dur.toLong())
-                        } else if (dur > 0) {
-                            (pos.toFloat() / dur.toFloat()).coerceIn(0f, 0.99f)
-                        } else 0f
-                        callback?.onProgress(my, frac, "")
+                        val localFrac = if (dur > 0) (pos.toFloat() / dur.toFloat()).coerceIn(0f, 1f) else 0f
+                        val frac = (segStartFrac + localFrac * (segEndFrac - segStartFrac)).coerceIn(0f, 0.995f)
+                        val partialText = if (segText.isNotEmpty()) {
+                            val chars = (segText.length * localFrac).toInt().coerceIn(0, segText.length)
+                            segText.substring(0, chars)
+                        } else ""
+                        callback?.onProgress(my, frac, partialText)
                     }
-                    main.postDelayed(this, 45L)
+                    main.postDelayed(this, 35L)
                 }
             }
             p.setOnPreparedListener { mp ->
@@ -404,7 +492,7 @@ class StudyVoice(context: Context) {
                 }
                 try { mp.playbackParams = mp.playbackParams.setSpeed(rate) } catch (_: Exception) {}
                 mp.start()
-                callback?.onStarted(my, true)
+                if (emitStart) callback?.onStarted(my, true)
                 main.post(tickerRunnable)
             }
             p.setOnCompletionListener { mp ->
@@ -414,9 +502,14 @@ class StudyVoice(context: Context) {
                 try { mp.release() } catch (_: Exception) {}
                 if (player === mp) player = null
                 if (my == token) {
-                    callback?.onProgress(my, 1f, "")
-                    callback?.onFinished(my, true, "")
-                    scheduleWakeResume(WAKE_RESUME_MS)
+                    if (emitFinish) {
+                        callback?.onProgress(my, 1f, "")
+                        callback?.onFinished(my, true, "")
+                        scheduleWakeResume(WAKE_RESUME_MS)
+                    } else {
+                        callback?.onProgress(my, segEndFrac.coerceIn(0f, 0.995f), segText)
+                        onSegmentDone?.invoke()
+                    }
                 }
             }
             p.setOnErrorListener { mp, _, _ ->
@@ -693,6 +786,7 @@ class StudyVoice(context: Context) {
         private var turnOnAmplitude: ((Float) -> Unit)? = null
         private var turnOnProgress: ((Long, Float, String) -> Unit)? = null
         private var turnOnComplete: ((Long, Boolean, Boolean) -> Unit)? = null
+        private var turnOnPartialResume: ((Long, Int) -> Unit)? = null
         private var turnTimeoutRunnable: Runnable? = null
 
         private val audioQueue = LinkedBlockingQueue<ByteArray>()
@@ -710,7 +804,12 @@ class StudyVoice(context: Context) {
         @Volatile private var accumulatedActivePlayMs = 0L
         private var activePlanSegments: List<StudyVoiceCodec.LessonSegment> = emptyList()
         private var segmentStartFrames: LongArray = LongArray(0)
+        private var segmentCompleted: BooleanArray = BooleanArray(0)
+        private var segmentTranscripts: Array<StringBuilder> = emptyArray()
+        private var perSegmentTurnMode = false
+        private var currentRecvSegIdx = 0
         private var nextSegCursor = 1
+        @Volatile private var pendingFallbackStartSeg = -1
 
         fun isHealthy(): Boolean = System.currentTimeMillis() >= liveDisabledUntil.get()
 
@@ -773,7 +872,8 @@ class StudyVoice(context: Context) {
             onFirstAudio: (Long) -> Unit,
             onAmplitude: (Float) -> Unit,
             onProgress: (Long, Float, String) -> Unit,
-            onComplete: (Long, Boolean, Boolean) -> Unit
+            onComplete: (Long, Boolean, Boolean) -> Unit,
+            onPartialResume: (Long, Int) -> Unit = { _, _ -> }
         ): Boolean {
             val key = geminiKey()
             if (key.isBlank() || chunks.isEmpty() || !isHealthy()) return false
@@ -786,8 +886,13 @@ class StudyVoice(context: Context) {
             synchronized(wsLock) {
                 activeTurnChunks = chunks.toList()
                 activePlanSegments = planSegments
+                perSegmentTurnMode = planSegments.isNotEmpty() && chunks.size == planSegments.size
+                currentRecvSegIdx = 0
                 segmentStartFrames = LongArray(planSegments.size) { idx -> if (idx == 0) 0L else -1L }
+                segmentCompleted = BooleanArray(planSegments.size)
+                segmentTranscripts = Array(planSegments.size) { StringBuilder() }
                 nextSegCursor = 1
+                pendingFallbackStartSeg = -1
                 serverFramesReceived = 0L
                 activeTurnVoice = voiceName
                 activeTurnLang = languageName
@@ -804,6 +909,7 @@ class StudyVoice(context: Context) {
             turnOnAmplitude = onAmplitude
             turnOnProgress = onProgress
             turnOnComplete = onComplete
+            turnOnPartialResume = onPartialResume
 
             scheduleFirstChunkWatchdog(token)
 
@@ -822,10 +928,12 @@ class StudyVoice(context: Context) {
             userPaused.set(false)
             cancelWatchdog()
             synchronized(wsLock) { pendingTextChunks.clear() }
+            pendingFallbackStartSeg = -1
             turnOnFirstAudio = null
             turnOnAmplitude = null
             turnOnProgress = null
             turnOnComplete = null
+            turnOnPartialResume = null
             resetTrackAndQueue()
             closeSocketOnly()
             if (keepWarm && geminiKey().isNotBlank() && isHealthy()) {
@@ -969,7 +1077,21 @@ class StudyVoice(context: Context) {
             }
             val currentTurn = activeTurnToken
             if (currentTurn >= 0L && !turnAllServerDone) {
-                finishTurn(currentTurn, ok = false, fallback = !turnFirstAudioSent)
+                if (!turnFirstAudioSent) {
+                    finishTurn(currentTurn, ok = false, fallback = true)
+                } else {
+                    val resumeFrom = synchronized(wsLock) {
+                        if (!perSegmentTurnMode || pendingTextChunks.isEmpty()) -1
+                        else {
+                            val curStart = segmentStartFrames.getOrElse(currentRecvSegIdx) { 0L }.coerceAtLeast(0L)
+                            val receivedSubstantial = serverFramesReceived > curStart + 4_800L
+                            val nextIdx = if (receivedSubstantial) currentRecvSegIdx + 1 else currentRecvSegIdx
+                            if (nextIdx in activePlanSegments.indices) nextIdx else -1
+                        }
+                    }
+                    pendingFallbackStartSeg = resumeFrom
+                    turnAllServerDone = true
+                }
             }
         }
 
@@ -985,11 +1107,12 @@ class StudyVoice(context: Context) {
 
         private fun buildSpeakerSetupJson(modelName: String, voiceName: String, languageName: String): JSONObject {
             val sysPrompt =
-                "You are JARVIS speaking aloud on the Study Board in fluent, natural human $languageName.\n" +
-                    "STRICT READ-ALOUD MODE:\n" +
-                    "- Speak ONLY the exact text written in the user turn verbatim from start to finish.\n" +
-                    "- Use warm human tutor cadence and natural pronunciation in $languageName.\n" +
-                    "- NEVER add greetings ('Sure', 'Okay', 'Hello'), commentary, extra answers, or repeat these rules."
+                "You are JARVIS speaking aloud on the Study Board in warm, expressive, fluent human $languageName.\n" +
+                    "STRICT CONTINUOUS LECTURE MODE:\n" +
+                    "- Each user message is the next uninterrupted segment of one continuous classroom lecture.\n" +
+                    "- Speak ONLY the exact text in the latest user message verbatim from start to finish in the exact same voice, rhythm, and $languageName pronunciation.\n" +
+                    "- Express natural teacher enthusiasm, warmth, emphasis, and thoughtful micro-pauses.\n" +
+                    "- NEVER add greetings ('Sure', 'Okay', 'Got it'), acknowledgements, meta-commentary, or repeat these rules."
             return JSONObject().apply {
                 put("setup", JSONObject().apply {
                     put("model", modelName)
@@ -1005,7 +1128,7 @@ class StudyVoice(context: Context) {
                                 })
                             })
                         })
-                        put("temperature", 0.35)
+                        put("temperature", 0.50)
                         if (modelName.contains("2.5")) {
                             put("thinkingConfig", JSONObject().apply { put("thinkingBudget", 0) })
                         }
@@ -1042,7 +1165,11 @@ class StudyVoice(context: Context) {
                     if (transChunk.isNotEmpty()) {
                         synchronized(wsLock) {
                             accumulatedTranscript.append(transChunk)
-                            updateSegmentFrameBoundaryLocked()
+                            if (perSegmentTurnMode && currentRecvSegIdx in segmentTranscripts.indices) {
+                                segmentTranscripts[currentRecvSegIdx].append(transChunk)
+                            } else {
+                                updateSegmentFrameBoundaryLocked()
+                            }
                         }
                     }
                 }
@@ -1077,11 +1204,25 @@ class StudyVoice(context: Context) {
                     server.optBoolean("generationComplete", false) ||
                     server.optBoolean("endOfTurn", false)
                 ) {
-                    val nextChunk = synchronized(wsLock) { pendingTextChunks.pollFirst() }
+                    val nextChunk = synchronized(wsLock) {
+                        if (perSegmentTurnMode && currentRecvSegIdx in segmentCompleted.indices) {
+                            segmentCompleted[currentRecvSegIdx] = true
+                            currentRecvSegIdx++
+                            if (currentRecvSegIdx < segmentStartFrames.size) {
+                                val prevStart = segmentStartFrames[currentRecvSegIdx - 1].coerceAtLeast(0L)
+                                segmentStartFrames[currentRecvSegIdx] = maxOf(prevStart, serverFramesReceived)
+                            }
+                        }
+                        pendingTextChunks.pollFirst()
+                    }
                     if (nextChunk != null) {
                         // Seamlessly continue long lectures inside the same open AudioTrack & session
                         val ok = sendClientTurnText(nextChunk)
                         if (!ok) {
+                            val resumeFrom = synchronized(wsLock) {
+                                if (perSegmentTurnMode && currentRecvSegIdx in activePlanSegments.indices) currentRecvSegIdx else -1
+                            }
+                            pendingFallbackStartSeg = resumeFrom
                             turnAllServerDone = true
                             if (!turnFirstAudioSent) finishTurn(currentTurn, ok = false, fallback = true)
                         }
@@ -1118,14 +1259,22 @@ class StudyVoice(context: Context) {
             if (activeTurnToken != turnToken) return
             cancelWatchdog()
             synchronized(wsLock) { pendingTextChunks.clear() }
+            val resumeSeg = pendingFallbackStartSeg
+            pendingFallbackStartSeg = -1
             val cb = turnOnComplete
+            val resumeCb = turnOnPartialResume
             activeTurnToken = -1L
             userPaused.set(false)
             turnOnFirstAudio = null
             turnOnAmplitude = null
             turnOnProgress = null
             turnOnComplete = null
-            cb?.invoke(turnToken, ok, fallback)
+            turnOnPartialResume = null
+            if (ok && resumeSeg >= 0) {
+                resumeCb?.invoke(turnToken, resumeSeg)
+            } else {
+                cb?.invoke(turnToken, ok, fallback)
+            }
         }
 
         private fun ensureWorkerRunning() {
@@ -1184,7 +1333,7 @@ class StudyVoice(context: Context) {
                                 writeChunk(chunk)
                                 writtenFramesInTurn += chunk.size / 2
                                 val now = System.currentTimeMillis()
-                                if (now - lastProgressAt >= 45L) {
+                                if (now - lastProgressAt >= 35L) {
                                     lastProgressAt = now
                                     emitPlaybackProgress()
                                 }
@@ -1201,7 +1350,7 @@ class StudyVoice(context: Context) {
                                 }
                             } else {
                                 val now = System.currentTimeMillis()
-                                if (now - lastProgressAt >= 45L) {
+                                if (now - lastProgressAt >= 35L) {
                                     lastProgressAt = now
                                     emitPlaybackProgress()
                                 }
@@ -1256,21 +1405,61 @@ class StudyVoice(context: Context) {
             } else {
                 wallFrames.coerceIn(0L, writtenFramesInTurn.coerceAtLeast(1L))
             }
-            val expectedFrames = ((expectedTotalMs * PCM_SAMPLE_RATE) / 1000L).coerceAtLeast(12_000L)
-            val totalFrames = if (turnAllServerDone) {
-                maxOf(writtenFramesInTurn, playedFrames, 12_000L)
-            } else {
-                maxOf(expectedFrames, writtenFramesInTurn + 24_000L, playedFrames + 12_000L)
-            }
             val segments = activePlanSegments
-            val frac = if (segments.isNotEmpty()) {
-                val snap = synchronized(wsLock) { segmentStartFrames.copyOf() }
-                StudyVoiceCodec.progressFromSegmentFrames(segments, snap, playedFrames, totalFrames)
+            val frac: Float
+            val spokenWindow: String
+            if (perSegmentTurnMode && segments.isNotEmpty()) {
+                val boundsSnap: LongArray
+                val doneSnap: BooleanArray
+                val segTransSnap: Array<String>
+                synchronized(wsLock) {
+                    boundsSnap = segmentStartFrames.copyOf()
+                    doneSnap = segmentCompleted.copyOf()
+                    segTransSnap = Array(segmentTranscripts.size) { idx -> segmentTranscripts[idx].toString() }
+                }
+                var activeIdx = 0
+                for (i in 1 until minOf(segments.size, boundsSnap.size)) {
+                    val sf = boundsSnap[i]
+                    if (sf >= 0L && playedFrames >= sf) activeIdx = i else break
+                }
+                val seg = segments[activeIdx]
+                val segStart = boundsSnap[activeIdx].coerceAtLeast(0L)
+                val nextStart = if (activeIdx + 1 < boundsSnap.size) boundsSnap[activeIdx + 1] else -1L
+                val segEnd: Long = when {
+                    activeIdx < doneSnap.size && doneSnap[activeIdx] && nextStart > segStart -> nextStart
+                    activeIdx < doneSnap.size && doneSnap[activeIdx] && turnAllServerDone ->
+                        maxOf(segStart + 1L, writtenFramesInTurn, serverFramesReceived)
+                    else -> {
+                        val estSegFrames = ((seg.text.length.coerceAtLeast(18) * 80L * PCM_SAMPLE_RATE) / 1000L).coerceAtLeast(18_000L)
+                        val receivedInSeg = (serverFramesReceived - segStart).coerceAtLeast(0L)
+                        segStart + maxOf(receivedInSeg + 12_000L, estSegFrames)
+                    }
+                }
+                val inSegFrac = ((playedFrames - segStart).toFloat() / (segEnd - segStart).coerceAtLeast(1L).toFloat()).coerceIn(0f, 1f)
+                frac = (seg.startFrac + inSegFrac * (seg.endFrac - seg.startFrac)).coerceIn(0f, 0.995f)
+                val rawSegTrans = segTransSnap.getOrNull(activeIdx).orEmpty().ifEmpty { seg.text }
+                val chars = (rawSegTrans.length * inSegFrac).toInt().coerceIn(0, rawSegTrans.length)
+                spokenWindow = rawSegTrans.substring(0, chars)
             } else {
-                (playedFrames.toFloat() / totalFrames.toFloat()).coerceIn(0f, 0.995f)
+                val expectedFrames = ((expectedTotalMs * PCM_SAMPLE_RATE) / 1000L).coerceAtLeast(12_000L)
+                val totalFrames = if (turnAllServerDone) {
+                    maxOf(writtenFramesInTurn, playedFrames, 12_000L)
+                } else {
+                    maxOf(expectedFrames, writtenFramesInTurn + 24_000L, playedFrames + 12_000L)
+                }
+                frac = if (segments.isNotEmpty()) {
+                    val snap = synchronized(wsLock) { segmentStartFrames.copyOf() }
+                    StudyVoiceCodec.progressFromSegmentFrames(segments, snap, playedFrames, totalFrames)
+                } else {
+                    (playedFrames.toFloat() / totalFrames.toFloat()).coerceIn(0f, 0.995f)
+                }
+                spokenWindow = synchronized(wsLock) {
+                    val full = accumulatedTranscript.toString()
+                    val capLen = (full.length * frac).toInt().coerceIn(0, full.length)
+                    full.substring(0, capLen)
+                }
             }
-            val transcript = synchronized(wsLock) { accumulatedTranscript.toString() }
-            turnOnProgress?.invoke(currentTurn, frac, transcript)
+            turnOnProgress?.invoke(currentTurn, frac, spokenWindow)
         }
 
         private fun waitForHardwareAudioDrain(genAtStart: Int): Boolean {

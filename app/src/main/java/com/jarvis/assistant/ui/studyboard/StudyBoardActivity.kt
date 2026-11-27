@@ -486,8 +486,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             visibility = View.GONE
             StudyTheme.applyPressSpring(this, 0.94f)
             setOnClickListener {
-                board.followPen = true
-                board.scrollToEnd()
+                board.scrollToActive()
                 updateViewportPills()
             }
         }
@@ -985,7 +984,11 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         row.addView(langChip, LinearLayout.LayoutParams(-2, dp(44)).apply { marginStart = dp(4) })
         row.addView(sep())
 
-        voiceButton = StudyTheme.iconButton(this, R.drawable.ic_study_volume_off, "Narration on or off", pal, 44, 10) { vm.setVoice(!vm.prefs.voiceOn) }
+        voiceButton = StudyTheme.iconButton(this, R.drawable.ic_study_volume_off, "Narration on or off", pal, 44, 10) {
+            val turnOn = !vm.prefs.voiceOn
+            if (turnOn) board.followPen = true
+            vm.setVoice(turnOn)
+        }
         row.addView(voiceButton)
         notesButton = StudyTheme.iconButton(this, R.drawable.ic_study_notes, "Show or hide explanations", pal, 44, 10) { vm.setNotes(!vm.prefs.notesOn) }
         row.addView(notesButton)
@@ -1305,7 +1308,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
                 launch { vm.bookmarks.collect { board.bookmarkedBlocks = it; refresh() } }
                 launch { vm.askMode.collect { refresh() } }
                 launch { vm.interrupted.collect { refresh() } }
-                launch { vm.isNarrating.collect { refresh() } }
+                launch { vm.isNarrating.collect { narrating -> if (narrating) board.followPen = true; refresh() } }
                 launch { vm.activeVoiceName.collect { refresh() } }
                 launch { vm.narrationAmplitude.collect { updateVoiceWave(it) } }
                 launch { vm.spotlight.collect { s -> board.setNarrationSpotlight(s.active, s.blockIndex, s.blockProgress, s.transcript) } }
@@ -1790,8 +1793,8 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
                 StudyBoardController.PlaybackAction.PLAY -> {
                     when (vm.playback.state) {
                         StudyPlayback.State.PAUSED -> { vm.playback.resume(); board.followPen = true }
-                        StudyPlayback.State.FINISHED -> { vm.replayAll(); board.followPen = true }
-                        StudyPlayback.State.IDLE -> if (vm.hasContent) { vm.replayAll(); board.followPen = true }
+                        StudyPlayback.State.FINISHED -> { vm.togglePlay(); board.followPen = true }
+                        StudyPlayback.State.IDLE -> if (vm.hasContent) { vm.explainSavedAll(); board.followPen = true }
                         else -> board.followPen = true
                     }
                 }
@@ -1826,8 +1829,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
                 StudyBoardController.SettingToggleKey.FULLSCREEN -> setFullscreen(cmd.value ?: !fullscreen)
                 StudyBoardController.SettingToggleKey.FOLLOW_PEN -> {
                     val on = cmd.value ?: !board.followPen
-                    board.followPen = on
-                    if (on) board.scrollToEnd()
+                    if (on) board.scrollToActive() else board.followPen = false
                     updateViewportPills()
                     StudyBoardController.updateState { it.copy(followPen = on) }
                 }

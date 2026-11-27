@@ -117,7 +117,6 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     private var continuousActive = false
     private var continuousPlan: StudyVoiceCodec.ContinuousPlan? = null
     private var continuousEndBlock = -1
-    private val continuousEnterFrac = HashMap<Int, Float>()
     private var singleNarratingBlock = -1
     private var fromSavedSession = false
 
@@ -864,9 +863,9 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                     return
                 }
                 val plan = continuousPlan ?: return
-                val targetBlock = resolveContinuousTargetBlock(plan, progressFrac, spokenTranscript, playback.current)
+                val segState = StudyVoiceCodec.segmentStateForProgress(plan.segments, progressFrac) ?: return
+                val targetBlock = segState.first
                 if (targetBlock > playback.current && targetBlock <= continuousEndBlock) {
-                    continuousEnterFrac.putIfAbsent(targetBlock, progressFrac)
                     playback.advanceContinuous(targetBlock)
                     bump()
                 }
@@ -874,11 +873,10 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 val curSeg = plan.segments.firstOrNull { it.blockIndex == curBlock }
                     ?: plan.segments.lastOrNull { it.blockIndex <= curBlock }
                 val localFrac = if (curSeg != null) {
-                    val effStart = minOf(curSeg.startFrac, continuousEnterFrac[curBlock] ?: curSeg.startFrac)
-                    val span = (curSeg.endFrac - effStart).coerceAtLeast(0.02f)
-                    ((progressFrac - effStart) / span).coerceIn(0f, 1f)
+                    val span = (curSeg.endFrac - curSeg.startFrac).coerceAtLeast(0.005f)
+                    ((progressFrac - curSeg.startFrac) / span).coerceIn(0f, 1f)
                 } else {
-                    progressFrac.coerceIn(0f, 1f)
+                    segState.second
                 }
                 playback.syncContinuousProgress(curBlock, localFrac)
                 spotlight.value = Spotlight(
@@ -898,6 +896,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 if (wasContinuous && endIdx in (playback.current + 1) until blocks.value.size) {
                     playback.advanceContinuous(endIdx)
                 }
+                playback.releaseNarrationSync()
                 playback.startGate = false
                 playback.narrationBusy = false
                 isNarrating.value = false
@@ -920,27 +919,6 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         voice = v
     }
 
-    private fun resolveContinuousTargetBlock(
-        plan: StudyVoiceCodec.ContinuousPlan,
-        progressFrac: Float,
-        transcript: String,
-        currentBlock: Int
-    ): Int {
-        var target = StudyVoiceCodec.segmentBlockForProgress(plan.segments, progressFrac) ?: currentBlock
-        if (transcript.length >= 16) {
-            val tail = transcript.takeLast(120).lowercase()
-            val curSegIdx = plan.segments.indexOfLast { it.blockIndex <= currentBlock }
-            val nextSeg = plan.segments.getOrNull(curSegIdx + 1)
-            if (nextSeg != null && progressFrac >= (nextSeg.startFrac - 0.16f).coerceAtLeast(0.05f)) {
-                val hits = nextSeg.anchorWords.count { tail.contains(it) }
-                if (hits >= minOf(2, nextSeg.anchorWords.size) && nextSeg.blockIndex > target) {
-                    target = nextSeg.blockIndex
-                }
-            }
-        }
-        return target
-    }
-
     private fun startContinuousRange(startBlockIdx: Int, endBlockIdx: Int, keepPrinted: Boolean = false) {
         val list = blocks.value
         if (startBlockIdx !in list.indices || endBlockIdx < startBlockIdx) return
@@ -953,7 +931,6 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             continuousActive = false
             continuousPlan = null
             continuousEndBlock = endBlockIdx
-            continuousEnterFrac.clear()
             playback.startContinuousFrom(startBlockIdx, keepPrinted = keepPrinted)
             playback.startGate = false
             playback.narrationBusy = false
@@ -966,7 +943,6 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         continuousActive = true
         continuousPlan = plan
         continuousEndBlock = endBlockIdx
-        continuousEnterFrac.clear()
         singleNarratingBlock = -1
 
         // Align block write-on durations dynamically to each step's share of spoken explanation
@@ -986,12 +962,13 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
 
         val myToken = engine.speakContinuous(plan, effectiveVoiceLanguage())
         narrationToken = myToken
-        main.postDelayed({ if (narrationToken == myToken) playback.startGate = false }, 2_400L)
-        val maxGuardMs = (plan.estimatedDurationMs + 35_000L).coerceIn(45_000L, 210_000L)
+        main.postDelayed({ if (narrationToken == myToken) playback.startGate = false }, 9_000L)
+        val maxGuardMs = (plan.estimatedDurationMs + 45_000L).coerceIn(55_000L, 260_000L)
         main.postDelayed({
             if (narrationToken == myToken && playback.narrationBusy) {
                 continuousActive = false
                 continuousPlan = null
+                playback.releaseNarrationSync()
                 playback.startGate = false
                 playback.narrationBusy = false
                 isNarrating.value = false
@@ -1030,9 +1007,10 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         playback.startGate = available
         val token = engine.speak(text, localeFor(text), effectiveVoiceLanguage())
         narrationToken = token
-        main.postDelayed({ if (narrationToken == token) { playback.startGate = false } }, 2_200L)
+        main.postDelayed({ if (narrationToken == token) { playback.startGate = false } }, 7_500L)
         main.postDelayed({
             if (narrationToken == token && playback.narrationBusy) {
+                playback.releaseNarrationSync()
                 playback.narrationBusy = false
                 isNarrating.value = false
                 narrationAmplitude.value = 0f
@@ -1050,6 +1028,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         continuousPlan = null
         singleNarratingBlock = -1
         voice?.stop()
+        playback.releaseNarrationSync()
         playback.narrationBusy = false
         playback.startGate = false
         isNarrating.value = false

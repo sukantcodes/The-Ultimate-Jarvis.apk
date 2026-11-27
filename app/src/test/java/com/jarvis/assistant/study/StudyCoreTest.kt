@@ -921,5 +921,45 @@ class StudyControllerAndVoiceUpgradeTest {
         assertTrue(prompt.contains("Key Point & Memory Trick"))
         assertTrue(prompt.contains("I hope you understood"))
         assertTrue(prompt.contains("connects to the previous step"))
+        assertTrue(prompt.contains("Make sense so far") || prompt.contains("Makes sense so far"))
+    }
+
+    @Test fun segmentStateForProgressMapsBlockAndSmoothLocalFractionAndLockstepChase() {
+        val c = com.jarvis.assistant.study.voice.StudyVoiceCodec
+        val plan = c.buildContinuousPlan(
+            listOf(
+                1 to "Alright stay right with me on step one",
+                2 to "Remember what we just found and apply the formula",
+                3 to "Awesome work here is the final answer"
+            )
+        )
+        assertTrue(plan.estimatedDurationMs >= (plan.script.length * 80L).coerceAtLeast(2_000L))
+        val s0 = c.segmentStateForProgress(plan.segments, 0.02f)!!
+        assertEquals(1, s0.first)
+        assertTrue(s0.second < 0.2f)
+
+        val midSeg2 = (plan.segments[1].startFrac + plan.segments[1].endFrac) * 0.5f
+        val s1 = c.segmentStateForProgress(plan.segments, midSeg2)!!
+        assertEquals(2, s1.first)
+        assertEquals(0.5f, s1.second, 0.05f)
+
+        // Verify StudyPlayback glides smoothly behind spoken fraction without outrunning audio
+        val pb = StudyPlayback()
+        pb.setGenerationOpen(false)
+        pb.addBlock(2_000L)
+        pb.addBlock(4_000L)
+        pb.jumpToEnd()
+        pb.startContinuousFrom(1, keepPrinted = false)
+        pb.narrationBusy = true
+        pb.syncContinuousProgress(1, 0.10f)
+        repeat(60) { pb.advance(16) } // 1 second of silent fast frame advance shouldn't outrun 0.10f
+        assertTrue(pb.progress <= 0.105f)
+        pb.syncContinuousProgress(1, 0.18f)
+        repeat(15) { pb.advance(16) }
+        assertTrue(pb.progress > 0.11f && pb.progress <= 0.185f)
+        pb.releaseNarrationSync()
+        pb.narrationBusy = false
+        repeat(80) { pb.advance(50) }
+        assertEquals(1f, pb.progress, 0.01f)
     }
 }

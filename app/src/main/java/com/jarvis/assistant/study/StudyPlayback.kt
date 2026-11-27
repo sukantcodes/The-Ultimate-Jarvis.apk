@@ -54,6 +54,7 @@ class StudyPlayback {
     private var writingDone = false
     private var generationOpen = true
     private var syncedMaxProgress: Float? = null
+    private var syncedTargetProgress: Float? = null
 
     val blockCount: Int get() = durations.size
 
@@ -65,19 +66,26 @@ class StudyPlayback {
 
     /**
      * Synchronizes block writing progress [0f..1f] smoothly with live spoken audio for [blockIndex],
-     * so pen strokes write right alongside the voice instead of finishing far too early or lagging behind.
+     * matching the exact speaking speed without racing ahead or lagging behind.
      */
     fun syncContinuousProgress(blockIndex: Int, spokenFraction: Float) {
         if (state != State.PLAYING || current != blockIndex || blockIndex !in durations.indices) return
         val clamped = spokenFraction.coerceIn(0f, 1f)
-        syncedMaxProgress = if (clamped >= 0.95f) 1f else (clamped + 0.08f).coerceAtMost(0.99f)
-        if (!writingDone && clamped > progress + 0.14f) {
-            progress = (clamped - 0.05f).coerceIn(0f, 1f)
+        syncedTargetProgress = clamped
+        syncedMaxProgress = if (clamped >= 0.98f) 1f else clamped.coerceAtMost(0.992f)
+        if (!writingDone && clamped > progress + 0.10f) {
+            progress = (clamped - 0.04f).coerceIn(0f, 1f)
             if (progress >= 1f) {
                 writingDone = true
                 listener?.onBlockFinished(current)
             }
         }
+    }
+
+    /** Clears voice lockstep cap cleanly when speech ends so any trailing strokes complete smoothly. */
+    fun releaseNarrationSync() {
+        syncedTargetProgress = null
+        syncedMaxProgress = null
     }
 
     fun setGenerationOpen(open: Boolean) {
@@ -108,20 +116,20 @@ class StudyPlayback {
     fun jumpToEnd() {
         if (durations.isEmpty()) return
         stopAfterCurrent = false
-        current = durations.size - 1; progress = 1f; writingDone = true; highWater = current; othersStayVisible = false; narrationBusy = false
+        current = durations.size - 1; progress = 1f; writingDone = true; highWater = current; othersStayVisible = false; continuousKeepPrinted = false; narrationBusy = false; syncedMaxProgress = null; syncedTargetProgress = null
         if (generationOpen) setState(State.WAITING_FOR_CONTENT) else finish()
     }
 
     fun durationOf(i: Int): Long = durations.getOrElse(i) { 0L }
 
-    /** True when re-explaining an already-printed lesson (keep existing strokes visible while moving underline/pin). */
+    /** True when re-explaining an already-printed lesson (keep existing strokes visible while highlighting live). */
     var continuousKeepPrinted = false
         private set
 
     fun clear() {
         durations.clear()
         current = -1; progress = 0f; writingDone = false; stopAfterCurrent = false
-        highWater = -1; othersStayVisible = false; continuousKeepPrinted = false; syncedMaxProgress = null
+        highWater = -1; othersStayVisible = false; continuousKeepPrinted = false; syncedMaxProgress = null; syncedTargetProgress = null
         setState(State.IDLE)
     }
 
@@ -197,6 +205,7 @@ class StudyPlayback {
         current = targetIndex
         othersStayVisible = continuousKeepPrinted
         syncedMaxProgress = null
+        syncedTargetProgress = null
         highWater = if (continuousKeepPrinted) durations.lastIndex else maxOf(highWater, targetIndex)
         progress = 0f
         writingDone = false
@@ -210,12 +219,38 @@ class StudyPlayback {
         if (state != State.PLAYING || current !in durations.indices) return false
         if (!writingDone) {
             if (startGate) return false
-            val cap = syncedMaxProgress
-            if (cap != null && progress >= cap && cap < 1f) {
-                return false
+            val tgt = syncedTargetProgress
+            if (tgt != null) {
+                if (continuousKeepPrinted) {
+                    if (progress == tgt && progress < 1f) return false
+                    progress = tgt
+                    if (progress >= 0.998f) {
+                        progress = 1f
+                        writingDone = true
+                        listener?.onBlockFinished(current)
+                    }
+                    return true
+                }
+                val cap = syncedMaxProgress ?: tgt
+                val nextProg = if (tgt >= 0.98f) {
+                    (progress + dtMs / 110f).coerceAtMost(1f)
+                } else {
+                    val diff = tgt - progress
+                    if (diff <= 0.0005f) {
+                        progress
+                    } else {
+                        val gain = (dtMs / 85f).coerceIn(0.18f, 0.72f)
+                        val step = (diff * gain + dtMs * 0.0002f).coerceAtMost(diff)
+                        (progress + step).coerceAtMost(cap)
+                    }
+                }
+                if (nextProg == progress && nextProg < 1f) return false
+                progress = nextProg
+                if (progress >= 1f) { writingDone = true; listener?.onBlockFinished(current) }
+                return true
             }
             val total = durations[current].toFloat() / speed
-            val nextProg = (progress + dtMs / total).coerceAtMost(cap ?: 1f).coerceAtMost(1f)
+            val nextProg = (progress + dtMs / total).coerceAtMost(1f)
             if (nextProg == progress && nextProg < 1f) return false
             progress = nextProg
             if (progress >= 1f) { writingDone = true; listener?.onBlockFinished(current) }
@@ -245,6 +280,7 @@ class StudyPlayback {
         current = index
         othersStayVisible = single
         syncedMaxProgress = null
+        syncedTargetProgress = null
         if (index > highWater) highWater = index
         progress = 0f
         writingDone = false

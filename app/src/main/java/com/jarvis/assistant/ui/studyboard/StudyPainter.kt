@@ -136,20 +136,8 @@ class StudyPainter(private val fonts: StudyFonts) {
     var tipInk: Ink = Ink.ACCENT; private set
     var tipVisible = false; private set
 
-    /** Active glyph row bounds for live writing underline synchronized with voice. */
-    var activeLineVisible = false; private set
-    var activeLineMinX = 0f; private set
-    var activeLineMaxX = 0f; private set
-    var activeLineY = 0f; private set
-    var activeLineSize = 0f; private set
-    var lastOpWasGlyph = false; private set
-
     fun drawOps(canvas: Canvas, ops: List<DrawOp>, fraction: Float, alpha: Int = 255): Boolean {
         tipVisible = false
-        activeLineVisible = false
-        lastOpWasGlyph = false
-        activeLineMinX = Float.MAX_VALUE
-        activeLineMaxX = Float.MIN_VALUE
         if (ops.isEmpty()) return true
         val f = fraction.coerceIn(0f, 1f)
         if (f >= 1f) {
@@ -240,23 +228,6 @@ class StudyPainter(private val fonts: StudyFonts) {
                 text.style = Paint.Style.FILL
                 text.color = StudyPalette.color(op.ink)
                 text.alpha = alpha
-                if (op.text.isNotBlank() && frac > 0f) {
-                    val w = text.measureText(op.text)
-                    val reachedRight = if (frac >= 1f) op.x + w else op.x + w * frac
-                    val sameRow = activeLineVisible && abs(op.y - activeLineY) <= max(activeLineSize, op.size) * 0.72f
-                    if (sameRow) {
-                        activeLineMinX = min(activeLineMinX, op.x)
-                        activeLineMaxX = max(activeLineMaxX, reachedRight)
-                        if (op.size > activeLineSize) activeLineSize = op.size
-                    } else {
-                        activeLineMinX = op.x
-                        activeLineMaxX = reachedRight
-                        activeLineY = op.y
-                        activeLineSize = op.size
-                        activeLineVisible = true
-                    }
-                    lastOpWasGlyph = true
-                }
                 if (frac >= 1f) {
                     canvas.drawText(op.text, op.x, op.y, text)
                 } else {
@@ -270,7 +241,6 @@ class StudyPainter(private val fonts: StudyFonts) {
                 }
             }
             is DrawOp.Line -> {
-                lastOpWasGlyph = false
                 applyStroke(op.ink, op.stroke, alpha, op.dashed)
                 val x = op.x1 + (op.x2 - op.x1) * frac
                 val y = op.y1 + (op.y2 - op.y1) * frac
@@ -278,10 +248,10 @@ class StudyPainter(private val fonts: StudyFonts) {
                 strokePaint.pathEffect = null
                 if (frac < 1f) setTip(x, y, op.ink)
             }
-            is DrawOp.Poly -> { lastOpWasGlyph = false; drawPoly(canvas, op, frac, alpha) }
-            is DrawOp.Oval -> { lastOpWasGlyph = false; drawOval(canvas, op, frac, alpha) }
-            is DrawOp.Arc -> { lastOpWasGlyph = false; drawArc(canvas, op, frac, alpha) }
-            is DrawOp.Rect -> { lastOpWasGlyph = false; drawRect(canvas, op, frac, alpha) }
+            is DrawOp.Poly -> drawPoly(canvas, op, frac, alpha)
+            is DrawOp.Oval -> drawOval(canvas, op, frac, alpha)
+            is DrawOp.Arc -> drawArc(canvas, op, frac, alpha)
+            is DrawOp.Rect -> drawRect(canvas, op, frac, alpha)
         }
     }
 
@@ -455,34 +425,26 @@ class StudyPainter(private val fonts: StudyFonts) {
         canvas.drawPath(path, panelPaint)
     }
 
-    /** Draws the luminous active highlighter wash + underline trailing behind the writing pen on the current text row. */
-    fun drawWritingUnderline(canvas: Canvas, accentColor: Int, pulsePhase: Float) {
-        if (!activeLineVisible || !lastOpWasGlyph) return
-        val right = max(activeLineMaxX, activeLineMinX + 6f)
-        val glow = 0.85f + 0.15f * sin(pulsePhase.toDouble()).toFloat()
+    /** Bounds returned after highlighting an active paragraph so viewport auto-scroll follows smoothly. */
+    data class HighlightFocus(val topY: Float, val bottomY: Float, val centerY: Float)
 
-        panelPaint.pathEffect = null
-        panelPaint.style = Paint.Style.FILL
-        panelPaint.color = accentColor
-        panelPaint.alpha = (22 * glow).toInt().coerceIn(14, 30)
-        rect.set(
-            activeLineMinX - 4f,
-            activeLineY - activeLineSize * 0.86f,
-            right + 4f,
-            activeLineY + activeLineSize * 0.24f
-        )
-        canvas.drawRoundRect(rect, 7f, 7f, panelPaint)
+    private data class VisualLine(
+        val minX: Float,
+        val maxX: Float,
+        val baselineY: Float,
+        val fontSize: Float,
+        val text: String
+    )
 
-        val underlineY = activeLineY + activeLineSize * 0.22f
-        strokePaint.pathEffect = null
-        strokePaint.color = accentColor
-        strokePaint.alpha = (64 * glow).toInt().coerceIn(45, 85)
-        strokePaint.strokeWidth = 8.5f
-        canvas.drawLine(activeLineMinX - 2f, underlineY, right, underlineY, strokePaint)
-
-        strokePaint.alpha = 238
-        strokePaint.strokeWidth = 3.8f
-        canvas.drawLine(activeLineMinX - 2f, underlineY, right, underlineY, strokePaint)
+    private data class VisualParagraph(
+        val minX: Float,
+        val maxX: Float,
+        val topY: Float,
+        val bottomY: Float,
+        val text: String,
+        val isDiagramLabel: Boolean = false
+    ) {
+        val centerY: Float get() = (topY + bottomY) * 0.5f
     }
 
     /** Precision colour-matched stylus tip + pulsing laser aura halo when writing or drawing live. */
@@ -509,110 +471,259 @@ class StudyPainter(private val fonts: StudyFonts) {
         panelPaint.pathEffect = null
         panelPaint.style = Paint.Style.FILL
         panelPaint.color = color
-        panelPaint.alpha = (18 * glow).toInt().coerceIn(8, 28)
+        panelPaint.alpha = (12 * glow).toInt().coerceIn(6, 20)
         rect.set(margin - 16f, block.top - 6f, width - margin + 16f, block.bottom - 14f)
         canvas.drawRoundRect(rect, 16f, 16f, panelPaint)
 
-        // Left active teacher indicator rail
-        panelPaint.alpha = (210 * glow).toInt().coerceIn(140, 240)
-        rect.set(margin - 16f, block.top - 2f, margin - 10f, (block.bottom - 18f).coerceAtLeast(block.top + 12f))
-        canvas.drawRoundRect(rect, 3f, 3f, panelPaint)
+        // Subtle left rail across active step
+        panelPaint.alpha = (95 * glow).toInt().coerceIn(70, 125)
+        rect.set(margin - 16f, block.top - 2f, margin - 12f, (block.bottom - 18f).coerceAtLeast(block.top + 12f))
+        canvas.drawRoundRect(rect, 2f, 2f, panelPaint)
     }
 
-    /** Pulsing teacher spotlight pin + laser reticle pointing directly to the explained term or diagram part. */
+    /** Pulsing teacher spotlight pin + laser reticle pointing directly to the explained diagram part or paragraph rail. */
     fun drawTeacherPin(canvas: Canvas, x: Float, y: Float, color: Int, pulsePhase: Float) {
         val pulse = 1f + 0.25f * sin(pulsePhase.toDouble()).toFloat()
         panelPaint.pathEffect = null
         panelPaint.style = Paint.Style.FILL
         panelPaint.color = color
-        panelPaint.alpha = 42
-        canvas.drawCircle(x, y, 17f * pulse, panelPaint)
-        panelPaint.alpha = 95
-        canvas.drawCircle(x, y, 10f * (0.94f + 0.12f * pulse), panelPaint)
+        panelPaint.alpha = 46
+        canvas.drawCircle(x, y, 16f * pulse, panelPaint)
+        panelPaint.alpha = 104
+        canvas.drawCircle(x, y, 9.5f * (0.94f + 0.12f * pulse), panelPaint)
         panelPaint.alpha = 245
-        canvas.drawCircle(x, y, 4.6f, panelPaint)
+        canvas.drawCircle(x, y, 4.5f, panelPaint)
         panelPaint.color = StudyPalette.PAPER
         panelPaint.alpha = 255
         canvas.drawCircle(x, y, 2f, panelPaint)
     }
 
-    private data class VisualLine(
-        val minX: Float,
-        val maxX: Float,
-        val baselineY: Float,
-        val fontSize: Float,
-        val text: String
-    )
+    /** Draws a luminous full-paragraph highlighter wash, crisp glowing border, and left teacher beacon rail. */
+    private fun drawWholeParagraphHighlightBox(
+        canvas: Canvas,
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        accentColor: Int,
+        pulsePhase: Float
+    ) {
+        val glow = 0.80f + 0.20f * sin(pulsePhase.toDouble()).toFloat()
+        val safeBottom = max(bottom, top + 20f)
+        val safeRight = max(right, left + 28f)
+
+        // 1. Soft outer highlight halo
+        panelPaint.pathEffect = null
+        panelPaint.style = Paint.Style.FILL
+        panelPaint.color = accentColor
+        panelPaint.alpha = (18 * glow).toInt().coerceIn(12, 26)
+        rect.set(left - 4f, top - 4f, safeRight + 4f, safeBottom + 4f)
+        canvas.drawRoundRect(rect, 15f, 15f, panelPaint)
+
+        // 2. Main translucent highlighter wash across the entire active paragraph
+        panelPaint.alpha = (38 * glow).toInt().coerceIn(28, 52)
+        rect.set(left, top, safeRight, safeBottom)
+        canvas.drawRoundRect(rect, 12f, 12f, panelPaint)
+
+        // 3. Crisp glowing accent outline around the highlighted paragraph
+        strokePaint.pathEffect = null
+        strokePaint.color = accentColor
+        strokePaint.alpha = (135 * glow).toInt().coerceIn(95, 175)
+        strokePaint.strokeWidth = 2.0f
+        canvas.drawRoundRect(rect, 12f, 12f, strokePaint)
+
+        // 4. Bold pulsing left accent indicator bar
+        panelPaint.alpha = (225 * glow).toInt().coerceIn(180, 250)
+        rect.set(left, top + 4f, left + 6.5f, (safeBottom - 4f).coerceAtLeast(top + 14f))
+        canvas.drawRoundRect(rect, 3.5f, 3.5f, panelPaint)
+    }
 
     /**
-     * When content is already printed on the board (replays, restored lessons, or completed strokes while
-     * speech finishes), highlights, underlines, and pins the exact active line or diagram label synced with voice.
-     * Returns the Y board coordinate of the focus marker so Follow-Pen keeps it centered.
+     * Highlights the whole active paragraph currently being written at [fraction] (for calling BEFORE [drawOps]
+     * so written ink remains razor-sharp on top of the luminous highlight).
      */
-    fun drawLiveExplainFocus(
+    fun drawWritingParagraphHighlight(
         canvas: Canvas,
         block: BoardBlock,
-        ops: List<DrawOp>,
+        showNotes: Boolean,
+        boardWidth: Float,
+        margin: Float,
+        fraction: Float,
+        accentColor: Int,
+        pulsePhase: Float
+    ): HighlightFocus? {
+        val ops = block.allOps(showNotes)
+        if (ops.isEmpty()) return null
+        val paragraphs = extractVisualParagraphs(block, showNotes, boardWidth, margin)
+        if (paragraphs.isEmpty()) {
+            val f = fraction.coerceIn(0f, 1f)
+            val fallbackTop = (block.top + 4f).coerceAtLeast(0f)
+            val fallbackBot = (block.bottom - 14f).coerceAtLeast(fallbackTop + 24f)
+            drawWholeParagraphHighlightBox(canvas, margin - 14f, fallbackTop, boardWidth - margin + 14f, fallbackBot, accentColor, pulsePhase)
+            return HighlightFocus(fallbackTop, fallbackBot, fallbackTop + (fallbackBot - fallbackTop) * f)
+        }
+
+        // Find the last glyph reached by the current fraction budget
+        var total = 0f
+        for (op in ops) total += op.weight.coerceAtLeast(1f)
+        var budget = total * fraction.coerceIn(0f, 1f)
+        var targetGlyph: DrawOp.Glyphs? = null
+        for (op in ops) {
+            val w = op.weight.coerceAtLeast(1f)
+            if (op is DrawOp.Glyphs && op.text.isNotBlank() && (budget > 0f || targetGlyph == null)) {
+                targetGlyph = op
+            }
+            budget -= w
+            if (budget <= 0f) break
+        }
+        val activePara = if (targetGlyph != null) {
+            paragraphs.minByOrNull { p ->
+                val clampedY = targetGlyph.y.coerceIn(p.topY, p.bottomY)
+                abs(targetGlyph.y - clampedY)
+            } ?: paragraphs.last()
+        } else {
+            paragraphs[(fraction.coerceIn(0f, 1f) * paragraphs.size).toInt().coerceIn(0, paragraphs.lastIndex)]
+        }
+
+        val left = if (activePara.isDiagramLabel) (activePara.minX - 10f) else (margin - 14f)
+        val right = if (activePara.isDiagramLabel) (activePara.maxX + 10f) else (boardWidth - margin + 14f)
+        drawWholeParagraphHighlightBox(canvas, left, activePara.topY, right, activePara.bottomY, accentColor, pulsePhase)
+        return HighlightFocus(activePara.topY, activePara.bottomY, activePara.centerY)
+    }
+
+    /**
+     * Highlights the whole active paragraph being explained on already-printed boards (saved lessons, replays,
+     * or completed strokes while voice finishes), synchronized with [explainFrac] and time-aligned [spokenTranscript].
+     */
+    fun drawLiveParagraphFocus(
+        canvas: Canvas,
+        block: BoardBlock,
+        showNotes: Boolean,
+        boardWidth: Float,
+        margin: Float,
         explainFrac: Float,
         spokenTranscript: String,
         accentColor: Int,
         pulsePhase: Float
-    ): Float? {
+    ): HighlightFocus? {
+        val ops = block.allOps(showNotes)
         if (ops.isEmpty()) return null
-        val lines = extractVisualLines(ops)
-        if (lines.isNotEmpty()) {
+        val paragraphs = extractVisualParagraphs(block, showNotes, boardWidth, margin)
+        if (paragraphs.isNotEmpty()) {
             val f = explainFrac.coerceIn(0f, 1f)
-            val fallbackIdx = (f * lines.size).toInt().coerceIn(0, lines.lastIndex)
-            val matchedIdx = matchLineFromTranscript(lines, spokenTranscript, fallbackIdx, block.kind == StepKind.DIAGRAM)
-            val activeIdx = matchedIdx ?: fallbackIdx
-            val line = lines[activeIdx]
-
-            val localProg = f * lines.size - activeIdx
-            val spanFrac = if (matchedIdx != null) {
-                when {
-                    localProg in 0f..1f -> localProg.coerceIn(0.24f, 1f)
-                    localProg < 0f -> (0.28f + (1f + localProg).coerceIn(0f, 0.5f) * 0.44f).coerceIn(0.24f, 0.65f)
-                    else -> 0.94f
-                }
-            } else {
-                localProg.coerceIn(0.18f, 1f)
-            }
-            val sweepRight = line.minX + (line.maxX - line.minX).coerceAtLeast(18f) * spanFrac
-
-            // 1. Soft translucent highlighter wash across the explained line segment
-            panelPaint.pathEffect = null
-            panelPaint.style = Paint.Style.FILL
-            panelPaint.color = accentColor
-            panelPaint.alpha = 28
-            rect.set(
-                line.minX - 5f,
-                line.baselineY - line.fontSize * 0.88f,
-                sweepRight + 5f,
-                line.baselineY + line.fontSize * 0.24f
-            )
-            canvas.drawRoundRect(rect, 7f, 7f, panelPaint)
-
-            // 2. Smooth progressive highlighter underline + prominent luminous glow
-            val underlineY = line.baselineY + line.fontSize * 0.22f
-            strokePaint.pathEffect = null
-            strokePaint.color = accentColor
-            strokePaint.alpha = 68
-            strokePaint.strokeWidth = 9.5f
-            canvas.drawLine(line.minX - 3f, underlineY, sweepRight, underlineY, strokePaint)
-
-            strokePaint.alpha = 240
-            strokePaint.strokeWidth = 4.2f
-            canvas.drawLine(line.minX - 2f, underlineY, sweepRight, underlineY, strokePaint)
-
-            // 3. Pulsing Teacher Pin at leading point of explanation
-            drawTeacherPin(canvas, sweepRight, underlineY, accentColor, pulsePhase)
-            return line.baselineY
+            val fallbackIdx = (f * paragraphs.size).toInt().coerceIn(0, paragraphs.lastIndex)
+            val matchedIdx = matchParagraphFromTranscript(paragraphs, spokenTranscript, fallbackIdx, block.kind == StepKind.DIAGRAM)
+            val para = paragraphs[matchedIdx ?: fallbackIdx]
+            val left = if (para.isDiagramLabel) (para.minX - 10f) else (margin - 14f)
+            val right = if (para.isDiagramLabel) (para.maxX + 10f) else (boardWidth - margin + 14f)
+            drawWholeParagraphHighlightBox(canvas, left, para.topY, right, para.bottomY, accentColor, pulsePhase)
+            return HighlightFocus(para.topY, para.bottomY, para.centerY)
         }
 
-        // Pure geometric/vector fallback when a block contains shapes with no glyphs
         val shapePoint = findShapeFocusPoint(ops, explainFrac.coerceIn(0f, 1f)) ?: return null
+        val hTop = (shapePoint.second - 28f).coerceAtLeast(block.top)
+        val hBot = (shapePoint.second + 28f).coerceAtMost(block.bottom)
+        drawWholeParagraphHighlightBox(canvas, margin - 14f, hTop, boardWidth - margin + 14f, hBot, accentColor, pulsePhase)
+        return HighlightFocus(hTop, hBot, shapePoint.second)
+    }
+
+    /** Draws pulsing pointer marker over an already-printed diagram block while explaining. */
+    fun drawLiveDiagramBeacon(
+        canvas: Canvas,
+        block: BoardBlock,
+        showNotes: Boolean,
+        explainFrac: Float,
+        spokenTranscript: String,
+        accentColor: Int,
+        pulsePhase: Float
+    ) {
+        if (block.kind != StepKind.DIAGRAM) return
+        val paragraphs = extractVisualParagraphs(block, showNotes, 0f, 0f)
+        if (paragraphs.isNotEmpty()) {
+            val f = explainFrac.coerceIn(0f, 1f)
+            val fallbackIdx = (f * paragraphs.size).toInt().coerceIn(0, paragraphs.lastIndex)
+            val matchedIdx = matchParagraphFromTranscript(paragraphs, spokenTranscript, fallbackIdx, isDiagram = true)
+            val para = paragraphs[matchedIdx ?: fallbackIdx]
+            drawTeacherPin(canvas, para.maxX + 8f, para.centerY, accentColor, pulsePhase)
+            return
+        }
+        val shapePoint = findShapeFocusPoint(block.allOps(showNotes), explainFrac.coerceIn(0f, 1f)) ?: return
         drawTeacherPin(canvas, shapePoint.first, shapePoint.second, accentColor, pulsePhase)
-        return shapePoint.second
+    }
+
+    private fun extractVisualParagraphs(
+        block: BoardBlock,
+        showNotes: Boolean,
+        @Suppress("UNUSED_PARAMETER") boardWidth: Float,
+        @Suppress("UNUSED_PARAMETER") margin: Float
+    ): List<VisualParagraph> {
+        val out = ArrayList<VisualParagraph>()
+        if (block.kind == StepKind.DIAGRAM) {
+            for (line in extractVisualLines(block.ops)) {
+                out.add(
+                    VisualParagraph(
+                        line.minX, line.maxX,
+                        line.baselineY - line.fontSize * 0.98f,
+                        line.baselineY + line.fontSize * 0.36f,
+                        line.text,
+                        isDiagramLabel = true
+                    )
+                )
+            }
+            if (showNotes && block.noteOps.isNotEmpty()) {
+                out.addAll(linesToParagraphs(extractVisualLines(block.noteOps)))
+            }
+            return out
+        }
+
+        out.addAll(linesToParagraphs(extractVisualLines(block.ops)))
+        if (showNotes && block.noteOps.isNotEmpty()) {
+            out.addAll(linesToParagraphs(extractVisualLines(block.noteOps)))
+        }
+        return out
+    }
+
+    private fun linesToParagraphs(lines: List<VisualLine>): List<VisualParagraph> {
+        if (lines.isEmpty()) return emptyList()
+        val bulletStart = Regex("^(\\d+[.)]|[•\\-*]|Key Point)\\b.*", RegexOption.IGNORE_CASE)
+        val out = ArrayList<VisualParagraph>()
+        var minX = lines[0].minX
+        var maxX = lines[0].maxX
+        var topY = lines[0].baselineY - lines[0].fontSize * 1.02f
+        var botY = lines[0].baselineY + lines[0].fontSize * 0.40f
+        var prevBaseline = lines[0].baselineY
+        var prevSize = lines[0].fontSize
+        val sb = StringBuilder(lines[0].text)
+
+        for (idx in 1 until lines.size) {
+            val l = lines[idx]
+            val gap = l.baselineY - prevBaseline
+            val maxSz = max(prevSize, l.fontSize)
+            val splitForGap = gap > maxSz * 1.75f
+            val splitForBullet = gap > maxSz * 1.15f && bulletStart.containsMatchIn(l.text.trim())
+            if (splitForGap || splitForBullet) {
+                out.add(VisualParagraph(minX, maxX, topY, botY, sb.toString().trim()))
+                minX = l.minX
+                maxX = l.maxX
+                topY = l.baselineY - l.fontSize * 1.02f
+                botY = l.baselineY + l.fontSize * 0.40f
+                sb.clear()
+                sb.append(l.text)
+            } else {
+                minX = min(minX, l.minX)
+                maxX = max(maxX, l.maxX)
+                topY = min(topY, l.baselineY - l.fontSize * 1.02f)
+                botY = max(botY, l.baselineY + l.fontSize * 0.40f)
+                if (sb.isNotEmpty()) sb.append(' ')
+                sb.append(l.text)
+            }
+            prevBaseline = l.baselineY
+            prevSize = l.fontSize
+        }
+        if (sb.isNotEmpty()) {
+            out.add(VisualParagraph(minX, maxX, topY, botY, sb.toString().trim()))
+        }
+        return out
     }
 
     private fun extractVisualLines(ops: List<DrawOp>): List<VisualLine> {
@@ -657,15 +768,15 @@ class StudyPainter(private val fonts: StudyFonts) {
         return if (bodyLines.isNotEmpty()) bodyLines else lines
     }
 
-    private fun matchLineFromTranscript(
-        lines: List<VisualLine>,
+    private fun matchParagraphFromTranscript(
+        paragraphs: List<VisualParagraph>,
         spokenTranscript: String,
         fallbackIdx: Int,
         isDiagram: Boolean
     ): Int? {
-        if (spokenTranscript.length < 6 || lines.size <= 1) return null
-        val tailStr = spokenTranscript.takeLast(46).lowercase()
-        val veryTailStr = spokenTranscript.takeLast(22).lowercase()
+        if (spokenTranscript.length < 6 || paragraphs.size <= 1) return null
+        val tailStr = spokenTranscript.takeLast(52).lowercase()
+        val veryTailStr = spokenTranscript.takeLast(24).lowercase()
         val tailWords = tailStr
             .replace(Regex("[^\\p{L}\\p{N}\\s]"), " ")
             .split(Regex("\\s+"))
@@ -674,13 +785,12 @@ class StudyPainter(private val fonts: StudyFonts) {
 
         var bestIdx = -1
         var bestScore = 0
-        for (i in lines.indices) {
-            // Regular text progresses forward smoothly with voice; diagrams allow direct label pinning
-            if (!isDiagram && (i < fallbackIdx - 1 || abs(i - fallbackIdx) > max(2, lines.size / 2))) continue
-            val lineLow = lines[i].text.lowercase()
+        for (i in paragraphs.indices) {
+            if (!isDiagram && i < fallbackIdx - 1) continue
+            val paraLow = paragraphs[i].text.lowercase()
             var score = 0
             for (w in tailWords) {
-                if (lineLow.contains(w)) {
+                if (paraLow.contains(w)) {
                     val baseW = if (w.length >= 4 || w.any { it.isDigit() }) 2 else 1
                     val recencyBoost = if (veryTailStr.contains(w)) 2 else 0
                     score += baseW + recencyBoost

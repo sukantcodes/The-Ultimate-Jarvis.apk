@@ -110,6 +110,8 @@ class StudyBoardView(context: Context) : View(context) {
     private var narratingBlockIndex = -1
     private var narratingFraction = 0f
     private var narratingTranscript = ""
+    private var lastLiveFocusTop: Float? = null
+    private var lastLiveFocusBottom: Float? = null
     private var lastLiveFocusY: Float? = null
 
     fun setNarrationSpotlight(active: Boolean, blockIndex: Int, progressFrac: Float, transcript: String) {
@@ -118,11 +120,18 @@ class StudyBoardView(context: Context) : View(context) {
             narratingBlockIndex != blockIndex ||
             abs(narratingFraction - clamped) >= 0.01f ||
             narratingTranscript != transcript
+        if (active && !narratingActive) {
+            autoFittedFinishForCount = -1
+        }
         narratingActive = active
         narratingBlockIndex = blockIndex
         narratingFraction = clamped
         narratingTranscript = transcript
-        if (!active) lastLiveFocusY = null
+        if (!active) {
+            lastLiveFocusTop = null
+            lastLiveFocusBottom = null
+            lastLiveFocusY = null
+        }
         if (changed) invalidate()
         if (active) kick()
     }
@@ -237,6 +246,7 @@ class StudyBoardView(context: Context) : View(context) {
             if (pb != null && pb.advance(dt)) changed = true
             if (followPen) changed = follow() || changed
             if (narratingActive || pb?.state == StudyPlayback.State.PLAYING) {
+                autoFittedFinishForCount = -1
                 pulsePhase += dt * 0.006f
                 changed = true
             }
@@ -308,7 +318,7 @@ class StudyBoardView(context: Context) : View(context) {
             val cur = pb.current
             val finished = pb.state == StudyPlayback.State.FINISHED
             var tipDrawn = false
-            var foundFocusY: Float? = null
+            var foundFocus: StudyPainter.HighlightFocus? = null
             val activeSpotlightIdx = when {
                 narratingActive && narratingBlockIndex in blocks.indices -> narratingBlockIndex
                 pb.state == StudyPlayback.State.PLAYING && cur in blocks.indices -> cur
@@ -341,33 +351,42 @@ class StudyBoardView(context: Context) : View(context) {
                             painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, StudyPalette.color(Ink.TEAL), 14 * alpha / 255)
                     }
                 }
+                val explainFrac = when {
+                    narratingActive && narratingBlockIndex == i -> narratingFraction.coerceIn(0.02f, 1f)
+                    alreadyPrintedReplay && pb.progress > 0f -> pb.progress.coerceIn(0.02f, 1f)
+                    pb.progress in 0.01f..0.99f -> pb.progress
+                    else -> 0.92f
+                }
                 if (i == activeSpotlightIdx) {
                     painter.drawActiveStepSpotlight(canvas, b, BOARD_WIDTH, MARGIN, accent, pulsePhase)
+                    if (fraction < 1f) {
+                        foundFocus = painter.drawWritingParagraphHighlight(
+                            canvas, b, showNotes, BOARD_WIDTH, MARGIN, fraction, accent, pulsePhase
+                        )
+                    } else if (narratingActive || alreadyPrintedReplay) {
+                        foundFocus = painter.drawLiveParagraphFocus(
+                            canvas, b, showNotes, BOARD_WIDTH, MARGIN, explainFrac, narratingTranscript, accent, pulsePhase
+                        )
+                    }
                 }
                 val ops = b.allOps(showNotes)
                 painter.drawOps(canvas, ops, fraction, alpha)
                 if (i == activeSpotlightIdx) {
                     if (fraction < 1f) {
-                        painter.drawWritingUnderline(canvas, accent, pulsePhase)
                         if (showPen && painter.tipVisible && !tipDrawn) {
                             val activeColor = if (painter.tipInk == Ink.INK) accent else StudyPalette.color(painter.tipInk)
                             painter.drawPen(canvas, painter.tipX, painter.tipY, activeColor, pulsePhase)
-                            foundFocusY = painter.tipY
+                            if (foundFocus == null) {
+                                foundFocus = StudyPainter.HighlightFocus(
+                                    (painter.tipY - 28f).coerceAtLeast(b.top),
+                                    (painter.tipY + 28f).coerceAtMost(b.bottom),
+                                    painter.tipY
+                                )
+                            }
                             tipDrawn = true
                         }
                     } else if (narratingActive || alreadyPrintedReplay) {
-                        // Already printed (replay, restored lesson, or finished writing while voice finishes):
-                        // underline and place pulsing spotlight pin directly along the explained line or diagram label
-                        val explainFrac = when {
-                            narratingActive && narratingBlockIndex == i -> narratingFraction.coerceIn(0.02f, 1f)
-                            alreadyPrintedReplay && pb.progress > 0f -> pb.progress.coerceIn(0.02f, 1f)
-                            pb.progress in 0.01f..0.99f -> pb.progress
-                            else -> 0.92f
-                        }
-                        val pinY = painter.drawLiveExplainFocus(
-                            canvas, b, ops, explainFrac, narratingTranscript, accent, pulsePhase
-                        )
-                        if (pinY != null) foundFocusY = pinY
+                        painter.drawLiveDiagramBeacon(canvas, b, showNotes, explainFrac, narratingTranscript, accent, pulsePhase)
                     }
                 }
                 if (i == selectedBlock) painter.drawSelection(canvas, b, BOARD_WIDTH, MARGIN, accent)
@@ -375,7 +394,14 @@ class StudyBoardView(context: Context) : View(context) {
                     painter.drawBookmark(canvas, b, BOARD_WIDTH, MARGIN, paperWarningColor())
                 }
             }
-            lastLiveFocusY = foundFocusY
+            if (foundFocus == null && activeSpotlightIdx in blocks.indices) {
+                val activeBlk = blocks[activeSpotlightIdx]
+                val pFrac = (if (narratingActive && narratingBlockIndex == activeSpotlightIdx) narratingFraction else pb.progress).coerceIn(0.15f, 0.85f)
+                foundFocus = StudyPainter.HighlightFocus(activeBlk.top, activeBlk.bottom, activeBlk.top + activeBlk.height * pFrac)
+            }
+            lastLiveFocusTop = foundFocus?.topY
+            lastLiveFocusBottom = foundFocus?.bottomY
+            lastLiveFocusY = foundFocus?.centerY
         }
         canvas.restore()
     }
@@ -423,12 +449,12 @@ class StudyBoardView(context: Context) : View(context) {
         }
     }
 
-    /** Keeps the active diagram, step, stylus tip, or live teacher pin safely inside the unobstructed visible board area. */
+    /** Keeps the active diagram, step, stylus tip, or highlighted paragraph safely centered in the visible board area. */
     private fun follow(): Boolean {
         val pb = playback ?: return false
         val targetBlockIdx = when {
-            pb.state == StudyPlayback.State.PLAYING && pb.current in blocks.indices -> pb.current
             narratingActive && narratingBlockIndex in blocks.indices -> narratingBlockIndex
+            pb.state == StudyPlayback.State.PLAYING && pb.current in blocks.indices -> pb.current
             else -> return false
         }
         if (height == 0 || width == 0) return false
@@ -436,42 +462,72 @@ class StudyBoardView(context: Context) : View(context) {
         val bs = baseScale()
         val avail = availHeight()
 
-        // If a diagram block is taller than the visible viewport at current zoom, ease cleanly toward a fit scale
+        val beforeZoom = zoom
+        // Keep active teaching text crisp at 1x zoom; fit tall diagrams comfortably in viewport
         if (b.kind == StepKind.DIAGRAM && b.height * bs > avail * 0.92f) {
             val desiredZoom = ((avail * 0.92f) / (b.height * bs)).coerceIn(minAllowedZoom(), 1f)
             if (zoom > desiredZoom + 0.015f) {
                 zoom += (desiredZoom - zoom) * 0.14f
             }
+        } else if (zoom < 0.96f) {
+            zoom += (1f - zoom) * 0.14f
         }
 
         val s = scale()
-        val blockTopPx = b.top * s + ty
-        val blockBotPx = b.bottom * s + ty
+        val hiTop = lastLiveFocusTop?.takeIf { it in (b.top - 16f)..b.bottom } ?: b.top
+        val hiBot = lastLiveFocusBottom?.takeIf { it in b.top..(b.bottom + 16f) } ?: b.bottom
+        val hiMid = lastLiveFocusY?.takeIf { it in (b.top - 16f)..(b.bottom + 16f) } ?: ((hiTop + hiBot) * 0.5f)
+        val hiSpanPx = (hiBot - hiTop).coerceAtLeast(24f) * s
+        val topPad = avail * 0.10f
+        val botPad = avail * 0.78f
+        val hiTopPx = hiTop * s + ty
+        val hiBotPx = hiBot * s + ty
         val beforeTy = ty
 
-        if (b.height * s <= avail * 0.96f) {
-            // Whole active block fits on screen: ensure both top AND bottom sit cleanly inside [8..avail-8]
-            val pad = resources.displayMetrics.density * 8f
+        if (hiSpanPx <= botPad - topPad) {
+            val idealCenterY = avail * 0.40f
             val targetTy = when {
-                blockTopPx < pad -> -(b.top * s - pad)
-                blockBotPx > avail - pad -> -(b.bottom * s - (avail - pad))
+                hiTopPx < topPad || hiBotPx > botPad -> -(hiMid * s - idealCenterY)
                 else -> ty
             }
             if (abs(targetTy - ty) > 0.5f) {
-                ty += (targetTy - ty) * 0.16f
+                ty += (targetTy - ty) * 0.18f
             }
         } else {
-            // Long block: follow live teacher pin / stylus tip (when available) or progress safely above bottom controls
-            val focusBoardY = lastLiveFocusY ?: if (painter.tipVisible) painter.tipY else (b.top + b.height * pb.progress)
-            val focusPx = focusBoardY * s + ty
-            if (focusPx < avail * 0.14f || focusPx > avail * 0.80f) {
-                val targetTy = -(focusBoardY * s - avail * 0.50f)
-                ty += (targetTy - ty) * 0.14f
+            val focusMidPx = hiMid * s + ty
+            if (focusMidPx < avail * 0.16f || focusMidPx > avail * 0.70f) {
+                val targetTy = -(hiMid * s - avail * 0.42f)
+                ty += (targetTy - ty) * 0.18f
             }
         }
         clampPan()
         notifyViewport()
-        return abs(beforeTy - ty) > 0.2f
+        return abs(beforeTy - ty) > 0.2f || abs(beforeZoom - zoom) > 0.002f
+    }
+
+    /** Immediately follows and scrolls cleanly onto whichever block or paragraph is currently highlighted. */
+    fun scrollToActive() {
+        followPen = true
+        autoFittedFinishForCount = -1
+        val pb = playback
+        val activeIdx = when {
+            narratingActive && narratingBlockIndex in blocks.indices -> narratingBlockIndex
+            pb != null && pb.current in blocks.indices -> pb.current
+            else -> -1
+        }
+        if (activeIdx in blocks.indices && height > 0 && width > 0) {
+            val b = blocks[activeIdx]
+            if (b.kind != StepKind.DIAGRAM && zoom < 0.98f) zoom = 1f
+            val s = scale()
+            val focusY = lastLiveFocusY?.takeIf { it in b.top..b.bottom } ?: (b.top + b.height * 0.45f)
+            ty = -(focusY * s - availHeight() * 0.42f)
+            clampPan()
+            invalidate()
+            notifyViewport(true)
+            kick()
+        } else {
+            scrollToEnd()
+        }
     }
 
     fun reveal(index: Int) {

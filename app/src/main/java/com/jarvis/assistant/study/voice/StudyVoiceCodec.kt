@@ -173,7 +173,7 @@ object StudyVoiceCodec {
             segments.add(LessonSegment(idx, text, startFrac, endFrac, words))
         }
         val script = valid.joinToString("\n") { it.second }
-        val estMs = (script.length * 65L).coerceIn(2_000L, 180_000L)
+        val estMs = (script.length * 80L).coerceIn(2_000L, 240_000L)
         return ContinuousPlan(script, segments, estMs)
     }
 
@@ -182,6 +182,16 @@ object StudyVoiceCodec {
         if (segments.isEmpty()) return null
         val p = progressFrac.coerceIn(0f, 1f)
         return segments.firstOrNull { p < it.endFrac }?.blockIndex ?: segments.last().blockIndex
+    }
+
+    /** Returns `(blockIndex, localFraction 0f..1f)` for normalized plan progress [0f..1f]. */
+    fun segmentStateForProgress(segments: List<LessonSegment>, progressFrac: Float): Pair<Int, Float>? {
+        if (segments.isEmpty()) return null
+        val p = progressFrac.coerceIn(0f, 1f)
+        val seg = segments.firstOrNull { p < it.endFrac } ?: segments.last()
+        val span = (seg.endFrac - seg.startFrac).coerceAtLeast(0.005f)
+        val local = ((p - seg.startFrac) / span).coerceIn(0f, 1f)
+        return seg.blockIndex to local
     }
 
     /**
