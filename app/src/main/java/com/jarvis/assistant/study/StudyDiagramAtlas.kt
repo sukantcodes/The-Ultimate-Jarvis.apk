@@ -1587,7 +1587,7 @@ object StudyDiagramAtlas {
             Triple(81f, 45f, 2.6f to Ink.VIOLET)
         )
         for ((px, py, meta) in planets) {
-            items += circle(px, py, meta.second, meta.second, fillInk = meta.second, alpha = 0.65f, stroke = 0.9f, layer = 0)
+            items += circle(px, py, meta.first, meta.second, fillInk = meta.second, alpha = 0.65f, stroke = 0.9f, layer = 0)
         }
         // Saturn ring
         items += oval(71f, 41f, 6.2f, 1.9f, Ink.ORANGE, rot = -22f, fill = false, stroke = 1.15f, layer = 2)
@@ -1661,7 +1661,7 @@ object StudyDiagramAtlas {
         items += line(33f, 43f, 67f, 43f, Ink.NOTE, arrow = true, dashed = true, stroke = 0.85f, layer = 2)
         // Rotating Armature ABCD + axle + Slip Rings + Brushes + Galvanometer load
         items += poly(listOf(40f, 28f, 60f, 24f, 60f, 48f, 40f, 52f), Ink.ORANGE, smooth = false, fill = true, fillInk = Ink.GOLD, alpha = 0.22f, stroke = 1.5f, layer = 0)
-        items += arc(50f, 22f, 8f, 4f, 190f, 160f, Ink.RESULT, arrow = false, stroke = 1.2f, layer = 2)
+        items += arc(50f, 22f, 8f, 4f, 190f, 160f, Ink.RESULT, stroke = 1.2f, layer = 2)
         items += line(46f, 51f, 46f, 62f, Ink.ORANGE, stroke = 1.2f, layer = 2)
         items += line(54f, 49f, 54f, 70f, Ink.ORANGE, stroke = 1.2f, layer = 2)
         items += oval(50f, 62f, 8f, 2.5f, Ink.GOLD, fillInk = Ink.GOLD, alpha = 0.45f, stroke = 1.15f, layer = 0)

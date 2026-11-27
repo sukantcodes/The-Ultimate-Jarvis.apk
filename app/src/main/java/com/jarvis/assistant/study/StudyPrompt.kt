@@ -74,7 +74,7 @@ If unsolvable: {"type":"declined","reason":"..."}
 
 CONTENT RULES
 - Classroom whiteboard style: zero greetings, filler, summaries or markdown (`**`, `*`, `#`, `` ` ``, ```, `>`). Highlight key phrases via `Term: meaning`, crisp points via `• ` or `1. `, and typed objects (`given`/`formula`/`definition`/`step`/`diagram`/`final`).
-- Math LaTeX inside "content"/"answer" only: \frac{a}{b}, x^{2}, x_{1}, \sqrt{x}, \times, \cdot, \pm, \leq, \geq, \neq, \approx, \rightarrow, \pi, \theta, \Delta, \alpha, \ce{H2O}. No `$`, `\[`, `\textbf`, or `\color`.
+- Math LaTeX inside "content"/"answer" only: \frac{a}{b}, x^{2}, x_{1}, \sqrt{x}, \times, \cdot, \pm, \leq, \geq, \neq, \approx, \rightarrow, \pi, \theta, \Delta, \alpha, \ce{H2O}. No dollar signs, no \[, \textbf, or \color.
 - One move per step; every number must follow from prior steps; check equations/atom counts/signs carefully.
 - "say": brief natural teacher voice in the lesson language; read math as words ("x squared"), never LaTeX syntax.
 - "explanation": one short sentence why the move works (omit if obvious).
