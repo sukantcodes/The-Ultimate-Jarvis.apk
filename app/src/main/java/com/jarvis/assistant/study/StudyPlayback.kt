@@ -114,10 +114,14 @@ class StudyPlayback {
 
     fun durationOf(i: Int): Long = durations.getOrElse(i) { 0L }
 
+    /** True when re-explaining an already-printed lesson (keep existing strokes visible while moving underline/pin). */
+    var continuousKeepPrinted = false
+        private set
+
     fun clear() {
         durations.clear()
         current = -1; progress = 0f; writingDone = false; stopAfterCurrent = false
-        highWater = -1; othersStayVisible = false; syncedMaxProgress = null
+        highWater = -1; othersStayVisible = false; continuousKeepPrinted = false; syncedMaxProgress = null
         setState(State.IDLE)
     }
 
@@ -152,26 +156,33 @@ class StudyPlayback {
     /** Writes the current block again from the start, then stops. */
     fun replayCurrent() {
         if (durations.isEmpty()) return
+        continuousKeepPrinted = false
         stopAfterCurrent = true
         startBlock(current.coerceAtLeast(0), replay = true, single = true)
     }
 
     fun replayAll() {
         if (durations.isEmpty()) return
+        continuousKeepPrinted = false
         stopAfterCurrent = false
         startBlock(0, replay = true)
     }
 
-    /** Begins continuous full-lesson playback at [index] without single-step pause or replay flag. */
-    fun startContinuousFrom(index: Int) {
+    /** Begins continuous full-lesson playback at [index], optionally keeping all prior printed strokes visible. */
+    fun startContinuousFrom(index: Int, keepPrinted: Boolean = false) {
         if (index !in durations.indices) return
+        continuousKeepPrinted = keepPrinted
         stopAfterCurrent = false
-        startBlock(index, replay = false, single = false)
+        startBlock(index, replay = false, single = keepPrinted)
+        if (keepPrinted) {
+            highWater = durations.lastIndex
+        }
     }
 
     /** Jumps so that blocks before [index] count as written and [index] is the one being written. */
     fun seek(index: Int) {
         if (index !in durations.indices) return
+        continuousKeepPrinted = false
         stopAfterCurrent = true
         startBlock(index, replay = true, single = true)
     }
@@ -184,9 +195,9 @@ class StudyPlayback {
         stopAfterCurrent = false
         if (current >= 0 && !writingDone) completeCurrentBlock(finishListener = true)
         current = targetIndex
-        othersStayVisible = false
+        othersStayVisible = continuousKeepPrinted
         syncedMaxProgress = null
-        if (targetIndex > highWater) highWater = targetIndex
+        highWater = if (continuousKeepPrinted) durations.lastIndex else maxOf(highWater, targetIndex)
         progress = 0f
         writingDone = false
         startGate = false

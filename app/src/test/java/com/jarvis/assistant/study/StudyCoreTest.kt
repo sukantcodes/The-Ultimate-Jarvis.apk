@@ -867,4 +867,59 @@ class StudyControllerAndVoiceUpgradeTest {
         repeat(30) { pb.advance(100) }
         assertEquals(1f, pb.progress, 0.01f)
     }
+
+    @Test fun segmentFrameProgressLocksToRecordedAudioBoundariesAndInterpolatesGaps() {
+        val c = com.jarvis.assistant.study.voice.StudyVoiceCodec
+        val plan = c.buildContinuousPlan(
+            listOf(
+                1 to "First we list the given force and mass values",
+                2 to "Next apply Newton second law F equals m a",
+                3 to "Finally divide force by mass to get acceleration"
+            )
+        )
+        assertEquals(3, plan.segments.size)
+        val totalFrames = 240_000L // 10 seconds at 24kHz
+        // Segment 1 starts at 2.0s (48k frames), segment 2 wasn't matched (-1L -> interpolated smoothly)
+        val bounds = longArrayOf(0L, 48_000L, -1L)
+
+        val pStart = c.progressFromSegmentFrames(plan.segments, bounds, 0L, totalFrames)
+        val pMid0 = c.progressFromSegmentFrames(plan.segments, bounds, 24_000L, totalFrames)
+        val pAtSeg1 = c.progressFromSegmentFrames(plan.segments, bounds, 48_000L, totalFrames)
+        val pLate = c.progressFromSegmentFrames(plan.segments, bounds, 180_000L, totalFrames)
+        val pEnd = c.progressFromSegmentFrames(plan.segments, bounds, totalFrames, totalFrames)
+
+        assertEquals(0f, pStart, 0.001f)
+        assertTrue(pMid0 > pStart && pMid0 < plan.segments[0].endFrac)
+        assertEquals(plan.segments[1].startFrac, pAtSeg1, 0.01f)
+        assertTrue(pLate > pAtSeg1 && pLate > plan.segments[2].startFrac)
+        assertTrue(pEnd in 0.98f..0.995f)
+    }
+
+    @Test fun keepPrintedReplayPreservesExistingBoardWhileAdvancingSpotlight() {
+        val pb = StudyPlayback()
+        pb.setGenerationOpen(false)
+        repeat(4) { pb.addBlock(1_500L) }
+        pb.jumpToEnd()
+        pb.startContinuousFrom(1, keepPrinted = true)
+        assertTrue(pb.continuousKeepPrinted)
+        assertTrue(pb.othersStayVisible)
+        assertEquals(3, pb.highWater)
+
+        pb.advanceContinuous(2)
+        assertTrue(pb.continuousKeepPrinted)
+        assertTrue(pb.othersStayVisible)
+        assertEquals(3, pb.highWater)
+
+        pb.replayAll()
+        assertFalse(pb.continuousKeepPrinted)
+        assertFalse(pb.othersStayVisible)
+    }
+
+    @Test fun teacherPromptIncludesCheckInsMemoryTricksAndTransitions() {
+        val prompt = StudyPrompt.lessonSystem(StudyProfile(language = "English"))
+        assertTrue(prompt.contains("Never write greetings"))
+        assertTrue(prompt.contains("Key Point & Memory Trick"))
+        assertTrue(prompt.contains("I hope you understood"))
+        assertTrue(prompt.contains("connects to the previous step"))
+    }
 }

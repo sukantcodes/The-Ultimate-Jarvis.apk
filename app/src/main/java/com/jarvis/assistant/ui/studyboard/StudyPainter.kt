@@ -136,8 +136,20 @@ class StudyPainter(private val fonts: StudyFonts) {
     var tipInk: Ink = Ink.ACCENT; private set
     var tipVisible = false; private set
 
+    /** Active glyph row bounds for live writing underline synchronized with voice. */
+    var activeLineVisible = false; private set
+    var activeLineMinX = 0f; private set
+    var activeLineMaxX = 0f; private set
+    var activeLineY = 0f; private set
+    var activeLineSize = 0f; private set
+    var lastOpWasGlyph = false; private set
+
     fun drawOps(canvas: Canvas, ops: List<DrawOp>, fraction: Float, alpha: Int = 255): Boolean {
         tipVisible = false
+        activeLineVisible = false
+        lastOpWasGlyph = false
+        activeLineMinX = Float.MAX_VALUE
+        activeLineMaxX = Float.MIN_VALUE
         if (ops.isEmpty()) return true
         val f = fraction.coerceIn(0f, 1f)
         if (f >= 1f) {
@@ -228,6 +240,23 @@ class StudyPainter(private val fonts: StudyFonts) {
                 text.style = Paint.Style.FILL
                 text.color = StudyPalette.color(op.ink)
                 text.alpha = alpha
+                if (op.text.isNotBlank() && frac > 0f) {
+                    val w = text.measureText(op.text)
+                    val reachedRight = if (frac >= 1f) op.x + w else op.x + w * frac
+                    val sameRow = activeLineVisible && abs(op.y - activeLineY) <= max(activeLineSize, op.size) * 0.72f
+                    if (sameRow) {
+                        activeLineMinX = min(activeLineMinX, op.x)
+                        activeLineMaxX = max(activeLineMaxX, reachedRight)
+                        if (op.size > activeLineSize) activeLineSize = op.size
+                    } else {
+                        activeLineMinX = op.x
+                        activeLineMaxX = reachedRight
+                        activeLineY = op.y
+                        activeLineSize = op.size
+                        activeLineVisible = true
+                    }
+                    lastOpWasGlyph = true
+                }
                 if (frac >= 1f) {
                     canvas.drawText(op.text, op.x, op.y, text)
                 } else {
@@ -241,6 +270,7 @@ class StudyPainter(private val fonts: StudyFonts) {
                 }
             }
             is DrawOp.Line -> {
+                lastOpWasGlyph = false
                 applyStroke(op.ink, op.stroke, alpha, op.dashed)
                 val x = op.x1 + (op.x2 - op.x1) * frac
                 val y = op.y1 + (op.y2 - op.y1) * frac
@@ -248,10 +278,10 @@ class StudyPainter(private val fonts: StudyFonts) {
                 strokePaint.pathEffect = null
                 if (frac < 1f) setTip(x, y, op.ink)
             }
-            is DrawOp.Poly -> drawPoly(canvas, op, frac, alpha)
-            is DrawOp.Oval -> drawOval(canvas, op, frac, alpha)
-            is DrawOp.Arc -> drawArc(canvas, op, frac, alpha)
-            is DrawOp.Rect -> drawRect(canvas, op, frac, alpha)
+            is DrawOp.Poly -> { lastOpWasGlyph = false; drawPoly(canvas, op, frac, alpha) }
+            is DrawOp.Oval -> { lastOpWasGlyph = false; drawOval(canvas, op, frac, alpha) }
+            is DrawOp.Arc -> { lastOpWasGlyph = false; drawArc(canvas, op, frac, alpha) }
+            is DrawOp.Rect -> { lastOpWasGlyph = false; drawRect(canvas, op, frac, alpha) }
         }
     }
 
@@ -425,17 +455,51 @@ class StudyPainter(private val fonts: StudyFonts) {
         canvas.drawPath(path, panelPaint)
     }
 
-    /** Precision colour-matched stylus tip with translucent aura halo when writing or colouring live. */
-    fun drawPen(canvas: Canvas, x: Float, y: Float, color: Int) {
+    /** Draws the luminous active highlighter wash + underline trailing behind the writing pen on the current text row. */
+    fun drawWritingUnderline(canvas: Canvas, accentColor: Int, pulsePhase: Float) {
+        if (!activeLineVisible || !lastOpWasGlyph) return
+        val right = max(activeLineMaxX, activeLineMinX + 6f)
+        val glow = 0.85f + 0.15f * sin(pulsePhase.toDouble()).toFloat()
+
+        panelPaint.pathEffect = null
+        panelPaint.style = Paint.Style.FILL
+        panelPaint.color = accentColor
+        panelPaint.alpha = (22 * glow).toInt().coerceIn(14, 30)
+        rect.set(
+            activeLineMinX - 4f,
+            activeLineY - activeLineSize * 0.86f,
+            right + 4f,
+            activeLineY + activeLineSize * 0.24f
+        )
+        canvas.drawRoundRect(rect, 7f, 7f, panelPaint)
+
+        val underlineY = activeLineY + activeLineSize * 0.22f
+        strokePaint.pathEffect = null
+        strokePaint.color = accentColor
+        strokePaint.alpha = (64 * glow).toInt().coerceIn(45, 85)
+        strokePaint.strokeWidth = 8.5f
+        canvas.drawLine(activeLineMinX - 2f, underlineY, right, underlineY, strokePaint)
+
+        strokePaint.alpha = 238
+        strokePaint.strokeWidth = 3.8f
+        canvas.drawLine(activeLineMinX - 2f, underlineY, right, underlineY, strokePaint)
+    }
+
+    /** Precision colour-matched stylus tip + pulsing laser aura halo when writing or drawing live. */
+    fun drawPen(canvas: Canvas, x: Float, y: Float, color: Int, pulsePhase: Float = 0f) {
+        val pulse = 1f + 0.18f * sin(pulsePhase.toDouble()).toFloat()
         panelPaint.pathEffect = null
         panelPaint.style = Paint.Style.FILL
         panelPaint.color = color
-        panelPaint.alpha = 46
-        canvas.drawCircle(x, y, 16f, panelPaint)
-        panelPaint.alpha = 110
-        canvas.drawCircle(x, y, 9.5f, panelPaint)
-        panelPaint.alpha = 240
-        canvas.drawCircle(x, y, 5f, panelPaint)
+        panelPaint.alpha = 44
+        canvas.drawCircle(x, y, 20f * pulse, panelPaint)
+        panelPaint.alpha = 112
+        canvas.drawCircle(x, y, 11.5f * (0.94f + 0.10f * pulse), panelPaint)
+        panelPaint.alpha = 246
+        canvas.drawCircle(x, y, 5.8f, panelPaint)
+        panelPaint.color = StudyPalette.PAPER
+        panelPaint.alpha = 255
+        canvas.drawCircle(x, y, 2.2f, panelPaint)
     }
 
     /** Soft luminous spotlight card + left ribbon showing which board step JARVIS is actively teaching. */
@@ -503,11 +567,15 @@ class StudyPainter(private val fonts: StudyFonts) {
             val activeIdx = matchedIdx ?: fallbackIdx
             val line = lines[activeIdx]
 
+            val localProg = f * lines.size - activeIdx
             val spanFrac = if (matchedIdx != null) {
-                // Smoothly sweep underline across a matched line
-                ((f * lines.size - activeIdx).takeIf { it in 0f..1f } ?: 0.92f).coerceIn(0.35f, 1f)
+                when {
+                    localProg in 0f..1f -> localProg.coerceIn(0.24f, 1f)
+                    localProg < 0f -> (0.28f + (1f + localProg).coerceIn(0f, 0.5f) * 0.44f).coerceIn(0.24f, 0.65f)
+                    else -> 0.94f
+                }
             } else {
-                (f * lines.size - activeIdx).coerceIn(0.18f, 1f)
+                localProg.coerceIn(0.18f, 1f)
             }
             val sweepRight = line.minX + (line.maxX - line.minX).coerceAtLeast(18f) * spanFrac
 
@@ -515,7 +583,7 @@ class StudyPainter(private val fonts: StudyFonts) {
             panelPaint.pathEffect = null
             panelPaint.style = Paint.Style.FILL
             panelPaint.color = accentColor
-            panelPaint.alpha = 26
+            panelPaint.alpha = 28
             rect.set(
                 line.minX - 5f,
                 line.baselineY - line.fontSize * 0.88f,
@@ -524,16 +592,16 @@ class StudyPainter(private val fonts: StudyFonts) {
             )
             canvas.drawRoundRect(rect, 7f, 7f, panelPaint)
 
-            // 2. Smooth progressive highlighter underline + soft glow
+            // 2. Smooth progressive highlighter underline + prominent luminous glow
             val underlineY = line.baselineY + line.fontSize * 0.22f
             strokePaint.pathEffect = null
             strokePaint.color = accentColor
-            strokePaint.alpha = 52
-            strokePaint.strokeWidth = 7.5f
+            strokePaint.alpha = 68
+            strokePaint.strokeWidth = 9.5f
             canvas.drawLine(line.minX - 3f, underlineY, sweepRight, underlineY, strokePaint)
 
-            strokePaint.alpha = 225
-            strokePaint.strokeWidth = 3.2f
+            strokePaint.alpha = 240
+            strokePaint.strokeWidth = 4.2f
             canvas.drawLine(line.minX - 2f, underlineY, sweepRight, underlineY, strokePaint)
 
             // 3. Pulsing Teacher Pin at leading point of explanation
@@ -595,29 +663,36 @@ class StudyPainter(private val fonts: StudyFonts) {
         fallbackIdx: Int,
         isDiagram: Boolean
     ): Int? {
-        if (spokenTranscript.length < 10 || lines.size <= 1) return null
-        val tailWords = spokenTranscript.takeLast(90).lowercase()
+        if (spokenTranscript.length < 6 || lines.size <= 1) return null
+        val tailStr = spokenTranscript.takeLast(46).lowercase()
+        val veryTailStr = spokenTranscript.takeLast(22).lowercase()
+        val tailWords = tailStr
             .replace(Regex("[^\\p{L}\\p{N}\\s]"), " ")
             .split(Regex("\\s+"))
-            .filter { it.length >= 4 }
+            .filter { w -> w.length >= 3 || (w.length >= 2 && w.any { it.isDigit() }) }
         if (tailWords.isEmpty()) return null
 
         var bestIdx = -1
         var bestScore = 0
         for (i in lines.indices) {
-            // Diagrams allow free label snapping anywhere; regular text steps prefer local window around fallbackIdx
-            if (!isDiagram && abs(i - fallbackIdx) > max(2, lines.size / 2)) continue
+            // Regular text progresses forward smoothly with voice; diagrams allow direct label pinning
+            if (!isDiagram && (i < fallbackIdx - 1 || abs(i - fallbackIdx) > max(2, lines.size / 2))) continue
             val lineLow = lines[i].text.lowercase()
-            var hits = 0
+            var score = 0
             for (w in tailWords) {
-                if (lineLow.contains(w)) hits++
+                if (lineLow.contains(w)) {
+                    val baseW = if (w.length >= 4 || w.any { it.isDigit() }) 2 else 1
+                    val recencyBoost = if (veryTailStr.contains(w)) 2 else 0
+                    score += baseW + recencyBoost
+                }
             }
-            if (hits > bestScore) {
-                bestScore = hits
+            if (score > 0 && i == fallbackIdx) score += 1
+            if (score > bestScore || (score == bestScore && score > 0 && abs(i - fallbackIdx) < abs(bestIdx - fallbackIdx))) {
+                bestScore = score
                 bestIdx = i
             }
         }
-        return if (bestIdx >= 0 && bestScore >= 1) bestIdx else null
+        return if (bestIdx >= 0 && bestScore >= 2) bestIdx else null
     }
 
     private fun findShapeFocusPoint(ops: List<DrawOp>, frac: Float): Pair<Float, Float>? {

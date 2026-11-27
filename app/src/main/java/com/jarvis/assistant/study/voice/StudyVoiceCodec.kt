@@ -183,4 +183,71 @@ object StudyVoiceCodec {
         val p = progressFrac.coerceIn(0f, 1f)
         return segments.firstOrNull { p < it.endFrac }?.blockIndex ?: segments.last().blockIndex
     }
+
+    /**
+     * Converts actual played PCM [playedFrames] into normalized plan progress [0f..1f] using recorded
+     * server-side segment transition frame offsets [segmentStartFrames] when available, giving near sample-exact
+     * alignment between whiteboard drawing/underlining and spoken audio.
+     */
+    fun progressFromSegmentFrames(
+        segments: List<LessonSegment>,
+        segmentStartFrames: LongArray,
+        playedFrames: Long,
+        totalFrames: Long
+    ): Float {
+        if (segments.isEmpty() || totalFrames <= 0L) return 0f
+        val n = segments.size
+        val effBounds = LongArray(n + 1)
+        effBounds[0] = 0L
+        effBounds[n] = totalFrames
+
+        // Seed monotonic resolved anchors from server frame boundaries
+        val known = BooleanArray(n + 1)
+        known[0] = true
+        known[n] = true
+        var lastKnownFrame = 0L
+        for (i in 1 until n) {
+            val raw = if (i < segmentStartFrames.size) segmentStartFrames[i] else -1L
+            if (raw >= 0L) {
+                val clamped = raw.coerceIn(lastKnownFrame, totalFrames)
+                effBounds[i] = clamped
+                known[i] = true
+                lastKnownFrame = clamped
+            }
+        }
+
+        // Fill any unresolved intermediate bounds using segment weight proportions between adjacent anchors
+        var leftIdx = 0
+        while (leftIdx < n) {
+            var rightIdx = leftIdx + 1
+            while (rightIdx < n && !known[rightIdx]) rightIdx++
+            if (rightIdx - leftIdx > 1) {
+                val leftFrame = effBounds[leftIdx]
+                val rightFrame = maxOf(leftFrame, effBounds[rightIdx])
+                val leftFrac = segments[leftIdx].startFrac
+                val rightFrac = if (rightIdx >= n) 1f else segments[rightIdx].startFrac
+                val fracSpan = (rightFrac - leftFrac).coerceAtLeast(0.001f)
+                for (k in (leftIdx + 1) until rightIdx) {
+                    val rel = ((segments[k].startFrac - leftFrac) / fracSpan).coerceIn(0f, 1f)
+                    effBounds[k] = (leftFrame + ((rightFrame - leftFrame) * rel).toLong())
+                        .coerceIn(effBounds[k - 1], rightFrame)
+                }
+            }
+            leftIdx = rightIdx
+        }
+
+        val safePlayed = playedFrames.coerceIn(0L, totalFrames)
+        var activeSeg = n - 1
+        for (i in 0 until n) {
+            if (safePlayed < effBounds[i + 1] || i == n - 1) {
+                activeSeg = i
+                break
+            }
+        }
+        val curStart = effBounds[activeSeg]
+        val nextEnd = maxOf(curStart + 1L, effBounds[activeSeg + 1])
+        val inSegFrac = ((safePlayed - curStart).toFloat() / (nextEnd - curStart).toFloat()).coerceIn(0f, 1f)
+        val seg = segments[activeSeg]
+        return (seg.startFrac + inSegFrac * (seg.endFrac - seg.startFrac)).coerceIn(0f, 0.995f)
+    }
 }

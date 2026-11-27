@@ -236,7 +236,7 @@ class StudyBoardView(context: Context) : View(context) {
             var changed = false
             if (pb != null && pb.advance(dt)) changed = true
             if (followPen) changed = follow() || changed
-            if (narratingActive) {
+            if (narratingActive || pb?.state == StudyPlayback.State.PLAYING) {
                 pulsePhase += dt * 0.006f
                 changed = true
             }
@@ -348,9 +348,10 @@ class StudyBoardView(context: Context) : View(context) {
                 painter.drawOps(canvas, ops, fraction, alpha)
                 if (i == activeSpotlightIdx) {
                     if (fraction < 1f) {
+                        painter.drawWritingUnderline(canvas, accent, pulsePhase)
                         if (showPen && painter.tipVisible && !tipDrawn) {
                             val activeColor = if (painter.tipInk == Ink.INK) accent else StudyPalette.color(painter.tipInk)
-                            painter.drawPen(canvas, painter.tipX, painter.tipY, activeColor)
+                            painter.drawPen(canvas, painter.tipX, painter.tipY, activeColor, pulsePhase)
                             foundFocusY = painter.tipY
                             tipDrawn = true
                         }
@@ -358,8 +359,9 @@ class StudyBoardView(context: Context) : View(context) {
                         // Already printed (replay, restored lesson, or finished writing while voice finishes):
                         // underline and place pulsing spotlight pin directly along the explained line or diagram label
                         val explainFrac = when {
-                            narratingActive && narratingBlockIndex == i && narratingFraction > 0.01f -> narratingFraction
-                            alreadyPrintedReplay && pb.progress > 0f && pb.progress < 1f -> pb.progress
+                            narratingActive && narratingBlockIndex == i -> narratingFraction.coerceIn(0.02f, 1f)
+                            alreadyPrintedReplay && pb.progress > 0f -> pb.progress.coerceIn(0.02f, 1f)
+                            pb.progress in 0.01f..0.99f -> pb.progress
                             else -> 0.92f
                         }
                         val pinY = painter.drawLiveExplainFocus(

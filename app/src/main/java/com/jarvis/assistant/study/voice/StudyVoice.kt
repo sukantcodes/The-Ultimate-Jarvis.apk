@@ -9,6 +9,7 @@ import android.media.MediaPlayer
 import android.media.PlaybackParams
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
 import com.google.gson.JsonArray
@@ -201,13 +202,14 @@ class StudyVoice(context: Context) {
             return my
         }
         val chunks = splitIntoNaturalChunks(plan.segments.map { it.text }, maxChunkChars = 1_500)
-        return speakChunks(chunks, plan.estimatedDurationMs, languageHint)
+        return speakChunks(chunks, plan.estimatedDurationMs, languageHint, plan.segments)
     }
 
     private fun speakChunks(
         chunks: List<String>,
         estimatedDurationMs: Long,
-        languageHint: String
+        languageHint: String,
+        planSegments: List<StudyVoiceCodec.LessonSegment> = emptyList()
     ): Long {
         stopAudioOnly(keepLiveSession = true)
         val my = ++token
@@ -233,6 +235,7 @@ class StudyVoice(context: Context) {
             val started = livePlayer.speakQueue(
                 token = my,
                 chunks = chunks,
+                planSegments = planSegments,
                 estimatedDurationMs = estimatedDurationMs,
                 voiceName = selectedGeminiVoice(),
                 languageName = langName,
@@ -260,7 +263,7 @@ class StudyVoice(context: Context) {
                             callback?.onFinished(t, true, "")
                             scheduleWakeResume(WAKE_RESUME_MS)
                         } else if (shouldFallback) {
-                            speakBuffered(joined, estimatedDurationMs, languageHint, t)
+                            speakBuffered(joined, estimatedDurationMs, languageHint, t, planSegments)
                         } else {
                             noteFailure()
                             callback?.onFinished(t, false, NO_VOICE)
@@ -272,7 +275,7 @@ class StudyVoice(context: Context) {
             if (started) return my
         }
 
-        speakBuffered(joined, estimatedDurationMs, languageHint, my)
+        speakBuffered(joined, estimatedDurationMs, languageHint, my, planSegments)
         return my
     }
 
@@ -307,7 +310,13 @@ class StudyVoice(context: Context) {
         }
     }
 
-    private fun speakBuffered(clean: String, estimatedDurationMs: Long, languageHint: String, my: Long) {
+    private fun speakBuffered(
+        clean: String,
+        estimatedDurationMs: Long,
+        languageHint: String,
+        my: Long,
+        planSegments: List<StudyVoiceCodec.LessonSegment> = emptyList()
+    ) {
         val singlePart = if (clean.length <= 2_400) clean else clean.take(2_400)
         val key = keyFor(singlePart, languageHint)
         val pending = cache.remove(key) ?: scope.async { gate.withPermit { synthesizeWithRetry(singlePart, languageHint) } }
@@ -322,7 +331,7 @@ class StudyVoice(context: Context) {
                 } else {
                     failures = 0
                     cache[key] = pending
-                    playMediaBytes(bytes, estimatedDurationMs, my)
+                    playMediaBytes(bytes, estimatedDurationMs, my, planSegments)
                 }
             }
         }
@@ -349,7 +358,12 @@ class StudyVoice(context: Context) {
 
     // ----- buffered fallback player (REST TTS / ElevenLabs) -----
 
-    private fun playMediaBytes(bytes: ByteArray, estimatedDurationMs: Long, my: Long) {
+    private fun playMediaBytes(
+        bytes: ByteArray,
+        estimatedDurationMs: Long,
+        my: Long,
+        planSegments: List<StudyVoiceCodec.LessonSegment> = emptyList()
+    ) {
         try {
             val p = MediaPlayer()
             playerPaused = false
@@ -372,10 +386,15 @@ class StudyVoice(context: Context) {
                         callback?.onAmplitude(amp)
                         val dur = runCatching { active.duration }.getOrDefault(0).coerceAtLeast(estimatedDurationMs.toInt())
                         val pos = runCatching { active.currentPosition }.getOrDefault(0).coerceAtLeast(0)
-                        val frac = if (dur > 0) (pos.toFloat() / dur.toFloat()).coerceIn(0f, 0.99f) else 0f
+                        val frac = if (planSegments.isNotEmpty() && dur > 0) {
+                            val emptyBounds = LongArray(planSegments.size) { idx -> if (idx == 0) 0L else -1L }
+                            StudyVoiceCodec.progressFromSegmentFrames(planSegments, emptyBounds, pos.toLong(), dur.toLong())
+                        } else if (dur > 0) {
+                            (pos.toFloat() / dur.toFloat()).coerceIn(0f, 0.99f)
+                        } else 0f
                         callback?.onProgress(my, frac, "")
                     }
-                    main.postDelayed(this, 60L)
+                    main.postDelayed(this, 45L)
                 }
             }
             p.setOnPreparedListener { mp ->
@@ -686,7 +705,12 @@ class StudyVoice(context: Context) {
         private var worker: Thread? = null
         @Volatile private var activeFlushGen = 0
         @Volatile private var writtenFramesInTurn = 0L
-        @Volatile private var baselineHeadFrames = 0L
+        @Volatile private var serverFramesReceived = 0L
+        @Volatile private var activePlayWallStartMs = 0L
+        @Volatile private var accumulatedActivePlayMs = 0L
+        private var activePlanSegments: List<StudyVoiceCodec.LessonSegment> = emptyList()
+        private var segmentStartFrames: LongArray = LongArray(0)
+        private var nextSegCursor = 1
 
         fun isHealthy(): Boolean = System.currentTimeMillis() >= liveDisabledUntil.get()
 
@@ -712,7 +736,10 @@ class StudyVoice(context: Context) {
 
         fun pause() {
             if (activeTurnToken < 0L) return
-            userPaused.set(true)
+            if (!userPaused.getAndSet(true) && activePlayWallStartMs > 0L) {
+                accumulatedActivePlayMs += (SystemClock.elapsedRealtime() - activePlayWallStartMs).coerceAtLeast(0L)
+                activePlayWallStartMs = 0L
+            }
             synchronized(trackLock) {
                 runCatching {
                     track?.let { if (it.state == AudioTrack.STATE_INITIALIZED && it.playState == AudioTrack.PLAYSTATE_PLAYING) it.pause() }
@@ -722,6 +749,9 @@ class StudyVoice(context: Context) {
 
         fun resume(): Boolean {
             if (activeTurnToken < 0L || !userPaused.getAndSet(false)) return false
+            if (playing.get() && activePlayWallStartMs == 0L) {
+                activePlayWallStartMs = SystemClock.elapsedRealtime()
+            }
             synchronized(trackLock) {
                 runCatching {
                     track?.let {
@@ -736,6 +766,7 @@ class StudyVoice(context: Context) {
         fun speakQueue(
             token: Long,
             chunks: List<String>,
+            planSegments: List<StudyVoiceCodec.LessonSegment> = emptyList(),
             estimatedDurationMs: Long,
             voiceName: String,
             languageName: String,
@@ -754,6 +785,10 @@ class StudyVoice(context: Context) {
 
             synchronized(wsLock) {
                 activeTurnChunks = chunks.toList()
+                activePlanSegments = planSegments
+                segmentStartFrames = LongArray(planSegments.size) { idx -> if (idx == 0) 0L else -1L }
+                nextSegCursor = 1
+                serverFramesReceived = 0L
                 activeTurnVoice = voiceName
                 activeTurnLang = languageName
                 pendingTextChunks.clear()
@@ -1005,7 +1040,10 @@ class StudyVoice(context: Context) {
                         }
                     }
                     if (transChunk.isNotEmpty()) {
-                        accumulatedTranscript.append(transChunk)
+                        synchronized(wsLock) {
+                            accumulatedTranscript.append(transChunk)
+                            updateSegmentFrameBoundaryLocked()
+                        }
                     }
                 }
 
@@ -1028,6 +1066,7 @@ class StudyVoice(context: Context) {
                                     turnFirstAudioSent = true
                                     turnOnFirstAudio?.invoke(currentTurn)
                                 }
+                                serverFramesReceived += (pcm.size / 2).toLong()
                                 audioQueue.offer(pcm)
                             }
                         }
@@ -1120,14 +1159,13 @@ class StudyVoice(context: Context) {
                             if (genAtStart != activeFlushGen) continue
                             playing.set(true)
                             writtenFramesInTurn = 0L
+                            accumulatedActivePlayMs = 0L
+                            activePlayWallStartMs = SystemClock.elapsedRealtime()
                             synchronized(trackLock) {
                                 val t = track ?: initTrackLocked()
                                 applyPlaybackSpeed(t, rate)
-                                if (t.state == AudioTrack.STATE_INITIALIZED) {
-                                    baselineHeadFrames = t.playbackHeadPosition.toLong() and 0xFFFFFFFFL
-                                    if (t.playState != AudioTrack.PLAYSTATE_PLAYING) runCatching { t.play() }
-                                } else {
-                                    baselineHeadFrames = 0L
+                                if (t.state == AudioTrack.STATE_INITIALIZED && t.playState != AudioTrack.PLAYSTATE_PLAYING) {
+                                    runCatching { t.play() }
                                 }
                             }
                             for (piece in batch) {
@@ -1136,6 +1174,8 @@ class StudyVoice(context: Context) {
                                 writtenFramesInTurn += piece.size / 2
                             }
                             turnOnAmplitude?.invoke(AudioUtils.calculateRmsNormalized(first, first.size))
+                            lastProgressAt = System.currentTimeMillis()
+                            emitPlaybackProgress()
                         } else {
                             val chunk = audioQueue.poll(20, TimeUnit.MILLISECONDS)
                             if (chunk != null && chunk.isNotEmpty()) {
@@ -1144,7 +1184,7 @@ class StudyVoice(context: Context) {
                                 writeChunk(chunk)
                                 writtenFramesInTurn += chunk.size / 2
                                 val now = System.currentTimeMillis()
-                                if (now - lastProgressAt >= 90L) {
+                                if (now - lastProgressAt >= 45L) {
                                     lastProgressAt = now
                                     emitPlaybackProgress()
                                 }
@@ -1161,7 +1201,7 @@ class StudyVoice(context: Context) {
                                 }
                             } else {
                                 val now = System.currentTimeMillis()
-                                if (now - lastProgressAt >= 90L) {
+                                if (now - lastProgressAt >= 45L) {
                                     lastProgressAt = now
                                     emitPlaybackProgress()
                                 }
@@ -1179,26 +1219,65 @@ class StudyVoice(context: Context) {
             }
         }
 
+        private fun updateSegmentFrameBoundaryLocked() {
+            val segments = activePlanSegments
+            if (segments.size <= 1 || nextSegCursor >= segments.size) return
+            val fullText = accumulatedTranscript.toString()
+            val window = fullText.takeLast(140).lowercase()
+            val expectedFrames = ((expectedTotalMs * PCM_SAMPLE_RATE) / 1000L).coerceAtLeast(12_000L)
+            val seg = segments[nextSegCursor]
+            val minExpectedFrames = (seg.startFrac * 0.40f * expectedFrames).toLong()
+            if (serverFramesReceived < minExpectedFrames) return
+
+            val hitCount = seg.anchorWords.count { w -> w.length >= 3 && window.contains(w) }
+            val matched = (seg.anchorWords.size >= 2 && hitCount >= 2) ||
+                (seg.anchorWords.size == 1 && hitCount == 1 && seg.anchorWords[0].length >= 4)
+            if (matched) {
+                val prevBound = if (nextSegCursor > 0) segmentStartFrames[nextSegCursor - 1].coerceAtLeast(0L) else 0L
+                segmentStartFrames[nextSegCursor] = maxOf(prevBound, serverFramesReceived)
+                nextSegCursor++
+            }
+        }
+
         private fun emitPlaybackProgress() {
             val currentTurn = activeTurnToken
             if (currentTurn < 0L) return
-            val playedFrames = synchronized(trackLock) {
+            val halPos = synchronized(trackLock) {
                 val t = track ?: return@synchronized 0L
                 if (t.state != AudioTrack.STATE_INITIALIZED) 0L
-                else ((t.playbackHeadPosition.toLong() and 0xFFFFFFFFL) - baselineHeadFrames).coerceAtLeast(0L)
+                else (t.playbackHeadPosition.toLong() and 0xFFFFFFFFL)
             }
-            val playedMs = (playedFrames * 1000L) / PCM_SAMPLE_RATE
-            val totalWrittenMs = (writtenFramesInTurn * 1000L) / PCM_SAMPLE_RATE
-            val denomMs = if (turnAllServerDone) maxOf(totalWrittenMs, 500L) else maxOf(expectedTotalMs, playedMs + 1_200L)
-            val frac = (playedMs.toFloat() / denomMs.toFloat()).coerceIn(0f, 0.99f)
-            turnOnProgress?.invoke(currentTurn, frac, accumulatedTranscript.toString())
+            val wallElapsedMs = accumulatedActivePlayMs + if (!userPaused.get() && activePlayWallStartMs > 0L) {
+                (SystemClock.elapsedRealtime() - activePlayWallStartMs).coerceAtLeast(0L)
+            } else 0L
+            val wallFrames = ((wallElapsedMs * PCM_SAMPLE_RATE * rate.coerceIn(0.5f, 2.0f)) / 1000f).toLong()
+            val playedFrames = if (halPos in 1L..(writtenFramesInTurn + 4_800L)) {
+                halPos
+            } else {
+                wallFrames.coerceIn(0L, writtenFramesInTurn.coerceAtLeast(1L))
+            }
+            val expectedFrames = ((expectedTotalMs * PCM_SAMPLE_RATE) / 1000L).coerceAtLeast(12_000L)
+            val totalFrames = if (turnAllServerDone) {
+                maxOf(writtenFramesInTurn, playedFrames, 12_000L)
+            } else {
+                maxOf(expectedFrames, writtenFramesInTurn + 24_000L, playedFrames + 12_000L)
+            }
+            val segments = activePlanSegments
+            val frac = if (segments.isNotEmpty()) {
+                val snap = synchronized(wsLock) { segmentStartFrames.copyOf() }
+                StudyVoiceCodec.progressFromSegmentFrames(segments, snap, playedFrames, totalFrames)
+            } else {
+                (playedFrames.toFloat() / totalFrames.toFloat()).coerceIn(0f, 0.995f)
+            }
+            val transcript = synchronized(wsLock) { accumulatedTranscript.toString() }
+            turnOnProgress?.invoke(currentTurn, frac, transcript)
         }
 
         private fun waitForHardwareAudioDrain(genAtStart: Int): Boolean {
             val remainingStart = synchronized(trackLock) {
                 val t = track ?: return true
                 if (t.state != AudioTrack.STATE_INITIALIZED) return true
-                val head = (t.playbackHeadPosition.toLong() and 0xFFFFFFFFL) - baselineHeadFrames
+                val head = (t.playbackHeadPosition.toLong() and 0xFFFFFFFFL)
                 (writtenFramesInTurn - head.coerceAtLeast(0L)).coerceAtLeast(0L)
             }
             if (remainingStart <= 480L) return true
@@ -1213,7 +1292,7 @@ class StudyVoice(context: Context) {
                 val rem = synchronized(trackLock) {
                     val t = track ?: return true
                     if (t.state != AudioTrack.STATE_INITIALIZED) return true
-                    val head = (t.playbackHeadPosition.toLong() and 0xFFFFFFFFL) - baselineHeadFrames
+                    val head = (t.playbackHeadPosition.toLong() and 0xFFFFFFFFL)
                     (writtenFramesInTurn - head.coerceAtLeast(0L)).coerceAtLeast(0L)
                 }
                 if (rem <= 360L || System.currentTimeMillis() - startWall >= maxWaitMs) {
@@ -1228,7 +1307,7 @@ class StudyVoice(context: Context) {
             val minBytes = AudioTrack.getMinBufferSize(
                 PCM_SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT
             )
-            val bufBytes = maxOf(minBytes * 8, 96_000)
+            val bufBytes = maxOf(minBytes * 4, 48_000)
             val created = AudioTrack.Builder()
                 .setAudioAttributes(
                     AudioAttributes.Builder()
@@ -1283,7 +1362,9 @@ class StudyVoice(context: Context) {
             audioQueue.clear()
             playing.set(false)
             writtenFramesInTurn = 0L
-            baselineHeadFrames = 0L
+            serverFramesReceived = 0L
+            accumulatedActivePlayMs = 0L
+            activePlayWallStartMs = 0L
             synchronized(trackLock) {
                 runCatching {
                     track?.let { t ->
@@ -1292,8 +1373,10 @@ class StudyVoice(context: Context) {
                             runCatching { t.flush() }
                             runCatching { t.stop() }
                         }
+                        runCatching { t.release() }
                     }
                 }
+                track = null
             }
         }
     }
