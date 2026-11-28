@@ -1113,4 +1113,151 @@ class StudyControllerAndVoiceUpgradeTest {
         assertEquals(StudyPlayback.State.IDLE, pb.state)
         assertEquals(0, startedCount)
     }
+
+    @Test fun studyIntentRouterDistinguishesDoubtsNewQuestionsAndQuizAnswers() {
+        val activeQ = "Find the roots of x^2 - 5x + 6 = 0"
+        val activeTopic = "Quadratic Equations"
+
+        assertEquals(
+            StudyIntentRouter.Intent.NEW_QUESTION,
+            StudyIntentRouter.classify("Solve 2x + 5 = 15", hasLesson = false)
+        )
+        assertEquals(
+            StudyIntentRouter.Intent.DOUBT,
+            StudyIntentRouter.classify("Why did we split -5x into -2x and -3x?", hasLesson = true, activeQuestion = activeQ, activeTopic = activeTopic)
+        )
+        assertEquals(
+            StudyIntentRouter.Intent.DOUBT,
+            StudyIntentRouter.classify("Explain step 2 much simpler", hasLesson = true, activeQuestion = activeQ, activeTopic = activeTopic)
+        )
+        assertEquals(
+            StudyIntentRouter.Intent.NEW_QUESTION,
+            StudyIntentRouter.classify("Draw a labelled diagram of human heart", hasLesson = true, activeQuestion = activeQ, activeTopic = activeTopic)
+        )
+        assertEquals(
+            StudyIntentRouter.Intent.NEW_QUESTION,
+            StudyIntentRouter.classify("New question why does sky appear blue?", hasLesson = true, activeQuestion = activeQ, activeTopic = activeTopic)
+        )
+        assertEquals(
+            StudyIntentRouter.Intent.QUIZ_ANSWER,
+            StudyIntentRouter.classify("option B", hasLesson = true, activeQuestion = activeQ, activeTopic = activeTopic, quizActive = true)
+        )
+        assertEquals(
+            StudyIntentRouter.Intent.QUIZ_ANSWER,
+            StudyIntentRouter.classify("5", hasLesson = true, activeQuestion = activeQ, activeTopic = activeTopic, quizActive = true)
+        )
+        assertEquals(
+            StudyIntentRouter.Intent.NEW_QUESTION,
+            StudyIntentRouter.classify("Solve 4y - 8 = 12", hasLesson = true, activeQuestion = activeQ, activeTopic = activeTopic, quizActive = true)
+        )
+    }
+
+    @Test fun studyQuizParsesEvaluatesAndGeneratesClarificationOnWrongAnswers() {
+        val raw = """
+            {
+              "questions": [
+                {
+                  "question": "What are the roots of x^2 - 5x + 6 = 0?",
+                  "options": ["A) x = 1, 6", "B) x = 2, 3", "C) x = -2, -3", "D) x = 5, 6"],
+                  "answer": "B) x = 2, 3",
+                  "hint": "Check numbers whose sum is 5 and product is 6.",
+                  "explanation": "Factoring gives (x - 2)(x - 3) = 0, so x = 2 or 3.",
+                  "step": 2
+                },
+                {
+                  "question": "Calculate the discriminant b^2 - 4ac for 2x^2 + 4x + 2 = 0.",
+                  "options": [],
+                  "answer": "0",
+                  "hint": "Substitute a=2, b=4, c=2.",
+                  "explanation": "4^2 - 4(2)(2) = 16 - 16 = 0.",
+                  "step": 1
+                }
+              ]
+            }
+        """.trimIndent()
+        val qs = StudyQuiz.parseQuestions(raw)
+        assertEquals(2, qs.size)
+
+        val rightOpt = StudyQuiz.evaluateLocal(qs[0], "option B")!!
+        assertTrue(rightOpt.isCorrect)
+
+        val wrongOpt = StudyQuiz.evaluateLocal(qs[0], "A")!!
+        assertFalse(wrongOpt.isCorrect)
+        assertTrue(wrongOpt.clarifyQuestion.contains("x = 2, 3"))
+        assertEquals(2, wrongOpt.relatedStep)
+
+        val rightNum = StudyQuiz.evaluateLocal(qs[1], "16 - 16")!!
+        assertTrue(rightNum.isCorrect)
+
+        val wrongNum = StudyQuiz.evaluateLocal(qs[1], "8")!!
+        assertFalse(wrongNum.isCorrect)
+        assertTrue(wrongNum.clarifyQuestion.contains("8"))
+        assertTrue(wrongNum.clarifyQuestion.contains("step 1"))
+    }
+
+    @Test fun commandParserControllerLiveStateAndPlainTextCopyWorkCleanly() {
+        StudyBoardController.resetForTest()
+        val cp = com.jarvis.assistant.automation.command.CommandParser
+
+        val copyCmd = cp.parse("copy board", studyBoardActive = true).command
+            as com.jarvis.assistant.automation.command.JarvisCommand.StudyBoardAction
+        assertEquals("copy_board", copyCmd.action)
+
+        val quizCmd = cp.parse("check my understanding", studyBoardActive = true).command
+            as com.jarvis.assistant.automation.command.JarvisCommand.StudyBoardAction
+        assertEquals("start_quiz", quizCmd.action)
+
+        val bmCmd = cp.parse("bookmark step 3", studyBoardActive = true).command
+            as com.jarvis.assistant.automation.command.JarvisCommand.StudyBoardAction
+        assertEquals("bookmark_step", bmCmd.action)
+        assertEquals(3, bmCmd.stepNumber)
+
+        val newCmd = cp.parse("new question why is ice less dense than water?", studyBoardActive = true).command
+            as com.jarvis.assistant.automation.command.JarvisCommand.StudyBoardAction
+        assertEquals(StudyTools.EXPLAIN, newCmd.toolName)
+        assertEquals("new", newCmd.mode)
+
+        val doubtCmd = cp.parse("doubt why did step 2 flip the sign?", studyBoardActive = true).command
+            as com.jarvis.assistant.automation.command.JarvisCommand.StudyBoardAction
+        assertEquals(StudyTools.EXPLAIN, doubtCmd.toolName)
+        assertEquals("doubt", doubtCmd.mode)
+
+        StudyBoardController.setBoardVisible(true)
+        StudyBoardController.recordEvent("Started lesson: Quadratic roots")
+        StudyBoardController.updateState {
+            it.copy(
+                hasContent = true,
+                question = "Solve x^2 - 5x + 6 = 0",
+                boardDigest = "Step 1: Factor (x-2)(x-3)=0",
+                quizActive = true,
+                quizQuestion = "What is the product of roots?",
+                quizProgress = "Q1/2"
+            )
+        }
+        val ctx = StudyBoardController.promptContextSection()
+        assertTrue(ctx.contains("Solve x^2 - 5x + 6 = 0"))
+        assertTrue(ctx.contains("Factor (x-2)(x-3)=0"))
+        assertTrue(ctx.contains("What is the product of roots?"))
+        assertTrue(ctx.contains("Started lesson: Quadratic roots"))
+        StudyBoardController.resetForTest()
+
+        // Plain-text extraction for long-press copy (structured + fallback glyph reconstruction)
+        val m = FakeMetrics()
+        val st = BoardStyle(width = 800f, baseSize = 32f, margin = 30f)
+        val step = StudyStep(1, StepKind.DEFINITION, "Ohm's Law: V = I R", "Voltage equals current times resistance.")
+        val block = StudyBoardLayout.layoutStep(step, 0f, st, m)
+        assertTrue(block.reconstructPlainText().contains("Ohm's Law"))
+        assertTrue(block.reconstructPlainText().contains("Voltage equals current times resistance."))
+
+        val fallback = BoardBlock(
+            1, StepKind.STEP,
+            listOf(
+                DrawOp.Glyphs("Second", 140f, 50f, 24f, Face.BODY, Ink.INK),
+                DrawOp.Glyphs("First", 30f, 50f, 24f, Face.BODY, Ink.INK),
+                DrawOp.Glyphs("Next line", 30f, 95f, 24f, Face.BODY, Ink.INK)
+            ),
+            emptyList(), 0f, 120f
+        )
+        assertEquals("First Second\nNext line", fallback.reconstructPlainText())
+    }
 }

@@ -800,6 +800,32 @@ object CommandParser {
                     return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "fullscreen_on"), 0.97f, "STUDY_BOARD_FS_ON")
                 p in setOf("exit fullscreen", "exit full screen", "leave fullscreen") ->
                     return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "fullscreen_off"), 0.97f, "STUDY_BOARD_FS_OFF")
+                p in setOf("scroll top", "scroll to top", "go to top", "top of board") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "scroll_top"), 0.97f, "STUDY_BOARD_SCROLL_TOP")
+                p in setOf("scroll bottom", "scroll to bottom", "go to bottom", "bottom of board") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "scroll_bottom"), 0.97f, "STUDY_BOARD_SCROLL_BOTTOM")
+                p in setOf("copy board", "copy everything", "copy all text", "copy all") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "copy_board"), 0.97f, "STUDY_BOARD_COPY_BOARD")
+                p in setOf("copy step", "copy this step", "copy line", "copy this") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "copy_step"), 0.97f, "STUDY_BOARD_COPY_STEP")
+                p in setOf("explain simpler", "make it simpler", "simpler explanation") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "explain_simpler"), 0.97f, "STUDY_BOARD_SIMPLER")
+                p in setOf("explain with diagram", "draw diagram for this", "draw diagram", "show diagram") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "explain_with_diagram"), 0.97f, "STUDY_BOARD_DIAGRAM_DOUBT")
+                p in setOf("why this step", "why did that happen", "explain why") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "explain_why"), 0.97f, "STUDY_BOARD_WHY")
+                p in setOf("memory trick", "key memory trick", "key point") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "memory_trick"), 0.97f, "STUDY_BOARD_TRICK")
+                p in setOf("quiz me", "check my understanding", "ask practice questions", "start quiz", "checkup", "start checkup", "ask questions") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "start_quiz"), 0.97f, "STUDY_BOARD_QUIZ_START")
+                p in setOf("quiz hint", "give hint", "hint please", "show hint") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "quiz_hint"), 0.97f, "STUDY_BOARD_QUIZ_HINT")
+                p in setOf("next checkup", "next quiz question") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "next_quiz_question"), 0.97f, "STUDY_BOARD_QUIZ_NEXT")
+                p in setOf("dismiss quiz", "close quiz", "hide quiz") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "dismiss_quiz"), 0.97f, "STUDY_BOARD_QUIZ_DISMISS")
+                p in setOf("resume lesson", "resume interrupted") ->
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "resume_lesson"), 0.97f, "STUDY_BOARD_RESUME")
                 p in setOf("history", "open history", "saved lessons", "open saved lessons") ->
                     return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "open_history"), 0.97f, "STUDY_BOARD_HISTORY")
                 p in setOf("camera", "open camera", "take photo") ->
@@ -816,6 +842,28 @@ object CommandParser {
                     return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "export_pdf"), 0.97f, "STUDY_BOARD_EXPORT_PDF")
                 p in setOf("export png", "export image", "save image") ->
                     return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "export_png"), 0.97f, "STUDY_BOARD_EXPORT_PNG")
+            }
+
+            val bookmarkStepGo = Regex("^(?:bookmark|star)\\s+step\\s+(\\d{1,2})$").find(p)
+            if (bookmarkStepGo != null) {
+                val n = bookmarkStepGo.groupValues[1].toIntOrNull()
+                if (n != null && n > 0) {
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(ctl, action = "bookmark_step", stepNumber = n), 0.97f, "STUDY_BOARD_BOOKMARK_STEP")
+                }
+            }
+            val newQuestionDirect = Regex("^(?:new\\s+question|ask\\s+new\\s+question)\\s*[:,-]?\\s*(.+)$", RegexOption.IGNORE_CASE).find(rawBody)
+            if (newQuestionDirect != null && studyBoardActive) {
+                val q = newQuestionDirect.groupValues[1].trim()
+                if (q.length >= 2) {
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(exp, query = q, mode = "new"), 0.97f, "STUDY_BOARD_NEW_QUESTION")
+                }
+            }
+            val doubtDirect = Regex("^(?:doubt|i\\s+have\\s+a\\s+doubt)\\s*[:,-]?\\s*(.+)$", RegexOption.IGNORE_CASE).find(rawBody)
+            if (doubtDirect != null && studyBoardActive) {
+                val q = doubtDirect.groupValues[1].trim()
+                if (q.length >= 2) {
+                    return ParsedCommandResult(JarvisCommand.StudyBoardAction(exp, query = q, mode = "doubt"), 0.97f, "STUDY_BOARD_DOUBT")
+                }
             }
 
             val speedSet = Regex("^(?:set\\s+)?speed\\s+(?:to\\s+)?(\\d(?:\\.\\d{1,2})?)x?$").find(p)

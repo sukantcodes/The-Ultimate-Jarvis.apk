@@ -3785,7 +3785,11 @@ class JarvisConversationService : Service() {
                     // Silence Gemini's parallel spoken answer so only Study Board's live teacher voice speaks cleanly.
                     audioPlayer?.flush()
                     if (command.toolName == com.jarvis.assistant.study.StudyTools.EXPLAIN ||
-                        command.action in setOf("play", "replay_step", "replay_all", "next", "previous", "select_step")
+                        command.action in setOf(
+                            "play", "replay_step", "replay_all", "next", "previous", "select_step",
+                            "explain_with_diagram", "explain_why", "explain_simpler", "memory_trick",
+                            "start_quiz", "next_quiz_question"
+                        )
                     ) {
                         scheduleStandbyAfterStudyBoardHandoff()
                     }

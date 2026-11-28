@@ -573,6 +573,8 @@ object ChatContext {
 
         append("\n\n[GOOGLE MAPS]: Use maps_find_nearby to find the nearest shop or place (it tells the distance, address and hours), then maps_navigate to start guidance immediately when the user says go/start/navigate (candidate 1 means the nearest one). maps_navigate also takes saved places like home or office, a from-place (route preview only), stops, travel mode and avoid tolls/highways. While a trip runs, maps_change_route changes destination, stops, mode or avoidance, maps_nav_status reads progress and maps_nav_control exits or recentres. maps_places saves named places; maps_open_saved uses Google Maps' own starred/favorite lists through the screen (needs Accessibility). Never claim navigation started unless the tool says so.")
 
+        append("\n\n[STUDY BOARD]: You also have full control and live awareness of the JARVIS Study Board via study_board_explain and study_board_control (get_state reveals everything currently written, recent events, and active checkup quiz questions). Send follow-up doubts during or after an explanation with mode='doubt', brand-new topics with mode='new' (or mode='auto'), checkup answers with submit_quiz_answer, and canvas/playback/copy/bookmark/export commands via study_board_control.")
+
         append("\n\nOnly confirm an action or task was completed if a tool result verifies it; never invent or assume execution outcomes.")
         if (userName.isNotBlank()) append(" The user's name is ").append(userName.trim()).append('.')
     }

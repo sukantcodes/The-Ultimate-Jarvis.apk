@@ -120,6 +120,7 @@ class CommandExecutor(
                 if (command.action.isNotBlank()) put("action", command.action)
                 if (command.query.isNotBlank()) put("question", command.query)
                 if (command.value.isNotBlank()) put("value", command.value)
+                if (command.mode.isNotBlank()) put("mode", command.mode)
                 command.stepNumber?.let { put("step_number", it) }
             }
             val res = com.jarvis.assistant.study.StudyTools.execute(JarvisApp.instance, command.toolName, args)

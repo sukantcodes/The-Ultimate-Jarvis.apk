@@ -18,14 +18,18 @@ import com.jarvis.assistant.study.StepKind
 import com.jarvis.assistant.study.StudyAssembler
 import com.jarvis.assistant.study.StudyBoardController
 import com.jarvis.assistant.study.StudyBoardLayout
+import com.jarvis.assistant.study.StudyCheckEvaluation
+import com.jarvis.assistant.study.StudyCheckQuestion
 import com.jarvis.assistant.study.StudyDiagramArchitect
 import com.jarvis.assistant.study.StudyDiagramAtlas
 import com.jarvis.assistant.study.StudyDoubt
 import com.jarvis.assistant.study.StudyDoubts
+import com.jarvis.assistant.study.StudyIntentRouter
 import com.jarvis.assistant.study.StudyLesson
 import com.jarvis.assistant.study.StudyPlayback
 import com.jarvis.assistant.study.StudyProfile
 import com.jarvis.assistant.study.StudyPrompt
+import com.jarvis.assistant.study.StudyQuiz
 import com.jarvis.assistant.study.StudySpeechText
 import com.jarvis.assistant.study.StudyStep
 import com.jarvis.assistant.study.StudyStreamParser
@@ -62,6 +66,22 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
 
     enum class Phase { IDLE, EXTRACTING, GENERATING, READY, ERROR }
     enum class AskMode { NEW, DOUBT }
+    enum class QuizPhase { HIDDEN, LOADING, READY, CHECKING, CLARIFYING }
+
+    data class QuizState(
+        val phase: QuizPhase = QuizPhase.HIDDEN,
+        val visible: Boolean = false,
+        val questions: List<StudyCheckQuestion> = emptyList(),
+        val currentIndex: Int = 0,
+        val lastUserAnswer: String = "",
+        val evaluation: StudyCheckEvaluation? = null,
+        val score: Int = 0,
+        val answeredCount: Int = 0,
+        val hintVisible: Boolean = false
+    ) {
+        val currentQuestion: StudyCheckQuestion? get() = questions.getOrNull(currentIndex)
+        val completed: Boolean get() = questions.isNotEmpty() && currentIndex >= questions.size
+    }
 
     data class Ui(
         val phase: Phase = Phase.IDLE,
@@ -99,6 +119,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     val isNarrating = MutableStateFlow(false)
     val activeVoiceName = MutableStateFlow("")
     val spotlight = MutableStateFlow(Spotlight())
+    val quizState = MutableStateFlow(QuizState())
     val events = MutableSharedFlow<Event>(extraBufferCapacity = 16)
     val interrupted = MutableStateFlow<Pair<String, String>?>(null)
 
@@ -123,6 +144,12 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     private var continuousEndBlock = -1
     private var singleNarratingBlock = -1
     private var fromSavedSession = false
+    private var userPinnedNewMode = false
+    private var quizJob: Job? = null
+    private var awaitingQuizRevealAfterLesson = false
+    private var pendingFollowUpDoubt: Pair<String, Int?>? = null
+    private var currentBoardFullscreen = false
+    private var currentFollowPen = true
 
     private class StagedBlock(
         val block: BoardBlock,
@@ -236,10 +263,48 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         publishControllerSnapshot()
     }
 
+    fun updateViewportMeta(fullscreen: Boolean, followPen: Boolean) {
+        currentBoardFullscreen = fullscreen
+        currentFollowPen = followPen
+        publishControllerSnapshot()
+    }
+
+    fun buildBoardDigest(): String {
+        val l = lesson
+        val sb = StringBuilder()
+        if (l != null) {
+            sb.append(StudyPrompt.lessonDigest(l, doubts))
+        } else if (blocks.value.isNotEmpty()) {
+            for (b in blocks.value) {
+                val txt = b.reconstructPlainText(prefs.notesOn)
+                if (txt.isNotBlank()) sb.appendLine(txt)
+            }
+        }
+        return sb.toString().trim().take(2_600)
+    }
+
+    fun fullCopyableBoardText(showNotes: Boolean = prefs.notesOn): String {
+        val shown = minOf(eraseLimit.value, blocks.value.size)
+        return blocks.value.take(shown)
+            .map { it.reconstructPlainText(showNotes) }
+            .filter { it.isNotBlank() }
+            .joinToString("\n\n")
+            .trim()
+    }
+
+    fun copyTextForBlock(blockIndex: Int, showNotes: Boolean = prefs.notesOn): String =
+        blocks.value.getOrNull(blockIndex)?.reconstructPlainText(showNotes).orEmpty()
+
     fun publishControllerSnapshot() {
         val currentUi = ui.value
         val totalSteps = lesson?.steps?.size ?: 0
         val curStep = blocks.value.getOrNull(playback.current)?.stepIndex?.takeIf { it in 1..totalSteps } ?: 0
+        val selStep = selectedStepNumber() ?: 0
+        val qs = quizState.value
+        val curQuizQ = qs.currentQuestion
+        val quizProgressStr = if (qs.questions.isNotEmpty()) {
+            "Q${(qs.currentIndex + 1).coerceAtMost(qs.questions.size)}/${qs.questions.size} · Score ${qs.score}/${qs.answeredCount}"
+        } else ""
         val phaseStr = when {
             isNarrating.value -> "narrating"
             currentUi.phase == Phase.EXTRACTING -> "thinking"
@@ -257,6 +322,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 currentBlockIndex = playback.current,
                 totalBlocks = blocks.value.size,
                 currentStepNumber = curStep,
+                selectedStepNumber = selStep,
                 totalSteps = totalSteps,
                 playbackState = playback.state.name,
                 speed = playback.speed,
@@ -277,8 +343,16 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 canUndo = canUndo,
                 canRedo = canRedo,
                 hasContent = hasContent,
+                fullscreen = currentBoardFullscreen,
+                followPen = currentFollowPen,
                 bookmarkedCount = bookmarks.value.size,
-                lastError = currentUi.message
+                lastError = currentUi.message,
+                boardDigest = buildBoardDigest(),
+                quizActive = qs.visible && curQuizQ != null,
+                quizQuestion = curQuizQ?.question.orEmpty(),
+                quizOptions = curQuizQ?.options.orEmpty(),
+                quizProgress = quizProgressStr,
+                quizFeedback = qs.evaluation?.feedback.orEmpty()
             )
         }
     }
@@ -296,15 +370,68 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     // Asking
     // ======================================================================================================
 
-    /** Entry point for typed and spoken input. A doubt is asked about the lesson already on the board. */
-    fun submit(text: String) {
+    /**
+     * Entry point for typed and spoken input (both UI composer and JARVIS voice handoff).
+     * Automatically classifies quiz answers, follow-up doubts (mid-explanation or post-explanation),
+     * and brand-new unrelated questions cleanly.
+     */
+    fun submit(text: String, explicitMode: String = "auto", explicitStepNumber: Int? = null) {
         val t = text.trim()
         if (t.isEmpty()) return
-        if (isBusy) { toast("Still working on the current question. Stop it first to ask another."); return }
-        if (askMode.value == AskMode.DOUBT && (lesson?.steps?.isNotEmpty() == true)) askDoubt(t) else startLesson(t, emptyList())
+        val hasRealLesson = lesson?.steps?.isNotEmpty() == true
+        val modeArg = when {
+            explicitStepNumber != null && explicitMode == "auto" -> "doubt"
+            explicitMode != "auto" -> explicitMode
+            userPinnedNewMode -> "new"
+            else -> "auto"
+        }
+        val intent = StudyIntentRouter.classify(
+            query = t,
+            hasLesson = hasRealLesson,
+            activeQuestion = lesson?.question.orEmpty(),
+            activeTopic = lesson?.topic.orEmpty(),
+            explicitMode = modeArg,
+            quizActive = quizState.value.visible && quizState.value.currentQuestion != null
+        )
+
+        if (intent == StudyIntentRouter.Intent.QUIZ_ANSWER) {
+            submitQuizAnswer(t)
+            return
+        }
+
+        if (intent == StudyIntentRouter.Intent.DOUBT && hasRealLesson) {
+            if (isBusy) {
+                pendingFollowUpDoubt = t to explicitStepNumber
+                toast("Explaining your doubt as soon as the current step finishes.")
+                return
+            }
+            userPinnedNewMode = false
+            stopSpeech()
+            if (playback.state == StudyPlayback.State.PLAYING) playback.pause()
+            askMode.value = AskMode.DOUBT
+            askDoubt(t, forcedRelatedStep = explicitStepNumber)
+            return
+        }
+
+        // Fresh new question
+        userPinnedNewMode = false
+        pendingFollowUpDoubt = null
+        if (isBusy) {
+            job?.cancel()
+            playback.setGenerationOpen(false)
+        }
+        stopSpeech()
+        if (playback.state == StudyPlayback.State.PLAYING) playback.pause()
+        askMode.value = AskMode.NEW
+        startLesson(t, emptyList())
     }
 
-    fun newQuestionMode() { askMode.value = AskMode.NEW; selectedBlock.value = -1 }
+    fun newQuestionMode() {
+        userPinnedNewMode = true
+        askMode.value = AskMode.NEW
+        selectedBlock.value = -1
+        bump()
+    }
 
     private fun wantsDiagramRequest(text: String): Boolean =
         Regex(
@@ -340,12 +467,16 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     /** Starts a fresh lesson for [question]. Anything already on the board is replaced (it stays in history). */
     fun startLesson(question: String, attachments: List<ChatAttachment>) {
         if (isBusy) return
+        quizJob?.cancel()
+        quizState.value = QuizState()
+        awaitingQuizRevealAfterLesson = false
         stopSpeech()
         playback.clear()
         blocks.value = emptyList(); speeches.clear(); explanations.clear(); doubts.clear()
         bookmarks.value = emptySet(); selectedBlock.value = -1; eraseLimit.value = Int.MAX_VALUE
         sessionId = UUID.randomUUID().toString(); createdAt = System.currentTimeMillis(); savedFlag = false
         lastQuestion = question; lastWasDoubt = false; lastAttachments = attachments; fromSavedSession = false
+        StudyBoardController.recordEvent("Started lesson: ${question.take(70)}")
         val profile = prefs.profile()
         val asm = StudyAssembler(question, if (profile.level.equals("auto", true)) "" else profile.level)
         assembler = asm
@@ -386,12 +517,20 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun askDoubt(text: String) {
+    private fun askDoubt(
+        text: String,
+        forcedRelatedStep: Int? = null,
+        eventTag: String = "Asked doubt"
+    ) {
         val l = lesson ?: return
+        awaitingQuizRevealAfterLesson = false
         stopSpeech()
         val profile = prefs.profile()
-        val ref = StudyDoubts.resolveStep(text, selectedBlock.value.takeIf { it >= 0 }?.let { blocks.value.getOrNull(it)?.stepIndex }, l.steps.size)
+        val selectedStep = forcedRelatedStep
+            ?: selectedBlock.value.takeIf { it >= 0 }?.let { blocks.value.getOrNull(it)?.stepIndex }
+        val ref = StudyDoubts.resolveStep(text, selectedStep, l.steps.size) ?: forcedRelatedStep
         lastWasDoubt = true; lastDoubtText = text; lastDoubtRef = ref
+        StudyBoardController.recordEvent("$eventTag: ${text.take(65)}")
         val asm = StudyAssembler(text, l.level, isDoubt = true)
         ui.value = ui.value.copy(phase = Phase.GENERATING, message = "", retryable = false, loadingDetail = "Preparing step-by-step doubt explanation…")
         playback.setGenerationOpen(true)
@@ -436,13 +575,14 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                     val doubt = StudyDoubt(text, ref, steps, System.currentTimeMillis())
                     doubts.add(doubt)
                     remember(StudyMemory.turnFromDoubt(lesson, doubt, doubt.createdAt))
+                    StudyBoardController.recordEvent("Explained doubt: ${result.finalAnswer.take(55).ifBlank { text.take(55) }}")
                     ui.value = ui.value.copy(phase = Phase.READY, message = "", retryable = false, loadingDetail = "")
                 } else {
                     ui.value = ui.value.copy(loadingDetail = "")
                 }
                 if (staged.isNotEmpty()) {
                     events.tryEmit(Event.Reveal(startIdx))
-                    startContinuousRange(startIdx, blocks.value.lastIndex)
+                    startContinuousRange(startIdx, blocks.value.lastIndex, keepPrinted = true)
                 }
             }
             persist(StudyHistoryManager.Status.COMPLETE, force = true)
@@ -593,27 +733,244 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun finishLesson(asm: StudyAssembler, streamOk: Boolean, startPlaybackFrom: Int) {
+        val l = asm.lesson
+        val succeeded = streamOk && l.complete && l.declinedReason.isEmpty()
         withContext(Dispatchers.Main) {
             playback.setGenerationOpen(false)
-            val l = asm.lesson
             val current = ui.value
-            if (streamOk && l.complete && l.declinedReason.isEmpty()) {
+            if (succeeded) {
                 ui.value = current.copy(phase = Phase.READY, verification = l.verification.label,
                     message = if (l.verification == Verification.FAILED) current.message else "", loadingDetail = "")
-                if (askMode.value == AskMode.NEW) askMode.value = AskMode.DOUBT
+                if (askMode.value == AskMode.NEW && !userPinnedNewMode) askMode.value = AskMode.DOUBT
+                StudyBoardController.recordEvent("Printed solution (${l.steps.size} steps): ${l.topic.ifBlank { l.question.take(50) }}")
             } else if (current.phase != Phase.ERROR) {
                 ui.value = current.copy(phase = Phase.ERROR, retryable = true,
                     message = current.message.ifEmpty { "The solution did not finish." }, verification = l.verification.label, loadingDetail = "")
             } else ui.value = current.copy(verification = l.verification.label, loadingDetail = "")
-            if (startPlaybackFrom in blocks.value.indices) {
-                startContinuousRange(startPlaybackFrom, blocks.value.lastIndex)
+
+            val queuedDoubt = pendingFollowUpDoubt
+            pendingFollowUpDoubt = null
+            if (queuedDoubt != null && succeeded) {
+                askMode.value = AskMode.DOUBT
+                askDoubt(queuedDoubt.first, forcedRelatedStep = queuedDoubt.second)
+            } else if (startPlaybackFrom in blocks.value.indices) {
+                awaitingQuizRevealAfterLesson = succeeded && l.steps.isNotEmpty()
+                startContinuousRange(startPlaybackFrom, blocks.value.lastIndex, keepPrinted = true)
+                if (awaitingQuizRevealAfterLesson && !prefs.voiceOn) {
+                    quizState.value = quizState.value.copy(visible = true)
+                }
+            }
+            bump()
+        }
+        if (succeeded && l.verification != Verification.FAILED) {
+            withContext(Dispatchers.Main) { remember(StudyMemory.turnFrom(l, System.currentTimeMillis())) }
+            if (l.steps.isNotEmpty()) generatePracticeQuiz(l, autoRevealNow = false)
+        }
+        persist(if (succeeded) StudyHistoryManager.Status.COMPLETE else StudyHistoryManager.Status.INTERRUPTED, force = true)
+    }
+
+    // ======================================================================================================
+    // Post-explanation diagnostic checkup & mistake clarification
+    // ======================================================================================================
+
+    private fun generatePracticeQuiz(lesson: StudyLesson, autoRevealNow: Boolean) {
+        quizJob?.cancel()
+        val profile = prefs.profile()
+        quizJob = viewModelScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                if (autoRevealNow) {
+                    quizState.value = QuizState(phase = QuizPhase.LOADING, visible = true)
+                    publishControllerSnapshot()
+                }
+            }
+            val parsed = try {
+                val sb = StringBuilder()
+                val (sys, usr) = StudyQuiz.generateSystemPrompt(profile) to StudyQuiz.generateUserPrompt(lesson)
+                StudyAiEngine.stream(
+                    getApplication(),
+                    StudyAiEngine.Request(sys, usr, thinking = Thinking.LOW)
+                ).collect { sb.append(it) }
+                StudyQuiz.parseQuestions(sb.toString())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                emptyList()
+            }
+            withContext(Dispatchers.Main) {
+                if (parsed.isEmpty()) {
+                    if (autoRevealNow) toast("Could not generate checkup questions for this topic.")
+                    quizState.value = QuizState()
+                    publishControllerSnapshot()
+                    return@withContext
+                }
+                val showNow = autoRevealNow || (!isNarrating.value && !continuousActive && awaitingQuizRevealAfterLesson)
+                quizState.value = QuizState(
+                    phase = QuizPhase.READY,
+                    visible = showNow,
+                    questions = parsed,
+                    currentIndex = 0
+                )
+                if (showNow) {
+                    awaitingQuizRevealAfterLesson = false
+                    StudyBoardController.recordEvent("Asked checkup Q1: ${parsed.first().question.take(60)}")
+                }
+                publishControllerSnapshot()
             }
         }
-        val l = asm.lesson
-        if (streamOk && l.complete && l.declinedReason.isEmpty() && l.verification != Verification.FAILED) {
-            withContext(Dispatchers.Main) { remember(StudyMemory.turnFrom(l, System.currentTimeMillis())) }
+    }
+
+    fun startQuiz(announceVoice: Boolean = true) {
+        val l = lesson
+        if (l == null || l.steps.isEmpty()) {
+            toast("Explain a question first before starting a checkup quiz.")
+            return
         }
-        persist(if (streamOk && l.complete && l.declinedReason.isEmpty()) StudyHistoryManager.Status.COMPLETE else StudyHistoryManager.Status.INTERRUPTED, force = true)
+        val cur = quizState.value
+        if (cur.questions.isNotEmpty()) {
+            val nextIdx = if (cur.completed) 0 else cur.currentIndex
+            quizState.value = cur.copy(
+                phase = QuizPhase.READY,
+                visible = true,
+                currentIndex = nextIdx,
+                lastUserAnswer = "",
+                evaluation = null,
+                hintVisible = false,
+                score = if (cur.completed) 0 else cur.score,
+                answeredCount = if (cur.completed) 0 else cur.answeredCount
+            )
+            val q = quizState.value.currentQuestion
+            if (q != null) {
+                StudyBoardController.recordEvent("Checkup Q${nextIdx + 1}: ${q.question.take(60)}")
+                if (announceVoice && prefs.voiceOn && !isNarrating.value && !isBusy) {
+                    speakTransientQuizLine("Let's check your understanding. ${q.question}")
+                }
+            }
+            publishControllerSnapshot()
+        } else {
+            generatePracticeQuiz(l, autoRevealNow = true)
+        }
+    }
+
+    fun submitQuizAnswer(rawAnswer: String) {
+        val ans = rawAnswer.trim()
+        if (ans.isEmpty()) return
+        val state = quizState.value
+        val q = state.currentQuestion ?: run {
+            startQuiz(announceVoice = true)
+            return
+        }
+        if (state.phase == QuizPhase.CHECKING || state.evaluation != null) {
+            nextQuizQuestion()
+            return
+        }
+
+        val localEval = StudyQuiz.evaluateLocal(q, ans)
+        if (localEval != null) {
+            applyQuizEvaluation(state, q, ans, localEval)
+            return
+        }
+
+        val curLesson = lesson ?: return
+        quizState.value = state.copy(phase = QuizPhase.CHECKING, lastUserAnswer = ans)
+        publishControllerSnapshot()
+        val profile = prefs.profile()
+        viewModelScope.launch(Dispatchers.IO) {
+            val eval = try {
+                val sb = StringBuilder()
+                StudyAiEngine.stream(
+                    getApplication(),
+                    StudyAiEngine.Request(
+                        StudyQuiz.evaluateSystemPrompt(profile),
+                        StudyQuiz.evaluateUserPrompt(curLesson, q, ans),
+                        thinking = Thinking.LOW
+                    )
+                ).collect { sb.append(it) }
+                StudyQuiz.parseEvaluation(sb.toString(), q, ans)
+            } catch (_: Throwable) {
+                null
+            } ?: StudyCheckEvaluation(
+                isCorrect = false,
+                feedback = "Expected answer: ${q.correctAnswer}. ${q.explanation}".trim(),
+                clarifyQuestion = StudyQuiz.clarificationPromptForWrong(q, ans),
+                relatedStep = q.relatedStep
+            )
+            withContext(Dispatchers.Main) {
+                applyQuizEvaluation(quizState.value, q, ans, eval)
+            }
+        }
+    }
+
+    private fun applyQuizEvaluation(state: QuizState, q: StudyCheckQuestion, ans: String, eval: StudyCheckEvaluation) {
+        val newScore = if (eval.isCorrect) state.score + 1 else state.score
+        val newAnswered = state.answeredCount + 1
+        quizState.value = state.copy(
+            phase = if (eval.isCorrect) QuizPhase.READY else QuizPhase.CLARIFYING,
+            lastUserAnswer = ans,
+            evaluation = eval,
+            score = newScore,
+            answeredCount = newAnswered,
+            hintVisible = false
+        )
+        if (eval.isCorrect) {
+            StudyBoardController.recordEvent("Checkup Q${state.currentIndex + 1} answered correctly")
+            if (prefs.voiceOn && !isBusy && !isNarrating.value) {
+                speakTransientQuizLine(eval.feedback)
+            }
+        } else {
+            StudyBoardController.recordEvent("Checkup Q${state.currentIndex + 1} wrong -> Clarifying on board")
+            val clarifyText = eval.clarifyQuestion.ifBlank { StudyQuiz.clarificationPromptForWrong(q, ans) }
+            if (!isBusy) {
+                askMode.value = AskMode.DOUBT
+                askDoubt(clarifyText, forcedRelatedStep = eval.relatedStep ?: q.relatedStep, eventTag = "Clarified checkup answer")
+            }
+        }
+        publishControllerSnapshot()
+    }
+
+    fun nextQuizQuestion() {
+        val state = quizState.value
+        if (state.questions.isEmpty()) return
+        val nextIdx = state.currentIndex + 1
+        if (nextIdx >= state.questions.size) {
+            quizState.value = state.copy(phase = QuizPhase.READY, currentIndex = nextIdx, lastUserAnswer = "", evaluation = null, hintVisible = false)
+            StudyBoardController.recordEvent("Finished checkup quiz (${state.score}/${state.questions.size})")
+            if (prefs.voiceOn && !isBusy && !isNarrating.value) {
+                speakTransientQuizLine("Nice work completing the checkup! You scored ${state.score} out of ${state.questions.size}.")
+            }
+        } else {
+            val nextQ = state.questions[nextIdx]
+            quizState.value = state.copy(phase = QuizPhase.READY, currentIndex = nextIdx, lastUserAnswer = "", evaluation = null, hintVisible = false)
+            StudyBoardController.recordEvent("Checkup Q${nextIdx + 1}: ${nextQ.question.take(60)}")
+            if (prefs.voiceOn && !isBusy && !isNarrating.value) {
+                speakTransientQuizLine("Question ${nextIdx + 1}: ${nextQ.question}")
+            }
+        }
+        publishControllerSnapshot()
+    }
+
+    fun revealQuizHint() {
+        val q = quizState.value.currentQuestion ?: return
+        if (q.hint.isBlank()) {
+            toast("No hint available — try explaining your reasoning as a doubt.")
+            return
+        }
+        quizState.value = quizState.value.copy(hintVisible = true)
+        publishControllerSnapshot()
+    }
+
+    fun dismissQuiz() {
+        awaitingQuizRevealAfterLesson = false
+        quizState.value = quizState.value.copy(visible = false)
+        publishControllerSnapshot()
+    }
+
+    private fun speakTransientQuizLine(text: String) {
+        if (!prefs.voiceOn || text.isBlank()) return
+        val engine = voiceEngine()
+        continuousActive = false
+        continuousPlan = null
+        singleNarratingBlock = -1
+        narrationToken = engine.speak(text, localeFor(text), effectiveVoiceLanguage())
     }
 
     // ----- layout and block bookkeeping -----
@@ -784,7 +1141,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         val list = blocks.value
         if (list.isEmpty()) return
         val startIdx = if (list.size > 1 && list[0].isQuestion) 1 else 0
-        startContinuousRange(startIdx, list.lastIndex, keepPrinted = false)
+        startContinuousRange(startIdx, list.lastIndex, keepPrinted = true)
     }
 
     fun setSpeed(s: Float) { playback.speed = s; prefs.speed = playback.speed; voice?.setRate(playback.speed); bump() }
@@ -807,6 +1164,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         val shown = minOf(eraseLimit.value, blocks.value.size)
         if (shown > 1) {
             eraseLimit.value = shown - 1
+            StudyBoardController.recordEvent("Undo step (showing ${shown - 1} blocks)")
             bump()
         }
     }
@@ -815,6 +1173,7 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         val shown = minOf(eraseLimit.value, blocks.value.size)
         if (shown < blocks.value.size) {
             eraseLimit.value = shown + 1
+            StudyBoardController.recordEvent("Redo step (showing ${shown + 1} blocks)")
             bump()
         }
     }
@@ -823,6 +1182,8 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
         if (playback.state == StudyPlayback.State.PLAYING) playback.pause()
         stopSpeech()
         eraseLimit.value = 0
+        dismissQuiz()
+        StudyBoardController.recordEvent("Cleared the board")
         bump()
     }
 
@@ -834,19 +1195,26 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         selectedBlock.value = if (selectedBlock.value == index) -1 else index
-        if (selectedBlock.value >= 0 && lesson?.steps?.isNotEmpty() == true) askMode.value = AskMode.DOUBT
+        if (selectedBlock.value >= 0 && lesson?.steps?.isNotEmpty() == true) {
+            userPinnedNewMode = false
+            askMode.value = AskMode.DOUBT
+        }
         bump()
     }
 
     /** The lesson step number of the selected block, or currently active step if none is tapped manually. */
     fun selectedStepNumber(): Int? = blocks.value.getOrNull(selectedBlock.value)?.stepIndex?.takeIf { it in 1..(lesson?.steps?.size ?: 0) }
 
-    fun toggleBookmark() {
-        val step = selectedStepNumber()
-            ?: blocks.value.getOrNull(playback.current)?.stepIndex?.takeIf { it in 1..(lesson?.steps?.size ?: 0) }
+    fun toggleBookmark(explicitStep: Int? = null) {
+        val maxStep = lesson?.steps?.size ?: 0
+        val step = explicitStep?.takeIf { it in 1..maxStep }
+            ?: selectedStepNumber()
+            ?: blocks.value.getOrNull(playback.current)?.stepIndex?.takeIf { it in 1..maxStep }
             ?: run { toast("Tap a step first, then bookmark it."); return }
         bookmarks.value = if (step in bookmarks.value) bookmarks.value - step else bookmarks.value + step
-        toast(if (step in bookmarks.value) "Bookmarked step $step." else "Removed bookmark on step $step.")
+        val msg = if (step in bookmarks.value) "Bookmarked step $step." else "Removed bookmark on step $step."
+        StudyBoardController.recordEvent(msg)
+        toast(msg)
         bump()
         viewModelScope.launch { persist(StudyHistoryManager.Status.COMPLETE, force = true) }
     }
@@ -1018,6 +1386,18 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
                 if (!ok && !voiceFailureShown) {
                     voiceFailureShown = true
                     toast(reason.ifEmpty { "Voice narration could not play on this step." })
+                }
+                if (awaitingQuizRevealAfterLesson && !isBusy) {
+                    awaitingQuizRevealAfterLesson = false
+                    val qs = quizState.value
+                    if (qs.questions.isNotEmpty() && !qs.visible) {
+                        val firstQ = qs.questions.first()
+                        quizState.value = qs.copy(visible = true, phase = QuizPhase.READY)
+                        StudyBoardController.recordEvent("Asked checkup Q1: ${firstQ.question.take(60)}")
+                        if (prefs.voiceOn) {
+                            speakTransientQuizLine("Now let's quickly check your understanding. ${firstQ.question}")
+                        }
+                    }
                 }
                 bump()
             }
@@ -1213,12 +1593,17 @@ class StudyViewModel(app: Application) : AndroidViewModel(app) {
             val loaded = history.load(id)
             if (loaded == null) { toast("That lesson could not be opened. It may be from a newer version."); return@launch }
             stopSpeech()
+            quizJob?.cancel()
+            quizState.value = QuizState()
+            awaitingQuizRevealAfterLesson = false
+            pendingFollowUpDoubt = null
             playback.clear()
             speeches.clear(); explanations.clear(); doubts.clear()
             eraseLimit.value = Int.MAX_VALUE; selectedBlock.value = -1
             val l = loaded.restored.lesson
             sessionId = loaded.id; savedFlag = loaded.saved; createdAt = System.currentTimeMillis()
             lastQuestion = l.question; lastWasDoubt = false; lastAttachments = emptyList(); fromSavedSession = true
+            StudyBoardController.recordEvent("Opened saved lesson: ${l.topic.ifBlank { l.question.take(50) }}")
             val asm = StudyAssembler(l.question, l.level)
             val built = withContext(layoutDispatcher) {
                 val m = metrics ?: AndroidMetrics(StudyFonts(getApplication())).also { metrics = it }

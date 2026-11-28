@@ -129,6 +129,7 @@ object ToolRuntime {
                 providers = { ProviderRuntime.manager(app) }
             )
         ).forEach(registry::register)
+        com.jarvis.assistant.study.StudyToolBridge.all(app).forEach(registry::register)
 
         val memory = com.jarvis.assistant.tools.memory.MemoryStore(File(app.filesDir, "memory/memories.json"))
         memory.enabled = app.getSharedPreferences("tool_permissions", Context.MODE_PRIVATE).getBoolean("memory_enabled", true)

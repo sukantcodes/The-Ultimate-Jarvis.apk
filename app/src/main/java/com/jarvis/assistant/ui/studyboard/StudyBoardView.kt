@@ -6,7 +6,9 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.Paint
+import android.graphics.RectF
 import android.view.GestureDetector
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
@@ -14,6 +16,7 @@ import android.view.ViewOutlineProvider
 import android.view.animation.DecelerateInterpolator
 import androidx.core.graphics.ColorUtils
 import com.jarvis.assistant.study.BoardBlock
+import com.jarvis.assistant.study.DrawOp
 import com.jarvis.assistant.study.Ink
 import com.jarvis.assistant.study.StepKind
 import com.jarvis.assistant.study.StudyPlayback
@@ -32,6 +35,7 @@ class StudyBoardView(context: Context) : View(context) {
 
     interface Host {
         fun onBlockTapped(index: Int)
+        fun onBlockLongPressed(index: Int, lineText: String, fullBlockText: String)
         fun onUserPanned()
     }
 
@@ -48,12 +52,8 @@ class StudyBoardView(context: Context) : View(context) {
 
     private val fonts = StudyFonts(context)
     private val painter = StudyPainter(fonts)
-    private val washPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
-        color = StudyPalette.PAPER_GRID
-        alpha = 46
-    }
+    private val selectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private var selectionHighlightRect: RectF? = null
 
     private var blocks: List<BoardBlock> = emptyList()
     private var playback: StudyPlayback? = null
@@ -305,18 +305,6 @@ class StudyBoardView(context: Context) : View(context) {
         val s = scale()
         if (s <= 0f || width == 0 || height == 0) return
         val accent = refreshPaperAccent()
-        val secondary = runCatching { ThemeManager.getThemeSecondaryColor() }.getOrDefault(accent)
-
-        // Subtle theme-synced ambient top wash across the studio whiteboard surface
-        val washH = min(height * 0.22f, resources.displayMetrics.density * 140f)
-        washPaint.shader = android.graphics.LinearGradient(
-            0f, 0f, width.toFloat(), washH,
-            intArrayOf(ColorUtils.setAlphaComponent(accent, 14), ColorUtils.setAlphaComponent(secondary, 10), Color.TRANSPARENT),
-            floatArrayOf(0f, 0.45f, 1f),
-            android.graphics.Shader.TileMode.CLAMP
-        )
-        canvas.drawRect(0f, 0f, width.toFloat(), washH, washPaint)
-        washPaint.shader = null
 
         canvas.save()
         canvas.translate(tx, ty)
@@ -324,7 +312,11 @@ class StudyBoardView(context: Context) : View(context) {
 
         val viewTop = (-ty / s).coerceAtLeast(0f)
         val viewBottom = ((height - ty) / s).coerceAtLeast(viewTop)
-        drawDraftingDotGrid(canvas, viewTop, viewBottom, s, accent)
+
+        selectionHighlightRect?.let { selRect ->
+            selectionPaint.color = ColorUtils.setAlphaComponent(accent, 42)
+            canvas.drawRoundRect(selRect, 10f, 10f, selectionPaint)
+        }
 
         val pb = playback
         if (pb != null) {
@@ -354,20 +346,10 @@ class StudyBoardView(context: Context) : View(context) {
                 if (fraction <= 0f) continue
                 var alpha = 255
                 if (animating && i >= animFrom && i < animTo) alpha = (255 * animAlpha).toInt()
-                if (b.isQuestion) {
-                    val isDoubtHeader = i > 0
-                    val qColor = if (isDoubtHeader) StudyPalette.color(Ink.VIOLET) else accent
-                    painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, qColor, 14 * alpha / 255)
-                } else {
+                if (!b.isQuestion) {
                     when {
-                        b.isFinal -> painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, StudyPalette.color(Ink.RESULT), 26 * alpha / 255)
-                        b.kind == StepKind.FORMULA -> painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, accent, 20 * alpha / 255)
-                        b.kind == StepKind.DEFINITION || b.kind == StepKind.REQUIRED ->
-                            painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, StudyPalette.color(Ink.VIOLET), 14 * alpha / 255)
-                        b.kind == StepKind.GIVEN ->
-                            painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, StudyPalette.color(Ink.TEAL), 14 * alpha / 255)
-                        b.kind == StepKind.DIAGRAM ->
-                            painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, accent, 8 * alpha / 255)
+                        b.isFinal -> painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, StudyPalette.color(Ink.RESULT), 22 * alpha / 255)
+                        b.kind == StepKind.CODE -> painter.drawBlockBackground(canvas, b, BOARD_WIDTH, MARGIN, StudyPalette.color(Ink.TEAL), 12 * alpha / 255)
                     }
                 }
                 val explainFrac = when {
@@ -425,38 +407,63 @@ class StudyBoardView(context: Context) : View(context) {
         canvas.restore()
     }
 
-    private fun drawDraftingDotGrid(canvas: Canvas, viewTop: Float, viewBottom: Float, scale: Float, accent: Int) {
-        if (scale < 0.25f) return
-        val spacing = 44f
-        val startRow = max(1, kotlin.math.floor((viewTop / spacing).toDouble()).toInt())
-        val endY = min(max(contentHeight(), viewBottom), viewBottom + spacing)
-        val dotR = (1.40f / sqrtScale(scale)).coerceIn(1.05f, 2.1f)
-        var row = startRow
-        var y = row * spacing
-        while (y <= endY) {
-            var col = 0
-            var x = MARGIN
-            val majorRow = row % 5 == 0
-            while (x <= BOARD_WIDTH - MARGIN) {
-                val major = majorRow && (col % 5 == 0)
-                if (major) {
-                    gridPaint.color = accent
-                    gridPaint.alpha = 52
-                    canvas.drawCircle(x, y, dotR * 1.45f, gridPaint)
-                } else {
-                    gridPaint.color = StudyPalette.PAPER_GRID
-                    gridPaint.alpha = 44
-                    canvas.drawCircle(x, y, dotR, gridPaint)
-                }
-                x += spacing
-                col++
-            }
-            row++
-            y = row * spacing
+    private fun sqrtScale(s: Float): Float = if (s > 1f) kotlin.math.sqrt(s) else 1f
+
+    fun clearTextSelectionHighlight() {
+        if (selectionHighlightRect != null) {
+            selectionHighlightRect = null
+            invalidate()
         }
     }
 
-    private fun sqrtScale(s: Float): Float = if (s > 1f) kotlin.math.sqrt(s) else 1f
+    fun scrollToTop() {
+        followPen = false
+        ty = 0f
+        clampPan()
+        invalidate()
+        notifyViewport(true)
+    }
+
+    private fun extractLineHit(block: BoardBlock, bx: Float, by: Float): Pair<String, RectF> {
+        val glyphs = block.allOps(showNotes).filterIsInstance<DrawOp.Glyphs>()
+            .filter { it.text.isNotBlank() }
+            .sortedWith(compareBy({ it.y }, { it.x }))
+        if (glyphs.isEmpty()) {
+            return block.reconstructPlainText(showNotes) to RectF(MARGIN - 8f, block.top, BOARD_WIDTH - MARGIN + 8f, block.bottom - 12f)
+        }
+        val lines = ArrayList<MutableList<DrawOp.Glyphs>>()
+        var cur = ArrayList<DrawOp.Glyphs>()
+        var anchorY = glyphs.first().y
+        var tol = (glyphs.first().size * 0.48f).coerceAtLeast(10f)
+        for (g in glyphs) {
+            if (abs(g.y - anchorY) <= tol) {
+                cur.add(g)
+            } else {
+                lines.add(cur)
+                cur = arrayListOf(g)
+                anchorY = g.y
+                tol = (g.size * 0.48f).coerceAtLeast(10f)
+            }
+        }
+        if (cur.isNotEmpty()) lines.add(cur)
+
+        val chosen = lines.minByOrNull { line ->
+            val midY = line.map { it.y - it.size * 0.3f }.average().toFloat()
+            val minX = line.minOf { it.x }
+            val maxX = line.maxOf { it.x + it.text.length * it.size * 0.55f }
+            val dx = if (bx < minX) minX - bx else if (bx > maxX) bx - maxX else 0f
+            abs(by - midY) + dx * 0.25f
+        } ?: return block.reconstructPlainText(showNotes) to RectF(MARGIN - 8f, block.top, BOARD_WIDTH - MARGIN + 8f, block.bottom - 12f)
+
+        val sorted = chosen.sortedBy { it.x }
+        val text = sorted.joinToString(" ") { it.text.trim() }.trim()
+        val maxFs = sorted.maxOf { it.size }
+        val minY = sorted.minOf { it.y - it.size * 0.95f }
+        val maxY = sorted.maxOf { it.y + it.size * 0.35f }
+        val minX = (sorted.minOf { it.x } - 8f).coerceAtLeast(MARGIN - 12f)
+        val maxX = (sorted.maxOf { it.x + it.text.length * it.size * 0.56f } + 8f).coerceAtMost(BOARD_WIDTH - MARGIN + 12f)
+        return text to RectF(minX, minY - maxFs * 0.08f, max(maxX, minX + 40f), maxY + maxFs * 0.08f)
+    }
 
     // ----- pan / zoom / visibility guarantees -------------------------------------------------------------------
 
@@ -687,12 +694,30 @@ class StudyBoardView(context: Context) : View(context) {
             return true
         }
         override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+            clearTextSelectionHighlight()
             val s = scale()
             if (s <= 0f) return false
             val by = (e.y - ty) / s
             val idx = blocks.indexOfFirst { by >= it.top && by < it.bottom }
             if (idx >= 0 && idx < min(limit, blocks.size)) host?.onBlockTapped(idx)
             return true
+        }
+        override fun onLongPress(e: MotionEvent) {
+            if (scaleDetector.isInProgress) return
+            val s = scale()
+            if (s <= 0f || blocks.isEmpty()) return
+            val bx = (e.x - tx) / s
+            val by = (e.y - ty) / s
+            val shown = min(limit, blocks.size)
+            val idx = (0 until shown).firstOrNull { i -> by >= blocks[i].top - 14f && by <= blocks[i].bottom + 14f } ?: return
+            val blk = blocks[idx]
+            val (lineText, hiRect) = extractLineHit(blk, bx, by)
+            val fullText = blk.reconstructPlainText(showNotes).ifBlank { lineText }
+            if (lineText.isBlank() && fullText.isBlank()) return
+            selectionHighlightRect = hiRect
+            invalidate()
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            host?.onBlockLongPressed(idx, lineText.ifBlank { fullText }, fullText)
         }
     })
 

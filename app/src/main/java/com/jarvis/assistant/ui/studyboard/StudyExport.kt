@@ -27,10 +27,8 @@ object StudyExport {
     private fun drawBlock(painter: StudyPainter, canvas: Canvas, b: BoardBlock, showNotes: Boolean, bookmarks: Set<Int>) {
         if (!b.isQuestion) {
             when {
-                b.isFinal -> painter.drawBlockBackground(canvas, b, StudyBoardView.BOARD_WIDTH, StudyBoardView.MARGIN, StudyPalette.color(Ink.RESULT), 26)
-                b.kind == StepKind.FORMULA -> painter.drawBlockBackground(canvas, b, StudyBoardView.BOARD_WIDTH, StudyBoardView.MARGIN, StudyPalette.color(Ink.ACCENT), 20)
-                b.kind == StepKind.DEFINITION || b.kind == StepKind.REQUIRED -> painter.drawBlockBackground(canvas, b, StudyBoardView.BOARD_WIDTH, StudyBoardView.MARGIN, StudyPalette.color(Ink.VIOLET), 14)
-                b.kind == StepKind.GIVEN -> painter.drawBlockBackground(canvas, b, StudyBoardView.BOARD_WIDTH, StudyBoardView.MARGIN, StudyPalette.color(Ink.TEAL), 14)
+                b.isFinal -> painter.drawBlockBackground(canvas, b, StudyBoardView.BOARD_WIDTH, StudyBoardView.MARGIN, StudyPalette.color(Ink.RESULT), 22)
+                b.kind == StepKind.CODE -> painter.drawBlockBackground(canvas, b, StudyBoardView.BOARD_WIDTH, StudyBoardView.MARGIN, StudyPalette.color(Ink.TEAL), 12)
             }
         }
         painter.drawOps(canvas, b.allOps(showNotes), 1f)

@@ -61,7 +61,11 @@ object ProviderRuntime {
                 systemPrompt = { ChatContext.systemPrompt(app.preferences.userName, TokenModeStore.get(context)) },
                 keyRotation = keyRotation(context),
                 toolBackend = { com.jarvis.assistant.tools.ToolRuntime.backend(app) },
-                extraContext = { q -> com.jarvis.assistant.tools.ToolRuntime.get(app).memory.contextFor(q) },
+                extraContext = { q ->
+                    val mem = com.jarvis.assistant.tools.ToolRuntime.get(app).memory.contextFor(q)
+                    val study = com.jarvis.assistant.study.StudyBoardController.promptContextSection()
+                    listOf(mem, study).filter { it.isNotBlank() }.joinToString("\n\n")
+                },
                 tokenModeProvider = { TokenModeStore.get(context) },
                 journal = WorkJournalStore(java.io.File(app.filesDir, "chatbox_work_journal.json")),
                 modeProvider = { ChatWorkModeStore.get(context) }

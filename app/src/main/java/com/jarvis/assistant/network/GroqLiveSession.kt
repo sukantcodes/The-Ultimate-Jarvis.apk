@@ -607,12 +607,13 @@ class GroqLiveSession(
         val skills = try {
             com.jarvis.assistant.skills.SkillStore.get(context).promptSection()
         } catch (_: Exception) { "" }
-        return base.take(3_500) + com.jarvis.assistant.util.ConfirmationPolicy.promptSection() + genderStore.promptSection() + skills + "\n\n" + log + "\n\n" +
+        val studyLive = com.jarvis.assistant.study.StudyBoardController.promptContextSection()
+        return base.take(3_500) + com.jarvis.assistant.util.ConfirmationPolicy.promptSection() + genderStore.promptSection() + skills + studyLive + "\n\n" + log + "\n\n" +
             "ENGINE NOTES: You are running on the $engineName engine. Reply in one to three short, natural spoken sentences in the " +
             "user's language. Never use markdown, lists, emojis or asterisks. When the user asks " +
             "you to do something on the phone, call the matching tool instead of describing it. " +
-            "When the user asks to explain a study question, solve homework, draw a diagram, or control the Study Board, " +
-            "call study_board_explain or study_board_control immediately and reply with only a brief 2-5 word confirmation. " +
+            "When the user asks to explain a study question, solve homework, draw a diagram, answer a quiz question, ask a follow-up doubt during or after explanation, or control the Study Board, " +
+            "call study_board_explain (mode='doubt' for follow-ups, 'new' for fresh questions, or 'auto') or study_board_control immediately (use action='get_state' if asked what is written on the board or what happened), and reply with only a brief 2-5 word confirmation. " +
             "Say a task is done only after the tool result says success. If a tool result starts with REFUSED, follow its instructions exactly."
     }
 

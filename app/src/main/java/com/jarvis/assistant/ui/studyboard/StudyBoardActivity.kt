@@ -5,6 +5,8 @@ import android.animation.LayoutTransition
 import android.animation.ObjectAnimator
 import android.animation.PropertyValuesHolder
 import android.animation.ValueAnimator
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.content.res.Configuration
@@ -14,7 +16,9 @@ import android.net.Uri
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.text.InputType
+import android.text.SpannableString
 import android.text.TextUtils
+import android.text.method.ArrowKeyMovementMethod
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -38,9 +42,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.core.graphics.ColorUtils
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.jarvis.assistant.JarvisApp
 import com.jarvis.assistant.R
 import com.jarvis.assistant.study.Ink
@@ -49,6 +55,7 @@ import com.jarvis.assistant.study.StudyBoardController
 import com.jarvis.assistant.study.StudyLevels
 import com.jarvis.assistant.study.StudyPlayback
 import com.jarvis.assistant.study.StudyProfile
+import com.jarvis.assistant.study.StudyQuiz
 import com.jarvis.assistant.study.voice.StudyVoiceCodec
 import com.jarvis.assistant.study.voice.StudyVoiceInput
 import com.jarvis.assistant.ui.glass.GlassBackdropView
@@ -107,6 +114,18 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     private lateinit var explainActions: LinearLayout
     private lateinit var explainReplayChip: TextView
     private lateinit var explainDoubtChip: TextView
+    private lateinit var explainQuizChip: TextView
+    private lateinit var quizCard: LinearLayout
+    private lateinit var quizHeaderTitle: TextView
+    private lateinit var quizProgressChip: TextView
+    private lateinit var quizQuestionText: TextView
+    private lateinit var quizOptionsContainer: LinearLayout
+    private lateinit var quizAnswerInput: EditText
+    private lateinit var quizCheckBtn: TextView
+    private lateinit var quizHintBtn: TextView
+    private lateinit var quizHintText: TextView
+    private lateinit var quizFeedbackText: TextView
+    private lateinit var quizNextBtn: TextView
     private lateinit var quickDoubtStrip: HorizontalScrollView
     private lateinit var input: EditText
     private lateinit var inputBar: LinearLayout
@@ -259,14 +278,14 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         if (targetDoubt) {
             vm.askMode.value = StudyViewModel.AskMode.DOUBT
             if (stepNumber != null) vm.selectStepNumber(stepNumber)
-        } else {
+        } else if (mode.equals("new", true)) {
             vm.newQuestionMode()
         }
 
         typingJob = lifecycleScope.launch {
-            if (vm.isBusy) {
+            if (vm.isBusy && mode.equals("new", true)) {
                 vm.cancel()
-                delay(320L)
+                delay(240L)
             }
             if (!isActive || isFinishing) return@launch
             hideKeyboard()
@@ -299,7 +318,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             input.setText("")
             board.followPen = true
             refresh()
-            vm.submit(clean)
+            vm.submit(clean, explicitMode = mode, explicitStepNumber = stepNumber)
         }
     }
 
@@ -706,6 +725,10 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         }
         explainContent.addView(explainText)
 
+        val actionsScroller = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
         explainActions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -731,17 +754,32 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         }.apply {
             setPadding(dp(12), dp(6), dp(12), dp(6))
         }
+        explainQuizChip = StudyTheme.chip(this, "Checkup", pal, minHeightDp = 44) {
+            vm.startQuiz(announceVoice = true)
+        }.apply {
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            setTextColor(pal.secondary)
+            background = StudyTheme.pillDrawable(
+                this@StudyBoardActivity, 16f,
+                StudyTheme.alpha(pal.secondary, 0.14f),
+                StudyTheme.alpha(pal.secondary, 0.38f)
+            )
+        }
         explainActions.addView(explainReplayChip, LinearLayout.LayoutParams(-2, dp(44)).apply { marginEnd = dp(8) })
-        explainActions.addView(explainDoubtChip, LinearLayout.LayoutParams(-2, dp(44)))
-        explainContent.addView(explainActions)
+        explainActions.addView(explainDoubtChip, LinearLayout.LayoutParams(-2, dp(44)).apply { marginEnd = dp(8) })
+        explainActions.addView(explainQuizChip, LinearLayout.LayoutParams(-2, dp(44)))
+        actionsScroller.addView(explainActions)
+        explainContent.addView(actionsScroller)
         explainCard.addView(explainContent)
 
+        val quizBox = buildQuizCard()
         val controls = buildControls()
         val inputArea = buildInput()
 
         side = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         side.addView(banner, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(10), dp(4), dp(10), dp(2)) })
         side.addView(explainCard, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(10), dp(4), dp(10), dp(4)) })
+        side.addView(quizBox, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(10), dp(2), dp(10), dp(4)) })
         side.addView(controls, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(10), dp(2), dp(10), dp(4)) })
         side.addView(inputArea, LinearLayout.LayoutParams(-1, -2))
 
@@ -948,7 +986,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
                             hideKeyboard()
                             board.followPen = true
                             vm.newQuestionMode()
-                            vm.submit(prompt)
+                            vm.submit(prompt, explicitMode = "new")
                         }
                     },
                     LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) }
@@ -972,6 +1010,280 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         if (hsv[1] > 0.12f) hsv[1] = hsv[1].coerceAtLeast(0.68f)
         if (hsv[2] > 0.60f) hsv[2] = 0.60f
         return Color.HSVToColor(hsv)
+    }
+
+    private fun buildQuizCard(): LinearLayout {
+        quizCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            layoutTransition = LayoutTransition()
+            visibility = View.GONE
+        }
+        StudyTheme.applyGlass(quizCard, 20f, pal)
+
+        val headRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        quizHeaderTitle = StudyTheme.label(this, "CHECK UNDERSTANDING", 10.5f, pal.secondary, hud = true).apply {
+            letterSpacing = 0.08f
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        }
+        quizProgressChip = StudyTheme.label(this, "", 10.5f, pal.accent, bold = true).apply {
+            setPadding(dp(8), dp(2), dp(8), dp(2))
+            background = StudyTheme.pillDrawable(this@StudyBoardActivity, 10f, StudyTheme.alpha(pal.accent, 0.14f), StudyTheme.alpha(pal.accent, 0.34f))
+        }
+        val dismissBtn = StudyTheme.iconButton(this, R.drawable.ic_close, "Dismiss quiz", pal, sizeDp = 44, padDp = 12) {
+            vm.dismissQuiz()
+        }
+        headRow.addView(quizHeaderTitle)
+        headRow.addView(quizProgressChip, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(4) })
+        headRow.addView(dismissBtn, LinearLayout.LayoutParams(dp(44), dp(44)))
+        quizCard.addView(headRow)
+
+        quizQuestionText = StudyTheme.label(this, "", 13.5f, pal.textPrimary, bold = true).apply {
+            setLineSpacing(dpf(2f), 1.08f)
+            setPadding(0, dp(2), 0, dp(8))
+        }
+        quizCard.addView(quizQuestionText)
+
+        quizOptionsContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        quizCard.addView(quizOptionsContainer)
+
+        val answerRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(4), 0, 0)
+        }
+        quizAnswerInput = EditText(this).apply {
+            hint = "Type your answer…"
+            setHintTextColor(pal.textMuted)
+            setTextColor(pal.textPrimary)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
+            typeface = JarvisFonts.regular
+            background = StudyTheme.pillDrawable(this@StudyBoardActivity, 14f, StudyTheme.alpha(pal.cardBg, 0.72f), pal.cardBorder)
+            minHeight = dp(44)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        }
+        quizCheckBtn = StudyTheme.label(this, "Check", 12.5f, pal.onAccent, bold = true).apply {
+            minHeight = dp(44)
+            gravity = Gravity.CENTER
+            setPadding(dp(14), dp(8), dp(14), dp(8))
+            background = StudyTheme.pillDrawable(this@StudyBoardActivity, 14f, pal.accent, pal.accent)
+            isClickable = true
+            isFocusable = true
+            StudyTheme.applyPressSpring(this, 0.94f)
+            setOnClickListener {
+                val ans = quizAnswerInput.text?.toString()?.trim().orEmpty()
+                if (ans.isNotEmpty()) {
+                    hideKeyboard()
+                    quizAnswerInput.setText("")
+                    vm.submitQuizAnswer(ans)
+                } else {
+                    toast("Type or pick an answer first.")
+                }
+            }
+        }
+        answerRow.addView(quizAnswerInput, LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(6) })
+        answerRow.addView(quizCheckBtn, LinearLayout.LayoutParams(-2, dp(44)))
+        quizCard.addView(answerRow)
+
+        val actionRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(6), 0, 0)
+        }
+        quizHintBtn = StudyTheme.chip(this, "Hint", pal, minHeightDp = 44) { vm.revealQuizHint() }.apply {
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+        }
+        quizNextBtn = StudyTheme.label(this, "Next →", 12.5f, pal.onAccent, bold = true).apply {
+            minHeight = dp(44)
+            gravity = Gravity.CENTER
+            setPadding(dp(14), dp(8), dp(14), dp(8))
+            background = StudyTheme.gradientPillDrawable(this@StudyBoardActivity, 16f, pal.accent, pal.secondary)
+            isClickable = true
+            isFocusable = true
+            visibility = View.GONE
+            StudyTheme.applyPressSpring(this, 0.94f)
+            setOnClickListener { vm.nextQuizQuestion() }
+        }
+        actionRow.addView(quizHintBtn, LinearLayout.LayoutParams(-2, dp(44)).apply { marginEnd = dp(8) })
+        actionRow.addView(Space(this), LinearLayout.LayoutParams(0, 1, 1f))
+        actionRow.addView(quizNextBtn, LinearLayout.LayoutParams(-2, dp(44)))
+        quizCard.addView(actionRow)
+
+        quizHintText = StudyTheme.label(this, "", 12f, pal.warning).apply {
+            setPadding(0, dp(4), 0, 0)
+            visibility = View.GONE
+        }
+        quizCard.addView(quizHintText)
+
+        quizFeedbackText = StudyTheme.label(this, "", 12.5f, pal.textPrimary, bold = true).apply {
+            setLineSpacing(dpf(2f), 1.05f)
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            visibility = View.GONE
+        }
+        quizCard.addView(quizFeedbackText, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+        return quizCard
+    }
+
+    private fun refreshQuiz(state: StudyViewModel.QuizState) {
+        if (!::quizCard.isInitialized) return
+        if (!state.visible || fullscreen) {
+            quizCard.visibility = View.GONE
+            return
+        }
+        quizCard.visibility = View.VISIBLE
+        if (state.phase == StudyViewModel.QuizPhase.LOADING) {
+            quizHeaderTitle.text = "PREPARING CHECKUP…"
+            quizProgressChip.visibility = View.GONE
+            quizQuestionText.text = "Creating practice questions tailored to this lesson…"
+            quizOptionsContainer.visibility = View.GONE
+            quizAnswerInput.isEnabled = false
+            quizCheckBtn.isEnabled = false
+            quizHintBtn.visibility = View.GONE
+            quizNextBtn.visibility = View.GONE
+            quizHintText.visibility = View.GONE
+            quizFeedbackText.visibility = View.GONE
+            return
+        }
+
+        val total = state.questions.size
+        quizProgressChip.visibility = if (total > 0) View.VISIBLE else View.GONE
+        if (state.completed) {
+            quizHeaderTitle.text = "CHECKUP COMPLETE"
+            quizProgressChip.text = "Score ${state.score}/$total"
+            quizQuestionText.text = "Great job finishing all $total checkup questions! Ask any follow-up doubt or start a new problem whenever ready."
+            quizOptionsContainer.removeAllViews()
+            quizOptionsContainer.visibility = View.GONE
+            quizAnswerInput.visibility = View.GONE
+            quizCheckBtn.visibility = View.GONE
+            quizHintBtn.visibility = View.GONE
+            quizHintText.visibility = View.GONE
+            quizFeedbackText.visibility = View.GONE
+            quizNextBtn.visibility = View.VISIBLE
+            quizNextBtn.text = "Practice Again"
+            quizNextBtn.setOnClickListener { vm.startQuiz(announceVoice = true) }
+            return
+        }
+
+        val q = state.currentQuestion ?: return
+        quizHeaderTitle.text = "CHECK UNDERSTANDING · Q${state.currentIndex + 1}/$total"
+        quizProgressChip.text = "Score ${state.score}/${state.answeredCount}"
+        quizQuestionText.text = q.question
+        quizAnswerInput.visibility = View.VISIBLE
+        quizCheckBtn.visibility = View.VISIBLE
+        quizAnswerInput.isEnabled = state.evaluation == null && state.phase != StudyViewModel.QuizPhase.CHECKING
+        quizCheckBtn.isEnabled = quizAnswerInput.isEnabled
+        quizCheckBtn.text = if (state.phase == StudyViewModel.QuizPhase.CHECKING) "…" else "Check"
+
+        quizOptionsContainer.removeAllViews()
+        if (q.options.isNotEmpty()) {
+            quizOptionsContainer.visibility = View.VISIBLE
+            for (opt in q.options) {
+                val chosen = opt.equals(state.lastUserAnswer, ignoreCase = true)
+                val eval = state.evaluation
+                val isCorrectOpt = StudyQuiz.evaluateLocal(q, opt)?.isCorrect == true
+                val tint = when {
+                    eval != null && isCorrectOpt -> pal.success
+                    eval != null && chosen && !eval.isCorrect -> pal.error
+                    chosen -> pal.accent
+                    else -> pal.textPrimary
+                }
+                val bgTint = when {
+                    eval != null && isCorrectOpt -> StudyTheme.alpha(pal.success, 0.16f)
+                    eval != null && chosen && !eval.isCorrect -> StudyTheme.alpha(pal.error, 0.16f)
+                    else -> StudyTheme.alpha(pal.cardBg, 0.68f)
+                }
+                val borderTint = when {
+                    eval != null && isCorrectOpt -> StudyTheme.alpha(pal.success, 0.55f)
+                    eval != null && chosen && !eval.isCorrect -> StudyTheme.alpha(pal.error, 0.55f)
+                    else -> pal.cardBorder
+                }
+                quizOptionsContainer.addView(
+                    StudyTheme.label(this, opt, 13f, tint, bold = chosen || (eval != null && isCorrectOpt)).apply {
+                        minHeight = dp(44)
+                        gravity = Gravity.CENTER_VERTICAL
+                        setPadding(dp(12), dp(8), dp(12), dp(8))
+                        background = StudyTheme.pillDrawable(this@StudyBoardActivity, 14f, bgTint, borderTint)
+                        isClickable = state.evaluation == null && state.phase != StudyViewModel.QuizPhase.CHECKING
+                        isFocusable = true
+                        StudyTheme.applyPressSpring(this, 0.97f)
+                        setOnClickListener {
+                            hideKeyboard()
+                            vm.submitQuizAnswer(opt)
+                        }
+                    },
+                    LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) }
+                )
+            }
+        } else {
+            quizOptionsContainer.visibility = View.GONE
+        }
+
+        quizHintBtn.visibility = if (q.hint.isNotBlank() && state.evaluation == null) View.VISIBLE else View.GONE
+        quizHintText.visibility = if (state.hintVisible && q.hint.isNotBlank()) View.VISIBLE else View.GONE
+        if (state.hintVisible) quizHintText.text = "Hint: ${q.hint}"
+
+        val eval = state.evaluation
+        quizFeedbackText.visibility = if (eval != null) View.VISIBLE else View.GONE
+        if (eval != null) {
+            val fColor = if (eval.isCorrect) pal.success else pal.warning
+            quizFeedbackText.setTextColor(fColor)
+            quizFeedbackText.background = StudyTheme.pillDrawable(
+                this, 12f,
+                StudyTheme.alpha(fColor, 0.12f),
+                StudyTheme.alpha(fColor, 0.42f)
+            )
+            quizFeedbackText.text = if (eval.isCorrect) {
+                eval.feedback
+            } else {
+                "${eval.feedback}\nExplaining this step-by-step on the board below…"
+            }
+            quizNextBtn.visibility = View.VISIBLE
+            quizNextBtn.text = if (state.currentIndex + 1 >= total) "Finish Checkup" else "Next Question →"
+            quizNextBtn.setOnClickListener { vm.nextQuizQuestion() }
+        } else {
+            quizNextBtn.visibility = View.GONE
+        }
+    }
+
+    private fun submitQuickDoubtPrompt(key: String, explicitStep: Int? = null) {
+        if (vm.lesson?.steps?.isNullOrEmpty() != false) {
+            toast("Solve a question first, then ask doubts about it.")
+            return
+        }
+        val stepNum = explicitStep ?: vm.selectedStepNumber()
+        val prompt = when (key) {
+            "diagram" -> if (stepNum != null) {
+                "Explain step $stepNum clearly step-by-step and draw a clean labelled diagram showing how it works"
+            } else {
+                "Explain this solution step-by-step and draw a clear labelled diagram to visualize every part"
+            }
+            "why" -> if (stepNum != null) {
+                "Explain step-by-step why step $stepNum works and the intuition behind every detail"
+            } else {
+                "Explain step-by-step why this method works instead of jumping straight to the answer"
+            }
+            "simpler" -> if (stepNum != null) {
+                "Break down step $stepNum much more simply step-by-step with easy intuition and an example"
+            } else {
+                "Explain this much more simply step-by-step with easy everyday intuition"
+            }
+            else -> if (stepNum != null) {
+                "Explain step $stepNum step-by-step and give the key insight and memory trick"
+            } else {
+                "Break down the key insight and memory trick step-by-step"
+            }
+        }
+        hideKeyboard()
+        board.followPen = true
+        vm.askMode.value = StudyViewModel.AskMode.DOUBT
+        vm.submit(prompt, explicitMode = "doubt", explicitStepNumber = stepNum)
     }
 
     private fun buildControls(): View {
@@ -1140,33 +1452,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             val chipTint = if (idx % 2 == 0) pal.accent else pal.secondary
             doubtQuickRow.addView(
                 StudyTheme.chip(this, label, pal, minHeightDp = 44) {
-                    val stepNum = vm.selectedStepNumber()
-                    val prompt = when (key) {
-                        "diagram" -> if (stepNum != null) {
-                            "Explain step $stepNum clearly step-by-step and draw a clean labelled diagram showing how it works"
-                        } else {
-                            "Explain this solution step-by-step and draw a clear labelled diagram to visualize every part"
-                        }
-                        "why" -> if (stepNum != null) {
-                            "Explain step-by-step why step $stepNum works and the intuition behind every detail"
-                        } else {
-                            "Explain step-by-step why this method works instead of jumping straight to the answer"
-                        }
-                        "simpler" -> if (stepNum != null) {
-                            "Break down step $stepNum much more simply step-by-step with easy intuition and an example"
-                        } else {
-                            "Explain this much more simply step-by-step with easy everyday intuition"
-                        }
-                        else -> if (stepNum != null) {
-                            "Explain step $stepNum step-by-step and give the key insight and memory trick"
-                        } else {
-                            "Break down the key insight and memory trick step-by-step"
-                        }
-                    }
-                    hideKeyboard()
-                    board.followPen = true
-                    vm.askMode.value = StudyViewModel.AskMode.DOUBT
-                    vm.submit(prompt)
+                    submitQuickDoubtPrompt(key)
                 }.apply {
                     setPadding(dp(12), dp(8), dp(12), dp(8))
                     setTextColor(chipTint)
@@ -1449,6 +1735,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
                 launch { vm.activeVoiceName.collect { refresh() } }
                 launch { vm.narrationAmplitude.collect { updateVoiceWave(it) } }
                 launch { vm.spotlight.collect { s -> board.setNarrationSpotlight(s.active, s.blockIndex, s.blockProgress, s.transcript) } }
+                launch { vm.quizState.collect { refreshQuiz(it) } }
                 launch { vm.events.collect { handle(it) } }
                 launch { StudyBoardController.commands.collect { executeBoardCommand(it) } }
             }
@@ -1608,6 +1895,9 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         explainReplayChip.text = if (activeStepNum != null) "Replay step $activeStepNum" else "Replay step"
         explainDoubtChip.visibility = if (vm.lesson?.steps?.isNotEmpty() == true && !vm.isBusy) View.VISIBLE else View.GONE
         explainDoubtChip.text = if (activeStepNum != null) "Ask about step $activeStepNum" else "Ask doubt"
+        explainQuizChip.visibility = if (vm.lesson?.steps?.isNotEmpty() == true && !vm.isBusy) View.VISIBLE else View.GONE
+        explainQuizChip.text = if (vm.quizState.value.questions.isNotEmpty()) "Checkup (${vm.quizState.value.questions.size})" else "Check me"
+        refreshQuiz(vm.quizState.value)
         val verText = if (pb.state == StudyPlayback.State.FINISHED || ui.phase == StudyViewModel.Phase.READY) ui.verification else ""
         verifyText.text = verText
         verifyText.setTextColor(
@@ -1690,6 +1980,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         }
         fullscreenButton.setImageResource(if (on) R.drawable.ic_study_fullscreen_exit else R.drawable.ic_study_fullscreen)
         fsOverlay.visibility = if (on) View.VISIBLE else View.GONE
+        vm.updateViewportMeta(fullscreen, board.followPen)
         refresh()
     }
 
@@ -1719,13 +2010,19 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
     private fun toast(t: String) = Toast.makeText(this, t, Toast.LENGTH_SHORT).show()
 
     private fun sendOrStop() {
-        if (vm.isBusy) { vm.cancel(); return }
         val t = input.text.toString().trim()
-        if (t.isEmpty()) { toast("Type or say a question first."); return }
-        hideKeyboard()
-        input.setText("")
-        board.followPen = true
-        vm.submit(t)
+        if (t.isNotEmpty()) {
+            hideKeyboard()
+            input.setText("")
+            board.followPen = true
+            vm.submit(t)
+            return
+        }
+        if (vm.isBusy) {
+            vm.cancel()
+            return
+        }
+        toast("Type or say a question first.")
     }
 
     private fun hideKeyboard() {
@@ -1734,7 +2031,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
 
     private fun toggleMic() {
         if (listening) { voice.stopAndUse(); return }
-        if (vm.isBusy) { toast("Stop the current answer before asking another question."); return }
+        if (vm.ui.value.phase == StudyViewModel.Phase.EXTRACTING) { toast("Reading attachment…"); return }
         if (!PermissionHelper.hasRecordAudioPermission(this)) micPermission.launch(Manifest.permission.RECORD_AUDIO) else startListening()
     }
 
@@ -1848,9 +2145,163 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
         }
     }
 
-    // ----- board host -----
+    // ----- board host & long-press selectable copy -----
     override fun onBlockTapped(index: Int) { vm.selectBlock(index) }
-    override fun onUserPanned() { updateViewportPills() }
+
+    override fun onBlockLongPressed(index: Int, lineText: String, fullBlockText: String) {
+        val stepNum = vm.blocks.value.getOrNull(index)?.stepIndex?.takeIf { it in 1..(vm.lesson?.steps?.size ?: 0) }
+        showBoardTextSelectionSheet(stepNum, lineText, fullBlockText)
+    }
+
+    override fun onUserPanned() {
+        updateViewportPills()
+        vm.updateViewportMeta(fullscreen, board.followPen)
+    }
+
+    private fun copyToClipboard(label: String, text: String) {
+        if (text.isBlank()) { toast("Nothing to copy yet."); return }
+        val cm = getSystemService(CLIPBOARD_SERVICE) as? ClipboardManager
+        cm?.setPrimaryClip(ClipData.newPlainText(label, text))
+        StudyBoardController.recordEvent("Copied $label")
+        toast("Copied $label.")
+    }
+
+    private fun showBoardTextSelectionSheet(stepNumber: Int?, lineText: String, fullBlockText: String) {
+        val dialog = BottomSheetDialog(this, R.style.ThemeOverlay_Jarvis_BottomSheet)
+        val sheetBg = ColorUtils.compositeColors(
+            StudyTheme.alpha(pal.surface, if (pal.light) 0.96f else 0.90f),
+            pal.baseBg
+        )
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(12), dp(18), dp(22))
+            background = GradientDrawable().apply {
+                setColor(sheetBg)
+                val r = dpf(26f)
+                cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
+                setStroke(dp(1), pal.cardBorder)
+            }
+        }
+        root.addView(
+            View(this).apply {
+                background = GradientDrawable().apply {
+                    cornerRadius = dpf(4f)
+                    setColor(StudyTheme.alpha(pal.textMuted, 0.45f))
+                }
+            },
+            LinearLayout.LayoutParams(dp(42), dp(4)).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                bottomMargin = dp(10)
+            }
+        )
+
+        val head = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val titleCol = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        titleCol.addView(StudyTheme.label(this, "LONG-PRESS SELECTION · DRAG HANDLES TO ADJUST", 10.5f, pal.accent, hud = true).apply { letterSpacing = 0.08f })
+        titleCol.addView(StudyTheme.label(this, if (stepNumber != null) "Step $stepNumber Text" else "Board Text", 18f, pal.textPrimary, bold = true))
+        head.addView(titleCol, LinearLayout.LayoutParams(0, -2, 1f))
+        head.addView(StudyTheme.iconButton(this, R.drawable.ic_close, "Close", pal, sizeDp = 44, padDp = 12) { dialog.dismiss() })
+        root.addView(head, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+
+        val selectableSpannable = SpannableString(fullBlockText)
+        val selectableView = EditText(this).apply {
+            setText(selectableSpannable, TextView.BufferType.SPANNABLE)
+            setTextColor(pal.textPrimary)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            typeface = JarvisFonts.regular
+            setLineSpacing(dpf(4f), 1.15f)
+            showSoftInputOnFocus = false
+            keyListener = null
+            setTextIsSelectable(true)
+            movementMethod = ArrowKeyMovementMethod.getInstance()
+            setBackgroundColor(Color.TRANSPARENT)
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            val matchStart = if (lineText.isNotBlank()) fullBlockText.indexOf(lineText) else -1
+            if (matchStart >= 0) {
+                setSelection(matchStart, (matchStart + lineText.length).coerceAtMost(fullBlockText.length))
+            } else if (fullBlockText.isNotEmpty()) {
+                selectAll()
+            }
+        }
+        val maxScrollH = (resources.displayMetrics.heightPixels * 0.34f).toInt()
+        val scroll = object : ScrollView(this) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                super.onMeasure(widthMeasureSpec, View.MeasureSpec.makeMeasureSpec(maxScrollH, View.MeasureSpec.AT_MOST))
+            }
+        }.apply {
+            background = StudyTheme.pillDrawable(this@StudyBoardActivity, 16f, StudyTheme.alpha(pal.cardBg, 0.78f), pal.cardBorder)
+            addView(selectableView)
+        }
+        root.addView(scroll, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+
+        fun currentSelectionOr(fallback: String): String {
+            val s = selectableView.selectionStart.coerceAtLeast(0)
+            val e = selectableView.selectionEnd.coerceAtLeast(0)
+            val lo = minOf(s, e); val hi = maxOf(s, e)
+            return if (hi > lo && hi <= fullBlockText.length) fullBlockText.substring(lo, hi) else fallback
+        }
+
+        val btnScroller = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        val btnRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        btnRow.addView(
+            StudyTheme.label(this, "Copy Selection", 12.5f, pal.onAccent, bold = true).apply {
+                minHeight = dp(44)
+                gravity = Gravity.CENTER
+                setPadding(dp(14), dp(8), dp(14), dp(8))
+                background = StudyTheme.pillDrawable(this@StudyBoardActivity, 16f, pal.accent, pal.accent)
+                isClickable = true; isFocusable = true
+                StudyTheme.applyPressSpring(this, 0.94f)
+                setOnClickListener {
+                    copyToClipboard("selected board text", currentSelectionOr(lineText.ifBlank { fullBlockText }))
+                    dialog.dismiss()
+                }
+            },
+            LinearLayout.LayoutParams(-2, dp(44)).apply { marginEnd = dp(8) }
+        )
+        btnRow.addView(
+            StudyTheme.chip(this, "Copy Step", pal, minHeightDp = 44) {
+                copyToClipboard(if (stepNumber != null) "step $stepNumber" else "board block", fullBlockText)
+                dialog.dismiss()
+            }.apply { setPadding(dp(12), dp(8), dp(12), dp(8)) },
+            LinearLayout.LayoutParams(-2, dp(44)).apply { marginEnd = dp(8) }
+        )
+        btnRow.addView(
+            StudyTheme.chip(this, "Copy All Board", pal, minHeightDp = 44) {
+                copyToClipboard("entire study board", vm.fullCopyableBoardText())
+                dialog.dismiss()
+            }.apply { setPadding(dp(12), dp(8), dp(12), dp(8)) },
+            LinearLayout.LayoutParams(-2, dp(44)).apply { marginEnd = dp(8) }
+        )
+        btnRow.addView(
+            StudyTheme.chip(this, "Ask Doubt", pal, minHeightDp = 44) {
+                val snippet = currentSelectionOr(lineText).take(140)
+                dialog.dismiss()
+                if (vm.lesson?.steps?.isNotEmpty() == true) {
+                    vm.askMode.value = StudyViewModel.AskMode.DOUBT
+                    if (stepNumber != null) vm.selectStepNumber(stepNumber)
+                }
+                input.setText("Explain this part in detail: $snippet")
+                input.setSelection(input.text.length)
+                input.requestFocus()
+            }.apply { setPadding(dp(12), dp(8), dp(12), dp(8)) },
+            LinearLayout.LayoutParams(-2, dp(44))
+        )
+        btnScroller.addView(btnRow)
+        root.addView(btnScroller)
+
+        dialog.setContentView(root)
+        dialog.setOnDismissListener { board.clearTextSelectionHighlight() }
+        dialog.show()
+    }
 
     // ----- voice wave & quick language & command control -----
 
@@ -2031,6 +2482,14 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
                 StudyBoardController.BoardCanvasAction.ZOOM_OUT -> board.zoomBy(1f / 1.4f)
                 StudyBoardController.BoardCanvasAction.ZOOM_RESET -> board.resetZoom()
                 StudyBoardController.BoardCanvasAction.FIT_BOARD -> { board.followPen = false; board.fitToBoard() }
+                StudyBoardController.BoardCanvasAction.SCROLL_TOP -> board.scrollToTop()
+                StudyBoardController.BoardCanvasAction.SCROLL_BOTTOM -> board.scrollToEnd()
+                StudyBoardController.BoardCanvasAction.COPY_BOARD -> copyToClipboard("entire study board", vm.fullCopyableBoardText())
+                StudyBoardController.BoardCanvasAction.COPY_STEP -> {
+                    val idx = vm.selectedBlock.value.takeIf { it in vm.blocks.value.indices } ?: vm.playback.current
+                    val txt = vm.copyTextForBlock(idx).ifBlank { vm.fullCopyableBoardText() }
+                    copyToClipboard("study step", txt)
+                }
                 StudyBoardController.BoardCanvasAction.UNDO -> vm.undo()
                 StudyBoardController.BoardCanvasAction.REDO -> vm.redo()
                 StudyBoardController.BoardCanvasAction.CLEAR_BOARD -> vm.clearBoard()
@@ -2040,6 +2499,24 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             is StudyBoardController.StudyBoardCommand.SelectStep -> {
                 if (vm.seekToStepNumber(cmd.stepNumber)) board.followPen = true
                 else toast("Step ${cmd.stepNumber} is not on the board yet.")
+            }
+            is StudyBoardController.StudyBoardCommand.BookmarkStep -> vm.toggleBookmark(cmd.stepNumber)
+            is StudyBoardController.StudyBoardCommand.QuickDoubt -> submitQuickDoubtPrompt(cmd.kind, cmd.stepNumber)
+            is StudyBoardController.StudyBoardCommand.QuizCommand -> when (cmd.action) {
+                StudyBoardController.QuizAction.START -> vm.startQuiz(announceVoice = true)
+                StudyBoardController.QuizAction.SUBMIT_ANSWER -> vm.submitQuizAnswer(cmd.answer)
+                StudyBoardController.QuizAction.NEXT -> vm.nextQuizQuestion()
+                StudyBoardController.QuizAction.HINT -> vm.revealQuizHint()
+                StudyBoardController.QuizAction.DISMISS -> vm.dismissQuiz()
+            }
+            StudyBoardController.StudyBoardCommand.ResumeInterrupted -> {
+                val pending = vm.interrupted.value
+                if (pending != null) {
+                    vm.openSession(pending.first)
+                    vm.dismissInterrupted()
+                } else {
+                    toast("No interrupted lesson to resume.")
+                }
             }
             is StudyBoardController.StudyBoardCommand.OpenUi -> when (cmd.target) {
                 StudyBoardController.UiTarget.HISTORY -> historyLauncher.launch(Intent(this, StudyHistoryActivity::class.java))
@@ -2061,7 +2538,7 @@ class StudyBoardActivity : AppCompatActivity(), StudyBoardView.Host, JarvisHandl
             }
             StudyBoardController.StudyBoardCommand.CloseBoard -> finish()
         }
-        StudyBoardController.updateState { it.copy(fullscreen = fullscreen, followPen = board.followPen) }
+        vm.updateViewportMeta(fullscreen, board.followPen)
     }
 
     // ----- lifecycle -----

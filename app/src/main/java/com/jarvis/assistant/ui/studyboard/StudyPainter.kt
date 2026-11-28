@@ -37,8 +37,8 @@ import java.util.WeakHashMap
  * The primary board accent harmonizes with the user's active JARVIS theme while maintaining >= 4.5:1 legibility on paper.
  */
 object StudyPalette {
-    val PAPER: Int = Color.rgb(251, 251, 246)
-    val PAPER_GRID: Int = Color.rgb(180, 188, 204)
+    val PAPER: Int = Color.rgb(255, 255, 255)
+    val PAPER_GRID: Int = Color.rgb(212, 218, 228)
 
     private val inkColor = ColorUtils.HSLToColor(floatArrayOf(222f, 0.24f, 0.14f))
     private val defaultAccent = ColorUtils.HSLToColor(floatArrayOf(214f, 0.88f, 0.40f))
@@ -87,13 +87,20 @@ object StudyPalette {
     }
 }
 
-/** Fonts for the board. Maths uses serif faces (italic for variables); lesson prose uses JARVIS's native sans. */
+/** Fonts for the clean printed board. Editorial Newsreader serif for maths and equations; crisp JARVIS sans for prose. */
 class StudyFonts(context: Context) {
-    private val sans: Typeface = ResourcesCompat.getFont(context, R.font.jarvis_sans) ?: Typeface.SANS_SERIF
-    private val mathRoman: Typeface = Typeface.SERIF
-    private val mathItalic: Typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC)
-    private val bold: Typeface = Typeface.create(sans, Typeface.BOLD)
-    private val code: Typeface = Typeface.MONOSPACE
+    private val sans: Typeface = ResourcesCompat.getFont(context, R.font.jarvis_sans_regular)
+        ?: ResourcesCompat.getFont(context, R.font.jarvis_sans)
+        ?: Typeface.SANS_SERIF
+    private val mathRoman: Typeface = ResourcesCompat.getFont(context, R.font.jarvis_serif_regular)
+        ?: ResourcesCompat.getFont(context, R.font.jarvis_serif)
+        ?: Typeface.SERIF
+    private val mathItalic: Typeface = Typeface.create(mathRoman, Typeface.ITALIC)
+    private val bold: Typeface = ResourcesCompat.getFont(context, R.font.jarvis_sans_semibold)
+        ?: Typeface.create(sans, Typeface.BOLD)
+    private val code: Typeface = ResourcesCompat.getFont(context, R.font.jarvis_mono_regular)
+        ?: ResourcesCompat.getFont(context, R.font.jarvis_mono)
+        ?: Typeface.MONOSPACE
 
     fun of(face: Face): Typeface = when (face) {
         Face.MATH_ITALIC -> mathItalic
@@ -434,30 +441,19 @@ class StudyPainter(private val fonts: StudyFonts) {
         if (closed) target.close()
     }
 
-    /** Crisp layered studio card behind formulas, definitions, given data, or the final answer. */
+    /** Clean printed card wash used sparingly for highlighted blocks (final answers, code, key callouts). */
     fun drawBlockBackground(canvas: Canvas, block: BoardBlock, width: Float, margin: Float, color: Int, alpha: Int) {
-        val left = margin - 16f
-        val top = block.top - 6f
-        val right = width - margin + 16f
+        val left = margin - 14f
+        val top = block.top - 4f
+        val right = width - margin + 14f
         val bottom = (block.bottom - 14f).coerceAtLeast(top + 24f)
         rect.set(left, top, right, bottom)
         val clampedAlpha = alpha.coerceIn(0, 255)
-        val topTint = ColorUtils.setAlphaComponent(color, (clampedAlpha * 1.15f).toInt().coerceIn(4, 240))
-        val botTint = ColorUtils.setAlphaComponent(color, (clampedAlpha * 0.45f).toInt().coerceIn(2, 160))
-
         panelPaint.pathEffect = null
-        panelPaint.style = Paint.Style.FILL
-        panelPaint.alpha = 255
-        panelPaint.shader = LinearGradient(left, top, left, bottom, topTint, botTint, Shader.TileMode.CLAMP)
-        canvas.drawRoundRect(rect, 18f, 18f, panelPaint)
         panelPaint.shader = null
-
-        // Subtle crisp perimeter rim
-        panelPaint.style = Paint.Style.STROKE
-        panelPaint.strokeWidth = 1.4f
-        panelPaint.color = color
-        panelPaint.alpha = (clampedAlpha * 2.2f).toInt().coerceIn(12, 92)
-        canvas.drawRoundRect(rect, 18f, 18f, panelPaint)
+        panelPaint.style = Paint.Style.FILL
+        panelPaint.color = ColorUtils.setAlphaComponent(color, (clampedAlpha * 0.65f).toInt().coerceIn(3, 42))
+        canvas.drawRoundRect(rect, 14f, 14f, panelPaint)
     }
 
     fun drawSelection(canvas: Canvas, block: BoardBlock, width: Float, margin: Float, color: Int) {
@@ -573,20 +569,15 @@ class StudyPainter(private val fonts: StudyFonts) {
         canvas.drawCircle(x, y, 2.2f, panelPaint)
     }
 
-    /** Soft luminous spotlight card + left ribbon showing which board step JARVIS is actively teaching. */
+    /** Subtle left margin ribbon indicating which printed block is currently being explained. */
     fun drawActiveStepSpotlight(canvas: Canvas, block: BoardBlock, width: Float, margin: Float, color: Int, pulsePhase: Float) {
         if (block.isQuestion) return
-        val glow = 0.72f + 0.28f * sin(pulsePhase.toDouble()).toFloat()
+        val glow = 0.78f + 0.22f * sin(pulsePhase.toDouble()).toFloat()
         panelPaint.pathEffect = null
         panelPaint.style = Paint.Style.FILL
         panelPaint.color = color
-        panelPaint.alpha = (12 * glow).toInt().coerceIn(6, 20)
-        rect.set(margin - 16f, block.top - 6f, width - margin + 16f, block.bottom - 14f)
-        canvas.drawRoundRect(rect, 16f, 16f, panelPaint)
-
-        // Subtle left rail across active step
-        panelPaint.alpha = (95 * glow).toInt().coerceIn(70, 125)
-        rect.set(margin - 16f, block.top - 2f, margin - 12f, (block.bottom - 18f).coerceAtLeast(block.top + 12f))
+        panelPaint.alpha = (110 * glow).toInt().coerceIn(80, 145)
+        rect.set(margin - 14f, block.top, margin - 10f, (block.bottom - 18f).coerceAtLeast(block.top + 12f))
         canvas.drawRoundRect(rect, 2f, 2f, panelPaint)
     }
 
@@ -607,7 +598,7 @@ class StudyPainter(private val fonts: StudyFonts) {
         canvas.drawCircle(x, y, 2f, panelPaint)
     }
 
-    /** Draws a luminous full-paragraph highlighter wash, crisp glowing border, and left teacher beacon rail. */
+    /** Draws a clean, low-noise printed highlighter wash and subtle margin accent bar around the active line/paragraph. */
     private fun drawWholeParagraphHighlightBox(
         canvas: Canvas,
         left: Float,
@@ -617,34 +608,20 @@ class StudyPainter(private val fonts: StudyFonts) {
         accentColor: Int,
         pulsePhase: Float
     ) {
-        val glow = 0.80f + 0.20f * sin(pulsePhase.toDouble()).toFloat()
+        val glow = 0.85f + 0.15f * sin(pulsePhase.toDouble()).toFloat()
         val safeBottom = max(bottom, top + 20f)
         val safeRight = max(right, left + 28f)
 
-        // 1. Soft outer highlight halo
         panelPaint.pathEffect = null
         panelPaint.style = Paint.Style.FILL
         panelPaint.color = accentColor
         panelPaint.alpha = (18 * glow).toInt().coerceIn(12, 26)
-        rect.set(left - 4f, top - 4f, safeRight + 4f, safeBottom + 4f)
-        canvas.drawRoundRect(rect, 15f, 15f, panelPaint)
-
-        // 2. Main translucent highlighter wash across the entire active paragraph
-        panelPaint.alpha = (38 * glow).toInt().coerceIn(28, 52)
         rect.set(left, top, safeRight, safeBottom)
-        canvas.drawRoundRect(rect, 12f, 12f, panelPaint)
+        canvas.drawRoundRect(rect, 10f, 10f, panelPaint)
 
-        // 3. Crisp glowing accent outline around the highlighted paragraph
-        strokePaint.pathEffect = null
-        strokePaint.color = accentColor
-        strokePaint.alpha = (135 * glow).toInt().coerceIn(95, 175)
-        strokePaint.strokeWidth = 2.0f
-        canvas.drawRoundRect(rect, 12f, 12f, strokePaint)
-
-        // 4. Bold pulsing left accent indicator bar
-        panelPaint.alpha = (225 * glow).toInt().coerceIn(180, 250)
-        rect.set(left, top + 4f, left + 6.5f, (safeBottom - 4f).coerceAtLeast(top + 14f))
-        canvas.drawRoundRect(rect, 3.5f, 3.5f, panelPaint)
+        panelPaint.alpha = (190 * glow).toInt().coerceIn(150, 220)
+        rect.set(left, top + 3f, left + 4.5f, (safeBottom - 3f).coerceAtLeast(top + 12f))
+        canvas.drawRoundRect(rect, 2.5f, 2.5f, panelPaint)
     }
 
     /**

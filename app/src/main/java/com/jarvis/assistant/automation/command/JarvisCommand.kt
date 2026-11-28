@@ -39,7 +39,8 @@ sealed class JarvisCommand {
         val action: String = "",
         val query: String = "",
         val value: String = "",
-        val stepNumber: Int? = null
+        val stepNumber: Int? = null,
+        val mode: String = "auto"
     ) : JarvisCommand()
     /** Universal typing: optionally opens [intent].app first, then types/replaces/clears as ONE task. */
     data class TypeText(val intent: com.jarvis.assistant.automation.typing.TypeIntent) : JarvisCommand()

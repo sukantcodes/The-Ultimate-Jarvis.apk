@@ -25,14 +25,16 @@ object StudyTools {
 
     private val CONTROL_ACTIONS = listOf(
         "open", "close", "get_state",
-        "play", "pause", "toggle_play", "next", "previous", "replay_step", "replay_all", "stop_generation", "retry",
+        "play", "pause", "toggle_play", "next", "previous", "replay_step", "replay_all", "stop_generation", "retry", "resume_lesson",
         "set_speed", "speed_up", "slow_down",
         "voice_on", "voice_off", "toggle_voice", "notes_on", "notes_off", "toggle_notes",
         "pen_on", "pen_off", "status_on", "status_off", "memory_on", "memory_off", "clear_memory",
-        "set_language", "set_voice_language", "set_level", "set_depth", "set_provider", "switch_mode",
+        "set_language", "set_voice_language", "set_level", "set_depth", "set_provider", "switch_mode", "new_question_mode",
         "undo", "redo", "clear_board", "fullscreen_on", "fullscreen_off", "follow_pen",
-        "zoom_in", "zoom_out", "zoom_reset", "fit_board",
-        "select_step", "bookmark_step", "save_lesson",
+        "zoom_in", "zoom_out", "zoom_reset", "fit_board", "scroll_top", "scroll_bottom",
+        "select_step", "bookmark_step", "save_lesson", "copy_board", "copy_step",
+        "explain_with_diagram", "explain_why", "explain_simpler", "memory_trick",
+        "start_quiz", "submit_quiz_answer", "next_quiz_question", "quiz_hint", "dismiss_quiz",
         "open_history", "open_camera", "open_image_picker", "open_pdf_picker", "open_settings",
         "export_menu", "export_pdf", "export_png"
     )
@@ -40,17 +42,16 @@ object StudyTools {
     fun declarations(): List<JSONObject> = listOf(
         JSONObject().put("name", EXPLAIN).put(
             "description",
-            "Opens the JARVIS Study Board (the whiteboard teacher), visibly types the user's question into the Study Board box, and solves/explains it step by step with visual diagrams and live human voice. " +
-                "Use this whenever the user asks to explain a question, teach a topic, solve a problem, draw a study diagram, or says things like \"explain me ...\", \"solve this ...\", \"open study board and ...\", \"board pe samjhao\", or asks a doubt while the Study Board is open. " +
-                "Pass the COMPLETE, exact question in 'question' (preserving any diagram, language, or step-by-step instructions). " +
-                "After calling this tool, give only an ultra-short 2-5 word confirmation (e.g. \"Opening Study Board, Sir.\") and stay silent so the Study Board's own teacher voice explains everything without overlapping."
+            "Opens the JARVIS Study Board (the whiteboard teacher), types the user's question/doubt into the Study Board, and solves/explains it step by step with printed clarity, diagrams, and live voice. " +
+                "Pass mode='doubt' if asking anything about the explanation currently on the board (even mid-explanation or after explanation), mode='new' for a clearly new standalone question/topic, or 'auto' to route automatically. " +
+                "Always pass the COMPLETE, exact user utterance/question in 'question'. After calling this tool, give only an ultra-short 2-5 word confirmation and stay quiet so Study Board speaks clearly."
         ).put(
             "parameters",
             JSONObject().put("type", "OBJECT").put(
                 "properties",
                 JSONObject().apply {
-                    put("question", JSONObject().put("type", "STRING").put("description", "The full question, equation, diagram prompt, or doubt text to type and solve on the Study Board."))
-                    put("mode", JSONObject().put("type", "STRING").put("enum", JSONArray().put("new").put("doubt")).put("description", "Use 'new' for a fresh question (default), or 'doubt' for a follow-up doubt about the current lesson."))
+                    put("question", JSONObject().put("type", "STRING").put("description", "The full question, equation, diagram prompt, follow-up doubt, or quiz answer to send to the Study Board."))
+                    put("mode", JSONObject().put("type", "STRING").put("enum", JSONArray().put("auto").put("doubt").put("new")).put("description", "Use 'doubt' for any follow-up doubt about the current explanation (mid-lesson or post-lesson), 'new' for a fresh standalone problem, or 'auto' (default) to classify automatically."))
                     put("step_number", JSONObject().put("type", "INTEGER").put("description", "Optional 1-based step number on the board that the doubt refers to."))
                     put("language", JSONObject().put("type", "STRING").put("description", "Optional language name such as English, Hindi, Hinglish, Telugu, Tamil, Bengali, Marathi, Gujarati, Kannada, Malayalam, Punjabi, Urdu, Odia, Assamese, Nepali, Spanish, French, German, Arabic, Japanese, Korean, Chinese, or Auto."))
                     put("level", JSONObject().put("type", "STRING").put("description", "Optional student level such as Auto, Class 6..Class 12, or Undergraduate."))
@@ -61,7 +62,7 @@ object StudyTools {
 
         JSONObject().put("name", CONTROL).put(
             "description",
-            "Controls every function of the JARVIS Study Board: opening/closing, playback (play, pause, next, previous, replay step, replay all, stop, retry), speed, voice mute/unmute, notes/pen/status/memory toggles, language/level/depth/mode switching, undo/redo/clear, zoom/fit/fullscreen/follow_pen, step selection/bookmarking, saving, exporting PDF/PNG, opening history/camera/gallery/PDF/settings, and inspecting board state (get_state)."
+            "Controls EVERY Study Board action and reads complete live knowledge: get_state (returns everything written on the board, recent events, active quiz, and settings), playback, speed, voice/notes/pen/status/memory toggles, language/level/depth/mode switching, undo/redo/clear/resume, zoom/fit/scroll/fullscreen/follow_pen, step selection/bookmarking/copying, quick doubt helpers (explain_with_diagram/why/simpler/memory_trick), post-lesson quiz controls (start_quiz/submit_quiz_answer/next_quiz_question/quiz_hint/dismiss_quiz), save/export PDF/PNG, and opening pickers/history/settings."
         ).put(
             "parameters",
             JSONObject().put("type", "OBJECT").put(
@@ -76,11 +77,11 @@ object StudyTools {
                     )
                     put(
                         "value",
-                        JSONObject().put("type", "STRING").put("description", "Optional parameter for actions like set_speed ('0.5'..'2.0'), set_language, set_voice_language, set_level, set_depth, set_provider ('gemini'|'custom'), or switch_mode ('new'|'doubt').")
+                        JSONObject().put("type", "STRING").put("description", "Optional value for set_speed ('0.5'..'2.0'), set_language, set_voice_language, set_level, set_depth, set_provider ('gemini'|'custom'), switch_mode ('new'|'doubt'), or submit_quiz_answer (the user's answer).")
                     )
                     put(
                         "step_number",
-                        JSONObject().put("type", "INTEGER").put("description", "Optional 1-based step number for select_step.")
+                        JSONObject().put("type", "INTEGER").put("description", "Optional 1-based step number for select_step, bookmark_step, or quick doubt actions.")
                     )
                 }
             ).put("required", JSONArray().put("action"))
@@ -97,19 +98,43 @@ object StudyTools {
     private fun executeExplain(context: Context, args: JSONObject): JSONObject {
         val question = args.optString("question").trim()
         if (question.isEmpty()) return fail("No question was given. Ask the user what they want explained.")
-        val mode = args.optString("mode", "new").trim().lowercase(Locale.ROOT).ifEmpty { "new" }
+        val rawMode = args.optString("mode", "auto").trim().lowercase(Locale.ROOT).ifEmpty { "auto" }
         val stepNumber = args.optInt("step_number", -1).takeIf { it > 0 }
         val language = args.optString("language").trim().takeIf { it.isNotEmpty() }
         val level = args.optString("level").trim().takeIf { it.isNotEmpty() }
         val depth = args.optString("depth").trim().takeIf { it.isNotEmpty() }
 
+        val snap = StudyBoardController.stateSnapshot.value
+        val hasLesson = snap.hasContent && snap.totalSteps > 0
+        val routed = StudyIntentRouter.classify(
+            query = question,
+            hasLesson = hasLesson,
+            activeQuestion = snap.question,
+            activeTopic = snap.subject,
+            explicitMode = if (stepNumber != null && rawMode == "auto") "doubt" else rawMode,
+            quizActive = snap.quizActive
+        )
+
         return try {
             val app = context.applicationContext
+            if (routed == StudyIntentRouter.Intent.QUIZ_ANSWER && snap.quizActive && StudyBoardController.isBoardVisible.value) {
+                StudyBoardController.dispatchCommand(
+                    StudyBoardController.StudyBoardCommand.QuizCommand(StudyBoardController.QuizAction.SUBMIT_ANSWER, question)
+                )
+                return JSONObject()
+                    .put("success", true)
+                    .put("verified", true)
+                    .put("routed_mode", "quiz_answer")
+                    .put("yield_to_study_voice", true)
+                    .put("message", "Submitted your answer \"$question\" to the Study Board practice check.")
+            }
+
+            val resolvedMode = if (routed == StudyIntentRouter.Intent.DOUBT) "doubt" else "new"
             if (StudyBoardController.isBoardVisible.value) {
                 StudyBoardController.dispatchCommand(
                     StudyBoardController.StudyBoardCommand.OpenAndExplain(
                         question = question,
-                        mode = mode,
+                        mode = resolvedMode,
                         language = language,
                         level = level,
                         depth = depth,
@@ -124,13 +149,14 @@ object StudyTools {
                 return JSONObject()
                     .put("success", true)
                     .put("verified", true)
+                    .put("routed_mode", resolvedMode)
                     .put("yield_to_study_voice", true)
-                    .put("message", "Typed and submitted \"$question\" on the active Study Board. Give only a brief confirmation and stay quiet while the board explains.")
+                    .put("message", "Submitted \"$question\" as a $resolvedMode on the active Study Board. Give only a brief confirmation and stay quiet while the board explains.")
             }
 
             val intent = Intent(app, StudyBoardActivity::class.java).apply {
                 putExtra(StudyBoardActivity.EXTRA_QUESTION, question)
-                putExtra(StudyBoardActivity.EXTRA_MODE, mode)
+                putExtra(StudyBoardActivity.EXTRA_MODE, resolvedMode)
                 language?.let { putExtra(StudyBoardActivity.EXTRA_LANGUAGE, it) }
                 level?.let { putExtra(StudyBoardActivity.EXTRA_LEVEL, it) }
                 depth?.let { putExtra(StudyBoardActivity.EXTRA_DEPTH, it) }
@@ -141,8 +167,9 @@ object StudyTools {
                 JSONObject()
                     .put("success", true)
                     .put("verified", true)
+                    .put("routed_mode", resolvedMode)
                     .put("yield_to_study_voice", true)
-                    .put("message", "Study Board is opening, typing, and explaining: \"${question.take(120)}\". Confirm briefly and let the Study Board voice teach.")
+                    .put("message", "Study Board is opening, typing, and explaining ($resolvedMode): \"${question.take(120)}\". Confirm briefly and let the Study Board voice teach.")
             } else {
                 fail("Could not open the Study Board from the background. Ask the user to allow Display Over Other Apps or tap Study Board.")
             }
@@ -168,12 +195,16 @@ object StudyTools {
                 .put("question", s.question)
                 .put("subject", s.subject)
                 .put("current_step", s.currentStepNumber)
+                .put("selected_step", s.selectedStepNumber)
                 .put("total_steps", s.totalSteps)
                 .put("playback_state", s.playbackState)
+                .put("ask_mode", s.askMode)
                 .put("speed", s.speed.toDouble())
                 .put("voice_on", s.voiceOn)
                 .put("notes_on", s.notesOn)
                 .put("pen_on", s.penOn)
+                .put("status_on", s.statusOn)
+                .put("memory_on", s.memoryOn)
                 .put("language", s.language)
                 .put("voice_language", s.voiceLanguage)
                 .put("level", s.level)
@@ -183,7 +214,16 @@ object StudyTools {
                 .put("can_undo", s.canUndo)
                 .put("can_redo", s.canRedo)
                 .put("fullscreen", s.fullscreen)
+                .put("follow_pen", s.followPen)
                 .put("bookmarked_count", s.bookmarkedCount)
+                .put("last_error", s.lastError)
+                .put("board_content", s.boardDigest)
+                .put("recent_events", JSONArray().apply { s.recentEvents.forEach { put(it) } })
+                .put("quiz_active", s.quizActive)
+                .put("quiz_question", s.quizQuestion)
+                .put("quiz_options", JSONArray().apply { s.quizOptions.forEach { put(it) } })
+                .put("quiz_progress", s.quizProgress)
+                .put("quiz_feedback", s.quizFeedback)
         }
 
         if (action == "open") {
@@ -206,6 +246,7 @@ object StudyTools {
             "replay_all" -> StudyBoardController.StudyBoardCommand.Playback(StudyBoardController.PlaybackAction.REPLAY_ALL)
             "stop_generation" -> StudyBoardController.StudyBoardCommand.Playback(StudyBoardController.PlaybackAction.STOP)
             "retry" -> StudyBoardController.StudyBoardCommand.Playback(StudyBoardController.PlaybackAction.RETRY)
+            "resume_lesson" -> StudyBoardController.StudyBoardCommand.ResumeInterrupted
             "set_speed" -> {
                 val spd = value.replace("x", "", true).replace("×", "").trim().toFloatOrNull()
                     ?: return fail("Please pass a valid speed such as 0.75, 1.0, 1.5, or 2.0.")
@@ -250,6 +291,7 @@ object StudyTools {
                 val targetMode = if (value.equals("doubt", true)) "doubt" else "new"
                 StudyBoardController.StudyBoardCommand.SetOption(StudyBoardController.SettingOptionKey.ASK_MODE, targetMode)
             }
+            "new_question_mode" -> StudyBoardController.StudyBoardCommand.SetOption(StudyBoardController.SettingOptionKey.ASK_MODE, "new")
             "undo" -> StudyBoardController.StudyBoardCommand.CanvasAction(StudyBoardController.BoardCanvasAction.UNDO)
             "redo" -> StudyBoardController.StudyBoardCommand.CanvasAction(StudyBoardController.BoardCanvasAction.REDO)
             "clear_board" -> StudyBoardController.StudyBoardCommand.CanvasAction(StudyBoardController.BoardCanvasAction.CLEAR_BOARD)
@@ -260,11 +302,30 @@ object StudyTools {
             "zoom_out" -> StudyBoardController.StudyBoardCommand.CanvasAction(StudyBoardController.BoardCanvasAction.ZOOM_OUT)
             "zoom_reset" -> StudyBoardController.StudyBoardCommand.CanvasAction(StudyBoardController.BoardCanvasAction.ZOOM_RESET)
             "fit_board" -> StudyBoardController.StudyBoardCommand.CanvasAction(StudyBoardController.BoardCanvasAction.FIT_BOARD)
+            "scroll_top" -> StudyBoardController.StudyBoardCommand.CanvasAction(StudyBoardController.BoardCanvasAction.SCROLL_TOP)
+            "scroll_bottom" -> StudyBoardController.StudyBoardCommand.CanvasAction(StudyBoardController.BoardCanvasAction.SCROLL_BOTTOM)
+            "copy_board" -> StudyBoardController.StudyBoardCommand.CanvasAction(StudyBoardController.BoardCanvasAction.COPY_BOARD)
+            "copy_step" -> StudyBoardController.StudyBoardCommand.CanvasAction(StudyBoardController.BoardCanvasAction.COPY_STEP)
             "select_step" -> {
                 val n = stepNumber ?: value.toIntOrNull() ?: return fail("Provide a 1-based step_number.")
                 StudyBoardController.StudyBoardCommand.SelectStep(n)
             }
-            "bookmark_step" -> StudyBoardController.StudyBoardCommand.ToggleSetting(StudyBoardController.SettingToggleKey.BOOKMARK_CURRENT, null)
+            "bookmark_step" -> {
+                val n = stepNumber ?: value.toIntOrNull()
+                StudyBoardController.StudyBoardCommand.BookmarkStep(n)
+            }
+            "explain_with_diagram" -> StudyBoardController.StudyBoardCommand.QuickDoubt("diagram", stepNumber)
+            "explain_why" -> StudyBoardController.StudyBoardCommand.QuickDoubt("why", stepNumber)
+            "explain_simpler" -> StudyBoardController.StudyBoardCommand.QuickDoubt("simpler", stepNumber)
+            "memory_trick" -> StudyBoardController.StudyBoardCommand.QuickDoubt("trick", stepNumber)
+            "start_quiz" -> StudyBoardController.StudyBoardCommand.QuizCommand(StudyBoardController.QuizAction.START)
+            "submit_quiz_answer" -> {
+                if (value.isBlank()) return fail("Provide the student's answer in 'value'.")
+                StudyBoardController.StudyBoardCommand.QuizCommand(StudyBoardController.QuizAction.SUBMIT_ANSWER, value)
+            }
+            "next_quiz_question" -> StudyBoardController.StudyBoardCommand.QuizCommand(StudyBoardController.QuizAction.NEXT)
+            "quiz_hint" -> StudyBoardController.StudyBoardCommand.QuizCommand(StudyBoardController.QuizAction.HINT)
+            "dismiss_quiz" -> StudyBoardController.StudyBoardCommand.QuizCommand(StudyBoardController.QuizAction.DISMISS)
             "save_lesson" -> StudyBoardController.StudyBoardCommand.CanvasAction(StudyBoardController.BoardCanvasAction.SAVE_LESSON)
             "open_history" -> StudyBoardController.StudyBoardCommand.OpenUi(StudyBoardController.UiTarget.HISTORY)
             "open_camera" -> StudyBoardController.StudyBoardCommand.OpenUi(StudyBoardController.UiTarget.CAMERA)
@@ -282,12 +343,18 @@ object StudyTools {
         }
         StudyBoardController.dispatchCommand(cmd)
 
-        val yieldAudio = action in setOf("play", "next", "previous", "replay_step", "replay_all", "select_step")
+        val s = StudyBoardController.stateSnapshot.value
+        val yieldAudio = action in setOf(
+            "play", "next", "previous", "replay_step", "replay_all", "select_step",
+            "explain_with_diagram", "explain_why", "explain_simpler", "memory_trick",
+            "start_quiz", "submit_quiz_answer", "next_quiz_question"
+        )
         return JSONObject()
             .put("success", true)
             .put("verified", true)
             .put("action", action)
             .put("yield_to_study_voice", yieldAudio)
+            .put("state_summary", "phase=${s.phase}, step=${s.currentStepNumber}/${s.totalSteps}, mode=${s.askMode}, quizActive=${s.quizActive}")
             .put("message", "Executed Study Board action: $action" + if (value.isNotEmpty()) " ($value)" else ".")
     }
 

@@ -14,10 +14,36 @@ class BoardBlock(
     val top: Float,
     val bottom: Float,
     val isFinal: Boolean = false,
-    val isQuestion: Boolean = false
+    val isQuestion: Boolean = false,
+    val plainText: String = ""
 ) {
     val height: Float get() = bottom - top
     fun allOps(showNotes: Boolean): List<DrawOp> = if (showNotes) ops + noteOps else ops
+
+    /** Clean copyable plain text for this block (uses structured text when present, otherwise reconstructs lines from glyphs). */
+    fun reconstructPlainText(showNotes: Boolean = true): String {
+        if (plainText.isNotBlank()) return plainText.trim()
+        val glyphs = allOps(showNotes).filterIsInstance<DrawOp.Glyphs>()
+            .filter { it.text.isNotBlank() }
+            .sortedWith(compareBy({ it.y }, { it.x }))
+        if (glyphs.isEmpty()) return ""
+        val lines = ArrayList<String>()
+        var cur = ArrayList<DrawOp.Glyphs>()
+        var anchorY = glyphs.first().y
+        var lineTol = (glyphs.first().size * 0.45f).coerceAtLeast(8f)
+        for (g in glyphs) {
+            if (kotlin.math.abs(g.y - anchorY) <= lineTol) {
+                cur.add(g)
+            } else {
+                lines.add(cur.sortedBy { it.x }.joinToString(" ") { it.text.trim() })
+                cur = arrayListOf(g)
+                anchorY = g.y
+                lineTol = (g.size * 0.45f).coerceAtLeast(8f)
+            }
+        }
+        if (cur.isNotEmpty()) lines.add(cur.sortedBy { it.x }.joinToString(" ") { it.text.trim() })
+        return lines.joinToString("\n").trim()
+    }
 }
 
 class BoardStyle(
@@ -122,11 +148,12 @@ object StudyBoardLayout {
             y = max(y + pillH + 8f, y + richH + 4f)
         }
         val ruleY = y + st.blockGap * 0.25f
-        ops.add(DrawOp.Line(st.margin, ruleY, st.width - st.margin, ruleY, 2f, Ink.FAINT))
+        ops.add(DrawOp.Line(st.margin, ruleY, st.width - st.margin, ruleY, 1.3f, Ink.FAINT))
         return BoardBlock(
             0, StepKind.STEP,
             clampToMargin(ops, st.margin, st.width - st.margin, m),
-            emptyList(), startY, ruleY + st.blockGap, isQuestion = true
+            emptyList(), startY, ruleY + st.blockGap, isQuestion = true,
+            plainText = "$prefix ${question.trim()}".trim()
         )
     }
 
@@ -181,9 +208,9 @@ object StudyBoardLayout {
             ops.add(
                 DrawOp.Rect(
                     st.margin, y, bw, bh,
-                    stroke = 1.2f, ink = accentInk, fill = true,
+                    stroke = 1.0f, ink = accentInk, fill = true,
                     rx = bh * 0.45f, ry = bh * 0.45f,
-                    fillInk = accentInk, shade = FillShade.FLAT, fillAlpha = 0.14f
+                    fillInk = accentInk, shade = FillShade.FLAT, fillAlpha = 0.08f
                 )
             )
             ops.add(
@@ -292,6 +319,22 @@ object StudyBoardLayout {
             }
         }
 
+        val plainSummary = buildString {
+            if (caption.isNotEmpty()) append(caption).append(": ")
+            if (step.content.isNotBlank()) append(step.content.trim())
+            step.diagram?.let { diag ->
+                val labels = diag.items.filterIsInstance<DiagramSpec.Item.Label>().map { it.text.trim() }.filter { it.isNotEmpty() }.distinct()
+                if (isNotEmpty()) append('\n')
+                append("[Diagram: ").append(diag.title.ifBlank { "Figure" })
+                if (labels.isNotEmpty()) append(" — ").append(labels.joinToString(", "))
+                append(']')
+            }
+            if (step.explanation.isNotBlank()) {
+                if (isNotEmpty()) append('\n')
+                append(step.explanation.trim())
+            }
+        }.trim()
+
         return BoardBlock(
             step.index,
             step.kind,
@@ -299,7 +342,8 @@ object StudyBoardLayout {
             clampToMargin(notes, st.margin - 6f, st.width - st.margin + 6f, m),
             startY,
             y + st.blockGap,
-            isFinal = isFinalBlock || step.isFinalHighlight
+            isFinal = isFinalBlock || step.isFinalHighlight,
+            plainText = plainSummary
         )
     }
 

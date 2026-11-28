@@ -55,11 +55,23 @@ object StudyBoardController {
         ZOOM_OUT,
         ZOOM_RESET,
         FIT_BOARD,
+        SCROLL_TOP,
+        SCROLL_BOTTOM,
+        COPY_BOARD,
+        COPY_STEP,
         UNDO,
         REDO,
         CLEAR_BOARD,
         CLEAR_MEMORY,
         SAVE_LESSON
+    }
+
+    enum class QuizAction {
+        START,
+        SUBMIT_ANSWER,
+        NEXT,
+        HINT,
+        DISMISS
     }
 
     enum class UiTarget {
@@ -76,7 +88,7 @@ object StudyBoardController {
     sealed class StudyBoardCommand {
         data class OpenAndExplain(
             val question: String,
-            val mode: String = "new",
+            val mode: String = "auto",
             val language: String? = null,
             val level: String? = null,
             val depth: String? = null,
@@ -105,6 +117,14 @@ object StudyBoardController {
 
         data class SelectStep(val stepNumber: Int) : StudyBoardCommand()
 
+        data class BookmarkStep(val stepNumber: Int? = null) : StudyBoardCommand()
+
+        data class QuickDoubt(val kind: String, val stepNumber: Int? = null) : StudyBoardCommand()
+
+        data class QuizCommand(val action: QuizAction, val answer: String = "") : StudyBoardCommand()
+
+        data object ResumeInterrupted : StudyBoardCommand()
+
         data class OpenUi(val target: UiTarget) : StudyBoardCommand()
 
         data object CloseBoard : StudyBoardCommand()
@@ -118,6 +138,7 @@ object StudyBoardController {
         val currentBlockIndex: Int = -1,
         val totalBlocks: Int = 0,
         val currentStepNumber: Int = 0,
+        val selectedStepNumber: Int = 0,
         val totalSteps: Int = 0,
         val playbackState: String = "IDLE",
         val speed: Float = 1f,
@@ -141,11 +162,19 @@ object StudyBoardController {
         val fullscreen: Boolean = false,
         val followPen: Boolean = true,
         val bookmarkedCount: Int = 0,
-        val lastError: String = ""
+        val lastError: String = "",
+        val boardDigest: String = "",
+        val recentEvents: List<String> = emptyList(),
+        val quizActive: Boolean = false,
+        val quizQuestion: String = "",
+        val quizOptions: List<String> = emptyList(),
+        val quizProgress: String = "",
+        val quizFeedback: String = ""
     )
 
     private val lock = Any()
     private val pendingCommands = ArrayDeque<StudyBoardCommand>()
+    private val eventLog = ArrayDeque<String>()
     private var receiverAttached = false
 
     private val _isBoardVisible = MutableStateFlow(false)
@@ -190,6 +219,43 @@ object StudyBoardController {
         synchronized(lock) {
             _stateSnapshot.value = state
         }
+    }
+
+    /** Records an observable event on the Study Board so JARVIS always knows what happened recently. */
+    fun recordEvent(summary: String) {
+        val clean = summary.replace(Regex("\\s+"), " ").trim().take(160)
+        if (clean.isEmpty()) return
+        synchronized(lock) {
+            if (eventLog.peekLast() == clean) return
+            while (eventLog.size >= 12) eventLog.removeFirst()
+            eventLog.addLast(clean)
+            _stateSnapshot.value = _stateSnapshot.value.copy(recentEvents = eventLog.toList())
+        }
+    }
+
+    /** Compact live Study Board awareness section injected into JARVIS voice & chat prompts. */
+    fun promptContextSection(): String {
+        val s = _stateSnapshot.value
+        if (!s.visible && !s.hasContent && s.recentEvents.isEmpty()) return ""
+        return buildString {
+            appendLine("\n[LIVE STUDY BOARD STATE — YOU CAN INSPECT AND CONTROL EVERYTHING HERE]:")
+            appendLine("Visible: ${s.visible} | Phase: ${s.phase} | Playback: ${s.playbackState} | AskMode: ${s.askMode}")
+            if (s.question.isNotBlank()) appendLine("Active Question: ${s.question}")
+            if (s.subject.isNotBlank()) appendLine("Subject/Level: ${s.subject}")
+            if (s.totalSteps > 0) appendLine("Step: ${s.currentStepNumber}/${s.totalSteps} (Selected step: ${if (s.selectedStepNumber > 0) s.selectedStepNumber else "none"})")
+            appendLine("Settings: lang=${s.language}, voiceLang=${s.voiceLanguage}, level=${s.level}, depth=${s.depth}, speed=${s.speed}x, voice=${s.voiceOn}, notes=${s.notesOn}, fullscreen=${s.fullscreen}")
+            if (s.boardDigest.isNotBlank()) {
+                appendLine("Written on Board Now:\n${s.boardDigest.take(2_400)}")
+            }
+            if (s.quizActive && s.quizQuestion.isNotBlank()) {
+                appendLine("Active Checkup Quiz (${s.quizProgress}): ${s.quizQuestion}")
+                if (s.quizOptions.isNotEmpty()) appendLine("Options: ${s.quizOptions.joinToString(" | ")}")
+                if (s.quizFeedback.isNotBlank()) appendLine("Last Checkup Feedback: ${s.quizFeedback}")
+            }
+            if (s.recentEvents.isNotEmpty()) {
+                appendLine("Recent Study Board Events: ${s.recentEvents.takeLast(6).joinToString(" -> ")}")
+            }
+        }.trimEnd()
     }
 
     /**
@@ -245,6 +311,7 @@ object StudyBoardController {
     fun resetForTest() {
         synchronized(lock) {
             pendingCommands.clear()
+            eventLog.clear()
             receiverAttached = false
             _stateSnapshot.value = BoardState()
         }
